@@ -1,0 +1,8 @@
+======================================================================
+USUÁRIOS COM SENHA PADRÃO: senha123
+======================================================================
+
+⚠️ IMPORTANTE: Estes usuários devem alterar a senha!
+
+Nome: Rogério                        | Username: rogerio              | Email: rgsliras@gmail.com
+Nome: Anita                          | Username: anita                | Email: anitalira@gmail.com

@@ -1,0 +1,24 @@
+### 1.4 Criar `.env.example`
+
+```env
+# Configurações Gerais
+SECRET_KEY=sua-chave-secreta-super-segura-aqui
+DEBUG=False
+PROJECT_NAME=AIcentralv2
+VERSION=2.0.0
+
+# Banco de Dados
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=aicentralv2
+DB_USER=postgres
+DB_PASSWORD=sua-senha-aqui
+
+# Email (Opcional)
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USE_SSL=False
+MAIL_USERNAME=seu-email@gmail.com
+MAIL_PASSWORD=sua-senha-app
+MAIL_DEFAULT_SENDER=seu-email@gmail.com

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AIcentralv2</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-icon">🔐</div>
+                <h1>Bem-vindo ao AIcentralv2!</h1>
+                <p>Faça login para continuar</p>
+            </div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="form-group">
+                    <label for="username">👤 Usuário</label>
+                    <input type="text" id="username" name="username" 
+                           placeholder="Digite seu usuário" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">🔑 Senha</label>
+                    <input type="password" id="password" name="password" 
+                           placeholder="Digite sua senha" required>
+                </div>
+                
+                <button type="submit" class="btn-login">🚀 Entrar</button>
+            </form>
+            
+            <div class="register-link">
+                <a href="{{ url_for('forgot_password') }}" class="forgot-link">
+                    🔑 Esqueci minha senha
+                </a>
+            </div>
+            
+            <div class="register-link">
+                Não tem uma conta? <a href="{{ url_for('register') }}">Cadastre-se aqui</a>
+            </div>
+            
+            <div class="register-link test-credentials">
+                <strong>Usuário de teste:</strong><br>
+                Usuário: <code>admin</code> | Senha: <code>admin123</code>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+</body>
+</html>

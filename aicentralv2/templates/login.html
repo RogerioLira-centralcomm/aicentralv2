@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CentralComm AI</title>
+    <link rel="stylesheet" href="../static/css/login.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Background with floating elements -->
+    <div class="login-background">
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+        </div>
+    </div>
+
+    <!-- Login Container -->
+    <div class="login-container">
+        <!-- Main Login Card -->
+        <div class="login-card">
+            <!-- Logo Section with CentralComm Brand -->
+            <div class="logo-section">
+                <div class="brand-container">
+                    <img src="https://framerusercontent.com/images/AVdCNfDtlffmIGBOW6kOr9VhCo.png" alt="CENTRALCOMM" class="brand-logo">
+                    <div class="brand-divider"></div>
+                    <span class="brand-subtitle">AI</span>
+                </div>
+                <p class="brand-description">Gestão Corporativa Inteligente</p>
+            </div>
+
+            <!-- Login Form -->
+            <form action="{{ url_for('login') }}" class="login-form" id="loginForm" method="POST">
+                <!-- Email Field -->
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <div class="input-wrapper">
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            placeholder="seu.email@centralcomm.media"
+                            required
+                        >
+                        <span class="input-border"></span>
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="input-group">
+                    <label for="password">Senha</label>
+                    <div class="input-wrapper">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="••••••••"
+                            required
+                        >
+                        <span class="input-border"></span>
+                    </div>
+                </div>
+
+                <!-- Form Options -->
+                <div class="form-options">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" id="remember" name="remember">
+                        <span class="checkbox-custom">
+                            <i class="fas fa-check"></i>
+                        </span>
+                        <span class="checkbox-label">Lembrar credenciais</span>
+                    </label>
+                    <a href="forgot-password.html" class="forgot-link">Esqueceu a senha?</a>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="submit-btn">
+                    <span class="btn-text">Entrar  <i class="fas fa-arrow-right"></i> </span>
+                   
+                    <div class="btn-loading">
+                        <div class="spinner"></div>
+                    </div>
+                </button>
+            </form>
+        </div>
+
+        <!-- Support Button -->
+        <div class="support-fab">
+            <button onclick="openWhatsAppSupport()" class="fab-button">
+                <i class="fab fa-whatsapp"></i>
+                <span class="fab-tooltip">Suporte TI</span>
+            </button>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Verificando credenciais...</p>
+        </div>
+    </div>
+
+    <script src="../static/js/login.js"></script>
+</body>
+</html>
+</html>

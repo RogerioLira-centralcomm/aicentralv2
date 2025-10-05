@@ -4,272 +4,388 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - AIcentralv2</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo-section">
-                <h1>🤖 AIcentralv2</h1>
-                <p class="subtitle">Sistema de Gerenciamento</p>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+                <h1>AIcentral<span class="version">v2</span></h1>
             </div>
-
-            <div class="user-section">
-                <div class="user-info">
-                    <span class="user-name">👤 {{ session.nome_completo }}</span>
-                    <span class="user-role">
-                        {% if session.is_admin %}
-                            <span class="badge badge-admin">Administrador</span>
-                        {% else %}
-                            <span class="badge badge-user">Usuário</span>
-                        {% endif %}
-                    </span>
-                </div>
-                <a href="{{ url_for('logout') }}" class="btn-logout">
-                    🚪 Sair
-                </a>
-            </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
         </div>
-    </header>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('index') }}" class="nav-item active">
+                <i class="fas fa-th-large"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-users"></i>
+                <span>Usuários</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-building"></i>
+                <span>Clientes</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Relatórios</span>
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fas fa-cog"></i>
+                <span>Configurações</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <span class="user-name">{{ session.nome_completo }}</span>
+                    {% if session.is_admin %}
+                        <span class="user-badge badge-admin">
+                            <i class="fas fa-crown"></i> Admin
+                        </span>
+                    {% else %}
+                        <span class="user-badge badge-user">
+                            <i class="fas fa-user"></i> Usuário
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{{ url_for('logout') }}" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Sair</span>
+            </a>
+        </div>
+    </aside>
 
     <!-- Main Content -->
     <main class="main-content">
-        <div class="container">
-            <!-- Mensagens Flash -->
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="breadcrumb">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>Gestão de Usuários</span>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <button class="notification-btn">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge">3</span>
+                </button>
+                <div class="user-menu">
+                    <img src="https://ui-avatars.com/api/?name={{ session.nome_completo }}&background=667eea&color=fff" alt="Avatar" class="avatar">
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div class="content-wrapper">
+            <!-- Flash Messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                    <div class="alerts">
+                    <div class="alerts-container">
                         {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}">
-                                {{ message }}
+                            <div class="alert alert-{{ category }}" role="alert">
+                                <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' if category == 'error' else 'info-circle' }}"></i>
+                                <span>{{ message }}</span>
+                                <button class="alert-close" onclick="this.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
                         {% endfor %}
                     </div>
                 {% endif %}
             {% endwith %}
 
-            <!-- Título e Botão -->
+            <!-- Page Header -->
             <div class="page-header">
-                <h2>📋 Gestão de Usuários</h2>
+                <div class="page-title">
+                    <h2><i class="fas fa-users"></i> Gestão de Usuários</h2>
+                    <p class="subtitle">Gerencie todos os usuários do sistema</p>
+                </div>
                 {% if session.is_admin %}
                     <a href="{{ url_for('user_form') }}" class="btn-primary">
-                        ➕ Novo Usuário
+                        <i class="fas fa-plus"></i>
+                        <span>Novo Usuário</span>
                     </a>
                 {% endif %}
             </div>
 
-            <!-- Estatísticas -->
+            <!-- Statistics Cards -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">👥</div>
-                    <div class="stat-info">
-                        <h3>{{ usuarios|length }}</h3>
-                        <p>Total de Usuários</p>
+                    <div class="stat-icon bg-primary">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <p class="stat-label">Total de Usuários</p>
+                        <h3 class="stat-value">{{ usuarios|length }}</h3>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 12% vs mês anterior
+                        </span>
                     </div>
                 </div>
 
                 <div class="stat-card">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-info">
-                        <h3>{{ usuarios|selectattr('is_active')|list|length }}</h3>
-                        <p>Usuários Ativos</p>
+                    <div class="stat-icon bg-success">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <p class="stat-label">Usuários Ativos</p>
+                        <h3 class="stat-value">{{ usuarios|selectattr('is_active')|list|length }}</h3>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 8% vs mês anterior
+                        </span>
                     </div>
                 </div>
 
                 <div class="stat-card">
-                    <div class="stat-icon">👑</div>
-                    <div class="stat-info">
-                        <h3>{{ usuarios|selectattr('is_admin')|list|length }}</h3>
-                        <p>Administradores</p>
+                    <div class="stat-icon bg-warning">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                    <div class="stat-content">
+                        <p class="stat-label">Administradores</p>
+                        <h3 class="stat-value">{{ usuarios|selectattr('is_admin')|list|length }}</h3>
+                        <span class="stat-change neutral">
+                            <i class="fas fa-minus"></i> Sem alteração
+                        </span>
                     </div>
                 </div>
 
                 <div class="stat-card">
-                    <div class="stat-icon">🏢</div>
-                    <div class="stat-info">
-                        <h3>{{ usuarios|selectattr('id_cliente')|list|length }}</h3>
-                        <p>Com Cliente</p>
+                    <div class="stat-icon bg-info">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div class="stat-content">
+                        <p class="stat-label">Com Cliente</p>
+                        <h3 class="stat-value">{{ usuarios|selectattr('id_cliente')|list|length }}</h3>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 15% vs mês anterior
+                        </span>
                     </div>
                 </div>
             </div>
 
-            <!-- Filtros -->
-            <div class="filters-section">
-                <div class="search-box">
-                    <input
-                        type="text"
-                        id="searchInput"
-                        placeholder="🔍 Buscar por nome, email, cliente..."
-                        autocomplete="off"
-                    >
+            <!-- Filters Section -->
+            <div class="filters-card">
+                <div class="filters-header">
+                    <h3><i class="fas fa-filter"></i> Filtros e Busca</h3>
                 </div>
+                <div class="filters-body">
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="search-input"
+                            placeholder="Buscar por nome, email, cliente..."
+                            autocomplete="off"
+                        >
+                    </div>
 
-                <div class="filter-buttons">
-                    <button class="filter-btn active" data-filter="all">
-                        Todos ({{ usuarios|length }})
-                    </button>
-                    <button class="filter-btn" data-filter="active">
-                        Ativos ({{ usuarios|selectattr('is_active')|list|length }})
-                    </button>
-                    <button class="filter-btn" data-filter="inactive">
-                        Inativos ({{ usuarios|rejectattr('is_active')|list|length }})
-                    </button>
-                    <button class="filter-btn" data-filter="admin">
-                        Admins ({{ usuarios|selectattr('is_admin')|list|length }})
-                    </button>
-                    <button class="filter-btn" data-filter="cliente">
-                        Com Cliente ({{ usuarios|selectattr('id_cliente')|list|length }})
-                    </button>
+                    <div class="filter-chips">
+                        <button class="chip active" data-filter="all">
+                            <i class="fas fa-globe"></i> Todos ({{ usuarios|length }})
+                        </button>
+                        <button class="chip" data-filter="active">
+                            <i class="fas fa-check-circle"></i> Ativos ({{ usuarios|selectattr('is_active')|list|length }})
+                        </button>
+                        <button class="chip" data-filter="inactive">
+                            <i class="fas fa-times-circle"></i> Inativos ({{ usuarios|rejectattr('is_active')|list|length }})
+                        </button>
+                        <button class="chip" data-filter="admin">
+                            <i class="fas fa-crown"></i> Admins ({{ usuarios|selectattr('is_admin')|list|length }})
+                        </button>
+                        <button class="chip" data-filter="cliente">
+                            <i class="fas fa-building"></i> Com Cliente ({{ usuarios|selectattr('id_cliente')|list|length }})
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Tabela de Usuários -->
-            <div class="table-container">
-                <table class="users-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>👤 Nome</th>
-                            <th>🏢 Cliente</th>
-                            <th>📧 Email</th>
-                            <th>🎂 Idade</th>
-                            <th>📅 Cadastro</th>
-                            <th>✅ Status</th>
-                            <th>⚙️ Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if usuarios %}
-                            {% for usuario in usuarios %}
-                            <tr class="{% if not usuario.is_active %}inactive{% endif %}"
-                                data-status="{% if usuario.is_active %}active{% else %}inactive{% endif %}"
-                                data-admin="{{ 'true' if usuario.is_admin else 'false' }}"
-                                data-cliente="{{ 'true' if usuario.id_cliente else 'false' }}"
-                                data-search="{{ usuario.nome_completo|lower }} {{ usuario.username|lower }} {{ usuario.email|lower }} {{ usuario.nome_fantasia|lower if usuario.nome_fantasia else '' }}">
+            <!-- Users Table -->
+            <div class="table-card">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAll">
+                                </th>
+                                <th>Usuário</th>
+                                <th>Cliente</th>
+                                <th>Contato</th>
+                                <th>Idade</th>
+                                <th>Cadastro</th>
+                                <th>Status</th>
+                                <th width="150">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if usuarios %}
+                                {% for usuario in usuarios %}
+                                <tr class="table-row {% if not usuario.is_active %}row-inactive{% endif %}"
+                                    data-status="{% if usuario.is_active %}active{% else %}inactive{% endif %}"
+                                    data-admin="{{ 'true' if usuario.is_admin else 'false' }}"
+                                    data-cliente="{{ 'true' if usuario.id_cliente else 'false' }}"
+                                    data-search="{{ usuario.nome_completo|lower }} {{ usuario.username|lower }} {{ usuario.email|lower }} {{ usuario.nome_fantasia|lower if usuario.nome_fantasia else '' }}">
 
-                                <td>{{ usuario.id }}</td>
+                                    <td>
+                                        <input type="checkbox" class="row-checkbox">
+                                    </td>
 
-                                <td>
-                                    <div class="user-info">
-                                        <strong>{{ usuario.nome_completo }}</strong>
-                                        <small>@{{ usuario.username }}</small>
-                                        {% if usuario.is_admin %}
-                                            <span class="badge badge-admin">Admin</span>
+                                    <td>
+                                        <div class="user-cell">
+                                            <div class="user-avatar-small">
+                                                <img src="https://ui-avatars.com/api/?name={{ usuario.nome_completo }}&background=random" alt="{{ usuario.nome_completo }}">
+                                            </div>
+                                            <div class="user-info-cell">
+                                                <strong class="user-name-cell">{{ usuario.nome_completo }}</strong>
+                                                <span class="user-username">@{{ usuario.username }}</span>
+                                                {% if usuario.is_admin %}
+                                                    <span class="badge-mini badge-admin">
+                                                        <i class="fas fa-crown"></i> Admin
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        {% if usuario.nome_fantasia %}
+                                            <div class="cliente-cell">
+                                                <strong>{{ usuario.nome_fantasia }}</strong>
+                                                {% if usuario.cnpj %}
+                                                    <span class="cnpj-text">CNPJ: {{ usuario.cnpj }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
                                         {% endif %}
-                                    </div>
-                                </td>
+                                    </td>
 
-                                <!-- Coluna Cliente -->
-                                <td>
-                                    {% if usuario.nome_fantasia %}
-                                        <div class="cliente-info">
-                                            <strong>{{ usuario.nome_fantasia }}</strong>
-                                            {% if usuario.razao_social and usuario.razao_social != usuario.nome_fantasia %}
-                                                <small>{{ usuario.razao_social }}</small>
+                                    <td>
+                                        <div class="contact-cell">
+                                            <span class="email-text">
+                                                <i class="fas fa-envelope"></i>
+                                                {{ usuario.email }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <span class="age-badge">{{ usuario.idade }} anos</span>
+                                    </td>
+
+                                    <td>
+                                        <span class="date-text">
+                                            {% if usuario.created_at %}
+                                                {{ usuario.created_at.strftime('%d/%m/%Y') }}
+                                            {% else %}
+                                                —
                                             {% endif %}
-                                            {% if usuario.cnpj %}
-                                                <small class="cnpj">{{ usuario.cnpj }}</small>
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        {% if usuario.is_active %}
+                                            <span class="status-pill status-active">
+                                                <i class="fas fa-circle"></i> Ativo
+                                            </span>
+                                        {% else %}
+                                            <span class="status-pill status-inactive">
+                                                <i class="fas fa-circle"></i> Inativo
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        <div class="actions-cell">
+                                            {% if session.is_admin %}
+                                                <a href="{{ url_for('user_form', user_id=usuario.id) }}"
+                                                   class="action-btn btn-edit"
+                                                   title="Editar usuário">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+
+                                                {% if usuario.is_active %}
+                                                    <form method="POST"
+                                                          action="{{ url_for('toggle_user', user_id=usuario.id) }}"
+                                                          class="inline-form"
+                                                          onsubmit="return confirm('Desativar usuário {{ usuario.nome_completo }}?')">
+                                                        <button type="submit" class="action-btn btn-deactivate" title="Desativar">
+                                                            <i class="fas fa-ban"></i>
+                                                        </button>
+                                                    </form>
+                                                {% else %}
+                                                    <form method="POST"
+                                                          action="{{ url_for('toggle_user', user_id=usuario.id) }}"
+                                                          class="inline-form">
+                                                        <button type="submit" class="action-btn btn-activate" title="Ativar">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+
+                                                <form method="POST"
+                                                      action="{{ url_for('delete_user', user_id=usuario.id) }}"
+                                                      class="inline-form"
+                                                      onsubmit="return confirm('⚠️ ATENÇÃO: Deletar permanentemente {{ usuario.nome_completo }}?')">
+                                                    <button type="submit" class="action-btn btn-delete" title="Deletar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-muted-small">Sem permissão</span>
                                             {% endif %}
                                         </div>
-                                    {% else %}
-                                        <span class="text-muted">Sem cliente</span>
-                                    {% endif %}
-                                </td>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8">
+                                        <div class="empty-state">
+                                            <i class="fas fa-inbox"></i>
+                                            <h3>Nenhum usuário cadastrado</h3>
+                                            <p>Comece criando o primeiro usuário</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
 
-                                <td>{{ usuario.email }}</td>
-
-                                <td>{{ usuario.idade }} anos</td>
-
-                                <td>
-                                    {% if usuario.created_at %}
-                                        {{ usuario.created_at.strftime('%d/%m/%Y') }}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    {% if usuario.is_active %}
-                                        <span class="status-badge status-active">Ativo</span>
-                                    {% else %}
-                                        <span class="status-badge status-inactive">Inativo</span>
-                                    {% endif %}
-                                </td>
-
-                                <td class="actions">
-                                    {% if session.is_admin %}
-                                        <!-- Editar -->
-                                        <a href="{{ url_for('user_form', user_id=usuario.id) }}"
-                                           class="btn-action btn-edit"
-                                           title="Editar">
-                                            ✏️
-                                        </a>
-
-                                        <!-- Ativar/Desativar -->
-                                        {% if usuario.is_active %}
-                                            <form method="POST"
-                                                  action="{{ url_for('toggle_user', user_id=usuario.id) }}"
-                                                  style="display: inline;"
-                                                  onsubmit="return confirm('Desativar usuário {{ usuario.nome_completo }}?')">
-                                                <button type="submit" class="btn-action btn-deactivate" title="Desativar">
-                                                    🚫
-                                                </button>
-                                            </form>
-                                        {% else %}
-                                            <form method="POST"
-                                                  action="{{ url_for('toggle_user', user_id=usuario.id) }}"
-                                                  style="display: inline;">
-                                                <button type="submit" class="btn-action btn-activate" title="Ativar">
-                                                    ✅
-                                                </button>
-                                            </form>
-                                        {% endif %}
-
-                                        <!-- Deletar -->
-                                        <form method="POST"
-                                              action="{{ url_for('delete_user', user_id=usuario.id) }}"
-                                              style="display: inline;"
-                                              onsubmit="return confirm('ATENÇÃO: Deletar permanentemente o usuário {{ usuario.nome_completo }}?')">
-                                            <button type="submit" class="btn-action btn-delete" title="Deletar">
-                                                🗑️
-                                            </button>
-                                        </form>
-                                    {% else %}
-                                        <span class="text-muted">Sem permissão</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="8" class="no-data">
-                                    📭 Nenhum usuário cadastrado
-                                </td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Mensagem quando não há resultados da busca -->
-            <div id="noResults" class="no-results" style="display: none;">
-                <div class="no-results-icon">🔍</div>
-                <h3>Nenhum resultado encontrado</h3>
-                <p>Tente ajustar os filtros ou termos de busca</p>
+                <!-- No Results Message -->
+                <div id="noResults" class="no-results" style="display: none;">
+                    <i class="fas fa-search"></i>
+                    <h3>Nenhum resultado encontrado</h3>
+                    <p>Tente ajustar os filtros ou termos de busca</p>
+                    <button class="btn-secondary" onclick="clearFilters()">
+                        <i class="fas fa-redo"></i> Limpar Filtros
+                    </button>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2024 AIcentralv2 - Todos os direitos reservados</p>
-            <p>Versão 2.0.0</p>
-        </div>
-    </footer>
-
-    <!-- JavaScript -->
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
 </html>

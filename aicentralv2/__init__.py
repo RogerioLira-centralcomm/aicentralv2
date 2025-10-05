@@ -2,8 +2,13 @@
 Aplicação Flask - AIcentralv2
 """
 from flask import Flask
+from flask_mail import Mail  # ← MOVER PARA O TOPO
 from dotenv import load_dotenv
 import os
+
+# ==================== CRIAR INSTÂNCIA GLOBAL ====================
+mail = Mail()  # ← CRIAR AQUI (fora da função)
+# ================================================================
 
 
 def create_app():
@@ -51,11 +56,13 @@ def create_app():
     print(f"🗄️  Database: {app.config['DB_NAME']}")
     print(f"🖥️  Host: {app.config['DB_HOST']}:{app.config['DB_PORT']}")
     print(f"👤 User: {app.config['DB_USER']}")
+    print(f"📧 Email: {app.config['MAIL_USERNAME']}")  # ← ADICIONAR ESTA LINHA
     print("=" * 70)
 
-    # Inicializar extensões
-    from flask_mail import Mail
-    mail = Mail(app)
+    # ==================== INICIALIZAR EXTENSÕES ====================
+    mail.init_app(app)  # ← MUDAR PARA init_app
+    print("✅ Flask-Mail inicializado!")
+    # ===============================================================
 
     # Registrar funções de banco de dados
     from . import db

@@ -1,9 +1,15 @@
 """
 Rotas da aplicação AIcentralv2
 """
-from flask import render_template, request, redirect, url_for, session, flash
-from functools import wraps
+from flask import render_template, request, redirect, url_for, flash, session, g
+from werkzeug.security import generate_password_hash
+from datetime import datetime, timedelta
+import secrets
+from functools import wraps  # ← ADICIONAR ESTA LINHA
+from flask_mail import Message
+from aicentralv2 import mail
 from . import db
+
 
 
 # ==================== DECORATORS ====================
@@ -327,3 +333,107 @@ def init_routes(app):
                 return render_template('change_password.html')
 
         return render_template('change_password.html')
+    
+
+     # ==================== ROTA: RECUPERAÇÃO DE SENHA ====================
+
+    @app.route('/forgot-password', methods=['GET', 'POST'])
+    def forgot_password():
+        """Página de recuperação de senha"""
+        if request.method == 'POST':
+            email = request.form.get('email', '').strip().lower()
+        
+            # Validar email
+            if not email:
+                flash('❌ Email é obrigatório!', 'error')
+                return render_template('forgot-password.html')
+        
+            # Buscar usuário
+            user = db.buscar_usuario_por_email(email)
+        
+            if user:
+                try:
+                    # Gerar token de reset
+                    reset_token = secrets.token_urlsafe(32)
+                    expires = datetime.utcnow() + timedelta(hours=1)
+                
+                    # Atualizar no banco
+                    db.atualizar_reset_token(email, reset_token, expires)
+                
+                    # Gerar link de reset
+                    reset_link = url_for('reset_password', token=reset_token, _external=True)
+                
+                    # Criar mensagem de email
+                    msg = Message(
+                        subject='🔐 Recuperação de Senha - AICentral',
+                        recipients=[email],
+                        html=render_template('emails/reset_password.html', reset_link=reset_link)
+                    )
+                
+                    # Enviar email
+                    mail.send(msg)
+                
+                    flash('✅ Email de recuperação enviado com sucesso!', 'success')
+                    flash('📧 Verifique sua caixa de entrada (e spam/lixo eletrônico).', 'info')
+                
+                except Exception as e:
+                    # Se falhar, mostrar link na tela
+                    flash(f'⚠️ Erro ao enviar email: {str(e)}', 'error')
+                    flash(f'🔗 Link de recuperação: {reset_link}', 'warning')
+                    flash('Copie e cole este link no navegador.', 'info')
+            else:
+                # Não revelar se email existe ou não (segurança)
+                flash('✅ Se o email estiver cadastrado, você receberá um link de recuperação.', 'info')
+        
+            return redirect(url_for('login'))
+    
+        return render_template('forgot-password.html')
+
+
+    @app.route('/reset-password/<token>', methods=['GET', 'POST'])
+    def reset_password(token):
+        """Página de redefinição de senha"""
+        # Buscar usuário pelo token
+        user = db.buscar_usuario_por_token(token)
+    
+        # Verificar se token existe e não expirou
+        if not user:
+            flash('❌ Link de recuperação inválido!', 'error')
+            return redirect(url_for('forgot_password'))
+    
+        # Verificar expiração
+        if user['reset_token_expires']:
+            if isinstance(user['reset_token_expires'], str):
+                expires = datetime.fromisoformat(user['reset_token_expires'])
+            else:
+                expires = user['reset_token_expires']
+        
+            if expires < datetime.utcnow():
+                flash('⏰ Link de recuperação expirado!', 'error')
+                return redirect(url_for('forgot_password'))
+    
+        if request.method == 'POST':
+            password = request.form.get('password', '')
+            confirm_password = request.form.get('confirm_password', '')
+        
+            # Validar senhas
+            if not password or not confirm_password:
+                flash('❌ Todos os campos são obrigatórios!', 'error')
+                return render_template('reset_password.html', token=token)
+        
+            if password != confirm_password:
+                flash('❌ As senhas não coincidem!', 'error')
+                return render_template('reset_password.html', token=token)
+        
+            if len(password) < 6:
+                flash('❌ A senha deve ter no mínimo 6 caracteres!', 'error')
+                return render_template('reset_password.html', token=token)
+        
+            # Atualizar senha
+            nova_senha_hash = generate_password_hash(password)
+            db.atualizar_senha(user['id'], nova_senha_hash)
+        
+            flash('✅ Senha redefinida com sucesso! Faça login.', 'success')
+            return redirect(url_for('login'))
+    
+        return render_template('reset_password.html', token=token)

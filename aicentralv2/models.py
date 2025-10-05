@@ -12,6 +12,9 @@ class User:
     nome: str = ''
     email: str = ''
     idade: int = 0
+    password_hash: str = ''
+    reset_token: str = ''
+    reset_token_expires: str = ''
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
@@ -40,30 +43,6 @@ class User:
     
     def __repr__(self):
         return f"<User {self.nome} ({self.email})>"
-
-
-@dataclass
-class Product:
-    """Modelo de Produto"""
-    id: Optional[int] = None
-    nome: str = ''
-    preco: float = 0.0
-    estoque: int = 0
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'nome': self.nome,
-            'preco': float(self.preco),
-            'estoque': self.estoque,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-    
-    def __repr__(self):
-        return f"<Product {self.nome} - R$ {self.preco}>"
 
 
 @dataclass

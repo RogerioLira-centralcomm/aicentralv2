@@ -393,3 +393,76 @@ def obter_clientes_ativos():
             ORDER BY nome_fantasia
         ''')
         return cursor.fetchall()
+    
+
+def buscar_usuario_por_email(email):
+    """
+    Busca usuário por email
+    Retorna o usuário se encontrado, None caso contrário
+    """
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT * FROM users 
+            WHERE email = %s
+        ''', (email,))
+        
+        user = cursor.fetchone()
+        return user
+    
+    return None
+
+
+def buscar_usuario_por_token(token):
+    """
+    Busca usuário por reset_token
+    Retorna o usuário se encontrado, None caso contrário
+    """
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT * FROM users 
+            WHERE reset_token = %s
+        ''', (token,))
+        
+        user = cursor.fetchone()
+        return user
+    
+    return None
+
+
+def atualizar_reset_token(email, token, expires):
+    """
+    Atualiza token de reset de senha do usuário
+    """
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            UPDATE users 
+            SET reset_token = %s, 
+                reset_token_expires = %s
+            WHERE email = %s
+        ''', (token, expires, email))
+        
+        conn.commit()
+
+
+def atualizar_senha(user_id, nova_senha_hash):
+    """
+    Atualiza senha do usuário e limpa token de reset
+    """
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            UPDATE users 
+            SET password_hash = %s, 
+                reset_token = NULL, 
+                reset_token_expires = NULL
+            WHERE id = %s
+        ''', (nova_senha_hash, user_id))
+        
+        conn.commit()

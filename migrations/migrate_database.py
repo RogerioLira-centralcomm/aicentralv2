@@ -279,7 +279,7 @@ def migrar():
                     if usuarios_com_senha_padrao:
                         print(f"\n📝 {len(usuarios_com_senha_padrao)} usuários receberam senha padrão: {senha_padrao}")
 
-                        with open('usuarios_senha_padrao.txt', 'w', encoding='utf-8') as f:
+                        with open('../testes/usuarios_senha_padrao.txt', 'w', encoding='utf-8') as f:
                             f.write("=" * 70 + "\n")
                             f.write(f"USUÁRIOS COM SENHA PADRÃO: {senha_padrao}\n")
                             f.write("=" * 70 + "\n\n")

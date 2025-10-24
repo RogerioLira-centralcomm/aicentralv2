@@ -1,133 +1,77 @@
 /**
- * AIcentralv2 - Scripts da Página de Recuperação de Senha
+ * =====================================================
+ * FORGOT PASSWORD - JavaScript
+ * Validação e funcionalidades da página de recuperação
+ * =====================================================
  */
 
+'use strict';
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔑 Forgot password page loaded');
+    console.log('✅ Forgot Password JS carregado');
     
-    const form = document.getElementById('forgotPasswordForm');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    if (form) {
-        form.addEventListener('submit', handleSubmit);
-    }
-    
-    // Validação em tempo real
-    initRealTimeValidation();
+    initForgotPasswordForm();
 });
 
 /**
- * Processa o envio do formulário
+ * Inicializa o formulário de recuperação de senha
  */
-function handleSubmit(e) {
-    const username = document.getElementById('username').value.trim();
-    const email = document.getElementById('email').value.trim();
+function initForgotPasswordForm() {
+    const form = document.getElementById('forgotPasswordForm');
+    const emailInput = document.getElementById('email');
     const submitBtn = document.getElementById('submitBtn');
     
-    // Validações básicas
-    if (!username || !email) {
-        e.preventDefault();
-        showAlert('Todos os campos são obrigatórios!', 'error');
-        return false;
-    }
+    if (!form) return;
     
-    if (!validateEmail(email)) {
-        e.preventDefault();
-        showAlert('Email inválido!', 'error');
-        return false;
-    }
-    
-    // Desabilitar botão e mostrar loading
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '⏳ Enviando email...';
-}
-
-/**
- * Validação em tempo real
- */
-function initRealTimeValidation() {
-    const usernameInput = document.getElementById('username');
-    const emailInput = document.getElementById('email');
-    
-    if (usernameInput) {
-        usernameInput.addEventListener('blur', () => {
-            const value = usernameInput.value.trim();
-            if (value.length < 3) {
-                highlightField(usernameInput, false);
-                showFieldError(usernameInput, 'Nome de usuário muito curto');
-            } else {
-                highlightField(usernameInput, true);
-                clearFieldError(usernameInput);
-            }
-        });
+    // Validação no submit
+    form.addEventListener('submit', function(e) {
+        const email = emailInput.value.trim();
         
-        usernameInput.addEventListener('input', () => {
-            clearFieldError(usernameInput);
-        });
-    }
-    
-    if (emailInput) {
-        emailInput.addEventListener('blur', () => {
-            const value = emailInput.value.trim();
-            if (!validateEmail(value)) {
-                highlightField(emailInput, false);
-                showFieldError(emailInput, 'Email inválido');
-            } else {
-                highlightField(emailInput, true);
-                clearFieldError(emailInput);
-            }
-        });
+        // Validar se campo está preenchido
+        if (!email) {
+            e.preventDefault();
+            showAlert('❌ Por favor, digite seu email!', 'error');
+            emailInput.focus();
+            return false;
+        }
         
-        emailInput.addEventListener('input', () => {
-            clearFieldError(emailInput);
-            emailInput.value = emailInput.value.toLowerCase();
-        });
-    }
-}
-
-/**
- * Valida email
- */
-function validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-}
-
-/**
- * Destaca campo
- */
-function highlightField(field, isValid) {
-    field.style.borderColor = isValid ? '#2ecc71' : '#e74c3c';
-}
-
-/**
- * Mostra erro no campo
- */
-function showFieldError(field, message) {
-    clearFieldError(field);
+        // Validar formato de email
+        if (!isValidEmail(email)) {
+            e.preventDefault();
+            showAlert('❌ Por favor, digite um email válido!', 'error');
+            emailInput.focus();
+            return false;
+        }
+        
+        // Desabilitar botão e mostrar loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Enviando...';
+        
+        // Permitir submit
+        return true;
+    });
     
-    const error = document.createElement('small');
-    error.className = 'field-error';
-    error.style.cssText = 'color: #e74c3c; display: block; margin-top: 0.3rem; font-size: 0.85rem;';
-    error.textContent = message;
+    // Limpar erros ao digitar
+    emailInput.addEventListener('input', function() {
+        this.style.borderColor = '#e0e0e0';
+        removeAlerts();
+    });
+}
+
+/**
+ * Valida formato de email
+ */
+function isValidEmail(email) {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+}
+
+/**
+ * Mostra alerta temporário
+ */
+function showAlert(message, type = 'error') {
+    removeAlerts();
     
-    field.parentElement.appendChild(error);
-}
-
-/**
- * Remove erro do campo
- */
-function clearFieldError(field) {
-    const error = field.parentElement.querySelector('.field-error');
-    if (error) {
-        error.remove();
-    }
-}
-
-/**
- * Mostra alert
- */
-function showAlert(message, type = 'info') {
     const alert = document.createElement('div');
     alert.className = `alert alert-${type}`;
     alert.textContent = message;
@@ -135,7 +79,22 @@ function showAlert(message, type = 'info') {
     const form = document.getElementById('forgotPasswordForm');
     form.parentNode.insertBefore(alert, form);
     
+    // Auto-remover após 5 segundos
     setTimeout(() => {
         alert.remove();
     }, 5000);
 }
+
+/**
+ * Remove todos os alertas
+ */
+function removeAlerts() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        if (!alert.hasAttribute('data-flash')) {
+            alert.remove();
+        }
+    });
+}
+
+console.log('%c✨ Forgot Password Ready', 'color: #667eea; font-weight: bold;');

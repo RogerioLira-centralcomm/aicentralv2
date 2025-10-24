@@ -1,170 +1,173 @@
 /**
- * AIcentralv2 - Scripts da Página de Redefinição de Senha
+ * =====================================================
+ * RESET PASSWORD - JavaScript
+ * Validação e funcionalidades da página de reset
+ * =====================================================
  */
 
+'use strict';
+
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔐 Reset password page loaded');
+    console.log('✅ Reset Password JS carregado');
     
-    const form = document.getElementById('resetPasswordForm');
-    
-    if (form) {
-        form.addEventListener('submit', handleSubmit);
-    }
-    
-    // Validação em tempo real
-    initRealTimeValidation();
+    initResetPasswordForm();
+    initPasswordStrengthChecker();
+    initPasswordToggles();
 });
 
 /**
- * Processa o envio do formulário
+ * Inicializa o formulário de reset
  */
-function handleSubmit(e) {
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm_password').value;
+function initResetPasswordForm() {
+    const form = document.getElementById('resetForm');
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
     const submitBtn = document.getElementById('submitBtn');
     
-    // Validações
-    if (password.length < 6) {
-        e.preventDefault();
-        showAlert('Senha deve ter pelo menos 6 caracteres!', 'error');
-        return false;
-    }
+    if (!form) return;
     
-    if (password !== confirmPassword) {
-        e.preventDefault();
-        showAlert('As senhas não coincidem!', 'error');
-        return false;
-    }
-    
-    // Verificar força da senha
-    const strength = checkPasswordStrength(password);
-    if (strength < 2) {
-        if (!confirm('Senha fraca! Deseja continuar mesmo assim?')) {
+    // Validação no submit
+    form.addEventListener('submit', function(e) {
+        const password = passwordInput.value;
+        const confirm = confirmInput.value;
+        
+        // Validar senhas coincidem
+        if (password !== confirm) {
             e.preventDefault();
+            showAlert('❌ As senhas não coincidem!');
+            confirmInput.focus();
             return false;
         }
-    }
-    
-    // Desabilitar botão
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '⏳ Salvando...';
-}
-
-/**
- * Validação em tempo real
- */
-function initRealTimeValidation() {
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirm_password');
-    
-    if (password) {
-        // Indicador de força da senha
-        const strengthIndicator = createStrengthIndicator();
-        password.parentElement.appendChild(strengthIndicator);
         
-        password.addEventListener('input', () => {
-            updateStrengthIndicator(password.value, strengthIndicator);
-        });
-    }
-    
-    if (confirmPassword) {
-        confirmPassword.addEventListener('input', () => {
-            validatePasswordMatch(password.value, confirmPassword.value);
-        });
-    }
+        // Validar tamanho mínimo
+        if (password.length < 6) {
+            e.preventDefault();
+            showAlert('❌ A senha deve ter no mínimo 6 caracteres!');
+            passwordInput.focus();
+            return false;
+        }
+        
+        // Desabilitar botão
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Redefinindo...';
+        
+        return true;
+    });
 }
 
 /**
- * Cria indicador de força da senha
+ * Inicializa verificador de força de senha
  */
-function createStrengthIndicator() {
-    const container = document.createElement('div');
-    container.id = 'strength-indicator';
-    container.style.cssText = 'margin-top: 0.5rem;';
+function initPasswordStrengthChecker() {
+    const passwordInput = document.getElementById('password');
+    const strengthBar = document.getElementById('strengthBar');
+    const strengthText = document.getElementById('strengthText');
     
-    const bar = document.createElement('div');
-    bar.id = 'strength-bar';
-    bar.style.cssText = 'height: 5px; border-radius: 3px; background: #ddd; transition: all 0.3s;';
+    if (!passwordInput || !strengthBar) return;
     
-    const text = document.createElement('small');
-    text.id = 'strength-text';
-    text.style.cssText = 'display: block; margin-top: 0.3rem; font-size: 0.85rem;';
-    
-    container.appendChild(bar);
-    container.appendChild(text);
-    
-    return container;
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        const strength = calculatePasswordStrength(password);
+        
+        // Remover todas as classes
+        strengthBar.className = 'strength-fill';
+        
+        // Adicionar classe baseada na força
+        if (strength.level === 'weak') {
+            strengthBar.classList.add('strength-weak');
+            strengthText.textContent = '⚠️ Senha fraca';
+            strengthText.style.color = '#f44336';
+        } else if (strength.level === 'medium') {
+            strengthBar.classList.add('strength-medium');
+            strengthText.textContent = '⚡ Senha média';
+            strengthText.style.color = '#ff9800';
+        } else if (strength.level === 'strong') {
+            strengthBar.classList.add('strength-strong');
+            strengthText.textContent = '✅ Senha forte';
+            strengthText.style.color = '#4caf50';
+        } else {
+            strengthText.textContent = '';
+        }
+    });
 }
 
 /**
- * Atualiza indicador de força da senha
+ * Calcula força da senha
  */
-function updateStrengthIndicator(password, container) {
-    const strength = checkPasswordStrength(password);
-    const bar = container.querySelector('#strength-bar');
-    const text = container.querySelector('#strength-text');
-    
-    const colors = ['#e74c3c', '#f39c12', '#2ecc71', '#27ae60'];
-    const labels = ['Muito fraca', 'Fraca', 'Boa', 'Forte'];
-    const widths = ['25%', '50%', '75%', '100%'];
+function calculatePasswordStrength(password) {
+    let score = 0;
     
     if (password.length === 0) {
-        bar.style.width = '0%';
-        text.textContent = '';
-        return;
+        return { level: 'none', score: 0 };
     }
     
-    bar.style.width = widths[strength];
-    bar.style.background = colors[strength];
-    text.style.color = colors[strength];
-    text.textContent = `Força: ${labels[strength]}`;
-}
-
-/**
- * Verifica força da senha
- */
-function checkPasswordStrength(password) {
-    let strength = 0;
+    // Critérios de força
+    if (password.length >= 6) score++;
+    if (password.length >= 10) score++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^a-zA-Z0-9]/.test(password)) score++;
     
-    if (password.length >= 6) strength++;
-    if (password.length >= 10) strength++;
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^a-zA-Z0-9]/.test(password)) strength++;
-    
-    return Math.min(strength, 3);
-}
-
-/**
- * Valida se as senhas coincidem
- */
-function validatePasswordMatch(password, confirmPassword) {
-    const confirmInput = document.getElementById('confirm_password');
-    
-    if (confirmPassword.length === 0) {
-        confirmInput.style.borderColor = '';
-        return;
-    }
-    
-    if (password === confirmPassword) {
-        confirmInput.style.borderColor = '#2ecc71';
+    // Determinar nível
+    if (score <= 2) {
+        return { level: 'weak', score };
+    } else if (score <= 3) {
+        return { level: 'medium', score };
     } else {
-        confirmInput.style.borderColor = '#e74c3c';
+        return { level: 'strong', score };
     }
 }
 
 /**
- * Mostra alert
+ * Inicializa toggles de visibilidade de senha
  */
-function showAlert(message, type = 'info') {
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type}`;
-    alert.textContent = message;
+function initPasswordToggles() {
+    const toggleButtons = document.querySelectorAll('.toggle-password');
     
-    const form = document.getElementById('resetPasswordForm');
-    form.parentNode.insertBefore(alert, form);
-    
-    setTimeout(() => {
-        alert.remove();
-    }, 5000);
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const input = this.parentElement.querySelector('input');
+            const icon = this.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    });
 }
+
+/**
+ * Toggle visibilidade de um campo específico
+ * (função global para uso no HTML se necessário)
+ */
+window.togglePassword = function(fieldId) {
+    const field = document.getElementById(fieldId);
+    const wrapper = field.parentElement;
+    const button = wrapper.querySelector('.toggle-password');
+    const icon = button.querySelector('i');
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+};
+
+/**
+ * Mostra alerta
+ */
+function showAlert(message) {
+    alert(message);
+}
+
+console.log('%c✨ Reset Password Ready', 'color: #667eea; font-weight: bold;');

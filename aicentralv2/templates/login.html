@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - CentralComm AI</title>
-    <link rel="stylesheet" href="../static/css/login.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -33,6 +33,28 @@
                 <p class="brand-description">Gestão Corporativa Inteligente</p>
             </div>
 
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message flash-{{ category }}" data-category="{{ category }}">
+                                <i class="fas fa-
+                                    {%- if category == 'success' -%}check-circle
+                                    {%- elif category == 'error' -%}exclamation-circle
+                                    {%- elif category == 'warning' -%}exclamation-triangle
+                                    {%- else -%}info-circle
+                                    {%- endif -%}"></i>
+                                <span>{{ message }}</span>
+                                <button type="button" class="flash-close" onclick="this.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
             <!-- Login Form -->
             <form action="{{ url_for('login') }}" class="login-form" id="loginForm" method="POST">
                 <!-- Email Field -->
@@ -48,9 +70,12 @@
                             name="email" 
                             placeholder="seu.email@centralcomm.media"
                             required
+                            autocomplete="email"
+                            value="{{ request.form.get('email', '') }}"
                         >
                         <span class="input-border"></span>
                     </div>
+                    <span class="input-error" id="emailError"></span>
                 </div>
 
                 <!-- Password Field -->
@@ -66,9 +91,14 @@
                             name="password" 
                             placeholder="••••••••"
                             required
+                            autocomplete="current-password"
                         >
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
                         <span class="input-border"></span>
                     </div>
+                    <span class="input-error" id="passwordError"></span>
                 </div>
 
                 <!-- Form Options -->
@@ -80,26 +110,40 @@
                         </span>
                         <span class="checkbox-label">Lembrar credenciais</span>
                     </label>
-                    <a href="{{ url_for('forgot_password') }}" class="forgot-link">Esqueceu a senha?</a>
+                    <a href="{{ url_for('forgot_password') }}" class="forgot-link">
+                        <i class="fas fa-key"></i>
+                        Esqueceu a senha?
+                    </a>
                 </div>
 
                 <!-- Submit Button -->
-                <button type="submit" class="submit-btn">
-                    <span class="btn-text">Entrar  <i class="fas fa-arrow-right"></i> </span>
-                   
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span class="btn-text">
+                        Entrar
+                        <i class="fas fa-arrow-right"></i>
+                    </span>
                     <div class="btn-loading">
                         <div class="spinner"></div>
                     </div>
                 </button>
             </form>
+
+            <!-- Additional Info -->
+            <div class="login-footer">
+                <p class="footer-text">
+                    <i class="fas fa-shield-alt"></i>
+                    Acesso seguro e criptografado
+                </p>
+            </div>
         </div>
 
         <!-- Support Button -->
         <div class="support-fab">
-            <button onclick="openWhatsAppSupport()" class="fab-button">
+            <button onclick="openWhatsAppSupport()" class="fab-button" type="button">
                 <i class="fab fa-whatsapp"></i>
                 <span class="fab-tooltip">Suporte TI</span>
             </button>
+        </div>
     </div>
 
     <!-- Loading Overlay -->
@@ -110,7 +154,6 @@
         </div>
     </div>
 
-    <script src="../static/js/login.js"></script>
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 </body>
-</html>
 </html>

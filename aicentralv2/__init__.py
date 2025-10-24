@@ -1,97 +1,136 @@
 """
-Aplicação Flask - AIcentralv2
+=====================================================
+AICENTRAL V2 - Inicialização da Aplicação
+=====================================================
 """
+
 from flask import Flask
-from flask_mail import Mail  # ← MOVER PARA O TOPO
-from dotenv import load_dotenv
+from flask_mail import Mail
+from .config import Config
+import logging
 import os
 
-# ==================== CRIAR INSTÂNCIA GLOBAL ====================
-mail = Mail()  # ← CRIAR AQUI (fora da função)
-# ================================================================
+# Instância do Flask-Mail
+mail = Mail()
 
 
-def create_app():
-    """Factory para criar a aplicação Flask"""
-
-    # Carregar variáveis de ambiente
-    load_dotenv()
-
-    # Criar aplicação Flask
+def create_app(config_class=Config):
+    """
+    Cria e configura a aplicação Flask
+    
+    Args:
+        config_class: Classe de configuração
+    
+    Returns:
+        Flask: Aplicação configurada
+    """
+    # Criar aplicação
     app = Flask(__name__)
-
-    print("=" * 70)
-    print("🤖 AIcentralv2 v2.0.0")
-    print("=" * 70)
-
-    # Configurações básicas
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['DEBUG'] = os.getenv('DEBUG', 'False') == 'True'
-
-    # Configurações do Banco de Dados
-    app.config['DB_HOST'] = os.getenv('DB_HOST', 'localhost')
-    app.config['DB_PORT'] = os.getenv('DB_PORT', '5432')
-    app.config['DB_NAME'] = os.getenv('DB_NAME', 'aicentralv2')
-    app.config['DB_USER'] = os.getenv('DB_USER', 'postgres')
-    app.config['DB_PASSWORD'] = os.getenv('DB_PASSWORD', '')
-
-    # Configurações de Email
-    app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-    app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
-    app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True') == 'True'
-    app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False') == 'True'
-    app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
-
-    # Informações do projeto
-    app.config['PROJECT_NAME'] = os.getenv('PROJECT_NAME', 'AIcentralv2')
-    app.config['VERSION'] = os.getenv('VERSION', '2.0.0')
-
-    # Mostrar configurações carregadas
-    print("🔧 Configurações carregadas:")
-    print(f"📁 Base directory: {app.root_path}")
-    print(f"📁 Templates folder: {app.template_folder}")
-    print(f"📁 Static folder: {app.static_folder}")
-    print(f"🗄️  Database: {app.config['DB_NAME']}")
-    print(f"🖥️  Host: {app.config['DB_HOST']}:{app.config['DB_PORT']}")
-    print(f"👤 User: {app.config['DB_USER']}")
-    print(f"📧 Email: {app.config['MAIL_USERNAME']}")  # ← ADICIONAR ESTA LINHA
-    print("=" * 70)
-
-    # ==================== INICIALIZAR EXTENSÕES ====================
-    mail.init_app(app)  # ← MUDAR PARA init_app
-    print("✅ Flask-Mail inicializado!")
-    # ===============================================================
-
-    # Registrar funções de banco de dados
+    app.config.from_object(config_class)
+    
+    # Configurar logging
+    setup_logging(app)
+    
+    # Inicializar extensões
+    mail.init_app(app)
+    
+    # Importar e registrar funções de banco
     from . import db
+    
+    # Registrar teardown (fechar conexão)
     app.teardown_appcontext(db.close_db)
-
+    
     # Inicializar banco de dados
-    with app.app_context():
-        try:
-            db.init_db(app)
-            print("✅ Banco de dados inicializado!")
-        except Exception as e:
-            print(f"⚠️  Aviso ao inicializar banco: {e}")
-
-        # Criar admin padrão
-        try:
-            if db.criar_usuario_admin_padrao():
-                print("✅ Usuário admin padrão criado!")
-                print("   📧 Email: admin@admin.com")
-                print("   🔐 Senha: admin123")
-        except Exception as e:
-            print(f"⚠️  Aviso ao criar admin padrão: {e}")
-
-    # Inicializar rotas
+    try:
+        db.init_db(app)
+        app.logger.info("✅ Banco de dados inicializado")
+    except Exception as e:
+        app.logger.error(f"❌ Erro ao inicializar banco: {e}")
+    
+    # Importar e registrar rotas
     try:
         from . import routes
         routes.init_routes(app)
-        print("✅ Rotas registradas com sucesso!")
+        app.logger.info("✅ Rotas registradas")
     except Exception as e:
-        print(f"❌ Erro ao registrar rotas: {e}")
+        app.logger.error(f"❌ Erro ao registrar rotas: {e}")
         raise
-
+    
+    # Registrar comandos CLI
+    register_commands(app)
+    
+    app.logger.info("✅ Aplicação criada com sucesso")
+    
     return app
+
+
+def setup_logging(app):
+    """Configura sistema de logs"""
+    if not app.debug:
+        # Configurar handler para arquivo
+        if not os.path.exists('logs'):
+            os.mkdir('logs')
+        
+        file_handler = logging.FileHandler('logs/aicentral.log')
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+        
+        app.logger.setLevel(logging.INFO)
+        app.logger.info('✅ AIcentral v2 startup')
+
+
+def register_commands(app):
+    """Registra comandos CLI personalizados"""
+    
+    @app.cli.command('init-db')
+    def init_db_command():
+        """Inicializa o banco de dados"""
+        from . import db
+        db.init_db(app)
+        print('✅ Banco de dados inicializado!')
+    
+    @app.cli.command('check-db')
+    def check_db_command():
+        """Verifica conexão com banco de dados"""
+        from . import db
+        if db.check_db_connection():
+            print('✅ Conexão com banco OK!')
+        else:
+            print('❌ Falha na conexão com banco!')
+    
+    @app.cli.command('create-contact')
+    def create_contact_command():
+        """Cria um contato de teste"""
+        from . import db
+        from .db import get_db
+        
+        # Buscar primeiro cliente
+        conn = get_db()
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id_cliente FROM tbl_cliente LIMIT 1')
+            cliente = cursor.fetchone()
+            
+            if not cliente:
+                print('❌ Nenhum cliente encontrado! Crie um cliente primeiro.')
+                return
+            
+            id_cliente = cliente['id_cliente']
+        
+        # Criar contato
+        try:
+            contato_id = db.criar_contato(
+                nome_completo='Admin Teste',
+                email='admin@teste.com',
+                senha='admin123',
+                pk_id_tbl_cliente=id_cliente,
+                telefone='11999999999',
+                status=True
+            )
+            print(f'✅ Contato criado! ID: {contato_id}')
+            print(f'   Email: admin@teste.com')
+            print(f'   Senha: admin123')
+        except Exception as e:
+            print(f'❌ Erro: {e}')

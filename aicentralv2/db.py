@@ -1,245 +1,322 @@
 """
-Módulo de banco de dados - PostgreSQL
+=====================================================
+DATABASE CONNECTION - psycopg 3
+Gerenciamento de conexão com PostgreSQL
+=====================================================
 """
+
 import psycopg
 from psycopg.rows import dict_row
-from werkzeug.security import generate_password_hash, check_password_hash
 from flask import g, current_app
+import os
+import hashlib
+from datetime import datetime, timedelta
 
+
+# ==================== CONFIGURAÇÃO ====================
+
+def get_db_config():
+    """Retorna configuração do banco de dados"""
+    return {
+        'dbname': os.getenv('DB_NAME', 'aicentral_db'),
+        'user': os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('DB_PASSWORD', 'postgres'),
+        'host': os.getenv('DB_HOST', 'localhost'),
+        'port': os.getenv('DB_PORT', '5432'),
+        'row_factory': dict_row
+    }
+
+
+# ==================== CONEXÃO ====================
 
 def get_db():
     """
-    Retorna a conexão com o banco de dados
-    Usa g para manter a conexão durante o request
+    Obtém conexão com o banco de dados
+    Reutiliza conexão existente ou cria nova
     """
     if 'db' not in g:
-        # Construir URL de conexão a partir das configurações
-        db_config = current_app.config
-
-        DATABASE_URL = (
-            f"postgresql://"
-            f"{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@"
-            f"{db_config['DB_HOST']}:{db_config['DB_PORT']}/"
-            f"{db_config['DB_NAME']}"
-        )
-
-        g.db = psycopg.connect(
-            DATABASE_URL,
-            row_factory=dict_row,
-            autocommit=False
-        )
-
+        try:
+            config = get_db_config()
+            g.db = psycopg.connect(**config)
+            g.db.autocommit = False
+        except Exception as e:
+            current_app.logger.error(f"❌ Erro ao conectar ao banco: {e}")
+            raise
+    
     return g.db
 
 
 def close_db(e=None):
-    """
-    Fecha a conexão com o banco de dados
-    """
+    """Fecha a conexão com o banco de dados"""
     db = g.pop('db', None)
-
+    
     if db is not None:
-        db.close()
+        try:
+            if not db.closed:
+                db.rollback()
+                db.close()
+                current_app.logger.debug("✅ Conexão com banco fechada")
+        except Exception as ex:
+            current_app.logger.error(f"❌ Erro ao fechar conexão: {ex}")
 
 
 def init_db(app):
-    """
-    Inicializa o banco de dados
-    Cria as tabelas se não existirem
-    """
+    """Inicializa o banco de dados"""
     with app.app_context():
         conn = get_db()
 
         with conn.cursor() as cursor:
-            # Criar tabela de usuários
+            # Adicionar campos necessários
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(80) UNIQUE NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL,
-                    nome_completo VARCHAR(200) NOT NULL,
-                    email VARCHAR(120) UNIQUE NOT NULL,
-                    idade INTEGER NOT NULL,
-                    id_cliente INTEGER,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    is_admin BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    CONSTRAINT fk_users_cliente
-                        FOREIGN KEY (id_cliente)
-                        REFERENCES tbl_cliente (id_cliente)
-                        ON UPDATE NO ACTION
-                        ON DELETE SET NULL
-                )
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'status'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN status BOOLEAN DEFAULT TRUE;
+                    END IF;
+                END $$;
+            ''')
+            
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'reset_token'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN reset_token VARCHAR(100);
+                    END IF;
+                END $$;
+            ''')
+            
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'reset_token_expires'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN reset_token_expires TIMESTAMP;
+                    END IF;
+                END $$;
             ''')
 
             # Criar índices
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
-            ''')
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
-            ''')
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active)
-            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_email ON tbl_contato_cliente(email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_status ON tbl_contato_cliente(status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_reset_token ON tbl_contato_cliente(reset_token)')
 
         conn.commit()
+        app.logger.info("✅ Banco de dados inicializado")
 
 
-def criar_usuario_admin_padrao():
-    """
-    Cria um usuário admin padrão se não existir
-    Email: admin@admin.com
-    Senha: admin123
-    """
-    conn = get_db()
-
-    with conn.cursor() as cursor:
-        # Verificar se já existe algum admin
-        cursor.execute('SELECT COUNT(*) as total FROM users WHERE is_admin = TRUE')
-        resultado = cursor.fetchone()
-
-        if resultado['total'] == 0:
-            # Criar admin padrão
-            password_hash = generate_password_hash('admin123')
-
-            cursor.execute('''
-                INSERT INTO users 
-                    (username, password_hash, nome_completo, email, idade, is_active, is_admin)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ''', ('admin', password_hash, 'Administrador', 'admin@admin.com', 30, True, True))
-
-            conn.commit()
+def check_db_connection():
+    """Verifica se a conexão com o banco está funcionando"""
+    try:
+        conn = get_db()
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT 1')
             return True
+    except Exception as e:
+        current_app.logger.error(f"❌ Falha na conexão com banco: {e}")
+        return False
 
-    return False
+
+# ==================== FUNÇÕES AUXILIARES ====================
+
+def gerar_senha_md5(senha):
+    """Gera hash MD5 da senha"""
+    return hashlib.md5(senha.encode()).hexdigest()
 
 
-# ==================== FUNÇÕES DE AUTENTICAÇÃO ====================
+def verificar_senha_md5(senha, senha_md5):
+    """Verifica se senha bate com hash MD5"""
+    return gerar_senha_md5(senha) == senha_md5
+
+
+# ==================== AUTENTICAÇÃO ====================
 
 def verificar_credenciais(email, password):
-    """
-    Verifica as credenciais de login
-    Retorna o usuário se válido, None se inválido
-    """
+    """Verifica as credenciais de login"""
     conn = get_db()
 
     with conn.cursor() as cursor:
         cursor.execute('''
-            SELECT * FROM users 
-            WHERE email = %s AND is_active = TRUE
-        ''', (email,))
-
+            SELECT 
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.senha,
+                c.status,
+                c.id_centralx,
+                c.pk_id_tbl_cliente,
+                c.data_cadastro,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                cli.status as cliente_status
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE c.email = %s AND c.status = TRUE
+        ''', (email.lower().strip(),))
+        
         user = cursor.fetchone()
 
-        if user and check_password_hash(user['password_hash'], password):
+        if user and verificar_senha_md5(password, user['senha']):
             return user
 
     return None
 
 
-# ==================== FUNÇÕES DE USUÁRIOS ====================
+# ==================== CONTATOS - LISTAR ====================
 
-def obter_usuarios():
-    """
-    Retorna todos os usuários com informações do cliente vinculado
-    """
+def obter_contatos():
+    """Retorna todos os contatos com informações do cliente"""
     conn = get_db()
 
     with conn.cursor() as cursor:
         cursor.execute('''
             SELECT 
-                u.id,
-                u.username,
-                u.nome_completo,
-                u.email,
-                u.idade,
-                u.is_active,
-                u.is_admin,
-                u.created_at,
-                u.updated_at,
-                u.id_cliente,
-                c.nome_fantasia,
-                c.razao_social,
-                c.cnpj,
-                c.status as cliente_status
-            FROM users u
-            LEFT JOIN tbl_cliente c ON u.id_cliente = c.id_cliente
-            ORDER BY u.created_at DESC
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.status,
+                c.id_centralx,
+                c.pk_id_tbl_cliente,
+                c.data_cadastro,
+                c.data_modificacao,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                cli.status as cliente_status
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            ORDER BY c.data_cadastro DESC
         ''')
         return cursor.fetchall()
 
 
-def obter_usuario_por_id(user_id):
-    """
-    Retorna um usuário específico
-    """
-    conn = get_db()
-
-    with conn.cursor() as cursor:
-        cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))
-        return cursor.fetchone()
-
-
-def obter_usuario_por_id_com_cliente(user_id):
-    """
-    Retorna um usuário específico com informações do cliente
-    """
+def obter_contatos_ativos():
+    """Retorna apenas contatos ativos"""
     conn = get_db()
 
     with conn.cursor() as cursor:
         cursor.execute('''
             SELECT 
-                u.id,
-                u.username,
-                u.nome_completo,
-                u.email,
-                u.idade,
-                u.is_active,
-                u.is_admin,
-                u.created_at,
-                u.updated_at,
-                u.id_cliente,
-                c.nome_fantasia,
-                c.razao_social,
-                c.cnpj,
-                c.status as cliente_status
-            FROM users u
-            LEFT JOIN tbl_cliente c ON u.id_cliente = c.id_cliente
-            WHERE u.id = %s
-        ''', (user_id,))
-        return cursor.fetchone()
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.status,
+                c.pk_id_tbl_cliente,
+                cli.nome_fantasia,
+                cli.razao_social
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE c.status = TRUE AND cli.status = TRUE
+            ORDER BY c.nome_completo
+        ''')
+        return cursor.fetchall()
 
 
-def obter_usuario_por_email(email):
-    """
-    Retorna um usuário pelo email
-    """
+def obter_contato_por_id(contato_id):
+    """Retorna um contato específico"""
     conn = get_db()
 
     with conn.cursor() as cursor:
-        cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+        cursor.execute('''
+            SELECT 
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.status,
+                c.id_centralx,
+                c.pk_id_tbl_cliente,
+                c.data_cadastro,
+                c.data_modificacao,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                cli.status as cliente_status
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE c.id_contato_cliente = %s
+        ''', (contato_id,))
         return cursor.fetchone()
 
 
-def criar_usuario(username, password, nome, email, idade, id_cliente=None):
-    """
-    Cria um novo usuário com cliente vinculado
-    """
+def obter_contato_por_email(email):
+    """Retorna um contato pelo email"""
     conn = get_db()
-    password_hash = generate_password_hash(password)
+
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.senha,
+                c.status,
+                c.id_centralx,
+                c.pk_id_tbl_cliente,
+                c.data_cadastro,
+                c.data_modificacao,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE c.email = %s
+        ''', (email.lower().strip(),))
+        return cursor.fetchone()
+
+
+def obter_contatos_por_cliente(id_cliente):
+    """Retorna todos os contatos de um cliente específico"""
+    conn = get_db()
+
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                id_contato_cliente,
+                email,
+                nome_completo,
+                telefone,
+                status,
+                data_cadastro
+            FROM tbl_contato_cliente
+            WHERE pk_id_tbl_cliente = %s
+            ORDER BY nome_completo
+        ''', (id_cliente,))
+        return cursor.fetchall()
+
+
+# ==================== CONTATOS - CRIAR/ATUALIZAR ====================
+
+def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True):
+    """Cria um novo contato"""
+    conn = get_db()
+    senha_md5 = gerar_senha_md5(senha)
 
     try:
+        if email_existe(email):
+            raise ValueError('Email já cadastrado!')
+
         with conn.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO users 
-                    (username, password_hash, nome_completo, email, idade, id_cliente, is_active, is_admin)
-                VALUES (%s, %s, %s, %s, %s, %s, TRUE, FALSE)
-                RETURNING id
-            ''', (username, password_hash, nome, email, idade, id_cliente))
+                INSERT INTO tbl_contato_cliente 
+                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id_contato_cliente
+            ''', (nome_completo, email.lower().strip(), senha_md5, pk_id_tbl_cliente, telefone, id_centralx, status))
 
-            novo_id = cursor.fetchone()['id']
+            novo_id = cursor.fetchone()['id_contato_cliente']
 
         conn.commit()
         return novo_id
@@ -249,23 +326,68 @@ def criar_usuario(username, password, nome, email, idade, id_cliente=None):
         raise
 
 
-def atualizar_usuario(user_id, nome, email, idade, id_cliente=None):
-    """
-    Atualiza dados de um usuário
-    """
+def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl_cliente=None):
+    """Atualiza dados de um contato"""
+    conn = get_db()
+
+    try:
+        if email_existe(email, excluir_id=contato_id):
+            raise ValueError('Email já está sendo usado por outro contato!')
+
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET nome_completo = %s, 
+                    email = %s, 
+                    telefone = %s,
+                    pk_id_tbl_cliente = %s,
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (nome_completo, email.lower().strip(), telefone, pk_id_tbl_cliente, contato_id))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
+def atualizar_senha_contato(contato_id, nova_senha):
+    """Atualiza a senha de um contato"""
+    conn = get_db()
+    senha_md5 = gerar_senha_md5(nova_senha)
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET senha = %s, 
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (senha_md5, contato_id))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
+# ==================== RECUPERAÇÃO DE SENHA ====================
+
+def atualizar_reset_token(email, token, expires):
+    """Atualiza token de reset de senha"""
     conn = get_db()
 
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                UPDATE users
-                SET nome_completo = %s,
-                    email = %s,
-                    idade = %s,
-                    id_cliente = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            ''', (nome, email, idade, id_cliente, user_id))
+                UPDATE tbl_contato_cliente 
+                SET reset_token = %s, 
+                    reset_token_expires = %s,
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE email = %s
+            ''', (token, expires, email.lower().strip()))
 
         conn.commit()
 
@@ -274,195 +396,310 @@ def atualizar_usuario(user_id, nome, email, idade, id_cliente=None):
         raise
 
 
-def atualizar_senha(user_id, nova_senha):
-    """
-    Atualiza a senha de um usuário
-    """
-    conn = get_db()
-    password_hash = generate_password_hash(nova_senha)
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                UPDATE users
-                SET password_hash = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            ''', (password_hash, user_id))
-
-        conn.commit()
-
-    except Exception as e:
-        conn.rollback()
-        raise
-
-
-def alternar_status_usuario(user_id, novo_status):
-    """
-    Ativa ou desativa um usuário
-    """
-    conn = get_db()
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                UPDATE users
-                SET is_active = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            ''', (novo_status, user_id))
-
-        conn.commit()
-
-    except Exception as e:
-        conn.rollback()
-        raise
-
-
-def deletar_usuario(user_id):
-    """
-    Deleta permanentemente um usuário
-    """
-    conn = get_db()
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('DELETE FROM users WHERE id = %s', (user_id,))
-
-        conn.commit()
-
-    except Exception as e:
-        conn.rollback()
-        raise
-
-
-def gerar_username(nome_completo):
-    """
-    Gera um username único baseado no nome completo
-    """
-    import re
-    import random
-
-    # Pegar primeiro nome e remover caracteres especiais
-    primeiro_nome = nome_completo.split()[0].lower()
-    username_base = re.sub(r'[^a-z0-9]', '', primeiro_nome)
-
-    conn = get_db()
-
-    # Tentar username base
-    with conn.cursor() as cursor:
-        cursor.execute('SELECT COUNT(*) as total FROM users WHERE username = %s', (username_base,))
-        resultado = cursor.fetchone()
-
-        if resultado['total'] == 0:
-            return username_base
-
-    # Se já existe, adicionar número
-    for i in range(1, 1000):
-        username = f"{username_base}{i}"
-
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) as total FROM users WHERE username = %s', (username,))
-            resultado = cursor.fetchone()
-
-            if resultado['total'] == 0:
-                return username
-
-    # Se não conseguiu, usar random
-    username = f"{username_base}{random.randint(1000, 9999)}"
-    return username
-
-
-# ==================== FUNÇÕES DE CLIENTES ====================
-
-def obter_clientes_ativos():
-    """
-    Retorna todos os clientes ativos para seleção
-    """
+def buscar_contato_por_token(token):
+    """Busca contato por reset_token válido"""
     conn = get_db()
 
     with conn.cursor() as cursor:
         cursor.execute('''
             SELECT 
-                id_cliente,
-                nome_fantasia,
-                razao_social,
-                cnpj
-            FROM tbl_cliente
-            WHERE status = TRUE
-            ORDER BY nome_fantasia
-        ''')
-        return cursor.fetchall()
-    
-
-def buscar_usuario_por_email(email):
-    """
-    Busca usuário por email
-    Retorna o usuário se encontrado, None caso contrário
-    """
-    conn = get_db()
-    
-    with conn.cursor() as cursor:
-        cursor.execute('''
-            SELECT * FROM users 
-            WHERE email = %s
-        ''', (email,))
-        
-        user = cursor.fetchone()
-        return user
-    
-    return None
-
-
-def buscar_usuario_por_token(token):
-    """
-    Busca usuário por reset_token
-    Retorna o usuário se encontrado, None caso contrário
-    """
-    conn = get_db()
-    
-    with conn.cursor() as cursor:
-        cursor.execute('''
-            SELECT * FROM users 
-            WHERE reset_token = %s
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.status,
+                c.reset_token,
+                c.reset_token_expires,
+                c.pk_id_tbl_cliente,
+                cli.nome_fantasia
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE c.reset_token = %s 
+              AND c.reset_token_expires > NOW()
+              AND c.status = TRUE
         ''', (token,))
-        
-        user = cursor.fetchone()
-        return user
+        return cursor.fetchone()
+
+
+def limpar_reset_token(contato_id):
+    """Limpa token de reset após uso"""
+    conn = get_db()
     
-    return None
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET reset_token = NULL,
+                    reset_token_expires = NULL,
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (contato_id,))
+        
+        conn.commit()
+    
+    except Exception as e:
+        conn.rollback()
+        raise
 
 
-def atualizar_reset_token(email, token, expires):
-    """
-    Atualiza token de reset de senha do usuário
-    """
+# ==================== STATUS ====================
+
+def alternar_status_contato(contato_id):
+    """Alterna o status de um contato"""
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT status FROM tbl_contato_cliente WHERE id_contato_cliente = %s',
+                (contato_id,)
+            )
+            contato = cursor.fetchone()
+            
+            if not contato:
+                raise ValueError('Contato não encontrado!')
+            
+            novo_status = not contato['status']
+            
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET status = %s, 
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (novo_status, contato_id))
+
+        conn.commit()
+        return novo_status
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
+def ativar_contato(contato_id):
+    """Ativa um contato"""
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET status = TRUE, 
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (contato_id,))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
+def desativar_contato(contato_id):
+    """Desativa um contato"""
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET status = FALSE, 
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (contato_id,))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
+def deletar_contato(contato_id):
+    """Deleta permanentemente um contato"""
+    conn = get_db()
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
+# ==================== ESTATÍSTICAS ====================
+
+def contar_contatos_total():
+    """Retorna total de contatos"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) as total FROM tbl_contato_cliente')
+        return cursor.fetchone()['total']
+
+
+def contar_contatos_ativos():
+    """Retorna total de contatos ativos"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) as total FROM tbl_contato_cliente WHERE status = TRUE')
+        return cursor.fetchone()['total']
+
+
+def contar_contatos_inativos():
+    """Retorna total de contatos inativos"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) as total FROM tbl_contato_cliente WHERE status = FALSE')
+        return cursor.fetchone()['total']
+
+
+def contar_contatos_por_cliente(id_cliente):
+    """Retorna total de contatos de um cliente"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute(
+            'SELECT COUNT(*) as total FROM tbl_contato_cliente WHERE pk_id_tbl_cliente = %s',
+            (id_cliente,)
+        )
+        return cursor.fetchone()['total']
+
+
+def obter_estatisticas_contatos():
+    """Retorna estatísticas completas dos contatos"""
+    return {
+        'total': contar_contatos_total(),
+        'ativos': contar_contatos_ativos(),
+        'inativos': contar_contatos_inativos()
+    }
+
+
+# ==================== VALIDAÇÕES ====================
+
+def email_existe(email, excluir_id=None):
+    """Verifica se email já está cadastrado"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        if excluir_id:
+            cursor.execute(
+                'SELECT COUNT(*) as total FROM tbl_contato_cliente WHERE email = %s AND id_contato_cliente != %s',
+                (email.lower().strip(), excluir_id)
+            )
+        else:
+            cursor.execute(
+                'SELECT COUNT(*) as total FROM tbl_contato_cliente WHERE email = %s',
+                (email.lower().strip(),)
+            )
+        
+        return cursor.fetchone()['total'] > 0
+
+
+def validar_senha_atual(contato_id, senha_atual):
+    """Valida se a senha atual está correta"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('SELECT senha FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+        contato = cursor.fetchone()
+        
+        if not contato:
+            return False
+        
+        return verificar_senha_md5(senha_atual, contato['senha'])
+
+
+def validar_email_formato(email):
+    """Valida formato de email"""
+    import re
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
+# ==================== BUSCA E FILTROS ====================
+
+def buscar_contatos(termo):
+    """Busca contatos por nome ou email"""
     conn = get_db()
     
     with conn.cursor() as cursor:
         cursor.execute('''
-            UPDATE users 
-            SET reset_token = %s, 
-                reset_token_expires = %s
-            WHERE email = %s
-        ''', (token, expires, email))
-        
-        conn.commit()
+            SELECT 
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.status,
+                cli.nome_fantasia
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE c.nome_completo ILIKE %s OR c.email ILIKE %s
+            ORDER BY c.nome_completo
+        ''', (f'%{termo}%', f'%{termo}%'))
+        return cursor.fetchall()
 
 
-def atualizar_senha(user_id, nova_senha_hash):
-    """
-    Atualiza senha do usuário e limpa token de reset
-    """
+def filtrar_contatos(status=None, id_cliente=None):
+    """Filtra contatos por múltiplos critérios"""
     conn = get_db()
     
+    query = '''
+        SELECT 
+            c.id_contato_cliente,
+            c.email,
+            c.nome_completo,
+            c.telefone,
+            c.status,
+            c.pk_id_tbl_cliente,
+            c.data_cadastro,
+            cli.nome_fantasia,
+            cli.razao_social
+        FROM tbl_contato_cliente c
+        LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+        WHERE 1=1
+    '''
+    params = []
+    
+    if status is not None:
+        query += ' AND c.status = %s'
+        params.append(status)
+    
+    if id_cliente is not None:
+        query += ' AND c.pk_id_tbl_cliente = %s'
+        params.append(id_cliente)
+    
+    query += ' ORDER BY c.nome_completo'
+    
     with conn.cursor() as cursor:
-        cursor.execute('''
-            UPDATE users 
-            SET password_hash = %s, 
-                reset_token = NULL, 
-                reset_token_expires = NULL
-            WHERE id = %s
-        ''', (nova_senha_hash, user_id))
+        cursor.execute(query, params)
+        return cursor.fetchall()
+
+
+# ==================== PERFIL DO CONTATO ====================
+
+def atualizar_perfil(contato_id, nome_completo, email, telefone=None):
+    """Atualiza perfil do contato"""
+    return atualizar_contato(contato_id, nome_completo, email, telefone)
+
+
+def alterar_senha_com_validacao(contato_id, senha_atual, nova_senha):
+    """Altera senha validando a senha atual"""
+    try:
+        if not validar_senha_atual(contato_id, senha_atual):
+            return False, 'Senha atual incorreta!'
         
-        conn.commit()
+        if len(nova_senha) < 6:
+            return False, 'Nova senha deve ter no mínimo 6 caracteres!'
+        
+        atualizar_senha_contato(contato_id, nova_senha)
+        
+        return True, 'Senha alterada com sucesso!'
+    
+    except Exception as e:
+        return False, f'Erro ao alterar senha: {str(e)}'

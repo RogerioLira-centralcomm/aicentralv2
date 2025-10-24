@@ -1,360 +1,241 @@
-// Inspirational quotes from great entrepreneurs
-const inspirationalQuotes = [
-    {
-        text: "A inovação distingue um líder de um seguidor.",
-        author: "Steve Jobs"
-    },
-    {
-        text: "O sucesso é ir de fracasso em fracasso sem perder o entusiasmo.",
-        author: "Winston Churchill"
-    },
-    {
-        text: "Sua única limitação é você mesmo.",
-        author: "Henry Ford"
-    },
-    {
-        text: "O futuro pertence àqueles que acreditam na beleza de seus sonhos.",
-        author: "Eleanor Roosevelt"
-    },
-    {
-        text: "A persistência é o caminho do êxito.",
-        author: "Charles Chaplin"
-    },
-    {
-        text: "Não tenha medo de desistir do bom para buscar o ótimo.",
-        author: "John D. Rockefeller"
-    },
-    {
-        text: "A comunicação eficaz é 20% do que você sabe e 80% de como você se sente sobre o que sabe.",
-        author: "Jim Rohn"
-    },
-    {
-        text: "O segredo da mudança é focar toda sua energia não em lutar contra o velho, mas em construir o novo.",
-        author: "Sócrates"
-    }
-];
+/**
+ * =====================================================
+ * LOGIN - JavaScript
+ * Validação e funcionalidades da página de login
+ * =====================================================
+ */
 
-// Background images for hero section
-const backgroundImages = [
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    'https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    'https://images.unsplash.com/photo-1462332420958-a05d1e002413?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    'https://images.unsplash.com/photo-1446776877081-d282a0f896e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
-];
+'use strict';
 
-let currentQuoteIndex = 0;
-let currentBackgroundIndex = 0;
+// Elementos do DOM
+let loginForm;
+let emailInput;
+let passwordInput;
+let submitBtn;
+let loadingOverlay;
 
+// Inicializar quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', function() {
-    const loginForm = document.getElementById('loginForm');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-
-    // Initialize hero section
-    initializeHeroSection();
+    console.log('✅ Login JS carregado');
     
-    // Load saved email if remember me was checked
-    loadSavedCredentials();
-
-    // Form submission handler
-    loginForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(loginForm);
-        const loginData = {
-            email: formData.get('email'),
-            password: formData.get('password'),
-            remember: formData.get('remember') === 'on'
-        };
-
-        // Basic validation
-        if (!validateForm(loginData)) {
-            return;
-        }
-
-        try {
-            showLoading(true);
-            
-            // Simulate API call
-            await simulateLogin(loginData);
-            
-            // Save credentials if remember me is checked
-            if (loginData.remember) {
-                saveCredentials(loginData.email);
-            } else {
-                clearSavedCredentials();
-            }
-            
-            // Redirect to dashboard
-            showSuccess('Acesso autorizado! Redirecionando...');
-            setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 1500);
-            
-        } catch (error) {
-            showError(error.message);
-        } finally {
-            showLoading(false);
-        }
-    });
-
-    // Animate form elements on load
-    animateFormElements();
+    initElements();
+    initFormValidation();
+    initFlashMessages();
+    loadRememberedCredentials();
 });
 
-function initializeHeroSection() {
-    // Set initial background
-    changeBackground();
-    
-    // Set initial quote
-    changeQuote();
-    
-    // Animate features
-    setTimeout(() => {
-        const features = document.querySelectorAll('.feature');
-        features.forEach((feature, index) => {
-            setTimeout(() => {
-                feature.classList.add('animate');
-            }, index * 200);
-        });
-    }, 1000);
-    
-    // Change background every 10 seconds
-    setInterval(changeBackground, 10000);
-    
-    // Change quote every 8 seconds
-    setInterval(changeQuote, 8000);
+/**
+ * Inicializa elementos do DOM
+ */
+function initElements() {
+    loginForm = document.getElementById('loginForm');
+    emailInput = document.getElementById('email');
+    passwordInput = document.getElementById('password');
+    submitBtn = document.getElementById('submitBtn');
+    loadingOverlay = document.getElementById('loadingOverlay');
 }
 
-function changeBackground() {
-    const heroBackground = document.getElementById('heroBackground');
-    const newImage = backgroundImages[currentBackgroundIndex];
+/**
+ * Inicializa validação do formulário
+ */
+function initFormValidation() {
+    if (!loginForm) return;
     
-    heroBackground.style.backgroundImage = `url('${newImage}')`;
-    currentBackgroundIndex = (currentBackgroundIndex + 1) % backgroundImages.length;
-}
-
-function changeQuote() {
-    const quoteText = document.getElementById('quoteText');
-    const quoteAuthor = document.getElementById('quoteAuthor');
-    const currentQuote = inspirationalQuotes[currentQuoteIndex];
-    
-    // Fade out current quote
-    quoteText.classList.remove('active');
-    quoteAuthor.classList.remove('active');
-    
-    setTimeout(() => {
-        // Change text
-        quoteText.textContent = `"${currentQuote.text}"`;
-        quoteAuthor.textContent = currentQuote.author;
+    // Validação no submit
+    loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
         
-        // Fade in new quote
-        quoteText.classList.add('active');
-        quoteAuthor.classList.add('active');
+        // Limpar erros anteriores
+        clearErrors();
         
-        currentQuoteIndex = (currentQuoteIndex + 1) % inspirationalQuotes.length;
-    }, 400);
-}
-
-function animateFormElements() {
-    const elements = document.querySelectorAll('.login-form-container > *');
-    elements.forEach((element, index) => {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(20px)';
+        // Validar campos
+        let isValid = true;
         
-        setTimeout(() => {
-            element.style.transition = 'all 0.6s ease';
-            element.style.opacity = '1';
-            element.style.transform = 'translateY(0)';
-        }, index * 100 + 500);
+        // Validar email
+        const email = emailInput.value.trim();
+        if (!email) {
+            showError('email', 'Email é obrigatório');
+            isValid = false;
+        } else if (!isValidEmail(email)) {
+            showError('email', 'Email inválido');
+            isValid = false;
+        }
+        
+        // Validar senha
+        const password = passwordInput.value;
+        if (!password) {
+            showError('password', 'Senha é obrigatória');
+            isValid = false;
+        } else if (password.length < 6) {
+            showError('password', 'Senha deve ter no mínimo 6 caracteres');
+            isValid = false;
+        }
+        
+        // Se válido, enviar
+        if (isValid) {
+            showLoading();
+            saveCredentials();
+            this.submit();
+        }
     });
+    
+    // Limpar erro ao digitar
+    emailInput.addEventListener('input', () => clearFieldError('email'));
+    passwordInput.addEventListener('input', () => clearFieldError('password'));
 }
 
+/**
+ * Valida formato de email
+ */
+function isValidEmail(email) {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+}
+
+/**
+ * Mostra erro em campo
+ */
+function showError(field, message) {
+    const errorElement = document.getElementById(`${field}Error`);
+    const inputGroup = document.querySelector(`#${field}`).closest('.input-group');
+    
+    if (errorElement) {
+        errorElement.textContent = message;
+    }
+    
+    if (inputGroup) {
+        inputGroup.classList.add('has-error');
+    }
+}
+
+/**
+ * Limpa erro de campo específico
+ */
+function clearFieldError(field) {
+    const errorElement = document.getElementById(`${field}Error`);
+    const inputGroup = document.querySelector(`#${field}`).closest('.input-group');
+    
+    if (errorElement) {
+        errorElement.textContent = '';
+    }
+    
+    if (inputGroup) {
+        inputGroup.classList.remove('has-error');
+    }
+}
+
+/**
+ * Limpa todos os erros
+ */
+function clearErrors() {
+    const errorElements = document.querySelectorAll('.input-error');
+    errorElements.forEach(el => el.textContent = '');
+    
+    const inputGroups = document.querySelectorAll('.input-group');
+    inputGroups.forEach(group => group.classList.remove('has-error'));
+}
+
+/**
+ * Mostra overlay de loading
+ */
+function showLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('active');
+    }
+    
+    if (submitBtn) {
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+    }
+}
+
+/**
+ * Esconde overlay de loading
+ */
+function hideLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.remove('active');
+    }
+    
+    if (submitBtn) {
+        submitBtn.classList.remove('loading');
+        submitBtn.disabled = false;
+    }
+}
+
+/**
+ * Toggle visibilidade da senha
+ */
 function togglePassword() {
-    const passwordInput = document.getElementById('password');
-    const toggleBtn = document.querySelector('.toggle-password i');
+    const toggleIcon = document.getElementById('toggleIcon');
     
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        toggleBtn.classList.remove('fa-eye');
-        toggleBtn.classList.add('fa-eye-slash');
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
     } else {
         passwordInput.type = 'password';
-        toggleBtn.classList.remove('fa-eye-slash');
-        toggleBtn.classList.add('fa-eye');
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
     }
 }
 
-function validateForm(data) {
-    const { email, password } = data;
+/**
+ * Salva credenciais se "lembrar" estiver marcado
+ */
+function saveCredentials() {
+    const rememberCheckbox = document.getElementById('remember');
     
-    // Email validation - check if it's a CentralComm email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        showError('Por favor, insira um email corporativo válido.');
-        return false;
-    }
-    
-    // Password validation
-    if (password.length < 6) {
-        showError('A senha deve ter pelo menos 6 caracteres.');
-        return false;
-    }
-    
-    return true;
-}
-
-async function simulateLogin(data) {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Simulate authentication with CentralComm credentials
-    const validEmails = [
-        'admin@centralcomm.com',
-        'suporte@centralcomm.com',
-        'operador@centralcomm.com',
-        'supervisor@centralcomm.com'
-    ];
-    
-    if (validEmails.includes(data.email.toLowerCase()) && data.password === 'centralcomm2024') {
-        return { success: true, user: { email: data.email, name: 'Usuário CentralComm' } };
+    if (rememberCheckbox && rememberCheckbox.checked) {
+        localStorage.setItem('rememberedEmail', emailInput.value.trim());
     } else {
-        throw new Error('Credenciais inválidas. Verifique email e senha corporativos.');
+        localStorage.removeItem('rememberedEmail');
     }
 }
 
-function showLoading(show) {
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    loadingOverlay.style.display = show ? 'flex' : 'none';
-}
-
-function showError(message) {
-    showNotification(message, 'error');
-}
-
-function showSuccess(message) {
-    showNotification(message, 'success');
-}
-
-function showNotification(message, type) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
-        <span>${message}</span>
-    `;
+/**
+ * Carrega credenciais salvas
+ */
+function loadRememberedCredentials() {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
     
-    // Add styles
-    Object.assign(notification.style, {
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        padding: '1rem 1.5rem',
-        borderRadius: '12px',
-        color: 'white',
-        fontWeight: '500',
-        zIndex: '10000',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        minWidth: '300px',
-        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-        background: type === 'error' ? '#e74c3c' : '#27ae60',
-        transform: 'translateX(400px)',
-        transition: 'transform 0.3s ease',
-        backdropFilter: 'blur(10px)'
-    });
-    
-    document.body.appendChild(notification);
-    
-    // Animate in
-    setTimeout(() => {
-        notification.style.transform = 'translateX(0)';
-    }, 100);
-    
-    // Remove after delay
-    setTimeout(() => {
-        notification.style.transform = 'translateX(400px)';
-        setTimeout(() => {
-            if (document.body.contains(notification)) {
-                document.body.removeChild(notification);
-            }
-        }, 300);
-    }, 4000);
-}
-
-function saveCredentials(email) {
-    localStorage.setItem('centralcommEmail', email);
-    localStorage.setItem('centralcommRemember', 'true');
-}
-
-function loadSavedCredentials() {
-    const rememberedEmail = localStorage.getItem('centralcommEmail');
-    const rememberMe = localStorage.getItem('centralcommRemember') === 'true';
-    
-    if (rememberMe && rememberedEmail) {
-        document.getElementById('email').value = rememberedEmail;
+    if (rememberedEmail) {
+        emailInput.value = rememberedEmail;
         document.getElementById('remember').checked = true;
     }
 }
 
-function clearSavedCredentials() {
-    localStorage.removeItem('centralcommEmail');
-    localStorage.removeItem('centralcommRemember');
-}
-
-function openWhatsAppSupport() {
-    const phoneNumber = '5511999999999'; // Replace with actual IT support number
-    const message = encodeURIComponent('Olá! Preciso de suporte técnico para acesso ao CentralComm Hub.');
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+/**
+ * Inicializa flash messages (auto-close)
+ */
+function initFlashMessages() {
+    const flashMessages = document.querySelectorAll('.flash-message');
     
-    window.open(whatsappUrl, '_blank');
-}
-
-// Social login handlers
-document.addEventListener('DOMContentLoaded', function() {
-    const googleBtn = document.querySelector('.social-btn.google');
-    const microsoftBtn = document.querySelector('.social-btn.microsoft');
-    
-    if (googleBtn) {
-        googleBtn.addEventListener('click', handleGoogleLogin);
-    }
-    
-    if (microsoftBtn) {
-        microsoftBtn.addEventListener('click', handleMicrosoftLogin);
-    }
-});
-
-function handleGoogleLogin() {
-    showNotification('Redirecionando para login do Google...', 'success');
-    // Implement Google OAuth integration here
-    setTimeout(() => {
-        console.log('Google login would be implemented here');
-    }, 1000);
-}
-
-function handleMicrosoftLogin() {
-    showNotification('Redirecionando para login da Microsoft...', 'success');
-    // Implement Microsoft OAuth integration here
-    setTimeout(() => {
-        console.log('Microsoft login would be implemented here');
-    }, 1000);
-}
-
-// Add smooth scrolling and additional animations
-window.addEventListener('load', function() {
-    // Animate elements on load
-    const elements = document.querySelectorAll('.login-form-container > *');
-    elements.forEach((element, index) => {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            element.style.transition = 'all 0.6s ease';
-            element.style.opacity = '1';
-            element.style.transform = 'translateY(0)';
-        }, index * 100);
+    flashMessages.forEach(message => {
+        // Auto-close após 5 segundos (exceto erros)
+        const category = message.dataset.category;
+        if (category !== 'error') {
+            setTimeout(() => {
+                message.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => message.remove(), 300);
+            }, 5000);
+        }
     });
-});
+}
+
+/**
+ * Abre WhatsApp para suporte
+ */
+function openWhatsAppSupport() {
+    const phoneNumber = '5511999999999'; // Ajuste o número
+    const message = encodeURIComponent('Olá! Preciso de ajuda com o login no CentralComm AI.');
+    const url = `https://wa.me/${phoneNumber}?text=${message}`;
+    
+    window.open(url, '_blank');
+}
+
+// Expor funções globais
+window.togglePassword = togglePassword;
+window.openWhatsAppSupport = openWhatsAppSupport;
+
+console.log('%c✨ Login Ready', 'color: #667eea; font-weight: bold;');

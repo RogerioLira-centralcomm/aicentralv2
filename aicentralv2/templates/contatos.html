@@ -59,75 +59,189 @@
                 </div>
             </div>
 
-            <!-- Table -->
-            <div class="overflow-x-auto">
-                <table id="contatosTable" class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Nome</th>
-                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Email</th>
-                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Telefone</th>
-                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Cliente</th>
-                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Status</th>
-                            <th class="py-3 px-4 text-center text-sm font-semibold text-text-primary border-b border-border">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        {% for contato in contatos %}
-                        <tr class="hover:bg-gray-50 transition-colors duration-150">
-                            <td class="py-3 px-4 text-sm"><strong>{{ contato.nome_completo }}</strong></td>
-                            <td class="py-3 px-4 text-sm">
-                                <a href="mailto:{{ contato.email }}" class="text-primary hover:text-primary-light">
-                                    {{ contato.email }}
-                                </a>
-                            </td>
-                            <td class="py-3 px-4 text-sm">{{ contato.telefone or '-' }}</td>
-                            <td class="py-3 px-4 text-sm">{{ contato.nome_fantasia }}</td>
-                            <td class="py-3 px-4 text-sm">
-                                {% if contato.status %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <i class="fas fa-check-circle mr-1"></i> Ativo
-                                    </span>
-                                {% else %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                        <i class="fas fa-times-circle mr-1"></i> Inativo
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td class="py-3 px-4 text-center">
-                                <div class="flex items-center justify-center gap-2">
-                                    <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
-                                       class="inline-flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors duration-200" 
-                                       title="Editar">
-                                        <i class="fas fa-edit text-sm"></i>
+            <!-- Table Container -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="overflow-x-auto">
+                    <table id="contatosTable" class="w-full">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200">
+                                <th class="py-4 px-6 text-left">
+                                    <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
+                                        <span>Nome</span>
+                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="nome">
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </th>
+                                <th class="py-4 px-6 text-left">
+                                    <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
+                                        <span>Email</span>
+                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="email">
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </th>
+                                <th class="py-4 px-6 text-left">
+                                    <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
+                                        <span>Telefone</span>
+                                    </div>
+                                </th>
+                                <th class="py-4 px-6 text-left">
+                                    <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
+                                        <span>Cliente</span>
+                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="cliente">
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </th>
+                                <th class="py-4 px-6 text-left">
+                                    <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
+                                        <span>Status</span>
+                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="status">
+                                            <i class="fas fa-sort text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </th>
+                                <th class="py-4 px-6 text-center">
+                                    <span class="text-sm font-semibold text-gray-600">Ações</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for contato in contatos %}
+                            <tr class="group hover:bg-gray-50 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center">
+                                        <div class="h-10 w-10 flex-shrink-0 mr-3">
+                                            <div class="h-full w-full rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                                                {{ contato.nome_completo[:2].upper() }}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">{{ contato.nome_completo }}</div>
+                                            <div class="text-gray-500 text-sm">ID: {{ contato.id_contato_cliente }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <a href="mailto:{{ contato.email }}" class="group/email relative text-primary hover:text-primary-dark">
+                                        <span class="flex items-center">
+                                            <i class="fas fa-envelope mr-2 opacity-75"></i>
+                                            {{ contato.email }}
+                                        </span>
+                                        <div class="absolute bottom-full left-0 mb-2 hidden group-hover/email:block">
+                                            <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 text-center whitespace-nowrap">
+                                                Enviar email
+                                            </div>
+                                        </div>
                                     </a>
-                                    
-                                    <form method="POST" 
-                                          action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
-                                          class="inline-block">
-                                        <button type="submit" 
-                                                class="inline-flex items-center justify-center w-8 h-8 {% if contato.status %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded transition-colors duration-200"
-                                                title="{% if contato.status %}Desativar{% else %}Ativar{% endif %}">
-                                            <i class="fas fa-{% if contato.status %}ban{% else %}check{% endif %} text-sm"></i>
-                                        </button>
-                                    </form>
-                                    
-                                    <form method="POST" 
-                                          action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" 
-                                          class="inline-block"
-                                          onsubmit="return confirm('Tem certeza que deseja deletar este contato?');">
-                                        <button type="submit" 
-                                                class="inline-flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded hover:bg-red-600 transition-colors duration-200" 
-                                                title="Deletar">
-                                            <i class="fas fa-trash text-sm"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <a href="tel:{{ contato.telefone }}" class="group/tel relative text-gray-600 hover:text-gray-900">
+                                        <span class="flex items-center">
+                                            <i class="fas fa-phone mr-2 opacity-75"></i>
+                                            {{ contato.telefone or '-' }}
+                                        </span>
+                                        {% if contato.telefone %}
+                                        <div class="absolute bottom-full left-0 mb-2 hidden group-hover/tel:block">
+                                            <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 text-center whitespace-nowrap">
+                                                Ligar para contato
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </a>
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-lg bg-gray-100 text-gray-800">
+                                            <i class="fas fa-building mr-2 opacity-75"></i>
+                                            {{ contato.nome_fantasia }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-6">
+                                    {% if contato.status %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                                            <span class="w-2 h-2 rounded-full bg-green-400 mr-2"></span>
+                                            Ativo
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+                                            <span class="w-2 h-2 rounded-full bg-red-400 mr-2"></span>
+                                            Inativo
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center justify-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity duration-200">
+                                        <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
+                                           class="relative group/edit">
+                                            <div class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all duration-200">
+                                                <i class="fas fa-edit"></i>
+                                            </div>
+                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/edit:block">
+                                                <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 text-center whitespace-nowrap">
+                                                    Editar contato
+                                                </div>
+                                            </div>
+                                        </a>
+                                        
+                                        <form method="POST" 
+                                              action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
+                                              class="inline-block">
+                                            <div class="relative group/status">
+                                                <button type="submit" 
+                                                        class="p-2 rounded-lg {% if contato.status %}bg-orange-50 text-orange-600 hover:bg-orange-100{% else %}bg-green-50 text-green-600 hover:bg-green-100{% endif %} transition-all duration-200">
+                                                    <i class="fas fa-{% if contato.status %}ban{% else %}check{% endif %}"></i>
+                                                </button>
+                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/status:block">
+                                                    <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 text-center whitespace-nowrap">
+                                                        {% if contato.status %}Desativar{% else %}Ativar{% endif %} contato
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </form>
+                                        
+                                        <form method="POST" 
+                                              action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" 
+                                              class="inline-block"
+                                              onsubmit="return confirm('Tem certeza que deseja deletar este contato?');">
+                                            <div class="relative group/delete">
+                                                <button type="submit" 
+                                                        class="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-all duration-200">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/delete:block">
+                                                    <div class="bg-gray-900 text-white text-xs rounded py-1 px-2 text-center whitespace-nowrap">
+                                                        Deletar contato
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Table Footer with Pagination -->
+                <div class="border-t border-gray-200 px-6 py-3 flex items-center justify-between bg-gray-50/50">
+                    <div class="flex items-center text-sm text-gray-500">
+                        <span>Mostrando <span id="showing-start">1</span>-<span id="showing-end">{{ contatos|length }}</span> de <span id="total-items">{{ contatos|length }}</span> resultados</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="prev-page" class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
+                            <i class="fas fa-chevron-left mr-1"></i>
+                            Anterior
+                        </button>
+                        <button id="next-page" class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
+                            Próximo
+                            <i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- No Results Message -->

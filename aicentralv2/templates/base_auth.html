@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CentralComm AI{% endblock %}</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configuração do Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    // Paleta de Cores Semântica
+                    colors: {
+                        // Cor Primária
+                        primary: {
+                            DEFAULT: '#1E4D4F', // Verde Corporativo
+                            light: '#2A6D70',
+                            dark: '#153638',
+                        },
+                        // Acentos do Logo
+                        accent: {
+                            green: '#9CCF31',
+                            yellow: '#F3B71B',
+                        },
+                        // Cores Semânticas de UI
+                        success: '#28A745',
+                        warning: '#FFC107',
+                        error: '#DC3545',
+                        // UI Neutras
+                        surface: {
+                            bg: '#F8F9FA',      // Fundo da Tela (ex: body)
+                            element: '#FFFFFF', // Fundo de Cards, Modais, Inputs
+                        },
+                        border: {
+                            DEFAULT: '#DEE2E6',  // Bordas e divisores
+                        },
+                        // Cores de Texto
+                        text: {
+                            primary: '#212529',   // Texto Principal (Preto suave)
+                            secondary: '#6C757D', // Texto Secundário (Cinza)
+                        },
+                    },
+                    // Tipografia
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    // Escala de Fonte
+                    fontSize: {
+                        'xs': ['0.75rem', { lineHeight: '1rem' }],    // 12px (Info)
+                        'sm': ['0.875rem', { lineHeight: '1.25rem' }], // 14px (Label)
+                        'base': ['1rem', { lineHeight: '1.5rem' }],     // 16px (Body)
+                        'lg': ['1.125rem', { lineHeight: '1.75rem' }],// 18px (H3)
+                        '2xl': ['1.5rem', { lineHeight: '2rem' }],    // 24px (H2)
+                        '3xl': ['2rem', { lineHeight: '2.5rem' }],    // 32px (H1)
+                    },
+                    // Espaçamento de Letras Específico
+                    letterSpacing: {
+                        'h1': '-1px',
+                        'h2': '-0.5px',
+                        'label': '0.2px',
+                        'info': '0.3px',
+                    },
+                    // Sombra (Box Shadow) para Cards
+                    boxShadow: {
+                        'card': '0px 4px 12px rgba(0, 0, 0, 0.04)',
+                        'card-hover': '0px 8px 24px rgba(0, 0, 0, 0.08)',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Estilos CSS customizados -->
+    <style>
+        :root {
+            --color-primary: #1E4D4F;
+            --color-primary-light: #2A6D70;
+            --color-primary-dark: #153638;
+            --color-accent: #9CCF31;
+            --color-secondary: #F3B71B;
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+    
+    <!-- Estilos específicos da página -->
+    {% block styles %}{% endblock %}
+</head>
+<body class="bg-surface-bg font-sans text-text-primary">
+    <!-- Conteúdo principal -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Scripts globais -->
+    <script>
+        // Função para fechar mensagens flash
+        function closeFlashMessage(element) {
+            element.parentElement.remove();
+        }
+    </script>
+    
+    <!-- Scripts específicos da página -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>

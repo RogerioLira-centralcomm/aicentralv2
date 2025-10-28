@@ -1,158 +1,213 @@
+{% extends 'base_tailwind.html' %}
 
-    {% extends 'base_tailwind.html' %}
+{% block title %}Contatos - CentralComm AI{% endblock %}
 
-    {% block title %}Contatos{% endblock %}
+{% block content %}
+<div class="p-6">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-6 space-y-2">
+                {% for category, message in messages %}
+                    <div class="flex items-center p-4 rounded-lg shadow-md {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                        <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} mr-3"></i>
+                        <span class="flex-1">{{ message }}</span>
+                        <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
-    {% block content %}
-    <div class="container mx-auto p-4">
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">
-                            {% if category == 'error' %}
-                                <i class="fas fa-exclamation-circle"></i>
-                            {% elif category == 'success' %}
-                                <i class="fas fa-check-circle"></i>
-                            {% elif category == 'warning' %}
-                                <i class="fas fa-exclamation-triangle"></i>
-                            {% elif category == 'info' %}
-                                <i class="fas fa-info-circle"></i>
-                            {% endif %}
-                            <span>{{ message }}</span>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-
-        <!-- Header -->
-        <div class="header mb-4">
-            <h1 class="text-3xl font-bold">
-                <i class="fas fa-users"></i>
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center justify-between">
+            <h1 class="text-3xl font-bold text-text-primary flex items-center">
+                <i class="fas fa-users text-primary mr-3"></i>
                 Contatos
             </h1>
-            <div class="header-actions mt-2">
-                <a href="{{ url_for('contato_novo') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i>
+            <div class="flex gap-3">
+                <a href="{{ url_for('contato_novo') }}" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
+                    <i class="fas fa-plus mr-2"></i>
                     Novo Contato
                 </a>
-                <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i>
+                <a href="{{ url_for('index') }}" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
+                    <i class="fas fa-arrow-left mr-2"></i>
                     Voltar
                 </a>
             </div>
         </div>
+    </div>
 
-        <!-- Content -->
-        <div class="content">
-            {% if contatos %}
-                <!-- Search Box -->
-                <div class="search-box mb-4">
-                    <i class="fas fa-search search-icon"></i>
+    <!-- Content -->
+    <div class="bg-white rounded-lg shadow-card">
+        {% if contatos %}
+            <!-- Search Box -->
+            <div class="p-4 border-b border-border">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     <input 
                         type="text" 
                         id="searchInput" 
-                        class="search-input" 
+                        class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
                         placeholder="Pesquisar por Nome Completo..."
                         autocomplete="off"
                     >
-                    <span class="search-results" id="searchResults"></span>
+                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500" id="searchResults"></span>
                 </div>
+            </div>
 
-                <table id="contatosTable" class="min-w-full bg-white border border-gray-200">
-                    <thead>
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table id="contatosTable" class="w-full">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="py-2 px-4 border-b-2">Nome</th>
-                            <th class="py-2 px-4 border-b-2">Email</th>
-                            <th class="py-2 px-4 border-b-2">Telefone</th>
-                            <th class="py-2 px-4 border-b-2">Cliente</th>
-                            <th class="py-2 px-4 border-b-2">Status</th>
-                            <th class="py-2 px-4 border-b-2" style="text-align: center;">Ações</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Nome</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Email</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Telefone</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Cliente</th>
+                            <th class="py-3 px-4 text-left text-sm font-semibold text-text-primary border-b border-border">Status</th>
+                            <th class="py-3 px-4 text-center text-sm font-semibold text-text-primary border-b border-border">Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-border">
                         {% for contato in contatos %}
-                        <tr>
-                            <td class="py-2 px-4 border-b" data-label="Nome"><strong>{{ contato.nome_completo }}</strong></td>
-                            <td class="py-2 px-4 border-b" data-label="Email"><a href="mailto:{{ contato.email }}">{{ contato.email }}</a></td>
-                            <td class="py-2 px-4 border-b" data-label="Telefone">{{ contato.telefone or '-' }}</td>
-                            <td class="py-2 px-4 border-b" data-label="Cliente">{{ contato.nome_fantasia }}</td>
-                            <td class="py-2 px-4 border-b" data-label="Status">
+                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                            <td class="py-3 px-4 text-sm"><strong>{{ contato.nome_completo }}</strong></td>
+                            <td class="py-3 px-4 text-sm">
+                                <a href="mailto:{{ contato.email }}" class="text-primary hover:text-primary-light">
+                                    {{ contato.email }}
+                                </a>
+                            </td>
+                            <td class="py-3 px-4 text-sm">{{ contato.telefone or '-' }}</td>
+                            <td class="py-3 px-4 text-sm">{{ contato.nome_fantasia }}</td>
+                            <td class="py-3 px-4 text-sm">
                                 {% if contato.status %}
-                                    <span class="badge badge-active">
-                                        <i class="fas fa-check-circle"></i> Ativo
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i> Ativo
                                     </span>
                                 {% else %}
-                                    <span class="badge badge-inactive">
-                                        <i class="fas fa-times-circle"></i> Inativo
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i class="fas fa-times-circle mr-1"></i> Inativo
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="py-2 px-4 border-b" data-label="Ações" style="text-align: center;">
-                                <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
-                                   class="btn btn-sm btn-edit" 
-                                   title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                
-                                <form method="POST" 
-                                      action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
-                                      style="display: inline;">
-                                    <button type="submit" 
-                                            class="btn btn-sm {% if contato.status %}btn-danger{% else %}btn-success{% endif %}"
-                                            title="{% if contato.status %}Desativar{% else %}Ativar{% endif %}">
-                                        <i class="fas fa-{% if contato.status %}ban{% else %}check{% endif %}"></i>
-                                    </button>
-                                </form>
-                                
-                                <form method="POST" 
-                                      action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" 
-                                      style="display: inline;">
-                                    <button type="submit" 
-                                            class="btn btn-sm btn-danger" 
-                                            title="Deletar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
+                            <td class="py-3 px-4 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
+                                       class="inline-flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors duration-200" 
+                                       title="Editar">
+                                        <i class="fas fa-edit text-sm"></i>
+                                    </a>
+                                    
+                                    <form method="POST" 
+                                          action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
+                                          class="inline-block">
+                                        <button type="submit" 
+                                                class="inline-flex items-center justify-center w-8 h-8 {% if contato.status %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded transition-colors duration-200"
+                                                title="{% if contato.status %}Desativar{% else %}Ativar{% endif %}">
+                                            <i class="fas fa-{% if contato.status %}ban{% else %}check{% endif %} text-sm"></i>
+                                        </button>
+                                    </form>
+                                    
+                                    <form method="POST" 
+                                          action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" 
+                                          class="inline-block"
+                                          onsubmit="return confirm('Tem certeza que deseja deletar este contato?');">
+                                        <button type="submit" 
+                                                class="inline-flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded hover:bg-red-600 transition-colors duration-200" 
+                                                title="Deletar">
+                                            <i class="fas fa-trash text-sm"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
 
-                <!-- No Results Message -->
-                <div class="no-results" id="noResults" style="display: none;">
-                    <i class="fas fa-search"></i>
-                    <p>Nenhum contato encontrado com esse termo de pesquisa.</p>
-                    <button onclick="clearSearch()" class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
-                        Limpar Pesquisa
-                    </button>
-                </div>
-            {% else %}
-                <div class="empty-state text-center py-10">
-                    <i class="fas fa-inbox fa-3x mb-4"></i>
-                    <p class="text-lg">Nenhum contato cadastrado</p>
-                    <a href="{{ url_for('contato_novo') }}" class="btn btn-primary mt-4">
-                        <i class="fas fa-plus"></i>
-                        Cadastrar Primeiro Contato
-                    </a>
-                </div>
-            {% endif %}
+            <!-- No Results Message -->
+            <div class="p-8 text-center hidden" id="noResults">
+                <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                <p class="text-lg text-gray-600 mb-4">Nenhum contato encontrado com esse termo de pesquisa.</p>
+                <button onclick="clearSearch()" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200">
+                    <i class="fas fa-times mr-2"></i>
+                    Limpar Pesquisa
+                </button>
+            </div>
+        {% else %}
+            <div class="p-12 text-center">
+                <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                <p class="text-xl text-gray-600 mb-6">Nenhum contato cadastrado</p>
+                <a href="{{ url_for('contato_novo') }}" class="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
+                    <i class="fas fa-plus mr-2"></i>
+                    Cadastrar Primeiro Contato
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div class="space-y-6">
+    <!-- Estatísticas -->
+    <div class="bg-gradient-to-br from-primary to-primary-light rounded-lg p-6 text-white shadow-lg">
+        <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-chart-bar mr-2"></i>
+            Estatísticas
+        </h3>
+        <div class="space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">Total de Contatos:</span>
+                <span class="text-2xl font-bold">{{ contatos|length if contatos else 0 }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">Ativos:</span>
+                <span class="text-xl font-semibold">{{ contatos|selectattr('status')|list|length if contatos else 0 }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm opacity-90">Inativos:</span>
+                <span class="text-xl font-semibold">{{ contatos|rejectattr('status')|list|length if contatos else 0 }}</span>
+            </div>
         </div>
     </div>
-    {% endblock %}
 
-    {% block sidebar %}
-    <div class="sidebar bg-gray-100 p-4 rounded-lg shadow-md">
-        <h2 class="text-xl font-semibold mb-2">Detalhes</h2>
-        <p class="text-gray-700">Informações adicionais sobre contatos.</p>
+    <!-- Ações Rápidas -->
+    <div class="bg-white rounded-lg p-6 shadow-md border border-border">
+        <h3 class="text-lg font-semibold mb-4 text-text-primary flex items-center">
+            <i class="fas fa-bolt mr-2 text-accent-yellow"></i>
+            Ações Rápidas
+        </h3>
+        <div class="space-y-2">
+            <a href="{{ url_for('contato_novo') }}" class="block w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 text-center">
+                <i class="fas fa-plus mr-2"></i>
+                Novo Contato
+            </a>
+            <a href="{{ url_for('clientes') }}" class="block w-full px-4 py-2 bg-gray-100 text-text-primary rounded-lg hover:bg-gray-200 transition-colors duration-200 text-center">
+                <i class="fas fa-building mr-2"></i>
+                Ver Clientes
+            </a>
+        </div>
     </div>
-    {% endblock %}
 
-    <!-- JavaScript -->
-    <script src="{{ url_for('static', filename='js/contatos.js') }}"></script>
-</body>
-</html>
+    <!-- Ajuda -->
+    <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+        <h3 class="text-lg font-semibold mb-2 text-blue-900 flex items-center">
+            <i class="fas fa-info-circle mr-2"></i>
+            Dica
+        </h3>
+        <p class="text-sm text-blue-800">
+            Use a barra de pesquisa para encontrar contatos rapidamente por nome completo.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/contatos.js') }}"></script>
+{% endblock %}

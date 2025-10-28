@@ -5,9 +5,9 @@
 
 :root {
   /* Cores primárias */
-  --color-primary: #0056b3;
-  --color-primary-light: #007bff;
-  --color-primary-dark: #004494;
+  --color-primary: #1E4D4F;
+  --color-primary-light: #2A6D70;
+  --color-primary-dark: #153638;
   
   /* Cores secundárias */
   --color-secondary: #6c757d;
@@ -144,6 +144,38 @@
   background-color: var(--color-accent-dark);
 }
 
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn-edit {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-edit:hover {
+    background-color: #0056b3;
+}
+
+.btn-success {
+    background-color: #28A745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-danger {
+    background-color: #DC3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
 .input-group {
   margin-bottom: 1rem;
 }
@@ -192,13 +224,256 @@
   background-color: var(--color-gray-100);
 }
 
-/* Utilitários adicionais */
-.shadow-hover:hover {
-  box-shadow: var(--shadow-lg);
+/* Estilos adicionais para o novo layout */
+
+/* Animações suaves globais */
+* {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
 }
 
-.transition-all {
-  transition: var(--transition-base);
+/* Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+}
+
+.badge-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.badge-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Alerts */
+.alert {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+/* Tabelas responsivas */
+@media (max-width: 768px) {
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+/* Estados vazios */
+.empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+/* Search box */
+.search-box {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #1E4D4F;
+    box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.1);
+}
+
+.search-results {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* No results */
+.no-results {
+    padding: 3rem 1rem;
+    text-align: center;
+}
+
+.no-results i {
+    font-size: 3rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+/* Sidebar scrollbar customizado */
+aside::-webkit-scrollbar {
+    width: 6px;
+}
+
+aside::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+aside::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+aside::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Scrollbar global */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Sidebar active state */
+.nav-link.active {
+    background-color: #2A6D70;
+    border-left: 4px solid #9CCF31;
+}
+
+/* Flash messages animation */
+.flash-messages > div {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Responsividade para sidebar direita */
+@media (max-width: 1280px) {
+    aside.w-full.max-w-\[450px\] {
+        max-width: 350px;
+    }
+}
+
+@media (max-width: 1024px) {
+    aside.w-full.max-w-\[450px\] {
+        display: none;
+    }
+}
+
+/* Hover effects */
+.hover-lift {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Loading spinner */
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #1E4D4F;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Table hover effects */
+tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Form improvements */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+select,
+textarea {
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #1E4D4F;
+    box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.1);
+}
+
+/* Utility classes */
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Animações */

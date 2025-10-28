@@ -63,50 +63,156 @@
         }
     </script>
 
-    <!-- CSS Personalizado -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/custom.css') }}">
-
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- CSS Personalizado -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/custom.css') }}">
+
     <!-- Estilos específicos da página -->
     {% block styles %}{% endblock %}
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Sidebar active state */
+        .nav-link.active {
+            background-color: #2A6D70;
+            border-left: 4px solid #9CCF31;
+        }
+    </style>
 </head>
-<body class="bg-surface-bg font-sans text-text-primary">
+<body class="bg-surface-bg font-sans text-text-primary overflow-hidden">
     <div class="flex h-screen">
-        <!-- Cabeçalho lateral fixo -->
-        <header class="w-64 bg-primary-dark text-white flex flex-col">
-            <div class="p-4 text-center font-bold text-lg">CentralComm</div>
-            <nav class="flex-1">
-                <ul class="space-y-2 p-4">
-                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Dashboard</a></li>
-                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Contatos</a></li>
-                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Clientes</a></li>
-                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Configurações</a></li>
+        <!-- Header Lateral Fixo -->
+        <aside class="w-64 bg-primary-dark text-white flex flex-col shadow-lg fixed h-full z-50">
+            <!-- Logo -->
+            <div class="p-6 border-b border-primary">
+                <h1 class="text-2xl font-bold text-center">
+                    <i class="fas fa-brain text-accent-green"></i>
+                    CentralComm
+                </h1>
+                <p class="text-xs text-center text-gray-300 mt-1">AI Central v2</p>
+            </div>
+            
+            <!-- Navegação Principal -->
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1 px-3">
+                    <li>
+                        <a href="{{ url_for('index') }}" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-primary-light transition-colors duration-200">
+                            <i class="fas fa-home w-5"></i>
+                            <span class="ml-3">Dashboard</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('clientes') }}" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-primary-light transition-colors duration-200">
+                            <i class="fas fa-building w-5"></i>
+                            <span class="ml-3">Clientes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('contatos') }}" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-primary-light transition-colors duration-200">
+                            <i class="fas fa-users w-5"></i>
+                            <span class="ml-3">Contatos</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Divider -->
+                    <li class="my-4 border-t border-primary"></li>
+                    
+                    <li>
+                        <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-primary-light transition-colors duration-200">
+                            <i class="fas fa-chart-line w-5"></i>
+                            <span class="ml-3">Relatórios</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-primary-light transition-colors duration-200">
+                            <i class="fas fa-cog w-5"></i>
+                            <span class="ml-3">Configurações</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="nav-link flex items-center py-3 px-4 rounded-lg hover:bg-primary-light transition-colors duration-200">
+                            <i class="fas fa-question-circle w-5"></i>
+                            <span class="ml-3">Ajuda</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
-            <div class="p-4 text-center border-t border-surface-bg">&copy; 2025 CentralComm</div>
-        </header>
-
-        <!-- Conteúdo principal -->
-        <main class="flex-1 p-6 overflow-y-auto">
-            {% block content %}{% endblock %}
-        </main>
-
-        <!-- Barra lateral direita -->
-        <aside class="w-96 max-w-full bg-surface-element border-l border-border p-4">
-            {% block sidebar %}{% endblock %}
+            
+            <!-- User Info & Footer -->
+            <div class="border-t border-primary p-4">
+                <div class="flex items-center mb-3">
+                    <div class="w-10 h-10 bg-accent-green rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-primary-dark"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-semibold">{{ session.get('user_name', 'Usuário') }}</p>
+                        <p class="text-xs text-gray-300">{{ session.get('user_email', '') }}</p>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="flex items-center justify-center py-2 px-4 bg-error rounded-lg hover:bg-red-700 transition-colors duration-200">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    <span>Sair</span>
+                </a>
+                <p class="text-xs text-center text-gray-400 mt-3">&copy; 2025 CentralComm</p>
+            </div>
         </aside>
+
+        <!-- Container Principal (com margem para o sidebar) -->
+        <div class="flex-1 ml-64 flex">
+            <!-- Área de Conteúdo Principal -->
+            <main class="flex-1 overflow-y-auto">
+                {% block content %}{% endblock %}
+            </main>
+
+            <!-- Sidebar Direita (Opcional) -->
+            {% if self.sidebar() %}
+            <aside class="w-full max-w-[450px] bg-surface-element border-l border-border overflow-y-auto">
+                <div class="p-6">
+                    {% block sidebar %}{% endblock %}
+                </div>
+            </aside>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Scripts globais -->
     <script>
+        // Função para fechar mensagens flash
         function closeFlashMessage(element) {
             element.parentElement.remove();
         }
+        
+        // Marcar link ativo na navegação
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        });
     </script>
 
     <!-- Scripts específicos da página -->

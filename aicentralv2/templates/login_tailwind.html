@@ -1,0 +1,367 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Login - CentralComm AI{% endblock %}
+
+{% block styles %}
+<style>
+    /* Animações e estilos específicos da página de login */
+    .floating-shapes .shape {
+        position: absolute;
+        border-radius: 50%;
+        opacity: 0.1;
+        animation: float 15s infinite ease-in-out;
+    }
+    
+    .floating-shapes .shape-1 {
+        width: 120px;
+        height: 120px;
+        background-color: var(--color-primary);
+        top: 10%;
+        left: 10%;
+        animation-delay: 0s;
+    }
+    
+    .floating-shapes .shape-2 {
+        width: 80px;
+        height: 80px;
+        background-color: var(--color-accent);
+        top: 60%;
+        left: 15%;
+        animation-delay: 2s;
+    }
+    
+    .floating-shapes .shape-3 {
+        width: 100px;
+        height: 100px;
+        background-color: var(--color-primary-light);
+        top: 25%;
+        right: 15%;
+        animation-delay: 4s;
+    }
+    
+    .floating-shapes .shape-4 {
+        width: 60px;
+        height: 60px;
+        background-color: var(--color-secondary);
+        bottom: 20%;
+        right: 10%;
+        animation-delay: 6s;
+    }
+    
+    @keyframes float {
+        0% {
+            transform: translateY(0) rotate(0deg);
+        }
+        50% {
+            transform: translateY(-20px) rotate(5deg);
+        }
+        100% {
+            transform: translateY(0) rotate(0deg);
+        }
+    }
+    
+    .input-icon {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6b7280;
+    }
+    
+    .input-with-icon {
+        padding-left: 2.5rem;
+    }
+    
+    .password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6b7280;
+        cursor: pointer;
+    }
+    
+    .checkbox-custom {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.25rem;
+        background-color: white;
+        margin-right: 0.5rem;
+    }
+    
+    input[type="checkbox"]:checked + .checkbox-custom {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+    }
+    
+    input[type="checkbox"]:checked + .checkbox-custom i {
+        display: block;
+        color: white;
+        font-size: 0.75rem;
+    }
+    
+    .checkbox-custom i {
+        display: none;
+    }
+    
+    .spinner {
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 2px solid white;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .btn-loading .btn-text {
+        display: none;
+    }
+    
+    .btn-loading .spinner {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Background com elementos flutuantes -->
+<div class="fixed inset-0 z-0 bg-gradient-to-br from-gray-100 to-gray-200">
+    <div class="floating-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+</div>
+
+<!-- Container de Login -->
+<div class="min-h-screen flex items-center justify-center px-4 py-12 relative z-10">
+    <!-- Card de Login Principal -->
+    <div class="w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-card overflow-hidden transition-all duration-300 hover:shadow-card-hover animate-fade-in">
+            <!-- Seção do Logo com Marca CentralComm -->
+            <div class="p-8 text-center border-b border-gray-200">
+                <div class="flex items-center justify-center mb-3">
+                    <img src="https://framerusercontent.com/images/AVdCNfDtlffmIGBOW6kOr9VhCo.png" alt="CENTRALCOMM" class="h-8">
+                    <div class="mx-3 h-6 w-px bg-gray-300"></div>
+                    <span class="text-2xl font-bold text-primary">AI</span>
+                </div>
+                <p class="text-gray-600">Gestão Corporativa Inteligente</p>
+            </div>
+
+            <!-- Mensagens Flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="px-6 pt-6 animate-slide-up">
+                        {% for category, message in messages %}
+                            <div class="mb-4 p-3 rounded-lg flex items-center justify-between
+                                {%- if category == 'success' -%} bg-green-100 text-green-800
+                                {%- elif category == 'error' -%} bg-red-100 text-red-800
+                                {%- elif category == 'warning' -%} bg-yellow-100 text-yellow-800
+                                {%- else -%} bg-blue-100 text-blue-800
+                                {%- endif -%}">
+                                <div class="flex items-center">
+                                    <i class="fas fa-
+                                        {%- if category == 'success' -%}check-circle
+                                        {%- elif category == 'error' -%}exclamation-circle
+                                        {%- elif category == 'warning' -%}exclamation-triangle
+                                        {%- else -%}info-circle
+                                        {%- endif -%} mr-2"></i>
+                                    <span>{{ message }}</span>
+                                </div>
+                                <button type="button" onclick="closeFlashMessage(this)" class="text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Formulário de Login -->
+            <form action="{{ url_for('login') }}" class="p-6 pt-4" id="loginForm" method="POST">
+                <!-- Campo de Email -->
+                <div class="mb-4">
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <div class="relative">
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            placeholder="seu.email@centralcomm.media"
+                            required
+                            autocomplete="email"
+                            value="{{ request.form.get('email', '') }}"
+                            class="input-with-icon w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        >
+                    </div>
+                    <span class="text-sm text-red-600 mt-1" id="emailError"></span>
+                </div>
+
+                <!-- Campo de Senha -->
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <div class="relative">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="••••••••"
+                            required
+                            autocomplete="current-password"
+                            class="input-with-icon w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        >
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
+                    </div>
+                    <span class="text-sm text-red-600 mt-1" id="passwordError"></span>
+                </div>
+
+                <!-- Opções do Formulário -->
+                <div class="flex items-center justify-between mb-6">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="remember" name="remember" class="sr-only">
+                        <span class="checkbox-custom">
+                            <i class="fas fa-check"></i>
+                        </span>
+                        <span class="text-sm text-gray-700">Lembrar credenciais</span>
+                    </label>
+                    <a href="{{ url_for('forgot_password') }}" class="text-sm text-primary hover:text-primary-dark transition-colors">
+                        <i class="fas fa-key mr-1"></i>
+                        Esqueceu a senha?
+                    </a>
+                </div>
+
+                <!-- Botão de Envio -->
+                <button type="submit" id="submitBtn" class="w-full bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                    <span class="btn-text flex items-center justify-center">
+                        Entrar
+                        <i class="fas fa-arrow-right ml-2"></i>
+                    </span>
+                    <div class="btn-loading hidden">
+                        <div class="spinner"></div>
+                    </div>
+                </button>
+            </form>
+
+            <!-- Informações Adicionais -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 text-center">
+                <p class="text-sm text-gray-600 flex items-center justify-center">
+                    <i class="fas fa-shield-alt mr-2 text-primary"></i>
+                    Acesso seguro e criptografado
+                </p>
+            </div>
+        </div>
+
+        <!-- Botão de Suporte -->
+        <div class="fixed bottom-6 right-6">
+            <button onclick="openWhatsAppSupport()" class="bg-green-500 hover:bg-green-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-all hover:shadow-xl group relative">
+                <i class="fab fa-whatsapp text-xl"></i>
+                <span class="absolute right-full mr-3 bg-gray-800 text-white text-sm py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    Suporte TI
+                </span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay de Carregamento -->
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden" id="loadingOverlay">
+    <div class="bg-white rounded-lg p-8 max-w-sm w-full text-center">
+        <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-gray-700">Verificando credenciais...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Função para alternar visibilidade da senha
+    function togglePassword() {
+        const passwordInput = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('fa-eye-slash');
+            toggleIcon.classList.add('fa-eye');
+        }
+    }
+    
+    // Função para abrir suporte WhatsApp
+    function openWhatsAppSupport() {
+        window.open('https://wa.me/5511999999999?text=Olá,%20preciso%20de%20suporte%20com%20o%20AIcentral.', '_blank');
+    }
+    
+    // Manipulação do formulário
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        let valid = true;
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const emailError = document.getElementById('emailError');
+        const passwordError = document.getElementById('passwordError');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // Limpar erros anteriores
+        emailError.textContent = '';
+        passwordError.textContent = '';
+        
+        // Validar email
+        if (!emailInput.value.trim()) {
+            emailError.textContent = 'Email é obrigatório';
+            valid = false;
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) {
+            emailError.textContent = 'Email inválido';
+            valid = false;
+        }
+        
+        // Validar senha
+        if (!passwordInput.value) {
+            passwordError.textContent = 'Senha é obrigatória';
+            valid = false;
+        }
+        
+        if (valid) {
+            // Mostrar estado de carregamento
+            submitBtn.querySelector('.btn-text').classList.add('hidden');
+            submitBtn.querySelector('.btn-loading').classList.remove('hidden');
+            loadingOverlay.classList.remove('hidden');
+        } else {
+            e.preventDefault();
+        }
+    });
+    
+    // Auto-fechar mensagens flash após 5 segundos
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            const flashMessages = document.querySelectorAll('[class*="bg-"][class*="-100"]');
+            flashMessages.forEach(function(message) {
+                message.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                setTimeout(function() {
+                    message.remove();
+                }, 500);
+            });
+        }, 5000);
+    });
+</script>
+{% endblock %}

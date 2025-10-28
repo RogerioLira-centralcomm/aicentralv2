@@ -1,18 +1,10 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contatos - AIcentral v2</title>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/contatos.css') }}">
-</head>
-<body>
-    <div class="container">
+
+    {% extends 'base_tailwind.html' %}
+
+    {% block title %}Contatos{% endblock %}
+
+    {% block content %}
+    <div class="container mx-auto p-4">
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -36,12 +28,12 @@
         {% endwith %}
 
         <!-- Header -->
-        <div class="header">
-            <h1>
+        <div class="header mb-4">
+            <h1 class="text-3xl font-bold">
                 <i class="fas fa-users"></i>
                 Contatos
             </h1>
-            <div class="header-actions">
+            <div class="header-actions mt-2">
                 <a href="{{ url_for('contato_novo') }}" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     Novo Contato
@@ -57,7 +49,7 @@
         <div class="content">
             {% if contatos %}
                 <!-- Search Box -->
-                <div class="search-box">
+                <div class="search-box mb-4">
                     <i class="fas fa-search search-icon"></i>
                     <input 
                         type="text" 
@@ -69,25 +61,25 @@
                     <span class="search-results" id="searchResults"></span>
                 </div>
 
-                <table id="contatosTable">
+                <table id="contatosTable" class="min-w-full bg-white border border-gray-200">
                     <thead>
                         <tr>
-                            <th>Nome</th>
-                            <th>Email</th>
-                            <th>Telefone</th>
-                            <th>Cliente</th>
-                            <th>Status</th>
-                            <th style="text-align: center;">Ações</th>
+                            <th class="py-2 px-4 border-b-2">Nome</th>
+                            <th class="py-2 px-4 border-b-2">Email</th>
+                            <th class="py-2 px-4 border-b-2">Telefone</th>
+                            <th class="py-2 px-4 border-b-2">Cliente</th>
+                            <th class="py-2 px-4 border-b-2">Status</th>
+                            <th class="py-2 px-4 border-b-2" style="text-align: center;">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for contato in contatos %}
                         <tr>
-                            <td data-label="Nome"><strong>{{ contato.nome_completo }}</strong></td>
-                            <td data-label="Email"><a href="mailto:{{ contato.email }}">{{ contato.email }}</a></td>
-                            <td data-label="Telefone">{{ contato.telefone or '-' }}</td>
-                            <td data-label="Cliente">{{ contato.nome_fantasia }}</td>
-                            <td data-label="Status">
+                            <td class="py-2 px-4 border-b" data-label="Nome"><strong>{{ contato.nome_completo }}</strong></td>
+                            <td class="py-2 px-4 border-b" data-label="Email"><a href="mailto:{{ contato.email }}">{{ contato.email }}</a></td>
+                            <td class="py-2 px-4 border-b" data-label="Telefone">{{ contato.telefone or '-' }}</td>
+                            <td class="py-2 px-4 border-b" data-label="Cliente">{{ contato.nome_fantasia }}</td>
+                            <td class="py-2 px-4 border-b" data-label="Status">
                                 {% if contato.status %}
                                     <span class="badge badge-active">
                                         <i class="fas fa-check-circle"></i> Ativo
@@ -98,7 +90,7 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td data-label="Ações" style="text-align: center;">
+                            <td class="py-2 px-4 border-b" data-label="Ações" style="text-align: center;">
                                 <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
                                    class="btn btn-sm btn-edit" 
                                    title="Editar">
@@ -140,10 +132,10 @@
                     </button>
                 </div>
             {% else %}
-                <div class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <p>Nenhum contato cadastrado</p>
-                    <a href="{{ url_for('contato_novo') }}" class="btn btn-primary">
+                <div class="empty-state text-center py-10">
+                    <i class="fas fa-inbox fa-3x mb-4"></i>
+                    <p class="text-lg">Nenhum contato cadastrado</p>
+                    <a href="{{ url_for('contato_novo') }}" class="btn btn-primary mt-4">
                         <i class="fas fa-plus"></i>
                         Cadastrar Primeiro Contato
                     </a>
@@ -151,6 +143,14 @@
             {% endif %}
         </div>
     </div>
+    {% endblock %}
+
+    {% block sidebar %}
+    <div class="sidebar bg-gray-100 p-4 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-2">Detalhes</h2>
+        <p class="text-gray-700">Informações adicionais sobre contatos.</p>
+    </div>
+    {% endblock %}
 
     <!-- JavaScript -->
     <script src="{{ url_for('static', filename='js/contatos.js') }}"></script>

@@ -46,7 +46,7 @@ def init_routes(app):
             
             if not email or not password:
                 flash('Preencha todos os campos.', 'error')
-                return render_template('login.html')
+                return render_template('login_tailwind.html')
             
             user = db.verificar_credenciais(email, password)
             
@@ -64,7 +64,7 @@ def init_routes(app):
                 flash('Email ou senha incorretos.', 'error')
         
         # GET - mostrar página de login
-        return render_template('login.html')
+        return render_template('login_tailwind.html')
     
     # ==================== LOGOUT ====================
     
@@ -96,7 +96,7 @@ def init_routes(app):
 
             if not email:
                 flash('Email obrigatório!', 'error')
-                return render_template('forgot_password.html')
+                return render_template('forgot_password_tailwind.html')
 
             contato = db.obter_contato_por_email(email)
 
@@ -120,9 +120,9 @@ def init_routes(app):
             else:
                 flash('Se o email existir, receberá instruções.', 'info')
 
-            return render_template('forgot_password.html')
+            return render_template('forgot_password_tailwind.html')
 
-        return render_template('forgot_password.html')
+        return render_template('forgot_password_tailwind.html')
     
     @app.route('/reset-password/<token>', methods=['GET', 'POST'])
     def reset_password(token):
@@ -142,15 +142,15 @@ def init_routes(app):
 
             if not nova_senha or not confirm:
                 flash('Preencha todos os campos!', 'error')
-                return render_template('reset_password.html', token=token, user=contato)
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
 
             if nova_senha != confirm:
                 flash('Senhas não coincidem!', 'error')
-                return render_template('reset_password.html', token=token, user=contato)
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
 
             if len(nova_senha) < 6:
                 flash('Senha deve ter 6+ caracteres!', 'error')
-                return render_template('reset_password.html', token=token, user=contato)
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
 
             try:
                 db.atualizar_senha_contato(contato['id_contato_cliente'], nova_senha)
@@ -162,7 +162,7 @@ def init_routes(app):
                 app.logger.error(f"Erro: {e}")
                 flash('Erro ao redefinir.', 'error')
 
-        return render_template('reset_password.html', token=token, user=contato)
+        return render_template('reset_password_tailwind.html', token=token, user=contato)
     
     # ==================== CLIENTES ====================
     

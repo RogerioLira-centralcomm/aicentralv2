@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CentralComm AI{% endblock %}</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Configuração do Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1E4D4F',
+                            light: '#2A6D70',
+                            dark: '#153638',
+                        },
+                        accent: {
+                            green: '#9CCF31',
+                            yellow: '#F3B71B',
+                        },
+                        success: '#28A745',
+                        warning: '#FFC107',
+                        error: '#DC3545',
+                        surface: {
+                            bg: '#F8F9FA',
+                            element: '#FFFFFF',
+                        },
+                        border: {
+                            DEFAULT: '#DEE2E6',
+                        },
+                        text: {
+                            primary: '#212529',
+                            secondary: '#6C757D',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    fontSize: {
+                        'xs': ['0.75rem', { lineHeight: '1rem' }],
+                        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
+                        'base': ['1rem', { lineHeight: '1.5rem' }],
+                        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
+                        '2xl': ['1.5rem', { lineHeight: '2rem' }],
+                        '3xl': ['2rem', { lineHeight: '2.5rem' }],
+                    },
+                    letterSpacing: {
+                        'h1': '-1px',
+                        'h2': '-0.5px',
+                        'label': '0.2px',
+                        'info': '0.3px',
+                    },
+                    boxShadow: {
+                        'card': '0px 4px 12px rgba(0, 0, 0, 0.04)',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- CSS Personalizado -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/custom.css') }}">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Estilos específicos da página -->
+    {% block styles %}{% endblock %}
+</head>
+<body class="bg-surface-bg font-sans text-text-primary">
+    <div class="flex h-screen">
+        <!-- Cabeçalho lateral fixo -->
+        <header class="w-64 bg-primary-dark text-white flex flex-col">
+            <div class="p-4 text-center font-bold text-lg">CentralComm</div>
+            <nav class="flex-1">
+                <ul class="space-y-2 p-4">
+                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Dashboard</a></li>
+                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Contatos</a></li>
+                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Clientes</a></li>
+                    <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-light">Configurações</a></li>
+                </ul>
+            </nav>
+            <div class="p-4 text-center border-t border-surface-bg">&copy; 2025 CentralComm</div>
+        </header>
+
+        <!-- Conteúdo principal -->
+        <main class="flex-1 p-6 overflow-y-auto">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Barra lateral direita -->
+        <aside class="w-96 max-w-full bg-surface-element border-l border-border p-4">
+            {% block sidebar %}{% endblock %}
+        </aside>
+    </div>
+
+    <!-- Scripts globais -->
+    <script>
+        function closeFlashMessage(element) {
+            element.parentElement.remove();
+        }
+    </script>
+
+    <!-- Scripts específicos da página -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>

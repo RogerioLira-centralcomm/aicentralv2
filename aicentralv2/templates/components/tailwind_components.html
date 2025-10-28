@@ -1,0 +1,939 @@
+{% macro button(text, type='primary', icon=None, size='md', full_width=False, id=None, name=None, onclick=None, submit=False, disabled=False, classes='') %}
+{# 
+  Componente de botão reutilizável
+  Parâmetros:
+  - text: Texto do botão
+  - type: primary, secondary, accent, success, danger, warning, info, light, dark
+  - icon: Classe do ícone Font Awesome (ex: 'fa-plus')
+  - size: sm, md, lg
+  - full_width: Se o botão deve ocupar toda a largura disponível
+  - id: ID do botão
+  - name: Nome do botão
+  - onclick: Função JavaScript a ser executada no clique
+  - submit: Se o botão é do tipo submit
+  - disabled: Se o botão está desabilitado
+  - classes: Classes adicionais
+#}
+{% set button_type = 'button' if not submit else 'submit' %}
+{% set base_classes = 'inline-flex items-center justify-center font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2' %}
+
+{% set size_classes = {
+  'sm': 'py-1 px-3 text-sm',
+  'md': 'py-2 px-4 text-base',
+  'lg': 'py-3 px-6 text-lg'
+} %}
+
+{% set type_classes = {
+  'primary': 'bg-primary hover:bg-primary-dark text-white focus:ring-primary',
+  'secondary': 'bg-secondary hover:bg-secondary-dark text-white focus:ring-secondary',
+  'accent': 'bg-accent hover:bg-accent-dark text-white focus:ring-accent',
+  'success': 'bg-success hover:bg-green-700 text-white focus:ring-success',
+  'danger': 'bg-danger hover:bg-red-700 text-white focus:ring-danger',
+  'warning': 'bg-warning hover:bg-yellow-600 text-gray-900 focus:ring-warning',
+  'info': 'bg-info hover:bg-blue-600 text-white focus:ring-info',
+  'light': 'bg-gray-100 hover:bg-gray-200 text-gray-800 focus:ring-gray-200',
+  'dark': 'bg-gray-800 hover:bg-gray-900 text-white focus:ring-gray-700',
+  'outline-primary': 'bg-transparent border border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary',
+  'outline-secondary': 'bg-transparent border border-secondary text-secondary hover:bg-secondary hover:text-white focus:ring-secondary',
+  'outline-accent': 'bg-transparent border border-accent text-accent hover:bg-accent hover:text-white focus:ring-accent'
+} %}
+
+{% set width_class = 'w-full' if full_width else '' %}
+{% set disabled_class = 'opacity-50 cursor-not-allowed' if disabled else '' %}
+
+<button 
+  type="{{ button_type }}" 
+  {% if id %}id="{{ id }}"{% endif %} 
+  {% if name %}name="{{ name }}"{% endif %} 
+  {% if onclick %}onclick="{{ onclick }}"{% endif %}
+  {% if disabled %}disabled{% endif %}
+  class="{{ base_classes }} {{ size_classes[size] }} {{ type_classes[type] }} {{ width_class }} {{ disabled_class }} {{ classes }}"
+>
+  {% if icon %}
+    <i class="fas {{ icon }} {% if text %}mr-2{% endif %}"></i>
+  {% endif %}
+  {% if text %}{{ text }}{% endif %}
+</button>
+{% endmacro %}
+
+{% macro input_field(type='text', name=None, id=None, label=None, placeholder='', value='', required=False, disabled=False, readonly=False, autocomplete=None, min=None, max=None, step=None, pattern=None, icon=None, error=None, helper_text=None, classes='') %}
+{# 
+  Componente de campo de entrada reutilizável
+  Parâmetros:
+  - type: text, email, password, number, tel, url, date, etc.
+  - name: Nome do campo
+  - id: ID do campo
+  - label: Texto do rótulo
+  - placeholder: Texto de placeholder
+  - value: Valor inicial
+  - required: Se o campo é obrigatório
+  - disabled: Se o campo está desabilitado
+  - readonly: Se o campo é somente leitura
+  - autocomplete: Valor para o atributo autocomplete
+  - min, max, step: Para campos numéricos
+  - pattern: Padrão de validação
+  - icon: Classe do ícone Font Awesome (ex: 'fa-envelope')
+  - error: Mensagem de erro
+  - helper_text: Texto de ajuda
+  - classes: Classes adicionais
+#}
+<div class="mb-4 {{ classes }}">
+  {% if label %}
+    <label for="{{ id }}" class="block text-sm font-medium text-gray-700 mb-1">
+      {{ label }}{% if required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+    </label>
+  {% endif %}
+  
+  <div class="relative">
+    {% if icon %}
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <i class="fas {{ icon }} text-gray-500"></i>
+      </div>
+    {% endif %}
+    
+    <input
+      type="{{ type }}"
+      {% if name %}name="{{ name }}"{% endif %}
+      {% if id %}id="{{ id }}"{% endif %}
+      {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+      {% if value %}value="{{ value }}"{% endif %}
+      {% if required %}required{% endif %}
+      {% if disabled %}disabled{% endif %}
+      {% if readonly %}readonly{% endif %}
+      {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+      {% if min is not none %}min="{{ min }}"{% endif %}
+      {% if max is not none %}max="{{ max }}"{% endif %}
+      {% if step is not none %}step="{{ step }}"{% endif %}
+      {% if pattern %}pattern="{{ pattern }}"{% endif %}
+      class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all
+        {% if icon %}pl-10{% endif %}
+        {% if error %}border-red-500{% else %}border-gray-300{% endif %}
+        {% if disabled %}bg-gray-100 cursor-not-allowed{% endif %}"
+    >
+    
+    {% if type == 'password' %}
+      <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center" onclick="togglePasswordVisibility('{{ id }}')">
+        <i class="fas fa-eye text-gray-500" id="{{ id }}-toggle"></i>
+      </button>
+    {% endif %}
+  </div>
+  
+  {% if error %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% elif helper_text %}
+    <p class="mt-1 text-sm text-gray-500">{{ helper_text }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro select_field(name=None, id=None, label=None, options=[], selected=None, required=False, disabled=False, placeholder='Selecione uma opção', error=None, helper_text=None, classes='') %}
+{# 
+  Componente de campo de seleção reutilizável
+  Parâmetros:
+  - name: Nome do campo
+  - id: ID do campo
+  - label: Texto do rótulo
+  - options: Lista de opções no formato [{'value': 'valor', 'text': 'texto'}]
+  - selected: Valor selecionado
+  - required: Se o campo é obrigatório
+  - disabled: Se o campo está desabilitado
+  - placeholder: Texto de placeholder
+  - error: Mensagem de erro
+  - helper_text: Texto de ajuda
+  - classes: Classes adicionais
+#}
+<div class="mb-4 {{ classes }}">
+  {% if label %}
+    <label for="{{ id }}" class="block text-sm font-medium text-gray-700 mb-1">
+      {{ label }}{% if required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+    </label>
+  {% endif %}
+  
+  <select
+    {% if name %}name="{{ name }}"{% endif %}
+    {% if id %}id="{{ id }}"{% endif %}
+    {% if required %}required{% endif %}
+    {% if disabled %}disabled{% endif %}
+    class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all
+      {% if error %}border-red-500{% else %}border-gray-300{% endif %}
+      {% if disabled %}bg-gray-100 cursor-not-allowed{% endif %}"
+  >
+    {% if placeholder %}
+      <option value="" {% if not selected %}selected{% endif %} disabled>{{ placeholder }}</option>
+    {% endif %}
+    
+    {% for option in options %}
+      <option 
+        value="{{ option.value }}" 
+        {% if selected == option.value %}selected{% endif %}
+      >
+        {{ option.text }}
+      </option>
+    {% endfor %}
+  </select>
+  
+  {% if error %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% elif helper_text %}
+    <p class="mt-1 text-sm text-gray-500">{{ helper_text }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro checkbox(name=None, id=None, label=None, checked=False, value='1', required=False, disabled=False, error=None, helper_text=None, classes='') %}
+{# 
+  Componente de checkbox reutilizável
+  Parâmetros:
+  - name: Nome do campo
+  - id: ID do campo
+  - label: Texto do rótulo
+  - checked: Se o checkbox está marcado
+  - value: Valor do checkbox
+  - required: Se o campo é obrigatório
+  - disabled: Se o campo está desabilitado
+  - error: Mensagem de erro
+  - helper_text: Texto de ajuda
+  - classes: Classes adicionais
+#}
+<div class="mb-4 {{ classes }}">
+  <div class="flex items-center">
+    <input
+      type="checkbox"
+      {% if name %}name="{{ name }}"{% endif %}
+      {% if id %}id="{{ id }}"{% endif %}
+      {% if value %}value="{{ value }}"{% endif %}
+      {% if checked %}checked{% endif %}
+      {% if required %}required{% endif %}
+      {% if disabled %}disabled{% endif %}
+      class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded
+        {% if disabled %}opacity-50 cursor-not-allowed{% endif %}"
+    >
+    
+    {% if label %}
+      <label for="{{ id }}" class="ml-2 block text-sm text-gray-700">
+        {{ label }}{% if required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+      </label>
+    {% endif %}
+  </div>
+  
+  {% if error %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% elif helper_text %}
+    <p class="mt-1 text-sm text-gray-500">{{ helper_text }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro radio_group(name, options=[], selected=None, label=None, required=False, disabled=False, error=None, helper_text=None, inline=False, classes='') %}
+{# 
+  Componente de grupo de radio buttons reutilizável
+  Parâmetros:
+  - name: Nome do grupo
+  - options: Lista de opções no formato [{'value': 'valor', 'text': 'texto', 'disabled': False}]
+  - selected: Valor selecionado
+  - label: Texto do rótulo do grupo
+  - required: Se o campo é obrigatório
+  - disabled: Se todos os campos estão desabilitados
+  - error: Mensagem de erro
+  - helper_text: Texto de ajuda
+  - inline: Se os radio buttons devem ser exibidos em linha
+  - classes: Classes adicionais
+#}
+<div class="mb-4 {{ classes }}">
+  {% if label %}
+    <div class="block text-sm font-medium text-gray-700 mb-2">
+      {{ label }}{% if required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+    </div>
+  {% endif %}
+  
+  <div class="{% if inline %}flex flex-wrap gap-4{% else %}space-y-2{% endif %}">
+    {% for option in options %}
+      <div class="flex items-center">
+        <input
+          type="radio"
+          id="{{ name }}_{{ loop.index }}"
+          name="{{ name }}"
+          value="{{ option.value }}"
+          {% if selected == option.value %}checked{% endif %}
+          {% if required %}required{% endif %}
+          {% if disabled or option.disabled %}disabled{% endif %}
+          class="h-4 w-4 text-primary focus:ring-primary border-gray-300
+            {% if disabled or option.disabled %}opacity-50 cursor-not-allowed{% endif %}"
+        >
+        
+        <label for="{{ name }}_{{ loop.index }}" class="ml-2 block text-sm text-gray-700">
+          {{ option.text }}
+        </label>
+      </div>
+    {% endfor %}
+  </div>
+  
+  {% if error %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% elif helper_text %}
+    <p class="mt-1 text-sm text-gray-500">{{ helper_text }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro textarea(name=None, id=None, label=None, placeholder='', value='', rows=4, required=False, disabled=False, readonly=False, error=None, helper_text=None, classes='') %}
+{# 
+  Componente de área de texto reutilizável
+  Parâmetros:
+  - name: Nome do campo
+  - id: ID do campo
+  - label: Texto do rótulo
+  - placeholder: Texto de placeholder
+  - value: Valor inicial
+  - rows: Número de linhas
+  - required: Se o campo é obrigatório
+  - disabled: Se o campo está desabilitado
+  - readonly: Se o campo é somente leitura
+  - error: Mensagem de erro
+  - helper_text: Texto de ajuda
+  - classes: Classes adicionais
+#}
+<div class="mb-4 {{ classes }}">
+  {% if label %}
+    <label for="{{ id }}" class="block text-sm font-medium text-gray-700 mb-1">
+      {{ label }}{% if required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+    </label>
+  {% endif %}
+  
+  <textarea
+    {% if name %}name="{{ name }}"{% endif %}
+    {% if id %}id="{{ id }}"{% endif %}
+    {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+    {% if required %}required{% endif %}
+    {% if disabled %}disabled{% endif %}
+    {% if readonly %}readonly{% endif %}
+    rows="{{ rows }}"
+    class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all
+      {% if error %}border-red-500{% else %}border-gray-300{% endif %}
+      {% if disabled %}bg-gray-100 cursor-not-allowed{% endif %}"
+  >{{ value }}</textarea>
+  
+  {% if error %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% elif helper_text %}
+    <p class="mt-1 text-sm text-gray-500">{{ helper_text }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro card(title=None, footer=None, classes='') %}
+{# 
+  Componente de card reutilizável
+  Parâmetros:
+  - title: Título do card
+  - footer: Conteúdo do rodapé
+  - classes: Classes adicionais
+  
+  Uso:
+  {% call card(title='Título do Card') %}
+    Conteúdo do card
+  {% endcall %}
+#}
+<div class="bg-white rounded-lg shadow-card overflow-hidden {{ classes }}">
+  {% if title %}
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">{{ title }}</h3>
+    </div>
+  {% endif %}
+  
+  <div class="p-6">
+    {{ caller() }}
+  </div>
+  
+  {% if footer %}
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+      {{ footer }}
+    </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro alert(type='info', dismissible=False, icon=True, classes='') %}
+{# 
+  Componente de alerta reutilizável
+  Parâmetros:
+  - type: info, success, warning, error
+  - dismissible: Se o alerta pode ser fechado
+  - icon: Se deve exibir o ícone
+  - classes: Classes adicionais
+  
+  Uso:
+  {% call alert(type='success', dismissible=True) %}
+    Operação realizada com sucesso!
+  {% endcall %}
+#}
+{% set alert_classes = {
+  'info': 'bg-blue-100 text-blue-800 border-blue-200',
+  'success': 'bg-green-100 text-green-800 border-green-200',
+  'warning': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'error': 'bg-red-100 text-red-800 border-red-200'
+} %}
+
+{% set alert_icons = {
+  'info': 'fa-info-circle',
+  'success': 'fa-check-circle',
+  'warning': 'fa-exclamation-triangle',
+  'error': 'fa-exclamation-circle'
+} %}
+
+<div class="p-4 mb-4 rounded-md border {{ alert_classes[type] }} {{ classes }}" role="alert" id="{{ 'alert-' ~ range(1000, 9999) | random }}">
+  <div class="flex">
+    {% if icon %}
+      <div class="flex-shrink-0">
+        <i class="fas {{ alert_icons[type] }} mr-3"></i>
+      </div>
+    {% endif %}
+    
+    <div class="flex-1">
+      {{ caller() }}
+    </div>
+    
+    {% if dismissible %}
+      <div class="ml-auto pl-3">
+        <div class="-mx-1.5 -my-1.5">
+          <button type="button" class="inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2
+            {% if type == 'info' %}text-blue-500 hover:bg-blue-200 focus:ring-blue-500{% endif %}
+            {% if type == 'success' %}text-green-500 hover:bg-green-200 focus:ring-green-500{% endif %}
+            {% if type == 'warning' %}text-yellow-500 hover:bg-yellow-200 focus:ring-yellow-500{% endif %}
+            {% if type == 'error' %}text-red-500 hover:bg-red-200 focus:ring-red-500{% endif %}"
+            onclick="this.closest('[role=\'alert\']').remove()">
+            <span class="sr-only">Fechar</span>
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro badge(text, type='default', size='md', rounded=False, classes='') %}
+{# 
+  Componente de badge reutilizável
+  Parâmetros:
+  - text: Texto do badge
+  - type: default, primary, secondary, success, danger, warning, info
+  - size: sm, md, lg
+  - rounded: Se o badge deve ter bordas arredondadas
+  - classes: Classes adicionais
+#}
+{% set badge_classes = {
+  'default': 'bg-gray-100 text-gray-800',
+  'primary': 'bg-primary-100 text-primary-800',
+  'secondary': 'bg-gray-100 text-gray-800',
+  'success': 'bg-green-100 text-green-800',
+  'danger': 'bg-red-100 text-red-800',
+  'warning': 'bg-yellow-100 text-yellow-800',
+  'info': 'bg-blue-100 text-blue-800'
+} %}
+
+{% set size_classes = {
+  'sm': 'text-xs px-2 py-0.5',
+  'md': 'text-sm px-2.5 py-0.5',
+  'lg': 'text-base px-3 py-1'
+} %}
+
+{% set rounded_class = 'rounded-full' if rounded else 'rounded' %}
+
+<span class="inline-flex items-center {{ badge_classes[type] }} {{ size_classes[size] }} {{ rounded_class }} {{ classes }}">
+  {{ text }}
+</span>
+{% endmacro %}
+
+{% macro pagination(current_page, total_pages, url_pattern, size='md', classes='') %}
+{# 
+  Componente de paginação reutilizável
+  Parâmetros:
+  - current_page: Página atual
+  - total_pages: Total de páginas
+  - url_pattern: Padrão de URL para as páginas (ex: '/users?page={page}')
+  - size: sm, md, lg
+  - classes: Classes adicionais
+#}
+{% set size_classes = {
+  'sm': 'text-xs',
+  'md': 'text-sm',
+  'lg': 'text-base'
+} %}
+
+<nav class="flex items-center justify-between {{ classes }}" aria-label="Paginação">
+  <div class="flex-1 flex justify-between sm:hidden">
+    {% if current_page > 1 %}
+      <a href="{{ url_pattern.format(page=current_page-1) }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+        Anterior
+      </a>
+    {% else %}
+      <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-100 cursor-not-allowed">
+        Anterior
+      </span>
+    {% endif %}
+    
+    {% if current_page < total_pages %}
+      <a href="{{ url_pattern.format(page=current_page+1) }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+        Próxima
+      </a>
+    {% else %}
+      <span class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-100 cursor-not-allowed">
+        Próxima
+      </span>
+    {% endif %}
+  </div>
+  
+  <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-center">
+    <div>
+      <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px {{ size_classes[size] }}" aria-label="Paginação">
+        <!-- Botão Anterior -->
+        {% if current_page > 1 %}
+          <a href="{{ url_pattern.format(page=current_page-1) }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+            <span class="sr-only">Anterior</span>
+            <i class="fas fa-chevron-left"></i>
+          </a>
+        {% else %}
+          <span class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-gray-100 text-gray-300 cursor-not-allowed">
+            <span class="sr-only">Anterior</span>
+            <i class="fas fa-chevron-left"></i>
+          </span>
+        {% endif %}
+        
+        <!-- Primeira página -->
+        {% if current_page > 3 %}
+          <a href="{{ url_pattern.format(page=1) }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+            1
+          </a>
+          
+          {% if current_page > 4 %}
+            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-700">
+              ...
+            </span>
+          {% endif %}
+        {% endif %}
+        
+        <!-- Páginas ao redor da atual -->
+        {% for page in range(max(1, current_page - 1), min(total_pages + 1, current_page + 2)) %}
+          {% if page == current_page %}
+            <span class="relative inline-flex items-center px-4 py-2 border border-primary bg-primary text-white">
+              {{ page }}
+            </span>
+          {% else %}
+            <a href="{{ url_pattern.format(page=page) }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+              {{ page }}
+            </a>
+          {% endif %}
+        {% endfor %}
+        
+        <!-- Última página -->
+        {% if current_page < total_pages - 2 %}
+          {% if current_page < total_pages - 3 %}
+            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-700">
+              ...
+            </span>
+          {% endif %}
+          
+          <a href="{{ url_pattern.format(page=total_pages) }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+            {{ total_pages }}
+          </a>
+        {% endif %}
+        
+        <!-- Botão Próxima -->
+        {% if current_page < total_pages %}
+          <a href="{{ url_pattern.format(page=current_page+1) }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+            <span class="sr-only">Próxima</span>
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        {% else %}
+          <span class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-gray-100 text-gray-300 cursor-not-allowed">
+            <span class="sr-only">Próxima</span>
+            <i class="fas fa-chevron-right"></i>
+          </span>
+        {% endif %}
+      </nav>
+    </div>
+  </div>
+</nav>
+{% endmacro %}
+
+{% macro modal(id, title=None, size='md', close_button=True) %}
+{# 
+  Componente de modal reutilizável
+  Parâmetros:
+  - id: ID do modal
+  - title: Título do modal
+  - size: sm, md, lg, xl, full
+  - close_button: Se deve exibir o botão de fechar
+  
+  Uso:
+  {% call modal(id='my-modal', title='Título do Modal') %}
+    <div class="p-6">
+      Conteúdo do modal
+    </div>
+    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+      <button type="button" class="btn-primary">Confirmar</button>
+      <button type="button" class="btn-secondary mr-2" onclick="closeModal('my-modal')">Cancelar</button>
+    </div>
+  {% endcall %}
+#}
+{% set size_classes = {
+  'sm': 'sm:max-w-sm',
+  'md': 'sm:max-w-md',
+  'lg': 'sm:max-w-lg',
+  'xl': 'sm:max-w-xl',
+  '2xl': 'sm:max-w-2xl',
+  'full': 'sm:max-w-full sm:h-full'
+} %}
+
+<div id="{{ id }}" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <!-- Overlay de fundo -->
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onclick="closeModal('{{ id }}')"></div>
+    
+    <!-- Truque para centralizar o modal -->
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    
+    <!-- Conteúdo do modal -->
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full {{ size_classes[size] }}">
+      {% if title or close_button %}
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            {% if title %}
+              <h3 class="text-lg leading-6 font-medium text-gray-900" id="{{ id }}-title">
+                {{ title }}
+              </h3>
+            {% endif %}
+            
+            {% if close_button %}
+              <button type="button" class="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" onclick="closeModal('{{ id }}')">
+                <span class="sr-only">Fechar</span>
+                <i class="fas fa-times"></i>
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+      
+      {{ caller() }}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Adicionar apenas uma vez ao documento
+  if (typeof window.modalFunctionsAdded === 'undefined') {
+    window.modalFunctionsAdded = true;
+    
+    // Função para abrir modal
+    window.openModal = function(id) {
+      document.getElementById(id).classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    };
+    
+    // Função para fechar modal
+    window.closeModal = function(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    };
+    
+    // Fechar modal com tecla ESC
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        const visibleModals = document.querySelectorAll('[role="dialog"]:not(.hidden)');
+        if (visibleModals.length > 0) {
+          const modalId = visibleModals[visibleModals.length - 1].id;
+          closeModal(modalId);
+        }
+      }
+    });
+  }
+</script>
+{% endmacro %}
+
+{% macro table(headers=[], responsive=True, striped=True, hoverable=True, bordered=False, classes='') %}
+{# 
+  Componente de tabela reutilizável
+  Parâmetros:
+  - headers: Lista de cabeçalhos da tabela
+  - responsive: Se a tabela deve ser responsiva
+  - striped: Se a tabela deve ter linhas alternadas
+  - hoverable: Se as linhas devem mudar ao passar o mouse
+  - bordered: Se a tabela deve ter bordas
+  - classes: Classes adicionais
+  
+  Uso:
+  {% call table(headers=['Nome', 'Email', 'Ações']) %}
+    <tr>
+      <td class="px-6 py-4 whitespace-nowrap">João Silva</td>
+      <td class="px-6 py-4 whitespace-nowrap">joao@exemplo.com</td>
+      <td class="px-6 py-4 whitespace-nowrap">
+        <button class="text-blue-600 hover:text-blue-900">Editar</button>
+      </td>
+    </tr>
+  {% endcall %}
+#}
+<div class="{{ 'overflow-x-auto' if responsive }}">
+  <table class="min-w-full divide-y divide-gray-200 {{ classes }}
+    {{ 'table-striped' if striped }}
+    {{ 'table-hoverable' if hoverable }}
+    {{ 'table-bordered' if bordered }}">
+    <thead class="bg-gray-50">
+      <tr>
+        {% for header in headers %}
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {{ header }}
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {{ caller() }}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .table-striped tbody tr:nth-child(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+  
+  .table-hoverable tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+  
+  .table-bordered {
+    border: 1px solid #e5e7eb;
+  }
+  
+  .table-bordered th,
+  .table-bordered td {
+    border: 1px solid #e5e7eb;
+  }
+</style>
+{% endmacro %}
+
+{% macro tabs(id, tabs=[], active_tab=0, classes='') %}
+{# 
+  Componente de abas reutilizável
+  Parâmetros:
+  - id: ID do componente de abas
+  - tabs: Lista de abas no formato [{'id': 'tab-id', 'title': 'Título da Aba'}]
+  - active_tab: Índice da aba ativa (começando em 0)
+  - classes: Classes adicionais
+  
+  Uso:
+  {% call tabs(id='my-tabs', tabs=[
+    {'id': 'tab1', 'title': 'Informações Gerais'},
+    {'id': 'tab2', 'title': 'Configurações'}
+  ]) %}
+    <div id="tab1-content" class="tab-content">
+      Conteúdo da primeira aba
+    </div>
+    <div id="tab2-content" class="tab-content hidden">
+      Conteúdo da segunda aba
+    </div>
+  {% endcall %}
+#}
+<div class="{{ classes }}">
+  <div class="border-b border-gray-200">
+    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+      {% for tab in tabs %}
+        <button
+          id="{{ id }}-{{ tab.id }}-tab"
+          class="py-4 px-1 border-b-2 font-medium text-sm
+            {{ 'border-primary text-primary' if loop.index0 == active_tab else 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}"
+          onclick="switchTab('{{ id }}', '{{ tab.id }}', {{ tabs|length }})"
+          aria-selected="{{ 'true' if loop.index0 == active_tab else 'false' }}"
+          role="tab"
+          aria-controls="{{ id }}-{{ tab.id }}-content"
+        >
+          {{ tab.title }}
+        </button>
+      {% endfor %}
+    </nav>
+  </div>
+  
+  <div class="mt-4">
+    {{ caller() }}
+  </div>
+</div>
+
+<script>
+  // Adicionar apenas uma vez ao documento
+  if (typeof window.tabFunctionsAdded === 'undefined') {
+    window.tabFunctionsAdded = true;
+    
+    // Função para alternar entre abas
+    window.switchTab = function(tabGroupId, tabId, totalTabs) {
+      // Esconder todos os conteúdos
+      const contents = document.querySelectorAll(`[id^="${tabGroupId}-"][id$="-content"]`);
+      contents.forEach(content => {
+        content.classList.add('hidden');
+      });
+      
+      // Desativar todos os botões de aba
+      const tabs = document.querySelectorAll(`[id^="${tabGroupId}-"][id$="-tab"]`);
+      tabs.forEach(tab => {
+        tab.classList.remove('border-primary', 'text-primary');
+        tab.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        tab.setAttribute('aria-selected', 'false');
+      });
+      
+      // Ativar a aba selecionada
+      const selectedTab = document.getElementById(`${tabGroupId}-${tabId}-tab`);
+      selectedTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+      selectedTab.classList.add('border-primary', 'text-primary');
+      selectedTab.setAttribute('aria-selected', 'true');
+      
+      // Mostrar o conteúdo selecionado
+      const selectedContent = document.getElementById(`${tabGroupId}-${tabId}-content`);
+      selectedContent.classList.remove('hidden');
+    };
+  }
+</script>
+{% endmacro %}
+
+{% macro toast(message, type='info', duration=5000, position='top-right') %}
+{# 
+  Componente de toast reutilizável
+  Parâmetros:
+  - message: Mensagem do toast
+  - type: info, success, warning, error
+  - duration: Duração em milissegundos (0 para não fechar automaticamente)
+  - position: top-right, top-left, bottom-right, bottom-left, top-center, bottom-center
+#}
+{% set toast_id = 'toast-' ~ range(1000, 9999) | random %}
+{% set toast_classes = {
+  'info': 'bg-blue-500',
+  'success': 'bg-green-500',
+  'warning': 'bg-yellow-500',
+  'error': 'bg-red-500'
+} %}
+
+{% set toast_icons = {
+  'info': 'fa-info-circle',
+  'success': 'fa-check-circle',
+  'warning': 'fa-exclamation-triangle',
+  'error': 'fa-exclamation-circle'
+} %}
+
+{% set position_classes = {
+  'top-right': 'top-4 right-4',
+  'top-left': 'top-4 left-4',
+  'bottom-right': 'bottom-4 right-4',
+  'bottom-left': 'bottom-4 left-4',
+  'top-center': 'top-4 left-1/2 transform -translate-x-1/2',
+  'bottom-center': 'bottom-4 left-1/2 transform -translate-x-1/2'
+} %}
+
+<div id="{{ toast_id }}" class="fixed {{ position_classes[position] }} z-50 max-w-xs w-full shadow-lg rounded-lg pointer-events-auto hidden transform transition-all duration-300 ease-in-out">
+  <div class="{{ toast_classes[type] }} text-white rounded-lg shadow-md">
+    <div class="flex p-4">
+      <div class="flex-shrink-0">
+        <i class="fas {{ toast_icons[type] }} w-5 h-5"></i>
+      </div>
+      <div class="ml-3 flex-1">
+        <p class="text-sm font-medium">
+          {{ message }}
+        </p>
+      </div>
+      <div class="ml-4 flex-shrink-0 flex">
+        <button type="button" class="inline-flex text-white focus:outline-none focus:text-gray-200" onclick="closeToast('{{ toast_id }}')">
+          <span class="sr-only">Fechar</span>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Adicionar apenas uma vez ao documento
+  if (typeof window.toastFunctionsAdded === 'undefined') {
+    window.toastFunctionsAdded = true;
+    
+    // Função para mostrar toast
+    window.showToast = function(id, duration) {
+      const toast = document.getElementById(id);
+      toast.classList.remove('hidden');
+      toast.classList.add('animate-fade-in');
+      
+      if (duration > 0) {
+        setTimeout(() => {
+          closeToast(id);
+        }, duration);
+      }
+    };
+    
+    // Função para fechar toast
+    window.closeToast = function(id) {
+      const toast = document.getElementById(id);
+      toast.classList.add('opacity-0');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('opacity-0');
+      }, 300);
+    };
+  }
+  
+  // Mostrar este toast específico
+  setTimeout(() => {
+    showToast('{{ toast_id }}', {{ duration }});
+  }, 100);
+</script>
+{% endmacro %}
+
+{% macro spinner(size='md', color='primary', classes='') %}
+{# 
+  Componente de spinner reutilizável
+  Parâmetros:
+  - size: sm, md, lg
+  - color: primary, secondary, accent, white
+  - classes: Classes adicionais
+#}
+{% set size_classes = {
+  'sm': 'w-4 h-4 border-2',
+  'md': 'w-8 h-8 border-4',
+  'lg': 'w-12 h-12 border-4'
+} %}
+
+{% set color_classes = {
+  'primary': 'border-primary border-t-transparent',
+  'secondary': 'border-secondary border-t-transparent',
+  'accent': 'border-accent border-t-transparent',
+  'white': 'border-white border-t-transparent'
+} %}
+
+<div class="inline-block {{ size_classes[size] }} {{ color_classes[color] }} rounded-full animate-spin {{ classes }}"></div>
+{% endmacro %}
+
+{% macro empty_state(title, description=None, icon='fa-inbox', action_text=None, action_url=None, classes='') %}
+{# 
+  Componente de estado vazio reutilizável
+  Parâmetros:
+  - title: Título do estado vazio
+  - description: Descrição do estado vazio
+  - icon: Classe do ícone Font Awesome
+  - action_text: Texto do botão de ação
+  - action_url: URL do botão de ação
+  - classes: Classes adicionais
+#}
+<div class="text-center py-12 px-4 {{ classes }}">
+  <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-400 mb-6">
+    <i class="fas {{ icon }} text-2xl"></i>
+  </div>
+  
+  <h3 class="text-lg font-medium text-gray-900 mb-2">{{ title }}</h3>
+  
+  {% if description %}
+    <p class="text-sm text-gray-500 max-w-md mx-auto mb-6">{{ description }}</p>
+  {% endif %}
+  
+  {% if action_text and action_url %}
+    <a href="{{ action_url }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+      {{ action_text }}
+    </a>
+  {% endif %}
+</div>
+{% endmacro %}

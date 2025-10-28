@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if contato %}Editar{% else %}Novo{% endif %} Contato - AIcentral v2</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/contato_form.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-user"></i>
+                {% if contato %}Editar Contato{% else %}Novo Contato{% endif %}
+            </h1>
+            <a href="{{ url_for('contatos') }}" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                Voltar
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <i class="fas fa-{% if category == 'error' %}exclamation-circle{% else %}check-circle{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Form -->
+        <div class="form-container">
+            <form method="POST">
+                <!-- Nome Completo -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user"></i>
+                        Nome Completo
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="nome_completo" 
+                        class="form-input"
+                        value="{{ contato.nome_completo if contato else '' }}"
+                        required
+                        autofocus
+                        placeholder="Ex: João Silva"
+                    >
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-envelope"></i>
+                        Email
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="email" 
+                        name="email" 
+                        class="form-input"
+                        value="{{ contato.email if contato else '' }}"
+                        required
+                        placeholder="exemplo@email.com"
+                    >
+                    <div class="form-help">Será usado para login</div>
+                </div>
+
+                <!-- Telefone -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-phone"></i>
+                        Telefone
+                    </label>
+                    <input 
+                        type="text" 
+                        name="telefone" 
+                        class="form-input"
+                        value="{{ contato.telefone if contato else '' }}"
+                        placeholder="(00) 00000-0000"
+                        maxlength="15"
+                    >
+                    <div class="form-help">Opcional</div>
+                </div>
+
+                <!-- Cliente -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-building"></i>
+                        Cliente
+                        <span class="required">*</span>
+                    </label>
+                    <select name="pk_id_tbl_cliente" class="form-select" required>
+                        <option value="">Selecione um cliente...</option>
+                        {% for cliente in clientes %}
+                            <option value="{{ cliente.id_cliente }}" 
+                                {% if contato and contato.pk_id_tbl_cliente == cliente.id_cliente %}selected{% endif %}>
+                                {{ cliente.nome_fantasia }} ({{ cliente.razao_social }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Senha (apenas para novo) -->
+                {% if not contato %}
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-lock"></i>
+                        Senha
+                        <span class="required">*</span>
+                    </label>
+                    <div class="password-wrapper">
+                        <input 
+                            type="password" 
+                            name="senha" 
+                            id="senha"
+                            class="form-input"
+                            required
+                            minlength="6"
+                            placeholder="Mínimo 6 caracteres"
+                        >
+                        <i class="fas fa-eye password-toggle"></i>
+                    </div>
+                    <div class="form-help">Mínimo 6 caracteres</div>
+                </div>
+                {% endif %}
+
+                <!-- Nova Senha (apenas para editar) -->
+                {% if contato %}
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-lock"></i>
+                        Nova Senha
+                    </label>
+                    <div class="password-wrapper">
+                        <input 
+                            type="password" 
+                            name="nova_senha" 
+                            id="nova_senha"
+                            class="form-input"
+                            minlength="6"
+                            placeholder="Deixe vazio para manter a senha atual"
+                        >
+                        <i class="fas fa-eye password-toggle"></i>
+                    </div>
+                    <div class="form-help">Deixe vazio para não alterar</div>
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        {% if contato %}Atualizar{% else %}Cadastrar{% endif %}
+                    </button>
+                    <a href="{{ url_for('contatos') }}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/contato_form.js') }}"></script>
+</body>
+</html>

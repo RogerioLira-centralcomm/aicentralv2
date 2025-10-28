@@ -139,7 +139,10 @@ def verificar_senha_md5(senha, senha_md5):
 # ==================== AUTENTICAÇÃO ====================
 
 def verificar_credenciais(email, password):
-    """Verifica as credenciais de login"""
+    """
+    Verifica as credenciais de login
+    APENAS PERMITE ACESSO PARA CLIENTES CENTRALCOMM
+    """
     conn = get_db()
 
     with conn.cursor() as cursor:
@@ -165,8 +168,29 @@ def verificar_credenciais(email, password):
         
         user = cursor.fetchone()
 
-        if user and verificar_senha_md5(password, user['senha']):
-            return user
+        # Verificar se usuário existe e senha está correta
+        if not user or not verificar_senha_md5(password, user['senha']):
+            return None
+        
+        # ==================== RESTRIÇÃO CENTRALCOMM ====================
+        # APENAS clientes CENTRALCOMM podem acessar
+        if not user['razao_social'] or user['razao_social'].upper() != 'CENTRALCOMM':
+            current_app.logger.warning(
+                f"Tentativa de login negada - Cliente não autorizado: {user['razao_social']} "
+                f"(Email: {email})"
+            )
+            return None  # Retorna None como se as credenciais estivessem erradas
+        # ===============================================================
+        
+        # Verificar se cliente está ativo
+        if not user['cliente_status']:
+            current_app.logger.warning(
+                f"Tentativa de login negada - Cliente inativo: {user['razao_social']} "
+                f"(Email: {email})"
+            )
+            return None
+
+        return user
 
     return None
 

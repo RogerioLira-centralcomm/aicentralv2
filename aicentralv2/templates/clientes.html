@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - AIcentral v2</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {% if category == 'error' %}
+                                <i class="fas fa-exclamation-circle"></i>
+                            {% elif category == 'success' %}
+                                <i class="fas fa-check-circle"></i>
+                            {% elif category == 'warning' %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                            {% elif category == 'info' %}
+                                <i class="fas fa-info-circle"></i>
+                            {% endif %}
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-building"></i>
+                Clientes
+            </h1>
+            <div class="header-actions">
+                <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i>
+                    Novo Cliente
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            {% if clientes %}
+                <!-- Search Box -->
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        class="search-input" 
+                        placeholder="Pesquisar por Razão Social ou Nome Fantasia..."
+                        autocomplete="off"
+                    >
+                    <span class="search-results" id="searchResults"></span>
+                </div>
+
+                <table id="clientesTable">
+                    <thead>
+                        <tr>
+                            <th>Razão Social</th>
+                            <th>Nome Fantasia</th>
+                            <th>CNPJ</th>
+                            <th>Status</th>
+                            <th style="text-align: center;">Contatos</th>
+                            <th style="text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                        <tr>
+                            <td data-label="Razão Social"><strong>{{ cliente.razao_social }}</strong></td>
+                            <td data-label="Nome Fantasia">{{ cliente.nome_fantasia }}</td>
+                            <td data-label="CNPJ">{{ cliente.cnpj or '-' }}</td>
+                            <td data-label="Status">
+                                {% if cliente.status %}
+                                    <span class="badge badge-active">
+                                        <i class="fas fa-check-circle"></i> Ativo
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-inactive">
+                                        <i class="fas fa-times-circle"></i> Inativo
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Contatos" style="text-align: center;">
+                                <strong>{{ cliente.total_contatos }}</strong>
+                            </td>
+                            <td data-label="Ações" style="text-align: center;">
+                                <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" 
+                                   class="btn btn-sm btn-edit" 
+                                   title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                
+                                <form method="POST" 
+                                      action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
+                                      style="display: inline;">
+                                    <button type="submit" 
+                                            class="btn btn-sm {% if cliente.status %}btn-danger{% else %}btn-success{% endif %}"
+                                            title="{% if cliente.status %}Desativar{% else %}Ativar{% endif %}">
+                                        <i class="fas fa-{% if cliente.status %}ban{% else %}check{% endif %}"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- No Results Message -->
+                <div class="no-results" id="noResults" style="display: none;">
+                    <i class="fas fa-search"></i>
+                    <p>Nenhum cliente encontrado com esse termo de pesquisa.</p>
+                    <button onclick="clearSearch()" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Limpar Pesquisa
+                    </button>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>Nenhum cliente cadastrado</p>
+                    <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Cadastrar Primeiro Cliente
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/clientes.js') }}"></script>
+</body>
+</html>

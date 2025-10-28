@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if cliente %}Editar{% else %}Novo{% endif %} Cliente - AIcentral v2</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cliente_form.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-building"></i>
+                {% if cliente %}Editar Cliente{% else %}Novo Cliente{% endif %}
+            </h1>
+            <a href="{{ url_for('clientes') }}" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                Voltar
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <i class="fas fa-{% if category == 'error' %}exclamation-circle{% else %}check-circle{% endif %}"></i>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Form -->
+        <div class="form-container">
+            <form method="POST">
+                <!-- Razão Social -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-building"></i>
+                        Razão Social
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="razao_social" 
+                        class="form-input"
+                        value="{{ cliente.razao_social if cliente else '' }}"
+                        required
+                        autofocus
+                        placeholder="Ex: EMPRESA LTDA"
+                    >
+                    <div class="form-help">Nome oficial da empresa</div>
+                </div>
+
+                <!-- Nome Fantasia -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-store"></i>
+                        Nome Fantasia
+                        <span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="nome_fantasia" 
+                        class="form-input"
+                        value="{{ cliente.nome_fantasia if cliente else '' }}"
+                        required
+                        placeholder="Ex: Empresa"
+                    >
+                    <div class="form-help">Nome comercial da empresa</div>
+                </div>
+
+                <!-- CNPJ -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-id-card"></i>
+                        CNPJ
+                    </label>
+                    <input 
+                        type="text" 
+                        name="cnpj" 
+                        class="form-input"
+                        value="{{ cliente.cnpj if cliente else '' }}"
+                        placeholder="00.000.000/0000-00"
+                        maxlength="18"
+                    >
+                    <div class="form-help">Opcional - formato: 00.000.000/0000-00</div>
+                </div>
+
+                <!-- Inscrição Estadual -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-file-alt"></i>
+                        Inscrição Estadual
+                    </label>
+                    <input 
+                        type="text" 
+                        name="inscricao_estadual" 
+                        class="form-input"
+                        value="{{ cliente.inscricao_estadual if cliente else '' }}"
+                        placeholder="Ex: 123.456.789.012"
+                    >
+                    <div class="form-help">Opcional</div>
+                </div>
+
+                <!-- Inscrição Municipal -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-file-alt"></i>
+                        Inscrição Municipal
+                    </label>
+                    <input 
+                        type="text" 
+                        name="inscricao_municipal" 
+                        class="form-input"
+                        value="{{ cliente.inscricao_municipal if cliente else '' }}"
+                        placeholder="Ex: 123456"
+                    >
+                    <div class="form-help">Opcional</div>
+                </div>
+
+                <!-- Actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        {% if cliente %}Atualizar{% else %}Cadastrar{% endif %}
+                    </button>
+                    <a href="{{ url_for('clientes') }}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/cliente_form.js') }}"></script>
+</body>
+</html>

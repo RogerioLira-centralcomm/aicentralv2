@@ -3,162 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Descobrir - Centralcomm</title>
+    <title>AIcentral v2 - Dashboard</title>
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/index2.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-content h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        .header-content p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .btn-logout {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-logout:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+        }
+
+        .panel {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel h3 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn i {
+            font-size: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+            
+            .buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    
-    <!-- ==================== SIDEBAR (3 ícones) ==================== -->
-    <aside class="sidebar">
-        <button class="sidebar-icon green">
-            <i class="fas fa-grip-horizontal"></i>
-        </button>
-        <button class="sidebar-icon">
-            <i class="fas fa-chevron-left"></i>
-        </button>
-        <button class="sidebar-icon colorful">
-            <span class="dot red"></span>
-            <span class="dot yellow"></span>
-            <span class="dot green"></span>
-            <span class="dot blue"></span>
-        </button>
-    </aside>
-
-    <!-- ==================== MAIN ==================== -->
-    <div class="main-content">
-        
-        <!-- ==================== HEADER ==================== -->
-        <header class="header">
-            <!-- Breadcrumb -->
-            <div class="breadcrumb">
-                <button class="menu-btn">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <span class="breadcrumb-text">Descobrir</span>
-                <i class="fas fa-chevron-right"></i>
-                <span class="breadcrumb-text active">Centralcomm</span>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <h1>🚀 AIcentral v2</h1>
+                <p>Bem-vindo, <strong>{{ session.get('user_name', 'Usuário') }}</strong></p>
             </div>
+            <a href="{{ url_for('logout') }}" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                Sair
+            </a>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="panel">
+            <h3>
+                <i class="fas fa-shield-alt"></i> 
+                Administração
+            </h3>
+            <p>Gerencie clientes e contatos do sistema.</p>
             
-            <!-- Navigation Pills -->
-            <nav class="nav-pills">
-                <button class="pill active">
-                    <i class="fas fa-list"></i>
-                    Briefings
-                </button>
-                <button class="pill">
-                    <i class="fas fa-file-alt"></i>
-                    Propostas
-                </button>
-                <button class="pill">
-                    <i class="fas fa-chart-line"></i>
-                    PIs
-                </button>
-                <button class="pill">
-                    <i class="fas fa-palette"></i>
-                    Formatos
-                </button>
-                <button class="pill">
+            <div class="buttons">
+                <a href="{{ url_for('clientes') }}" class="btn">
+                    <i class="fas fa-building"></i>
+                    <span>Gerenciar Clientes</span>
+                </a>
+                <a href="{{ url_for('contatos') }}" class="btn">
                     <i class="fas fa-users"></i>
-                    Audiências
-                </button>
-            </nav>
-            
-            <!-- User Avatar -->
-            <div class="user-avatar">
-                <img src="https://ui-avatars.com/api/?name=Fernanda&background=7C3AED&color=fff&size=48" 
-                     alt="Fernanda">
+                    <span>Gerenciar Contatos</span>
+                </a>
             </div>
-        </header>
-
-        <!-- ==================== CONTENT ==================== -->
-        <div class="content">
-            
-            <!-- Greeting Section -->
-            <section class="greeting">
-                <h1>Olá, Fernanda</h1>
-                <p class="subtitle">Como podemos te <span class="highlight">ajudar hoje?</span></p>
-                
-                <div class="action-buttons">
-                    <button class="btn-action">
-                        <i class="fas fa-bullseye"></i>
-                        Alcance
-                    </button>
-                    <button class="btn-action">
-                        <i class="fas fa-chart-line"></i>
-                        Performance
-                    </button>
-                </div>
-            </section>
-
-            <!-- Grid Layout -->
-            <div class="grid-layout">
-                
-                <!-- Card Propostas -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-file-alt"></i>
-                            <span>Propostas</span>
-                        </div>
-                        <div class="card-actions">
-                            <button class="icon-btn">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                            <button class="icon-btn">
-                                <i class="fas fa-ellipsis-h"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Data</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="expandable">
-                                <td>
-                                    <button class="expand-icon">
-                                        <i class="fas fa-chevron-down"></i>
-                                    </button>
-                                    <span>Proposta Exemplo</span>
-                                </td>
-                                <td class="text-right">15/01/2025</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Card Vazio (grande) -->
-                <div class="card card-empty"></div>
-            </div>
-
-            <!-- Card Info -->
-            <div class="card card-info">
-                <div class="info-icon">
-                    <i class="fas fa-info-circle"></i>
-                </div>
-                <div class="info-content">
-                    <h3>Title</h3>
-                    <p>Body text for whatever you'd like to say. Add main takeaway points, quotes, anecdotes, or even a very very short story.</p>
-                    <button class="btn-simple">Button</button>
-                </div>
-            </div>
-
         </div>
     </div>
 
-    <!-- JavaScript -->
-    <script src="{{ url_for('static', filename='js/index2.js') }}"></script>
+    <script>
+        console.log('=== DASHBOARD ===');
+        console.log('URL:', window.location.href);
+        console.log('Usuário:', '{{ session.get("user_name", "N/A") }}');
+        
+        // Log de cliques
+        document.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                console.log('Click:', this.href);
+            });
+        });
+    </script>
 </body>
 </html>

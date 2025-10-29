@@ -93,7 +93,22 @@
                     >
                     <div class="form-help">Opcional - formato: 00.000.000/0000-00</div>
                 </div>
-
+                        <!-- Plano -->
+                        <div class="mb-3">
+                            <label for="pk_id_tbl_plano" class="form-label">Plano *</label>
+                            <select class="form-select" 
+                                    id="pk_id_tbl_plano" 
+                                    name="pk_id_tbl_plano" 
+                                    required>
+                                <option value="">Selecione um plano</option>
+                                {% for plano in planos %}
+                                <option value="{{ plano.id_plano }}"
+                                        {% if cliente and cliente.pk_id_tbl_plano == plano.id_plano %}selected{% endif %}>
+                                    {{ plano.descricao }} ({{ plano.tokens }} tokens)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
                 <!-- Inscrição Estadual -->
                 <div class="form-group">
                     <label class="form-label">

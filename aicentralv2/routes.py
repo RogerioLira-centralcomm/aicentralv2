@@ -169,31 +169,73 @@ def init_routes(app):
     @app.route('/clientes')
     @login_required
     def clientes():
-        """Lista clientes"""
         try:
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                cursor.execute('''
-                    SELECT 
-                        c.id_cliente,
-                        c.cnpj,
-                        c.nome_fantasia,
-                        c.razao_social,
-                        c.status,
-                        c.data_cadastro,
-                        COUNT(ct.id_contato_cliente) as total_contatos
-                    FROM tbl_cliente c
-                    LEFT JOIN tbl_contato_cliente ct ON c.id_cliente = ct.pk_id_tbl_cliente
-                    GROUP BY c.id_cliente
-                    ORDER BY c.razao_social
-                ''')
-                clientes = cursor.fetchall()
+            print("🔍 DEBUG: Iniciando rota /clientes")
             
+            conn = db.get_db()
+            if not conn:
+                raise Exception("Falha na conexão com o banco de dados")
+            
+            cursor = conn.cursor()
+            
+            # Query com nomes CORRETOS das tabelas
+            query = """
+                 SELECT 
+                    c.id_cliente,
+                    c.razao_social,
+                    c.nome_fantasia,
+                    c.cnpj,
+                    c.status,
+                    (
+                        SELECT COUNT(*) 
+                        FROM tbl_contato_cliente ct 
+                        WHERE ct.pk_id_tbl_cliente = c.id_cliente
+                    ) as total_contatos
+                FROM tbl_cliente c
+                ORDER BY c.id_cliente DESC
+            """
+            
+            print(f"📝 DEBUG: Executando query")
+            cursor.execute(query)
+            
+            resultados = cursor.fetchall()
+            print(f"✅ DEBUG: Query executada. Resultados: {len(resultados) if resultados else 0}")
+            
+            clientes = []
+            
+            if resultados:
+                for row in resultados:
+                    try:
+                        # ✅ ACESSAR COMO DICIONÁRIO
+                        cliente = {
+                            'id_cliente': row['id_cliente'],
+                            'razao_social': row['razao_social'] or '',
+                            'nome_fantasia': row['nome_fantasia'] or '',
+                            'cnpj': row['cnpj'] or '',
+                            'status': row['status'] if row['status'] is not None else False,
+                            'total_contatos': row['total_contatos'] or 0
+                        }
+                        clientes.append(cliente)
+                        print(f"✅ Cliente {row['id_cliente']} - {row['razao_social'] or 'SEM NOME'} - {row['total_contatos']} contatos")
+                    except Exception as e:
+                        print(f"❌ DEBUG: Erro ao processar cliente: {row}")
+                        print(f"   Erro: {str(e)}")
+                        continue
+            
+            cursor.close()
+            conn.close()
+            
+            print(f"✅ DEBUG: Total de clientes processados: {len(clientes)}")
             return render_template('clientes.html', clientes=clientes)
+            
         except Exception as e:
-            app.logger.error(f"Erro: {e}")
-            flash('Erro ao carregar clientes.', 'error')
-            return redirect(url_for('index'))
+            print(f"❌ ERRO DETALHADO:")
+            print(f"   Tipo: {type(e).__name__}")
+            print(f"   Mensagem: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Erro ao buscar clientes: {str(e)}', 'error')
+            return render_template('clientes.html', clientes=[])
     
     @app.route('/clientes/novo', methods=['GET', 'POST'])
     @login_required

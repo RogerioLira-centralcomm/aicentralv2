@@ -130,7 +130,5 @@ def register_commands(app):
                 status=True
             )
             print(f'✅ Contato criado! ID: {contato_id}')
-            print(f'   Email: admin@teste.com')
-            print(f'   Senha: admin123')
         except Exception as e:
             print(f'❌ Erro: {e}')

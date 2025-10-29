@@ -66,20 +66,44 @@ def create_app(config_class=Config):
 
 def setup_logging(app):
     """Configura sistema de logs"""
-    if not app.debug:
-        # Configurar handler para arquivo
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
+    import sys
+    
+    # Configurar formato do log
+    formatter = logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s '
+        '[in %(pathname)s:%(lineno)d]'
+    )
+    
+    # Criar diretório de logs se não existir
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
         
-        file_handler = logging.FileHandler('logs/aicentral.log')
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        
-        app.logger.setLevel(logging.INFO)
-        app.logger.info('✅ AIcentral v2 startup')
+    # Configurar handler para arquivo
+    file_handler = logging.FileHandler('logs/aicentral.log', encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    
+    # Configurar handler para console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+    
+    # Remover handlers existentes
+    for handler in app.logger.handlers[:]:
+        app.logger.removeHandler(handler)
+    
+    # Adicionar novos handlers
+    app.logger.addHandler(file_handler)
+    app.logger.addHandler(console_handler)
+    app.logger.setLevel(logging.INFO)
+    
+    # Configurar codificação do console para UTF-8 no Windows
+    if sys.platform.startswith('win'):
+        import codecs
+        sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+    
+    # Registrar início da aplicação
+    app.logger.info('✅ AIcentral v2 startup')
 
 
 def register_commands(app):

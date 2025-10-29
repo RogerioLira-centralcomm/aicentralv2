@@ -11,6 +11,7 @@ const table = document.getElementById('contatosTable');
 const tbody = table.querySelector('tbody');
 const rows = Array.from(tbody.querySelectorAll('tr'));
 const totalItems = rows.length;
+const statusFilter = document.getElementById('statusFilter');
 
 // Elementos de paginação
 const showingStart = document.getElementById('showing-start');
@@ -57,12 +58,8 @@ function sortTable(column) {
                 bValue = b.querySelector('td:nth-child(2)').textContent.trim();
                 break;
             case 'cliente':
-                aValue = a.querySelector('td:nth-child(4)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(4)').textContent.trim();
-                break;
-            case 'status':
-                aValue = a.querySelector('td:nth-child(5)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(5)').textContent.trim();
+                aValue = a.querySelector('td:nth-child(3)').textContent.trim();
+                bValue = b.querySelector('td:nth-child(3)').textContent.trim();
                 break;
             default:
                 return 0;
@@ -132,15 +129,21 @@ searchInput.addEventListener('input', (e) => {
     let matchCount = 0;
     config.currentPage = 1; // Reset para primeira página
 
+    const selectedStatus = statusFilter.value;
+    
     const filteredRows = rows.filter(row => {
         const nome = row.querySelector('td:first-child .font-medium').textContent.toLowerCase();
         const email = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-        const cliente = row.querySelector('td:nth-child(4)').textContent.toLowerCase();
+        const cliente = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+        const status = row.querySelector('.status-marker')?.dataset?.status;
 
-        const matches = nome.includes(searchTerm) || 
-                       email.includes(searchTerm) || 
-                       cliente.includes(searchTerm);
+        const matchesSearch = nome.includes(searchTerm) || 
+                            email.includes(searchTerm) || 
+                            cliente.includes(searchTerm);
 
+        const matchesStatus = selectedStatus === 'todos' || status === selectedStatus;
+
+        const matches = matchesSearch && matchesStatus;
         if (matches) matchCount++;
         return matches;
     });
@@ -207,8 +210,27 @@ document.querySelectorAll('.sort-btn').forEach(button => {
     });
 });
 
+// Event listener para o filtro de status
+statusFilter.addEventListener('change', () => {
+    searchInput.dispatchEvent(new Event('input'));
+});
+
+// Adiciona dataset de status a cada linha
+function addStatusDataset() {
+    rows.forEach(row => {
+        const toggleButton = row.querySelector('button[type="submit"]');
+        const isActive = toggleButton.querySelector('i').classList.contains('fa-ban');
+        const statusMarker = document.createElement('span');
+        statusMarker.classList.add('status-marker');
+        statusMarker.dataset.status = isActive ? 'true' : 'false';
+        statusMarker.style.display = 'none';
+        row.appendChild(statusMarker);
+    });
+}
+
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
+    addStatusDataset();
     setupEventListeners();
     updateTable();
 });

@@ -1,227 +1,77 @@
-// Configuração da tabela
-const config = {
-    itemsPerPage: 10,
-    currentPage: 1,
-    sortColumn: null,
-    sortDirection: 'asc'
-};
+document.addEventListener('DOMContentLoaded', function() {
+    // Elementos DOM
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const table = document.getElementById('clientesTable');
+    const tbody = table.querySelector('tbody');
+    const noResults = document.getElementById('noResults');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
 
-// Elementos DOM
-const table = document.getElementById('clientesTable');
-const tbody = table.querySelector('tbody');
-const rows = Array.from(tbody.querySelectorAll('tr'));
-const totalItems = rows.length;
+    // Função para filtrar a tabela
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const statusValue = statusFilter.value;
+        let visibleCount = 0;
 
-// Elementos de paginação
-const showingStart = document.getElementById('showing-start');
-const showingEnd = document.getElementById('showing-end');
-const totalItemsSpan = document.getElementById('total-items');
-const prevPageBtn = document.getElementById('prev-page');
-const nextPageBtn = document.getElementById('next-page');
+        rows.forEach(row => {
+            // Encontrar células com dados
+            const cells = row.querySelectorAll('td');
+            const razaoSocial = cells[0].textContent.toLowerCase();
+            const nomeFantasia = cells[1].textContent.toLowerCase();
+            
+            // Encontrar o ícone de status no botão de ações
+            const actionsCell = cells[cells.length - 1];
+            const statusForm = actionsCell.querySelector('form');
+            const statusButton = statusForm ? statusForm.querySelector('button') : null;
+            const statusIcon = statusButton ? statusButton.querySelector('i') : null;
+            
+            // Determinar se está ativo baseado no ícone de banimento (se tem ban, está ativo)
+            const isAtivo = statusIcon && statusIcon.classList.contains('fa-ban');
 
-// Função para ordenar a tabela
-function sortTable(column) {
-    const sortButtons = document.querySelectorAll('.sort-btn');
-    const currentButton = document.querySelector(`.sort-btn[data-column="${column}"]`);
-    
-    // Reset outros ícones
-    sortButtons.forEach(btn => {
-        if (btn !== currentButton) {
-            btn.querySelector('i').className = 'fas fa-sort text-gray-400';
-        }
-    });
+            // Verificar se atende aos critérios de filtro
+            const matchesSearch = razaoSocial.includes(searchTerm) || 
+                                nomeFantasia.includes(searchTerm);
+            
+            const matchesStatus = statusValue === 'todos' || 
+                                (statusValue === 'false' && !isAtivo) || 
+                                (statusValue === 'true' && isAtivo);
 
-    // Atualiza direção da ordenação
-    if (config.sortColumn === column) {
-        config.sortDirection = config.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-        config.sortColumn = column;
-        config.sortDirection = 'asc';
-    }
-
-    // Atualiza ícone
-    const icon = currentButton.querySelector('i');
-    icon.className = `fas fa-sort-${config.sortDirection === 'asc' ? 'up' : 'down'} text-primary`;
-
-    // Ordena as linhas
-    rows.sort((a, b) => {
-        let aValue, bValue;
-
-        switch(column) {
-            case 'razao':
-                aValue = a.querySelector('td:first-child .font-medium').textContent.trim();
-                bValue = b.querySelector('td:first-child .font-medium').textContent.trim();
-                break;
-            case 'fantasia':
-                aValue = a.querySelector('td:nth-child(2)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(2)').textContent.trim();
-                break;
-            case 'cnpj':
-                aValue = a.querySelector('td:nth-child(3)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(3)').textContent.trim();
-                break;
-            case 'status':
-                aValue = a.querySelector('td:nth-child(4)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(4)').textContent.trim();
-                break;
-            case 'contatos':
-                aValue = parseInt(a.querySelector('td:nth-child(5)').textContent.trim()) || 0;
-                bValue = parseInt(b.querySelector('td:nth-child(5)').textContent.trim()) || 0;
-                return config.sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-            default:
-                return 0;
-        }
-
-        if (config.sortDirection === 'asc') {
-            return aValue.localeCompare(bValue, 'pt-BR');
-        } else {
-            return bValue.localeCompare(aValue, 'pt-BR');
-        }
-    });
-
-    updateTable();
-}
-
-// Função para atualizar a exibição da tabela
-function updateTable() {
-    const start = (config.currentPage - 1) * config.itemsPerPage;
-    const end = Math.min(start + config.itemsPerPage, totalItems);
-    
-    // Limpa a tabela
-    tbody.innerHTML = '';
-    
-    // Adiciona apenas as linhas da página atual
-    for (let i = start; i < end; i++) {
-        tbody.appendChild(rows[i].cloneNode(true));
-    }
-    
-    // Atualiza informações de paginação
-    showingStart.textContent = start + 1;
-    showingEnd.textContent = end;
-    totalItemsSpan.textContent = totalItems;
-    
-    // Atualiza estado dos botões de paginação
-    prevPageBtn.disabled = config.currentPage === 1;
-    nextPageBtn.disabled = end >= totalItems;
-    
-    // Atualiza classes zebra
-    Array.from(tbody.querySelectorAll('tr')).forEach((row, index) => {
-        if (index % 2 === 0) {
-            row.classList.remove('bg-gray-50/30');
-        } else {
-            row.classList.add('bg-gray-50/30');
-        }
-    });
-
-    // Reaplica event listeners
-    setupEventListeners();
-}
-
-// Configuração de event listeners
-function setupEventListeners() {
-    // Tooltips para ações
-    document.querySelectorAll('[data-tooltip]').forEach(element => {
-        element.addEventListener('mouseenter', showTooltip);
-        element.addEventListener('mouseleave', hideTooltip);
-    });
-
-    // Confirmação de deleção
-    document.querySelectorAll('form[data-confirm]').forEach(form => {
-        form.addEventListener('submit', (e) => {
-            if (!confirm(form.dataset.confirm)) {
-                e.preventDefault();
+            // Mostrar/esconder linha
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
             }
         });
-    });
-}
 
-// Busca
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
-const noResults = document.getElementById('noResults');
-
-searchInput.addEventListener('input', (e) => {
-    const searchTerm = e.target.value.toLowerCase();
-    let matchCount = 0;
-    config.currentPage = 1; // Reset para primeira página
-
-    const filteredRows = rows.filter(row => {
-        const razaoSocial = row.querySelector('td:first-child .font-medium').textContent.toLowerCase();
-        const nomeFantasia = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-        const cnpj = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-
-        const matches = razaoSocial.includes(searchTerm) || 
-                       nomeFantasia.includes(searchTerm) || 
-                       cnpj.includes(searchTerm);
-
-        if (matches) matchCount++;
-        return matches;
-    });
-
-    // Atualiza contador de resultados
-    searchResults.textContent = matchCount > 0 ? `${matchCount} resultado${matchCount > 1 ? 's' : ''}` : 'Nenhum resultado';
-    
-    // Mostra/esconde mensagem de "Nenhum resultado"
-    if (matchCount === 0 && searchTerm !== '') {
-        noResults.classList.remove('hidden');
-        tbody.innerHTML = '';
-    } else {
-        noResults.classList.add('hidden');
-        
-        // Atualiza apenas as linhas filtradas
-        tbody.innerHTML = '';
-        const end = Math.min(config.itemsPerPage, filteredRows.length);
-        for (let i = 0; i < end; i++) {
-            tbody.appendChild(filteredRows[i].cloneNode(true));
+        // Mostrar/esconder mensagem de "nenhum resultado"
+        if (noResults) {
+            if (visibleCount === 0) {
+                tbody.style.display = 'none';
+                noResults.style.display = '';
+            } else {
+                tbody.style.display = '';
+                noResults.style.display = 'none';
+            }
         }
-        
-        // Atualiza paginação
-        showingStart.textContent = filteredRows.length > 0 ? '1' : '0';
-        showingEnd.textContent = end;
-        totalItemsSpan.textContent = filteredRows.length;
-        
-        // Atualiza estado dos botões de paginação
-        prevPageBtn.disabled = true;
-        nextPageBtn.disabled = end >= filteredRows.length;
     }
-    
-    setupEventListeners();
-});
 
-// Função para limpar busca
-window.clearSearch = function() {
-    searchInput.value = '';
-    searchResults.textContent = '';
-    noResults.classList.add('hidden');
-    config.currentPage = 1;
-    updateTable();
-};
-
-// Event Listeners para paginação
-prevPageBtn.addEventListener('click', () => {
-    if (config.currentPage > 1) {
-        config.currentPage--;
-        updateTable();
+    // Event Listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', filterTable);
     }
-});
-
-nextPageBtn.addEventListener('click', () => {
-    const maxPage = Math.ceil(totalItems / config.itemsPerPage);
-    if (config.currentPage < maxPage) {
-        config.currentPage++;
-        updateTable();
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterTable);
     }
-});
 
-// Event Listeners para ordenação
-document.querySelectorAll('.sort-btn').forEach(button => {
-    button.addEventListener('click', () => {
-        sortTable(button.dataset.column);
-    });
-});
+    // Função para limpar pesquisa
+    window.clearSearch = function() {
+        if (searchInput) searchInput.value = '';
+        if (statusFilter) statusFilter.value = 'todos';
+        filterTable();
+    };
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', () => {
-    setupEventListeners();
-    updateTable();
+    // Inicialização
+    filterTable();
 });

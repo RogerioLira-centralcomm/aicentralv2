@@ -81,7 +81,44 @@ def init_routes(app):
     @login_required
     def index():
         """Página inicial - Dashboard"""
-        return render_template('index.html')
+        try:
+            # Obtém conexão usando o padrão do projeto
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                # Total de clientes
+                cursor.execute("SELECT COUNT(*) FROM tbl_cliente")
+                total_clientes = cursor.fetchone()['count']
+                
+                # Clientes ativos (status = TRUE significa ativo)
+                cursor.execute("SELECT COUNT(*) FROM tbl_cliente WHERE status = TRUE")
+                clientes_ativos = cursor.fetchone()['count']
+                
+                # Clientes inativos (status = FALSE significa inativo)
+                cursor.execute("SELECT COUNT(*) FROM tbl_cliente WHERE status = FALSE")
+                clientes_inativos = cursor.fetchone()['count']
+                
+                # Total de contatos
+                cursor.execute("SELECT COUNT(*) FROM tbl_contato_cliente")
+                total_contatos = cursor.fetchone()['count']
+                
+                dados = {
+                    'total_clientes': total_clientes,
+                    'clientes_ativos': clientes_ativos,
+                    'clientes_inativos': clientes_inativos,
+                    'total_contatos': total_contatos,
+                    'atividades': []  # TODO: Implementar atividades recentes
+                }
+                
+                return render_template('index_tailwind.html', **dados)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar dashboard: {str(e)}")
+            flash('Erro ao carregar dados do dashboard.', 'error')
+            return render_template('index_tailwind.html', 
+                                total_clientes=0,
+                                clientes_ativos=0,
+                                clientes_inativos=0,
+                                total_contatos=0,
+                                atividades=[])
     
     # ==================== FORGOT PASSWORD ====================
     
@@ -344,6 +381,81 @@ def init_routes(app):
             flash('Erro ao alterar status.', 'error')
         
         return redirect(url_for('clientes'))
+
+    @app.route('/clientes/<int:cliente_id>/detalhes')
+    @login_required
+    def cliente_detalhes(cliente_id):
+        """Visualizar detalhes do cliente"""
+        try:
+            conn = db.get_db()
+            cliente = None
+            contatos = []
+            
+            # Busca dados do cliente
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT 
+                        id_cliente,
+                        razao_social,
+                        nome_fantasia,
+                        cnpj,
+                        inscricao_estadual,
+                        inscricao_municipal,
+                        status,
+                        COALESCE(TO_CHAR(data_cadastro, 'DD/MM/YYYY HH24:MI:SS'), 'N/A') as data_criacao,
+                        COALESCE(inscricao_estadual, '') as inscricao_estadual,
+                        COALESCE(inscricao_municipal, '') as inscricao_municipal,
+                        COALESCE(cnpj, '') as cnpj
+                    FROM tbl_cliente 
+                    WHERE id_cliente = %s
+                ''', (cliente_id,))
+                cliente = cursor.fetchone()
+            
+            if not cliente:
+                flash('Cliente não encontrado!', 'error')
+                return redirect(url_for('clientes'))
+
+            # Busca contatos do cliente
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT 
+                        id_contato_cliente,
+                        nome_completo,
+                        COALESCE(email, '') as email,
+                        COALESCE(telefone, '') as telefone,
+                        status,
+                        COALESCE(TO_CHAR(data_cadastro, 'DD/MM/YYYY'), 'N/A') as data_criacao
+                    FROM tbl_contato_cliente 
+                    WHERE pk_id_tbl_cliente = %s 
+                    ORDER BY nome_completo
+                ''', (cliente_id,))
+                contatos = cursor.fetchall()
+
+                # Conta o total de contatos
+                cursor.execute('''
+                    SELECT COUNT(*) as total_contatos 
+                    FROM tbl_contato_cliente 
+                    WHERE pk_id_tbl_cliente = %s
+                ''', (cliente_id,))
+                total = cursor.fetchone()
+                
+            # Garante que cliente seja um dicionário com todos os campos necessários
+            cliente = dict(cliente or {})
+            cliente['total_contatos'] = total['total_contatos'] if total else 0
+            
+            # Garante que contatos seja uma lista de dicionários
+            contatos = [dict(contato) for contato in (contatos or [])]
+
+            return render_template(
+                'cliente_detalhes.html',
+                cliente=cliente,
+                contatos=contatos
+            )
+
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar detalhes do cliente: {str(e)}")
+            flash('Erro ao carregar detalhes do cliente.', 'error')
+            return redirect(url_for('clientes'))
     
     # ==================== CONTATOS ====================
     

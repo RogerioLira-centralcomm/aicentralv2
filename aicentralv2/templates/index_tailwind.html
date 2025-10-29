@@ -1,0 +1,100 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Dashboard - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <p class="text-sm text-gray-600">Bem-vindo ao CentralComm AI Central</p>
+    </div>
+
+    <!-- Cards de Resumo -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <!-- Card - Total de Clientes -->
+        <div class="bg-white rounded-lg shadow-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-building text-primary text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-gray-500">Total de Clientes</span>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800">{{ total_clientes if total_clientes is defined else 0 }}</h3>
+            <p class="text-sm text-gray-600 mt-2">Clientes cadastrados</p>
+        </div>
+
+        <!-- Card - Clientes Ativos -->
+        <div class="bg-white rounded-lg shadow-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check-circle text-success text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-gray-500">Clientes Ativos</span>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800">{{ clientes_ativos if clientes_ativos is defined else 0 }}</h3>
+            <p class="text-sm text-gray-600 mt-2">Em operação</p>
+        </div>
+
+        <!-- Card - Clientes Inativos -->
+        <div class="bg-white rounded-lg shadow-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-times-circle text-error text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-gray-500">Clientes Inativos</span>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800">{{ clientes_inativos if clientes_inativos is defined else 0 }}</h3>
+            <p class="text-sm text-gray-600 mt-2">Sem operação</p>
+        </div>
+
+        <!-- Card - Total de Contatos -->
+        <div class="bg-white rounded-lg shadow-card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-accent-yellow/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-users text-accent-yellow text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-gray-500">Total de Contatos</span>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800">{{ total_contatos if total_contatos is defined else 0 }}</h3>
+            <p class="text-sm text-gray-600 mt-2">Contatos registrados</p>
+        </div>
+    </div>
+
+    <!-- Seção de Atividades Recentes -->
+    <div class="bg-white rounded-lg shadow-card p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-lg font-semibold text-gray-800">Atividades Recentes</h2>
+            <a href="#" class="text-sm text-primary hover:text-primary-dark transition-colors">Ver todas</a>
+        </div>
+
+        <!-- Lista de Atividades -->
+        <div class="space-y-4">
+            {% if atividades is defined and atividades %}
+                {% for atividade in atividades %}
+                <div class="flex items-start">
+                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                        <i class="{{ atividade.icone }} text-gray-600"></i>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <p class="text-sm text-gray-800">{{ atividade.descricao }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ atividade.data }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4">
+                    <p class="text-gray-500">Nenhuma atividade recente</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Adicionar scripts específicos da página aqui
+    });
+</script>
+{% endblock %}

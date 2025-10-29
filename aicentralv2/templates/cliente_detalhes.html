@@ -1,0 +1,213 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Detalhes do Cliente - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center justify-between">
+            <h1 class="text-3xl font-bold text-text-primary flex items-center">
+                <i class="fas fa-building text-primary mr-3"></i>
+                Detalhes do Cliente
+            </h1>
+            <div class="flex gap-3">
+                <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" 
+                   class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 shadow-md">
+                    <i class="fas fa-edit mr-2"></i>
+                    Editar Cliente
+                </a>
+                <a href="{{ url_for('clientes') }}" 
+                   class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações do Cliente -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Dados Principais -->
+        <div class="lg:col-span-2 bg-white rounded-lg shadow-card p-6">
+            <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-800">
+                <i class="fas fa-info-circle mr-2 text-primary"></i>
+                Informações Principais
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- ID e Data de Criação -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">ID do Cliente</label>
+                    <p class="text-gray-900 mt-1">#{{ cliente.id_cliente }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Criado em: {{ cliente.data_criacao if cliente.data_criacao else 'N/A' }}</p>
+                </div>
+
+                <!-- Status -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Status</label>
+                    <p class="mt-1">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if cliente.status %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ 'Inativo' if cliente.status else 'Ativo' }}
+                        </span>
+                    </p>
+                </div>
+                
+                <!-- Razão Social -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Razão Social</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.razao_social }}</p>
+                </div>
+                
+                <!-- Nome Fantasia -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Nome Fantasia</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.nome_fantasia }}</p>
+                </div>
+                
+                <!-- CNPJ -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">CNPJ</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.cnpj or 'Não informado' }}</p>
+                </div>
+                
+                <!-- Total de Contatos -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Total de Contatos</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.total_contatos }}</p>
+                </div>
+                
+                <!-- Inscrição Estadual -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Inscrição Estadual</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.inscricao_estadual or 'Não informado' }}</p>
+                </div>
+                
+                <!-- Inscrição Municipal -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Inscrição Municipal</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.inscricao_municipal or 'Não informado' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas e Ações -->
+        <div class="space-y-6">
+            <!-- Estatísticas -->
+            <div class="bg-white rounded-lg shadow-card p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Estatísticas</h3>
+                <div class="space-y-4">
+                    <!-- Total de Contatos -->
+                    <div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">Total de Contatos</span>
+                            <span class="text-lg font-semibold text-primary">{{ cliente.total_contatos }}</span>
+                        </div>
+                        <div class="mt-1 h-2 bg-gray-200 rounded-full">
+                            {% set porcentagem = (cliente.total_contatos / 10) * 100 %}
+                            {% if porcentagem > 100 %}{% set porcentagem = 100 %}{% endif %}
+                            <div class="h-2 bg-primary rounded-full" style="width: {{ porcentagem }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="bg-white rounded-lg shadow-card p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Ações</h3>
+                <div class="space-y-3">
+                    <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" 
+                       class="block w-full text-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
+                        <i class="fas fa-user-plus mr-2"></i>
+                        Novo Contato
+                    </a>
+                    <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
+                          class="block w-full">
+                        <button type="submit" 
+                                class="w-full px-4 py-2 {% if cliente.status %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded-lg transition-colors duration-200">
+                            <i class="fas fa-{% if cliente.status %}ban{% else %}check{% endif %} mr-2"></i>
+                            {{ 'Desativar' if cliente.status else 'Ativar' }} Cliente
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Contatos -->
+    <div class="mt-6 bg-white rounded-lg shadow-card p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                <i class="fas fa-users mr-2 text-primary"></i>
+                Contatos Vinculados
+            </h2>
+            <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" 
+               class="inline-flex items-center px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-light transition-colors duration-200">
+                <i class="fas fa-plus mr-1"></i>
+                Adicionar Contato
+            </a>
+        </div>
+
+        {% if contatos %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left">
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Nome</th>
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Email</th>
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Telefone</th>
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for contato in contatos %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-3 px-4">
+                                    <div class="font-medium text-gray-900">{{ contato.nome_completo }}</div>
+                                    <div class="text-xs text-gray-500">Criado em: {{ contato.data_criacao[:10] }}</div>
+                                </td>
+                                <td class="py-3 px-4 text-gray-600">{{ contato.email }}</td>
+                                <td class="py-3 px-4 text-gray-600">{{ contato.telefone or 'Não informado' }}</td>
+                                <td class="py-3 px-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if not contato.status %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
+                                        {{ 'Inativo' if not contato.status else 'Ativo' }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="flex items-center gap-2">
+                                        <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
+                                           class="p-1 text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                                           title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <form method="POST" 
+                                              action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
+                                              class="inline">
+                                            <button type="submit" 
+                                                    class="p-1 {% if not contato.status %}text-orange-600 hover:text-orange-800{% else %}text-green-600 hover:text-green-800{% endif %} transition-colors duration-200"
+                                                    title="{{ 'Desativar' if not contato.status else 'Ativar' }}">
+                                                <i class="fas fa-{% if not contato.status %}ban{% else %}check{% endif %}"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-users text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">Nenhum contato vinculado a este cliente.</p>
+                <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" 
+                   class="inline-flex items-center px-4 py-2 mt-4 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
+                    <i class="fas fa-user-plus mr-2"></i>
+                    Adicionar Primeiro Contato
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -122,17 +122,7 @@
                                 {% for cliente in clientes %}
                                 <tr class="group hover:bg-gray-50 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
                                     <td class="py-3 px-4">
-                                        <div class="flex items-center">
-                                            <div class="h-8 w-8 flex-shrink-0 mr-3">
-                                                <div class="h-full w-full rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
-                                                    {{ cliente.razao_social[:2].upper() }}
-                                                </div>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <div class="font-medium text-gray-900 truncate">{{ cliente.razao_social }}</div>
-                                                <div class="text-gray-500 text-xs">ID: {{ cliente.id_cliente }}</div>
-                                            </div>
-                                        </div>
+                                        <div class="font-medium text-gray-900 truncate">{{ cliente.razao_social }}</div>
                                     </td>
                                     <td class="py-3 px-4">
                                         <div class="truncate text-gray-900">{{ cliente.nome_fantasia }}</div>
@@ -175,7 +165,7 @@
                                                     </button>
                                                     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/status:block z-10">
                                                         <div class="bg-gray-900 text-white text-xs rounded py-0.5 px-1.5 text-center whitespace-nowrap">
-                                                            {% if not cliente.status %}Desativar{% else %}Ativar{% endif %}
+                                                            {% if not cliente.status %}Ativar{% else %}Desativar{% endif %}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -255,11 +245,11 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-sm opacity-90">Ativos:</span>
-                    <span class="text-lg font-semibold">{{ clientes|rejectattr('status')|list|length if clientes else 0 }}</span>
+                    <span class="text-lg font-semibold">{{ clientes|selectattr('status')|list|length if clientes else 0 }}</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-sm opacity-90">Inativos:</span>
-                    <span class="text-lg font-semibold">{{ clientes|selectattr('status')|list|length if clientes else 0 }}</span>
+                    <span class="text-lg font-semibold">{{ clientes|rejectattr('status')|list|length if clientes else 0 }}</span>
                 </div>
             </div>
         </div>

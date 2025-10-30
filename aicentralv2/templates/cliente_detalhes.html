@@ -121,6 +121,7 @@
                         <i class="fas fa-user-plus mr-2"></i>
                         Novo Contato
                     </a>
+                    {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
                     <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
                           class="block w-full">
                         <button type="submit" 
@@ -129,6 +130,7 @@
                             {{ 'Desativar' if cliente.status else 'Ativar' }} Cliente
                         </button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -181,15 +183,17 @@
                                            title="Editar">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
                                         <form method="POST" 
                                               action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
                                               class="inline">
                                             <button type="submit" 
-                                                    class="p-1 {% if not contato.status %}text-orange-600 hover:text-orange-800{% else %}text-green-600 hover:text-green-800{% endif %} transition-colors duration-200"
-                                                    title="{{ 'Desativar' if not contato.status else 'Ativar' }}">
-                                                <i class="fas fa-{% if not contato.status %}ban{% else %}check{% endif %}"></i>
+                                                    class="p-1 {% if contato.status %}text-orange-600 hover:text-orange-800{% else %}text-green-600 hover:text-green-800{% endif %} transition-colors duration-200"
+                                                    title="{{ 'Desativar' if contato.status else 'Ativar' }}">
+                                                <i class="fas fa-{% if contato.status %}ban{% else %}check{% endif %}"></i>
                                             </button>
                                         </form>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>

@@ -163,14 +163,26 @@ def verificar_credenciais(email, password):
                 cli.status as cliente_status
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
-            WHERE c.email = %s AND c.status = TRUE
+            WHERE c.email = %s
         ''', (email.lower().strip(),))
         
         user = cursor.fetchone()
 
         # Verificar se usuário existe e senha está correta
-        if not user or not verificar_senha_md5(password, user['senha']):
+        if not user:
             return None
+            
+        # Verificar se senha está correta
+        if not verificar_senha_md5(password, user['senha']):
+            return None
+            
+        # Verificar se usuário está ativo
+        if not user['status']:
+            current_app.logger.warning(
+                f"Tentativa de login negada - Usuário inativo: {user['nome_completo']} "
+                f"(Email: {email})"
+            )
+            return {'inactive_user': True}
         
         # ==================== RESTRIÇÃO CENTRALCOMM ====================
         # APENAS clientes CENTRALCOMM podem acessar
@@ -406,11 +418,15 @@ def atualizar_reset_token(email, token, expires):
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                UPDATE tbl_contato_cliente 
+                UPDATE tbl_contato_cliente c
                 SET reset_token = %s, 
                     reset_token_expires = %s,
                     data_modificacao = CURRENT_TIMESTAMP
-                WHERE email = %s
+                FROM tbl_cliente cli
+                WHERE c.email = %s
+                  AND c.pk_id_tbl_cliente = cli.id_cliente
+                  AND c.status = TRUE  -- Apenas usuários ativos
+                  AND cli.status = TRUE  -- Apenas clientes ativos
             ''', (token, expires, email.lower().strip()))
 
         conn.commit()
@@ -439,7 +455,8 @@ def buscar_contato_por_token(token):
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
             WHERE c.reset_token = %s 
               AND c.reset_token_expires > NOW()
-              AND c.status = TRUE
+              AND c.status = TRUE  -- Garantir que o usuário esteja ativo
+              AND cli.status = TRUE  -- Garantir que o cliente esteja ativo também
         ''', (token,))
         return cursor.fetchone()
 

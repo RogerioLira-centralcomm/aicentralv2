@@ -51,6 +51,11 @@ def init_routes(app):
             user = db.verificar_credenciais(email, password)
             
             if user:
+                # Verificar se é um usuário inativo
+                if isinstance(user, dict) and user.get('inactive_user'):
+                    flash('Usuário inativo. Entre em contato com o administrador.', 'error')
+                    return render_template('login_tailwind.html')
+                
                 session.clear()
                 session['user_id'] = user['id_contato_cliente']
                 session['user_name'] = user['nome_completo']
@@ -138,6 +143,12 @@ def init_routes(app):
             contato = db.obter_contato_por_email(email)
 
             if contato:
+                # Verificar se o usuário está ativo
+                if not contato['status']:
+                    app.logger.warning(f"Tentativa de recuperação de senha - Usuário inativo: {email}")
+                    flash('Conta inativa. Entre em contato com o administrador.', 'error')
+                    return render_template('forgot_password_tailwind.html')
+                    
                 try:
                     reset_token = secrets.token_urlsafe(32)
                     expires = datetime.utcnow() + timedelta(hours=1)
@@ -362,20 +373,27 @@ def init_routes(app):
         try:
             conn = db.get_db()
             with conn.cursor() as cursor:
-                cursor.execute('SELECT status FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
+                # Primeiro, verifica se é o cliente CENTRALCOMM
+                cursor.execute('SELECT status, nome_fantasia FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
                 cliente = cursor.fetchone()
                 
-                if cliente:
-                    novo_status = not cliente['status']
-                    cursor.execute('''
-                        UPDATE tbl_cliente
-                        SET status = %s, data_modificacao = CURRENT_TIMESTAMP
-                        WHERE id_cliente = %s
-                    ''', (novo_status, cliente_id))
-                    conn.commit()
-                    flash('Status atualizado!', 'success')
-                else:
+                if not cliente:
                     flash('Cliente não encontrado!', 'error')
+                    return redirect(url_for('clientes'))
+                
+                # Verifica se é o cliente CENTRALCOMM (usando nome_fantasia)
+                if cliente['nome_fantasia'].upper() == 'CENTRALCOMM':
+                    flash('O cliente CENTRALCOMM não pode ser inativado!', 'error')
+                    return redirect(url_for('clientes'))
+                
+                novo_status = not cliente['status']
+                cursor.execute('''
+                    UPDATE tbl_cliente
+                    SET status = %s, data_modificacao = CURRENT_TIMESTAMP
+                    WHERE id_cliente = %s
+                ''', (novo_status, cliente_id))
+                conn.commit()
+                flash('Status atualizado!', 'success')
         except Exception as e:
             app.logger.error(f"Erro: {e}")
             flash('Erro ao alterar status.', 'error')
@@ -579,23 +597,36 @@ def init_routes(app):
     @login_required
     def contato_toggle_status(contato_id):
         """Ativar/desativar"""
+        # Verifica se o usuário está tentando desativar seu próprio perfil
+        if contato_id == session.get('user_id'):
+            flash('Você não pode desativar seu próprio usuário!', 'error')
+            return redirect(url_for('contatos'))
+            
         try:
             conn = db.get_db()
             with conn.cursor() as cursor:
-                cursor.execute('SELECT status FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+                # Verifica o contato e seu cliente
+                cursor.execute('''
+                    SELECT c.status, cli.nome_fantasia
+                    FROM tbl_contato_cliente c
+                    JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                    WHERE c.id_contato_cliente = %s
+                ''', (contato_id,))
                 result = cursor.fetchone()
                 
-                if result:
-                    novo_status = not result['status']
-                    cursor.execute('''
-                        UPDATE tbl_contato_cliente
-                        SET status = %s, data_modificacao = CURRENT_TIMESTAMP
-                        WHERE id_contato_cliente = %s
-                    ''', (novo_status, contato_id))
-                    conn.commit()
-                    flash('Status atualizado!', 'success')
-                else:
+                if not result:
                     flash('Contato não encontrado!', 'error')
+                    return redirect(url_for('contatos'))
+                    
+                # Se chegou aqui, pode alterar o status
+                novo_status = not result['status']
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                    SET status = %s, data_modificacao = CURRENT_TIMESTAMP
+                    WHERE id_contato_cliente = %s
+                ''', (novo_status, contato_id))
+                conn.commit()
+                flash(f'Contato {"desativado" if not novo_status else "ativado"} com sucesso!', 'success')
         except Exception as e:
             app.logger.error(f"Erro: {e}")
             flash('Erro.', 'error')

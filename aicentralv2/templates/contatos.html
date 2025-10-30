@@ -54,7 +54,7 @@
                             type="text" 
                             id="searchInput" 
                             class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
-                            placeholder="Pesquisar por Nome Completo..."
+                            placeholder="Pesquisar por Nome ou Email..."
                             autocomplete="off"
                         >
                         <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500" id="searchResults"></span>
@@ -81,7 +81,7 @@
                     <table id="contatosTable" class="w-full table-fixed">
                         <thead>
                             <tr class="bg-gray-50 border-b border-gray-200">
-                                <th class="py-5 px-8 text-left w-1/4">
+                                <th class="py-5 px-8 text-left w-[25%]">
                                     <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
                                         <span>Nome</span>
                                         <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="nome">
@@ -89,7 +89,7 @@
                                         </button>
                                     </div>
                                 </th>
-                                <th class="py-5 px-8 text-left w-1/3">
+                                <th class="py-5 px-8 text-left w-[35%]">
                                     <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
                                         <span>Email</span>
                                         <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="email">
@@ -97,7 +97,7 @@
                                         </button>
                                     </div>
                                 </th>
-                                <th class="py-5 px-8 text-left w-1/4">
+                                <th class="py-5 px-8 text-left w-[25%]">
                                     <div class="flex items-center space-x-2 text-sm font-semibold text-gray-600">
                                         <span>Cliente</span>
                                         <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="cliente">
@@ -105,7 +105,7 @@
                                         </button>
                                     </div>
                                 </th>
-                                <th class="py-5 px-8 text-center w-48">
+                                <th class="py-5 px-8 text-center w-[15%]">
                                     <span class="text-sm font-semibold text-gray-600">Ações</span>
                                 </th>
                             </tr>
@@ -113,16 +113,16 @@
                         <tbody class="divide-y divide-gray-200">
                             {% for contato in contatos %}
                             <tr class="group hover:bg-gray-50 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
-                                <td class="py-5 px-8">
-                                    <div class="font-medium text-gray-900">{{ contato.nome_completo }}</div>
+                                <td class="py-5 px-8 truncate">
+                                    <div class="font-medium text-gray-900 truncate" title="{{ contato.nome_completo }}">{{ contato.nome_completo }}</div>
                                 </td>
-                                <td class="py-4 px-6">
-                                    <a href="mailto:{{ contato.email }}" class="text-primary hover:text-primary-dark">
+                                <td class="py-4 px-6 truncate">
+                                    <a href="mailto:{{ contato.email }}" class="text-primary hover:text-primary-dark truncate block" title="{{ contato.email }}">
                                         {{ contato.email }}
                                     </a>
                                 </td>
-                                <td class="py-4 px-6">
-                                    <span class="text-gray-800">{{ contato.nome_fantasia }}</span>
+                                <td class="py-4 px-6 truncate">
+                                    <span class="text-gray-800 truncate block" title="{{ contato.nome_fantasia }}">{{ contato.nome_fantasia }}</span>
                                 </td>
                                 <td class="py-4 px-6">
                                     <div class="flex items-center justify-center gap-3 opacity-80 group-hover:opacity-100 transition-opacity duration-200">
@@ -138,6 +138,7 @@
                                             </div>
                                         </a>
                                         
+                                        {% if contato.id_contato_cliente != session.user_id %}
                                         <form method="POST" 
                                               action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
                                               class="inline-block">
@@ -153,6 +154,7 @@
                                                 </div>
                                             </div>
                                         </form>
+                                        {% endif %}
                                         
                                         <form method="POST" 
                                               action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" 
@@ -268,7 +270,7 @@
             Dica
         </h3>
         <p class="text-sm text-blue-800">
-            Use a barra de pesquisa para encontrar contatos rapidamente por nome completo.
+            Use a barra de pesquisa para encontrar contatos rapidamente por nome ou email.
         </p>
     </div>
 </div>

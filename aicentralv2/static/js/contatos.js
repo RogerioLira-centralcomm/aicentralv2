@@ -134,13 +134,12 @@ searchInput.addEventListener('input', (e) => {
     const filteredRows = rows.filter(row => {
         const nome = row.querySelector('td:first-child .font-medium').textContent.toLowerCase();
         const email = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-        const cliente = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-        const status = row.querySelector('.status-marker')?.dataset?.status;
-
-        const matchesSearch = nome.includes(searchTerm) || 
-                            email.includes(searchTerm) || 
-                            cliente.includes(searchTerm);
-
+        
+        // Determina o status baseado no ícone do botão de toggle
+        const toggleButton = row.querySelector('button[type="submit"] i');
+        const status = toggleButton.classList.contains('fa-ban') ? 'true' : 'false';
+        
+        const matchesSearch = searchTerm === '' || nome.includes(searchTerm) || email.includes(searchTerm);
         const matchesStatus = selectedStatus === 'todos' || status === selectedStatus;
 
         const matches = matchesSearch && matchesStatus;
@@ -184,6 +183,7 @@ window.clearSearch = function() {
     searchResults.textContent = '';
     noResults.classList.add('hidden');
     config.currentPage = 1;
+    statusFilter.value = 'todos'; // Reseta também o filtro de status
     updateTable();
 };
 
@@ -215,22 +215,27 @@ statusFilter.addEventListener('change', () => {
     searchInput.dispatchEvent(new Event('input'));
 });
 
-// Adiciona dataset de status a cada linha
-function addStatusDataset() {
+// Inicializa a contagem inicial
+function initializeCounters() {
+    const totalContatos = rows.length;
+    let totalAtivos = 0;
+    
     rows.forEach(row => {
-        const toggleButton = row.querySelector('button[type="submit"]');
-        const isActive = toggleButton.querySelector('i').classList.contains('fa-ban');
-        const statusMarker = document.createElement('span');
-        statusMarker.classList.add('status-marker');
-        statusMarker.dataset.status = isActive ? 'true' : 'false';
-        statusMarker.style.display = 'none';
-        row.appendChild(statusMarker);
+        const toggleButton = row.querySelector('button[type="submit"] i');
+        if (toggleButton.classList.contains('fa-ban')) {
+            totalAtivos++;
+        }
     });
+
+    // Atualiza os contadores na interface
+    totalItemsSpan.textContent = totalContatos;
+    showingStart.textContent = totalContatos > 0 ? '1' : '0';
+    showingEnd.textContent = Math.min(config.itemsPerPage, totalContatos);
 }
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    addStatusDataset();
+    initializeCounters();
     setupEventListeners();
     updateTable();
 });

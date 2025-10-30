@@ -149,6 +149,7 @@
                                                 </div>
                                             </a>
                                             
+                                            {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
                                             <form method="POST" 
                                                   action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
                                                   class="inline-block">
@@ -164,6 +165,7 @@
                                                     </div>
                                                 </div>
                                             </form>
+                                            {% endif %}
                                             
                                             <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" class="relative group/details">
                                                 <div class="p-1.5 rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition-all duration-200">

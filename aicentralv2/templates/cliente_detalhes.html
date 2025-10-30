@@ -124,9 +124,9 @@
                     <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
                           class="block w-full">
                         <button type="submit" 
-                                class="w-full px-4 py-2 {% if not cliente.status %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded-lg transition-colors duration-200">
-                            <i class="fas fa-{% if not cliente.status %}ban{% else %}check{% endif %} mr-2"></i>
-                            {{ 'Desativar' if not cliente.status else 'Ativar' }} Cliente
+                                class="w-full px-4 py-2 {% if cliente.status %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded-lg transition-colors duration-200">
+                            <i class="fas fa-{% if cliente.status %}ban{% else %}check{% endif %} mr-2"></i>
+                            {{ 'Desativar' if cliente.status else 'Ativar' }} Cliente
                         </button>
                     </form>
                 </div>

@@ -3,54 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if contato %}Editar{% else %}Novo{% endif %} Contato - AIcentral v2</title>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/contato_form.css') }}">
+    <title>{% if contato %}Editar{% else %}Novo{% endif %} Contato - CentralComm AI</title>
 </head>
 <body>
-    <div class="container">
+    {% extends 'base_tailwind.html' %}
+
+    {% block title %}{% if contato %}Editar{% else %}Novo{% endif %} Contato - CentralComm AI{% endblock %}
+
+    {% block content %}
+    <div class="p-6">
         <!-- Header -->
-        <div class="header">
-            <h1>
-                <i class="fas fa-user"></i>
-                {% if contato %}Editar Contato{% else %}Novo Contato{% endif %}
-            </h1>
-            <a href="{{ url_for('contatos') }}" class="btn-back">
-                <i class="fas fa-arrow-left"></i>
-                Voltar
-            </a>
+        <div class="mb-6">
+            <div class="flex items-center justify-between">
+                <h1 class="text-3xl font-bold text-text-primary flex items-center">
+                    <i class="fas fa-user text-primary mr-3"></i>
+                    {% if contato %}Editar Contato{% else %}Novo Contato{% endif %}
+                </h1>
+                <div class="flex gap-3">
+                    <a href="{{ url_for('contatos') }}" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Voltar
+                    </a>
+                </div>
+            </div>
         </div>
 
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        <i class="fas fa-{% if category == 'error' %}exclamation-circle{% else %}check-circle{% endif %}"></i>
-                        <span>{{ message }}</span>
-                    </div>
-                {% endfor %}
+                <div class="mb-6 space-y-2">
+                    {% for category, message in messages %}
+                        <div class="flex items-center p-4 rounded-lg shadow-md {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} mr-3"></i>
+                            <span class="flex-1">{{ message }}</span>
+                            <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
         <!-- Form -->
-        <div class="form-container">
+        <div class="bg-white rounded-lg shadow-md p-6">
             <form method="POST">
                 <!-- Nome Completo -->
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-user"></i>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-2 text-gray-500"></i>
                         Nome Completo
-                        <span class="required">*</span>
+                        <span class="text-red-500">*</span>
                     </label>
                     <input 
                         type="text" 
                         name="nome_completo" 
-                        class="form-input"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         value="{{ contato.nome_completo if contato else '' }}"
                         required
                         autofocus
@@ -59,48 +67,52 @@
                 </div>
 
                 <!-- Email -->
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-envelope"></i>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-envelope mr-2 text-gray-500"></i>
                         Email
-                        <span class="required">*</span>
+                        <span class="text-red-500">*</span>
                     </label>
                     <input 
                         type="email" 
                         name="email" 
-                        class="form-input"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         value="{{ contato.email if contato else '' }}"
                         required
                         placeholder="exemplo@email.com"
                     >
-                    <div class="form-help">Será usado para login</div>
+                    <p class="mt-1 text-sm text-gray-500">Será usado para login</p>
                 </div>
 
                 <!-- Telefone -->
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-phone"></i>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-phone mr-2 text-gray-500"></i>
                         Telefone
                     </label>
                     <input 
                         type="text" 
                         name="telefone" 
-                        class="form-input"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         value="{{ contato.telefone if contato else '' }}"
                         placeholder="(00) 00000-0000"
                         maxlength="15"
                     >
-                    <div class="form-help">Opcional</div>
+                    <p class="mt-1 text-sm text-gray-500">Opcional</p>
                 </div>
 
                 <!-- Cliente -->
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-building"></i>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-building mr-2 text-gray-500"></i>
                         Cliente
-                        <span class="required">*</span>
+                        <span class="text-red-500">*</span>
                     </label>
-                    <select name="pk_id_tbl_cliente" class="form-select" required>
+                    <select 
+                        name="pk_id_tbl_cliente" 
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                        required
+                    >
                         <option value="">Selecione um cliente...</option>
                         {% for cliente in clientes %}
                             <option value="{{ cliente.id_cliente }}" 
@@ -113,66 +125,66 @@
 
                 <!-- Senha (apenas para novo) -->
                 {% if not contato %}
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-lock"></i>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-gray-500"></i>
                         Senha
-                        <span class="required">*</span>
+                        <span class="text-red-500">*</span>
                     </label>
-                    <div class="password-wrapper">
+                    <div class="relative">
                         <input 
                             type="password" 
                             name="senha" 
                             id="senha"
-                            class="form-input"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 pr-10"
                             required
                             minlength="6"
                             placeholder="Mínimo 6 caracteres"
                         >
-                        <i class="fas fa-eye password-toggle"></i>
+                        <i class="fas fa-eye password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 cursor-pointer hover:text-gray-700"></i>
                     </div>
-                    <div class="form-help">Mínimo 6 caracteres</div>
+                    <p class="mt-1 text-sm text-gray-500">Mínimo 6 caracteres</p>
                 </div>
                 {% endif %}
 
                 <!-- Nova Senha (apenas para editar) -->
                 {% if contato %}
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-lock"></i>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-gray-500"></i>
                         Nova Senha
                     </label>
-                    <div class="password-wrapper">
+                    <div class="relative">
                         <input 
                             type="password" 
                             name="nova_senha" 
                             id="nova_senha"
-                            class="form-input"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 pr-10"
                             minlength="6"
                             placeholder="Deixe vazio para manter a senha atual"
                         >
-                        <i class="fas fa-eye password-toggle"></i>
+                        <i class="fas fa-eye password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 cursor-pointer hover:text-gray-700"></i>
                     </div>
-                    <div class="form-help">Deixe vazio para não alterar</div>
+                    <p class="mt-1 text-sm text-gray-500">Deixe vazio para não alterar</p>
                 </div>
                 {% endif %}
 
                 <!-- Actions -->
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i>
-                        {% if contato %}Atualizar{% else %}Cadastrar{% endif %}
-                    </button>
-                    <a href="{{ url_for('contatos') }}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i>
+                <div class="flex justify-end space-x-4 mt-8">
+                    <a href="{{ url_for('contatos') }}" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
+                        <i class="fas fa-times mr-2"></i>
                         Cancelar
                     </a>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
+                        <i class="fas fa-save mr-2"></i>
+                        {% if contato %}Atualizar{% else %}Cadastrar{% endif %}
+                    </button>
                 </div>
             </form>
         </div>
     </div>
+    {% endblock %}
 
-    <!-- JavaScript -->
+    {% block scripts %}
     <script src="{{ url_for('static', filename='js/contato_form.js') }}"></script>
-</body>
-</html>
+    {% endblock %}

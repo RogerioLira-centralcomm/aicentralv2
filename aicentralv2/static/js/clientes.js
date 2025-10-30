@@ -18,23 +18,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const cells = row.querySelectorAll('td');
             const razaoSocial = cells[0].textContent.toLowerCase();
             const nomeFantasia = cells[1].textContent.toLowerCase();
-            
+
             // Encontrar o ícone de status no botão de ações
             const actionsCell = cells[cells.length - 1];
             const statusForm = actionsCell.querySelector('form');
             const statusButton = statusForm ? statusForm.querySelector('button') : null;
             const statusIcon = statusButton ? statusButton.querySelector('i') : null;
-            
-            // Determinar se está ativo baseado no ícone de banimento (se tem ban, está ativo)
-            const isAtivo = statusIcon && statusIcon.classList.contains('fa-ban');
+
+            // Determinar se está ativo baseado no ícone de banimento (fa-ban significa inativo)
+            const isAtivo = !(statusIcon && statusIcon.classList.contains('fa-ban'));
 
             // Verificar se atende aos critérios de filtro
-            const matchesSearch = razaoSocial.includes(searchTerm) || 
+            const matchesSearch = razaoSocial.includes(searchTerm) ||
                                 nomeFantasia.includes(searchTerm);
-            
-            const matchesStatus = statusValue === 'todos' || 
-                                (statusValue === 'false' && !isAtivo) || 
-                                (statusValue === 'true' && isAtivo);
+
+            const matchesStatus = statusValue === 'todos' ||
+                                (statusValue === 'true' && !isAtivo) ||
+                                (statusValue === 'false' && isAtivo);
 
             // Mostrar/esconder linha
             if (matchesSearch && matchesStatus) {
@@ -50,9 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (visibleCount === 0) {
                 tbody.style.display = 'none';
                 noResults.style.display = '';
+                document.getElementById('searchResults').textContent = '0 resultados';
             } else {
                 tbody.style.display = '';
                 noResults.style.display = 'none';
+                document.getElementById('searchResults').textContent = visibleCount + (visibleCount === 1 ? ' resultado' : ' resultados');
             }
         }
     }
@@ -60,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event Listeners
     if (searchInput) {
         searchInput.addEventListener('input', filterTable);
+        searchInput.setAttribute('placeholder', 'Pesquisar por Razão Social ou Nome Fantasia...');
     }
     if (statusFilter) {
         statusFilter.addEventListener('change', filterTable);

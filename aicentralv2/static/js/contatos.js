@@ -1,241 +1,308 @@
-// Configuração da tabela
-const config = {
-    itemsPerPage: 10,
-    currentPage: 1,
-    sortColumn: null,
-    sortDirection: 'asc'
-};
+// ============================================
+// VARIÁVEIS GLOBAIS
+// ============================================
+let allRows = [];
+let currentPage = 1;
+const rowsPerPage = 10;
+let statusFilter = null;
+let searchInput = null;
 
-// Elementos DOM
-const table = document.getElementById('contatosTable');
-const tbody = table.querySelector('tbody');
-const rows = Array.from(tbody.querySelectorAll('tr'));
-const totalItems = rows.length;
-const statusFilter = document.getElementById('statusFilter');
-
-// Elementos de paginação
-const showingStart = document.getElementById('showing-start');
-const showingEnd = document.getElementById('showing-end');
-const totalItemsSpan = document.getElementById('total-items');
-const prevPageBtn = document.getElementById('prev-page');
-const nextPageBtn = document.getElementById('next-page');
-
-// Função para ordenar a tabela
-function sortTable(column) {
-    const sortButtons = document.querySelectorAll('.sort-btn');
-    const currentButton = document.querySelector(`.sort-btn[data-column="${column}"]`);
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Iniciando sistema de contatos...');
     
-    // Reset outros ícones
-    sortButtons.forEach(btn => {
-        if (btn !== currentButton) {
-            btn.querySelector('i').className = 'fas fa-sort text-gray-400';
-        }
-    });
-
-    // Atualiza direção da ordenação
-    if (config.sortColumn === column) {
-        config.sortDirection = config.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-        config.sortColumn = column;
-        config.sortDirection = 'asc';
-    }
-
-    // Atualiza ícone
-    const icon = currentButton.querySelector('i');
-    icon.className = `fas fa-sort-${config.sortDirection === 'asc' ? 'up' : 'down'} text-primary`;
-
-    // Ordena as linhas
-    rows.sort((a, b) => {
-        let aValue, bValue;
-
-        switch(column) {
-            case 'nome':
-                aValue = a.querySelector('td:first-child .font-medium').textContent.trim();
-                bValue = b.querySelector('td:first-child .font-medium').textContent.trim();
-                break;
-            case 'email':
-                aValue = a.querySelector('td:nth-child(2)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(2)').textContent.trim();
-                break;
-            case 'cliente':
-                aValue = a.querySelector('td:nth-child(3)').textContent.trim();
-                bValue = b.querySelector('td:nth-child(3)').textContent.trim();
-                break;
-            default:
-                return 0;
-        }
-
-        if (config.sortDirection === 'asc') {
-            return aValue.localeCompare(bValue, 'pt-BR');
-        } else {
-            return bValue.localeCompare(aValue, 'pt-BR');
-        }
-    });
-
-    updateTable();
-}
-
-// Função para atualizar a exibição da tabela
-function updateTable() {
-    const start = (config.currentPage - 1) * config.itemsPerPage;
-    const end = Math.min(start + config.itemsPerPage, totalItems);
+    statusFilter = document.getElementById('statusFilter');
+    searchInput = document.getElementById('searchInput');
+    const tableBody = document.querySelector('#contatosTable tbody');
     
-    // Limpa a tabela
-    tbody.innerHTML = '';
-    
-    // Adiciona apenas as linhas da página atual
-    for (let i = start; i < end; i++) {
-        tbody.appendChild(rows[i].cloneNode(true));
+    if (tableBody) {
+        allRows = Array.from(tableBody.querySelectorAll('tr'));
+        console.log('📊 Total de contatos:', allRows.length);
     }
     
-    // Atualiza informações de paginação
-    showingStart.textContent = start + 1;
-    showingEnd.textContent = end;
-    totalItemsSpan.textContent = totalItems;
-    
-    // Atualiza estado dos botões de paginação
-    prevPageBtn.disabled = config.currentPage === 1;
-    nextPageBtn.disabled = end >= totalItems;
-    
-    // Atualiza classes zebra
-    Array.from(tbody.querySelectorAll('tr')).forEach((row, index) => {
-        if (index % 2 === 0) {
-            row.classList.remove('bg-gray-50/30');
-        } else {
-            row.classList.add('bg-gray-50/30');
-        }
-    });
-
-    // Reaplica event listeners
     setupEventListeners();
-}
+    updatePagination();
+    updateDebugInfo(); // Debug info
+});
 
-// Configuração de event listeners
+// ============================================
+// EVENT LISTENERS
+// ============================================
 function setupEventListeners() {
-    // Tooltips para ações
-    document.querySelectorAll('[data-tooltip]').forEach(element => {
-        element.addEventListener('mouseenter', showTooltip);
-        element.addEventListener('mouseleave', hideTooltip);
-    });
+    console.log('🎧 Configurando event listeners...');
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            console.log('🔄 Status mudou para:', this.value);
+            handleFilterChange();
+        });
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            console.log('🔍 Busca mudou para:', this.value);
+            handleFilterChange();
+        });
+    }
 }
 
-// Busca
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
-const noResults = document.getElementById('noResults');
-
-searchInput.addEventListener('input', (e) => {
-    const searchTerm = e.target.value.toLowerCase();
-    let matchCount = 0;
-    config.currentPage = 1; // Reset para primeira página
-
-    const selectedStatus = statusFilter.value;
-    
-    const filteredRows = rows.filter(row => {
-        const nome = row.querySelector('td:first-child .font-medium').textContent.toLowerCase();
-        const email = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-        
-        // Determina o status baseado no ícone do botão de toggle
-        const toggleButton = row.querySelector('button[type="submit"] i');
-        const status = toggleButton.classList.contains('fa-ban') ? 'true' : 'false';
-        
-        const matchesSearch = searchTerm === '' || nome.includes(searchTerm) || email.includes(searchTerm);
-        const matchesStatus = selectedStatus === 'todos' || status === selectedStatus;
-
-        const matches = matchesSearch && matchesStatus;
-        if (matches) matchCount++;
-        return matches;
-    });
-
-    // Atualiza contador de resultados
-    searchResults.textContent = matchCount > 0 ? `${matchCount} resultado${matchCount > 1 ? 's' : ''}` : 'Nenhum resultado';
-    
-    // Mostra/esconde mensagem de "Nenhum resultado"
-    if (matchCount === 0 && searchTerm !== '') {
-        noResults.classList.remove('hidden');
-        tbody.innerHTML = '';
-    } else {
-        noResults.classList.add('hidden');
-        
-        // Atualiza apenas as linhas filtradas
-        tbody.innerHTML = '';
-        const end = Math.min(config.itemsPerPage, filteredRows.length);
-        for (let i = 0; i < end; i++) {
-            tbody.appendChild(filteredRows[i].cloneNode(true));
-        }
-        
-        // Atualiza paginação
-        showingStart.textContent = filteredRows.length > 0 ? '1' : '0';
-        showingEnd.textContent = end;
-        totalItemsSpan.textContent = filteredRows.length;
-        
-        // Atualiza estado dos botões de paginação
-        prevPageBtn.disabled = true;
-        nextPageBtn.disabled = end >= filteredRows.length;
-    }
-    
-    setupEventListeners();
-});
-
-// Função para limpar busca
-window.clearSearch = function() {
-    searchInput.value = '';
-    searchResults.textContent = '';
-    noResults.classList.add('hidden');
-    config.currentPage = 1;
-    statusFilter.value = 'todos'; // Reseta também o filtro de status
-    updateTable();
-};
-
-// Event Listeners para paginação
-prevPageBtn.addEventListener('click', () => {
-    if (config.currentPage > 1) {
-        config.currentPage--;
-        updateTable();
-    }
-});
-
-nextPageBtn.addEventListener('click', () => {
-    const maxPage = Math.ceil(totalItems / config.itemsPerPage);
-    if (config.currentPage < maxPage) {
-        config.currentPage++;
-        updateTable();
-    }
-});
-
-// Event Listeners para ordenação
-document.querySelectorAll('.sort-btn').forEach(button => {
-    button.addEventListener('click', () => {
-        sortTable(button.dataset.column);
-    });
-});
-
-// Event listener para o filtro de status
-statusFilter.addEventListener('change', () => {
-    searchInput.dispatchEvent(new Event('input'));
-});
-
-// Inicializa a contagem inicial
-function initializeCounters() {
-    const totalContatos = rows.length;
-    let totalAtivos = 0;
-    
-    rows.forEach(row => {
-        const toggleButton = row.querySelector('button[type="submit"] i');
-        if (toggleButton.classList.contains('fa-ban')) {
-            totalAtivos++;
-        }
-    });
-
-    // Atualiza os contadores na interface
-    totalItemsSpan.textContent = totalContatos;
-    showingStart.textContent = totalContatos > 0 ? '1' : '0';
-    showingEnd.textContent = Math.min(config.itemsPerPage, totalContatos);
+function handleFilterChange() {
+    currentPage = 1;
+    updatePagination();
+    updateDebugInfo();
 }
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', () => {
-    initializeCounters();
-    setupEventListeners();
-    updateTable();
-});
+// ============================================
+// FILTROS
+// ============================================
+function getFilteredRows() {
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const statusValue = statusFilter ? statusFilter.value : 'todos';
+    
+    console.log('🔍 Aplicando filtros:', { 
+        searchTerm, 
+        statusValue,
+        totalRows: allRows.length 
+    });
+    
+    const filtered = allRows.filter(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 4) return false;
+        
+        const nome = cells[0].textContent.trim().toLowerCase();
+        const email = cells[1].textContent.trim().toLowerCase();
+        
+        // Detecta status pela classe do botão e ícone
+        const actionsCell = cells[cells.length - 1];
+        const statusButton = actionsCell.querySelector('button[type="submit"]');
+        const statusIcon = statusButton ? statusButton.querySelector('i') : null;
+        
+        // Determina o status pelo ícone (fa-ban = inativo, fa-check = ativo)
+        // true = ativo (fa-check), false = inativo (fa-ban)
+        const isAtivo = statusIcon && statusIcon.classList.contains('fa-check');
+        
+        console.log('Status detectado:', { 
+            nome: cells[0].textContent.trim(),
+            isAtivo: isAtivo,
+            statusValue: statusValue,
+            buttonClasses: statusButton ? statusButton.className : 'no-button',
+            iconClasses: statusIcon ? statusIcon.className : 'no-icon'
+        });
+        
+        // Filtro de busca
+        const matchesSearch = !searchTerm || 
+                            nome.includes(searchTerm) || 
+                            email.includes(searchTerm);
+        
+        // Filtro de status (true = mostrar ativos, false = mostrar inativos)
+        const matchesStatus = statusValue === 'todos' || 
+                            (statusValue === 'true' && isAtivo) || 
+                            (statusValue === 'false' && !isAtivo);
+                            
+        console.log(`Row "${nome}": status=${isAtivo}, matches=${matchesStatus}`);
+        
+        console.log('Resultado do filtro:', {
+            searchTerm,
+            statusValue,
+            isAtivo,
+            matchesSearch,
+            matchesStatus
+        });
+        
+        return matchesSearch && matchesStatus;
+    });
+    
+    console.log('✅ Resultados filtrados:', filtered.length);
+    return filtered;
+}
+
+// ============================================
+// PAGINAÇÃO
+// ============================================
+function updatePagination() {
+    const filteredRows = getFilteredRows();
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+    
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    
+    allRows.forEach(row => row.style.display = 'none');
+    filteredRows.slice(start, end).forEach(row => row.style.display = '');
+    
+    updatePaginationControls(filteredRows.length, totalPages);
+    updateCounter(filteredRows.length);
+}
+
+function updatePaginationControls(totalRows, totalPages) {
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfo = document.getElementById('pageInfo');
+    
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    
+    if (pageInfo) {
+        const start = totalRows === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+        const end = Math.min(currentPage * rowsPerPage, totalRows);
+        pageInfo.textContent = `${start}-${end} de ${totalRows}`;
+    }
+}
+
+function updateCounter(count) {
+    const counter = document.getElementById('contatosCounter');
+    if (counter) {
+        counter.textContent = count;
+    }
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        updatePagination();
+        updateDebugInfo();
+    }
+}
+
+function nextPage() {
+    const filteredRows = getFilteredRows();
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        updatePagination();
+        updateDebugInfo();
+    }
+}
+
+// ============================================
+// DEBUG INFO (remover em produção)
+// ============================================
+function updateDebugInfo() {
+    const debugTotal = document.getElementById('debugTotal');
+    const debugFiltered = document.getElementById('debugFiltered');
+    const debugStatus = document.getElementById('debugStatus');
+    const debugSearch = document.getElementById('debugSearch');
+    const debugPage = document.getElementById('debugPage');
+    
+    if (debugTotal) debugTotal.textContent = allRows.length;
+    if (debugFiltered) debugFiltered.textContent = getFilteredRows().length;
+    if (debugStatus) debugStatus.textContent = statusFilter?.value || 'N/A';
+    if (debugSearch) debugSearch.textContent = searchInput?.value || 'vazio';
+    if (debugPage) debugPage.textContent = currentPage;
+}
+
+// ============================================
+// MODAIS
+// ============================================
+const importBtn = document.getElementById('importBtn');
+const importModal = document.getElementById('importModal');
+const closeImportModal = document.getElementById('closeImportModal');
+const cancelImport = document.getElementById('cancelImport');
+
+if (importBtn && importModal) {
+    importBtn.addEventListener('click', () => importModal.classList.remove('hidden'));
+}
+if (closeImportModal && importModal) {
+    closeImportModal.addEventListener('click', () => importModal.classList.add('hidden'));
+}
+if (cancelImport && importModal) {
+    cancelImport.addEventListener('click', () => importModal.classList.add('hidden'));
+}
+
+function openEditModal(contatoId) {
+    console.log('📝 Abrindo modal de edição:', contatoId);
+}
+
+function confirmDelete(contatoId) {
+    if (confirm('Tem certeza que deseja excluir este contato?')) {
+        document.getElementById('deleteForm' + contatoId).submit();
+    }
+}
+
+// ============================================
+// TOGGLE STATUS (AJAX)
+// ============================================
+function toggleStatus(contatoId) {
+    const form = document.getElementById('toggleForm' + contatoId);
+    if (!form) return;
+    
+    const formData = new FormData(form);
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const button = form.querySelector('button[type="submit"]');
+            const icon = button.querySelector('i');
+            
+            if (data.status === true) {
+                button.className = 'px-3 py-1 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-md transition-colors duration-200';
+                icon.className = 'fas fa-toggle-on';
+                button.setAttribute('title', 'Desativar contato');
+            } else {
+                button.className = 'px-3 py-1 bg-green-50 hover:bg-green-100 text-green-600 rounded-md transition-colors duration-200';
+                icon.className = 'fas fa-toggle-off';
+                button.setAttribute('title', 'Ativar contato');
+            }
+            
+            updatePagination();
+            updateDebugInfo();
+        } else {
+            alert(data.error || 'Erro ao alterar status');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao alterar status');
+    });
+    
+    return false;
+}
+
+// ============================================
+// IMPORTAR CONTATOS
+// ============================================
+function handleImportSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Contatos importados com sucesso!');
+            location.reload();
+        } else {
+            alert(data.error || 'Erro ao importar contatos');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-file-import mr-2"></i>Importar';
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao importar contatos');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-file-import mr-2"></i>Importar';
+    });
+}

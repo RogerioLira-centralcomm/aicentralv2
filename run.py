@@ -13,11 +13,15 @@ from aicentralv2 import create_app
 # Criar aplicação
 app = create_app()
 
+# Configurar ambiente de desenvolvimento
+app.config['ENV'] = 'development'
+app.config['DEBUG'] = True
+
 if __name__ == '__main__':
     print("=" * 70)
     print("🤖 AIcentralv2 - Sistema de Gerenciamento")
     print("=" * 70)
-    print("🚀 Iniciando servidor Flask...")
+    print("🚀 Iniciando servidor Flask em modo desenvolvimento...")
     print("📍 Acesse: http://localhost:5000")
     print("📁 Projeto: AIcentralv2")
     print("🔐 Login padrão: admin / admin123")

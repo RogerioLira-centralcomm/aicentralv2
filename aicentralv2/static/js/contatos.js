@@ -46,6 +46,22 @@ function setupEventListeners() {
             handleFilterChange();
         });
     }
+
+    // Event listeners para botões de paginação
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', function() {
+            prevPage();
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+            nextPage();
+        });
+    }
 }
 
 function handleFilterChange() {
@@ -131,20 +147,72 @@ function updatePagination() {
     const start = (currentPage - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     
-    allRows.forEach(row => row.style.display = 'none');
-    filteredRows.slice(start, end).forEach(row => row.style.display = '');
+    // Primeiro esconde todas as linhas
+    allRows.forEach(row => {
+        row.classList.add('hidden');
+    });
+    
+    // Depois mostra apenas as linhas filtradas da página atual
+    filteredRows.slice(start, end).forEach(row => {
+        row.classList.remove('hidden');
+    });
+    
+    // Mostra ou esconde a mensagem de "Nenhum resultado"
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+        if (filteredRows.length === 0) {
+            noResults.classList.remove('hidden');
+        } else {
+            noResults.classList.add('hidden');
+        }
+    }
     
     updatePaginationControls(filteredRows.length, totalPages);
     updateCounter(filteredRows.length);
 }
 
 function updatePaginationControls(totalRows, totalPages) {
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const pageInfo = document.getElementById('pageInfo');
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
     
-    if (prevBtn) prevBtn.disabled = currentPage === 1;
-    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    // Atualiza os botões de paginação
+    if (prevBtn) {
+        if (currentPage === 1) {
+            prevBtn.disabled = true;
+            prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            prevBtn.disabled = false;
+            prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+    
+    if (nextBtn) {
+        if (currentPage >= totalPages) {
+            nextBtn.disabled = true;
+            nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+    
+    // Atualiza o contador de resultados
+    const showingStart = document.getElementById('showing-start');
+    const showingEnd = document.getElementById('showing-end');
+    const totalItems = document.getElementById('total-items');
+    
+    if (showingStart && showingEnd && totalItems) {
+        if (totalRows === 0) {
+            showingStart.textContent = '0';
+            showingEnd.textContent = '0';
+        } else {
+            const start = ((currentPage - 1) * rowsPerPage) + 1;
+            const end = Math.min(currentPage * rowsPerPage, totalRows);
+            showingStart.textContent = start;
+            showingEnd.textContent = end;
+        }
+        totalItems.textContent = totalRows;
+    }
     
     if (pageInfo) {
         const start = totalRows === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
@@ -272,6 +340,18 @@ function toggleStatus(contatoId) {
 // ============================================
 // IMPORTAR CONTATOS
 // ============================================
+// Função para limpar a pesquisa
+function clearSearch() {
+    if (searchInput) {
+        searchInput.value = '';
+        handleFilterChange();
+    }
+    if (statusFilter) {
+        statusFilter.value = 'todos';
+        handleFilterChange();
+    }
+}
+
 function handleImportSubmit(event) {
     event.preventDefault();
     const form = event.target;

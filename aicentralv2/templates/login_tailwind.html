@@ -284,10 +284,10 @@
 </div>
 
 <!-- Overlay de Carregamento -->
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden" id="loadingOverlay">
-    <div class="bg-white rounded-lg p-8 max-w-sm w-full text-center">
-        <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p class="text-gray-700">Verificando credenciais...</p>
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden" id="loadingOverlay">
+    <div class="bg-white/90 backdrop-blur rounded-xl p-6 max-w-[200px] w-full text-center shadow-xl">
+        <div class="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-gray-600 text-sm font-medium">Verificando...</p>
     </div>
 </div>
 {% endblock %}

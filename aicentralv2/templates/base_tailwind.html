@@ -5,13 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CentralComm AI{% endblock %}</title>
 
-    <!-- Tailwind CSS via CDN (DESENVOLVIMENTO APENAS) -->
-    {% if config.ENV == 'development' %}
-    <script src="https://cdn.tailwindcss.com"></script>
-    {% else %}
-    <link href="{{ url_for('static', filename='css/tailwind/output.css') }}" rel="stylesheet">
-    {% endif %}
-
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
@@ -64,20 +60,26 @@
                     },
                     boxShadow: {
                         'card': '0px 4px 12px rgba(0, 0, 0, 0.04)',
+                        'card-hover': '0px 8px 24px rgba(0, 0, 0, 0.08)',
                     },
                 }
-            }
+            },
+            safelist: [
+                'bg-success',
+                'bg-warning',
+                'bg-error',
+                'text-success',
+                'text-warning',
+                'text-error',
+                'border-success',
+                'border-warning',
+                'border-error'
+            ]
         }
     </script>
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- CSS Personalizado -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/custom.css') }}">
 
     <!-- Estilos específicos da página -->
     {% block styles %}{% endblock %}
@@ -104,9 +106,42 @@
             background-color: #2A6D70;
             border-left: 4px solid #9CCF31;
         }
+
+        /* Classes utilitárias */
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Previnindo problemas de FOUC (Flash of Unstyled Content) */
+        .no-fouc {
+            visibility: hidden;
+        }
+        .fouc-ready {
+            visibility: visible;
+        }
     </style>
 </head>
-<body class="bg-surface-bg font-sans text-text-primary overflow-hidden">
+<body class="bg-surface-bg font-sans text-text-primary overflow-hidden no-fouc">
     <div class="flex h-screen">
         <!-- Header Lateral Fixo -->
         <aside class="w-52 bg-primary-dark text-white flex flex-col shadow-lg fixed h-full z-50">
@@ -204,6 +239,12 @@
 
     <!-- Scripts globais -->
     <script>
+        // Previne FOUC
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.remove('no-fouc');
+            document.body.classList.add('fouc-ready');
+        });
+
         // Função para fechar mensagens flash
         function closeFlashMessage(element) {
             element.parentElement.remove();

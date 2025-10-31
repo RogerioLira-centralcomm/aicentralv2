@@ -8,6 +8,13 @@ ENV/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Arquivos de Sistema
+*.msi
+*.exe
+*.dll
+*.so
+*.dylib
 *.so
 .Python
 

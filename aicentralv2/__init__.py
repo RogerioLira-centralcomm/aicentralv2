@@ -25,7 +25,9 @@ def create_app(config_class=Config):
         Flask: Aplicação configurada
     """
     # Criar aplicação
-    app = Flask(__name__)
+    app = Flask(__name__, 
+                static_url_path='/static',
+                static_folder='static')
     app.config.from_object(config_class)
     
     # Configurar logging

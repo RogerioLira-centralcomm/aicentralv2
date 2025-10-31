@@ -18,22 +18,22 @@ document.addEventListener('DOMContentLoaded', function() {
             const cells = row.querySelectorAll('td');
             const razaoSocial = cells[0].textContent.toLowerCase();
             const nomeFantasia = cells[1].textContent.toLowerCase();
-
+            
             // Encontrar o ícone de status no botão de ações
             const actionsCell = cells[cells.length - 1];
             const statusForm = actionsCell.querySelector('form');
             const statusButton = statusForm ? statusForm.querySelector('button') : null;
             const statusIcon = statusButton ? statusButton.querySelector('i') : null;
-
+            
             // Determinar se está ativo baseado no ícone de banimento (fa-ban significa inativo)
             const isAtivo = !(statusIcon && statusIcon.classList.contains('fa-ban'));
 
             // Verificar se atende aos critérios de filtro
-            const matchesSearch = razaoSocial.includes(searchTerm) ||
+            const matchesSearch = razaoSocial.includes(searchTerm) || 
                                 nomeFantasia.includes(searchTerm);
-
-            const matchesStatus = statusValue === 'todos' ||
-                                (statusValue === 'true' && !isAtivo) ||
+            
+            const matchesStatus = statusValue === 'todos' || 
+                                (statusValue === 'true' && !isAtivo) || 
                                 (statusValue === 'false' && isAtivo);
 
             // Mostrar/esconder linha

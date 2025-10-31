@@ -29,6 +29,17 @@ def init_routes(app):
     @app.route('/favicon.ico')
     def favicon():
         return '', 204
+
+    # ==================== ARQUIVOS ESTÁTICOS ====================
+    @app.after_request
+    def add_header(response):
+        """Adiciona headers para cache e CORS"""
+        if 'static' in request.path:
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
     
     # ==================== LOGIN ====================
     

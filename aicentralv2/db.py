@@ -207,6 +207,47 @@ def verificar_credenciais(email, password):
     return None
 
 
+# ==================== SETORES E CARGOS ====================
+
+def obter_setores(apenas_ativos=True):
+    """Retorna lista de todos os setores
+    
+    Args:
+        apenas_ativos (bool): Se True, retorna apenas setores ativos
+    """
+    conn = get_db()
+    with conn.cursor() as cursor:
+        if apenas_ativos:
+            cursor.execute('''
+                SELECT 
+                    id_aux_setor,
+                    id_aux_setor as id_setor,
+                    display,
+                    display as descricao,
+                    status,
+                    data_cadastro,
+                    data_modificacao
+                FROM aux_setor
+                WHERE status = TRUE
+                ORDER BY display
+            ''')
+        else:
+            cursor.execute('''
+                SELECT 
+                    id_aux_setor,
+                    id_aux_setor as id_setor,
+                    display,
+                    display as descricao,
+                    status,
+                    data_cadastro,
+                    data_modificacao
+                FROM aux_setor
+                ORDER BY display
+            ''')
+        return cursor.fetchall()
+
+
+
 # ==================== CONTATOS - LISTAR ====================
 
 def obter_contatos():
@@ -225,12 +266,15 @@ def obter_contatos():
                 c.pk_id_tbl_cliente,
                 c.data_cadastro,
                 c.data_modificacao,
+                c.cohorts,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
-                cli.status as cliente_status
+                cli.status as cliente_status,
+                cargo.descricao as cargo_descricao
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            LEFT JOIN tbl_cargo_contato cargo ON c.pk_id_tbl_cargo = cargo.id_cargo_contato
             ORDER BY c.data_cadastro DESC
         ''')
         return cursor.fetchall()
@@ -249,10 +293,13 @@ def obter_contatos_ativos():
                 c.telefone,
                 c.status,
                 c.pk_id_tbl_cliente,
+                c.pk_id_tbl_cargo,
                 cli.nome_fantasia,
-                cli.razao_social
+                cli.razao_social,
+                car.descricao as cargo_descricao
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
             WHERE c.status = TRUE AND cli.status = TRUE
             ORDER BY c.nome_completo
         ''')
@@ -273,14 +320,19 @@ def obter_contato_por_id(contato_id):
                 c.status,
                 c.id_centralx,
                 c.pk_id_tbl_cliente,
+                c.pk_id_tbl_cargo,
                 c.data_cadastro,
                 c.data_modificacao,
+                c.cohorts,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
-                cli.status as cliente_status
+                cli.status as cliente_status,
+                car.descricao as cargo_descricao,
+                car.status as cargo_status
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
             WHERE c.id_contato_cliente = %s
         ''', (contato_id,))
         return cursor.fetchone()
@@ -335,7 +387,7 @@ def obter_contatos_por_cliente(id_cliente):
 
 # ==================== CONTATOS - CRIAR/ATUALIZAR ====================
 
-def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True):
+def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1):
     """Cria um novo contato"""
     conn = get_db()
     senha_md5 = gerar_senha_md5(senha)
@@ -347,10 +399,10 @@ def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None,
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO tbl_contato_cliente 
-                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_contato_cliente
-            ''', (nome_completo, email.lower().strip(), senha_md5, pk_id_tbl_cliente, telefone, id_centralx, status))
+            ''', (nome_completo, email.lower().strip(), senha_md5, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts))
 
             novo_id = cursor.fetchone()['id_contato_cliente']
 
@@ -744,3 +796,170 @@ def alterar_senha_com_validacao(contato_id, senha_atual, nova_senha):
     
     except Exception as e:
         return False, f'Erro ao alterar senha: {str(e)}'
+
+# ==================== SETORES ====================
+
+def obter_setor_por_id(id_setor):
+    """Retorna um setor específico por ID"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT 
+                id_aux_setor,
+                display,
+                status,
+                data_cadastro,
+                data_modificacao
+            FROM aux_setor
+            WHERE id_aux_setor = %s
+        """, (id_setor,))
+        return cur.fetchone()
+
+def criar_setor(display, status=True):
+    """Cria um novo setor"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO aux_setor (display, status)
+            VALUES (%s, %s)
+            RETURNING id_aux_setor
+        """, (display, status))
+        conn.commit()
+        return cur.fetchone()['id_aux_setor']
+
+def atualizar_setor(id_setor, display, status):
+    """Atualiza um setor existente"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE aux_setor
+            SET display = %s,
+                status = %s,
+                data_modificacao = CURRENT_TIMESTAMP
+            WHERE id_aux_setor = %s
+        """, (display, status, id_setor))
+        conn.commit()
+        return cur.rowcount > 0
+
+def toggle_status_setor(id_setor):
+    """Alterna o status de um setor"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE aux_setor
+            SET status = NOT status,
+                data_modificacao = CURRENT_TIMESTAMP
+            WHERE id_aux_setor = %s
+            RETURNING status
+        """, (id_setor,))
+        conn.commit()
+        result = cur.fetchone()
+        return result['status'] if result else None
+
+# ==================== CARGOS ====================
+
+def obter_cargos(setor_id=None):
+    """Retorna lista de todos os cargos, opcionalmente filtrados por setor"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        if setor_id:
+            cur.execute("""
+                SELECT 
+                    c.id_cargo_contato,
+                    c.descricao,
+                    c.pk_id_aux_setor,
+                    c.id_centralx,
+                    c.indice,
+                    c.status,
+                    c.data_cadastro,
+                    c.data_modificacao,
+                    s.display as setor_display
+                FROM tbl_cargo_contato c
+                LEFT JOIN aux_setor s ON s.id_aux_setor = c.pk_id_aux_setor
+                WHERE c.pk_id_aux_setor = %s
+                ORDER BY c.descricao
+            """, (setor_id,))
+        else:
+            cur.execute("""
+                SELECT 
+                    c.id_cargo_contato,
+                    c.descricao,
+                    c.pk_id_aux_setor,
+                    c.id_centralx,
+                    c.indice,
+                    c.status,
+                    c.data_cadastro,
+                    c.data_modificacao,
+                    s.display as setor_display
+                FROM tbl_cargo_contato c
+                LEFT JOIN aux_setor s ON s.id_aux_setor = c.pk_id_aux_setor
+                ORDER BY c.descricao
+            """)
+        return cur.fetchall()
+
+def obter_cargo_por_id(id_cargo):
+    """Retorna um cargo específico por ID"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT 
+                c.id_cargo_contato,
+                c.descricao,
+                c.pk_id_aux_setor,
+                c.id_centralx,
+                c.indice,
+                c.status,
+                c.data_cadastro,
+                c.data_modificacao,
+                s.display as setor_display
+            FROM tbl_cargo_contato c
+            LEFT JOIN aux_setor s ON s.id_aux_setor = c.pk_id_aux_setor
+            WHERE c.id_cargo_contato = %s
+        """, (id_cargo,))
+        return cur.fetchone()
+
+def criar_cargo(descricao, pk_id_aux_setor, id_centralx=None, indice=None, status=True):
+    """Cria um novo cargo"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO tbl_cargo_contato 
+                (descricao, pk_id_aux_setor, id_centralx, indice, status, data_cadastro)
+            VALUES 
+                (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            RETURNING id_cargo_contato
+        """, (descricao, pk_id_aux_setor, id_centralx, indice, status))
+        conn.commit()
+        return cur.fetchone()['id_cargo_contato']
+
+def atualizar_cargo(id_cargo, descricao, pk_id_aux_setor, id_centralx=None, indice=None, status=True):
+    """Atualiza um cargo existente"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE tbl_cargo_contato
+            SET descricao = %s,
+                pk_id_aux_setor = %s,
+                id_centralx = %s,
+                indice = %s,
+                status = %s,
+                data_modificacao = CURRENT_TIMESTAMP
+            WHERE id_cargo_contato = %s
+        """, (descricao, pk_id_aux_setor, id_centralx, indice, status, id_cargo))
+        conn.commit()
+        return cur.rowcount > 0
+
+def toggle_status_cargo(id_cargo):
+    """Alterna o status de um cargo"""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE tbl_cargo_contato
+            SET status = NOT status,
+                data_modificacao = CURRENT_TIMESTAMP
+            WHERE id_cargo_contato = %s
+            RETURNING status
+        """, (id_cargo,))
+        conn.commit()
+        result = cur.fetchone()
+        return result['status'] if result else None

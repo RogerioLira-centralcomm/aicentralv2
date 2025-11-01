@@ -8,11 +8,74 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const isEdit = window.location.href.includes('/editar');
     console.log('Modo:', isEdit ? 'Editar' : 'Novo');
+
+    // Função para limpar e proteger campo contra preenchimento automático
+    function protegerCampo(campo) {
+        if (!campo) return;
+        
+        // Desabilita temporariamente
+        campo.disabled = true;
+        const valorOriginal = campo.value;
+        
+        // Força limpeza após um momento
+        setTimeout(() => {
+            campo.disabled = false;
+            campo.value = valorOriginal;
+            
+            // Previne o preenchimento automático mesmo após o foco
+            campo.addEventListener('focus', function(e) {
+                if (this.value !== valorOriginal) {
+                    setTimeout(() => this.value = valorOriginal, 10);
+                }
+            });
+        }, 100);
+    }
+
+    // Limpa campos para evitar preenchimento automático
+    if (!isEdit) {
+        // Protege todos os campos de input
+        const camposParaProteger = [
+            'nome_completo',
+            'email',
+            'telefone',
+            'senha'
+        ];
+
+        camposParaProteger.forEach(id => {
+            const campo = document.getElementById(id);
+            if (campo) {
+                campo.value = ''; // Limpa inicialmente
+                
+                // Previne preenchimento automático
+                campo.setAttribute('autocomplete', 'new-' + id);
+                campo.setAttribute('data-form-type', 'other');
+                
+                // Adiciona proteção especial
+                protegerCampo(campo);
+                
+                // Previne preenchimento automático no foco
+                campo.addEventListener('focus', function() {
+                    if (this.value && !isEdit) {
+                        setTimeout(() => this.value = '', 1);
+                    }
+                });
+            }
+        });
+
+        // Espera um pouco e limpa novamente
+        setTimeout(() => {
+            camposParaProteger.forEach(id => {
+                const campo = document.getElementById(id);
+                if (campo) campo.value = '';
+            });
+        }, 500);
+    }
     
     // Máscara de telefone
-    const telefoneInput = document.querySelector('input[name="telefone"]');
+    const telefoneInput = document.querySelector('#telefone');
     if (telefoneInput) {
         telefoneInput.addEventListener('input', function(e) {
+            const cursorPos = this.selectionStart;
             let value = e.target.value.replace(/\D/g, '');
             
             if (value.length <= 11) {
@@ -21,8 +84,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             e.target.value = value;
+
+            // Mantém o cursor na posição correta após a formatação
+            const newPos = Math.max(0, Math.min(value.length, cursorPos));
+            this.setSelectionRange(newPos, newPos);
         });
         console.log('✓ Phone mask initialized');
+    }
+
+    // Se for um novo contato, limpa o formulário
+    if (!isEdit) {
+        limparFormulario();
     }
     
     // Toggle password visibility
@@ -92,11 +164,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Auto-focus no primeiro campo
-    const firstInput = document.querySelector('input[autofocus]');
-    if (firstInput) {
-        firstInput.focus();
-    }
+    // Foca no primeiro campo após um breve delay
+    setTimeout(() => {
+        const nomeInput = document.getElementById('nome_completo');
+        if (nomeInput) {
+            nomeInput.focus();
+            // Limpa novamente caso o navegador tenha preenchido
+            if (!isEdit) nomeInput.value = '';
+        }
+    }, 100);
 });
 
 console.log('Contato_form.js loaded successfully');

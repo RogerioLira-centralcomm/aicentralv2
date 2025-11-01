@@ -2,7 +2,7 @@
 Rotas da Aplicação
 """
 
-from flask import session, redirect, url_for, flash, request, render_template
+from flask import session, redirect, url_for, flash, request, render_template, jsonify
 from functools import wraps
 from datetime import datetime, timedelta
 import secrets
@@ -513,20 +513,23 @@ def init_routes(app):
                 senha = request.form.get('senha', '').strip()
                 telefone = request.form.get('telefone', '').strip() or None
                 pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente')
-                cohorts = 1
+                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo')
+                cohorts = request.form.get('cohorts', type=int) or 1
                 
                 if not all([nome_completo, email, senha, pk_id_tbl_cliente]):
                     flash('Preencha todos os campos obrigatórios!', 'error')
                     with conn.cursor() as cursor:
                         cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
                         clientes = cursor.fetchall()
-                    return render_template('contato_form.html', contato=None, clientes=clientes)
+                        cargos = db.obter_cargos()
+                    return render_template('contato_form.html', contato=None, clientes=clientes, cargos=cargos)
                 
                 db.criar_contato(
                     nome_completo=nome_completo,
                     email=email,
                     senha=senha,
                     pk_id_tbl_cliente=int(pk_id_tbl_cliente),
+                    pk_id_tbl_cargo=int(pk_id_tbl_cargo) if pk_id_tbl_cargo else None,
                     telefone=telefone,
                     cohorts=cohorts
                 )
@@ -542,8 +545,12 @@ def init_routes(app):
         with conn.cursor() as cursor:
             cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
             clientes = cursor.fetchall()
+            
+            # Busca setores e cargos
+            setores = db.obter_setores()
+            cargos = db.obter_cargos()
         
-        return render_template('contato_form.html', contato=None, clientes=clientes)
+        return render_template('contato_form.html', contato=None, clientes=clientes, setores=setores, cargos=cargos)
     
     @app.route('/contatos/<int:contato_id>/editar', methods=['GET', 'POST'])
     @login_required
@@ -557,7 +564,10 @@ def init_routes(app):
                 email = request.form.get('email', '').strip().lower()
                 telefone = request.form.get('telefone', '').strip() or None
                 pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente')
+                pk_id_aux_setor = request.form.get('pk_id_aux_setor')
+                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo')
                 nova_senha = request.form.get('nova_senha', '').strip()
+                cohorts = request.form.get('cohorts', type=int) or 1
                 
                 if not all([nome_completo, email, pk_id_tbl_cliente]):
                     flash('Campos obrigatórios!', 'error')
@@ -576,10 +586,14 @@ def init_routes(app):
                     
                     cursor.execute('''
                         UPDATE tbl_contato_cliente
-                        SET nome_completo = %s, email = %s, telefone = %s,cohorts = 1,
-                            pk_id_tbl_cliente = %s, data_modificacao = CURRENT_TIMESTAMP
+                        SET nome_completo = %s, email = %s, telefone = %s, cohorts = %s,
+                            pk_id_tbl_cliente = %s, pk_id_aux_setor = %s, pk_id_tbl_cargo = %s, 
+                            data_modificacao = CURRENT_TIMESTAMP
                         WHERE id_contato_cliente = %s
-                    ''', (nome_completo, email, telefone, int(pk_id_tbl_cliente), contato_id))
+                    ''', (nome_completo, email, telefone, cohorts, int(pk_id_tbl_cliente),
+                          int(pk_id_aux_setor) if pk_id_aux_setor else None,
+                          int(pk_id_tbl_cargo) if pk_id_tbl_cargo else None, 
+                          contato_id))
                 
                 if nova_senha:
                     db.atualizar_senha_contato(contato_id, nova_senha)
@@ -601,8 +615,13 @@ def init_routes(app):
         with conn.cursor() as cursor:
             cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
             clientes = cursor.fetchall()
+            
+            # Busca setores e cargos
+            setores = db.obter_setores()
+            setor_id = contato.get('pk_id_aux_setor') if contato else None
+            cargos = db.obter_cargos(setor_id)
         
-        return render_template('contato_form.html', contato=contato, clientes=clientes)
+        return render_template('contato_form.html', contato=contato, clientes=clientes, setores=setores, cargos=cargos)
     
     @app.route('/contatos/<int:contato_id>/toggle-status', methods=['POST'])
     @login_required
@@ -668,5 +687,156 @@ def init_routes(app):
             flash('Erro ao deletar.', 'error')
         
         return redirect(url_for('contatos'))
+
+    # ==================== SETORES ====================
+    
+    @app.route('/setor')
+    @login_required
+    def aux_setor():
+        """Página de gerenciamento de setores"""
+        try:
+            setores = db.obter_setores()
+            return render_template('aux_setor.html', setores=setores)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar setores: {str(e)}")
+            flash('Erro ao carregar setores.', 'error')
+            return render_template('aux_setor.html', setores=[])
+
+    @app.route('/setor/create', methods=['POST'])
+    @login_required
+    def criar_setor():
+        """Cria um novo setor"""
+        try:
+            data = request.get_json()
+            display = data.get('display', '').strip()
+            status = data.get('status', True)
+            
+            if not display:
+                return jsonify({'message': 'Display é obrigatório'}), 400
+            
+            id_setor = db.criar_setor(display, status)
+            return jsonify({'message': 'Setor criado com sucesso', 'id': id_setor}), 201
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao criar setor: {str(e)}")
+            return jsonify({'message': 'Erro ao criar setor'}), 500
+
+    @app.route('/setor/<int:id_setor>', methods=['PUT'])
+    @login_required
+    def atualizar_setor(id_setor):
+        """Atualiza um setor existente"""
+        try:
+            data = request.get_json()
+            display = data.get('display', '').strip()
+            status = data.get('status', True)
+            
+            if not display:
+                return jsonify({'message': 'Display é obrigatório'}), 400
+            
+            if db.atualizar_setor(id_setor, display, status):
+                return jsonify({'message': 'Setor atualizado com sucesso'}), 200
+            return jsonify({'message': 'Setor não encontrado'}), 404
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar setor: {str(e)}")
+            return jsonify({'message': 'Erro ao atualizar setor'}), 500
+
+    @app.route('/setor/<int:id_setor>/toggle_status', methods=['PUT'])
+    @login_required
+    def toggle_status_setor(id_setor):
+        """Alterna o status de um setor"""
+        try:
+            new_status = db.toggle_status_setor(id_setor)
+            if new_status is not None:
+                return jsonify({
+                    'message': f'Status alterado para {"ativo" if new_status else "inativo"}',
+                    'status': new_status
+                }), 200
+            return jsonify({'message': 'Setor não encontrado'}), 404
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status do setor: {str(e)}")
+            return jsonify({'message': 'Erro ao alterar status'}), 500
+
+    # ==================== TBL CARGO CONTATO ====================
+    
+    @app.route('/cargo')
+    @login_required
+    def tbl_cargo_contato():
+        """Página de cargo"""
+        cargos = db.obter_cargos()
+        setores = db.obter_setores()
+        return render_template('tbl_cargo_contato.html', cargos=cargos, setores=setores)
+    
+    @app.route('/cargo/<int:id_cargo>')
+    @login_required
+    def get_cargo(id_cargo):
+        """Retorna os dados de um cargo"""
+        cargo = db.get_cargo(id_cargo)
+        if cargo:
+            return jsonify(cargo)
+        return jsonify({'message': 'Cargo não encontrado'}), 404
+    
+    @app.route('/cargo/create', methods=['POST'])
+    @login_required
+    def create_cargo():
+        """Cria um novo cargo"""
+        try:
+            data = request.get_json()
+            descricao = data.get('descricao', '').strip()
+            pk_id_aux_setor = data.get('pk_id_aux_setor')
+            id_centralx = data.get('id_centralx')
+            indice = data.get('indice')
+            
+            if not descricao:
+                return jsonify({'message': 'Descrição é obrigatória'}), 400
+            
+            if db.criar_cargo(descricao, pk_id_aux_setor, id_centralx, indice):
+                return jsonify({'message': 'Cargo criado com sucesso'}), 201
+            return jsonify({'message': 'Erro ao criar cargo'}), 500
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao criar cargo: {str(e)}")
+            return jsonify({'message': 'Erro ao criar cargo'}), 500
+    
+    @app.route('/cargo/<int:id_cargo>', methods=['PUT'])
+    @login_required
+    def update_cargo(id_cargo):
+        """Atualiza um cargo"""
+        try:
+            data = request.get_json()
+            descricao = data.get('descricao', '').strip()
+            pk_id_aux_setor = data.get('pk_id_aux_setor')
+            id_centralx = data.get('id_centralx')
+            indice = data.get('indice')
+            status = data.get('status', True)
+            
+            if not descricao:
+                return jsonify({'message': 'Descrição é obrigatória'}), 400
+            
+            if db.atualizar_cargo(id_cargo, descricao, pk_id_aux_setor, id_centralx, indice, status):
+                return jsonify({'message': 'Cargo atualizado com sucesso'}), 200
+            return jsonify({'message': 'Cargo não encontrado'}), 404
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar cargo: {str(e)}")
+            return jsonify({'message': 'Erro ao atualizar cargo'}), 500
+
+    @app.route('/cargo/<int:id_cargo>/toggle_status', methods=['PUT'])
+    @login_required
+    def toggle_status_cargo(id_cargo):
+        """Alterna o status de um cargo"""
+        try:
+            new_status = db.toggle_status_cargo(id_cargo)
+            if new_status is not None:
+                return jsonify({
+                    'message': f'Status alterado para {"ativo" if new_status else "inativo"}',
+                    'status': new_status
+                }), 200
+            return jsonify({'message': 'Cargo não encontrado'}), 404
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status do cargo: {str(e)}")
+            return jsonify({'message': 'Erro ao alterar status'}), 500
     
     app.logger.info("Rotas registradas com sucesso")

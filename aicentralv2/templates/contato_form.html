@@ -58,11 +58,13 @@
                     <input 
                         type="text" 
                         name="nome_completo" 
+                        id="nome_completo"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         value="{{ contato.nome_completo if contato else '' }}"
                         required
-                        autofocus
                         placeholder="Ex: João Silva"
+                        autocomplete="off"
+                        data-form-type="other"
                     >
                 </div>
 
@@ -73,13 +75,20 @@
                         Email
                         <span class="text-red-500">*</span>
                     </label>
+                    <!-- Campo falso para enganar o preenchimento automático -->
+                    <input type="text" style="display:none" name="email_fake" />
+                    <input type="password" style="display:none" name="password_fake" />
                     <input 
                         type="email" 
                         name="email" 
+                        id="email"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         value="{{ contato.email if contato else '' }}"
                         required
                         placeholder="exemplo@email.com"
+                        autocomplete="nope"
+                        data-form-type="other"
+                        data-new-email="true"
                     >
                     <p class="mt-1 text-sm text-gray-500">Será usado para login</p>
                 </div>
@@ -91,14 +100,82 @@
                         Telefone
                     </label>
                     <input 
-                        type="text" 
+                        type="tel" 
                         name="telefone" 
+                        id="telefone"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
                         value="{{ contato.telefone if contato else '' }}"
                         placeholder="(00) 00000-0000"
                         maxlength="15"
+                        autocomplete="nope"
+                        data-form-type="other"
                     >
                     <p class="mt-1 text-sm text-gray-500">Opcional</p>
+                </div>
+
+                <!-- Setor -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-sitemap mr-2 text-gray-500"></i>
+                        Setor
+                    </label>
+                    <select 
+                        name="pk_id_aux_setor" 
+                        id="setor_select"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                    >
+                        <option value="">Selecione um setor...</option>
+                        {% for setor in setores %}
+                            <option value="{{ setor.id_setor }}" 
+                                {% if contato and contato.pk_id_aux_setor == setor.id_setor %}selected{% endif %}
+                                data-setor-id="{{ setor.id_setor }}">
+                                {{ setor.descricao }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-sm text-gray-500">Opcional</p>
+                </div>
+
+                <!-- Cargo -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-briefcase mr-2 text-gray-500"></i>
+                        Cargo
+                    </label>
+                    <select 
+                        name="pk_id_tbl_cargo" 
+                        id="cargo_select"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                        disabled
+                    >
+                        <option value="">Selecione um cargo...</option>
+                        {% for cargo in cargos %}
+                            <option value="{{ cargo.id_cargo_contato }}" 
+                                data-setor-id="{{ cargo.pk_id_aux_setor }}"
+                                {% if contato and contato.pk_id_tbl_cargo == cargo.id_cargo_contato %}selected{% endif %}>
+                                {{ cargo.descricao }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-sm text-gray-500">Opcional</p>
+                </div>
+
+                <!-- Cohorts -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-layer-group mr-2 text-gray-500"></i>
+                        Cohorts
+                    </label>
+                    <input 
+                        type="number" 
+                        name="cohorts" 
+                        id="cohorts"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                        value="{{ contato.cohorts if contato else 1 }}"
+                        min="1"
+                        placeholder="Valor do cohort"
+                    >
+                    <p class="mt-1 text-sm text-gray-500">Nível de agrupamento do contato</p>
                 </div>
 
                 <!-- Cliente -->
@@ -187,4 +264,5 @@
 
     {% block scripts %}
     <script src="{{ url_for('static', filename='js/contato_form.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tbl_cargo_contato.js') }}"></script>
     {% endblock %}

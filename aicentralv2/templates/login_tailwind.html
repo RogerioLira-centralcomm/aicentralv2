@@ -284,7 +284,7 @@
 </div>
 
 <!-- Overlay de Carregamento -->
-<div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden" id="loadingOverlay">
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center z-50 hidden" id="loadingOverlay">
     <div class="bg-white/90 backdrop-blur rounded-xl p-6 max-w-[200px] w-full text-center shadow-xl">
         <div class="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
         <p class="text-gray-600 text-sm font-medium">Verificando...</p>
@@ -349,6 +349,7 @@
             submitBtn.querySelector('.btn-text').classList.add('hidden');
             submitBtn.querySelector('.btn-loading').classList.remove('hidden');
             loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
         } else {
             e.preventDefault();
         }

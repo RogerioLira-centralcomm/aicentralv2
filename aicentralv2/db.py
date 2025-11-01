@@ -11,6 +11,7 @@ from flask import g, current_app
 import os
 import hashlib
 from datetime import datetime, timedelta
+from typing import List, Optional
 
 
 # ==================== CONFIGURAÇÃO ====================
@@ -387,8 +388,24 @@ def obter_contatos_por_cliente(id_cliente):
 
 # ==================== CLIENTES - CRUD ====================
 
+def obter_cliente_por_id(id_cliente):
+    """Retorna um cliente específico com informações do plano"""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                c.*,
+                p.descricao as plano_descricao,
+                p.tokens as plano_tokens,
+                p.status as plano_status
+            FROM tbl_cliente c
+            LEFT JOIN tbl_plano p ON c.pk_id_tbl_plano = p.id_plano
+            WHERE c.id_cliente = %s
+        ''', (id_cliente,))
+        return cursor.fetchone()
+
 def criar_cliente(razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
-                status=True, id_centralx=None, bairro=None, rua=None, numero=None, complemento=None, cep=None):
+                status=True, id_centralx=None, bairro=None, rua=None, numero=None, complemento=None, cep=None, pk_id_tbl_plano=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -398,14 +415,14 @@ def criar_cliente(razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_
                 INSERT INTO tbl_cliente (
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, id_centralx, bairro, rua, numero, 
-                    complemento, cep
+                    complemento, cep, pk_id_tbl_plano
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, rua, numero,
-                complemento, cep
+                complemento, cep, pk_id_tbl_plano
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -418,7 +435,7 @@ def criar_cliente(razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_
 
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, rua=None, 
-                     numero=None, complemento=None, cep=None):
+                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -439,12 +456,13 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, pessoa='J', cnpj=
                     numero = %s,
                     complemento = %s,
                     cep = %s,
+                    pk_id_tbl_plano = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, rua, numero,
-                complemento, cep, id_cliente
+                complemento, cep, pk_id_tbl_plano, id_cliente
             ))
             
             conn.commit()
@@ -1032,3 +1050,113 @@ def toggle_status_cargo(id_cargo):
         conn.commit()
         result = cur.fetchone()
         return result['status'] if result else None
+
+
+# ==================== PLANOS ====================
+
+def obter_planos() -> List[dict]:
+    """Retorna todos os planos cadastrados."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("""
+            SELECT id_plano, descricao, tokens, data_criacao, 
+                   data_atualizacao, status
+            FROM tbl_plano
+            ORDER BY descricao;
+        """)
+        planos = cur.fetchall()
+        
+        return [
+            {
+                'id_plano': plano['id_plano'],
+                'descricao': plano['descricao'].strip() if plano['descricao'] else '',
+                'tokens': plano['tokens'],
+                'data_criacao': plano['data_criacao'][0] if plano['data_criacao'] else None,  # Pega o primeiro item do array
+                'data_atualizacao': plano['data_atualizacao'],
+                'status': plano['status']
+            }
+            for plano in planos
+        ]
+    finally:
+        cur.close()
+
+def obter_plano(id_plano: int) -> Optional[dict]:
+    """Retorna um plano específico pelo ID."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("""
+            SELECT id_plano, descricao, tokens, data_criacao, 
+                   data_atualizacao, status
+            FROM tbl_plano
+            WHERE id_plano = %s;
+        """, (id_plano,))
+        plano = cur.fetchone()
+        
+        if plano:
+            return {
+                'id_plano': plano['id_plano'],
+                'descricao': plano['descricao'].strip() if plano['descricao'] else '',
+                'tokens': plano['tokens'],
+                'data_criacao': plano['data_criacao'][0] if plano['data_criacao'] else None,  # Pega o primeiro item do array
+                'data_atualizacao': plano['data_atualizacao'],
+                'status': plano['status']
+            }
+        return None
+    finally:
+        cur.close()
+
+def criar_plano(descricao: str, tokens: int) -> int:
+    """Cria um novo plano e retorna seu ID."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("""
+            INSERT INTO tbl_plano (descricao, tokens, data_criacao, status)
+            VALUES (%s, %s, ARRAY[CURRENT_TIMESTAMP], true)
+            RETURNING id_plano;
+        """, (descricao, tokens))
+        id_plano = cur.fetchone()['id_plano']
+        conn.commit()
+        return id_plano
+    finally:
+        cur.close()
+
+def atualizar_plano(id_plano: int, descricao: str, tokens: int) -> bool:
+    """Atualiza um plano existente."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("""
+            UPDATE tbl_plano
+            SET descricao = %s,
+                tokens = %s,
+                data_atualizacao = CURRENT_TIMESTAMP
+            WHERE id_plano = %s;
+        """, (descricao, tokens, id_plano))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        cur.close()
+
+def toggle_status_plano(id_plano: int) -> bool:
+    """Alterna o status de um plano."""
+    conn = get_db()
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("""
+            UPDATE tbl_plano
+            SET status = NOT status,
+                data_atualizacao = CURRENT_TIMESTAMP
+            WHERE id_plano = %s;
+        """, (id_plano,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        cur.close()

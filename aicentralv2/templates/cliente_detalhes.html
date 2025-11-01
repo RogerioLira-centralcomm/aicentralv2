@@ -88,6 +88,19 @@
                     <label class="text-sm font-medium text-gray-500">Inscrição Municipal</label>
                     <p class="text-gray-900 mt-1">{{ cliente.inscricao_municipal or 'Não informado' }}</p>
                 </div>
+
+                <!-- Plano -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Plano</label>
+                    <p class="text-gray-900 mt-1">
+                        {% if cliente.plano_descricao %}
+                            {{ cliente.plano_descricao }}
+                            <span class="text-xs text-gray-500">({{ cliente.plano_tokens }} tokens)</span>
+                        {% else %}
+                            <span class="text-gray-500">Nenhum plano associado</span>
+                        {% endif %}
+                    </p>
+                </div>
             </div>
         </div>
 

@@ -229,6 +229,84 @@ def init_routes(app):
             nova_senha = request.form.get('password', '').strip()
             confirm = request.form.get('confirm_password', '').strip()
 
+    # ==================== PLANOS ====================
+
+    @app.route('/planos')
+    @login_required
+    def planos():
+        """Lista todos os planos."""
+        lista_planos = db.obter_planos()
+        return render_template('planos.html', planos=lista_planos)
+
+    @app.route('/planos/novo', methods=['GET', 'POST'])
+    @login_required
+    def plano_form():
+        """Formulário para criar um novo plano."""
+        id_plano = request.args.get('id_plano', type=int)
+        plano = None
+        
+        if id_plano:
+            plano = db.obter_plano(id_plano)
+            if not plano:
+                flash('Plano não encontrado.', 'error')
+                return redirect(url_for('planos'))
+        
+        if request.method == 'POST':
+            descricao = request.form.get('descricao', '').strip()
+            tokens = request.form.get('tokens', type=int)
+            
+            if not descricao or not tokens:
+                flash('Todos os campos são obrigatórios.', 'error')
+                return render_template('plano_form.html')
+            
+            try:
+                db.criar_plano(descricao, tokens)
+                flash('Plano criado com sucesso!', 'success')
+                return redirect(url_for('planos'))
+            except Exception as e:
+                flash(f'Erro ao criar plano: {str(e)}', 'error')
+        
+        return render_template('plano_form.html', plano=plano)
+
+    @app.route('/planos/<int:id_plano>/editar', methods=['GET', 'POST'])
+    @login_required
+    def plano_editar(id_plano):
+        """Formulário para editar um plano existente."""
+        plano = db.obter_plano(id_plano)
+        if not plano:
+            flash('Plano não encontrado.', 'error')
+            return redirect(url_for('planos'))
+        
+        if request.method == 'POST':
+            descricao = request.form.get('descricao', '').strip()
+            tokens = request.form.get('tokens', type=int)
+            
+            if not descricao or not tokens:
+                flash('Todos os campos são obrigatórios.', 'error')
+                return render_template('plano_form.html', plano=plano)
+            
+            try:
+                if db.atualizar_plano(id_plano, descricao, tokens):
+                    flash('Plano atualizado com sucesso!', 'success')
+                    return redirect(url_for('planos'))
+                else:
+                    flash('Plano não encontrado.', 'error')
+            except Exception as e:
+                flash(f'Erro ao atualizar plano: {str(e)}', 'error')
+        
+        return render_template('plano_form.html', plano=plano)
+
+    @app.route('/planos/<int:id_plano>/toggle_status', methods=['POST'])
+    @login_required
+    def plano_toggle_status(id_plano):
+        """Alterna o status de um plano."""
+        try:
+            if db.toggle_status_plano(id_plano):
+                return jsonify({'success': True})
+            return jsonify({'success': False, 'error': 'Plano não encontrado'}), 404
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     # ==================== AUX SETOR ====================
     
     @app.route('/aux_setor')
@@ -418,6 +496,8 @@ def init_routes(app):
     @login_required
     def cliente_novo():
         """Criar cliente"""
+        planos = db.obter_planos()
+        
         if request.method == 'POST':
             try:
                 razao_social = request.form.get('razao_social', '').strip()
@@ -425,15 +505,16 @@ def init_routes(app):
                 pessoa = request.form.get('pessoa', 'J').strip()
                 cnpj = request.form.get('cnpj', '').strip()
                 inscricao_estadual = request.form.get('inscricao_estadual', '').strip() or None
+                pk_id_tbl_plano = request.form.get('pk_id_tbl_plano', type=int)
                 inscricao_municipal = request.form.get('inscricao_municipal', '').strip() or None
                 
                 if not razao_social or not nome_fantasia:
                     flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                    return render_template('cliente_form.html')
+                    return render_template('cliente_form.html', planos=planos)
                 
                 if pessoa not in ['F', 'J']:
                     flash('Tipo de pessoa inválido!', 'error')
-                    return render_template('cliente_form.html')
+                    return render_template('cliente_form.html', planos=planos)
                 
                 id_cliente = db.criar_cliente(
                     razao_social=razao_social,
@@ -441,23 +522,29 @@ def init_routes(app):
                     pessoa=pessoa,
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
-                    inscricao_municipal=inscricao_municipal
+                    inscricao_municipal=inscricao_municipal,
+                    pk_id_tbl_plano=pk_id_tbl_plano
                 )
                 
                 flash(f'Cliente "{nome_fantasia}" criado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
-                conn.rollback()
                 app.logger.error(f"Erro: {e}")
                 flash('Erro ao criar.', 'error')
+                return render_template('cliente_form.html', cliente=None, planos=planos)
         
-        return render_template('cliente_form.html', cliente=None)
+        return render_template('cliente_form.html', cliente=None, planos=planos)
     
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required
     def cliente_editar(cliente_id):
         """Editar cliente"""
-        conn = db.get_db()
+        planos = db.obter_planos()
+        cliente = db.obter_cliente_por_id(cliente_id)
+        
+        if not cliente:
+            flash('Cliente não encontrado!', 'error')
+            return redirect(url_for('clientes'))
         
         if request.method == 'POST':
             try:
@@ -467,37 +554,33 @@ def init_routes(app):
                 cnpj = request.form.get('cnpj', '').strip()
                 inscricao_estadual = request.form.get('inscricao_estadual', '').strip() or None
                 inscricao_municipal = request.form.get('inscricao_municipal', '').strip() or None
+                pk_id_tbl_plano = request.form.get('pk_id_tbl_plano', type=int)
                 
                 if not razao_social or not nome_fantasia:
                     flash('Campos obrigatórios!', 'error')
-                    return redirect(url_for('cliente_editar', cliente_id=cliente_id))
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos)
                 
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        UPDATE tbl_cliente
-                        SET razao_social = %s, nome_fantasia = %s, cnpj = %s,
-                            inscricao_estadual = %s, inscricao_municipal = %s,
-                            data_modificacao = CURRENT_TIMESTAMP
-                        WHERE id_cliente = %s
-                    ''', (razao_social, nome_fantasia, cnpj, inscricao_estadual, inscricao_municipal, cliente_id))
+                if not db.atualizar_cliente(
+                    id_cliente=cliente_id,
+                    razao_social=razao_social,
+                    nome_fantasia=nome_fantasia,
+                    pessoa=pessoa,
+                    cnpj=cnpj,
+                    inscricao_estadual=inscricao_estadual,
+                    inscricao_municipal=inscricao_municipal,
+                    pk_id_tbl_plano=pk_id_tbl_plano
+                ):
+                    flash('Cliente não encontrado!', 'error')
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos)
                 
-                conn.commit()
                 flash(f'Cliente "{nome_fantasia}" atualizado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
-                conn.rollback()
-                app.logger.error(f"Erro: {e}")
+                app.logger.error(f"Erro ao atualizar cliente: {e}")
                 flash('Erro ao atualizar.', 'error')
+                return render_template('cliente_form.html', cliente=cliente, planos=planos)
         
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT * FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
-            cliente = cursor.fetchone()
-        
-        if not cliente:
-            flash('Cliente não encontrado!', 'error')
-            return redirect(url_for('clientes'))
-        
-        return render_template('cliente_form.html', cliente=cliente)
+        return render_template('cliente_form.html', cliente=cliente, planos=planos)
     
     @app.route('/clientes/<int:cliente_id>/toggle-status', methods=['POST'])
     @login_required
@@ -546,18 +629,23 @@ def init_routes(app):
             with conn.cursor() as cursor:
                 cursor.execute('''
                     SELECT 
-                        id_cliente,
-                        razao_social,
-                        nome_fantasia,
-                        cnpj,
-                        inscricao_estadual,
-                        inscricao_municipal,
-                        status,
-                        COALESCE(TO_CHAR(data_cadastro, 'DD/MM/YYYY HH24:MI:SS'), 'N/A') as data_criacao,
-                        COALESCE(inscricao_estadual, '') as inscricao_estadual,
-                        COALESCE(inscricao_municipal, '') as inscricao_municipal,
-                        COALESCE(cnpj, '') as cnpj
-                    FROM tbl_cliente 
+                        c.id_cliente,
+                        c.razao_social,
+                        c.nome_fantasia,
+                        c.cnpj,
+                        c.inscricao_estadual,
+                        c.inscricao_municipal,
+                        c.status,
+                        COALESCE(TO_CHAR(c.data_cadastro, 'DD/MM/YYYY HH24:MI:SS'), 'N/A') as data_criacao,
+                        COALESCE(c.inscricao_estadual, '') as inscricao_estadual,
+                        COALESCE(c.inscricao_municipal, '') as inscricao_municipal,
+                        COALESCE(c.cnpj, '') as cnpj,
+                        p.id_plano,
+                        p.descricao as plano_descricao,
+                        p.tokens as plano_tokens,
+                        p.status as plano_status
+                    FROM tbl_cliente c
+                    LEFT JOIN tbl_plano p ON p.id_plano = c.pk_id_tbl_plano
                     WHERE id_cliente = %s
                 ''', (cliente_id,))
                 cliente = cursor.fetchone()

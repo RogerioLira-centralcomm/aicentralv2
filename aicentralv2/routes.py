@@ -199,6 +199,58 @@ def init_routes(app):
             nova_senha = request.form.get('password', '').strip()
             confirm = request.form.get('confirm_password', '').strip()
 
+    # ==================== AUX SETOR ====================
+    
+    @app.route('/aux_setor')
+    @login_required
+    def aux_setor():
+        """Página de gerenciamento de setores"""
+        try:
+            setores = db.obter_setores(apenas_ativos=False)
+            return render_template('aux_setor.html', setores=setores)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar setores: {str(e)}")
+            flash('Erro ao carregar setores.', 'error')
+            return redirect(url_for('index'))
+    
+    @app.route('/aux_setor/create', methods=['POST'])
+    @login_required
+    def create_setor():
+        """Criar novo setor"""
+        try:
+            data = request.get_json()
+            display = data.get('display', '').strip()
+            status = data.get('status', True)
+            
+            if not display:
+                return jsonify({'message': 'Display é obrigatório'}), 400
+            
+            setor_id = db.criar_setor(display, status)
+            return jsonify({'message': 'Setor criado com sucesso', 'id': setor_id}), 201
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao criar setor: {str(e)}")
+            return jsonify({'message': 'Erro ao criar setor'}), 500
+    
+    @app.route('/aux_setor/<int:setor_id>/toggle_status', methods=['PUT'])
+    @login_required
+    def toggle_status_setor(setor_id):
+        """Alternar status do setor"""
+        try:
+            new_status = db.toggle_status_setor(setor_id)
+            if new_status is not None:
+                return jsonify({
+                    'message': f'Status alterado para {"ativo" if new_status else "inativo"}',
+                    'status': new_status
+                }), 200
+            return jsonify({'message': 'Setor não encontrado'}), 404
+        
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status do setor: {str(e)}")
+            return jsonify({'message': 'Erro ao alterar status'}), 500
+            nova_senha = request.form.get('password', '').strip()
+            confirm = request.form.get('confirm_password', '').strip()
+
             if not nova_senha or not confirm:
                 flash('Preencha todos os campos!', 'error')
                 return render_template('reset_password_tailwind.html', token=token, user=contato)
@@ -688,19 +740,8 @@ def init_routes(app):
         
         return redirect(url_for('contatos'))
 
-    # ==================== SETORES ====================
-    
-    @app.route('/setor')
-    @login_required
-    def aux_setor():
-        """Página de gerenciamento de setores"""
-        try:
-            setores = db.obter_setores()
-            return render_template('aux_setor.html', setores=setores)
-        except Exception as e:
-            app.logger.error(f"Erro ao carregar setores: {str(e)}")
-            flash('Erro ao carregar setores.', 'error')
-            return render_template('aux_setor.html', setores=[])
+    # Note: Removed duplicate aux_setor route definition that was causing conflicts
+    # The route /aux_setor is already defined above
 
     @app.route('/setor/create', methods=['POST'])
     @login_required
@@ -741,22 +782,8 @@ def init_routes(app):
             app.logger.error(f"Erro ao atualizar setor: {str(e)}")
             return jsonify({'message': 'Erro ao atualizar setor'}), 500
 
-    @app.route('/setor/<int:id_setor>/toggle_status', methods=['PUT'])
-    @login_required
-    def toggle_status_setor(id_setor):
-        """Alterna o status de um setor"""
-        try:
-            new_status = db.toggle_status_setor(id_setor)
-            if new_status is not None:
-                return jsonify({
-                    'message': f'Status alterado para {"ativo" if new_status else "inativo"}',
-                    'status': new_status
-                }), 200
-            return jsonify({'message': 'Setor não encontrado'}), 404
-        
-        except Exception as e:
-            app.logger.error(f"Erro ao alterar status do setor: {str(e)}")
-            return jsonify({'message': 'Erro ao alterar status'}), 500
+    # Note: Removed duplicate toggle_status_setor route definition that was causing conflicts
+    # The route /aux_setor/<int:setor_id>/toggle_status is already defined above
 
     # ==================== TBL CARGO CONTATO ====================
     

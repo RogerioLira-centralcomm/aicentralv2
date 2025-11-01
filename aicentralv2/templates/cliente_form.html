@@ -48,8 +48,29 @@
         <!-- Form -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <form method="POST">
-                <!-- Razão Social -->
+                <!-- Tipo de Pessoa -->
                 <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-2 text-gray-500"></i>
+                        Tipo de Pessoa
+                        <span class="text-red-500">*</span>
+                    </label>
+                    <div class="mt-2 space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="pessoa" value="J" class="form-radio text-primary" 
+                                   {% if not cliente or cliente.pessoa == 'J' %}checked{% endif %}>
+                            <span class="ml-2">Pessoa Jurídica</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="pessoa" value="F" class="form-radio text-primary"
+                                   {% if cliente and cliente.pessoa == 'F' %}checked{% endif %}>
+                            <span class="ml-2">Pessoa Física</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Razão Social -->
+                <div class="mb-6 pessoa-juridica">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-building mr-2 text-gray-500"></i>
                         Razão Social
@@ -67,11 +88,13 @@
                     <p class="mt-1 text-sm text-gray-500">Nome oficial da empresa</p>
                 </div>
 
-                <!-- Nome Fantasia -->
+                <!-- Nome Fantasia / Nome Completo -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-store mr-2 text-gray-500"></i>
-                        Nome Fantasia
+                        <i class="fas fa-store mr-2 text-gray-500 pessoa-juridica"></i>
+                        <i class="fas fa-user mr-2 text-gray-500 pessoa-fisica hidden"></i>
+                        <span class="pessoa-juridica">Nome Fantasia</span>
+                        <span class="pessoa-fisica hidden">Nome Completo</span>
                         <span class="text-red-500">*</span>
                     </label>
                     <input 
@@ -82,14 +105,16 @@
                         required
                         placeholder="Ex: Empresa"
                     >
-                    <p class="mt-1 text-sm text-gray-500">Nome comercial da empresa</p>
+                    <p class="mt-1 text-sm text-gray-500 pessoa-juridica">Nome comercial da empresa</p>
+                    <p class="mt-1 text-sm text-gray-500 pessoa-fisica hidden">Nome completo da pessoa física</p>
                 </div>
 
-                <!-- CNPJ -->
+                <!-- CNPJ/CPF -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-id-card mr-2 text-gray-500"></i>
-                        CNPJ
+                        <span class="pessoa-juridica">CNPJ</span>
+                        <span class="pessoa-fisica hidden">CPF</span>
                     </label>
                     <input 
                         type="text" 
@@ -99,11 +124,12 @@
                         placeholder="00.000.000/0000-00"
                         maxlength="18"
                     >
-                    <p class="mt-1 text-sm text-gray-500">Opcional - formato: 00.000.000/0000-00</p>
+                    <p class="mt-1 text-sm text-gray-500 pessoa-juridica">Opcional - formato: 00.000.000/0000-00</p>
+                    <p class="mt-1 text-sm text-gray-500 pessoa-fisica hidden">Opcional - formato: 000.000.000-00</p>
                 </div>
 
                 <!-- Inscrição Estadual -->
-                <div class="mb-6">
+                <div class="mb-6 pessoa-juridica">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-file-alt mr-2 text-gray-500"></i>
                         Inscrição Estadual
@@ -119,7 +145,7 @@
                 </div>
 
                 <!-- Inscrição Municipal -->
-                <div class="mb-6">
+                <div class="mb-6 pessoa-juridica">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-file-alt mr-2 text-gray-500"></i>
                         Inscrição Municipal

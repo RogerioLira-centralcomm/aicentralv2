@@ -117,11 +117,41 @@ def init_routes(app):
                 cursor.execute("SELECT COUNT(*) FROM tbl_contato_cliente")
                 total_contatos = cursor.fetchone()['count']
                 
+                # Segmentação por tipo de pessoa
+                cursor.execute("""
+                    SELECT 
+                        pessoa,
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = TRUE THEN 1 ELSE 0 END) as ativos
+                    FROM tbl_cliente 
+                    GROUP BY pessoa
+                """)
+                pessoas = cursor.fetchall()
+                
+                # Processar dados de pessoas
+                pessoas_stats = {
+                    'fisica': {'total': 0, 'ativos': 0},
+                    'juridica': {'total': 0, 'ativos': 0}
+                }
+                
+                for p in pessoas:
+                    if p['pessoa'] == 'F':
+                        pessoas_stats['fisica'] = {
+                            'total': p['total'],
+                            'ativos': p['ativos']
+                        }
+                    elif p['pessoa'] == 'J':
+                        pessoas_stats['juridica'] = {
+                            'total': p['total'],
+                            'ativos': p['ativos']
+                        }
+                
                 dados = {
                     'total_clientes': total_clientes,
                     'clientes_ativos': clientes_ativos,
                     'clientes_inativos': clientes_inativos,
                     'total_contatos': total_contatos,
+                    'pessoas_stats': pessoas_stats,
                     'atividades': []  # TODO: Implementar atividades recentes
                 }
                 
@@ -290,6 +320,36 @@ def init_routes(app):
             cursor = conn.cursor()
             
             # Query com nomes CORRETOS das tabelas
+            # Estatísticas por tipo de pessoa
+            cursor.execute("""
+                SELECT 
+                    pessoa,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = TRUE THEN 1 ELSE 0 END) as ativos
+                FROM tbl_cliente 
+                GROUP BY pessoa
+            """)
+            pessoas = cursor.fetchall()
+            
+            # Processar dados de pessoas
+            pessoas_stats = {
+                'fisica': {'total': 0, 'ativos': 0},
+                'juridica': {'total': 0, 'ativos': 0}
+            }
+            
+            for p in pessoas:
+                if p['pessoa'] == 'F':
+                    pessoas_stats['fisica'] = {
+                        'total': p['total'],
+                        'ativos': p['ativos']
+                    }
+                elif p['pessoa'] == 'J':
+                    pessoas_stats['juridica'] = {
+                        'total': p['total'],
+                        'ativos': p['ativos']
+                    }
+            
+            # Query principal de clientes
             query = """
                  SELECT 
                     c.id_cliente,
@@ -297,6 +357,7 @@ def init_routes(app):
                     c.nome_fantasia,
                     c.cnpj,
                     c.status,
+                    c.pessoa,
                     (
                         SELECT COUNT(*) 
                         FROM tbl_contato_cliente ct 
@@ -337,7 +398,9 @@ def init_routes(app):
             conn.close()
             
             print(f"✅ DEBUG: Total de clientes processados: {len(clientes)}")
-            return render_template('clientes.html', clientes=clientes)
+            return render_template('clientes.html', 
+                               clientes=clientes,
+                               pessoas_stats=pessoas_stats)
             
         except Exception as e:
             print(f"❌ ERRO DETALHADO:")
@@ -346,7 +409,10 @@ def init_routes(app):
             import traceback
             traceback.print_exc()
             flash(f'Erro ao buscar clientes: {str(e)}', 'error')
-            return render_template('clientes.html', clientes=[])
+            return render_template('clientes.html', 
+                                clientes=[],
+                                pessoas_stats={'fisica': {'total': 0, 'ativos': 0},
+                                             'juridica': {'total': 0, 'ativos': 0}})
     
     @app.route('/clientes/novo', methods=['GET', 'POST'])
     @login_required
@@ -356,6 +422,7 @@ def init_routes(app):
             try:
                 razao_social = request.form.get('razao_social', '').strip()
                 nome_fantasia = request.form.get('nome_fantasia', '').strip()
+                pessoa = request.form.get('pessoa', 'J').strip()
                 cnpj = request.form.get('cnpj', '').strip()
                 inscricao_estadual = request.form.get('inscricao_estadual', '').strip() or None
                 inscricao_municipal = request.form.get('inscricao_municipal', '').strip() or None
@@ -364,17 +431,19 @@ def init_routes(app):
                     flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
                     return render_template('cliente_form.html')
                 
-                conn = db.get_db()
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        INSERT INTO tbl_cliente (
-                            razao_social, nome_fantasia, cnpj,
-                            inscricao_estadual, inscricao_municipal, status
-                        )
-                        VALUES (%s, %s, %s, %s, %s, TRUE)
-                    ''', (razao_social, nome_fantasia, cnpj, inscricao_estadual, inscricao_municipal))
+                if pessoa not in ['F', 'J']:
+                    flash('Tipo de pessoa inválido!', 'error')
+                    return render_template('cliente_form.html')
                 
-                conn.commit()
+                id_cliente = db.criar_cliente(
+                    razao_social=razao_social,
+                    nome_fantasia=nome_fantasia,
+                    pessoa=pessoa,
+                    cnpj=cnpj,
+                    inscricao_estadual=inscricao_estadual,
+                    inscricao_municipal=inscricao_municipal
+                )
+                
                 flash(f'Cliente "{nome_fantasia}" criado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
@@ -394,6 +463,7 @@ def init_routes(app):
             try:
                 razao_social = request.form.get('razao_social', '').strip()
                 nome_fantasia = request.form.get('nome_fantasia', '').strip()
+                pessoa = request.form.get('pessoa', 'J').strip()
                 cnpj = request.form.get('cnpj', '').strip()
                 inscricao_estadual = request.form.get('inscricao_estadual', '').strip() or None
                 inscricao_municipal = request.form.get('inscricao_municipal', '').strip() or None

@@ -1,0 +1,86 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Tipos de Cliente - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center justify-between">
+            <h1 class="text-3xl font-bold text-text-primary flex items-center">
+                <i class="fas fa-tags text-primary mr-3"></i>
+                Tipos de Cliente
+            </h1>
+            <a href="{{ url_for('tipo_cliente_novo') }}" 
+               class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
+                <i class="fas fa-plus mr-2"></i>
+                Novo Tipo
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabela de Tipos -->
+    <div class="bg-white rounded-lg shadow-card overflow-hidden">
+        {% if tipos and tipos|length > 0 %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Criação</th>
+                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última Modificação</th>
+                            <th class="py-3 px-6 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for tipo in tipos %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-150">
+                            <td class="py-4 px-6 text-sm text-gray-900">#{{ tipo.id_aux_tipo_cliente }}</td>
+                            <td class="py-4 px-6">
+                                <div class="text-sm font-medium text-gray-900">{{ tipo.display }}</div>
+                            </td>
+                            <td class="py-4 px-6 text-sm text-gray-500">
+                                {{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}
+                            </td>
+                            <td class="py-4 px-6 text-sm text-gray-500">
+                                {{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}
+                            </td>
+                            <td class="py-4 px-6">
+                                <div class="flex items-center justify-center gap-2">
+                                    <a href="{{ url_for('tipo_cliente_editar', id_tipo=tipo.id_aux_tipo_cliente) }}" 
+                                       class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                                       title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" 
+                                          action="{{ url_for('tipo_cliente_excluir', id_tipo=tipo.id_aux_tipo_cliente) }}"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir este tipo de cliente?');"
+                                          class="inline">
+                                        <button type="submit" 
+                                                class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors duration-200"
+                                                title="Excluir">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-tags text-6xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg mb-4">Nenhum tipo de cliente cadastrado.</p>
+                <a href="{{ url_for('tipo_cliente_novo') }}" 
+                   class="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
+                    <i class="fas fa-plus mr-2"></i>
+                    Cadastrar Primeiro Tipo
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

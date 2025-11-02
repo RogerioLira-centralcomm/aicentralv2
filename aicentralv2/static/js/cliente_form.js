@@ -142,6 +142,76 @@ document.addEventListener('DOMContentLoaded', function() {
     if (firstInput) {
         firstInput.focus();
     }
+
+    // Máscara de CEP
+    const cepInput = document.getElementById('cep');
+    if (cepInput) {
+        cepInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // Aplica máscara: 00000-000
+            if (value.length <= 8) {
+                value = value.replace(/^(\d{5})(\d)/, '$1-$2');
+            }
+            
+            e.target.value = value;
+        });
+
+        // Busca endereço via CEP ao completar
+        cepInput.addEventListener('blur', function(e) {
+            const cep = e.target.value.replace(/\D/g, '');
+            
+            if (cep.length === 8) {
+                fetch(`https://viacep.com.br/ws/${cep}/json/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.erro) {
+                            // Preenche os campos
+                            const logradouroInput = document.getElementById('logradouro');
+                            const bairroInput = document.getElementById('bairro');
+                            const cidadeInput = document.getElementById('cidade');
+                            const estadoSelect = document.getElementById('estado');
+                            
+                            if (logradouroInput && data.logradouro) {
+                                logradouroInput.value = data.logradouro;
+                            }
+                            
+                            if (bairroInput && data.bairro) {
+                                bairroInput.value = data.bairro;
+                            }
+                            
+                            if (cidadeInput && data.localidade) {
+                                cidadeInput.value = data.localidade;
+                            }
+                            
+                            if (estadoSelect && data.uf) {
+                                // Seleciona o estado pela sigla
+                                const options = estadoSelect.options;
+                                for (let i = 0; i < options.length; i++) {
+                                    if (options[i].text.startsWith(data.uf)) {
+                                        estadoSelect.selectedIndex = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Foca no campo número
+                            const numeroInput = document.getElementById('numero');
+                            if (numeroInput) {
+                                numeroInput.focus();
+                            }
+                        } else {
+                            console.warn('CEP não encontrado');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Erro ao buscar CEP:', error);
+                    });
+            }
+        });
+        
+        console.log('✓ CEP mask and auto-fill initialized');
+    }
 });
 
 console.log('Cliente_form.js loaded successfully');

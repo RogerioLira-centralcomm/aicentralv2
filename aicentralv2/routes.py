@@ -505,6 +505,8 @@ def init_routes(app):
         """Criar cliente"""
         planos = db.obter_planos()
         agencias = db.obter_aux_agencia()
+        tipos_cliente = db.obter_tipos_cliente()
+        estados = db.obter_estados()
         
         if request.method == 'POST':
             try:
@@ -515,14 +517,32 @@ def init_routes(app):
                 inscricao_estadual = request.form.get('inscricao_estadual', '').strip() or None
                 pk_id_tbl_plano = request.form.get('pk_id_tbl_plano', type=int)
                 inscricao_municipal = request.form.get('inscricao_municipal', '').strip() or None
+                id_tipo_cliente = request.form.get('id_tipo_cliente', type=int)
+                
+                # Campos de endereço
+                cep = request.form.get('cep', '').strip() or None
+                pk_id_aux_estado = request.form.get('pk_id_aux_estado', type=int) or None
+                cidade = request.form.get('cidade', '').strip() or None
+                bairro = request.form.get('bairro', '').strip() or None
+                logradouro = request.form.get('logradouro', '').strip() or None
+                numero = request.form.get('numero', '').strip() or None
+                complemento = request.form.get('complemento', '').strip() or None
                 
                 if not razao_social or not nome_fantasia:
                     flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                
+                if not cnpj:
+                    flash('CNPJ/CPF é obrigatório!', 'error')
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                
+                if not id_tipo_cliente:
+                    flash('Tipo de Cliente é obrigatório!', 'error')
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
                 if pessoa not in ['F', 'J']:
                     flash('Tipo de pessoa inválido!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
                 pk_id_aux_agencia = request.form.get('pk_id_aux_agencia', type=int)
                 
@@ -531,17 +551,23 @@ def init_routes(app):
                     pk_id_aux_agencia = 2
                 elif not pk_id_aux_agencia:
                     flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
 
                 id_cliente = db.criar_cliente(
                     razao_social=razao_social,
                     nome_fantasia=nome_fantasia,
+                    id_tipo_cliente=id_tipo_cliente,
                     pessoa=pessoa,
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
                     inscricao_municipal=inscricao_municipal,
                     pk_id_tbl_plano=pk_id_tbl_plano,
-                    pk_id_aux_agencia=pk_id_aux_agencia
+                    pk_id_aux_agencia=pk_id_aux_agencia,
+                    cep=cep,
+                    bairro=bairro,
+                    rua=logradouro,
+                    numero=numero,
+                    complemento=complemento
                 )
                 
                 flash(f'Cliente "{nome_fantasia}" criado!', 'success')
@@ -549,9 +575,9 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro: {e}")
                 flash('Erro ao criar.', 'error')
-                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias)
+                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
         
-        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias)
+        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
     
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required
@@ -559,6 +585,8 @@ def init_routes(app):
         """Editar cliente"""
         planos = db.obter_planos()
         agencias = db.obter_aux_agencia()
+        tipos_cliente = db.obter_tipos_cliente()
+        estados = db.obter_estados()
         cliente = db.obter_cliente_por_id(cliente_id)
         print("\n=== DEBUG EDITAR CLIENTE ===")
         print("Agências:", [{"id": a["id_aux_agencia"], "display": a["display"]} for a in agencias] if agencias else [])
@@ -578,10 +606,28 @@ def init_routes(app):
                 inscricao_estadual = request.form.get('inscricao_estadual', '').strip() or None
                 inscricao_municipal = request.form.get('inscricao_municipal', '').strip() or None
                 pk_id_tbl_plano = request.form.get('pk_id_tbl_plano', type=int)
+                id_tipo_cliente = request.form.get('id_tipo_cliente', type=int)
+                
+                # Campos de endereço
+                cep = request.form.get('cep', '').strip() or None
+                pk_id_aux_estado = request.form.get('pk_id_aux_estado', type=int) or None
+                cidade = request.form.get('cidade', '').strip() or None
+                bairro = request.form.get('bairro', '').strip() or None
+                logradouro = request.form.get('logradouro', '').strip() or None
+                numero = request.form.get('numero', '').strip() or None
+                complemento = request.form.get('complemento', '').strip() or None
                 
                 if not razao_social or not nome_fantasia:
                     flash('Campos obrigatórios!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                
+                if not cnpj:
+                    flash('CNPJ/CPF é obrigatório!', 'error')
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                
+                if not id_tipo_cliente:
+                    flash('Tipo de Cliente é obrigatório!', 'error')
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
                 pk_id_aux_agencia = request.form.get('pk_id_aux_agencia', type=int)
                 
@@ -590,30 +636,36 @@ def init_routes(app):
                     pk_id_aux_agencia = 2
                 elif not pk_id_aux_agencia:
                     flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
 
                 if not db.atualizar_cliente(
                     id_cliente=cliente_id,
                     razao_social=razao_social,
                     nome_fantasia=nome_fantasia,
+                    id_tipo_cliente=id_tipo_cliente,
                     pessoa=pessoa,
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
                     inscricao_municipal=inscricao_municipal,
                     pk_id_tbl_plano=pk_id_tbl_plano,
-                    pk_id_aux_agencia=pk_id_aux_agencia
+                    pk_id_aux_agencia=pk_id_aux_agencia,
+                    cep=cep,
+                    bairro=bairro,
+                    rua=logradouro,
+                    numero=numero,
+                    complemento=complemento
                 ):
                     flash('Cliente não encontrado!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
                 flash(f'Cliente "{nome_fantasia}" atualizado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro ao atualizar cliente: {e}")
                 flash('Erro ao atualizar.', 'error')
-                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
+                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
         
-        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
+        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
     
     @app.route('/clientes/<int:cliente_id>/toggle-status', methods=['POST'])
     @login_required
@@ -680,6 +732,7 @@ def init_routes(app):
                         COALESCE(c.cnpj, '') as cnpj,
                         c.pk_id_aux_agencia,
                         ag.key as agencia_key,
+                        tc.display as tipo_cliente_display,
                         p.id_plano,
                         p.descricao as plano_descricao,
                         p.tokens as plano_tokens,
@@ -687,6 +740,7 @@ def init_routes(app):
                         COALESCE(c.total_token_gasto, 0) as total_tokens_gasto
                     FROM tbl_cliente c
                     LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
+                    LEFT JOIN aux_tipo_cliente tc ON c.id_tipo_cliente = tc.id_aux_tipo_cliente
                     LEFT JOIN tbl_plano p ON p.id_plano = c.pk_id_tbl_plano
                     WHERE c.id_cliente = %s
                 ''', (cliente_id,))
@@ -1073,5 +1127,97 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao alterar status do cargo: {str(e)}")
             return jsonify({'message': 'Erro ao alterar status'}), 500
+    
+    # ==================== TIPO CLIENTE ====================
+    
+    @app.route('/tipo-cliente')
+    @login_required
+    def tipos_cliente():
+        """Lista todos os tipos de cliente"""
+        try:
+            tipos = db.obter_tipos_cliente()
+            return render_template('tipo_cliente.html', tipos=tipos)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar tipos de cliente: {str(e)}")
+            flash('Erro ao carregar tipos de cliente.', 'error')
+            return redirect(url_for('index'))
+    
+    @app.route('/tipo-cliente/novo', methods=['GET', 'POST'])
+    @login_required
+    def tipo_cliente_novo():
+        """Criar novo tipo de cliente"""
+        if request.method == 'POST':
+            try:
+                display = request.form.get('display', '').strip()
+                
+                if not display:
+                    flash('O nome do tipo de cliente é obrigatório!', 'error')
+                    return render_template('tipo_cliente_form.html')
+                
+                id_tipo = db.criar_tipo_cliente(display)
+                
+                if id_tipo:
+                    flash(f'Tipo de cliente "{display}" criado com sucesso!', 'success')
+                    return redirect(url_for('tipos_cliente'))
+                else:
+                    flash('Erro ao criar tipo de cliente.', 'error')
+                    
+            except Exception as e:
+                app.logger.error(f"Erro ao criar tipo de cliente: {str(e)}")
+                flash('Erro ao criar tipo de cliente.', 'error')
+        
+        return render_template('tipo_cliente_form.html')
+    
+    @app.route('/tipo-cliente/<int:id_tipo>/editar', methods=['GET', 'POST'])
+    @login_required
+    def tipo_cliente_editar(id_tipo):
+        """Editar tipo de cliente"""
+        tipo = db.obter_tipo_cliente_por_id(id_tipo)
+        
+        if not tipo:
+            flash('Tipo de cliente não encontrado!', 'error')
+            return redirect(url_for('tipos_cliente'))
+        
+        if request.method == 'POST':
+            try:
+                display = request.form.get('display', '').strip()
+                
+                if not display:
+                    flash('O nome do tipo de cliente é obrigatório!', 'error')
+                    return render_template('tipo_cliente_form.html', tipo=tipo)
+                
+                if db.atualizar_tipo_cliente(id_tipo, display):
+                    flash(f'Tipo de cliente "{display}" atualizado com sucesso!', 'success')
+                    return redirect(url_for('tipos_cliente'))
+                else:
+                    flash('Erro ao atualizar tipo de cliente.', 'error')
+                    
+            except Exception as e:
+                app.logger.error(f"Erro ao atualizar tipo de cliente: {str(e)}")
+                flash('Erro ao atualizar tipo de cliente.', 'error')
+        
+        return render_template('tipo_cliente_form.html', tipo=tipo)
+    
+    @app.route('/tipo-cliente/<int:id_tipo>/excluir', methods=['POST'])
+    @login_required
+    def tipo_cliente_excluir(id_tipo):
+        """Excluir tipo de cliente"""
+        try:
+            tipo = db.obter_tipo_cliente_por_id(id_tipo)
+            
+            if not tipo:
+                flash('Tipo de cliente não encontrado!', 'error')
+                return redirect(url_for('tipos_cliente'))
+            
+            if db.excluir_tipo_cliente(id_tipo):
+                flash(f'Tipo de cliente "{tipo["display"]}" excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir tipo de cliente.', 'error')
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir tipo de cliente: {str(e)}")
+            flash('Não é possível excluir este tipo de cliente pois está em uso.', 'error')
+        
+        return redirect(url_for('tipos_cliente'))
     
     app.logger.info("Rotas registradas com sucesso")

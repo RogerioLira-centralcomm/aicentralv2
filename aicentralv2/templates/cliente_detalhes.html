@@ -82,6 +82,12 @@
                     <label class="text-sm font-medium text-gray-500">Agência</label>
                     <p class="text-gray-900 mt-1">{{ 'Sim' if cliente.agencia_key == True else 'Não' }}</p>
                 </div>
+
+                <!-- Tipo de Cliente -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Tipo de Cliente</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.tipo_cliente_display or 'Não informado' }}</p>
+                </div>
                 
                 <!-- Inscrição Estadual -->
                 <div>

@@ -1,0 +1,77 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{{ 'Editar' if tipo else 'Novo' }} Tipo de Cliente - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center justify-between">
+            <h1 class="text-3xl font-bold text-text-primary flex items-center">
+                <i class="fas fa-{% if tipo %}edit{% else %}plus{% endif %} text-primary mr-3"></i>
+                {{ 'Editar' if tipo else 'Novo' }} Tipo de Cliente
+            </h1>
+            <a href="{{ url_for('tipos_cliente') }}" 
+               class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulário -->
+    <div class="bg-white rounded-lg shadow-card p-6">
+        <form method="POST" class="space-y-6">
+            <!-- Nome do Tipo -->
+            <div>
+                <label for="display" class="block text-sm font-medium text-gray-700 mb-2">
+                    Nome do Tipo <span class="text-red-500">*</span>
+                </label>
+                <input type="text" 
+                       id="display" 
+                       name="display" 
+                       value="{{ tipo.display if tipo else '' }}"
+                       required
+                       maxlength="30"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200"
+                       placeholder="Ex: Premium, VIP, Corporativo">
+                <p class="mt-1 text-sm text-gray-500">Máximo 30 caracteres</p>
+            </div>
+
+            <!-- Informações de Data (somente na edição) -->
+            {% if tipo %}
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">Informações do Registro</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500">Data de Criação:</span>
+                        <span class="text-gray-900 ml-2">
+                            {{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500">Última Modificação:</span>
+                        <span class="text-gray-900 ml-2">
+                            {{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Botões -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <a href="{{ url_for('tipos_cliente') }}" 
+                   class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200">
+                    Cancelar
+                </a>
+                <button type="submit" 
+                        class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
+                    <i class="fas fa-save mr-2"></i>
+                    {{ 'Atualizar' if tipo else 'Cadastrar' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

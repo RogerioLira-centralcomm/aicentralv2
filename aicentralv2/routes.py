@@ -436,12 +436,16 @@ def init_routes(app):
                     c.cnpj,
                     c.status,
                     c.pessoa,
+                    c.pk_id_aux_agencia,
+                    ag.display as agencia_display,
+                    ag.key as agencia_key,
                     (
                         SELECT COUNT(*) 
                         FROM tbl_contato_cliente ct 
                         WHERE ct.pk_id_tbl_cliente = c.id_cliente
                     ) as total_contatos
                 FROM tbl_cliente c
+                LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
                 ORDER BY c.id_cliente DESC
             """
             
@@ -463,7 +467,10 @@ def init_routes(app):
                             'nome_fantasia': row['nome_fantasia'] or '',
                             'cnpj': row['cnpj'] or '',
                             'status': row['status'] if row['status'] is not None else False,
-                            'total_contatos': row['total_contatos'] or 0
+                            'total_contatos': row['total_contatos'] or 0,
+                            'pk_id_aux_agencia': row['pk_id_aux_agencia'],
+                            'agencia_display': row['agencia_display'],
+                            'agencia_key': row['agencia_key']
                         }
                         clientes.append(cliente)
                         print(f"✅ Cliente {row['id_cliente']} - {row['razao_social'] or 'SEM NOME'} - {row['total_contatos']} contatos")
@@ -497,6 +504,7 @@ def init_routes(app):
     def cliente_novo():
         """Criar cliente"""
         planos = db.obter_planos()
+        agencias = db.obter_aux_agencia()
         
         if request.method == 'POST':
             try:
@@ -510,12 +518,21 @@ def init_routes(app):
                 
                 if not razao_social or not nome_fantasia:
                     flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                    return render_template('cliente_form.html', planos=planos)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias)
                 
                 if pessoa not in ['F', 'J']:
                     flash('Tipo de pessoa inválido!', 'error')
-                    return render_template('cliente_form.html', planos=planos)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias)
                 
+                pk_id_aux_agencia = request.form.get('pk_id_aux_agencia', type=int)
+                
+                # Se for pessoa física, força agência 2
+                if pessoa == 'F':
+                    pk_id_aux_agencia = 2
+                elif not pk_id_aux_agencia:
+                    flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias)
+
                 id_cliente = db.criar_cliente(
                     razao_social=razao_social,
                     nome_fantasia=nome_fantasia,
@@ -523,7 +540,8 @@ def init_routes(app):
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
                     inscricao_municipal=inscricao_municipal,
-                    pk_id_tbl_plano=pk_id_tbl_plano
+                    pk_id_tbl_plano=pk_id_tbl_plano,
+                    pk_id_aux_agencia=pk_id_aux_agencia
                 )
                 
                 flash(f'Cliente "{nome_fantasia}" criado!', 'success')
@@ -531,16 +549,21 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro: {e}")
                 flash('Erro ao criar.', 'error')
-                return render_template('cliente_form.html', cliente=None, planos=planos)
+                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias)
         
-        return render_template('cliente_form.html', cliente=None, planos=planos)
+        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias)
     
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required
     def cliente_editar(cliente_id):
         """Editar cliente"""
         planos = db.obter_planos()
+        agencias = db.obter_aux_agencia()
         cliente = db.obter_cliente_por_id(cliente_id)
+        print("\n=== DEBUG EDITAR CLIENTE ===")
+        print("Agências:", [{"id": a["id_aux_agencia"], "display": a["display"]} for a in agencias] if agencias else [])
+        print("Cliente pk_id_aux_agencia:", cliente.get("pk_id_aux_agencia") if cliente else None)
+        print("===========================\n")
         
         if not cliente:
             flash('Cliente não encontrado!', 'error')
@@ -558,8 +581,17 @@ def init_routes(app):
                 
                 if not razao_social or not nome_fantasia:
                     flash('Campos obrigatórios!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
                 
+                pk_id_aux_agencia = request.form.get('pk_id_aux_agencia', type=int)
+                
+                # Se for pessoa física, força agência 2
+                if pessoa == 'F':
+                    pk_id_aux_agencia = 2
+                elif not pk_id_aux_agencia:
+                    flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
+
                 if not db.atualizar_cliente(
                     id_cliente=cliente_id,
                     razao_social=razao_social,
@@ -568,19 +600,20 @@ def init_routes(app):
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
                     inscricao_municipal=inscricao_municipal,
-                    pk_id_tbl_plano=pk_id_tbl_plano
+                    pk_id_tbl_plano=pk_id_tbl_plano,
+                    pk_id_aux_agencia=pk_id_aux_agencia
                 ):
                     flash('Cliente não encontrado!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
                 
                 flash(f'Cliente "{nome_fantasia}" atualizado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro ao atualizar cliente: {e}")
                 flash('Erro ao atualizar.', 'error')
-                return render_template('cliente_form.html', cliente=cliente, planos=planos)
+                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
         
-        return render_template('cliente_form.html', cliente=cliente, planos=planos)
+        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias)
     
     @app.route('/clientes/<int:cliente_id>/toggle-status', methods=['POST'])
     @login_required
@@ -620,13 +653,18 @@ def init_routes(app):
     @login_required
     def cliente_detalhes(cliente_id):
         """Visualizar detalhes do cliente"""
+        conn = None
         try:
             conn = db.get_db()
+            if not conn:
+                raise Exception("Não foi possível conectar ao banco de dados")
+
             cliente = None
             contatos = []
             
             # Busca dados do cliente
             with conn.cursor() as cursor:
+                app.logger.info(f"Buscando detalhes do cliente {cliente_id}")
                 cursor.execute('''
                     SELECT 
                         c.id_cliente,
@@ -640,13 +678,17 @@ def init_routes(app):
                         COALESCE(c.inscricao_estadual, '') as inscricao_estadual,
                         COALESCE(c.inscricao_municipal, '') as inscricao_municipal,
                         COALESCE(c.cnpj, '') as cnpj,
+                        c.pk_id_aux_agencia,
+                        ag.key as agencia_key,
                         p.id_plano,
                         p.descricao as plano_descricao,
                         p.tokens as plano_tokens,
-                        p.status as plano_status
+                        p.status as plano_status,
+                        COALESCE(c.total_token_gasto, 0) as total_tokens_gasto
                     FROM tbl_cliente c
+                    LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
                     LEFT JOIN tbl_plano p ON p.id_plano = c.pk_id_tbl_plano
-                    WHERE id_cliente = %s
+                    WHERE c.id_cliente = %s
                 ''', (cliente_id,))
                 cliente = cursor.fetchone()
             
@@ -692,8 +734,16 @@ def init_routes(app):
             )
 
         except Exception as e:
-            app.logger.error(f"Erro ao buscar detalhes do cliente: {str(e)}")
-            flash('Erro ao carregar detalhes do cliente.', 'error')
+            import traceback
+            app.logger.error("Erro ao buscar detalhes do cliente:")
+            app.logger.error(f"Erro: {str(e)}")
+            app.logger.error("Traceback:")
+            app.logger.error(traceback.format_exc())
+            
+            if conn:
+                conn.close()
+            
+            flash(f'Erro ao carregar detalhes do cliente: {str(e)}', 'error')
             return redirect(url_for('clientes'))
     
     # ==================== CONTATOS ====================

@@ -330,10 +330,13 @@ def obter_contato_por_id(contato_id):
                 cli.cnpj,
                 cli.status as cliente_status,
                 car.descricao as cargo_descricao,
-                car.status as cargo_status
+                car.status as cargo_status,
+                car.pk_id_aux_setor,
+                s.display as setor_display
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
             LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
+            LEFT JOIN aux_setor s ON s.id_aux_setor = car.pk_id_aux_setor
             WHERE c.id_contato_cliente = %s
         ''', (contato_id,))
         return cursor.fetchone()
@@ -389,7 +392,7 @@ def obter_contatos_por_cliente(id_cliente):
 # ==================== CLIENTES - CRUD ====================
 
 def obter_cliente_por_id(id_cliente):
-    """Retorna um cliente específico com informações do plano"""
+    """Retorna um cliente específico com informações do plano e agência"""
     conn = get_db()
     with conn.cursor() as cursor:
         cursor.execute('''
@@ -397,15 +400,18 @@ def obter_cliente_por_id(id_cliente):
                 c.*,
                 p.descricao as plano_descricao,
                 p.tokens as plano_tokens,
-                p.status as plano_status
+                p.status as plano_status,
+                ag.display as agencia_display,
+                ag.key as agencia_key
             FROM tbl_cliente c
             LEFT JOIN tbl_plano p ON c.pk_id_tbl_plano = p.id_plano
+            LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
         return cursor.fetchone()
 
 def criar_cliente(razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
-                status=True, id_centralx=None, bairro=None, rua=None, numero=None, complemento=None, cep=None, pk_id_tbl_plano=None):
+                status=True, id_centralx=None, bairro=None, rua=None, numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -414,15 +420,15 @@ def criar_cliente(razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_
             cursor.execute('''
                 INSERT INTO tbl_cliente (
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
-                    inscricao_estadual, status, id_centralx, bairro, rua, numero, 
-                    complemento, cep, pk_id_tbl_plano
+                    inscricao_estadual, status, id_centralx, bairro, logradouro, numero, 
+                    complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, rua, numero,
-                complemento, cep, pk_id_tbl_plano
+                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -435,7 +441,7 @@ def criar_cliente(razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_
 
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, rua=None, 
-                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None):
+                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -452,17 +458,18 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, pessoa='J', cnpj=
                     status = %s,
                     id_centralx = %s,
                     bairro = %s,
-                    rua = %s,
+                    logradouro = %s,
                     numero = %s,
                     complemento = %s,
                     cep = %s,
                     pk_id_tbl_plano = %s,
+                    pk_id_aux_agencia = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, rua, numero,
-                complemento, cep, pk_id_tbl_plano, id_cliente
+                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_cliente
             ))
             
             conn.commit()
@@ -1160,3 +1167,45 @@ def toggle_status_plano(id_plano: int) -> bool:
         return cur.rowcount > 0
     finally:
         cur.close()
+
+# ==================== AGÊNCIAS ====================
+
+def obter_aux_agencia(apenas_ativos=True):
+    """Retorna todas as agências"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    id_aux_agencia,
+                    display,
+                    key
+                FROM aux_agencia
+                ORDER BY display
+            ''')
+            return cursor.fetchall()
+            
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def obter_aux_agencia_por_id(id_aux_agencia: int):
+    """Retorna uma agência específica por ID"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    id_aux_agencia,
+                    display,
+                    key
+                FROM aux_agencia
+                WHERE id_aux_agencia = %s
+            ''', (id_aux_agencia,))
+            return cursor.fetchone()
+            
+    except Exception as e:
+        conn.rollback()
+        raise e

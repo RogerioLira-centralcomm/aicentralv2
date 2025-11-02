@@ -48,24 +48,49 @@
         <!-- Form -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <form method="POST">
-                <!-- Tipo de Pessoa -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-user mr-2 text-gray-500"></i>
-                        Tipo de Pessoa
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <div class="mt-2 space-x-4">
-                        <label class="inline-flex items-center">
-                            <input type="radio" name="pessoa" value="J" class="form-radio text-primary" 
-                                   {% if not cliente or cliente.pessoa == 'J' %}checked{% endif %}>
-                            <span class="ml-2">Pessoa Jurídica</span>
+                <!-- Tipo de Pessoa e Agência -->
+                <div class="grid grid-cols-2 gap-6 mb-6">
+                    <!-- Tipo de Pessoa -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-user mr-2 text-gray-500"></i>
+                            Tipo de Pessoa
+                            <span class="text-red-500">*</span>
                         </label>
-                        <label class="inline-flex items-center">
-                            <input type="radio" name="pessoa" value="F" class="form-radio text-primary"
-                                   {% if cliente and cliente.pessoa == 'F' %}checked{% endif %}>
-                            <span class="ml-2">Pessoa Física</span>
+                        <div class="mt-2 flex space-x-6">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="pessoa" value="J" class="form-radio text-primary" 
+                                       {% if not cliente or cliente.pessoa == 'J' %}checked{% endif %}>
+                                <span class="ml-2">Pessoa Jurídica</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="pessoa" value="F" class="form-radio text-primary"
+                                       {% if cliente and cliente.pessoa == 'F' %}checked{% endif %}>
+                                <span class="ml-2">Pessoa Física</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Agência -->
+                    <div class="pessoa-juridica-agencia">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-building mr-2 text-gray-500"></i>
+                            Agência
+                            <span class="text-red-500">*</span>
                         </label>
+                        <div class="mt-2 flex flex-wrap gap-4">
+                            {% for agencia in agencias %}
+                                <label class="inline-flex items-center">
+                                    <input type="radio" 
+                                           name="pk_id_aux_agencia" 
+                                           value="{{ agencia.id_aux_agencia }}" 
+                                           class="form-radio text-primary"
+                                           {% if cliente and cliente.pk_id_aux_agencia == agencia.id_aux_agencia %}checked
+                                           {% elif not cliente and loop.first %}checked{% endif %}>
+                                    <span class="ml-2">{{ agencia.display }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
 
@@ -184,6 +209,9 @@
                     </select>
                     <p class="mt-1 text-sm text-gray-500">Selecione o plano de tokens para este cliente</p>
                 </div>
+
+                <!-- Campo oculto para pessoa física -->
+                <input type="hidden" name="pk_id_aux_agencia_pf" value="2">
 
                 <!-- Actions -->
                 <div class="flex justify-end space-x-4 mt-8">

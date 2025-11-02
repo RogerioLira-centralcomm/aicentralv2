@@ -126,8 +126,8 @@
                     >
                         <option value="">Selecione um setor...</option>
                         {% for setor in setores %}
-                            <option value="{{ setor.id_setor }}" 
-                                {% if contato and contato.pk_id_aux_setor == setor.id_setor %}selected{% endif %}
+                            <option value="{{ setor.id_aux_setor }}" 
+                                {% if contato and contato.pk_id_aux_setor == setor.id_aux_setor %}selected{% endif %}
                                 data-setor-id="{{ setor.id_setor }}">
                                 {{ setor.descricao }}
                             </option>

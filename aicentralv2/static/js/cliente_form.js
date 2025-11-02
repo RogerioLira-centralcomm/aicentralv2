@@ -21,6 +21,19 @@ document.addEventListener('DOMContentLoaded', function() {
             inputs.forEach(input => input.required = pessoaTipo === 'J');
         });
         
+        // Atualiza visibilidade da seção de agências
+        const agenciaSection = document.querySelector('.pessoa-juridica-agencia');
+        if (agenciaSection) {
+            agenciaSection.classList.toggle('hidden', pessoaTipo !== 'J');
+            const agenciaInputs = agenciaSection.querySelectorAll('input[type="radio"]');
+            agenciaInputs.forEach(input => {
+                input.disabled = pessoaTipo !== 'J';
+                if (pessoaTipo === 'F') {
+                    document.querySelector('input[name="pk_id_aux_agencia_pf"]').value = '2';
+                }
+            });
+        }
+        
         pessoaFisicaFields.forEach(field => {
             field.classList.toggle('hidden', pessoaTipo !== 'F');
             const inputs = field.querySelectorAll('input, select');

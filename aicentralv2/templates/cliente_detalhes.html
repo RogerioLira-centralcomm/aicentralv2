@@ -76,6 +76,12 @@
                     <label class="text-sm font-medium text-gray-500">Total de Contatos</label>
                     <p class="text-gray-900 mt-1">{{ cliente.total_contatos }}</p>
                 </div>
+
+                <!-- Agência -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Agência</label>
+                    <p class="text-gray-900 mt-1">{{ 'Sim' if cliente.agencia_key == True else 'Não' }}</p>
+                </div>
                 
                 <!-- Inscrição Estadual -->
                 <div>
@@ -119,8 +125,28 @@
                         <div class="mt-1 h-2 bg-gray-200 rounded-full">
                             {% set porcentagem = (cliente.total_contatos / 10) * 100 %}
                             {% if porcentagem > 100 %}{% set porcentagem = 100 %}{% endif %}
-                            <div class="h-2 bg-primary rounded-full" style="width: {{ porcentagem }}%"></div>
+                            {% set width_class = 'w-[' ~ porcentagem ~ '%]' %}
+                            <div class="h-2 bg-primary rounded-full {{ width_class }}"></div>
                         </div>
+                    </div>
+
+                    <!-- Total de Tokens Gastos -->
+                    <div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">Tokens Gastos</span>
+                            <span class="text-lg font-semibold text-primary">{{ cliente.total_tokens_gasto }}</span>
+                        </div>
+                        {% if cliente.plano_tokens %}
+                        <div class="mt-1 h-2 bg-gray-200 rounded-full">
+                            {% set token_porcentagem = (cliente.total_tokens_gasto / cliente.plano_tokens * 100) %}
+                            {% if token_porcentagem > 100 %}{% set token_porcentagem = 100 %}{% endif %}
+                            {% set width_class = 'w-[' ~ token_porcentagem ~ '%]' %}
+                            <div class="h-2 {% if token_porcentagem > 80 %}bg-orange-500{% else %}bg-primary{% endif %} rounded-full {{ width_class }}"></div>
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500 text-right">
+                            {{ cliente.total_tokens_gasto }} de {{ cliente.plano_tokens }} tokens ({{ "%.1f"|format(token_porcentagem) }}%)
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

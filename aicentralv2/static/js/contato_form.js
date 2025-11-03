@@ -92,18 +92,24 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✓ Phone mask initialized');
     }
 
-    // Se for um novo contato, limpa o formulário
+    // Se for um novo contato, garante campos limpos sem chamar funções inexistentes
     if (!isEdit) {
-        limparFormulario();
+        const campos = ['nome_completo', 'email', 'telefone', 'senha'];
+        campos.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
     }
     
     // Toggle password visibility
     const passwordToggles = document.querySelectorAll('.password-toggle');
     passwordToggles.forEach(toggle => {
         toggle.addEventListener('click', function() {
-            const wrapper = this.closest('.password-wrapper');
-            const input = wrapper.querySelector('input');
-            
+            // O HTML usa um div.relative, não .password-wrapper
+            const container = this.closest('.relative') || this.parentElement;
+            const input = container ? container.querySelector('input[type="password"], input[type="text"]') : null;
+            if (!input) return;
+
             if (input.type === 'password') {
                 input.type = 'text';
                 this.classList.remove('fa-eye');

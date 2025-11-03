@@ -665,6 +665,23 @@ def atualizar_senha_contato(contato_id, nova_senha):
     """Atualiza a senha de um contato"""
     conn = get_db()
 
+    senha_md5 = gerar_senha_md5(nova_senha)
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET senha = %s, 
+                    data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (senha_md5, contato_id))
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        raise
+
 # ==================== CLIENTE - TOKENS ====================
 
 def atualizar_tokens_cliente(id_cliente: int, total_token_plano: Optional[int] = None, total_token_gasto: Optional[int] = None) -> bool:
@@ -692,22 +709,6 @@ def atualizar_tokens_cliente(id_cliente: int, total_token_plano: Optional[int] =
         conn.commit()
         return True
     except Exception:
-        conn.rollback()
-        raise
-    senha_md5 = gerar_senha_md5(nova_senha)
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                UPDATE tbl_contato_cliente
-                SET senha = %s, 
-                    data_modificacao = CURRENT_TIMESTAMP
-                WHERE id_contato_cliente = %s
-            ''', (senha_md5, contato_id))
-
-        conn.commit()
-
-    except Exception as e:
         conn.rollback()
         raise
 

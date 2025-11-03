@@ -16,9 +16,9 @@ def send_async_email(app, msg):
     with app.app_context():
         try:
             mail.send(msg)
-            print(f"✅ Email enviado para: {msg.recipients}")
+            print(f"OK Email enviado para: {msg.recipients}")
         except Exception as e:
-            print(f"❌ Erro ao enviar email: {e}")
+            print(f"FALHA Erro ao enviar email: {e}")
 
 
 def send_email(subject, recipients, text_body=None, html_body=None, sender=None):
@@ -61,7 +61,7 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
     # Debug mode - não enviar, só mostrar
     if app.config.get('MAIL_DEBUG', False):
         print("\n" + "="*60)
-        print("📧 EMAIL DEBUG MODE")
+        print("EMAIL DEBUG MODE")
         print("="*60)
         print(f"De: {sender}")
         print(f"Para: {', '.join(recipients)}")
@@ -80,7 +80,7 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
         ).start()
         return True
     except Exception as e:
-        print(f"❌ Erro ao enviar email: {e}")
+        print(f"FALHA Erro ao enviar email: {e}")
         return False
 
 
@@ -100,7 +100,7 @@ def send_password_reset_email(user_email, user_name, reset_link, expires_hours=1
     app_name = current_app.config.get('MAIL_APP_NAME', 'AIcentral v2')
     
     # Assunto
-    subject = f"🔑 Recuperação de Senha - {app_name}"
+    subject = f"Recuperação de Senha - {app_name}"
     
     # Corpo em texto plano
     text_body = f"""
@@ -111,7 +111,7 @@ Você solicitou a recuperação de senha no {app_name}.
 Clique no link abaixo para redefinir sua senha:
 {reset_link}
 
-⚠️ Este link expira em {expires_hours} hora(s).
+ATENÇÃO: Este link expira em {expires_hours} hora(s).
 
 Se você não solicitou esta recuperação, ignore este email.
 
@@ -150,7 +150,7 @@ def send_password_changed_email(user_email, user_name):
     """
     app_name = current_app.config.get('MAIL_APP_NAME', 'AIcentral v2')
     
-    subject = f"✅ Senha Alterada - {app_name}"
+    subject = f"OK Senha Alterada - {app_name}"
     
     text_body = f"""
 Olá {user_name},
@@ -190,7 +190,7 @@ def send_welcome_email(user_email, user_name):
     """
     app_name = current_app.config.get('MAIL_APP_NAME', 'AIcentral v2')
     
-    subject = f"🎉 Bem-vindo ao {app_name}!"
+    subject = f"Bem-vindo ao {app_name}!"
     
     text_body = f"""
 Olá {user_name},
@@ -312,7 +312,7 @@ def get_reset_password_template():
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>🔑 Recuperação de Senha</h1>
+            <h1>Recuperação de Senha</h1>
         </div>
         
         <div class="content">
@@ -324,12 +324,12 @@ def get_reset_password_template():
             
             <div style="text-align: center;">
                 <a href="{{ reset_link }}" class="btn-reset">
-                    🔓 Redefinir Senha
+                    Redefinir Senha
                 </a>
             </div>
             
             <div class="warning">
-                <p style="margin:0;">⚠️ <strong>Atenção:</strong> Este link expira em {{ expires_hours }} hora(s).</p>
+                <p style="margin:0;"><strong>Atenção:</strong> Este link expira em {{ expires_hours }} hora(s).</p>
             </div>
             
             <p>Se o botão não funcionar, copie e cole este link no navegador:</p>
@@ -409,14 +409,14 @@ def get_password_changed_template():
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>✅ Senha Alterada</h1>
+            <h1>OK Senha Alterada</h1>
         </div>
         
         <div class="content">
             <p>Olá <strong>{{ user_name }}</strong>,</p>
             
             <div class="success-box">
-                <p style="margin:0;">✅ Sua senha foi alterada com sucesso no <strong>{{ app_name }}</strong>.</p>
+                <p style="margin:0;">OK Sua senha foi alterada com sucesso no <strong>{{ app_name }}</strong>.</p>
             </div>
             
             <p>Se você não realizou esta alteração, entre em contato com o suporte imediatamente.</p>
@@ -478,7 +478,7 @@ def get_welcome_template():
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>🎉 Bem-vindo!</h1>
+            <h1>Bem-vindo!</h1>
         </div>
         
         <div class="content">

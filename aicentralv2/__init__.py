@@ -45,23 +45,23 @@ def create_app(config_class=Config):
     # Inicializar banco de dados
     try:
         db.init_db(app)
-        app.logger.info("✅ Banco de dados inicializado")
+        app.logger.info("OK Banco de dados inicializado")
     except Exception as e:
-        app.logger.error(f"❌ Erro ao inicializar banco: {e}")
+        app.logger.error(f"FALHA Erro ao inicializar banco: {e}")
     
     # Importar e registrar rotas
     try:
         from . import routes
         routes.init_routes(app)
-        app.logger.info("✅ Rotas registradas")
+        app.logger.info("OK Rotas registradas")
     except Exception as e:
-        app.logger.error(f"❌ Erro ao registrar rotas: {e}")
+        app.logger.error(f"FALHA Erro ao registrar rotas: {e}")
         raise
     
     # Registrar comandos CLI
     register_commands(app)
     
-    app.logger.info("✅ Aplicação criada com sucesso")
+    app.logger.info("OK Aplicacao criada com sucesso")
     
     return app
 
@@ -105,7 +105,7 @@ def setup_logging(app):
         sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
     
     # Registrar início da aplicação
-    app.logger.info('✅ AIcentral v2 startup')
+    app.logger.info('OK AIcentral v2 startup')
 
 
 def register_commands(app):
@@ -116,16 +116,16 @@ def register_commands(app):
         """Inicializa o banco de dados"""
         from . import db
         db.init_db(app)
-        print('✅ Banco de dados inicializado!')
+        print('OK Banco de dados inicializado!')
     
     @app.cli.command('check-db')
     def check_db_command():
-        """Verifica conexão com banco de dados"""
+        """Verifica conexao com banco de dados"""
         from . import db
         if db.check_db_connection():
-            print('✅ Conexão com banco OK!')
+            print('OK Conexao com banco OK!')
         else:
-            print('❌ Falha na conexão com banco!')
+            print('FALHA Falha na conexao com banco!')
     
     @app.cli.command('create-contact')
     def create_contact_command():
@@ -140,7 +140,7 @@ def register_commands(app):
             cliente = cursor.fetchone()
             
             if not cliente:
-                print('❌ Nenhum cliente encontrado! Crie um cliente primeiro.')
+                print('FALHA Nenhum cliente encontrado! Crie um cliente primeiro.')
                 return
             
             id_cliente = cliente['id_cliente']
@@ -155,6 +155,6 @@ def register_commands(app):
                 telefone='11999999999',
                 status=True
             )
-            print(f'✅ Contato criado! ID: {contato_id}')
+            print(f'OK Contato criado! ID: {contato_id}')
         except Exception as e:
-            print(f'❌ Erro: {e}')
+            print(f'FALHA Erro: {e}')

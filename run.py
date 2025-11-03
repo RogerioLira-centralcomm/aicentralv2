@@ -19,12 +19,12 @@ app.config['DEBUG'] = True
 
 if __name__ == '__main__':
     print("=" * 70)
-    print("🤖 AIcentralv2 - Sistema de Gerenciamento")
+    print("AIcentralv2 - Sistema de Gerenciamento")
     print("=" * 70)
-    print("🚀 Iniciando servidor Flask em modo desenvolvimento...")
-    print("📍 Acesse: http://localhost:5000")
-    print("📁 Projeto: AIcentralv2")
-    print("🔐 Login padrão: admin / admin123")
+    print("Iniciando servidor Flask em modo desenvolvimento...")
+    print("Acesse: http://localhost:5000")
+    print("Projeto: AIcentralv2")
+    print("Login padrao: admin / admin123")
     print("=" * 70)
     
     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

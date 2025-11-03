@@ -40,10 +40,13 @@
         <!-- Form -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <form method="POST">
-                <!-- Tipo de Pessoa e Agência -->
-                <div class="grid grid-cols-2 gap-6 mb-6">
+                {% if cliente and cliente.id_cliente %}
+                <input type="hidden" id="cliente_id" value="{{ cliente.id_cliente }}">
+                {% endif %}
+                <!-- Tipo de Pessoa, Agência e Vendas CentralComm -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <!-- Tipo de Pessoa -->
-                    <div>
+                    <div class="md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-user mr-2 text-gray-500"></i>
                             Tipo de Pessoa
@@ -64,7 +67,7 @@
                     </div>
 
                     <!-- Agência -->
-                    <div class="pessoa-juridica-agencia">
+                    <div class="pessoa-juridica-agencia md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-building mr-2 text-gray-500"></i>
                             Agência
@@ -84,7 +87,34 @@
                             {% endfor %}
                         </div>
                     </div>
+
+                    <!-- Vendas CentralComm (seleção de Executivo) -->
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-handshake mr-2 text-gray-500"></i>
+                            Vendas CentralComm
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            name="vendas_central_comm"
+                            id="vendas_central_comm"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                            required
+                        >
+                            <option value="">Selecione um executivo</option>
+                            {% if vendedores_cc %}
+                    {% for vend in vendedores_cc %}
+                        <option value="{{ vend.id_contato_cliente }}" {% if cliente and (cliente.vendas_central_comm == vend.id_contato_cliente) %}selected{% endif %}>
+                                        {{ vend.nome_completo }}
+                                    </option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Exibidos contatos do cliente CENTRALCOMM com cargo "Executivo de Vendas".</p>
+                    </div>
                 </div>
+
+                
 
                 <!-- Razão Social -->
                 <div class="mb-6 pessoa-juridica">

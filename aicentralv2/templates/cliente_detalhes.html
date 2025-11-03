@@ -77,10 +77,37 @@
                     <p class="text-gray-900 mt-1">{{ cliente.total_contatos }}</p>
                 </div>
 
+                <!-- Executivo de Vendas (CentralComm) -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Executivo de Vendas</label>
+                    <p class="text-gray-900 mt-1">
+                        {% if cliente.vendedor_nome %}
+                            {{ cliente.vendedor_nome }}
+                            {% if cliente.vendedor_cargo %}
+                                <span class="text-xs text-gray-500">({{ cliente.vendedor_cargo }})</span>
+                            {% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </p>
+                </div>
+
                 <!-- Agência -->
                 <div>
                     <label class="text-sm font-medium text-gray-500">Agência</label>
                     <p class="text-gray-900 mt-1">{{ 'Sim' if cliente.agencia_key == True else 'Não' }}</p>
+                </div>
+
+                <!-- Estado -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Estado</label>
+                    <p class="text-gray-900 mt-1">
+                        {% if cliente.estado_sigla or cliente.estado_descricao %}
+                            {{ cliente.estado_sigla }}{% if cliente.estado_sigla and cliente.estado_descricao %} - {% endif %}{{ cliente.estado_descricao }}
+                        {% else %}
+                            Não informado
+                        {% endif %}
+                    </p>
                 </div>
 
                 <!-- Tipo de Cliente -->
@@ -195,6 +222,36 @@
             </a>
         </div>
 
+        <!-- Filtros e Ordenação -->
+        <div class="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+                <label class="text-xs text-gray-500">Buscar</label>
+                <input id="contatosSearch" type="text" placeholder="Nome, email ou telefone"
+                       class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50" />
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Setor</label>
+                <select id="filtroSetor" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+                    <option value="">Todos os setores</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Cargo</label>
+                <select id="filtroCargo" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+                    <option value="">Todos os cargos</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs text-gray-500">Ordenar por</label>
+                <select id="ordenarPor" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+                    <option value="nome">Nome</option>
+                    <option value="setor">Setor</option>
+                    <option value="cargo">Cargo</option>
+                    <option value="status">Status</option>
+                </select>
+            </div>
+        </div>
+
         {% if contatos %}
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -203,19 +260,29 @@
                             <th class="py-3 px-4 text-sm font-semibold text-gray-600">Nome</th>
                             <th class="py-3 px-4 text-sm font-semibold text-gray-600">Email</th>
                             <th class="py-3 px-4 text-sm font-semibold text-gray-600">Telefone</th>
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Setor</th>
+                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Cargo</th>
                             <th class="py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
                             <th class="py-3 px-4 text-sm font-semibold text-gray-600">Ações</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         {% for contato in contatos %}
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50" 
+                                data-nome="{{ contato.nome_completo|lower }}"
+                                data-email="{{ contato.email|lower }}"
+                                data-telefone="{{ (contato.telefone or '')|lower }}"
+                                data-setor="{{ (contato.setor_descricao or '')|lower }}"
+                                data-cargo="{{ (contato.cargo_descricao or '')|lower }}"
+                                data-status="{{ 1 if contato.status else 0 }}">
                                 <td class="py-3 px-4">
                                     <div class="font-medium text-gray-900">{{ contato.nome_completo }}</div>
                                     <div class="text-xs text-gray-500">Criado em: {{ contato.data_criacao[:10] }}</div>
                                 </td>
                                 <td class="py-3 px-4 text-gray-600">{{ contato.email }}</td>
                                 <td class="py-3 px-4 text-gray-600">{{ contato.telefone or 'Não informado' }}</td>
+                                <td class="py-3 px-4 text-gray-600">{{ contato.setor_descricao or '—' }}</td>
+                                <td class="py-3 px-4 text-gray-600">{{ contato.cargo_descricao or '—' }}</td>
                                 <td class="py-3 px-4">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if not contato.status %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
                                         {{ 'Inativo' if not contato.status else 'Ativo' }}
@@ -259,4 +326,8 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cliente_detalhes.js') }}"></script>
 {% endblock %}

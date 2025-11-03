@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const tbody = table.querySelector('tbody');
     const noResults = document.getElementById('noResults');
     const rows = Array.from(tbody.querySelectorAll('tr'));
+    const vendedorFilter = document.getElementById('vendedorFilter');
 
     // Função para filtrar a tabela
     function filterTable() {
@@ -45,16 +46,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Mostrar/esconder mensagem de "nenhum resultado"
+        // Mostrar/esconder mensagem de "nenhum resultado" (sem exibir contagem)
         if (noResults) {
             if (visibleCount === 0) {
                 tbody.style.display = 'none';
                 noResults.style.display = '';
-                document.getElementById('searchResults').textContent = '0 resultados';
             } else {
                 tbody.style.display = '';
                 noResults.style.display = 'none';
-                document.getElementById('searchResults').textContent = visibleCount + (visibleCount === 1 ? ' resultado' : ' resultados');
             }
         }
     }
@@ -62,10 +61,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event Listeners
     if (searchInput) {
         searchInput.addEventListener('input', filterTable);
-        searchInput.setAttribute('placeholder', 'Pesquisar por Razão Social ou Nome Fantasia...');
+        searchInput.setAttribute('placeholder', 'R_Social, Nome');
     }
     if (statusFilter) {
         statusFilter.addEventListener('change', filterTable);
+    }
+    if (vendedorFilter) {
+        vendedorFilter.addEventListener('change', function() {
+            const url = new URL(window.location.href);
+            const val = vendedorFilter.value;
+            if (val) {
+                url.searchParams.set('vendas_central_comm', val);
+            } else {
+                url.searchParams.delete('vendas_central_comm');
+            }
+            window.location.href = url.toString();
+        });
     }
 
     // Função para limpar pesquisa

@@ -57,7 +57,7 @@
                     {% if clientes %}
                 <!-- Search and Filter Box -->
                 <div class="p-4 border-b border-border">
-                    <div class="flex gap-4">
+                    <div class="flex gap-4 flex-wrap">
                         <!-- Search Input -->
                         <div class="relative flex-1">
                             <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
@@ -65,10 +65,9 @@
                                 type="text" 
                                 id="searchInput" 
                                 class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
-                                placeholder="Pesquisar por Razão Social ou Nome Fantasia..."
+                                placeholder="R_Social, Nome"
                                 autocomplete="off"
                             >
-                            <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500" id="searchResults"></span>
                         </div>
                         
                         <!-- Status Filter -->
@@ -79,6 +78,19 @@
                                 <option value="true">Inativos</option>
                             </select>
                             <i class="fas fa-filter absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        </div>
+
+                        <!-- Filtro por Vendas CentralComm (Executivo) -->
+                        <div class="relative w-64">
+                            <select id="vendedorFilter" class="w-full py-2 px-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white">
+                                <option value="">Todos os Executivos</option>
+                                {% if vendedores_cc %}
+                                    {% for vend in vendedores_cc %}
+                                        <option value="{{ vend.id_contato_cliente }}" {% if filtro_vendas_central_comm and filtro_vendas_central_comm == vend.id_contato_cliente %}selected{% endif %}>{{ vend.nome_completo }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <i class="fas fa-user-tie absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                         </div>
                     </div>
                 </div>
@@ -201,9 +213,7 @@
                     
                     <!-- Table Footer with Pagination -->
                     <div class="border-t border-gray-200 px-6 py-3 flex items-center justify-between bg-gray-50/50">
-                        <div class="flex items-center text-sm text-gray-500">
-                            <span>Mostrando 1-{{ clientes|length }} de {{ clientes|length }} resultados</span>
-                        </div>
+                        <div class="flex items-center text-sm text-gray-500"></div>
                         <div class="flex items-center space-x-2">
                             <button class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
                                 <i class="fas fa-chevron-left mr-1"></i>

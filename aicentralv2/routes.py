@@ -396,6 +396,8 @@ def init_routes(app):
                 raise Exception("Falha na conexão com o banco de dados")
             
             cursor = conn.cursor()
+            # Filtro opcional por executivo (vendas_central_comm)
+            filtro_vendedor = request.args.get('vendas_central_comm', type=int)
             
             # Query com nomes CORRETOS das tabelas
             # Estatísticas por tipo de pessoa
@@ -446,21 +448,25 @@ def init_routes(app):
                     ) as total_contatos
                 FROM tbl_cliente c
                 LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
-                ORDER BY c.id_cliente DESC
             """
+            params = []
+            if filtro_vendedor:
+                query += " WHERE c.vendas_central_comm = %s"
+                params.append(filtro_vendedor)
+            query += " ORDER BY c.id_cliente DESC"
             
             print(f"📝 DEBUG: Executando query")
-            cursor.execute(query)
+            cursor.execute(query, tuple(params) if params else None)
             
             resultados = cursor.fetchall()
-            print(f"✅ DEBUG: Query executada. Resultados: {len(resultados) if resultados else 0}")
+            print(f"OK DEBUG: Query executada. Resultados: {len(resultados) if resultados else 0}")
             
             clientes = []
             
             if resultados:
                 for row in resultados:
                     try:
-                        # ✅ ACESSAR COMO DICIONÁRIO
+                        # OK ACESSAR COMO DICIONÁRIO
                         cliente = {
                             'id_cliente': row['id_cliente'],
                             'razao_social': row['razao_social'] or '',
@@ -473,22 +479,31 @@ def init_routes(app):
                             'agencia_key': row['agencia_key']
                         }
                         clientes.append(cliente)
-                        print(f"✅ Cliente {row['id_cliente']} - {row['razao_social'] or 'SEM NOME'} - {row['total_contatos']} contatos")
+                        print(f"OK Cliente {row['id_cliente']} - {row['razao_social'] or 'SEM NOME'} - {row['total_contatos']} contatos")
                     except Exception as e:
-                        print(f"❌ DEBUG: Erro ao processar cliente: {row}")
+                        print(f"FALHA DEBUG: Erro ao processar cliente: {row}")
                         print(f"   Erro: {str(e)}")
                         continue
             
+            # Carrega lista de executivos de vendas da CentralComm para filtro
+            vendedores_cc = []
+            try:
+                vendedores_cc = db.obter_vendedores_centralcomm()
+            except Exception as e:
+                app.logger.warning(f"Falha ao obter vendedores CentralComm: {e}")
+
             cursor.close()
             conn.close()
             
-            print(f"✅ DEBUG: Total de clientes processados: {len(clientes)}")
+            print(f"OK DEBUG: Total de clientes processados: {len(clientes)}")
             return render_template('clientes.html', 
                                clientes=clientes,
-                               pessoas_stats=pessoas_stats)
+                               pessoas_stats=pessoas_stats,
+                               vendedores_cc=vendedores_cc,
+                               filtro_vendas_central_comm=filtro_vendedor)
             
         except Exception as e:
-            print(f"❌ ERRO DETALHADO:")
+            print(f"FALHA ERRO DETALHADO:")
             print(f"   Tipo: {type(e).__name__}")
             print(f"   Mensagem: {str(e)}")
             import traceback
@@ -507,6 +522,7 @@ def init_routes(app):
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
+        vendedores_cc = db.obter_vendedores_centralcomm()
         
         if request.method == 'POST':
             try:
@@ -528,30 +544,70 @@ def init_routes(app):
                 numero = request.form.get('numero', '').strip() or None
                 complemento = request.form.get('complemento', '').strip() or None
                 
-                if not razao_social or not nome_fantasia:
-                    flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                # Obrigatoriedades por tipo de pessoa
+                if pessoa == 'J':
+                    if not razao_social or not nome_fantasia:
+                        flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                else:
+                    # Pessoa Física: Razão Social não é obrigatória, mas Nome Completo sim (usa campo nome_fantasia)
+                    if not nome_fantasia:
+                        flash('Nome Completo é obrigatório!', 'error')
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if not cnpj:
                     flash('CNPJ/CPF é obrigatório!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if not id_tipo_cliente:
                     flash('Tipo de Cliente é obrigatório!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                
+                # Validação de CPF quando Pessoa Física
+                if pessoa == 'F':
+                    if not db.validar_cpf(cnpj):
+                        flash('CPF inválido!', 'error')
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                    # Ajustes padrão para PF
+                    if not razao_social:
+                        razao_social = 'NÃO REQUERIDO'
+                    inscricao_estadual = 'ISENTO'
+                    inscricao_municipal = 'ISENTO'
+
+                # Validações de unicidade (CNPJ, Razão Social, Nome Fantasia)
+                try:
+                    if db.cliente_existe_por_cnpj(cnpj):
+                        flash('CNPJ já cadastrado em outro cliente.', 'error')
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                    # PF com Razão Social padrão não deve bloquear por duplicidade
+                    if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social):
+                        flash('Razão Social já cadastrada em outro cliente.', 'error')
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                    if db.cliente_existe_por_nome_fantasia(nome_fantasia):
+                        flash('Nome Fantasia já cadastrado em outro cliente.', 'error')
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                except Exception as ve:
+                    app.logger.error(f"Erro ao validar duplicidades: {ve}")
+                    flash('Erro ao validar unicidade. Tente novamente.', 'error')
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if pessoa not in ['F', 'J']:
                     flash('Tipo de pessoa inválido!', 'error')
                     return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
                 pk_id_aux_agencia = request.form.get('pk_id_aux_agencia', type=int)
+                # Campo do form: vendas_central_comm (ID do contato executivo de vendas)
+                vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
+                if not vendas_central_comm:
+                    flash('Vendas CentralComm é obrigatório!', 'error')
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 # Se for pessoa física, força agência 2
                 if pessoa == 'F':
                     pk_id_aux_agencia = 2
                 elif not pk_id_aux_agencia:
                     flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
 
                 id_cliente = db.criar_cliente(
                     razao_social=razao_social,
@@ -563,21 +619,38 @@ def init_routes(app):
                     inscricao_municipal=inscricao_municipal,
                     pk_id_tbl_plano=pk_id_tbl_plano,
                     pk_id_aux_agencia=pk_id_aux_agencia,
+                    pk_id_aux_estado=pk_id_aux_estado,
+                    vendas_central_comm=vendas_central_comm,
                     cep=cep,
                     bairro=bairro,
+                    cidade=cidade,
                     rua=logradouro,
                     numero=numero,
                     complemento=complemento
                 )
+
+                # Inicializa os tokens do cliente: total do plano e gasto = 0
+                try:
+                    if pk_id_tbl_plano:
+                        plano = db.obter_plano(pk_id_tbl_plano)
+                        if plano and 'tokens' in plano:
+                            db.atualizar_tokens_cliente(id_cliente, total_token_plano=plano['tokens'], total_token_gasto=0)
+                        else:
+                            # Se não conseguir obter o plano, ao menos zera o gasto
+                            db.atualizar_tokens_cliente(id_cliente, total_token_gasto=0)
+                    else:
+                        db.atualizar_tokens_cliente(id_cliente, total_token_gasto=0)
+                except Exception as e:
+                    app.logger.warning(f"Falha ao inicializar tokens do cliente {id_cliente}: {e}")
                 
                 flash(f'Cliente "{nome_fantasia}" criado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro: {e}")
                 flash('Erro ao criar.', 'error')
-                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
-        
-        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+
+        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
     
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required
@@ -587,7 +660,24 @@ def init_routes(app):
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
+        vendedores_cc = db.obter_vendedores_centralcomm()
         cliente = db.obter_cliente_por_id(cliente_id)
+        # Garante que o vendedor atualmente vinculado apareça na lista, mesmo que esteja inativo ou fora do filtro
+        try:
+            sel_id = cliente.get('vendas_central_comm') if cliente else None
+            if sel_id:
+                presente = any(v.get('id_contato_cliente') == sel_id for v in (vendedores_cc or []))
+                if not presente:
+                    vend_atual = db.obter_contato_por_id(sel_id)
+                    if vend_atual:
+                        if vendedores_cc is None:
+                            vendedores_cc = []
+                        vendedores_cc = list(vendedores_cc) + [{
+                            'id_contato_cliente': vend_atual.get('id_contato_cliente'),
+                            'nome_completo': vend_atual.get('nome_completo') + ' (atual)'
+                        }]
+        except Exception as _e:
+            app.logger.warning(f"Falha ao incluir vendedor atual na lista: {_e}")
         print("\n=== DEBUG EDITAR CLIENTE ===")
         print("Agências:", [{"id": a["id_aux_agencia"], "display": a["display"]} for a in agencias] if agencias else [])
         print("Cliente pk_id_aux_agencia:", cliente.get("pk_id_aux_agencia") if cliente else None)
@@ -617,26 +707,63 @@ def init_routes(app):
                 numero = request.form.get('numero', '').strip() or None
                 complemento = request.form.get('complemento', '').strip() or None
                 
-                if not razao_social or not nome_fantasia:
-                    flash('Campos obrigatórios!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                # Obrigatoriedades por tipo de pessoa (edição)
+                if pessoa == 'J':
+                    if not razao_social or not nome_fantasia:
+                        flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                else:
+                    if not nome_fantasia:
+                        flash('Nome Completo é obrigatório!', 'error')
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if not cnpj:
                     flash('CNPJ/CPF é obrigatório!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if not id_tipo_cliente:
                     flash('Tipo de Cliente é obrigatório!', 'error')
                     return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
+                # Validação de CPF quando Pessoa Física
+                if pessoa == 'F':
+                    if not db.validar_cpf(cnpj):
+                        flash('CPF inválido!', 'error')
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                    # Ajustes padrão para PF
+                    if not razao_social:
+                        razao_social = 'NÃO REQUERIDO'
+                    inscricao_estadual = 'ISENTO'
+                    inscricao_municipal = 'ISENTO'
+
+                # Validações de unicidade na edição (exclui o próprio cliente)
+                try:
+                    if db.cliente_existe_por_cnpj(cnpj, excluir_id=cliente_id):
+                        flash('CNPJ já cadastrado em outro cliente.', 'error')
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                    if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social, excluir_id=cliente_id):
+                        flash('Razão Social já cadastrada em outro cliente.', 'error')
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                    if db.cliente_existe_por_nome_fantasia(nome_fantasia, excluir_id=cliente_id):
+                        flash('Nome Fantasia já cadastrado em outro cliente.', 'error')
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                except Exception as ve:
+                    app.logger.error(f"Erro ao validar duplicidades: {ve}")
+                    flash('Erro ao validar unicidade. Tente novamente.', 'error')
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
+                
                 pk_id_aux_agencia = request.form.get('pk_id_aux_agencia', type=int)
+                vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
+                if not vendas_central_comm:
+                    flash('Vendas CentralComm é obrigatório!', 'error')
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 # Se for pessoa física, força agência 2
                 if pessoa == 'F':
                     pk_id_aux_agencia = 2
                 elif not pk_id_aux_agencia:
                     flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
 
                 if not db.atualizar_cliente(
                     id_cliente=cliente_id,
@@ -649,8 +776,11 @@ def init_routes(app):
                     inscricao_municipal=inscricao_municipal,
                     pk_id_tbl_plano=pk_id_tbl_plano,
                     pk_id_aux_agencia=pk_id_aux_agencia,
+                    pk_id_aux_estado=pk_id_aux_estado,
+                    vendas_central_comm=vendas_central_comm,
                     cep=cep,
                     bairro=bairro,
+                    cidade=cidade,
                     rua=logradouro,
                     numero=numero,
                     complemento=complemento
@@ -663,9 +793,9 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro ao atualizar cliente: {e}")
                 flash('Erro ao atualizar.', 'error')
-                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
         
-        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
+        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
     
     @app.route('/clientes/<int:cliente_id>/toggle-status', methods=['POST'])
     @login_required
@@ -731,17 +861,26 @@ def init_routes(app):
                         COALESCE(c.inscricao_municipal, '') as inscricao_municipal,
                         COALESCE(c.cnpj, '') as cnpj,
                         c.pk_id_aux_agencia,
+                        c.pk_id_aux_estado,
                         ag.key as agencia_key,
+                        es.sigla as estado_sigla,
+                        es.descricao as estado_descricao,
                         tc.display as tipo_cliente_display,
                         p.id_plano,
                         p.descricao as plano_descricao,
                         p.tokens as plano_tokens,
                         p.status as plano_status,
-                        COALESCE(c.total_token_gasto, 0) as total_tokens_gasto
+                        COALESCE(c.total_token_gasto, 0) as total_tokens_gasto,
+                        c.vendas_central_comm,
+                        vend.nome_completo AS vendedor_nome,
+                        vendcar.descricao AS vendedor_cargo
                     FROM tbl_cliente c
                     LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
+                    LEFT JOIN tbl_estado es ON es.id_estado = c.pk_id_aux_estado
                     LEFT JOIN aux_tipo_cliente tc ON c.id_tipo_cliente = tc.id_aux_tipo_cliente
                     LEFT JOIN tbl_plano p ON p.id_plano = c.pk_id_tbl_plano
+                    LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = c.vendas_central_comm
+                    LEFT JOIN tbl_cargo_contato vendcar ON vend.pk_id_tbl_cargo = vendcar.id_cargo_contato
                     WHERE c.id_cliente = %s
                 ''', (cliente_id,))
                 cliente = cursor.fetchone()
@@ -754,15 +893,19 @@ def init_routes(app):
             with conn.cursor() as cursor:
                 cursor.execute('''
                     SELECT 
-                        id_contato_cliente,
-                        nome_completo,
-                        COALESCE(email, '') as email,
-                        COALESCE(telefone, '') as telefone,
-                        status,
-                        COALESCE(TO_CHAR(data_cadastro, 'DD/MM/YYYY'), 'N/A') as data_criacao
-                    FROM tbl_contato_cliente 
-                    WHERE pk_id_tbl_cliente = %s 
-                    ORDER BY nome_completo
+                        c.id_contato_cliente,
+                        c.nome_completo,
+                        COALESCE(c.email, '') as email,
+                        COALESCE(c.telefone, '') as telefone,
+                        c.status,
+                        COALESCE(TO_CHAR(c.data_cadastro, 'DD/MM/YYYY'), 'N/A') as data_criacao,
+                        car.descricao AS cargo_descricao,
+                        s.display AS setor_descricao
+                    FROM tbl_contato_cliente c
+                    LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
+                    LEFT JOIN aux_setor s ON s.id_aux_setor = car.pk_id_aux_setor
+                    WHERE c.pk_id_tbl_cliente = %s 
+                    ORDER BY c.nome_completo
                 ''', (cliente_id,))
                 contatos = cursor.fetchall()
 
@@ -813,6 +956,93 @@ def init_routes(app):
             app.logger.error(f"Erro: {e}")
             flash('Erro ao carregar.', 'error')
             return redirect(url_for('index'))
+
+    # ==================== API: Consulta CNPJ ====================
+    @app.route('/api/cnpj/<cnpj>', methods=['GET'])
+    @login_required
+    def api_cnpj(cnpj):
+        """Consulta dados públicos de Pessoa Jurídica por CNPJ e retorna campos mapeados.
+
+        Fonte: publica.cnpj.ws
+        """
+        import re
+        try:
+            import requests
+        except Exception:
+            return jsonify({'ok': False, 'error': 'Dependência ausente: requests'}), 500
+
+        try:
+            digits = re.sub(r'\D', '', cnpj or '')
+            if len(digits) != 14:
+                return jsonify({'ok': False, 'error': 'CNPJ inválido'}), 400
+
+            url = f'https://publica.cnpj.ws/cnpj/{digits}'
+            r = requests.get(url, timeout=10)
+            if r.status_code != 200:
+                return jsonify({'ok': False, 'error': 'Não encontrado'}), r.status_code
+
+            data = r.json() or {}
+            razao_social = data.get('razao_social')
+            nome_fantasia = data.get('nome_fantasia') or (data.get('estabelecimento') or {}).get('nome_fantasia')
+
+            estab = data.get('estabelecimento') or {}
+            inscricoes = estab.get('inscricoes_estaduais') or []
+            inscricao_estadual = None
+            for ie in inscricoes:
+                if isinstance(ie, dict) and ie.get('inscricao_estadual'):
+                    if ie.get('ativo') is True:
+                        inscricao_estadual = ie.get('inscricao_estadual')
+                        break
+                    if not inscricao_estadual:
+                        inscricao_estadual = ie.get('inscricao_estadual')
+
+            inscricao_municipal = None
+
+            return jsonify({
+                'ok': True,
+                'razao_social': razao_social,
+                'nome_fantasia': nome_fantasia,
+                'inscricao_estadual': inscricao_estadual,
+                'inscricao_municipal': inscricao_municipal,
+            })
+        except requests.Timeout:
+            return jsonify({'ok': False, 'error': 'Timeout na consulta do CNPJ'}), 504
+        except Exception as e:
+            app.logger.error(f"Erro API CNPJ: {e}")
+            return jsonify({'ok': False, 'error': 'Erro interno na consulta do CNPJ'}), 500
+
+    # ==================== API: Validação Unicidade Cliente ====================
+    @app.route('/api/clientes/validate', methods=['POST'])
+    @login_required
+    def api_validate_cliente():
+        """Valida duplicidade de CNPJ, Razão Social e Nome Fantasia (AJAX)."""
+        try:
+            payload = request.get_json(silent=True) or {}
+            cnpj = (payload.get('cnpj') or '').strip()
+            razao_social = (payload.get('razao_social') or '').strip()
+            nome_fantasia = (payload.get('nome_fantasia') or '').strip()
+            cliente_id = payload.get('cliente_id', None)
+            try:
+                cliente_id = int(cliente_id) if cliente_id is not None else None
+            except Exception:
+                cliente_id = None
+
+            dup_cnpj = db.cliente_existe_por_cnpj(cnpj, excluir_id=cliente_id) if cnpj else False
+            dup_razao = db.cliente_existe_por_razao_social(razao_social, excluir_id=cliente_id) if razao_social else False
+            dup_nome = db.cliente_existe_por_nome_fantasia(nome_fantasia, excluir_id=cliente_id) if nome_fantasia else False
+
+            return jsonify({
+                'ok': True,
+                'duplicates': {
+                    'cnpj': bool(dup_cnpj),
+                    'razao_social': bool(dup_razao),
+                    'nome_fantasia': bool(dup_nome),
+                }
+            })
+        except Exception as e:
+            app.logger.error(f"Erro API validação cliente: {e}")
+            return jsonify({'ok': False, 'error': 'Erro ao validar dados'}), 500
+    
     
     @app.route('/contatos/novo', methods=['GET', 'POST'])
     @login_required
@@ -826,24 +1056,40 @@ def init_routes(app):
                 email = request.form.get('email', '').strip().lower()
                 senha = request.form.get('senha', '').strip()
                 telefone = request.form.get('telefone', '').strip() or None
-                pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente')
-                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo')
+                pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente', type=int)
+                pk_id_aux_setor = request.form.get('pk_id_aux_setor', type=int)
+                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo', type=int)
                 cohorts = request.form.get('cohorts', type=int) or 1
                 
-                if not all([nome_completo, email, senha, pk_id_tbl_cliente]):
-                    flash('Preencha todos os campos obrigatórios!', 'error')
+                # Agora setor e cargo são obrigatórios
+                if not all([nome_completo, email, senha, pk_id_tbl_cliente, pk_id_aux_setor, pk_id_tbl_cargo]):
+                    flash('Preencha todos os campos obrigatórios (incluindo Setor e Cargo)!', 'error')
                     with conn.cursor() as cursor:
                         cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
                         clientes = cursor.fetchall()
+                        setores = db.obter_setores()
                         cargos = db.obter_cargos()
-                    return render_template('contato_form.html', contato=None, clientes=clientes, cargos=cargos)
+                    return render_template('contato_form.html', contato=None, clientes=clientes, setores=setores, cargos=cargos)
+
+                # Validação: cargo deve pertencer ao setor informado
+                with conn.cursor() as cursor:
+                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', (pk_id_tbl_cargo, pk_id_aux_setor))
+                    if cursor.fetchone() is None:
+                        flash('Cargo selecionado não pertence ao Setor escolhido.', 'error')
+                        with conn.cursor() as c2:
+                            c2.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
+                            clientes = c2.fetchall()
+                        setores = db.obter_setores()
+                        cargos = db.obter_cargos()
+                        return render_template('contato_form.html', contato=None, clientes=clientes, setores=setores, cargos=cargos)
                 
                 db.criar_contato(
                     nome_completo=nome_completo,
                     email=email,
                     senha=senha,
-                    pk_id_tbl_cliente=int(pk_id_tbl_cliente),
-                    pk_id_tbl_cargo=int(pk_id_tbl_cargo) if pk_id_tbl_cargo else None,
+                    pk_id_tbl_cliente=pk_id_tbl_cliente,
+                    pk_id_tbl_cargo=pk_id_tbl_cargo,
+                    pk_id_tbl_setor=pk_id_aux_setor,
                     telefone=telefone,
                     cohorts=cohorts
                 )
@@ -877,15 +1123,23 @@ def init_routes(app):
                 nome_completo = request.form.get('nome_completo', '').strip()
                 email = request.form.get('email', '').strip().lower()
                 telefone = request.form.get('telefone', '').strip() or None
-                pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente')
-                pk_id_aux_setor = request.form.get('pk_id_aux_setor')
-                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo')
+                pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente', type=int)
+                pk_id_aux_setor = request.form.get('pk_id_aux_setor', type=int)
+                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo', type=int)
                 nova_senha = request.form.get('nova_senha', '').strip()
                 cohorts = request.form.get('cohorts', type=int) or 1
                 
-                if not all([nome_completo, email, pk_id_tbl_cliente]):
-                    flash('Campos obrigatórios!', 'error')
+                # Agora setor e cargo são obrigatórios na edição também
+                if not all([nome_completo, email, pk_id_tbl_cliente, pk_id_aux_setor, pk_id_tbl_cargo]):
+                    flash('Campos obrigatórios (incluindo Setor e Cargo)!', 'error')
                     return redirect(url_for('contato_editar', contato_id=contato_id))
+
+                # Validação: cargo deve pertencer ao setor informado
+                with conn.cursor() as cursor:
+                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', (pk_id_tbl_cargo, pk_id_aux_setor))
+                    if cursor.fetchone() is None:
+                        flash('Cargo selecionado não pertence ao Setor escolhido.', 'error')
+                        return redirect(url_for('contato_editar', contato_id=contato_id))
                 
                 with conn.cursor() as cursor:
                     cursor.execute('''
@@ -901,12 +1155,11 @@ def init_routes(app):
                     cursor.execute('''
                         UPDATE tbl_contato_cliente
                         SET nome_completo = %s, email = %s, telefone = %s, cohorts = %s,
-                            pk_id_tbl_cliente = %s, pk_id_aux_setor = %s, pk_id_tbl_cargo = %s, 
+                            pk_id_tbl_cliente = %s, pk_id_tbl_cargo = %s, pk_id_tbl_setor = %s,
                             data_modificacao = CURRENT_TIMESTAMP
                         WHERE id_contato_cliente = %s
-                    ''', (nome_completo, email, telefone, cohorts, int(pk_id_tbl_cliente),
-                          int(pk_id_aux_setor) if pk_id_aux_setor else None,
-                          int(pk_id_tbl_cargo) if pk_id_tbl_cargo else None, 
+              ''', (nome_completo, email, telefone, cohorts, pk_id_tbl_cliente,
+                  pk_id_tbl_cargo, pk_id_aux_setor,
                           contato_id))
                 
                 if nova_senha:
@@ -930,10 +1183,9 @@ def init_routes(app):
             cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
             clientes = cursor.fetchall()
             
-            # Busca setores e cargos
+            # Busca setores e TODOS os cargos (necessário para filtrar no front ao trocar setor)
             setores = db.obter_setores()
-            setor_id = contato.get('pk_id_aux_setor') if contato else None
-            cargos = db.obter_cargos(setor_id)
+            cargos = db.obter_cargos()
         
         return render_template('contato_form.html', contato=contato, clientes=clientes, setores=setores, cargos=cargos)
     

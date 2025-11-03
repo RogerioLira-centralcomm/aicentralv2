@@ -10,6 +10,8 @@ const cargoSelect = document.getElementById('cargo_select');
 // Cache dos dados originais
 let originalData = [];
 let cargoOptions = [];
+let setorInicial = null; // Guarda o setor inicial
+let cargoInicialSelecionado = null; // Guarda o cargo inicialmente selecionado (no modo editar)
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
@@ -25,23 +27,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Inicialização do selector de cargos
-    if (cargoSelect) {
-        cargoOptions = Array.from(cargoSelect.options);
-
-        // Event listener para mudança no select de setor
-        if (setorSelect) {
-            setorSelect.addEventListener('change', function() {
-                const setorId = this.value;
-                filtrarCargos(setorId);
-                
-                // Reseta a seleção do cargo quando o setor muda
+    if (cargoSelect && setorSelect) {
+        // Guarda TODAS as opções originais uma única vez
+        cargoOptions = Array.from(cargoSelect.options).map(opt => opt.cloneNode(true));
+        
+        // Guarda o setor inicial
+        setorInicial = setorSelect.value;
+        // Guarda o cargo inicialmente selecionado (se houver)
+        cargoInicialSelecionado = cargoSelect.value || null;
+        
+        setorSelect.addEventListener('change', function() {
+            const setorAtual = this.value;
+            
+            // Verifica se houve alteração no setor
+            if (setorAtual !== setorInicial) {
+                // Limpa o cargo
                 cargoSelect.value = '';
-            });
-
-            // Inicialização: se já houver um setor selecionado
-            if (setorSelect.value) {
-                filtrarCargos(setorSelect.value);
+                // Atualiza o setor inicial para a próxima comparação
+                setorInicial = setorAtual;
+                // Zera o cargo inicial para não ser reaplicado após mudança
+                cargoInicialSelecionado = null;
             }
+            
+            // Filtra os cargos do setor atual
+            filtrarCargos(setorAtual);
+        });
+        
+        // Inicialização: se já houver um setor selecionado
+        if (setorSelect.value) {
+            filtrarCargos(setorSelect.value);
         }
     }
 });
@@ -126,45 +140,54 @@ async function handleSubmit(e) {
 function filtrarCargos(setorId) {
     if (!cargoSelect) return;
 
-    // Remove todas as opções atuais exceto a primeira (placeholder)
-    while (cargoSelect.options.length > 1) {
-        cargoSelect.remove(1);
-    }
+    // Sempre começa desabilitado até confirmar que há cargos
+    cargoSelect.disabled = true;
+    cargoSelect.setAttribute('disabled', 'disabled');
 
-    // Se nenhum setor selecionado, desabilita o select de cargo
+    // Limpa TODAS as opções e adiciona placeholder
+    cargoSelect.innerHTML = '';
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = 'Selecione um cargo...';
+    cargoSelect.appendChild(emptyOption);
+    cargoSelect.selectedIndex = 0;
+
+    // Se não tem setor, permanece desabilitado
     if (!setorId) {
-        cargoSelect.disabled = true;
         return;
     }
 
-    // Filtra e adiciona apenas os cargos do setor selecionado
-    const cargosFiltrados = cargoOptions.filter(option => {
-        if (!option.dataset.setorId) return true; // mantém opções sem setor (como placeholder)
-        
-        // Converte ambos para número para garantir a comparação correta
-        const optionSetorId = parseInt(option.dataset.setorId);
-        const selectedSetorId = parseInt(setorId);
-        
-        console.log('Comparando:', {
-            optionSetorId,
-            selectedSetorId,
-            raw: {
-                option: option.dataset.setorId,
-                selected: setorId
+    // Filtra cargos que pertencem ao setor e adiciona
+    let cargosAdicionados = 0;
+    const setorAlvo = String(setorId).trim();
+    let hasPreservedSelection = false;
+    cargoOptions.forEach(option => {
+        const optVal = option.value != null ? String(option.value) : '';
+        const optSetor = option.dataset && option.dataset.setorId != null ? String(option.dataset.setorId).trim() : '';
+        if (optVal && optSetor === setorAlvo) {
+            cargoSelect.appendChild(option.cloneNode(true));
+            cargosAdicionados++;
+            // Se for inicialização e o cargo pertence a este setor, preserva seleção
+            if (!hasPreservedSelection && cargoInicialSelecionado && String(cargoInicialSelecionado) === optVal) {
+                hasPreservedSelection = true;
             }
-        });
-        
-        return optionSetorId === selectedSetorId;
-    });
-
-    cargosFiltrados.forEach(option => {
-        if (option.value) { // Não duplica a opção placeholder
-            cargoSelect.add(option.cloneNode(true));
         }
     });
 
-    // Habilita o select de cargo
-    cargoSelect.disabled = false;
+    // Habilita se houver ao menos um cargo adicionado
+    if (cargosAdicionados > 0) {
+        cargoSelect.disabled = false;
+        cargoSelect.removeAttribute('disabled');
+        // Reaplica seleção inicial quando apropriado
+        if (hasPreservedSelection) {
+            cargoSelect.value = String(cargoInicialSelecionado);
+            // Seleção inicial já aplicada, evita reaplicar em próximas mudanças
+            cargoInicialSelecionado = null;
+        }
+    } else {
+        cargoSelect.disabled = true;
+        cargoSelect.setAttribute('disabled', 'disabled');
+    }
 }
 
 // Toggle de Status

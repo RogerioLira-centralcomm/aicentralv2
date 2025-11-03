@@ -12,6 +12,7 @@ import os
 import hashlib
 from datetime import datetime, timedelta
 from typing import List, Optional
+import re
 
 
 # ==================== CONFIGURAÇÃO ====================
@@ -41,7 +42,7 @@ def get_db():
             g.db = psycopg.connect(**config)
             g.db.autocommit = False
         except Exception as e:
-            current_app.logger.error(f"❌ Erro ao conectar ao banco: {e}")
+            current_app.logger.error(f"FALHA Erro ao conectar ao banco: {e}")
             raise
     
     return g.db
@@ -56,9 +57,9 @@ def close_db(e=None):
             if not db.closed:
                 db.rollback()
                 db.close()
-                current_app.logger.debug("✅ Conexão com banco fechada")
+                current_app.logger.debug("OK Conexão com banco fechada")
         except Exception as ex:
-            current_app.logger.error(f"❌ Erro ao fechar conexão: {ex}")
+            current_app.logger.error(f"FALHA Erro ao fechar conexão: {ex}")
 
 
 def init_db(app):
@@ -103,14 +104,52 @@ def init_db(app):
                     END IF;
                 END $$;
             ''')
+            # Garantir coluna de SETOR no contato
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'pk_id_tbl_setor'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente 
+                            ADD COLUMN pk_id_tbl_setor INTEGER;
+                        BEGIN
+                            ALTER TABLE tbl_contato_cliente 
+                                ADD CONSTRAINT fk_setor_contato 
+                                FOREIGN KEY (pk_id_tbl_setor) 
+                                REFERENCES aux_setor(id_aux_setor);
+                        EXCEPTION WHEN others THEN
+                            -- Evita falha caso a constraint já exista com outro nome
+                            NULL;
+                        END;
+                        COMMENT ON COLUMN tbl_contato_cliente.pk_id_tbl_setor IS 'ID do setor do contato (ref aux_setor)';
+                    END IF;
+                END $$;
+            ''')
 
             # Criar índices
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_email ON tbl_contato_cliente(email)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_status ON tbl_contato_cliente(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_contato_cliente_reset_token ON tbl_contato_cliente(reset_token)')
 
+            # Garantir coluna de vendas_central_comm em tbl_cliente (inteiro 0/1)
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'vendas_central_comm'
+                    ) THEN
+                        ALTER TABLE tbl_cliente ADD COLUMN vendas_central_comm INTEGER DEFAULT 0;
+                    END IF;
+                END $$;
+            ''')
+
+            # Removido: pk_id_contato_vendas não faz parte do schema
+
         conn.commit()
-        app.logger.info("✅ Banco de dados inicializado")
+    app.logger.info("OK Banco de dados inicializado")
 
 
 def check_db_connection():
@@ -121,7 +160,7 @@ def check_db_connection():
             cursor.execute('SELECT 1')
             return True
     except Exception as e:
-        current_app.logger.error(f"❌ Falha na conexão com banco: {e}")
+        current_app.logger.error(f"FALHA Falha na conexão com banco: {e}")
         return False
 
 
@@ -135,6 +174,50 @@ def gerar_senha_md5(senha):
 def verificar_senha_md5(senha, senha_md5):
     """Verifica se senha bate com hash MD5"""
     return gerar_senha_md5(senha) == senha_md5
+
+
+# ==================== VALIDAÇÕES DE DOCUMENTOS ====================
+
+def validar_cpf(cpf: str) -> bool:
+    """Valida CPF (Pessoa Física) pelo algoritmo oficial dos dígitos verificadores.
+
+    Regras:
+    - Deve conter 11 dígitos numéricos
+    - Não pode ser uma sequência repetida (ex.: 00000000000, 11111111111, ...)
+    - Dígitos verificadores calculados conforme pesos decrescentes
+    """
+    if not cpf:
+        return False
+
+    # Mantém apenas dígitos
+    import re
+    digits = re.sub(r"\D", "", str(cpf))
+
+    # Tamanho exato
+    if len(digits) != 11:
+        return False
+
+    # Rejeitar sequências repetidas
+    if digits == digits[0] * 11:
+        return False
+
+    # Calcula DV1
+    soma = sum(int(digits[i]) * (10 - i) for i in range(9))
+    resto = soma % 11
+    dv1 = 0 if resto < 2 else 11 - resto
+
+    if dv1 != int(digits[9]):
+        return False
+
+    # Calcula DV2
+    soma = sum(int(digits[i]) * (11 - i) for i in range(10))
+    resto = soma % 11
+    dv2 = 0 if resto < 2 else 11 - resto
+
+    if dv2 != int(digits[10]):
+        return False
+
+    return True
 
 
 # ==================== AUTENTICAÇÃO ====================
@@ -246,6 +329,43 @@ def obter_setores(apenas_ativos=True):
                 ORDER BY display
             ''')
         return cursor.fetchall()
+
+
+def obter_vendedores_centralcomm():
+    """Retorna contatos do cliente CENTRALCOMM com cargo de Executivo de Vendas (apenas ativos).
+
+    Critérios flexíveis:
+    - Cliente com nome/razão contendo 'centralcomm' (com ou sem espaço)
+    - Cargo contendo as palavras 'execut' e 'vend' (para cobrir variações),
+      ou exatamente a frase 'Executivo de Vendas'.
+    """
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            '''
+            SELECT c.id_contato_cliente, c.nome_completo
+            FROM tbl_contato_cliente c
+            JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
+            WHERE (
+                cli.nome_fantasia ILIKE '%centralcomm%'
+                 OR cli.razao_social ILIKE '%centralcomm%'
+                 OR cli.nome_fantasia ILIKE '%central comm%'
+                 OR cli.razao_social ILIKE '%central comm%'
+            )
+              AND c.status = TRUE
+              AND COALESCE(cli.status, TRUE) = TRUE
+              AND (
+                car.descricao ILIKE '%Executivo de Vendas%'
+                 OR (
+                    car.descricao ILIKE '%execut%'
+                AND car.descricao ILIKE '%vend%'
+                )
+              )
+            ORDER BY c.nome_completo
+            '''
+        )
+        return cur.fetchall()
 
 
 
@@ -413,7 +533,8 @@ def obter_cliente_por_id(id_cliente):
         return cursor.fetchone()
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
-                status=True, id_centralx=None, bairro=None, rua=None, numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None):
+                status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None,
+                pk_id_aux_estado=None, vendas_central_comm=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -422,15 +543,15 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
             cursor.execute('''
                 INSERT INTO tbl_cliente (
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
-                    inscricao_estadual, status, id_centralx, bairro, logradouro, numero, 
-                    complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente
+                    inscricao_estadual, status, id_centralx, bairro, cidade, logradouro, numero, 
+                    complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
-                inscricao_estadual, status, id_centralx, bairro, rua, numero,
-                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente
+                inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
+                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -442,8 +563,8 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
         raise e
 
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
-                     inscricao_estadual=None, status=True, id_centralx=None, bairro=None, rua=None, 
-                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None):
+                     inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
+                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -460,19 +581,22 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     status = %s,
                     id_centralx = %s,
                     bairro = %s,
+                    cidade = %s,
                     logradouro = %s,
                     numero = %s,
                     complemento = %s,
                     cep = %s,
                     pk_id_tbl_plano = %s,
                     pk_id_aux_agencia = %s,
+                    pk_id_aux_estado = %s,
                     id_tipo_cliente = %s,
+                    vendas_central_comm = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
-                inscricao_estadual, status, id_centralx, bairro, rua, numero,
-                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente, id_cliente
+                inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
+                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente, vendas_central_comm, id_cliente
             ))
             
             conn.commit()
@@ -540,6 +664,36 @@ def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl
 def atualizar_senha_contato(contato_id, nova_senha):
     """Atualiza a senha de um contato"""
     conn = get_db()
+
+# ==================== CLIENTE - TOKENS ====================
+
+def atualizar_tokens_cliente(id_cliente: int, total_token_plano: Optional[int] = None, total_token_gasto: Optional[int] = None) -> bool:
+    """Atualiza campos de tokens do cliente, quando existirem.
+
+    - total_token_plano: Quantidade total de tokens do plano vigente a ser registrada no cliente
+    - total_token_gasto: Quantidade já consumida pelo cliente
+    """
+    conn = get_db()
+    sets = []
+    params = []
+    if total_token_plano is not None:
+        sets.append("total_token_plano = %s")
+        params.append(total_token_plano)
+    if total_token_gasto is not None:
+        sets.append("total_token_gasto = %s")
+        params.append(total_token_gasto)
+    if not sets:
+        return False
+    params.append(id_cliente)
+    query = f"UPDATE tbl_cliente SET {', '.join(sets)}, data_modificacao = NOW() WHERE id_cliente = %s"
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, tuple(params))
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
     senha_md5 = gerar_senha_md5(nova_senha)
 
     try:
@@ -810,6 +964,107 @@ def validar_email_formato(email):
     import re
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
+
+
+# ==================== VALIDAÇÕES CLIENTE (CNPJ/RAZÃO/NOME FANTASIA) ====================
+
+def normalizar_cnpj(cnpj: Optional[str]) -> Optional[str]:
+    """Remove caracteres não numéricos do CNPJ."""
+    if not cnpj:
+        return None
+    digits = re.sub(r'\D', '', str(cnpj))
+    return digits or None
+
+
+def cliente_existe_por_cnpj(cnpj: Optional[str], excluir_id: Optional[int] = None) -> bool:
+    """Verifica se já existe cliente com este CNPJ (comparando apenas dígitos)."""
+    cnpj_digits = normalizar_cnpj(cnpj)
+    if not cnpj_digits:
+        return False
+    conn = get_db()
+    with conn.cursor() as cur:
+        if excluir_id:
+            cur.execute(
+                """
+                SELECT 1
+                FROM tbl_cliente
+                WHERE regexp_replace(COALESCE(cnpj, ''), '\\D', '', 'g') = %s
+                  AND id_cliente <> %s
+                LIMIT 1
+                """,
+                (cnpj_digits, excluir_id),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT 1
+                FROM tbl_cliente
+                WHERE regexp_replace(COALESCE(cnpj, ''), '\\D', '', 'g') = %s
+                LIMIT 1
+                """,
+                (cnpj_digits,),
+            )
+        return cur.fetchone() is not None
+
+
+def cliente_existe_por_razao_social(razao_social: Optional[str], excluir_id: Optional[int] = None) -> bool:
+    """Verifica duplicidade de Razão Social (case-insensitive, trim)."""
+    if not razao_social:
+        return False
+    conn = get_db()
+    with conn.cursor() as cur:
+        if excluir_id:
+            cur.execute(
+                """
+                SELECT 1
+                FROM tbl_cliente
+                WHERE LOWER(TRIM(COALESCE(razao_social, ''))) = LOWER(TRIM(%s))
+                  AND id_cliente <> %s
+                LIMIT 1
+                """,
+                (razao_social, excluir_id),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT 1
+                FROM tbl_cliente
+                WHERE LOWER(TRIM(COALESCE(razao_social, ''))) = LOWER(TRIM(%s))
+                LIMIT 1
+                """,
+                (razao_social,),
+            )
+        return cur.fetchone() is not None
+
+
+def cliente_existe_por_nome_fantasia(nome_fantasia: Optional[str], excluir_id: Optional[int] = None) -> bool:
+    """Verifica duplicidade de Nome Fantasia (case-insensitive, trim)."""
+    if not nome_fantasia:
+        return False
+    conn = get_db()
+    with conn.cursor() as cur:
+        if excluir_id:
+            cur.execute(
+                """
+                SELECT 1
+                FROM tbl_cliente
+                WHERE LOWER(TRIM(COALESCE(nome_fantasia, ''))) = LOWER(TRIM(%s))
+                  AND id_cliente <> %s
+                LIMIT 1
+                """,
+                (nome_fantasia, excluir_id),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT 1
+                FROM tbl_cliente
+                WHERE LOWER(TRIM(COALESCE(nome_fantasia, ''))) = LOWER(TRIM(%s))
+                LIMIT 1
+                """,
+                (nome_fantasia,),
+            )
+        return cur.fetchone() is not None
 
 
 # ==================== BUSCA E FILTROS ====================

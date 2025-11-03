@@ -127,6 +127,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const nomeCompleto = document.querySelector('input[name="nome_completo"]').value.trim();
             const email = document.querySelector('input[name="email"]').value.trim();
             const cliente = document.querySelector('select[name="pk_id_tbl_cliente"]').value;
+            const setorEl = document.getElementById('setor_select');
+            const cargoEl = document.getElementById('cargo_select');
+            const setor = setorEl ? setorEl.value : '';
+            const cargo = cargoEl ? cargoEl.value : '';
             
             if (!nomeCompleto) {
                 alert('Nome Completo é obrigatório!');
@@ -145,6 +149,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 return false;
             }
+
+            // Validação obrigatória de Setor e Cargo
+            if (!setor) {
+                alert('Selecione um setor!');
+                e.preventDefault();
+                return false;
+            }
+
+            if (!cargo) {
+                alert('Selecione um cargo!');
+                e.preventDefault();
+                return false;
+            }
+
+            if (cargoEl && cargoEl.disabled) {
+                alert('Escolha um setor para habilitar os cargos e selecione um cargo.');
+                e.preventDefault();
+                return false;
+            }
+
+            // Coerência: o cargo selecionado precisa pertencer ao setor selecionado
+            if (cargoEl && cargoEl.selectedOptions && cargoEl.selectedOptions.length > 0) {
+                const selectedOpt = cargoEl.selectedOptions[0];
+                const cargoSetorId = selectedOpt && selectedOpt.dataset ? selectedOpt.dataset.setorId : undefined;
+                if (cargoSetorId && String(cargoSetorId).trim() !== String(setor).trim()) {
+                    alert('O cargo selecionado não pertence ao setor escolhido.');
+                    e.preventDefault();
+                    return false;
+                }
+            }
             
             // Validar senha apenas para novo contato
             if (!isEdit) {
@@ -159,7 +193,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Enviando formulário:', {
                 nome_completo: nomeCompleto,
                 email: email,
-                cliente_id: cliente
+                cliente_id: cliente,
+                setor_id: setor,
+                cargo_id: cargo
             });
         });
     }

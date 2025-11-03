@@ -24,7 +24,7 @@ def normalizar_username(nome):
 
 
 print("=" * 70)
-print("👁️  PREVIEW DA MIGRAÇÃO")
+print("PREVIEW DA MIGRAÇÃO")
 print("=" * 70)
 
 app = create_app()
@@ -36,13 +36,13 @@ with app.app_context():
 
     with conn.cursor() as cursor:
         # Ver auth_users
-        print("\n1️⃣ Tabela: auth_users")
+        print("\n1) Tabela: auth_users")
         print("─" * 70)
         cursor.execute("SELECT * FROM auth_users ORDER BY id")
         auth_users = cursor.fetchall()
 
         if auth_users:
-            print(f"📊 {len(auth_users)} registros encontrados:\n")
+            print(f"{len(auth_users)} registros encontrados:\n")
             print("┌─────┬─────────────────┬──────────────────────────┬────────────┐")
             print("│  ID │ USERNAME        │ NOME COMPLETO            │ AÇÃO       │")
             print("├─────┼─────────────────┼──────────────────────────┼────────────┤")
@@ -51,18 +51,18 @@ with app.app_context():
                 nome = str(u['nome_completo'])[:24].ljust(24)
                 print(f"│ {u['id']:3d} │ {username} │ {nome} │ MANTER     │")
             print("└─────┴─────────────────┴──────────────────────────┴────────────┘")
-            print("\n✅ Usuários mantêm senha original (já tem autenticação)")
+            print("\nOK Usuários mantêm senha original (já tem autenticação)")
         else:
-            print("❌ Nenhum registro encontrado")
+            print("FALHA Nenhum registro encontrado")
 
         # Ver users
-        print("\n2️⃣ Tabela: users")
+        print("\n2) Tabela: users")
         print("─" * 70)
         cursor.execute("SELECT * FROM users ORDER BY id")
         users = cursor.fetchall()
 
         if users:
-            print(f"📊 {len(users)} registros encontrados:\n")
+            print(f"{len(users)} registros encontrados:\n")
             print("┌─────┬──────────────────────────┬──────────────────────────┬──────────────────────┐")
             print("│  ID │ NOME (atual)             │ USERNAME (novo)          │ SENHA (nova)         │")
             print("├─────┼──────────────────────────┼──────────────────────────┼──────────────────────┤")
@@ -71,37 +71,37 @@ with app.app_context():
                 username = normalizar_username(u['nome'])[:24].ljust(24)
                 print(f"│ {u['id']:3d} │ {nome} │ {username} │ senha123             │")
             print("└─────┴──────────────────────────┴──────────────────────────┴──────────────────────┘")
-            print("\n⚠️  Estes usuários receberão senha padrão: senha123")
+            print("\nATENÇÃO: Estes usuários receberão senha padrão: senha123")
             print("   (Eles devem alterar a senha no primeiro login)")
         else:
-            print("❌ Nenhum registro encontrado")
+            print("FALHA Nenhum registro encontrado")
 
         # Resumo
         total = len(auth_users) + len(users)
         print("\n" + "=" * 70)
-        print("📊 RESUMO DA MIGRAÇÃO")
+        print("RESUMO DA MIGRAÇÃO")
         print("=" * 70)
-        print(f"\n✅ Após a migração, teremos 1 tabela única: users")
-        print(f"\n📈 Total de usuários:")
+        print(f"\nOK Após a migração, teremos 1 tabela única: users")
+        print(f"\nTotal de usuários:")
         print(f"   • De auth_users (mantêm senha): {len(auth_users)}")
         print(f"   • De users (senha123): {len(users)}")
         print(f"   • TOTAL: {total} usuários")
 
-        print("\n📋 O que vai acontecer:")
-        print("   1. ✅ Criar tabela users_temp")
-        print("   2. ✅ Copiar dados de auth_users → users_temp")
-        print("   3. ✅ Copiar dados de users → users_temp (com senha123)")
-        print("   4. ✅ Deletar tabelas antigas (auth_users e users)")
-        print("   5. ✅ Renomear users_temp → users")
-        print("   6. ✅ Criar índices e constraints")
+        print("\nO que vai acontecer:")
+        print("   1. OK Criar tabela users_temp")
+        print("   2. OK Copiar dados de auth_users → users_temp")
+        print("   3. OK Copiar dados de users → users_temp (com senha123)")
+        print("   4. OK Deletar tabelas antigas (auth_users e users)")
+        print("   5. OK Renomear users_temp → users")
+        print("   6. OK Criar índices e constraints")
 
-        print("\n⚠️  ATENÇÃO:")
+        print("\nATENÇÃO:")
         print("   • Operação IRREVERSÍVEL!")
         print("   • Faça backup antes!")
         print("   • Usuários de 'users' precisam alterar senha")
 
         print("\n" + "=" * 70)
-        print("🚀 PRÓXIMO PASSO:")
+        print("PRÓXIMO PASSO:")
         print("=" * 70)
         print("\nSe tudo estiver correto, execute:")
         print("   python migrate_database_auto.py --confirm")

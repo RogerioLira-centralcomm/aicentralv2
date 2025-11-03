@@ -190,7 +190,7 @@
             {% endwith %}
 
             <!-- Formulário de Login -->
-            <form action="{{ url_for('login') }}" class="p-6 pt-4" id="loginForm" method="POST">
+            <form action="{{ url_for('login') }}" class="p-6 pt-4" id="loginForm" method="POST" autocomplete="off">
                 <!-- Campo de Email -->
                 <div class="mb-4">
                     <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -198,13 +198,21 @@
                         <div class="input-icon">
                             <i class="fas fa-envelope"></i>
                         </div>
+                        <!-- Campo fake para desarmar autofill (fora de visão) -->
+                        <input type="text" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
                         <input 
                             type="email" 
                             id="email" 
                             name="email" 
                             placeholder="seu.email@centralcomm.media"
                             required
-                            autocomplete="email"
+                            autocomplete="off"
+                            autocapitalize="off"
+                            autocorrect="off"
+                            spellcheck="false"
+                            data-form-type="other"
+                            data-lpignore="true"
+                            data-1p-ignore
                             value="{{ request.form.get('email', '') }}"
                             class="input-with-icon w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         >
@@ -214,18 +222,29 @@
 
                 <!-- Campo de Senha -->
                 <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <label for="password_visible" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
                     <div class="relative">
                         <div class="input-icon">
                             <i class="fas fa-lock"></i>
                         </div>
+                        <!-- Campos decoy/real: impede gerenciadores de sugerirem e mantém backend inalterado -->
+                        <input type="password" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
+                        <!-- Campo REAL enviado no POST (off-screen) -->
+                        <input type="password" id="real_password" name="password" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" autocomplete="off">
+                        <!-- Campo VISÍVEL usado pelo usuário -->
                         <input 
                             type="password" 
-                            id="password" 
-                            name="password" 
+                            id="password_visible" 
+                            name="password_visible" 
                             placeholder="••••••••"
                             required
-                            autocomplete="current-password"
+                            autocomplete="new-password"
+                            autocapitalize="off"
+                            autocorrect="off"
+                            spellcheck="false"
+                            data-form-type="other"
+                            data-lpignore="true"
+                            data-1p-ignore
                             class="input-with-icon w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                         >
                         <button type="button" class="password-toggle" onclick="togglePassword()">
@@ -296,7 +315,7 @@
 <script>
     // Função para alternar visibilidade da senha
     function togglePassword() {
-        const passwordInput = document.getElementById('password');
+        const passwordInput = document.getElementById('password_visible');
         const toggleIcon = document.getElementById('toggleIcon');
         
         if (passwordInput.type === 'password') {
@@ -309,6 +328,30 @@
             toggleIcon.classList.add('fa-eye');
         }
     }
+    
+    // Sincroniza campo visível com o real (enviado ao servidor) e reduz prompts de autofill
+    document.addEventListener('DOMContentLoaded', function() {
+        const pwdVisible = document.getElementById('password_visible');
+        const pwdReal = document.getElementById('real_password');
+        if (pwdVisible && pwdReal) {
+            pwdVisible.value = '';
+            pwdReal.value = '';
+            const sync = () => { pwdReal.value = pwdVisible.value; };
+            ['input','change','keyup','paste'].forEach(ev => pwdVisible.addEventListener(ev, sync));
+
+            // Evita sugestões: só habilita digitação após interação do usuário
+            let locked = true;
+            const unlock = () => { locked = false; pwdVisible.removeEventListener('pointerdown', unlock); };
+            pwdVisible.addEventListener('pointerdown', unlock, { once: true });
+            pwdVisible.addEventListener('focus', function() {
+                if (locked) {
+                    // força interação antes para evitar dropdown de credenciais
+                    this.blur();
+                    setTimeout(() => this.focus(), 0);
+                }
+            });
+        }
+    });
     
     // Função para abrir suporte WhatsApp
     function openWhatsAppSupport() {

@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'nome_completo',
             'email',
             'telefone',
-            'senha'
+            'senha_visible'
         ];
 
         camposParaProteger.forEach(id => {
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Se for um novo contato, garante campos limpos sem chamar funções inexistentes
     if (!isEdit) {
-        const campos = ['nome_completo', 'email', 'telefone', 'senha'];
+        const campos = ['nome_completo', 'email', 'telefone', 'senha_visible'];
         campos.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
@@ -105,19 +105,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const passwordToggles = document.querySelectorAll('.password-toggle');
     passwordToggles.forEach(toggle => {
         toggle.addEventListener('click', function() {
-            // O HTML usa um div.relative, não .password-wrapper
             const container = this.closest('.relative') || this.parentElement;
-            const input = container ? container.querySelector('input[type="password"], input[type="text"]') : null;
+            if (!container) return;
+            // Seleciona os campos visíveis (text com -webkit-text-security)
+            const input = container.querySelector('#senha_visible, #nova_senha_visible');
             if (!input) return;
 
-            if (input.type === 'password') {
-                input.type = 'text';
-                this.classList.remove('fa-eye');
-                this.classList.add('fa-eye-slash');
-            } else {
-                input.type = 'password';
+            const revealed = input.dataset.revealed === '1';
+            if (revealed) {
+                input.style.webkitTextSecurity = 'disc';
+                input.dataset.revealed = '0';
                 this.classList.remove('fa-eye-slash');
                 this.classList.add('fa-eye');
+            } else {
+                input.style.webkitTextSecurity = 'none';
+                input.dataset.revealed = '1';
+                this.classList.remove('fa-eye');
+                this.classList.add('fa-eye-slash');
             }
         });
     });
@@ -186,15 +190,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Validar senha apenas para novo contato
+            // Validar senha apenas para novo contato (campo visível)
             if (!isEdit) {
-                const senha = document.querySelector('input[name="senha"]').value;
+                const senha = (document.getElementById('senha_visible') || {}).value || '';
                 if (!senha || senha.length < 6) {
                     alert('Senha deve ter no mínimo 6 caracteres!');
                     e.preventDefault();
                     return false;
                 }
             }
+            
+            // Sincroniza campos visíveis -> reais antes de enviar
+            const senhaVisible = document.getElementById('senha_visible');
+            const senhaReal = document.getElementById('senha_real');
+            if (senhaVisible && senhaReal) senhaReal.value = senhaVisible.value || '';
+
+            const novaSenhaVisible = document.getElementById('nova_senha_visible');
+            const novaSenhaReal = document.getElementById('nova_senha_real');
+            if (novaSenhaVisible && novaSenhaReal) novaSenhaReal.value = novaSenhaVisible.value || '';
             
             console.log('Enviando formulário:', {
                 nome_completo: nomeCompleto,
@@ -206,6 +219,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Inicializa campos visíveis de senha mascarados e limpos
+    ['senha_visible', 'nova_senha_visible'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = '';
+            el.style.webkitTextSecurity = 'disc';
+            el.dataset.revealed = '0';
+        }
+    });
+
     // Foca no primeiro campo após um breve delay
     setTimeout(() => {
         const nomeInput = document.getElementById('nome_completo');

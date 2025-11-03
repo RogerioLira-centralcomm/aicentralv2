@@ -229,6 +229,30 @@ def init_routes(app):
             nova_senha = request.form.get('password', '').strip()
             confirm = request.form.get('confirm_password', '').strip()
 
+            if not nova_senha or not confirm:
+                flash('Preencha todos os campos!', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+
+            if nova_senha != confirm:
+                flash('Senhas não coincidem!', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+
+            if len(nova_senha) < 6:
+                flash('Senha deve ter 6+ caracteres!', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+
+            try:
+                db.atualizar_senha_contato(contato['id_contato_cliente'], nova_senha)
+                db.limpar_reset_token(contato['id_contato_cliente'])
+                send_password_changed_email(contato['email'], contato['nome_completo'])
+                flash('Senha redefinida!', 'success')
+                return redirect(url_for('login'))
+            except Exception as e:
+                app.logger.error(f"Erro: {e}")
+                flash('Erro ao redefinir.', 'error')
+
+        return render_template('reset_password_tailwind.html', token=token, user=contato)
+
     # ==================== PLANOS ====================
 
     @app.route('/planos')
@@ -356,32 +380,6 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao alterar status do setor: {str(e)}")
             return jsonify({'message': 'Erro ao alterar status'}), 500
-            nova_senha = request.form.get('password', '').strip()
-            confirm = request.form.get('confirm_password', '').strip()
-
-            if not nova_senha or not confirm:
-                flash('Preencha todos os campos!', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
-
-            if nova_senha != confirm:
-                flash('Senhas não coincidem!', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
-
-            if len(nova_senha) < 6:
-                flash('Senha deve ter 6+ caracteres!', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
-
-            try:
-                db.atualizar_senha_contato(contato['id_contato_cliente'], nova_senha)
-                db.limpar_reset_token(contato['id_contato_cliente'])
-                send_password_changed_email(contato['email'], contato['nome_completo'])
-                flash('Senha redefinida!', 'success')
-                return redirect(url_for('login'))
-            except Exception as e:
-                app.logger.error(f"Erro: {e}")
-                flash('Erro ao redefinir.', 'error')
-
-        return render_template('reset_password_tailwind.html', token=token, user=contato)
     
     # ==================== CLIENTES ====================
     
@@ -1471,5 +1469,20 @@ def init_routes(app):
             flash('Não é possível excluir este tipo de cliente pois está em uso.', 'error')
         
         return redirect(url_for('tipos_cliente'))
+
+    # ==================== ERRO HANDLERS ====================
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return render_template('errors/403.html'), 403
+
+    @app.errorhandler(404)
+    def not_found(error):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        app.logger.error(f"Erro interno do servidor: {error}")
+        return render_template('errors/500.html'), 500
     
     app.logger.info("Rotas registradas com sucesso")

@@ -583,14 +583,18 @@ def init_routes(app):
     def up_audiencia():
         """Upload e extração de campos de imagem."""
         result = None
+        prompt_text = None
         if request.method == 'POST':
             try:
+                prompt_text = (request.form.get('prompt') or '').strip()
+                if not prompt_text:
+                    flash('Informe o prompt.', 'error')
                 file = request.files.get('upimagem')
                 if not file or not file.filename:
                     flash('Selecione um arquivo de imagem.', 'error')
-                else:
+                elif prompt_text:
                     image_bytes = file.read()
-                    data = extract_fields_from_image_bytes(image_bytes)
+                    data = extract_fields_from_image_bytes(image_bytes, filename=file.filename, prompt=prompt_text)
                     # data esperado: dict com campos extraídos
                     fields = {
                         'cliente': (data or {}).get('cliente'),
@@ -598,12 +602,197 @@ def init_routes(app):
                         'data': (data or {}).get('data'),
                         'valor_total': (data or {}).get('valor_total'),
                     }
-                    result = {'fields': fields, 'raw': data}
+                    # Monta texto chave:valor para exibição à esquerda
+                    def _serialize_value(val):
+                        import json as _json
+                        if isinstance(val, (str, int, float, bool)) or val is None:
+                            return '' if val is None else str(val)
+                        try:
+                            return _json.dumps(val, ensure_ascii=False)
+                        except Exception:
+                            return str(val)
+
+                    kv_lines = []
+                    base_keys = ['cliente', 'pedido', 'data', 'valor_total']
+                    # Prioriza chaves principais se existirem com valores
+                    any_main = False
+                    for k in base_keys:
+                        v = (data or {}).get(k)
+                        if v not in (None, ''):
+                            any_main = True
+                        kv_lines.append(f"{k}: {_serialize_value(v)}")
+
+                    if not any_main and isinstance(data, dict):
+                        # Tenta extrair de 'content' quando o parser não conseguiu estruturar
+                        content = data.get('content')
+                        parsed_extra = None
+                        if isinstance(content, str):
+                            txt = content.strip()
+                            try:
+                                # tenta encontrar objeto JSON
+                                start = txt.find('{')
+                                end = txt.rfind('}')
+                                if start != -1 and end != -1 and end > start:
+                                    txt_obj = txt[start:end+1]
+                                    import json as _json
+                                    parsed_extra = _json.loads(txt_obj)
+                            except Exception:
+                                parsed_extra = None
+                        elif isinstance(content, dict):
+                            parsed_extra = content
+
+                        if parsed_extra and isinstance(parsed_extra, dict):
+                            kv_lines = [f"{k}: {_serialize_value(v)}" for k, v in parsed_extra.items()]
+                        else:
+                            # Caso geral: imprime todas as chaves simples de data (exceto _raw)
+                            kv_lines = []
+                            for k, v in data.items():
+                                if k == '_raw':
+                                    continue
+                                kv_lines.append(f"{k}: {_serialize_value(v)}")
+
+                    kv_text = "\n".join(kv_lines)
+
+                    # Extrai uso de tokens do raw (se disponível) e estima custo em USD com base em variáveis de ambiente
+                    raw_obj = (data or {}).get('_raw') or {}
+                    usage = (raw_obj or {}).get('usage') or {}
+                    pt = usage.get('prompt_tokens') or 0
+                    ct = usage.get('completion_tokens') or 0
+                    tt = usage.get('total_tokens') or (pt + ct)
+
+                    # Estimar tokens e preços caso não venham no retorno
+                    import os as _os, math as _math, json as _json
+                    usage_estimated = False
+                    pricing_defaults_used = False
+
+                    if pt == 0 and ct == 0:
+                        # Equivalência de imagem em tokens (configurável)
+                        try:
+                            img_eq = int((_os.getenv('OPENROUTER_IMAGE_TOKENS_EQUIV') or '300').strip() or 300)
+                        except Exception:
+                            img_eq = 300
+
+                        def _est_tokens(text: str) -> int:
+                            if not text:
+                                return 0
+                            return int(_math.ceil(len(text) / 4.0))
+
+                        pt = img_eq + _est_tokens(prompt_text or '')
+                        # completion: usa 'content' bruto quando disponível, senão JSON dos fields
+                        comp_src = (data or {}).get('content') if isinstance((data or {}).get('content'), str) else _json.dumps(fields, ensure_ascii=False)
+                        ct = _est_tokens(comp_src or '')
+                        tt = pt + ct
+                        usage_estimated = True
+
+                    # Tentar obter custo diretamente da OpenRouter (headers ou corpo)
+                    cost_usd = None
+                    headers_map = (raw_obj or {}).get('__headers__') or {}
+                    # Candidatos comuns de header para custo
+                    for hk in ['x-openrouter-total-cost', 'x-request-cost', 'x-openrouter-cost', 'x-openrouter-processed-total-cost']:
+                        if hk in headers_map:
+                            try:
+                                cost_usd = float(str(headers_map.get(hk)).strip().replace('$',''))
+                                break
+                            except Exception:
+                                pass
+                    # Candidatos no corpo
+                    if cost_usd is None and isinstance(usage, dict):
+                        for k, v in usage.items():
+                            if isinstance(k, str) and 'cost' in k.lower():
+                                try:
+                                    cost_usd = float(v)
+                                    break
+                                except Exception:
+                                    continue
+
+                    # Se ainda não houver custo, calcular estimativa via preços
+                    if cost_usd is None:
+                        # Preços por milhão de tokens (entrada/saída)
+                        try:
+                            in_price = float((_os.getenv('OPENROUTER_PRICE_IN_PER_MTOKENS') or '0').strip() or 0)
+                            out_price = float((_os.getenv('OPENROUTER_PRICE_OUT_PER_MTOKENS') or '0').strip() or 0)
+                        except Exception:
+                            in_price = 0.0
+                            out_price = 0.0
+                        if in_price == 0:
+                            try:
+                                in_price = float((_os.getenv('OPENROUTER_DEFAULT_IN_PRICE') or '3.0').strip() or 3.0)
+                            except Exception:
+                                in_price = 3.0
+                            pricing_defaults_used = True
+                        if out_price == 0:
+                            try:
+                                out_price = float((_os.getenv('OPENROUTER_DEFAULT_OUT_PRICE') or '15.0').strip() or 15.0)
+                            except Exception:
+                                out_price = 15.0
+                            pricing_defaults_used = True
+
+                        cost_usd = (pt / 1_000_000.0) * in_price + (ct / 1_000_000.0) * out_price
+                    model_used = (raw_obj or {}).get('model')
+
+                    # Conversão para BRL com base no dólar do dia
+                    usd_brl_rate = None
+                    usd_brl_source = None
+                    cost_brl = None
+                    try:
+                        # 1) Override por variável de ambiente (maior prioridade)
+                        rate_env = _os.getenv('USD_BRL_RATE')
+                        if rate_env:
+                            usd_brl_rate = float(str(rate_env).strip())
+                            usd_brl_source = 'env:USD_BRL_RATE'
+                        # 2) Buscar em serviço público se não definido
+                        if usd_brl_rate is None:
+                            try:
+                                import requests as _req
+                                r = _req.get('https://api.exchangerate.host/latest?base=USD&symbols=BRL', timeout=5)
+                                if r.status_code == 200:
+                                    data_fx = r.json() or {}
+                                    rates = data_fx.get('rates') or {}
+                                    brl = rates.get('BRL')
+                                    if brl:
+                                        usd_brl_rate = float(brl)
+                                        usd_brl_source = 'exchangerate.host'
+                            except Exception:
+                                pass
+                        # 3) Se ainda não houver taxa, tenta um segundo provedor (opcional)
+                        if usd_brl_rate is None:
+                            try:
+                                import requests as _req
+                                r2 = _req.get('https://economia.awesomeapi.com.br/json/last/USD-BRL', timeout=5)
+                                if r2.status_code == 200:
+                                    j = r2.json() or {}
+                                    usdb = j.get('USDBRL') or {}
+                                    bid = usdb.get('bid')
+                                    if bid:
+                                        usd_brl_rate = float(bid)
+                                        usd_brl_source = 'awesomeapi.com.br'
+                            except Exception:
+                                pass
+                    except Exception:
+                        usd_brl_rate = None
+                        usd_brl_source = None
+
+                    if cost_usd is not None and usd_brl_rate is not None:
+                        cost_brl = round(cost_usd * usd_brl_rate, 6)
+
+                    result = {
+                        'fields': fields,
+                        'raw': data,
+                        'kv_text': kv_text,
+                        'usage': { 'prompt_tokens': pt, 'completion_tokens': ct, 'total_tokens': tt },
+                        'cost_usd': round(cost_usd, 6),
+                        'model_used': model_used,
+                        'usage_estimated': usage_estimated,
+                        'pricing_defaults_used': pricing_defaults_used,
+                        'cost_brl': cost_brl,
+                        'usd_brl_rate': usd_brl_rate,
+                        'usd_brl_source': usd_brl_source,
+                    }
                     flash('Arquivo processado com sucesso!', 'success')
             except Exception as e:
                 app.logger.error(f"Erro no processamento da imagem: {e}")
                 flash('Erro ao processar a imagem.', 'error')
-        return render_template('up_audiencia.html', result=result)
+        return render_template('up_audiencia.html', result=result, prompt=prompt_text)
 
     # ==================== PERCENTUAL (Fluxo de Boas-Vindas) ====================
 

@@ -218,84 +218,90 @@
                     <p class="mt-1 text-sm text-gray-500 pessoa-fisica hidden">Obrigatório - formato: 000.000.000-00</p>
                 </div>
 
-                <!-- Inscrição Estadual -->
-                <div class="mb-6 pessoa-juridica">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-alt mr-2 text-gray-500"></i>
-                        Inscrição Estadual
-                    </label>
-                    <input 
-                        type="text" 
-                        name="inscricao_estadual" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        value="{{ cliente.inscricao_estadual if cliente else '' }}"
-                        placeholder="Ex: 123.456.789.012"
-                    >
-                    <p class="mt-1 text-sm text-gray-500">Opcional</p>
+                <!-- Inscrições (Estadual e Municipal) na mesma linha -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Inscrição Estadual -->
+                    <div class="pessoa-juridica">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-file-alt mr-2 text-gray-500"></i>
+                            Inscrição Estadual
+                        </label>
+                        <input 
+                            type="text" 
+                            name="inscricao_estadual" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                            value="{{ cliente.inscricao_estadual if cliente else '' }}"
+                            placeholder="Ex: 123.456.789.012"
+                        >
+                        <p class="mt-1 text-sm text-gray-500">Opcional</p>
+                    </div>
+
+                    <!-- Inscrição Municipal -->
+                    <div class="pessoa-juridica">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-file-alt mr-2 text-gray-500"></i>
+                            Inscrição Municipal
+                        </label>
+                        <input 
+                            type="text" 
+                            name="inscricao_municipal" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                            value="{{ cliente.inscricao_municipal if cliente else '' }}"
+                            placeholder="Ex: 123456"
+                        >
+                        <p class="mt-1 text-sm text-gray-500">Opcional</p>
+                    </div>
                 </div>
 
-                <!-- Inscrição Municipal -->
-                <div class="mb-6 pessoa-juridica">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-alt mr-2 text-gray-500"></i>
-                        Inscrição Municipal
-                    </label>
-                    <input 
-                        type="text" 
-                        name="inscricao_municipal" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        value="{{ cliente.inscricao_municipal if cliente else '' }}"
-                        placeholder="Ex: 123456"
-                    >
-                    <p class="mt-1 text-sm text-gray-500">Opcional</p>
-                </div>
+                <!-- Tipo de Cliente + Plano (mesma linha em telas médias+) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Tipo de Cliente -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-tags mr-2 text-gray-500"></i>
+                            Tipo de Cliente
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            name="id_tipo_cliente" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                            required
+                        >
+                            <option value="">Selecione um tipo</option>
+                            {% for tipo in tipos_cliente %}
+                <option value="{{ tipo.id_tipo_cliente }}" 
+                    {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>
+                                {{ tipo.display }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Obrigatório</p>
+                    </div>
 
-                <!-- Tipo de Cliente -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-tags mr-2 text-gray-500"></i>
-                        Tipo de Cliente
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <select 
-                        name="id_tipo_cliente" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        required
-                    >
-                        <option value="">Selecione um tipo</option>
-                        {% for tipo in tipos_cliente %}
-            <option value="{{ tipo.id_tipo_cliente }}" 
-                {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>
-                            {{ tipo.display }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <p class="mt-1 text-sm text-gray-500">Obrigatório</p>
-                </div>
-
-                <!-- Plano -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-layer-group mr-2 text-gray-500"></i>
-                        Plano
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <select 
-                        name="pk_id_tbl_plano" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        required
-                    >
-                        <option value="">Selecione um plano</option>
-                        {% for plano in planos %}
-                            {% if plano.status %}
-                                <option value="{{ plano.id_plano }}" 
-                                    {% if cliente and cliente.pk_id_tbl_plano == plano.id_plano %}selected{% endif %}>
-                                    {{ plano.descricao }} - {{ "{:,}".format(plano.tokens).replace(',', '.') }} tokens
-                                </option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                    <p class="mt-1 text-sm text-gray-500">Selecione o plano de tokens para este cliente</p>
+                    <!-- Plano -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-layer-group mr-2 text-gray-500"></i>
+                            Plano
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            name="pk_id_tbl_plano" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+                            required
+                        >
+                            <option value="">Selecione um plano</option>
+                            {% for plano in planos %}
+                                {% if plano.status %}
+                                    <option value="{{ plano.id_plano }}" 
+                                        {% if cliente and cliente.pk_id_tbl_plano == plano.id_plano %}selected{% endif %}>
+                                        {{ plano.descricao }} - {{ "{:,}".format(plano.tokens).replace(',', '.') }} tokens
+                                    </option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Selecione o plano de tokens para este cliente</p>
+                    </div>
                 </div>
 
                 <!-- Percentual (somente ativos; visível apenas quando Agência = Sim) -->

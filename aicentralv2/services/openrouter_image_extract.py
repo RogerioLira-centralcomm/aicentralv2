@@ -5,8 +5,8 @@ Reads API key from environment (.env supported via project Config load) and send
 OpenRouter chat/completions using a vision-capable model (default: anthropic/claude-3.5-sonnet).
 
 Provides:
-- extract_fields_from_image_bytes(image_bytes, filename=None, model=None) -> dict
-- extract_fields_from_image_path(path, model=None) -> dict
+- extract_fields_from_image_bytes(image_bytes, filename=None, model=None, prompt=None) -> dict
+- extract_fields_from_image_path(path, model=None, prompt=None) -> dict
 
 Return shape (best-effort):
 {
@@ -25,7 +25,8 @@ import mimetypes
 from typing import Any, Dict, Optional
 import requests
 
-DEFAULT_MODEL = os.getenv('OPENROUTER_MODEL', 'anthropic/claude-3.5-sonnet')
+DEFAULT_MODEL = os.getenv('OPENROUTER_MODEL', 'google/gemini-2.5-pro')
+SECONDARY_VISION_MODEL = os.getenv('OPENROUTER_MODEL_FALLBACK', 'anthropic/claude-3.5-sonnet')
 API_KEY = os.getenv('OPENROUTER_API_KEY')
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 APP_REFERER = os.getenv('APP_REFERER', 'https://aicentral.local')
@@ -71,26 +72,53 @@ essential_headers = lambda: {
 }
 
 
-def _call_openrouter(image_b64: str, content_type: str, model: Optional[str] = None) -> Dict[str, Any]:
+def _call_openrouter(image_b64: str, content_type: str, model: Optional[str] = None, prompt_text: Optional[str] = None) -> Dict[str, Any]:
     if not API_KEY:
         raise RuntimeError('OPENROUTER_API_KEY não configurada no .env')
+    if not prompt_text or not prompt_text.strip():
+        raise ValueError('Prompt não informado')
 
-    payload = {
-        'model': model or DEFAULT_MODEL,
-        'messages': [
-            {
-                'role': 'user',
-                'content': [
-                    { 'type': 'text', 'text': PROMPT },
-                    { 'type': 'image_url', 'image_url': f'data:{content_type};base64,{image_b64}' }
-                ]
-            }
-        ],
-        'max_tokens': 500,
-    }
-    resp = requests.post(OPENROUTER_URL, headers=essential_headers(), json=payload, timeout=60)
-    resp.raise_for_status()
-    return resp.json()
+    def _build_payload(m: str) -> Dict[str, Any]:
+        return {
+            'model': m,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': [
+                        { 'type': 'text', 'text': prompt_text },
+                        { 'type': 'image_url', 'image_url': f'data:{content_type};base64,{image_b64}' }
+                    ]
+                }
+            ],
+            'max_tokens': 500,
+        }
+
+    # Preferir o modelo de visão como primário; se não definido, usar o default geral
+    chosen_model = model or SECONDARY_VISION_MODEL or DEFAULT_MODEL
+    try:
+        resp = requests.post(OPENROUTER_URL, headers=essential_headers(), json=_build_payload(chosen_model), timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        # Anexa cabeçalhos úteis da OpenRouter para custo/uso
+        try:
+            hdrs = {k.lower(): v for k, v in dict(resp.headers or {}).items()}
+            data['__headers__'] = {k: v for k, v in hdrs.items() if k.startswith('x-openrouter') or k.startswith('openrouter') or k.startswith('x-request')}
+        except Exception:
+            pass
+        return data
+    except requests.exceptions.HTTPError as e:
+        # Fallback automático para o modelo alternativo (DEFAULT_MODEL) caso o primário falhe
+        if chosen_model != DEFAULT_MODEL and DEFAULT_MODEL:
+            resp2 = requests.post(OPENROUTER_URL, headers=essential_headers(), json=_build_payload(DEFAULT_MODEL), timeout=60)
+            resp2.raise_for_status()
+            data2 = resp2.json()
+            try:
+                hdrs2 = {k.lower(): v for k, v in dict(resp2.headers or {}).items()}
+                data2['__headers__'] = {k: v for k, v in hdrs2.items() if k.startswith('x-openrouter') or k.startswith('openrouter') or k.startswith('x-request')}
+            except Exception:
+                pass
+            return data2
+        raise
 
 
 def _parse_response_to_json_fields(resp_obj: Dict[str, Any]) -> Dict[str, Any]:
@@ -144,17 +172,17 @@ def _parse_response_to_json_fields(resp_obj: Dict[str, Any]) -> Dict[str, Any]:
         return { '_raw': resp_obj, 'content': content }
 
 
-def extract_fields_from_image_bytes(image_bytes: bytes, filename: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+def extract_fields_from_image_bytes(image_bytes: bytes, filename: Optional[str] = None, model: Optional[str] = None, prompt: Optional[str] = None) -> Dict[str, Any]:
     content_type = _detect_mime_from_filename(filename)
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')
-    resp = _call_openrouter(image_b64, content_type, model=model)
+    resp = _call_openrouter(image_b64, content_type, model=model, prompt_text=prompt)
     return _parse_response_to_json_fields(resp)
 
 
-def extract_fields_from_image_path(path: str, model: Optional[str] = None) -> Dict[str, Any]:
+def extract_fields_from_image_path(path: str, model: Optional[str] = None, prompt: Optional[str] = None) -> Dict[str, Any]:
     with open(path, 'rb') as f:
         data = f.read()
-    return extract_fields_from_image_bytes(data, filename=os.path.basename(path), model=model)
+    return extract_fields_from_image_bytes(data, filename=os.path.basename(path), model=model, prompt=prompt)
 
 
 if __name__ == '__main__':

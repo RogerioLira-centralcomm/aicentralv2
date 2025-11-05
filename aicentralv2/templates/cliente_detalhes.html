@@ -53,21 +53,23 @@
                     </p>
                 </div>
                 
-                <!-- Razão Social -->
+                <!-- Razão Social (somente PJ) -->
+                {% if cliente.pessoa != 'F' %}
                 <div>
                     <label class="text-sm font-medium text-gray-500">Razão Social</label>
                     <p class="text-gray-900 mt-1">{{ cliente.razao_social }}</p>
                 </div>
+                {% endif %}
                 
-                <!-- Nome Fantasia -->
+                <!-- Nome Fantasia / Nome Completo -->
                 <div>
-                    <label class="text-sm font-medium text-gray-500">Nome Fantasia</label>
+                    <label class="text-sm font-medium text-gray-500">{{ 'Nome Completo' if cliente.pessoa == 'F' else 'Nome Fantasia' }}</label>
                     <p class="text-gray-900 mt-1">{{ cliente.nome_fantasia }}</p>
                 </div>
                 
-                <!-- CNPJ -->
+                <!-- CNPJ/CPF -->
                 <div>
-                    <label class="text-sm font-medium text-gray-500">CNPJ</label>
+                    <label class="text-sm font-medium text-gray-500">{{ 'CPF' if cliente.pessoa == 'F' else 'CNPJ' }}</label>
                     <p class="text-gray-900 mt-1">{{ cliente.cnpj or 'Não informado' }}</p>
                 </div>
                 
@@ -92,11 +94,37 @@
                     </p>
                 </div>
 
-                <!-- Agência -->
+                <!-- Apresentação do Executivo -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Apresentação do Executivo</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.apresentacao_executivo_display or 'Não informado' }}</p>
+                </div>
+
+                <!-- Fluxo de Boas-Vindas -->
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Fluxo de Boas-Vindas</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.fluxo_boas_vindas_display or 'Não informado' }}</p>
+                </div>
+
+                <!-- Agência (somente PJ) -->
+                {% if cliente.pessoa != 'F' %}
                 <div>
                     <label class="text-sm font-medium text-gray-500">Agência</label>
-                    <p class="text-gray-900 mt-1">{{ 'Sim' if cliente.agencia_key == True else 'Não' }}</p>
+                    <p class="text-gray-900 mt-1">
+                        {% set ag_key = cliente.agencia_key|string|lower %}
+                        {{ 'Sim' if (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) else 'Não' }}
+                    </p>
                 </div>
+                {% endif %}
+
+                <!-- Percentual (somente quando Agência = Sim) -->
+                {% set ag_key = cliente.agencia_key|string|lower %}
+                {% if cliente.pessoa != 'F' and (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) %}
+                <div>
+                    <label class="text-sm font-medium text-gray-500">Percentual</label>
+                    <p class="text-gray-900 mt-1">{{ cliente.percentual_display or '—' }}</p>
+                </div>
+                {% endif %}
 
                 <!-- Estado -->
                 <div>
@@ -116,17 +144,21 @@
                     <p class="text-gray-900 mt-1">{{ cliente.tipo_cliente_display or 'Não informado' }}</p>
                 </div>
                 
-                <!-- Inscrição Estadual -->
+                <!-- Inscrição Estadual (somente PJ) -->
+                {% if cliente.pessoa != 'F' %}
                 <div>
                     <label class="text-sm font-medium text-gray-500">Inscrição Estadual</label>
                     <p class="text-gray-900 mt-1">{{ cliente.inscricao_estadual or 'Não informado' }}</p>
                 </div>
+                {% endif %}
                 
-                <!-- Inscrição Municipal -->
+                <!-- Inscrição Municipal (somente PJ) -->
+                {% if cliente.pessoa != 'F' %}
                 <div>
                     <label class="text-sm font-medium text-gray-500">Inscrição Municipal</label>
                     <p class="text-gray-900 mt-1">{{ cliente.inscricao_municipal or 'Não informado' }}</p>
                 </div>
+                {% endif %}
 
                 <!-- Plano -->
                 <div>

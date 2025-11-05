@@ -118,12 +118,12 @@ def init_db(app):
                             ALTER TABLE tbl_contato_cliente 
                                 ADD CONSTRAINT fk_setor_contato 
                                 FOREIGN KEY (pk_id_tbl_setor) 
-                                REFERENCES aux_setor(id_aux_setor);
+                                REFERENCES tbl_setor(id_setor);
                         EXCEPTION WHEN others THEN
                             -- Evita falha caso a constraint já exista com outro nome
                             NULL;
                         END;
-                        COMMENT ON COLUMN tbl_contato_cliente.pk_id_tbl_setor IS 'ID do setor do contato (ref aux_setor)';
+                        COMMENT ON COLUMN tbl_contato_cliente.pk_id_tbl_setor IS 'ID do setor do contato (ref tbl_setor)';
                     END IF;
                 END $$;
             ''')
@@ -147,6 +147,8 @@ def init_db(app):
             ''')
 
             # Removido: pk_id_contato_vendas não faz parte do schema
+
+            
 
         conn.commit()
     app.logger.info("OK Banco de dados inicializado")
@@ -174,6 +176,11 @@ def gerar_senha_md5(senha):
 def verificar_senha_md5(senha, senha_md5):
     """Verifica se senha bate com hash MD5"""
     return gerar_senha_md5(senha) == senha_md5
+
+
+# ==================== IMAGEM/EXTRAÇÃO ====================
+
+ 
 
 
 # ==================== VALIDAÇÕES DE DOCUMENTOS ====================
@@ -304,28 +311,26 @@ def obter_setores(apenas_ativos=True):
         if apenas_ativos:
             cursor.execute('''
                 SELECT 
-                    id_aux_setor,
-                    id_aux_setor as id_setor,
+                    id_setor,
                     display,
                     display as descricao,
                     status,
                     data_cadastro,
                     data_modificacao
-                FROM aux_setor
+                FROM tbl_setor
                 WHERE status = TRUE
                 ORDER BY display
             ''')
         else:
             cursor.execute('''
                 SELECT 
-                    id_aux_setor,
-                    id_aux_setor as id_setor,
+                    id_setor,
                     display,
                     display as descricao,
                     status,
                     data_cadastro,
                     data_modificacao
-                FROM aux_setor
+                FROM tbl_setor
                 ORDER BY display
             ''')
         return cursor.fetchall()
@@ -456,7 +461,7 @@ def obter_contato_por_id(contato_id):
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
             LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
-            LEFT JOIN aux_setor s ON s.id_aux_setor = car.pk_id_aux_setor
+            LEFT JOIN tbl_setor s ON s.id_setor = car.pk_id_aux_setor
             WHERE c.id_contato_cliente = %s
         ''', (contato_id,))
         return cursor.fetchone()
@@ -518,23 +523,30 @@ def obter_cliente_por_id(id_cliente):
         cursor.execute('''
             SELECT 
                 c.*,
+                c.pk_id_tbl_agencia as pk_id_aux_agencia,
                 p.descricao as plano_descricao,
                 p.tokens as plano_tokens,
                 p.status as plano_status,
                 ag.display as agencia_display,
                 ag.key as agencia_key,
-                tc.display as tipo_cliente_display
+                tc.display as tipo_cliente_display,
+                ae.display as apresentacao_executivo_display,
+                fb.display as fluxo_boas_vindas_display,
+                pr.display as percentual_display
             FROM tbl_cliente c
             LEFT JOIN tbl_plano p ON c.pk_id_tbl_plano = p.id_plano
-            LEFT JOIN aux_agencia ag ON c.pk_id_aux_agencia = ag.id_aux_agencia
-            LEFT JOIN aux_tipo_cliente tc ON c.id_tipo_cliente = tc.id_aux_tipo_cliente
+            LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
+            LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
+            LEFT JOIN tbl_apresentacao_executivo ae ON c.id_apresentacao_executivo = ae.id_tbl_apresentacao_executivo
+            LEFT JOIN tbl_fluxo_boas_vindas fb ON c.id_fluxo_boas_vindas = fb.id_fluxo_boas_vindas
+            LEFT JOIN tbl_percentual pr ON pr.id_percentual = c.id_percentual
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
         return cursor.fetchone()
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None,
-                pk_id_aux_estado=None, vendas_central_comm=None):
+                pk_id_aux_estado=None, vendas_central_comm=None, id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, id_percentual=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -544,14 +556,17 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                 INSERT INTO tbl_cliente (
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, id_centralx, bairro, cidade, logradouro, numero, 
-                    complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm
+                    complemento, cep, pk_id_tbl_plano, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
+                    id_apresentacao_executivo, id_fluxo_boas_vindas, id_percentual
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
-                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm
+                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
+                id_apresentacao_executivo, id_fluxo_boas_vindas, id_percentual
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -564,7 +579,8 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
 
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
-                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None):
+                     numero=None, complemento=None, cep=None, pk_id_tbl_plano=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None,
+                     id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, id_percentual=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -587,21 +603,133 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     complemento = %s,
                     cep = %s,
                     pk_id_tbl_plano = %s,
-                    pk_id_aux_agencia = %s,
+                    pk_id_tbl_agencia = %s,
                     pk_id_aux_estado = %s,
                     id_tipo_cliente = %s,
+                    id_apresentacao_executivo = %s,
+                    id_fluxo_boas_vindas = %s,
+                    id_percentual = %s,
                     vendas_central_comm = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
-                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente, vendas_central_comm, id_cliente
+                complemento, cep, pk_id_tbl_plano, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
+                id_apresentacao_executivo, id_fluxo_boas_vindas, id_percentual, vendas_central_comm, id_cliente
             ))
             
             conn.commit()
             return True
 
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+# ==================== PERCENTUAL (CTA) ====================
+
+def obter_percentuais():
+    """Retorna todos os percentuais (CTA) ordenados pelo índice (ID)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                SELECT 
+                    id_percentual,
+                    display,
+                    status
+                FROM tbl_percentual
+                ORDER BY id_percentual
+            ''')
+            return cur.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def obter_percentuais_ativos():
+    """Retorna apenas percentuais ativos, ordenados pelo índice (ID)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''
+                SELECT id_percentual, display, status
+                FROM tbl_percentual
+                WHERE status = TRUE
+                ORDER BY id_percentual
+                '''
+            )
+            return cur.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def obter_percentual_por_id(id_percentual: int):
+    """Retorna um percentual específico pelo ID."""
+    conn = get_db()
+    with conn.cursor() as cur:
+        cur.execute(
+            '''
+            SELECT id_percentual, display, status
+            FROM tbl_percentual
+            WHERE id_percentual = %s
+            ''',
+            (id_percentual,)
+        )
+        return cur.fetchone()
+
+def criar_percentual(id_percentual: int, display: str, status: bool = True) -> int:
+    """Cria um novo percentual com ID explícito e retorna o ID criado."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''
+                INSERT INTO tbl_percentual (id_percentual, display, status)
+                VALUES (%s, %s, %s)
+                RETURNING id_percentual
+                ''',
+                (id_percentual, display.strip(), bool(status))
+            )
+            novo_id = cur.fetchone()['id_percentual']
+        conn.commit()
+        return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def atualizar_percentual(id_percentual: int, display: str, status: bool) -> bool:
+    """Atualiza o display e status de um percentual existente."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''
+                UPDATE tbl_percentual
+                SET display = %s,
+                    status = %s
+                WHERE id_percentual = %s
+                ''',
+                (display.strip(), bool(status), id_percentual)
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def deletar_percentual(id_percentual: int) -> bool:
+    """Exclui um percentual. Retorna False se não existir."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'DELETE FROM tbl_percentual WHERE id_percentual = %s',
+                (id_percentual,)
+            )
+            apagados = cur.rowcount
+        conn.commit()
+        return apagados > 0
     except Exception as e:
         conn.rollback()
         raise e
@@ -1158,13 +1286,13 @@ def obter_setor_por_id(id_setor):
     with conn.cursor() as cur:
         cur.execute("""
             SELECT 
-                id_aux_setor,
+                id_setor,
                 display,
                 status,
                 data_cadastro,
                 data_modificacao
-            FROM aux_setor
-            WHERE id_aux_setor = %s
+            FROM tbl_setor
+            WHERE id_setor = %s
         """, (id_setor,))
         return cur.fetchone()
 
@@ -1173,23 +1301,23 @@ def criar_setor(display, status=True):
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO aux_setor (display, status)
+            INSERT INTO tbl_setor (display, status)
             VALUES (%s, %s)
-            RETURNING id_aux_setor
+            RETURNING id_setor
         """, (display, status))
         conn.commit()
-        return cur.fetchone()['id_aux_setor']
+        return cur.fetchone()['id_setor']
 
 def atualizar_setor(id_setor, display, status):
     """Atualiza um setor existente"""
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute("""
-            UPDATE aux_setor
+            UPDATE tbl_setor
             SET display = %s,
                 status = %s,
                 data_modificacao = CURRENT_TIMESTAMP
-            WHERE id_aux_setor = %s
+            WHERE id_setor = %s
         """, (display, status, id_setor))
         conn.commit()
         return cur.rowcount > 0
@@ -1199,10 +1327,10 @@ def toggle_status_setor(id_setor):
     conn = get_db()
     with conn.cursor() as cur:
         cur.execute("""
-            UPDATE aux_setor
+            UPDATE tbl_setor
             SET status = NOT status,
                 data_modificacao = CURRENT_TIMESTAMP
-            WHERE id_aux_setor = %s
+            WHERE id_setor = %s
             RETURNING status
         """, (id_setor,))
         conn.commit()
@@ -1228,7 +1356,7 @@ def obter_cargos(setor_id=None):
                     c.data_modificacao,
                     s.display as setor_display
                 FROM tbl_cargo_contato c
-                LEFT JOIN aux_setor s ON s.id_aux_setor = c.pk_id_aux_setor
+                LEFT JOIN tbl_setor s ON s.id_setor = c.pk_id_aux_setor
                 WHERE c.pk_id_aux_setor = %s
                 ORDER BY c.descricao
             """, (setor_id,))
@@ -1245,7 +1373,7 @@ def obter_cargos(setor_id=None):
                     c.data_modificacao,
                     s.display as setor_display
                 FROM tbl_cargo_contato c
-                LEFT JOIN aux_setor s ON s.id_aux_setor = c.pk_id_aux_setor
+                LEFT JOIN tbl_setor s ON s.id_setor = c.pk_id_aux_setor
                 ORDER BY c.descricao
             """)
         return cur.fetchall()
@@ -1266,7 +1394,7 @@ def obter_cargo_por_id(id_cargo):
                 c.data_modificacao,
                 s.display as setor_display
             FROM tbl_cargo_contato c
-            LEFT JOIN aux_setor s ON s.id_aux_setor = c.pk_id_aux_setor
+            LEFT JOIN tbl_setor s ON s.id_setor = c.pk_id_aux_setor
             WHERE c.id_cargo_contato = %s
         """, (id_cargo,))
         return cur.fetchone()
@@ -1437,10 +1565,10 @@ def obter_aux_agencia(apenas_ativos=True):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT 
-                    id_aux_agencia,
+                    id_agencia,
                     display,
                     key
-                FROM aux_agencia
+                FROM tbl_agencia
                 ORDER BY display
             ''')
             return cursor.fetchall()
@@ -1457,11 +1585,11 @@ def obter_aux_agencia_por_id(id_aux_agencia: int):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT 
-                    id_aux_agencia,
+                    id_agencia,
                     display,
                     key
-                FROM aux_agencia
-                WHERE id_aux_agencia = %s
+                FROM tbl_agencia
+                WHERE id_agencia = %s
             ''', (id_aux_agencia,))
             return cursor.fetchone()
             
@@ -1480,11 +1608,11 @@ def obter_tipos_cliente():
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT 
-                    id_aux_tipo_cliente,
+                    id_tipo_cliente,
                     display,
                     data_cadastro,
                     data_modificacao
-                FROM aux_tipo_cliente
+                FROM tbl_tipo_cliente
                 ORDER BY display
             ''')
             return cursor.fetchall()
@@ -1493,7 +1621,7 @@ def obter_tipos_cliente():
         conn.rollback()
         raise e
 
-def obter_tipo_cliente_por_id(id_aux_tipo_cliente: int):
+def obter_tipo_cliente_por_id(id_tipo_cliente: int):
     """Retorna um tipo de cliente específico por ID"""
     conn = get_db()
     
@@ -1501,13 +1629,13 @@ def obter_tipo_cliente_por_id(id_aux_tipo_cliente: int):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT 
-                    id_aux_tipo_cliente,
+                    id_tipo_cliente,
                     display,
                     data_cadastro,
                     data_modificacao
-                FROM aux_tipo_cliente
-                WHERE id_aux_tipo_cliente = %s
-            ''', (id_aux_tipo_cliente,))
+                FROM tbl_tipo_cliente
+                WHERE id_tipo_cliente = %s
+            ''', (id_tipo_cliente,))
             return cursor.fetchone()
             
     except Exception as e:
@@ -1521,31 +1649,31 @@ def criar_tipo_cliente(display):
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO aux_tipo_cliente (display, data_cadastro, data_modificacao)
+                INSERT INTO tbl_tipo_cliente (display, data_cadastro, data_modificacao)
                 VALUES (%s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                RETURNING id_aux_tipo_cliente
+                RETURNING id_tipo_cliente
             ''', (display,))
             
             result = cursor.fetchone()
             conn.commit()
-            return result['id_aux_tipo_cliente'] if result else None
+            return result['id_tipo_cliente'] if result else None
             
     except Exception as e:
         conn.rollback()
         raise e
 
-def atualizar_tipo_cliente(id_aux_tipo_cliente, display):
+def atualizar_tipo_cliente(id_tipo_cliente, display):
     """Atualiza um tipo de cliente existente"""
     conn = get_db()
     
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                UPDATE aux_tipo_cliente
+                UPDATE tbl_tipo_cliente
                 SET display = %s,
                     data_modificacao = CURRENT_TIMESTAMP
-                WHERE id_aux_tipo_cliente = %s
-            ''', (display, id_aux_tipo_cliente))
+                WHERE id_tipo_cliente = %s
+            ''', (display, id_tipo_cliente))
             
             conn.commit()
             return cursor.rowcount > 0
@@ -1554,16 +1682,16 @@ def atualizar_tipo_cliente(id_aux_tipo_cliente, display):
         conn.rollback()
         raise e
 
-def excluir_tipo_cliente(id_aux_tipo_cliente):
+def excluir_tipo_cliente(id_tipo_cliente):
     """Exclui um tipo de cliente"""
     conn = get_db()
     
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                DELETE FROM aux_tipo_cliente
-                WHERE id_aux_tipo_cliente = %s
-            ''', (id_aux_tipo_cliente,))
+                DELETE FROM tbl_tipo_cliente
+                WHERE id_tipo_cliente = %s
+            ''', (id_tipo_cliente,))
             
             conn.commit()
             return cursor.rowcount > 0
@@ -1637,6 +1765,44 @@ def obter_estado_por_sigla(sigla: str):
             ''', (sigla.upper(),))
             return cursor.fetchone()
             
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+# ==================== APRESENTAÇÃO EXECUTIVO - LEITURA ====================
+
+def obter_apresentacoes_executivo():
+    """Retorna todas as opções de apresentação do executivo."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''
+                SELECT 
+                    id_tbl_apresentacao_executivo,
+                    display
+                FROM tbl_apresentacao_executivo
+                ORDER BY display
+            ''')
+            return cur.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+# ==================== FLUXO DE BOAS-VINDAS - LEITURA ====================
+
+def obter_fluxos_boas_vindas():
+    """Retorna todas as opções de fluxo de boas-vindas."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                '''
+                SELECT id_fluxo_boas_vindas, display
+                FROM tbl_fluxo_boas_vindas
+                ORDER BY id_fluxo_boas_vindas
+                '''
+            )
+            return cur.fetchall()
     except Exception as e:
         conn.rollback()
         raise e

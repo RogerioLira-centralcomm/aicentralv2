@@ -42,7 +42,7 @@ function openCreateModal() {
 function openEditModal(setor) {
     console.log('Dados do setor recebidos:', setor);
     modalTitle.textContent = 'Editar Setor';
-    setorForm.querySelector('#setorId').value = setor.id_aux_setor;
+    setorForm.querySelector('#setorId').value = setor.id_setor;
     setorForm.querySelector('#display').value = setor.display;
     setorForm.querySelector('#status').value = setor.status.toString();
     setorModal.classList.remove('hidden');
@@ -60,7 +60,7 @@ async function handleSubmit(e) {
     e.preventDefault();
     
     const formData = new FormData(setorForm);
-    const setorId = formData.get('id_aux_setor');
+    const setorId = formData.get('id_setor');
     const isEdit = setorId !== '';
     
     try {

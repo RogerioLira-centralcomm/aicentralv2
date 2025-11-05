@@ -43,10 +43,13 @@ document.addEventListener('DOMContentLoaded', function() {
             agenciaInputs.forEach(input => {
                 input.disabled = pessoaTipo !== 'J';
                 if (pessoaTipo === 'F') {
-                    document.querySelector('input[name="pk_id_aux_agencia_pf"]').value = '2';
+                    const hiddenAgenciaPf = document.querySelector('input[name="pk_id_tbl_agencia_pf"]');
+                    if (hiddenAgenciaPf) hiddenAgenciaPf.value = '2';
                 }
             });
         }
+        // Atualiza visibilidade da seção Percentual (somente quando Pessoa Jurídica e Agência = 'sim')
+        updatePercentualVisibility();
         
         pessoaFisicaFields.forEach(field => {
             field.classList.toggle('hidden', pessoaTipo !== 'F');
@@ -236,6 +239,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('Nome Fantasia é obrigatório!');
                     e.preventDefault();
                     return false;
+                }
+                // Percentual obrigatório quando Agência = Sim
+                if (isPercentualRequired()) {
+                    const percSelect = document.querySelector('select[name="id_percentual"]');
+                    if (!percSelect || !percSelect.value) {
+                        e.preventDefault();
+                        showFieldError(percSelect, 'Percentual é obrigatório quando Agência = Sim.');
+                        showToast('Selecione um Percentual.', 'warning');
+                        return false;
+                    } else {
+                        clearFieldError(percSelect);
+                    }
                 }
             } else {
                 // Pessoa Física: Razão Social não é obrigatória
@@ -440,6 +455,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Dropdown de Executivo de Vendas (CentralComm) agora é único; nenhuma lógica adicional necessária
+    // --- Visibilidade Percentual baseada na Agência selecionada ---
+    function isPessoaJuridica() {
+        const sel = document.querySelector('input[name="pessoa"]:checked');
+        return !!sel && sel.value === 'J';
+    }
+
+    function getSelectedAgenciaKey() {
+        const selAg = document.querySelector('input[name="pk_id_tbl_agencia"]:checked');
+        return selAg ? (selAg.dataset.agenciaKey || '').toLowerCase() : '';
+    }
+
+    function updatePercentualVisibility() {
+        const percSection = document.querySelector('.percentual-section');
+        const percSelect = document.querySelector('select[name="id_percentual"]');
+        if (!percSection) return;
+        const key = getSelectedAgenciaKey();
+        const truthy = ['sim','true','1','s','yes','y'];
+        const show = isPessoaJuridica() && truthy.includes(key);
+        percSection.classList.toggle('hidden', !show);
+        if (percSelect) {
+            // obrigatório apenas quando Agência=Sim e PJ
+            percSelect.required = show;
+        }
+    }
+
+    function isPercentualRequired() {
+        const key = getSelectedAgenciaKey();
+        const truthy = ['sim','true','1','s','yes','y'];
+        return isPessoaJuridica() && truthy.includes(key);
+    }
+
+    // Bind mudança nos rádios de Agência
+    const agenciaRadios = document.querySelectorAll('input[name="pk_id_tbl_agencia"]');
+    agenciaRadios.forEach(r => r.addEventListener('change', updatePercentualVisibility));
+
+    // Inicializa visibilidade no carregamento
+    updatePercentualVisibility();
 });
 
 console.log('Cliente_form.js loaded successfully');

@@ -1,0 +1,51 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{{ 'Editar Percentual' if percentual else 'Novo Percentual' }}{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-2xl">
+  <div class="bg-white rounded-lg shadow-card p-6">
+    <h1 class="text-2xl font-semibold mb-4 flex items-center text-gray-800">
+      <i class="fas a-bolt mr-2 text-primary"></i>
+  {{ 'Editar Percentual' if percentual else 'Novo Percentual' }}
+    </h1>
+
+  <form method="POST" class="space-y-4">
+      <div>
+        <label class="text-sm font-medium text-gray-600">Índice (ID)</label>
+        <input type="number" name="id_percentual" value="{{ percentual.id_percentual if percentual else '' }}" {{ 'readonly' if percentual else '' }}
+               class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50" required />
+        {% if percentual %}
+          <p class="text-xs text-gray-500 mt-1">O ID não pode ser alterado durante a edição.</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-gray-600">Descrição</label>
+  <input type="text" name="display" value="{{ percentual.display if percentual else '' }}" maxlength="30"
+               class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50" required />
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-gray-600">Status</label>
+        <div class="mt-1 flex items-center gap-2">
+          <input type="checkbox" name="status" id="status" class="rounded border-gray-300 text-primary focus:ring-primary"
+                 {% if percentual %}{% if percentual.status %}checked{% endif %}{% else %}checked{% endif %} />
+          <label for="status" class="text-sm text-gray-700">Ativo</label>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
+          <i class="fas fa-save mr-2"></i>
+          Salvar
+        </button>
+        <a href="{{ url_for('percentual_list') }}" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200">
+          <i class="fas fa-arrow-left mr-2"></i>
+          Voltar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

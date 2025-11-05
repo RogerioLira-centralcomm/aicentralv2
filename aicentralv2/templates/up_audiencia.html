@@ -1,0 +1,99 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Analisador de Audiência de Imagem{% endblock %}
+
+{% block content %}
+<div class="p-6">
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-text-primary flex items-center">
+      <i class="fas fa-upload text-primary mr-3"></i>
+      Analisador de Audiência de Imagem
+    </h1>
+  <p class="text-sm text-gray-600">Envie um arquivo de imagem para extrair automaticamente os campos: cliente, pedido, data e valor total.</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="flex items-center p-3 rounded-lg shadow-sm {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} mr-3"></i>
+            <span class="flex-1">{{ message }}</span>
+            <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-500 hover:text-gray-700">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <form method="POST" enctype="multipart/form-data" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="upimagem">Arquivo de imagem</label>
+        <div class="flex items-center">
+          <input id="upimagem" type="file" name="upimagem" accept="image/*" class="sr-only" required />
+          <label for="upimagem" class="inline-flex items-center px-3 py-2 bg-primary text-white rounded hover:bg-primary-dark cursor-pointer">
+            <i class="fas fa-file-upload mr-2"></i>
+            Escolher arquivo
+          </label>
+          <span id="upimagemFilename" class="ml-3 text-sm text-gray-600" aria-live="polite">Nenhum arquivo selecionado</span>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Formatos aceitos: PNG, JPG, JPEG, etc.</p>
+      </div>
+      <div class="flex justify-end">
+        <button type="submit" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition">Enviar</button>
+      </div>
+    </form>
+  </div>
+
+  {% if result %}
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-3">Campos extraídos</h2>
+        <dl class="text-sm">
+          <div class="mb-2">
+            <dt class="font-medium text-gray-600">Cliente</dt>
+            <dd class="font-mono">{{ result.fields.cliente }}</dd>
+          </div>
+          <div class="mb-2">
+            <dt class="font-medium text-gray-600">Pedido</dt>
+            <dd class="font-mono">{{ result.fields.pedido }}</dd>
+          </div>
+          <div class="mb-2">
+            <dt class="font-medium text-gray-600">Data</dt>
+            <dd class="font-mono">{{ result.fields.data }}</dd>
+          </div>
+          <div class="mb-2">
+            <dt class="font-medium text-gray-600">Valor Total</dt>
+            <dd class="font-mono">{{ result.fields.valor_total }}</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-3">Resposta completa (debug)</h2>
+        <pre class="bg-gray-50 rounded p-3 text-xs overflow-x-auto">{{ result.raw | tojson(indent=2) }}</pre>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('upimagem');
+    const out = document.getElementById('upimagemFilename');
+    if (input && out) {
+      input.addEventListener('change', function() {
+        const name = this.files && this.files.length ? this.files[0].name : 'Nenhum arquivo selecionado';
+        out.textContent = name;
+      });
+    }
+  });
+  // Observação: o texto nativo "Escolher ficheiro" é do sistema/idioma do navegador.
+  // Aqui usamos um botão customizado com "Escolher arquivo" e exibimos o nome manualmente.
+  // Assim garantimos a palavra "arquivo" independentemente da localidade do navegador.
+</script>
+{% endblock %}

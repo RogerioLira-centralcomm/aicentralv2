@@ -36,7 +36,7 @@
                     <tbody class="divide-y divide-gray-200">
                         {% for tipo in tipos %}
                         <tr class="hover:bg-gray-50 transition-colors duration-150">
-                            <td class="py-4 px-6 text-sm text-gray-900">#{{ tipo.id_aux_tipo_cliente }}</td>
+                            <td class="py-4 px-6 text-sm text-gray-900">#{{ tipo.id_tipo_cliente }}</td>
                             <td class="py-4 px-6">
                                 <div class="text-sm font-medium text-gray-900">{{ tipo.display }}</div>
                             </td>
@@ -48,13 +48,13 @@
                             </td>
                             <td class="py-4 px-6">
                                 <div class="flex items-center justify-center gap-2">
-                                    <a href="{{ url_for('tipo_cliente_editar', id_tipo=tipo.id_aux_tipo_cliente) }}" 
+                                    <a href="{{ url_for('tipo_cliente_editar', id_tipo=tipo.id_tipo_cliente) }}" 
                                        class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
                                        title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <form method="POST" 
-                                          action="{{ url_for('tipo_cliente_excluir', id_tipo=tipo.id_aux_tipo_cliente) }}"
+                                          action="{{ url_for('tipo_cliente_excluir', id_tipo=tipo.id_tipo_cliente) }}"
                                           onsubmit="return confirm('Tem certeza que deseja excluir este tipo de cliente?');"
                                           class="inline">
                                         <button type="submit" 

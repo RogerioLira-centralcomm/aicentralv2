@@ -2,19 +2,7 @@
 
 {% block title %}Setores - CentralComm AI{% endblock %}
 
-{% block styles %}
-<style>
-    .status-badge {
-        @apply px-2 py-1 text-xs font-medium rounded-full;
-    }
-    .status-active {
-        @apply bg-green-100 text-green-800;
-    }
-    .status-inactive {
-        @apply bg-red-100 text-red-800;
-    }
-</style>
-{% endblock %}
+{% block styles %}{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
@@ -92,29 +80,32 @@
                 {% for setor in setores %}
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {{ setor.id_aux_setor }}
+                        {{ setor.id_setor }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {{ setor.display }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="status-badge {% if setor.status %}status-active{% else %}status-inactive{% endif %}">
+                        <span class="{% if setor.status %}px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800{% else %}px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800{% endif %}">
                             {{ "Ativo" if setor.status else "Inativo" }}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ setor.data_cadastro.strftime('%d/%m/%Y %H:%M') }}
+                        {{ setor.data_cadastro.strftime('%d/%m/%Y %H:%M') if setor.data_cadastro else '' }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {% set setor_json = {
-                            'id_aux_setor': setor.id_aux_setor,
-                            'display': setor.display,
-                            'status': setor.status
-                        }|tojson|safe %}
-                        <button onclick='openEditModal({{ setor_json }})' class="text-primary hover:text-primary-dark mr-3">
+                        <button 
+                            data-id="{{ setor.id_setor }}"
+                            data-display="{{ setor.display }}"
+                            data-status="{{ 'true' if setor.status else 'false' }}"
+                            onclick="openEditModalFromButton(this)"
+                            class="text-primary hover:text-primary-dark mr-3">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button onclick="toggleStatus({{ setor.id_aux_setor }}, {{ setor.status|tojson }})" 
+                        <button 
+                            data-id="{{ setor.id_setor }}"
+                            data-status="{{ 'true' if setor.status else 'false' }}"
+                            onclick="toggleStatusFromButton(this)" 
                             class="{% if setor.status %}text-red-600 hover:text-red-900{% else %}text-green-600 hover:text-green-900{% endif %}">
                             <i class="fas {% if setor.status %}fa-times-circle{% else %}fa-check-circle{% endif %}"></i>
                         </button>
@@ -135,7 +126,7 @@
             </h3>
             
             <form id="setorForm" onsubmit="handleSubmit(event)">
-                <input type="hidden" id="setorId" name="id_aux_setor">
+                <input type="hidden" id="setorId" name="id_setor">
                 
                 <div class="mb-4">
                     <label for="display" class="block text-sm font-medium text-gray-700 mb-1">
@@ -183,5 +174,24 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/aux_setor.js') }}"></script>
+<script>
+    function openEditModalFromButton(btn) {
+        const setor = {
+            id_setor: parseInt(btn.dataset.id, 10),
+            display: btn.dataset.display,
+            status: btn.dataset.status === 'true'
+        };
+        if (typeof openEditModal === 'function') {
+            openEditModal(setor);
+        }
+    }
+    function toggleStatusFromButton(btn) {
+        const id = parseInt(btn.dataset.id, 10);
+        const status = btn.dataset.status === 'true';
+        if (typeof toggleStatus === 'function') {
+            toggleStatus(id, status);
+        }
+    }
+</script>
+<script src="{{ url_for('static', filename='js/tbl_setor.js') }}"></script>
 {% endblock %}

@@ -233,19 +233,20 @@
                         <input type="password" id="real_password" name="password" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" autocomplete="off">
                         <!-- Campo VISÍVEL usado pelo usuário -->
                         <input 
-                            type="password" 
+                            type="text" 
                             id="password_visible" 
                             name="password_visible" 
                             placeholder="••••••••"
                             required
-                            autocomplete="new-password"
+                            autocomplete="off"
                             autocapitalize="off"
                             autocorrect="off"
                             spellcheck="false"
                             data-form-type="other"
                             data-lpignore="true"
                             data-1p-ignore
-                            class="input-with-icon w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                            class="input-with-icon w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all pr-10"
+                            style="-webkit-text-security: disc;"
                         >
                         <button type="button" class="password-toggle" onclick="togglePassword()">
                             <i class="fas fa-eye" id="toggleIcon"></i>
@@ -313,23 +314,26 @@
 
 {% block scripts %}
 <script>
-    // Função para alternar visibilidade da senha
+    // Função para alternar visibilidade da senha (CSS mask ao invés de trocar o type)
     function togglePassword() {
         const passwordInput = document.getElementById('password_visible');
         const toggleIcon = document.getElementById('toggleIcon');
-        
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            toggleIcon.classList.remove('fa-eye');
-            toggleIcon.classList.add('fa-eye-slash');
-        } else {
-            passwordInput.type = 'password';
+        if (!passwordInput) return;
+        const revealed = passwordInput.dataset.revealed === '1';
+        if (revealed) {
+            passwordInput.style.webkitTextSecurity = 'disc';
+            passwordInput.dataset.revealed = '0';
             toggleIcon.classList.remove('fa-eye-slash');
             toggleIcon.classList.add('fa-eye');
+        } else {
+            passwordInput.style.webkitTextSecurity = 'none';
+            passwordInput.dataset.revealed = '1';
+            toggleIcon.classList.remove('fa-eye');
+            toggleIcon.classList.add('fa-eye-slash');
         }
     }
     
-    // Sincroniza campo visível com o real (enviado ao servidor) e reduz prompts de autofill
+    // Sincroniza campo visível com o real (enviado ao servidor) sem disparar gerenciadores
     document.addEventListener('DOMContentLoaded', function() {
         const pwdVisible = document.getElementById('password_visible');
         const pwdReal = document.getElementById('real_password');
@@ -338,18 +342,9 @@
             pwdReal.value = '';
             const sync = () => { pwdReal.value = pwdVisible.value; };
             ['input','change','keyup','paste'].forEach(ev => pwdVisible.addEventListener(ev, sync));
-
-            // Evita sugestões: só habilita digitação após interação do usuário
-            let locked = true;
-            const unlock = () => { locked = false; pwdVisible.removeEventListener('pointerdown', unlock); };
-            pwdVisible.addEventListener('pointerdown', unlock, { once: true });
-            pwdVisible.addEventListener('focus', function() {
-                if (locked) {
-                    // força interação antes para evitar dropdown de credenciais
-                    this.blur();
-                    setTimeout(() => this.focus(), 0);
-                }
-            });
+            // Inicializa mascarado
+            pwdVisible.style.webkitTextSecurity = 'disc';
+            pwdVisible.dataset.revealed = '0';
         }
     });
     
@@ -362,7 +357,7 @@
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         let valid = true;
         const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
+        const passwordInput = document.getElementById('password_visible');
         const emailError = document.getElementById('emailError');
         const passwordError = document.getElementById('passwordError');
         const submitBtn = document.getElementById('submitBtn');
@@ -381,13 +376,17 @@
             valid = false;
         }
         
-        // Validar senha
-        if (!passwordInput.value) {
+        // Validar senha (campo visível)
+        if (!passwordInput || !passwordInput.value) {
             passwordError.textContent = 'Senha é obrigatória';
             valid = false;
         }
         
         if (valid) {
+            // Garante sincronização final do campo real
+            const pwdVisible = document.getElementById('password_visible');
+            const pwdReal = document.getElementById('real_password');
+            if (pwdVisible && pwdReal) pwdReal.value = pwdVisible.value;
             // Mostrar estado de carregamento
             submitBtn.querySelector('.btn-text').classList.add('hidden');
             submitBtn.querySelector('.btn-loading').classList.remove('hidden');

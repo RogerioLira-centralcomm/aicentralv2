@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import secrets
 from aicentralv2 import db
 from aicentralv2.email_service import send_password_reset_email, send_password_changed_email
-from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes
+from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 
 
 def login_required(f):
@@ -584,9 +584,23 @@ def init_routes(app):
         """Upload e extração de campos de imagem."""
         result = None
         prompt_text = None
+        models = []
+        try:
+            models = get_available_models() or []
+        except Exception:
+            models = []
+        # modelo selecionado persiste em sessão
+        from flask import session as _session
+        default_model_id = 'google/gemini-1.5-flash-8b'
+        selected_model_id = _session.get('selected_model_id', default_model_id)
         if request.method == 'POST':
             try:
                 prompt_text = (request.form.get('prompt') or '').strip()
+                # Lê modelo escolhido no formulário (se enviado)
+                sel_from_form = (request.form.get('model') or '').strip()
+                if sel_from_form:
+                    selected_model_id = sel_from_form
+                    _session['selected_model_id'] = selected_model_id
                 if not prompt_text:
                     flash('Informe o prompt.', 'error')
                 file = request.files.get('upimagem')
@@ -594,15 +608,9 @@ def init_routes(app):
                     flash('Selecione um arquivo de imagem.', 'error')
                 elif prompt_text:
                     image_bytes = file.read()
-                    data = extract_fields_from_image_bytes(image_bytes, filename=file.filename, prompt=prompt_text)
-                    # data esperado: dict com campos extraídos
-                    fields = {
-                        'cliente': (data or {}).get('cliente'),
-                        'pedido': (data or {}).get('pedido'),
-                        'data': (data or {}).get('data'),
-                        'valor_total': (data or {}).get('valor_total'),
-                    }
-                    # Monta texto chave:valor para exibição à esquerda
+                    data = extract_fields_from_image_bytes(image_bytes, filename=file.filename, model=selected_model_id, prompt=prompt_text)
+                    # data esperado: dict com campos extraídos conforme o prompt (genérico)
+                    # Monta texto chave:valor para exibição à esquerda somente com chaves não vazias
                     def _serialize_value(val):
                         import json as _json
                         if isinstance(val, (str, int, float, bool)) or val is None:
@@ -613,23 +621,26 @@ def init_routes(app):
                             return str(val)
 
                     kv_lines = []
-                    base_keys = ['cliente', 'pedido', 'data', 'valor_total']
-                    # Prioriza chaves principais se existirem com valores
-                    any_main = False
-                    for k in base_keys:
-                        v = (data or {}).get(k)
-                        if v not in (None, ''):
-                            any_main = True
-                        kv_lines.append(f"{k}: {_serialize_value(v)}")
+                    seen_keys = set()
+                    def _is_empty_text(val):
+                        return (val is None) or (isinstance(val, str) and val.strip() == '')
 
-                    if not any_main and isinstance(data, dict):
-                        # Tenta extrair de 'content' quando o parser não conseguiu estruturar
+                    # 1) Acrescenta quaisquer chaves de nível superior (exceto _raw e content bruto)
+                    if isinstance(data, dict):
+                        for k, v in data.items():
+                            if k in seen_keys or k == '_raw' or (k == 'content' and isinstance(v, str)):
+                                continue
+                            if _is_empty_text(v):
+                                continue
+                            kv_lines.append(f"{k}: {_serialize_value(v)}")
+                            seen_keys.add(k)
+
+                        # 2) Tenta extrair JSON do campo 'content' para incluir pares adicionais
                         content = data.get('content')
                         parsed_extra = None
                         if isinstance(content, str):
                             txt = content.strip()
                             try:
-                                # tenta encontrar objeto JSON
                                 start = txt.find('{')
                                 end = txt.rfind('}')
                                 if start != -1 and end != -1 and end > start:
@@ -641,15 +652,14 @@ def init_routes(app):
                         elif isinstance(content, dict):
                             parsed_extra = content
 
-                        if parsed_extra and isinstance(parsed_extra, dict):
-                            kv_lines = [f"{k}: {_serialize_value(v)}" for k, v in parsed_extra.items()]
-                        else:
-                            # Caso geral: imprime todas as chaves simples de data (exceto _raw)
-                            kv_lines = []
-                            for k, v in data.items():
-                                if k == '_raw':
+                        if isinstance(parsed_extra, dict):
+                            for k, v in parsed_extra.items():
+                                if k in seen_keys:
+                                    continue
+                                if _is_empty_text(v):
                                     continue
                                 kv_lines.append(f"{k}: {_serialize_value(v)}")
+                                seen_keys.add(k)
 
                     kv_text = "\n".join(kv_lines)
 
@@ -678,8 +688,14 @@ def init_routes(app):
                             return int(_math.ceil(len(text) / 4.0))
 
                         pt = img_eq + _est_tokens(prompt_text or '')
-                        # completion: usa 'content' bruto quando disponível, senão JSON dos fields
-                        comp_src = (data or {}).get('content') if isinstance((data or {}).get('content'), str) else _json.dumps(fields, ensure_ascii=False)
+                        # completion: usa 'content' bruto quando disponível, senão JSON dos campos extraídos
+                        try:
+                            structured_fields = {}
+                            if isinstance(data, dict):
+                                structured_fields = {k: v for k, v in data.items() if k not in ('_raw', 'content')}
+                        except Exception:
+                            structured_fields = {}
+                        comp_src = (data or {}).get('content') if isinstance((data or {}).get('content'), str) else _json.dumps(structured_fields, ensure_ascii=False)
                         ct = _est_tokens(comp_src or '')
                         tt = pt + ct
                         usage_estimated = True
@@ -729,6 +745,16 @@ def init_routes(app):
 
                         cost_usd = (pt / 1_000_000.0) * in_price + (ct / 1_000_000.0) * out_price
                     model_used = (raw_obj or {}).get('model')
+                    # Resolve label do modelo selecionado para exibição
+                    def _label_for(mid: str) -> str:
+                        try:
+                            for m in (models or []):
+                                if m.get('id') == mid:
+                                    return m.get('label') or mid
+                        except Exception:
+                            pass
+                        return mid
+                    model_selected_label = _label_for(selected_model_id)
 
                     # Conversão para BRL com base no dólar do dia
                     usd_brl_rate = None
@@ -775,13 +801,55 @@ def init_routes(app):
                     if cost_usd is not None and usd_brl_rate is not None:
                         cost_brl = round(cost_usd * usd_brl_rate, 6)
 
+                    # Prepara texto JSON seguro para a direita: tenta serializar 'data'; se falhar, usa KV->JSON básico
+                    import json as _json
+                    json_text = ''
+                    try:
+                        json_text = _json.dumps(data if isinstance(data, dict) else {}, ensure_ascii=False, indent=2)
+                    except Exception:
+                        # Fallback: monta dict a partir do kv_lines
+                        kv_dict = {}
+                        for line in kv_lines:
+                            try:
+                                if ':' not in line:
+                                    continue
+                                k, v = line.split(':', 1)
+                                k = (k or '').strip()
+                                v = (v or '').strip()
+                                if not k:
+                                    continue
+                                # tentativa simples de coerção numérica/boolean/json
+                                _v = v
+                                if _v.lower() in ['true','false']:
+                                    _v = True if _v.lower() == 'true' else False
+                                else:
+                                    try:
+                                        if (_v.startswith('{') and _v.endswith('}')) or (_v.startswith('[') and _v.endswith(']')):
+                                            _v = _json.loads(_v)
+                                        else:
+                                            # número com vírgula/ponto
+                                            if _v.replace('.', '', 1).replace(',', '', 1).isdigit():
+                                                _v = float(_v.replace(',', '.'))
+                                    except Exception:
+                                        _v = v
+                                kv_dict[k] = _v
+                            except Exception:
+                                continue
+                        try:
+                            json_text = _json.dumps(kv_dict, ensure_ascii=False, indent=2)
+                        except Exception:
+                            json_text = '{}'
+
                     result = {
-                        'fields': fields,
+                        'fields': {k: v for k, v in ((data or {}).items()) if k not in ('_raw', 'content')} if isinstance(data, dict) else {},
                         'raw': data,
+                        'json_text': json_text,
                         'kv_text': kv_text,
                         'usage': { 'prompt_tokens': pt, 'completion_tokens': ct, 'total_tokens': tt },
-                        'cost_usd': round(cost_usd, 6),
+                        'cost_usd': round(cost_usd, 3),
                         'model_used': model_used,
+                        'model_selected_id': selected_model_id,
+                        'model_selected_label': model_selected_label,
                         'usage_estimated': usage_estimated,
                         'pricing_defaults_used': pricing_defaults_used,
                         'cost_brl': cost_brl,
@@ -790,9 +858,19 @@ def init_routes(app):
                     }
                     flash('Arquivo processado com sucesso!', 'success')
             except Exception as e:
-                app.logger.error(f"Erro no processamento da imagem: {e}")
-                flash('Erro ao processar a imagem.', 'error')
-        return render_template('up_audiencia.html', result=result, prompt=prompt_text)
+                try:
+                    import os as _os
+                    detail = str(e)
+                    # Exibir detalhes completos quando habilitado
+                    if _os.getenv('SHOW_ERRORS', '1') == '1':
+                        flash(f'Erro ao processar a imagem: {detail}', 'error')
+                    else:
+                        flash('Erro ao processar a imagem.', 'error')
+                    app.logger.error(f"Erro no processamento da imagem: {detail}")
+                except Exception:
+                    app.logger.error(f"Erro no processamento da imagem: {e}")
+                    flash('Erro ao processar a imagem.', 'error')
+        return render_template('up_audiencia.html', result=result, prompt=prompt_text, models=models, selected_model_id=selected_model_id)
 
     # ==================== PERCENTUAL (Fluxo de Boas-Vindas) ====================
 

@@ -9,7 +9,7 @@
       <i class="fas fa-upload text-primary mr-3"></i>
       Analisador de Audiência de Imagem
     </h1>
-  <p class="text-sm text-gray-600">Envie um arquivo de imagem para extrair automaticamente os campos: cliente, pedido, data e valor total.</p>
+  <p class="text-sm text-gray-600">Envie uma imagem e descreva no prompt exatamente quais campos deseja extrair. A extração seguirá o que você pedir no prompt.</p>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -30,6 +30,17 @@
 
   <div class="bg-white rounded-lg shadow p-6">
     <form id="upAudienciaForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+      <!-- Modelo LLM -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="model">Modelo</label>
+        <select id="model" name="model" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
+          {% set sel_model = selected_model_id or '' %}
+          {% for m in models or [] %}
+            <option value="{{ m.id }}" {% if m.id == sel_model %}selected{% endif %}>{{ m.label or m.id }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Padrão: google/Gemini 1.5 Flash 8B. Se indisponível, tentaremos alternativas do Gemini.</p>
+      </div>
       <!-- Prompt -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="prompt">Prompt</label>
@@ -58,11 +69,12 @@
   {% if result %}
     {% if result.usage or result.cost_usd is not none %}
     <div class="mt-6 bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-4">
-      <div class="text-sm text-gray-700"><span class="font-medium">Modelo:</span> {{ result.model_used or '—' }}</div>
+      <div class="text-sm text-gray-700"><span class="font-medium">Modelo selecionado:</span> {{ result.model_selected_label or result.model_selected_id or '—' }}</div>
+      <div class="text-sm text-gray-700"><span class="font-medium">Modelo efetivo:</span> {{ result.model_used or '—' }}</div>
       <div class="text-sm text-gray-700"><span class="font-medium">Prompt tokens:</span> {{ result.usage.prompt_tokens if result.usage else '—' }}</div>
       <div class="text-sm text-gray-700"><span class="font-medium">Completion tokens:</span> {{ result.usage.completion_tokens if result.usage else '—' }}</div>
       <div class="text-sm text-gray-700"><span class="font-medium">Total tokens:</span> {{ result.usage.total_tokens if result.usage else '—' }}</div>
-      <div class="text-sm text-gray-700"><span class="font-medium">Custo (USD):</span> {% if result.cost_usd is not none %}${{ '%.6f'|format(result.cost_usd) }}{% else %}—{% endif %}
+      <div class="text-sm text-gray-700"><span class="font-medium">Custo (USD):</span> {% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}
         {% if result.usage_estimated %}<span class="ml-2 text-xs text-yellow-700 bg-yellow-100 border border-yellow-200 px-2 py-0.5 rounded">estimado</span>{% endif %}
       </div>
       <div class="text-sm text-gray-700"><span class="font-medium">Custo (BRL):</span> {% if result.cost_brl is not none %}R${{ '%.2f'|format(result.cost_brl) }}{% else %}—{% endif %}
@@ -84,11 +96,16 @@
       <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">Saída (JSON)</h2>
-          <button type="button" id="copyJsonBtn" class="text-sm px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300">
-            <i class="fas fa-copy mr-1"></i>Copiar
-          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" id="jsonToKvBtn" class="text-sm px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200">
+              <i class="fas fa-sync-alt mr-1"></i>JSON → KV
+            </button>
+            <button type="button" id="copyJsonBtn" class="text-sm px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300">
+              <i class="fas fa-copy mr-1"></i>Copiar
+            </button>
+          </div>
         </div>
-        <textarea id="json_output" rows="18" readonly class="w-full font-mono text-xs bg-gray-50 rounded p-3 border border-gray-200 focus:outline-none min-h-[260px] md:min-h-[320px]">{{ result.raw | tojson(indent=2) }}</textarea>
+  <textarea id="json_output" rows="18" readonly class="w-full font-mono text-xs bg-gray-50 rounded p-3 border border-gray-200 focus:outline-none min-h-[260px] md:min-h-[320px]">{{ result.json_text | safe }}</textarea>
       </div>
     </div>
   {% endif %}
@@ -186,6 +203,263 @@
         const btns = form.querySelectorAll('button, input[type="submit"]');
         btns.forEach(b => b.setAttribute('disabled', 'disabled'));
       });
+    }
+
+    // Sincroniza o textarea da esquerda (KV) a partir do JSON da direita, respeitando o que o modelo retornou
+    function syncKvFromJson() {
+      const jsonTaEl = document.getElementById('json_output');
+      const kvTaEl = document.getElementById('kv_output');
+      if (!jsonTaEl || !kvTaEl) return;
+      const txt = (jsonTaEl.value || '').trim();
+      if (!txt) return;
+      try {
+        const data = JSON.parse(txt);
+        const isEmpty = (v) => v === null || (typeof v === 'string' && v.trim() === '');
+        const serialize = (v) => {
+          if (v === null || v === undefined) return '';
+          if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+          try { return JSON.stringify(v); } catch { return String(v); }
+        };
+        const seen = new Set();
+        const lines = [];
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          // 1) Chaves de primeiro nível (exceto _raw e content string)
+          Object.entries(data).forEach(([k, v]) => {
+            if (k === '_raw') return;
+            if (k === 'content' && typeof v === 'string') return;
+            if (isEmpty(v)) return;
+            lines.push(`${k}: ${serialize(v)}`);
+            seen.add(k);
+          });
+          // 2) Se houver content string com JSON válido, extrai e adiciona
+          const content = data['content'];
+          let extra = null;
+          if (typeof content === 'string') {
+            const s = content.trim();
+            try {
+              const start = s.indexOf('{');
+              const end = s.lastIndexOf('}');
+              if (start !== -1 && end !== -1 && end > start) {
+                const objTxt = s.slice(start, end + 1);
+                extra = JSON.parse(objTxt);
+              }
+            } catch { extra = null; }
+          } else if (content && typeof content === 'object') {
+            extra = content;
+          }
+          if (extra && typeof extra === 'object' && !Array.isArray(extra)) {
+            Object.entries(extra).forEach(([k, v]) => {
+              if (seen.has(k)) return;
+              if (isEmpty(v)) return;
+              lines.push(`${k}: ${serialize(v)}`);
+              seen.add(k);
+            });
+          }
+        }
+        kvTaEl.value = lines.join('\n');
+      } catch (e) {
+        // Se não conseguir parsear, mantém o que já veio do backend
+      }
+    }
+
+    // Executa a sincronização ao carregar a página (quando houver resultado)
+    syncKvFromJson();
+
+    // Fallback: se o JSON (direita) vier vazio mas o KV (esquerda) tiver dados válidos,
+    // converte automaticamente o KV em um objeto JSON e preenche a direita.
+    function syncJsonFromKv() {
+      const jsonTaEl = document.getElementById('json_output');
+      const kvTaEl = document.getElementById('kv_output');
+      if (!jsonTaEl || !kvTaEl) return;
+      const jsonTxt = (jsonTaEl.value || '').trim();
+      const kvTxt = (kvTaEl.value || '').trim();
+      if (!kvTxt) return;
+
+      const obj = {};
+      const lines = kvTxt.split(/\r?\n/);
+      const tryCoerce = (raw) => {
+        if (raw === null || raw === undefined) return null;
+        const s = String(raw).trim();
+        if (!s) return "";
+        // JSON object/array
+        if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
+          try { return JSON.parse(s); } catch { /* ignore */ }
+        }
+        // boolean
+        if (/^(true|false)$/i.test(s)) return /^true$/i.test(s);
+        // number
+        if (/^[+-]?\d+(?:[.,]\d+)?$/.test(s)) {
+          const num = parseFloat(s.replace(',', '.'));
+          if (!Number.isNaN(num)) return num;
+        }
+        // quoted JSON string
+        if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+          try { return JSON.parse(s); } catch { return s.slice(1, -1); }
+        }
+        return s;
+      };
+
+      lines.forEach((line) => {
+        const l = line.trim();
+        if (!l) return;
+        const idx = l.indexOf(':');
+        if (idx === -1) return; // linha inválida para KV
+        const key = l.slice(0, idx).trim();
+        let val = l.slice(idx + 1).trim();
+        if (!key) return;
+        obj[key] = tryCoerce(val);
+      });
+
+      try {
+        jsonTaEl.value = JSON.stringify(obj, null, 2);
+      } catch { /* noop */ }
+    }
+
+    syncJsonFromKv();
+
+    // Botão manual JSON -> KV
+    const jsonToKvBtn = document.getElementById('jsonToKvBtn');
+    if (jsonToKvBtn) {
+      jsonToKvBtn.addEventListener('click', () => {
+        const before = (document.getElementById('kv_output')?.value || '').trim();
+        // Usa o parser específico para extrair apenas audienceSummary e segments do campo content
+        try {
+          jsonToKvUsingParser(false); // false = sem indexar segments; troque para true se quiser indexar por ID
+        } catch (e) {
+          // fallback: método genérico caso o parser especializado falhe
+          syncKvFromJson();
+        }
+        const after = (document.getElementById('kv_output')?.value || '').trim();
+        if (after && after !== before) {
+          jsonToKvBtn.textContent = 'Atualizado!';
+          setTimeout(() => { jsonToKvBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>JSON → KV'; }, 1200);
+        }
+      });
+    }
+
+    // ===== Parsers específicos (equivalentes à versão Python solicitada) =====
+    function parseLlmResponse(llmResponse) {
+      try {
+        const contentStr = (llmResponse && typeof llmResponse === 'object') ? (llmResponse.content || '') : '';
+        if (!contentStr) return {};
+        const contentData = JSON.parse(contentStr);
+        return {
+          audienceSummary: contentData?.audienceSummary || {},
+          segments: contentData?.segments || []
+        };
+      } catch (e) {
+        // Opcional: exibir erro no console
+        console.error('Erro ao parsear JSON do campo content:', e);
+        return { error: 'JSON inválido no campo content' };
+      }
+    }
+
+    function parseLlmResponseIndexed(llmResponse) {
+      try {
+        const contentStr = (llmResponse && typeof llmResponse === 'object') ? (llmResponse.content || '') : '';
+        if (!contentStr) return {};
+        const contentData = JSON.parse(contentStr);
+        const segmentsList = Array.isArray(contentData?.segments) ? contentData.segments : [];
+        const segmentsDict = {};
+        for (const segment of segmentsList) {
+          if (!segment || typeof segment !== 'object') continue;
+          if (!('id' in segment)) continue;
+          const id = segment.id;
+          segmentsDict[id] = {
+            source: segment.source,
+            name_original: segment.name_original,
+            name_ptbr_normalized: segment.name_ptbr_normalized,
+            cpm: segment.cpm,
+            currency: segment.currency,
+            categories: segment.categories || {}
+          };
+        }
+        return {
+          audienceSummary: contentData?.audienceSummary || {},
+          segments: segmentsDict
+        };
+      } catch (e) {
+        console.error('Erro ao parsear JSON do campo content (indexed):', e);
+        return { error: 'JSON inválido no campo content' };
+      }
+    }
+
+    function getUsageStats(llmResponse) {
+      try {
+        const usage = ((llmResponse && llmResponse._raw) ? llmResponse._raw.usage : null) || {};
+        return {
+          prompt_tokens: usage.prompt_tokens || 0,
+          completion_tokens: usage.completion_tokens || 0,
+          total_tokens: usage.total_tokens || 0,
+        };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function jsonToKvUsingParser(indexed = false) {
+      const jsonTaEl = document.getElementById('json_output');
+      const kvTaEl = document.getElementById('kv_output');
+      if (!jsonTaEl || !kvTaEl) return;
+      const txt = (jsonTaEl.value || '').trim();
+      if (!txt) return;
+      let llmResponse = {};
+      try {
+        llmResponse = JSON.parse(txt);
+      } catch (e) {
+        console.error('JSON de saída não é um objeto válido:', e);
+        return;
+      }
+
+      const parsed = indexed ? parseLlmResponseIndexed(llmResponse) : parseLlmResponse(llmResponse);
+      if (!parsed || parsed.error) {
+        // Se o parser especializado não retornou dados úteis, não sobrescreve
+        return;
+      }
+
+      const lines = [];
+      const serialize = (v) => {
+        if (v === null || v === undefined) return '';
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+        try { return JSON.stringify(v); } catch { return String(v); }
+      };
+
+      // audienceSummary
+      if (parsed.audienceSummary && typeof parsed.audienceSummary === 'object') {
+        for (const [k, v] of Object.entries(parsed.audienceSummary)) {
+          lines.push(`audienceSummary.${k}: ${serialize(v)}`);
+        }
+      }
+
+      // segments
+      const segs = parsed.segments;
+      if (Array.isArray(segs)) {
+        // lista de segmentos
+        segs.forEach((seg, i) => {
+          if (!seg || typeof seg !== 'object') return;
+          for (const [k, v] of Object.entries(seg)) {
+            lines.push(`segments[${i}].${k}: ${serialize(v)}`);
+          }
+        });
+      } else if (segs && typeof segs === 'object') {
+        // dicionário indexado por id
+        for (const [id, seg] of Object.entries(segs)) {
+          if (!seg || typeof seg !== 'object') continue;
+          for (const [k, v] of Object.entries(seg)) {
+            lines.push(`segments[${id}].${k}: ${serialize(v)}`);
+          }
+        }
+      }
+
+      // Opcional: incluir métricas de uso
+      // const usage = getUsageStats(llmResponse);
+      // if (usage) {
+      //   lines.push(`usage.prompt_tokens: ${usage.prompt_tokens}`);
+      //   lines.push(`usage.completion_tokens: ${usage.completion_tokens}`);
+      //   lines.push(`usage.total_tokens: ${usage.total_tokens}`);
+      // }
+
+      kvTaEl.value = lines.join('\n');
     }
   });
   // Observação: o texto nativo "Escolher ficheiro" é do sistema/idioma do navegador.

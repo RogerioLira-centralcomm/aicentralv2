@@ -1,0 +1,324 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Inteligência CADU - CentralComm AI{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="px-6 py-4">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center text-sm text-gray-500 mb-3">
+            <a href="{{ url_for('index') }}" class="hover:text-primary transition-colors">
+                <i class="fas fa-home"></i>
+            </a>
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            <span class="text-gray-400">CADU</span>
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            <span class="text-gray-900 font-medium">Inteligência</span>
+        </nav>
+        
+        <!-- Title & Actions -->
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm">
+                    <i class="fas fa-brain text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-semibold text-gray-900">Inteligência CADU</h1>
+                    <p class="text-sm text-gray-500 mt-0.5">Gestão de documentos e base de conhecimento</p>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="flex items-center space-x-2">
+                <button onclick="openUploadModal()" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors shadow-sm">
+                    <i class="fas fa-plus mr-2 text-xs"></i>
+                    Novo Documento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="p-6">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Total de Documentos</p>
+                    <h3 class="text-2xl font-semibold mt-1">{{ stats.total_documents }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-file-alt text-primary text-xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Chunks Processados</p>
+                    <h3 class="text-2xl font-semibold mt-1">{{ stats.total_chunks }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-accent-green/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-puzzle-piece text-accent-green text-xl"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Em Processamento</p>
+                    <h3 class="text-2xl font-semibold mt-1">{{ stats.processing }}</h3>
+                </div>
+                <div class="w-12 h-12 bg-accent-yellow/10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-sync text-accent-yellow text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents List -->
+    <div class="bg-white rounded-lg shadow-sm">
+        <!-- Search and Filters -->
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <div class="relative">
+                        <input type="text" 
+                               id="searchInput"
+                               placeholder="Buscar por título ou conteúdo..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select class="form-select border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+                        <option value="">Todos os Status</option>
+                        <option value="completed">Processado</option>
+                        <option value="processing">Em Processamento</option>
+                        <option value="error">Erro</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chunks</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for doc in documents %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center">
+                                <i class="fas {% if doc.type == 'pdf' %}fa-file-pdf text-red-500{% else %}fa-file-alt text-blue-500{% endif %} mr-3"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">{{ doc.title }}</div>
+                                    <div class="text-sm text-gray-500">{{ doc.metadata.category if doc.metadata.category }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ doc.created_at|format_datetime }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                       {% if doc.status == 'completed' %}bg-green-100 text-green-800
+                                       {% elif doc.status == 'processing' %}bg-yellow-100 text-yellow-800
+                                       {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ doc.status|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ doc.chunks_count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center space-x-3">
+                                <button onclick="viewDocument('{{ doc.id }}')" 
+                                        class="text-primary hover:text-primary-dark">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="deleteDocument('{{ doc.id }}')"
+                                        class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="bg-white px-6 py-4 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">
+                    Mostrando <span class="font-medium">1</span> a <span class="font-medium">10</span> de <span class="font-medium">20</span> resultados
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Anterior
+                    </button>
+                    <button class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Próximo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Novo Documento</h3>
+                    <button onclick="closeUploadModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="uploadForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Título do Documento
+                        </label>
+                        <input type="text" 
+                               name="title" 
+                               required
+                               placeholder="Ex: Curso de mídia programática - IAB - Março 2022"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Documento
+                        </label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                            <div class="space-y-1 text-center">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400"></i>
+                                <div class="flex text-sm text-gray-600">
+                                    <label for="file-upload" class="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary-dark focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary">
+                                        <span>Upload de arquivo</span>
+                                        <input id="file-upload" name="file" type="file" class="sr-only" accept=".pdf,.txt,.doc,.docx">
+                                    </label>
+                                    <p class="pl-1">ou arraste e solte</p>
+                                </div>
+                                <p class="text-xs text-gray-500">
+                                    PDF, TXT, DOC até 10MB
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   name="requires_cadu_format" 
+                                   class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                            <span class="ml-2 text-sm text-gray-600">
+                                Documento já está no formato CADU
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button" 
+                                onclick="closeUploadModal()"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark">
+                            Processar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openUploadModal() {
+    document.getElementById('uploadModal').classList.remove('hidden');
+}
+
+function closeUploadModal() {
+    document.getElementById('uploadModal').classList.add('hidden');
+}
+
+function viewDocument(id) {
+    // Implementar visualização do documento
+    window.location.href = `/intelligence/view/${id}`;
+}
+
+function deleteDocument(id) {
+    if (confirm('Tem certeza que deseja excluir este documento?')) {
+        fetch(`/api/v1/intelligence/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                document_id: id,
+                delete_from: 'both'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Erro ao excluir documento: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao excluir documento');
+        });
+    }
+}
+
+// Upload form handling
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('/api/v1/intelligence/process', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeUploadModal();
+            window.location.reload();
+        } else {
+            alert('Erro ao processar documento: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Erro ao enviar documento');
+    });
+});
+</script>
+{% endblock %}

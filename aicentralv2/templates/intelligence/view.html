@@ -1,0 +1,257 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Visualizar Documento - CentralComm AI{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="px-6 py-4">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center text-sm text-gray-500 mb-3">
+            <a href="{{ url_for('index') }}" class="hover:text-primary transition-colors">
+                <i class="fas fa-home"></i>
+            </a>
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            <span class="text-gray-400">CADU</span>
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            <a href="{{ url_for('intelligence.index') }}" class="hover:text-primary transition-colors">
+                Inteligência
+            </a>
+            <i class="fas fa-chevron-right mx-2 text-xs"></i>
+            <span class="text-gray-900 font-medium">{{ document.title }}</span>
+        </nav>
+        
+        <!-- Title & Actions -->
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm">
+                    <i class="{% if document.document_type == 'pdf' %}fas fa-file-pdf text-white{% else %}fas fa-file-alt text-white{% endif %} text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-semibold text-gray-900">{{ document.title }}</h1>
+                    <p class="text-sm text-gray-500 mt-0.5">
+                        Adicionado em {{ document.created_at|format_datetime }}
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="flex items-center space-x-2">
+                {% if document.status == 'completed' %}
+                <button onclick="copyPineconeIds()" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i class="fas fa-copy mr-2"></i>
+                    IDs Pinecone
+                </button>
+                {% endif %}
+                <button onclick="deleteDocument()" class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                    <i class="fas fa-trash mr-2"></i>
+                    Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="p-6">
+    <div class="grid grid-cols-3 gap-6">
+        <!-- Main Content -->
+        <div class="col-span-2 space-y-6">
+            <!-- Processing Status -->
+            {% if document.status == 'processing' %}
+            <div class="bg-white rounded-lg p-6 border border-yellow-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-sync fa-spin text-yellow-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-medium text-yellow-800">Processando Documento</h3>
+                            <p class="text-sm text-yellow-600">
+                                {{ document.metadata.processing_stats.chunks_processed or 0 }} de 
+                                {{ document.metadata.processing_stats.total_chunks or '?' }} chunks processados
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <button onclick="window.location.reload()" class="text-yellow-600 hover:text-yellow-800">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Error Status -->
+            {% if document.status == 'error' %}
+            <div class="bg-white rounded-lg p-6 border border-red-200">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                        <i class="fas fa-exclamation-triangle text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-red-800">Erro no Processamento</h3>
+                        <p class="text-sm text-red-600">
+                            {{ document.metadata.error.message }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Document Content -->
+            <div class="bg-white rounded-lg shadow-sm">
+                <div class="p-6">
+                    <h2 class="text-lg font-semibold mb-4">Conteúdo Processado</h2>
+                    <div class="prose max-w-none">
+                        {{ document.processed_text|safe|nl2br }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Original Content -->
+            <div class="bg-white rounded-lg shadow-sm">
+                <div class="p-6">
+                    <h2 class="text-lg font-semibold mb-4">Conteúdo Original</h2>
+                    <div class="prose max-w-none">
+                        {{ document.original_text|safe|nl2br }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Document Info -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold mb-4">Informações</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Status</label>
+                        <div class="mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                       {% if document.status == 'completed' %}bg-green-100 text-green-800
+                                       {% elif document.status == 'processing' %}bg-yellow-100 text-yellow-800
+                                       {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ document.status|title }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Tipo</label>
+                        <p class="mt-1 text-sm text-gray-900">
+                            {{ document.document_type|upper }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Formato CADU</label>
+                        <p class="mt-1 text-sm text-gray-900">
+                            {% if document.requires_cadu_format %}
+                            <i class="fas fa-check-circle text-green-500"></i> Sim
+                            {% else %}
+                            <i class="fas fa-times-circle text-gray-400"></i> Não
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    {% if document.status == 'completed' %}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-500">Chunks</label>
+                        <p class="mt-1 text-sm text-gray-900">
+                            {{ document.pinecone_ids|length }} chunks processados
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Processing Timeline -->
+            {% if document.metadata.processing_stats %}
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold mb-4">Timeline de Processamento</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-file-upload text-green-600"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">Upload</p>
+                            <p class="text-xs text-gray-500">
+                                {{ document.created_at|format_datetime }}
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if document.status != 'pending' %}
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 {% if document.status == 'processing' %}bg-yellow-100{% else %}bg-green-100{% endif %} rounded-full flex items-center justify-center">
+                            <i class="fas {% if document.status == 'processing' %}fa-sync fa-spin text-yellow-600{% else %}fa-check text-green-600{% endif %}"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">Processamento</p>
+                            <p class="text-xs text-gray-500">
+                                {{ document.metadata.processing_stats.chunks_processed or 0 }} chunks processados
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if document.status == 'completed' %}
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-check-double text-green-600"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">Concluído</p>
+                            <p class="text-xs text-gray-500">
+                                {{ document.updated_at|format_datetime }}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyPineconeIds() {
+    const ids = {{ document.pinecone_ids|tojson }};
+    navigator.clipboard.writeText(ids.join('\n')).then(() => {
+        alert('IDs copiados para a área de transferência!');
+    });
+}
+
+function deleteDocument() {
+    if (confirm('Tem certeza que deseja excluir este documento? Esta ação não pode ser desfeita.')) {
+        fetch('/api/v1/intelligence/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                document_id: '{{ document.id }}',
+                delete_from: 'both'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = "{{ url_for('intelligence.index') }}";
+            } else {
+                alert('Erro ao excluir documento: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erro ao excluir documento');
+        });
+    }
+}
+</script>
+{% endblock %}

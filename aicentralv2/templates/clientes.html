@@ -12,41 +12,143 @@
 
     {% block content %}
 <!-- Page Header -->
-<div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-  <div class="px-6 py-4">
+<div class="navbar bg-base-100 sticky top-0 z-30 shadow-sm">
+  <div class="navbar-start">
     <!-- Breadcrumb -->
-    <nav class="flex items-center text-sm text-gray-500 mb-3">
-      <a href="{{ url_for('index') }}" class="hover:text-primary transition-colors">
-        <i class="fas fa-home"></i>
-      </a>
-      <i class="fas fa-chevron-right mx-2 text-xs"></i>
-      <span class="text-gray-400">Comercial</span>
-      <i class="fas fa-chevron-right mx-2 text-xs"></i>
-      <span class="text-gray-900 font-medium">Clientes</span>
-    </nav>
-    
-    <!-- Title & Actions -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm">
-          <i class="fas fa-building text-white text-lg"></i>
+    <div class="text-sm breadcrumbs">
+      <ul>
+        <li><a href="{{ url_for('index') }}" class="text-primary"><i class="fas fa-home"></i></a></li>
+        <li><span class="opacity-60">Comercial</span></li>
+        <li class="font-medium">Clientes</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div class="navbar-center lg:flex">
+    <div class="flex items-center space-x-2">
+      <div class="avatar placeholder">
+        <div class="bg-primary text-white rounded-lg w-10">
+          <i class="fas fa-building text-lg"></i>
         </div>
-        <div>
-          <h1 class="text-xl font-semibold text-gray-900">Clientes</h1>
-          <p class="text-sm text-gray-500 mt-0.5">Gerencie sua carteira de clientes</p>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold">Clientes</h1>
+        <p class="text-xs opacity-60">Gerencie sua carteira de clientes</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="navbar-end">
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus"></i>
+        Novo Cliente
+      </a>
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-sm">
+          <i class="fas fa-ellipsis-v"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+          <li><a><i class="fas fa-download w-4"></i>Exportar Lista</a></li>
+          <li><a><i class="fas fa-file-excel w-4"></i>Relatório Excel</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="bg-base-100 border-t border-base-200">
+  <div class="container mx-auto p-4">
+    <div class="stats stats-horizontal shadow w-full">
+      <div class="stat">
+        <div class="stat-figure text-primary">
+          <i class="fas fa-building text-3xl"></i>
+        </div>
+        <div class="stat-title">Total Clientes</div>
+        <div class="stat-value">{{ pessoas_stats.juridica.total + pessoas_stats.fisica.total }}</div>
+        <div class="stat-desc">
+          <span class="badge badge-primary badge-sm">PJ: {{ "%.1f"|format(100 * pessoas_stats.juridica.total / (pessoas_stats.juridica.total + pessoas_stats.fisica.total) if (pessoas_stats.juridica.total + pessoas_stats.fisica.total) > 0 else 0) }}%</span>
+          <span class="badge badge-warning badge-sm ml-1">PF: {{ "%.1f"|format(100 * pessoas_stats.fisica.total / (pessoas_stats.juridica.total + pessoas_stats.fisica.total) if (pessoas_stats.juridica.total + pessoas_stats.fisica.total) > 0 else 0) }}%</span>
         </div>
       </div>
       
-      <!-- Quick Actions -->
-      <div class="flex items-center space-x-2">
-        <a href="{{ url_for('cliente_novo') }}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors shadow-sm">
-          <i class="fas fa-plus mr-2 text-xs"></i>
-          Novo Cliente
-        </a>
-        <button type="button" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <i class="fas fa-download mr-2 text-xs"></i>
-          Exportar
-        </button>
+      <div class="stat">
+        <div class="stat-figure text-success">
+          <i class="fas fa-check-circle text-3xl"></i>
+        </div>
+        <div class="stat-title">Clientes Ativos</div>
+        <div class="stat-value text-success">{{ pessoas_stats.juridica.ativos + pessoas_stats.fisica.ativos }}</div>
+        <div class="stat-desc">Gerando receita</div>
+      </div>
+      
+      <div class="stat">
+        <div class="stat-figure text-warning">
+          <i class="fas fa-users text-3xl"></i>
+        </div>
+        <div class="stat-title">Total Contatos</div>
+        <div class="stat-value text-warning">{{ clientes|sum(attribute='total_contatos') if clientes else 0 }}</div>
+        <div class="stat-desc">Pessoas conectadas</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Search and Filters -->
+<div class="bg-base-100 border-t border-base-200">
+  <div class="container mx-auto p-4">
+    <div class="flex flex-col lg:flex-row gap-4">
+      <!-- Main Search -->
+      <div class="form-control flex-1">
+        <div class="input-group">
+          <input type="text" 
+                 id="searchInput"
+                 placeholder="Buscar por nome, razão social ou CNPJ..." 
+                 class="input input-bordered w-full" />
+          <button class="btn btn-square btn-primary">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Filters -->
+      <div class="flex gap-4">
+        <select id="vendedorFilter" class="select select-bordered w-full max-w-xs">
+          <option value="">Todos os Executivos</option>
+          {% if vendedores_cc %}
+            {% for vend in vendedores_cc %}
+              <option value="{{ vend.id_contato_cliente }}" {% if filtro_vendas_central_comm and filtro_vendas_central_comm == vend.id_contato_cliente %}selected{% endif %}>
+                {{ vend.nome_completo }}
+              </option>
+            {% endfor %}
+          {% endif %}
+        </select>
+
+        <select id="statusFilter" class="select select-bordered w-full max-w-xs">
+          <option value="todos">Status: Todos</option>
+          <option value="false">Ativos</option>
+          <option value="true">Inativos</option>
+        </select>
+
+        <select id="tipoFilter" class="select select-bordered w-full max-w-xs">
+          <option value="todos">Tipo: Todos</option>
+          <option value="PJ">Pessoa Jurídica</option>
+          <option value="PF">Pessoa Física</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Active Filters -->
+    <div class="flex flex-wrap gap-2 mt-4 empty:hidden">
+      <div role="alert" class="alert alert-info py-2 px-4 cursor-pointer hover:bg-info/90">
+        <i class="fas fa-user-tie"></i>
+        <span>Executivo: João Silva</span>
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </div>
+      <div role="alert" class="alert alert-success py-2 px-4 cursor-pointer hover:bg-success/90">
+        <i class="fas fa-check-circle"></i>
+        <span>Ativos</span>
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
       </div>
     </div>
   </div>
@@ -163,139 +265,120 @@
                 </div>
 
                 <!-- Table Container -->
-                <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                    <div class="overflow-x-auto min-w-full">
-                        <table id="clientesTable" class="w-full table-fixed">
+                <div class="bg-base-100 shadow-xl rounded-box">
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
                             <thead>
-                                <tr class="bg-gray-50/80 border-b border-gray-200">
-                                    <th class="py-4 px-4 text-left w-[40%]">
-                                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-                                            <span>Cliente</span>
-                                            <button class="hover:bg-gray-200 p-1.5 rounded-lg transition-colors">
-                                                <i class="fas fa-sort text-gray-400"></i>
-                                            </button>
-                                        </div>
+                                <tr>
+                                    <th class="w-[40%]">
+                                        <button class="flex items-center gap-2">
+                                            Cliente
+                                            <i class="fas fa-sort opacity-50"></i>
+                                        </button>
                                     </th>
-                                    <th class="py-4 px-4 text-left w-[25%]">
-                                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-                                            <span>Executivo</span>
-                                            <button class="hover:bg-gray-200 p-1.5 rounded-lg transition-colors">
-                                                <i class="fas fa-sort text-gray-400"></i>
-                                            </button>
-                                        </div>
+                                    <th class="w-[25%]">
+                                        <button class="flex items-center gap-2">
+                                            Executivo
+                                            <i class="fas fa-sort opacity-50"></i>
+                                        </button>
                                     </th>
-                                    <th class="py-4 px-4 text-left w-[20%]">
-                                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-                                            <span>Tipo / Status</span>
-                                        </div>
-                                    </th>
-                                    <th class="py-4 px-4 text-right w-[15%]">
-                                        <span class="text-sm font-semibold text-gray-700">Ações</span>
-                                    </th>
+                                    <th class="w-[20%]">Tipo / Status</th>
+                                    <th class="w-[15%] text-right">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-200">
+                            <tbody>
                                 {% for cliente in clientes %}
-                                <tr class="group hover:bg-gray-50/80 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
-                                    <td class="py-3 px-4">
-                                        <div class="flex items-start space-x-3">
-                                            <div class="flex-shrink-0 mt-1">
-                                                <div class="w-8 h-8 rounded-lg flex items-center justify-center {% if cliente.tipo_pessoa == 'PJ' %}bg-primary/10 text-primary{% else %}bg-accent-yellow/10 text-accent-yellow{% endif %}">
-                                                    <i class="fas fa-{% if cliente.tipo_pessoa == 'PJ' %}building{% else %}user{% endif %}"></i>
+                                <tr>
+                                    <td>
+                                        <div class="flex gap-3">
+                                            <div class="avatar placeholder">
+                                                <div class="w-12 rounded-lg {% if cliente.tipo_pessoa == 'PJ' %}bg-primary/10 text-primary{% else %}bg-warning/10 text-warning{% endif %}">
+                                                    <i class="fas fa-{% if cliente.tipo_pessoa == 'PJ' %}building{% else %}user{% endif %} text-lg"></i>
                                                 </div>
                                             </div>
-                                            <div class="min-w-0">
-                                                <div class="font-medium text-gray-900 truncate" title="{{ cliente.nome_fantasia }}">
-                                                    {{ cliente.nome_fantasia or cliente.razao_social }}
-                                                </div>
+                                            <div>
+                                                <div class="font-bold">{{ cliente.nome_fantasia or cliente.razao_social }}</div>
                                                 {% if cliente.nome_fantasia %}
-                                                <div class="text-sm text-gray-500 truncate mt-0.5" title="{{ cliente.razao_social }}">
-                                                    {{ cliente.razao_social }}
-                                                </div>
+                                                <div class="text-sm opacity-60">{{ cliente.razao_social }}</div>
                                                 {% endif %}
-                                                <div class="flex items-center space-x-2 mt-1">
-                                                    <span class="inline-flex items-center text-xs bg-blue-50 text-blue-600 rounded-full py-0.5 px-2">
-                                                        <i class="fas fa-users text-[10px] mr-1"></i>
+                                                <div class="flex gap-2 mt-1">
+                                                    <div class="badge badge-info badge-sm gap-1">
+                                                        <i class="fas fa-users text-[10px]"></i>
                                                         {{ cliente.total_contatos }}
-                                                    </span>
+                                                    </div>
                                                     {% if cliente.agencia_key %}
-                                                    <span class="inline-flex items-center text-xs bg-purple-50 text-purple-600 rounded-full py-0.5 px-2">
-                                                        <i class="fas fa-briefcase text-[10px] mr-1"></i>
+                                                    <div class="badge badge-secondary badge-sm gap-1">
+                                                        <i class="fas fa-briefcase text-[10px]"></i>
                                                         Agência
-                                                    </span>
+                                                    </div>
                                                     {% endif %}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="py-3 px-4">
-                                        <div class="flex items-center space-x-3">
-                                            {% if cliente.executivo %}
-                                            <div class="flex-shrink-0">
-                                                <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
-                                                    <span class="text-xs font-medium text-gray-600">
-                                                        {{ cliente.executivo.nome_completo[:2].upper() }}
-                                                    </span>
+                                    <td>
+                                        {% if cliente.executivo %}
+                                        <div class="flex items-center gap-3">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 rounded-full bg-neutral-focus text-neutral-content">
+                                                    <span>{{ cliente.executivo.nome_completo[:2].upper() }}</span>
                                                 </div>
                                             </div>
                                             <div>
-                                                <div class="text-sm font-medium text-gray-900">
-                                                    {{ cliente.executivo.nome_completo }}
-                                                </div>
-                                                <div class="text-xs text-gray-500">Vendas CentralComm</div>
+                                                <div class="font-bold">{{ cliente.executivo.nome_completo }}</div>
+                                                <div class="text-sm opacity-60">Vendas CentralComm</div>
                                             </div>
-                                            {% else %}
-                                            <span class="text-xs text-gray-500">Não atribuído</span>
-                                            {% endif %}
                                         </div>
+                                        {% else %}
+                                        <div class="flex items-center gap-3">
+                                            <div class="avatar placeholder">
+                                                <div class="w-8 rounded-full bg-base-300">
+                                                    <i class="fas fa-user-slash opacity-50"></i>
+                                                </div>
+                                            </div>
+                                            <div class="text-sm opacity-60">Não atribuído</div>
+                                        </div>
+                                        {% endif %}
                                     </td>
-                                    <td class="py-3 px-4">
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center text-xs {% if cliente.tipo_pessoa == 'PJ' %}bg-primary/10 text-primary{% else %}bg-accent-yellow/10 text-accent-yellow{% endif %} rounded-full py-1 px-2 font-medium">
+                                    <td>
+                                        <div class="flex flex-col gap-2">
+                                            <div class="badge {% if cliente.tipo_pessoa == 'PJ' %}badge-primary{% else %}badge-warning{% endif %} gap-1">
+                                                <i class="fas fa-{% if cliente.tipo_pessoa == 'PJ' %}building{% else %}user{% endif %} text-[10px]"></i>
                                                 {{ cliente.tipo_pessoa }}
-                                            </span>
-                                            <span class="inline-flex items-center text-xs {% if cliente.status %}bg-green-50 text-green-600{% else %}bg-orange-50 text-orange-600{% endif %} rounded-full py-1 px-2 font-medium">
+                                            </div>
+                                            <div class="badge {% if cliente.status %}badge-success{% else %}badge-error{% endif %} gap-1">
+                                                <i class="fas fa-{% if cliente.status %}check{% else %}times{% endif %} text-[10px]"></i>
                                                 {{ 'Ativo' if cliente.status else 'Inativo' }}
-                                            </span>
+                                            </div>
                                         </div>
                                     </td>
-                                    <td class="py-3 px-4">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" 
-                                               class="relative group/details inline-flex items-center px-2.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">
-                                                <i class="fas fa-eye text-gray-400 mr-1.5 group-hover/details:text-primary transition-colors"></i>
-                                                Detalhes
-                                            </a>
-                                            
-                                            <div class="relative">
-                                                <button type="button" class="inline-flex items-center p-1.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">
-                                                    <i class="fas fa-ellipsis-h"></i>
-                                                </button>
-                                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden group-hover:block z-20">
-                                                    <div class="py-1">
-                                                        <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" 
-                                                           class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                            <i class="fas fa-edit w-4 mr-3 text-gray-400"></i>
-                                                            Editar
+                                    <td class="text-right">
+                                        <div class="join">
+                                            <button class="btn btn-sm join-item" onclick="clientDetailsSidebar.open('{{ cliente.id_cliente }}')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <div class="dropdown dropdown-end">
+                                                <label tabindex="0" class="btn btn-sm join-item">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </label>
+                                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                                    <li>
+                                                        <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}">
+                                                            <i class="fas fa-edit"></i>Editar
                                                         </a>
-                                                        
-                                                        {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
-                                                        <form method="POST" 
-                                                              action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}">
-                                                            <button type="submit" 
-                                                                    class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                <i class="fas fa-{% if not cliente.status %}check text-green-500{% else %}ban text-orange-500{% endif %} w-4 mr-3"></i>
+                                                    </li>
+                                                    {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
+                                                    <li>
+                                                        <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}">
+                                                            <button type="submit" class="w-full text-left">
+                                                                <i class="fas fa-{% if not cliente.status %}check text-success{% else %}ban text-error{% endif %}"></i>
                                                                 {% if not cliente.status %}Ativar{% else %}Desativar{% endif %}
                                                             </button>
                                                         </form>
-                                                        {% endif %}
-                                                        
-                                                        <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                            <i class="fas fa-user-tie w-4 mr-3 text-gray-400"></i>
-                                                            Alterar Executivo
-                                                        </a>
-                                                    </div>
-                                                </div>
+                                                    </li>
+                                                    {% endif %}
+                                                    <li><a><i class="fas fa-user-tie"></i>Alterar Executivo</a></li>
+                                                </ul>
                                             </div>
                                         </div>
                                     </td>
@@ -306,17 +389,14 @@
                     </div>
                     
                     <!-- Table Footer with Pagination -->
-                    <div class="border-t border-gray-200 px-6 py-3 flex items-center justify-between bg-gray-50/50">
-                        <div class="flex items-center text-sm text-gray-500"></div>
-                        <div class="flex items-center space-x-2">
-                            <button class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
-                                <i class="fas fa-chevron-left mr-1"></i>
-                                Anterior
-                            </button>
-                            <button class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
-                                Próximo
-                                <i class="fas fa-chevron-right ml-1"></i>
-                            </button>
+                    <div class="flex justify-between items-center p-4 border-t">
+                        <div class="text-sm opacity-60">Mostrando 1-10 de 100 clientes</div>
+                        <div class="join">
+                            <button class="join-item btn btn-sm" disabled>«</button>
+                            <button class="join-item btn btn-sm btn-active">1</button>
+                            <button class="join-item btn btn-sm">2</button>
+                            <button class="join-item btn btn-sm">3</button>
+                            <button class="join-item btn btn-sm">»</button>
                         </div>
                     </div>
                 </div>
@@ -345,121 +425,404 @@
     {% endblock %}
 
     {% block sidebar %}
-    <div class="space-y-6">
-        <!-- Estatísticas -->
-        <div class="bg-white rounded-lg shadow-md p-4">
-            <h3 class="text-base font-semibold mb-4 flex items-center text-gray-800">
-                <i class="fas fa-chart-pie text-primary mr-2"></i>
-                Segmentação
-            </h3>
-
-            <!-- Pessoa Jurídica -->
-            <div class="mb-4 pb-4 border-b border-gray-200">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center">
-                        <i class="fas fa-building text-primary mr-2"></i>
-                        <h4 class="text-sm font-medium text-gray-800">Pessoa Jurídica</h4>
-                    </div>
-                    <span class="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                        {{ "%.1f"|format(100 * pessoas_stats.juridica.total / (pessoas_stats.juridica.total + pessoas_stats.fisica.total) if (pessoas_stats.juridica.total + pessoas_stats.fisica.total) > 0 else 0) }}%
-                    </span>
-                </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Total</span>
-                        <span class="font-semibold">{{ pessoas_stats.juridica.total }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Ativos</span>
-                        <span class="font-semibold text-success">{{ pessoas_stats.juridica.ativos }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Inativos</span>
-                        <span class="font-semibold text-error">{{ pessoas_stats.juridica.total - pessoas_stats.juridica.ativos }}</span>
-                    </div>
-                </div>
+<!-- Dynamic Client Details Sidebar -->
+<div id="clientDetailsSidebar" class="hidden fixed right-0 top-0 h-full w-96 bg-white shadow-xl border-l border-gray-200 transform transition-transform duration-300 z-40">
+    <!-- Sidebar Header -->
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+        <div class="flex items-center min-w-0">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center mr-3" id="clientTypeIcon">
+                <!-- Icon will be dynamically set -->
             </div>
-
-            <!-- Pessoa Física -->
-            <div class="mb-4">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center">
-                        <i class="fas fa-user text-accent-yellow mr-2"></i>
-                        <h4 class="text-sm font-medium text-gray-800">Pessoa Física</h4>
-                    </div>
-                    <span class="text-xs bg-accent-yellow/10 text-accent-yellow px-2 py-1 rounded">
-                        {{ "%.1f"|format(100 * pessoas_stats.fisica.total / (pessoas_stats.juridica.total + pessoas_stats.fisica.total) if (pessoas_stats.juridica.total + pessoas_stats.fisica.total) > 0 else 0) }}%
-                    </span>
-                </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Total</span>
-                        <span class="font-semibold">{{ pessoas_stats.fisica.total }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Ativos</span>
-                        <span class="font-semibold text-success">{{ pessoas_stats.fisica.ativos }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-600">Inativos</span>
-                        <span class="font-semibold text-error">{{ pessoas_stats.fisica.total - pessoas_stats.fisica.ativos }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Total Geral -->
-            <div class="mt-4 pt-4 border-t border-gray-200">
-                <div class="flex justify-between items-center">
-                    <span class="font-medium text-gray-800">Total Geral</span>
-                    <span class="font-bold text-gray-900">{{ pessoas_stats.juridica.total + pessoas_stats.fisica.total }}</span>
-                </div>
+            <div class="truncate">
+                <h3 class="font-semibold text-gray-900 truncate" id="clientName">Selecione um cliente</h3>
+                <p class="text-sm text-gray-500 truncate" id="clientId"></p>
             </div>
         </div>
+        <button onclick="closeClientDetails()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <i class="fas fa-times text-gray-400"></i>
+        </button>
+    </div>
 
-        <!-- Ações Rápidas -->
-        <div class="bg-white rounded-lg p-4 shadow-md border border-border">
-            <h3 class="text-base font-semibold mb-3 text-text-primary flex items-center">
-                <i class="fas fa-bolt mr-2 text-accent-yellow"></i>
-                Ações Rápidas
-            </h3>
-            <div class="space-y-2">
-                <a href="{{ url_for('cliente_novo') }}" class="block w-full px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 text-center text-sm">
-                    <i class="fas fa-plus mr-1"></i>
-                    Novo Cliente
-                </a>
-                <a href="{{ url_for('contatos') }}" class="block w-full px-3 py-1.5 bg-gray-100 text-text-primary rounded-lg hover:bg-gray-200 transition-colors duration-200 text-center text-sm">
-                    <i class="fas fa-users mr-1"></i>
-                    Ver Contatos
-                </a>
-            </div>
-        </div>
-
-        <!-- Resumo de Contatos -->
-        <div class="bg-accent-green bg-opacity-10 rounded-lg p-4 border border-accent-green border-opacity-30">
-            <h3 class="text-base font-semibold mb-2 text-primary flex items-center">
-                <i class="fas fa-users mr-2"></i>
-                Total de Contatos
-            </h3>
-            <p class="text-2xl font-bold text-primary">
-                {{ clientes|sum(attribute='total_contatos') if clientes else 0 }}
-            </p>
-            <p class="text-xs text-text-secondary mt-1">
-                Distribuídos entre todos os clientes
-            </p>
-        </div>
-
-        <!-- Ajuda -->
-        <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <h3 class="text-base font-semibold mb-2 text-blue-900 flex items-center">
-                <i class="fas fa-info-circle mr-2"></i>
-                Dica
-            </h3>
-            <p class="text-xs text-blue-800">
-                Use a barra de pesquisa para encontrar clientes rapidamente por razão social ou nome fantasia.
-            </p>
+    <!-- Tabs Navigation -->
+    <div class="px-6 pt-4 border-b border-gray-200">
+        <div class="flex space-x-4" role="tablist">
+            <button class="px-3 py-2 text-sm font-medium text-primary border-b-2 border-primary" role="tab" data-tab="cadu">
+                <i class="fas fa-file-alt mr-2"></i>CADU
+            </button>
+            <button class="px-3 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" role="tab" data-tab="cotacoes">
+                <i class="fas fa-calculator mr-2"></i>Cotações
+            </button>
+            <button class="px-3 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" role="tab" data-tab="operacao">
+                <i class="fas fa-cogs mr-2"></i>Operação
+            </button>
+            <button class="px-3 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700" role="tab" data-tab="financeiro">
+                <i class="fas fa-dollar-sign mr-2"></i>Financeiro
+            </button>
         </div>
     </div>
-    {% endblock %}
+
+    <!-- Tab Contents -->
+    <div class="overflow-y-auto" style="height: calc(100vh - 8rem);">
+        <!-- CADU Tab -->
+        <div class="p-6" id="tab-cadu" role="tabpanel">
+            <!-- Status Card -->
+            <div class="stats stats-vertical shadow w-full bg-base-100 mb-6">
+                <div class="stat">
+                    <div class="stat-title text-xs">Status do Cliente</div>
+                    <div class="stat-value text-success text-lg">Ativo</div>
+                    <div class="stat-desc text-xs">Desde Jan 2023</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title text-xs">Último Contato</div>
+                    <div class="stat-value text-lg">15 dias</div>
+                    <div class="stat-desc text-xs text-warning">Agendar follow-up</div>
+                </div>
+            </div>
+
+            <!-- Informações Básicas -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-sm mb-4">
+                        <i class="fas fa-info-circle mr-2 text-primary"></i>
+                        Informações Básicas
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text text-xs">CNPJ</span>
+                            </label>
+                            <input type="text" value="00.000.000/0001-00" class="input input-sm input-bordered" disabled />
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text text-xs">Inscrição Estadual</span>
+                            </label>
+                            <input type="text" value="123.456.789" class="input input-sm input-bordered" disabled />
+                        </div>
+                    </div>
+                    <div class="divider my-2"></div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm opacity-75">Segmento</span>
+                            <span class="badge badge-primary">Tecnologia</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm opacity-75">Porte</span>
+                            <span class="badge badge-ghost">Médio</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contatos -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="card-title text-sm">
+                            <i class="fas fa-users mr-2 text-primary"></i>
+                            Contatos
+                        </h3>
+                        <button class="btn btn-sm btn-ghost btn-square">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-3">
+                        <!-- Contato Card -->
+                        <div class="card card-compact card-bordered">
+                            <div class="card-body">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="avatar placeholder">
+                                            <div class="bg-primary text-white rounded-full w-8">
+                                                <span class="text-xs">JD</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-medium text-sm">João da Silva</h4>
+                                            <p class="text-xs text-gray-500">Diretor de Tecnologia</p>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown dropdown-end">
+                                        <label tabindex="0" class="btn btn-ghost btn-xs btn-square">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </label>
+                                        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                            <li><a><i class="fas fa-edit w-4"></i> Editar</a></li>
+                                            <li><a><i class="fas fa-trash w-4"></i> Remover</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="btn btn-xs btn-outline gap-1">
+                                        <i class="fas fa-phone text-[10px]"></i>
+                                        Ligar
+                                    </button>
+                                    <button class="btn btn-xs btn-outline gap-1">
+                                        <i class="fas fa-envelope text-[10px]"></i>
+                                        Email
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-sm mb-4">
+                        <i class="fas fa-history mr-2 text-primary"></i>
+                        Histórico de Atividades
+                    </h3>
+                    <ul class="timeline timeline-vertical timeline-compact">
+                        <li>
+                            <div class="timeline-start text-xs">13:00</div>
+                            <div class="timeline-middle">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-primary"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" /></svg>
+                            </div>
+                            <div class="timeline-end timeline-box">
+                                <p class="text-sm">Reunião de follow-up agendada</p>
+                                <p class="text-xs text-gray-500">Agendado por Maria Silva</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="timeline-start text-xs">10:30</div>
+                            <div class="timeline-middle">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-success"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
+                            </div>
+                            <div class="timeline-end timeline-box">
+                                <p class="text-sm">Proposta aprovada</p>
+                                <p class="text-xs text-gray-500">Valor: R$ 15.000,00</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cotações Tab -->
+        <div class="p-6 hidden" id="tab-cotacoes" role="tabpanel">
+            <!-- Stats Summary -->
+            <div class="stats shadow w-full bg-base-100 mb-6">
+                <div class="stat">
+                    <div class="stat-title">Total Cotações</div>
+                    <div class="stat-value">89</div>
+                    <div class="stat-desc">↗︎ 14% (30 dias)</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title">Taxa Aprovação</div>
+                    <div class="stat-value text-success">78%</div>
+                    <div class="stat-desc">↗︎ 8% (30 dias)</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title">Ticket Médio</div>
+                    <div class="stat-value">R$ 12k</div>
+                    <div class="stat-desc">↘︎ 2% (30 dias)</div>
+                </div>
+            </div>
+
+            <!-- Recent Quotes -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="card-title text-sm">Cotações Recentes</h3>
+                        <button class="btn btn-sm btn-primary">Nova Cotação</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Serviço</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2023-11-05</td>
+                                    <td>Mídia Programática</td>
+                                    <td>R$ 15.000</td>
+                                    <td><div class="badge badge-success gap-1"><i class="fas fa-check text-[10px]"></i>Aprovada</div></td>
+                                </tr>
+                                <tr>
+                                    <td>2023-11-01</td>
+                                    <td>Gestão de Redes</td>
+                                    <td>R$ 8.000</td>
+                                    <td><div class="badge badge-warning gap-1"><i class="fas fa-clock text-[10px]"></i>Pendente</div></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operação Tab -->
+        <div class="p-6 hidden" id="tab-operacao" role="tabpanel">
+            <!-- Current Status -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body">
+                    <h3 class="card-title text-sm mb-4">Status da Operação</h3>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm">Progresso Geral</span>
+                        <span class="text-sm font-medium">75%</span>
+                    </div>
+                    <progress class="progress progress-success w-full" value="75" max="100"></progress>
+                    
+                    <!-- Status Cards -->
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="stats bg-base-200">
+                            <div class="stat">
+                                <div class="stat-title text-xs">Campanhas Ativas</div>
+                                <div class="stat-value text-primary text-2xl">4</div>
+                            </div>
+                        </div>
+                        <div class="stats bg-base-200">
+                            <div class="stat">
+                                <div class="stat-title text-xs">Performance</div>
+                                <div class="stat-value text-success text-2xl">92%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operation Steps -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                    <h3 class="card-title text-sm mb-4">Fluxo de Operação</h3>
+                    <ul class="steps steps-vertical">
+                        <li class="step step-primary" data-content="✓">
+                            <div class="text-left ml-4">
+                                <p class="font-medium">Onboarding</p>
+                                <p class="text-xs text-gray-500">Concluído em 01/11/2023</p>
+                            </div>
+                        </li>
+                        <li class="step step-primary" data-content="✓">
+                            <div class="text-left ml-4">
+                                <p class="font-medium">Setup de Campanhas</p>
+                                <p class="text-xs text-gray-500">Concluído em 03/11/2023</p>
+                            </div>
+                        </li>
+                        <li class="step step-primary">
+                            <div class="text-left ml-4">
+                                <p class="font-medium">Otimização</p>
+                                <p class="text-xs text-gray-500">Em andamento</p>
+                            </div>
+                        </li>
+                        <li class="step">
+                            <div class="text-left ml-4">
+                                <p class="font-medium">Review Mensal</p>
+                                <p class="text-xs text-gray-500">Previsto para 30/11/2023</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financeiro Tab -->
+        <div class="p-6 hidden" id="tab-financeiro" role="tabpanel">
+            <!-- Financial Summary -->
+            <div class="stats stats-vertical shadow w-full bg-base-100 mb-6">
+                <div class="stat">
+                    <div class="stat-title">Faturamento Total</div>
+                    <div class="stat-value text-primary">R$ 89,400</div>
+                    <div class="stat-desc">Jan - Nov 2023</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-title">Status de Pagamento</div>
+                    <div class="stat-value text-success">Em Dia</div>
+                    <div class="stat-desc">Última fatura: 05/11/2023</div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body">
+                    <h3 class="card-title text-sm mb-4">Transações Recentes</h3>
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center space-x-3">
+                                            <div class="avatar placeholder">
+                                                <div class="bg-green-100 text-green-600 rounded-full w-8">
+                                                    <i class="fas fa-arrow-down"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="font-bold">Pagamento Recebido</div>
+                                                <div class="text-sm opacity-50">05/11/2023</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="text-success font-medium">+ R$ 15.000</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center space-x-3">
+                                            <div class="avatar placeholder">
+                                                <div class="bg-orange-100 text-orange-600 rounded-full w-8">
+                                                    <i class="fas fa-clock"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="font-bold">Fatura Emitida</div>
+                                                <div class="text-sm opacity-50">01/11/2023</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="text-warning font-medium">R$ 12.000</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Schedule -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                    <h3 class="card-title text-sm mb-4">Próximos Vencimentos</h3>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-content card card-compact card-bordered mb-4">
+                                <div class="card-body">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <h4 class="font-medium">Fatura #2023/11</h4>
+                                            <p class="text-sm text-gray-500">Vencimento em 15/11/2023</p>
+                                        </div>
+                                        <span class="text-lg font-medium">R$ 12.000</span>
+                                    </div>
+                                    <div class="flex gap-2 mt-3">
+                                        <button class="btn btn-sm btn-primary gap-2">
+                                            <i class="fas fa-file-invoice"></i>
+                                            Ver Fatura
+                                        </button>
+                                        <button class="btn btn-sm btn-ghost gap-2">
+                                            <i class="fas fa-history"></i>
+                                            Histórico
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
     {% block scripts %}
     <script src="{{ url_for('static', filename='js/clientes.js') }}"></script>

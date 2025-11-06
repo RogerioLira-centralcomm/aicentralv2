@@ -53,6 +53,11 @@ def create_app(config_class=Config):
     try:
         from . import routes
         routes.init_routes(app)
+        
+        # Registrar blueprint da Inteligência
+        from .routes.intelligence import bp as intelligence_bp
+        app.register_blueprint(intelligence_bp)
+        
         app.logger.info("OK Rotas registradas")
     except Exception as e:
         app.logger.error(f"FALHA Erro ao registrar rotas: {e}")

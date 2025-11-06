@@ -38,6 +38,12 @@ def init_routes(app):
     def components():
         """Página de componentes Tailwind"""
         return render_template('components/tailwind_components.html')
+        
+    @app.route('/design-system')
+    @login_required
+    def design_system():
+        """Página do Design System"""
+        return render_template('design_system.html')
 
     # ==================== ARQUIVOS ESTÁTICOS ====================
     @app.after_request

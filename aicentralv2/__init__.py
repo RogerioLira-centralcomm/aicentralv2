@@ -55,7 +55,7 @@ def create_app(config_class=Config):
         routes.init_routes(app)
         
         # Registrar blueprint da Inteligência
-        from .routes.intelligence import bp as intelligence_bp
+        from .intelligence_routes.intelligence import bp as intelligence_bp
         app.register_blueprint(intelligence_bp)
         
         app.logger.info("OK Rotas registradas")

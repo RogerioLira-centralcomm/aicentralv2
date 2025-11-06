@@ -1,25 +1,46 @@
 import os
 import json
-import pinecone
-from ..db import get_db
-from .openrouter_service import process_text_with_gemini
-from PyPDF2 import PdfReader
+import logging
 import requests
-from ...config.pinecone_config import PINECONE_CONFIG
-from sentence_transformers import SentenceTransformer
+from ...db import get_db
+from aicentralv2.config import PINECONE_CONFIG
+
+# Logger do módulo
+logger = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__)
 
 class IntelligenceService:
     def __init__(self):
-        # Inicializa Pinecone com as configurações fixas
-        pinecone.init(
-            api_key=PINECONE_CONFIG['api_key'],
-            environment=PINECONE_CONFIG['environment'],
-            host=PINECONE_CONFIG['host']
-        )
-        self.index = pinecone.Index(PINECONE_CONFIG['index_name'])
-        
-        # Inicializa o modelo de embeddings
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        """Inicializa dependências de forma preguiçosa (lazy) para evitar erros de import no startup.
+
+        As bibliotecas pesadas (pinecone, sentence-transformers, numpy, PyPDF2) são importadas
+        apenas quando necessárias. Assim a aplicação sobe mesmo em ambientes sem essas libs.
+        """
+        self._pinecone = None
+        self._pinecone_cfg = PINECONE_CONFIG
+        self.index = None
+        self.embedding_model = None
+
+        # Tenta inicializar Pinecone
+        try:
+            import pinecone  # type: ignore
+            pinecone.init(
+                api_key=self._pinecone_cfg.get('api_key'),
+                environment=self._pinecone_cfg.get('environment'),
+                host=self._pinecone_cfg.get('host')
+            )
+            self._pinecone = pinecone
+            self.index = pinecone.Index(self._pinecone_cfg.get('index_name'))
+        except Exception as e:
+            logger.warning(f"Pinecone não inicializado: {e}")
+
+        # Tenta inicializar o modelo de embeddings
+        try:
+            from sentence_transformers import SentenceTransformer  # type: ignore
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        except Exception as e:
+            logger.warning(f"SentenceTransformer indisponível: {e}")
 
     def process_document(self, file_path, title, requires_cadu_format=False):
         """
@@ -56,6 +77,12 @@ class IntelligenceService:
             if not requires_cadu_format:
                 text = self._process_with_gemini(text)
             
+            # Verifica dependências críticas antes de prosseguir
+            if self.index is None:
+                raise RuntimeError("Pinecone não está configurado nesta instância.")
+            if self.embedding_model is None:
+                raise RuntimeError("Modelo de embeddings (sentence-transformers) não está disponível.")
+
             # Dividir em chunks
             chunks = self._create_chunks(text)
             
@@ -119,6 +146,10 @@ class IntelligenceService:
 
     def _extract_text_from_pdf(self, file_path):
         """Extrai texto de um arquivo PDF"""
+        try:
+            from PyPDF2 import PdfReader  # type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Dependência PyPDF2 indisponível: {e}")
         reader = PdfReader(file_path)
         text = ""
         for page in reader.pages:
@@ -134,7 +165,7 @@ class IntelligenceService:
             processed_text = process_large_text(text)
             return processed_text
         except Exception as e:
-            self.logger.error(f"Erro no processamento Gemini: {e}")
+            logger.error(f"Erro no processamento Gemini: {e}")
             # Em caso de erro, retorna o texto original
             return text
 
@@ -167,13 +198,20 @@ class IntelligenceService:
         Este modelo produz embeddings de 384 dimensões que são então mapeados para 512
         através de padding com zeros para compatibilidade com o Pinecone.
         """
+        if self.embedding_model is None:
+            raise RuntimeError("Modelo de embeddings indisponível. Instale sentence-transformers.")
         # Criar embedding base
         embedding = self.embedding_model.encode(text)
-        
+
         # Padding para 512 dimensões
-        padded_embedding = np.zeros(512)
-        padded_embedding[:384] = embedding
-        
+        try:
+            import numpy as np  # type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Dependência numpy indisponível: {e}")
+        padded_embedding = np.zeros(512, dtype=float)
+        # Garante que comprimento não exceda 512
+        end = min(384, len(embedding))
+        padded_embedding[:end] = embedding[:end]
         return padded_embedding.tolist()
 
     def _update_processing_status(self, document_id, status_data):

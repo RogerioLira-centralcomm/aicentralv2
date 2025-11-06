@@ -1,98 +1,19 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - Página não encontrada</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .error-container {
-            background: white;
-            border-radius: 16px;
-            padding: 60px 40px;
-            text-align: center;
-            max-width: 500px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        
-        .error-icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-        }
-        
-        .error-code {
-            font-size: 120px;
-            font-weight: 700;
-            color: #667eea;
-            margin: 0;
-            line-height: 1;
-        }
-        
-        h1 {
-            font-size: 28px;
-            color: #333;
-            margin: 20px 0 10px;
-        }
-        
-        p {
-            color: #666;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 14px 32px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-        
-        @media (max-width: 480px) {
-            .error-container {
-                padding: 40px 20px;
-            }
-            
-            .error-code {
-                font-size: 80px;
-            }
-            
-            h1 {
-                font-size: 24px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="error-container">
-        <div class="error-icon">🔍</div>
-        <div class="error-code">404</div>
-        <h1>Página não encontrada</h1>
-        <p>A página que você está procurando não existe ou foi movida.</p>
-        <a href="{{ url_for('index') }}" class="btn">Voltar para Início</a>
+{% extends 'base_tailwind.html' %}
+
+{% block title %}404 - Página não encontrada{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center p-6">
+  <div class="text-center max-w-lg">
+    <div class="text-7xl mb-2">🔍</div>
+    <div class="text-6xl font-extrabold text-primary">404</div>
+    <h1 class="text-2xl font-semibold mt-4">Página não encontrada</h1>
+    <p class="mt-2 opacity-70">A página que você está procurando não existe ou foi movida.</p>
+    <div class="mt-6">
+      <a class="btn btn-primary" href="{{ url_for('index') }}">
+        <i class="fas fa-home mr-2"></i> Voltar para Início
+      </a>
     </div>
-</body>
-</html>
+  </div>
+  
+{% endblock %}

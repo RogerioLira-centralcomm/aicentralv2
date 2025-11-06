@@ -43,6 +43,9 @@ module.exports = {
           "error": "#DC3545",
         },
       },
+      "light",
+      "dark",
+      "corporate",
     ],
   },
 }

@@ -3,363 +3,104 @@
 {% block title %}Detalhes do Cliente - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="p-6">
-    <!-- Header -->
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-text-primary flex items-center">
-                <i class="fas fa-building text-primary mr-3"></i>
-                Detalhes do Cliente
-            </h1>
-            <div class="flex gap-3">
-                <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" 
-                   class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 shadow-md">
-                    <i class="fas fa-edit mr-2"></i>
-                    Editar Cliente
-                </a>
-                <a href="{{ url_for('clientes') }}" 
-                   class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Voltar
-                </a>
-            </div>
-        </div>
-    </div>
+<h1>Detalhes do Cliente</h1>
 
-    <!-- Informações do Cliente -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Dados Principais -->
-        <div class="lg:col-span-2 bg-white rounded-lg shadow-card p-6">
-            <h2 class="text-xl font-semibold mb-4 flex items-center text-gray-800">
-                <i class="fas fa-info-circle mr-2 text-primary"></i>
-                Informações Principais
-            </h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- ID e Data de Criação -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">ID do Cliente</label>
-                    <p class="text-gray-900 mt-1">#{{ cliente.id_cliente }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Criado em: {{ cliente.data_criacao if cliente.data_criacao else 'N/A' }}</p>
-                </div>
+<p>
+  <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}">Editar Cliente</a> |
+  <a href="{{ url_for('clientes') }}">Voltar</a>
+  </p>
 
-                <!-- Status -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Status</label>
-                    <p class="mt-1">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if not cliente.status %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
-                            {{ 'Inativo' if not cliente.status else 'Ativo' }}
-                        </span>
-                    </p>
-                </div>
-                
-                <!-- Razão Social (somente PJ) -->
-                {% if cliente.pessoa != 'F' %}
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Razão Social</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.razao_social }}</p>
-                </div>
-                {% endif %}
-                
-                <!-- Nome Fantasia / Nome Completo -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">{{ 'Nome Completo' if cliente.pessoa == 'F' else 'Nome Fantasia' }}</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.nome_fantasia }}</p>
-                </div>
-                
-                <!-- CNPJ/CPF -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">{{ 'CPF' if cliente.pessoa == 'F' else 'CNPJ' }}</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.cnpj or 'Não informado' }}</p>
-                </div>
-                
-                <!-- Total de Contatos -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Total de Contatos</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.total_contatos }}</p>
-                </div>
+<h2>Informações Principais</h2>
+<ul>
+  <li>ID do Cliente: #{{ cliente.id_cliente }}</li>
+  <li>Status: {{ 'Ativo' if cliente.status else 'Inativo' }}</li>
+  {% if cliente.pessoa != 'F' %}
+  <li>Razão Social: {{ cliente.razao_social }}</li>
+  {% endif %}
+  <li>{{ 'Nome Completo' if cliente.pessoa == 'F' else 'Nome Fantasia' }}: {{ cliente.nome_fantasia }}</li>
+  <li>{{ 'CPF' if cliente.pessoa == 'F' else 'CNPJ' }}: {{ cliente.cnpj or 'Não informado' }}</li>
+  <li>Total de Contatos: {{ cliente.total_contatos }}</li>
+  <li>Executivo de Vendas: {% if cliente.vendedor_nome %}{{ cliente.vendedor_nome }}{% if cliente.vendedor_cargo %} ({{ cliente.vendedor_cargo }}){% endif %}{% else %}—{% endif %}</li>
+  <li>Apresentação do Executivo: {{ cliente.apresentacao_executivo_display or 'Não informado' }}</li>
+  <li>Fluxo de Boas-Vindas: {{ cliente.fluxo_boas_vindas_display or 'Não informado' }}</li>
+  {% if cliente.pessoa != 'F' %}
+  <li>
+    Agência:
+    {% set ag_key = cliente.agencia_key|string|lower %}
+    {{ 'Sim' if (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) else 'Não' }}
+  </li>
+  {% endif %}
+  {% set ag_key = cliente.agencia_key|string|lower %}
+  {% if cliente.pessoa != 'F' and (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) %}
+  <li>Percentual: {{ cliente.percentual_display or '—' }}</li>
+  {% endif %}
+  <li>
+    Estado:
+    {% if cliente.estado_sigla or cliente.estado_descricao %}
+      {{ cliente.estado_sigla }}{% if cliente.estado_sigla and cliente.estado_descricao %} - {% endif %}{{ cliente.estado_descricao }}
+    {% else %}
+      Não informado
+    {% endif %}
+  </li>
+  <li>Tipo de Cliente: {{ cliente.tipo_cliente_display or 'Não informado' }}</li>
+  {% if cliente.pessoa != 'F' %}
+  <li>Inscrição Estadual: {{ cliente.inscricao_estadual or 'Não informado' }}</li>
+  <li>Inscrição Municipal: {{ cliente.inscricao_municipal or 'Não informado' }}</li>
+  {% endif %}
+  <li>
+    Plano:
+    {% if cliente.plano_descricao %}
+      {{ cliente.plano_descricao }} ({{ cliente.plano_tokens }} tokens)
+    {% else %}
+      Nenhum plano associado
+    {% endif %}
+  </li>
+</ul>
 
-                <!-- Executivo de Vendas (CentralComm) -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Executivo de Vendas</label>
-                    <p class="text-gray-900 mt-1">
-                        {% if cliente.vendedor_nome %}
-                            {{ cliente.vendedor_nome }}
-                            {% if cliente.vendedor_cargo %}
-                                <span class="text-xs text-gray-500">({{ cliente.vendedor_cargo }})</span>
-                            {% endif %}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </p>
-                </div>
+{% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
+<form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}">
+  <button type="submit">{{ 'Desativar' if cliente.status else 'Ativar' }} Cliente</button>
+</form>
+{% endif %}
 
-                <!-- Apresentação do Executivo -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Apresentação do Executivo</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.apresentacao_executivo_display or 'Não informado' }}</p>
-                </div>
-
-                <!-- Fluxo de Boas-Vindas -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Fluxo de Boas-Vindas</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.fluxo_boas_vindas_display or 'Não informado' }}</p>
-                </div>
-
-                <!-- Agência (somente PJ) -->
-                {% if cliente.pessoa != 'F' %}
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Agência</label>
-                    <p class="text-gray-900 mt-1">
-                        {% set ag_key = cliente.agencia_key|string|lower %}
-                        {{ 'Sim' if (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) else 'Não' }}
-                    </p>
-                </div>
-                {% endif %}
-
-                <!-- Percentual (somente quando Agência = Sim) -->
-                {% set ag_key = cliente.agencia_key|string|lower %}
-                {% if cliente.pessoa != 'F' and (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) %}
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Percentual</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.percentual_display or '—' }}</p>
-                </div>
-                {% endif %}
-
-                <!-- Estado -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Estado</label>
-                    <p class="text-gray-900 mt-1">
-                        {% if cliente.estado_sigla or cliente.estado_descricao %}
-                            {{ cliente.estado_sigla }}{% if cliente.estado_sigla and cliente.estado_descricao %} - {% endif %}{{ cliente.estado_descricao }}
-                        {% else %}
-                            Não informado
-                        {% endif %}
-                    </p>
-                </div>
-
-                <!-- Tipo de Cliente -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Tipo de Cliente</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.tipo_cliente_display or 'Não informado' }}</p>
-                </div>
-                
-                <!-- Inscrição Estadual (somente PJ) -->
-                {% if cliente.pessoa != 'F' %}
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Inscrição Estadual</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.inscricao_estadual or 'Não informado' }}</p>
-                </div>
-                {% endif %}
-                
-                <!-- Inscrição Municipal (somente PJ) -->
-                {% if cliente.pessoa != 'F' %}
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Inscrição Municipal</label>
-                    <p class="text-gray-900 mt-1">{{ cliente.inscricao_municipal or 'Não informado' }}</p>
-                </div>
-                {% endif %}
-
-                <!-- Plano -->
-                <div>
-                    <label class="text-sm font-medium text-gray-500">Plano</label>
-                    <p class="text-gray-900 mt-1">
-                        {% if cliente.plano_descricao %}
-                            {{ cliente.plano_descricao }}
-                            <span class="text-xs text-gray-500">({{ cliente.plano_tokens }} tokens)</span>
-                        {% else %}
-                            <span class="text-gray-500">Nenhum plano associado</span>
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Estatísticas e Ações -->
-        <div class="space-y-6">
-            <!-- Estatísticas -->
-            <div class="bg-white rounded-lg shadow-card p-6">
-                <h3 class="text-lg font-semibold mb-4 text-gray-800">Estatísticas</h3>
-                <div class="space-y-4">
-                    <!-- Total de Contatos -->
-                    <div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-500">Total de Contatos</span>
-                            <span class="text-lg font-semibold text-primary">{{ cliente.total_contatos }}</span>
-                        </div>
-                        <div class="mt-1 h-2 bg-gray-200 rounded-full">
-                            {% set porcentagem = (cliente.total_contatos / 10) * 100 %}
-                            {% if porcentagem > 100 %}{% set porcentagem = 100 %}{% endif %}
-                            {% set width_class = 'w-[' ~ porcentagem ~ '%]' %}
-                            <div class="h-2 bg-primary rounded-full {{ width_class }}"></div>
-                        </div>
-                    </div>
-
-                    <!-- Total de Tokens Gastos -->
-                    <div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-500">Tokens Gastos</span>
-                            <span class="text-lg font-semibold text-primary">{{ cliente.total_tokens_gasto }}</span>
-                        </div>
-                        {% if cliente.plano_tokens %}
-                        <div class="mt-1 h-2 bg-gray-200 rounded-full">
-                            {% set token_porcentagem = (cliente.total_tokens_gasto / cliente.plano_tokens * 100) %}
-                            {% if token_porcentagem > 100 %}{% set token_porcentagem = 100 %}{% endif %}
-                            {% set width_class = 'w-[' ~ token_porcentagem ~ '%]' %}
-                            <div class="h-2 {% if token_porcentagem > 80 %}bg-orange-500{% else %}bg-primary{% endif %} rounded-full {{ width_class }}"></div>
-                        </div>
-                        <div class="mt-1 text-xs text-gray-500 text-right">
-                            {{ cliente.total_tokens_gasto }} de {{ cliente.plano_tokens }} tokens ({{ "%.1f"|format(token_porcentagem) }}%)
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Ações -->
-            <div class="bg-white rounded-lg shadow-card p-6">
-                <h3 class="text-lg font-semibold mb-4 text-gray-800">Ações</h3>
-                <div class="space-y-3">
-                    <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" 
-                       class="block w-full text-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
-                        <i class="fas fa-user-plus mr-2"></i>
-                        Novo Contato
-                    </a>
-                    {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
-                    <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
-                          class="block w-full">
-                        <button type="submit" 
-                                class="w-full px-4 py-2 {% if cliente.status %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded-lg transition-colors duration-200">
-                            <i class="fas fa-{% if cliente.status %}ban{% else %}check{% endif %} mr-2"></i>
-                            {{ 'Desativar' if cliente.status else 'Ativar' }} Cliente
-                        </button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Lista de Contatos -->
-    <div class="mt-6 bg-white rounded-lg shadow-card p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
-                <i class="fas fa-users mr-2 text-primary"></i>
-                Contatos Vinculados
-            </h2>
-            <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" 
-               class="inline-flex items-center px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-light transition-colors duration-200">
-                <i class="fas fa-plus mr-1"></i>
-                Adicionar Contato
-            </a>
-        </div>
-
-        <!-- Filtros e Ordenação -->
-        <div class="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-                <label class="text-xs text-gray-500">Buscar</label>
-                <input id="contatosSearch" type="text" placeholder="Nome, email ou telefone"
-                       class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50" />
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Setor</label>
-                <select id="filtroSetor" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    <option value="">Todos os setores</option>
-                </select>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Cargo</label>
-                <select id="filtroCargo" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    <option value="">Todos os cargos</option>
-                </select>
-            </div>
-            <div>
-                <label class="text-xs text-gray-500">Ordenar por</label>
-                <select id="ordenarPor" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50">
-                    <option value="nome">Nome</option>
-                    <option value="setor">Setor</option>
-                    <option value="cargo">Cargo</option>
-                    <option value="status">Status</option>
-                </select>
-            </div>
-        </div>
-
-        {% if contatos %}
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead>
-                        <tr class="bg-gray-50 text-left">
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Nome</th>
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Email</th>
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Telefone</th>
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Setor</th>
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Cargo</th>
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Status</th>
-                            <th class="py-3 px-4 text-sm font-semibold text-gray-600">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        {% for contato in contatos %}
-                            <tr class="hover:bg-gray-50" 
-                                data-nome="{{ contato.nome_completo|lower }}"
-                                data-email="{{ contato.email|lower }}"
-                                data-telefone="{{ (contato.telefone or '')|lower }}"
-                                data-setor="{{ (contato.setor_descricao or '')|lower }}"
-                                data-cargo="{{ (contato.cargo_descricao or '')|lower }}"
-                                data-status="{{ 1 if contato.status else 0 }}">
-                                <td class="py-3 px-4">
-                                    <div class="font-medium text-gray-900">{{ contato.nome_completo }}</div>
-                                    <div class="text-xs text-gray-500">Criado em: {{ contato.data_criacao[:10] }}</div>
-                                </td>
-                                <td class="py-3 px-4 text-gray-600">{{ contato.email }}</td>
-                                <td class="py-3 px-4 text-gray-600">{{ contato.telefone or 'Não informado' }}</td>
-                                <td class="py-3 px-4 text-gray-600">{{ contato.setor_descricao or '—' }}</td>
-                                <td class="py-3 px-4 text-gray-600">{{ contato.cargo_descricao or '—' }}</td>
-                                <td class="py-3 px-4">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if not contato.status %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
-                                        {{ 'Inativo' if not contato.status else 'Ativo' }}
-                                    </span>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <div class="flex items-center gap-2">
-                                        <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
-                                           class="p-1 text-blue-600 hover:text-blue-800 transition-colors duration-200"
-                                           title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
-                                        <form method="POST" 
-                                              action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
-                                              class="inline">
-                                            <button type="submit" 
-                                                    class="p-1 {% if contato.status %}text-orange-600 hover:text-orange-800{% else %}text-green-600 hover:text-green-800{% endif %} transition-colors duration-200"
-                                                    title="{{ 'Desativar' if contato.status else 'Ativar' }}">
-                                                <i class="fas fa-{% if contato.status %}ban{% else %}check{% endif %}"></i>
-                                            </button>
-                                        </form>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="text-center py-8">
-                <i class="fas fa-users text-4xl text-gray-300 mb-3"></i>
-                <p class="text-gray-500">Nenhum contato vinculado a este cliente.</p>
-                <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" 
-                   class="inline-flex items-center px-4 py-2 mt-4 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
-                    <i class="fas fa-user-plus mr-2"></i>
-                    Adicionar Primeiro Contato
-                </a>
-            </div>
+<h2>Contatos Vinculados</h2>
+{% if contatos %}
+<table>
+  <thead>
+    <tr>
+      <th>Nome</th>
+      <th>Email</th>
+      <th>Telefone</th>
+      <th>Setor</th>
+      <th>Cargo</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for contato in contatos %}
+    <tr>
+      <td>{{ contato.nome_completo }}</td>
+      <td>{{ contato.email }}</td>
+      <td>{{ contato.telefone or 'Não informado' }}</td>
+      <td>{{ contato.setor_descricao or '—' }}</td>
+      <td>{{ contato.cargo_descricao or '—' }}</td>
+      <td>{{ 'Ativo' if contato.status else 'Inativo' }}</td>
+      <td>
+        <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}">Editar</a>
+        {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
+        <form method="POST" action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" style="display:inline">
+          <button type="submit">{{ 'Desativar' if contato.status else 'Ativar' }}</button>
+        </form>
         {% endif %}
-    </div>
-</div>
-{% endblock %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Nenhum contato vinculado a este cliente.</p>
+<p><a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}">Adicionar Primeiro Contato</a></p>
+{% endif %}
 
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/cliente_detalhes.js') }}"></script>
 {% endblock %}

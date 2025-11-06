@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="centralcomm">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,70 +9,20 @@
     <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: light)">
     <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: dark)">
 
-    <!-- Tailwind CSS e DaisyUI via CDN -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+            {% if APP_CONFIG.get('USE_CSS_CDN') or not APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
+                <!-- Tailwind + DaisyUI via CDN (fallback/dev) -->
+                <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+                <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+            {% endif %}
+            {% if APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
+                <!-- Build local -->
+                <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
+            {% endif %}
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    <!-- Configuração do Tailwind com DaisyUI -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'accent-green': '#9CCF31',
-                        'accent-yellow': '#F3B71B',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                }
-            },
-            daisyui: {
-                themes: [
-                    {
-                        centralcomm: {
-                            'primary': '#212529',
-                            'primary-content': '#ffffff',
-                            'secondary': '#9CCF31',
-                            'secondary-content': '#212529',
-                            'accent': '#F3B71B',
-                            'accent-content': '#212529',
-                            'neutral': '#1a1a1a',
-                            'neutral-content': '#ffffff',
-                            'base-100': '#fafafa',
-                            'base-200': '#f5f5f5',
-                            'base-300': '#ebebeb',
-                            'base-content': '#212529',
-                            'info': '#3b82f6',
-                            'info-content': '#ffffff',
-                            'success': '#28A745',
-                            'success-content': '#ffffff',
-                            'warning': '#FFC107',
-                            'warning-content': '#212529',
-                            'error': '#DC3545',
-                            'error-content': '#ffffff',
-                            '--rounded-box': '1rem',
-                            '--rounded-btn': '0.5rem',
-                            '--rounded-badge': '1.9rem',
-                            '--animation-btn': '0.25s',
-                            '--animation-input': '0.2s',
-                            '--btn-focus-scale': '0.95',
-                            '--border-btn': '1px',
-                            '--tab-border': '1px',
-                            '--tab-radius': '0.5rem',
-                        },
-                    },
-                ],
-                darkTheme: false,
-                base: true,
-                styled: true,
-                utils: true,
-            },
-        }
-    </script>
+    <!-- A configuração de temas do daisyUI está em tailwind.config.js -->
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -221,7 +171,7 @@
         }
     </style>
 </head>
-<body class="bg-base-100 font-sans overflow-hidden no-fouc" data-theme="centralcomm">
+<body class="bg-base-100 font-sans overflow-hidden no-fouc">
     <!-- Mobile Drawer -->
     <div class="drawer lg:drawer-open">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" />
@@ -387,6 +337,17 @@
                             <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Sair</a></li>
                         </ul>
                     </div>
+
+                    <!-- Theme Selector -->
+                    <div class="mt-3">
+                        <label class="label-text text-xs opacity-60 mb-1 block">Tema</label>
+                        <select id="themeSelector" class="select select-bordered select-sm w-full">
+                            <option value="centralcomm">CentralComm</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                            <option value="corporate">Corporate</option>
+                        </select>
+                    </div>
                 </div>
             </aside>
         </div>
@@ -416,6 +377,32 @@
                 }
             });
         });
+
+        // Theme management
+        (function(){
+            const storageKey = 'theme';
+            const htmlEl = document.documentElement;
+            const selector = document.getElementById('themeSelector');
+            const defaultTheme = 'centralcomm';
+
+            function applyTheme(theme){
+                htmlEl.setAttribute('data-theme', theme);
+            }
+
+            // init from localStorage
+            const saved = localStorage.getItem(storageKey) || defaultTheme;
+            applyTheme(saved);
+            if (selector){ selector.value = saved; }
+
+            // handle change
+            if (selector){
+                selector.addEventListener('change', function(){
+                    const t = selector.value;
+                    localStorage.setItem(storageKey, t);
+                    applyTheme(t);
+                });
+            }
+        })();
     </script>
 
     <!-- Scripts específicos da página -->

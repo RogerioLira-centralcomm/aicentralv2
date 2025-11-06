@@ -39,6 +39,18 @@ def create_app(config_class=Config):
     # Importar e registrar funções de banco
     from . import db
     
+    # Sinaliza se o CSS compilado existe
+    try:
+        has_build = os.path.exists(os.path.join(app.static_folder or 'static', 'css', 'tailwind', 'output.css'))
+        app.config['HAS_TAILWIND_BUILD'] = has_build
+    except Exception:
+        app.config['HAS_TAILWIND_BUILD'] = False
+
+    # Tornar config acessível nos templates
+    @app.context_processor
+    def inject_config():
+        return dict(APP_CONFIG=app.config)
+
     # Registrar teardown (fechar conexão)
     app.teardown_appcontext(db.close_db)
     

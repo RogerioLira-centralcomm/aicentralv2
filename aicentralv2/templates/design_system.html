@@ -30,6 +30,33 @@
 </div>
 
 <div class="p-6">
+    <!-- Seção rápida: Componentes DaisyUI nativos -->
+    <div class="bg-base-100 rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-medium mb-4">DaisyUI - Exemplos rápidos</h2>
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+            <button class="btn btn-primary">Primary</button>
+            <button class="btn btn-secondary">Secondary</button>
+            <button class="btn btn-accent">Accent</button>
+            <button class="btn">Default</button>
+            <button class="btn btn-outline">Outline</button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+            <div class="alert alert-info"><span>Informação</span></div>
+            <div class="alert alert-success"><span>Sucesso</span></div>
+            <div class="alert alert-warning"><span>Aviso</span></div>
+            <div class="alert alert-error"><span>Erro</span></div>
+        </div>
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <h3 class="card-title">Card DaisyUI</h3>
+                <p>Exemplo de card com classes nativas do DaisyUI.</p>
+                <div class="card-actions justify-end">
+                    <button class="btn btn-primary btn-sm">Ação</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tabs para navegação entre seções -->
     {% call tabs(id='components-tabs', tabs=[
         {'id': 'buttons', 'title': 'Botões'},

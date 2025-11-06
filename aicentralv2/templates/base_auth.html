@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="centralcomm">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,75 +9,25 @@
     <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: light)">
     <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: dark)">
     
-    <!-- Tailwind CSS e DaisyUI via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    {% if APP_CONFIG.get('USE_CSS_CDN') or not APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
+    <!-- Tailwind + DaisyUI via CDN (fallback/dev) -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+    {% endif %}
+    {% if APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
+    <!-- Tailwind + daisyUI (build local) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
+    {% endif %}
+        <script>
+            // Aplica o tema salvo (se existir) o mais cedo possível
+            (function(){
+                try {
+                    var saved = localStorage.getItem('theme');
+                    if (saved) document.documentElement.setAttribute('data-theme', saved);
+                } catch (e) { /* ignore */ }
+            })();
+        </script>
     
-    <!-- Configuração do Tailwind -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    // Paleta de Cores Semântica
-                    colors: {
-                        // Cor Primária
-                        primary: {
-                            DEFAULT: '#1E4D4F', // Verde Corporativo
-                            light: '#2A6D70',
-                            dark: '#153638',
-                        },
-                        // Acentos do Logo
-                        accent: {
-                            green: '#9CCF31',
-                            yellow: '#F3B71B',
-                        },
-                        // Cores Semânticas de UI
-                        success: '#28A745',
-                        warning: '#FFC107',
-                        error: '#DC3545',
-                        // UI Neutras
-                        surface: {
-                            bg: '#F8F9FA',      // Fundo da Tela (ex: body)
-                            element: '#FFFFFF', // Fundo de Cards, Modais, Inputs
-                        },
-                        border: {
-                            DEFAULT: '#DEE2E6',  // Bordas e divisores
-                        },
-                        // Cores de Texto
-                        text: {
-                            primary: '#212529',   // Texto Principal (Preto suave)
-                            secondary: '#6C757D', // Texto Secundário (Cinza)
-                        },
-                    },
-                    // Tipografia
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    // Escala de Fonte
-                    fontSize: {
-                        'xs': ['0.75rem', { lineHeight: '1rem' }],    // 12px (Info)
-                        'sm': ['0.875rem', { lineHeight: '1.25rem' }], // 14px (Label)
-                        'base': ['1rem', { lineHeight: '1.5rem' }],     // 16px (Body)
-                        'lg': ['1.125rem', { lineHeight: '1.75rem' }],// 18px (H3)
-                        '2xl': ['1.5rem', { lineHeight: '2rem' }],    // 24px (H2)
-                        '3xl': ['2rem', { lineHeight: '2.5rem' }],    // 32px (H1)
-                    },
-                    // Espaçamento de Letras Específico
-                    letterSpacing: {
-                        'h1': '-1px',
-                        'h2': '-0.5px',
-                        'label': '0.2px',
-                        'info': '0.3px',
-                    },
-                    // Sombra (Box Shadow) para Cards
-                    boxShadow: {
-                        'card': '0px 4px 12px rgba(0, 0, 0, 0.04)',
-                        'card-hover': '0px 8px 24px rgba(0, 0, 0, 0.08)',
-                    },
-                }
-            }
-        }
-    </script>
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -129,7 +79,7 @@
     <!-- Estilos específicos da página -->
     {% block styles %}{% endblock %}
 </head>
-<body class="bg-surface-bg font-sans text-text-primary">
+<body class="bg-base-100 font-sans">
     <!-- Conteúdo principal -->
     <main>
         {% block content %}{% endblock %}

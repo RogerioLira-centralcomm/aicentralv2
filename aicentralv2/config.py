@@ -21,6 +21,10 @@ class Config:
 	# Projeto
 	PROJECT_NAME = 'AIcentralv2'
 	VERSION = '2.0.0'
+
+	# Frontend/CSS
+	# Quando True, usa CDN de Tailwind + daisyUI nos templates; quando False, usa apenas build local
+	USE_CSS_CDN = False
     
 	# PostgreSQL
 	DB_HOST = os.getenv('DB_HOST', 'localhost')
@@ -39,12 +43,14 @@ class DevelopmentConfig(Config):
 	"""Configuração de desenvolvimento"""
 	DEBUG = True
 	TESTING = False
+	USE_CSS_CDN = True
 
 
 class ProductionConfig(Config):
 	"""Configuração de produção"""
 	DEBUG = False
 	TESTING = False
+	USE_CSS_CDN = False
 
 
 class TestingConfig(Config):

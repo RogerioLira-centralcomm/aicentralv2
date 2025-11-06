@@ -3,628 +3,157 @@
 {% block title %}{% if cliente %}Editar{% else %}Novo{% endif %} Cliente - CentralComm AI{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="bg-base-100 border-b sticky top-0 z-30">
-  <div class="container mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <!-- Breadcrumb -->
-      <div class="breadcrumbs text-sm">
-        <ul>
-          <li><a href="{{ url_for('index') }}"><i class="fas fa-home"></i></a></li>
-          <li><a href="{{ url_for('clientes') }}">Clientes</a></li>
-          <li>{% if cliente %}Editar{% else %}Novo{% endif %}</li>
-        </ul>
-      </div>
-    
-    <!-- Title & Actions -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-sm">
-          <i class="fas fa-{% if cliente %}edit{% else %}plus{% endif %} text-white text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-xl font-semibold text-gray-900">{% if cliente %}Editar Cliente{% else %}Novo Cliente{% endif %}</h1>
-          <p class="text-sm text-gray-500 mt-0.5">{% if cliente %}Atualize as informações do cliente{% else %}Cadastre um novo cliente no sistema{% endif %}</p>
-        </div>
-      </div>
-      
-      <!-- Quick Actions -->
-      <div class="flex items-center space-x-2">
-        <a href="{{ url_for('clientes') }}" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <i class="fas fa-arrow-left mr-2 text-xs"></i>
-          Voltar
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
+<h1>{% if cliente %}Editar Cliente{% else %}Novo Cliente{% endif %}</h1>
+<p><a href="{{ url_for('clientes') }}">Voltar</a></p>
 
-<div class="p-6">
-<!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="mb-6 space-y-2">
-                {% for category, message in messages %}
-                    <div class="flex items-center p-3 rounded-lg shadow-sm animate-slide-up {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
-                        </div>
-                        <span class="flex-1 ml-3 text-sm font-medium">{{ message }}</span>
-                        <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-400 hover:text-gray-600 transition-colors">
-                            <i class="fas fa-times text-sm"></i>
-                        </button>
-                    </div>
-                {% endfor %}
-            </div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<ul>
+  {% for category, message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endwith %}
+
+<form method="POST" id="clienteForm">
+  {% if cliente and cliente.id_cliente %}
+  <input type="hidden" id="cliente_id" value="{{ cliente.id_cliente }}">
+  {% endif %}
+
+  {% set pessoa_current = request.form.get('pessoa') or (cliente.pessoa if cliente else 'J') %}
+
+  <fieldset>
+    <legend>Informações</legend>
+
+    <label>Tipo de Pessoa *</label><br>
+    <label><input type="radio" name="pessoa" value="J" {% if pessoa_current == 'J' %}checked{% endif %}> Pessoa Jurídica</label>
+    <label><input type="radio" name="pessoa" value="F" {% if pessoa_current == 'F' %}checked{% endif %}> Pessoa Física</label>
+
+    <br><br>
+    <label>Agência *</label><br>
+    {% for agencia in agencias %}
+      <label><input type="radio" name="pk_id_tbl_agencia" value="{{ agencia.id_agencia }}" data-agencia-key="{{ (agencia.key|string)|lower }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}checked{% endif %}{% if not cliente and loop.first %} checked{% endif %}> {{ agencia.display }}</label>
+    {% endfor %}
+
+    <br><br>
+    <label>Vendas CentralComm *</label><br>
+    <select name="vendas_central_comm" id="vendas_central_comm" required>
+      <option value="">Selecione um executivo</option>
+      {% if vendedores_cc %}
+        {% for vend in vendedores_cc %}
+        <option value="{{ vend.id_contato_cliente }}" {% if cliente and (cliente.vendas_central_comm == vend.id_contato_cliente) %}selected{% endif %}>{{ vend.nome_completo }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
+
+    <br><br>
+    <label>Apresentação do Executivo</label><br>
+    {% if apresentacoes %}
+      {% for ap in apresentacoes %}
+      <label><input type="radio" name="id_apresentacao_executivo" value="{{ ap.id_tbl_apresentacao_executivo }}" {% if (cliente and cliente.id_apresentacao_executivo == ap.id_tbl_apresentacao_executivo) or (not cliente and (ap.display|lower == 'sim' or loop.first)) %}checked{% endif %}> {{ ap.display }}</label>
+      {% endfor %}
+    {% endif %}
+
+    <br><br>
+    <label>Fluxo de Boas-Vindas *</label><br>
+    {% if fluxos %}
+      {% for fx in fluxos %}
+      <label><input type="radio" name="id_fluxo_boas_vindas" value="{{ fx.id_fluxo_boas_vindas }}" {% if (cliente and cliente.id_fluxo_boas_vindas == fx.id_fluxo_boas_vindas) or (not cliente and loop.first) %}checked{% endif %}> {{ fx.display }}</label>
+      {% endfor %}
+    {% endif %}
+
+    <br><br>
+    <label>Razão Social *</label><br>
+    <input type="text" name="razao_social" value="{{ cliente.razao_social if cliente else '' }}" required>
+
+    <br><br>
+    <label>Nome Fantasia *</label><br>
+    <input type="text" name="nome_fantasia" value="{{ cliente.nome_fantasia if cliente else '' }}" required>
+
+    <br><br>
+    <label>CNPJ/CPF *</label><br>
+    <input type="text" name="cnpj" value="{{ cliente.cnpj if cliente else '' }}" required>
+
+    <br><br>
+    <label>Inscrição Estadual</label><br>
+    <input type="text" name="inscricao_estadual" value="{{ cliente.inscricao_estadual if cliente else '' }}">
+
+    <br><br>
+    <label>Inscrição Municipal</label><br>
+    <input type="text" name="inscricao_municipal" value="{{ cliente.inscricao_municipal if cliente else '' }}">
+
+    <br><br>
+    <label>Tipo de Cliente *</label><br>
+    <select name="id_tipo_cliente" required>
+      <option value="">Selecione um tipo</option>
+      {% for tipo in tipos_cliente %}
+      <option value="{{ tipo.id_tipo_cliente }}" {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>{{ tipo.display }}</option>
+      {% endfor %}
+    </select>
+
+    <br><br>
+    <label>Plano *</label><br>
+    <select name="pk_id_tbl_plano" required>
+      <option value="">Selecione um plano</option>
+      {% for plano in planos %}
+        {% if plano.status %}
+        <option value="{{ plano.id_plano }}" {% if cliente and cliente.pk_id_tbl_plano == plano.id_plano %}selected{% endif %}>{{ plano.descricao }} - {{ "{:,}".format(plano.tokens).replace(',', '.') }} tokens</option>
         {% endif %}
-    {% endwith %}
+      {% endfor %}
+    </select>
 
-    <!-- Form Card -->
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
-      <form method="POST" id="clienteForm" class="space-y-6">
-        {% if cliente and cliente.id_cliente %}
-          <input type="hidden" id="cliente_id" value="{{ cliente.id_cliente }}">
-        {% endif %}
+    <br><br>
+    <label>Percentual</label><br>
+    <select name="id_percentual">
+      <option value="">Selecione um percentual</option>
+      {% if percentuais %}
+        {% for perc in percentuais %}
+        <option value="{{ perc.id_percentual }}" {% if cliente and cliente.id_percentual == perc.id_percentual %}selected{% endif %}>{{ perc.display }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
 
-        <!-- Tabs de Navegação -->
-        <div class="tabs tabs-boxed">
-          <a class="tab tab-active" data-tab="info">Informações Principais</a>
-          <a class="tab" data-tab="comercial">Informações Comerciais</a>
-          <a class="tab" data-tab="endereco">Endereço</a>
-        </div>
-        
-        <!-- Form Content -->
-        <div class="p-6">
-            <form method="POST">
-                {% if cliente and cliente.id_cliente %}
-                <input type="hidden" id="cliente_id" value="{{ cliente.id_cliente }}">
-                {% endif %}
-                <!-- Tipo de Pessoa, Agência e Vendas CentralComm -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <!-- Tipo de Pessoa -->
-                    <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-user mr-2 text-gray-500"></i>
-                            Tipo de Pessoa
-                            <span class="text-red-500">*</span>
-                        </label>
-                        {% set pessoa_current = request.form.get('pessoa') or (cliente.pessoa if cliente else 'J') %}
-                        <div class="mt-2 flex space-x-6">
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="pessoa" value="J" class="form-radio text-primary" 
-                                       {% if pessoa_current == 'J' %}checked{% endif %}>
-                                <span class="ml-2">Pessoa Jurídica</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="pessoa" value="F" class="form-radio text-primary"
-                                       {% if pessoa_current == 'F' %}checked{% endif %}>
-                                <span class="ml-2">Pessoa Física</span>
-                            </label>
-                        </div>
-                    </div>
+    <br><br>
+    <label>CEP</label><br>
+    <input type="text" name="cep" id="cep" value="{{ cliente.cep if cliente else '' }}">
 
-                    <!-- Agência -->
-                    <div class="pessoa-juridica-agencia md:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-building mr-2 text-gray-500"></i>
-                            Agência
-                            <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-2 flex flex-wrap gap-4">
-                            {% for agencia in agencias %}
-                                <label class="inline-flex items-center">
-                                    <input type="radio" 
-                                        name="pk_id_tbl_agencia" 
-                                        value="{{ agencia.id_agencia }}" 
-                                        class="form-radio text-primary"
-                                        data-agencia-key="{{ (agencia.key|string)|lower }}"
-                                        {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}checked{% endif %}
-                                        {% if not cliente and loop.first %}checked{% endif %}>
-                                    <span class="ml-2">{{ agencia.display }}</span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                    </div>
+    <br><br>
+    <label>Estado</label><br>
+    <select name="pk_id_aux_estado" id="estado">
+      <option value="">Selecione</option>
+      {% for estado in estados %}
+      <option value="{{ estado.id_estado }}" {% if cliente and cliente.pk_id_aux_estado == estado.id_estado %}selected{% endif %}>{{ estado.sigla }} - {{ estado.descricao }}</option>
+      {% endfor %}
+    </select>
 
-                    <!-- Vendas CentralComm (seleção de Executivo) -->
-                    <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-handshake mr-2 text-gray-500"></i>
-                            Vendas CentralComm
-                            <span class="text-red-500">*</span>
-                        </label>
-                        <select 
-                            name="vendas_central_comm"
-                            id="vendas_central_comm"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            required
-                        >
-                            <option value="">Selecione um executivo</option>
-                            {% if vendedores_cc %}
-                    {% for vend in vendedores_cc %}
-                        <option value="{{ vend.id_contato_cliente }}" {% if cliente and (cliente.vendas_central_comm == vend.id_contato_cliente) %}selected{% endif %}>
-                                        {{ vend.nome_completo }}
-                                    </option>
-                                {% endfor %}
-                            {% endif %}
-                        </select>
-                        <p class="mt-1 text-sm text-gray-500">Exibidos contatos do cliente CENTRALCOMM com cargo "Executivo de Vendas".</p>
-                    </div>
-                </div>
+    <br><br>
+    <label>Cidade</label><br>
+    <input type="text" name="cidade" id="cidade" value="{{ cliente.cidade if cliente else '' }}">
 
-                <!-- Apresentação do Executivo -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-comment-dots mr-2 text-gray-500"></i>
-                        Apresentação do Executivo
-                    </label>
-                    <div class="mt-1 flex flex-wrap gap-4">
-                        {% if apresentacoes %}
-                            {% for ap in apresentacoes %}
-                                <label class="inline-flex items-center">
-                     <input type="radio" name="id_apresentacao_executivo" value="{{ ap.id_tbl_apresentacao_executivo }}" class="form-radio text-primary" required
-                         {% if (cliente and cliente.id_apresentacao_executivo == ap.id_tbl_apresentacao_executivo) or (not cliente and (ap.display|lower == 'sim' or loop.first)) %}checked{% endif %}>
-                                    <span class="ml-2 text-gray-700">{{ ap.display }}</span>
-                                </label>
-                            {% endfor %}
-                        {% endif %}
-                    </div>
-                    <p class="mt-1 text-sm text-gray-500">Ex.: Primeira reunião, Demonstração, Proposta enviada, etc.</p>
-                </div>
+    <br><br>
+    <label>Bairro</label><br>
+    <input type="text" name="bairro" id="bairro" value="{{ cliente.bairro if cliente else '' }}">
 
-                <!-- Fluxo de Boas-Vindas -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-route mr-2 text-gray-500"></i>
-                        Fluxo de Boas-Vindas
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <div class="mt-1 flex flex-wrap gap-4">
-                        {% if fluxos %}
-                            {% for fx in fluxos %}
-                                <label class="inline-flex items-center">
-                                    <input type="radio" name="id_fluxo_boas_vindas" value="{{ fx.id_fluxo_boas_vindas }}" class="form-radio text-primary" required
-                                           {% if (cliente and cliente.id_fluxo_boas_vindas == fx.id_fluxo_boas_vindas) or (not cliente and loop.first) %}checked{% endif %}>
-                                    <span class="ml-2 text-gray-700">{{ fx.display }}</span>
-                                </label>
-                            {% endfor %}
-                        {% endif %}
-                    </div>
-                    <p class="mt-1 text-sm text-gray-500">Obrigatório.</p>
-                </div>
+    <br><br>
+    <label>Logradouro</label><br>
+    <input type="text" name="logradouro" id="logradouro" value="{{ cliente.logradouro if cliente else '' }}">
 
-                <!-- Razão Social -->
-                <div class="mb-6 pessoa-juridica">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-building mr-2 text-gray-500"></i>
-                        Razão Social
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        name="razao_social" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        value="{{ cliente.razao_social if cliente else '' }}"
-                        required
-                        autofocus
-                        placeholder="Ex: EMPRESA LTDA"
-                    >
-                    <p class="mt-1 text-sm text-gray-500">Nome oficial da empresa</p>
-                </div>
+    <br><br>
+    <label>Número</label><br>
+    <input type="text" name="numero" id="numero" value="{{ cliente.numero if cliente else '' }}">
 
-                <!-- Nome Fantasia / Nome Completo -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-store mr-2 text-gray-500 pessoa-juridica"></i>
-                        <i class="fas fa-user mr-2 text-gray-500 pessoa-fisica hidden"></i>
-                        <span class="pessoa-juridica">Nome Fantasia</span>
-                        <span class="pessoa-fisica hidden">Nome Completo</span>
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        name="nome_fantasia" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        value="{{ cliente.nome_fantasia if cliente else '' }}"
-                        required
-                        placeholder="Ex: Empresa"
-                    >
-                    <p class="mt-1 text-sm text-gray-500 pessoa-juridica">Nome comercial da empresa</p>
-                    <p class="mt-1 text-sm text-gray-500 pessoa-fisica hidden">Nome completo da pessoa física</p>
-                </div>
+    <br><br>
+    <label>Complemento</label><br>
+    <input type="text" name="complemento" id="complemento" value="{{ cliente.complemento if cliente else '' }}">
+  </fieldset>
 
-                <!-- CNPJ/CPF -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-id-card mr-2 text-gray-500"></i>
-                        <span class="pessoa-juridica">CNPJ</span>
-                        <span class="pessoa-fisica hidden">CPF</span>
-                        <span class="text-red-500">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        name="cnpj" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                        value="{{ cliente.cnpj if cliente else '' }}"
-                        placeholder="00.000.000/0000-00"
-                        maxlength="18"
-                        required
-                    >
-                    <p class="mt-1 text-sm text-gray-500 pessoa-juridica">Obrigatório - formato: 00.000.000/0000-00</p>
-                    <p class="mt-1 text-sm text-gray-500 pessoa-fisica hidden">Obrigatório - formato: 000.000.000-00</p>
-                </div>
+  <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 
-                <!-- Inscrições (Estadual e Municipal) na mesma linha -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <!-- Inscrição Estadual -->
-                    <div class="pessoa-juridica">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-file-alt mr-2 text-gray-500"></i>
-                            Inscrição Estadual
-                        </label>
-                        <input 
-                            type="text" 
-                            name="inscricao_estadual" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            value="{{ cliente.inscricao_estadual if cliente else '' }}"
-                            placeholder="Ex: 123.456.789.012"
-                        >
-                        <p class="mt-1 text-sm text-gray-500">Opcional</p>
-                    </div>
-
-                    <!-- Inscrição Municipal -->
-                    <div class="pessoa-juridica">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-file-alt mr-2 text-gray-500"></i>
-                            Inscrição Municipal
-                        </label>
-                        <input 
-                            type="text" 
-                            name="inscricao_municipal" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            value="{{ cliente.inscricao_municipal if cliente else '' }}"
-                            placeholder="Ex: 123456"
-                        >
-                        <p class="mt-1 text-sm text-gray-500">Opcional</p>
-                    </div>
-                </div>
-
-                <!-- Tipo de Cliente + Plano (mesma linha em telas médias+) -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <!-- Tipo de Cliente -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-tags mr-2 text-gray-500"></i>
-                            Tipo de Cliente
-                            <span class="text-red-500">*</span>
-                        </label>
-                        <select 
-                            name="id_tipo_cliente" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            required
-                        >
-                            <option value="">Selecione um tipo</option>
-                            {% for tipo in tipos_cliente %}
-                <option value="{{ tipo.id_tipo_cliente }}" 
-                    {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>
-                                {{ tipo.display }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <p class="mt-1 text-sm text-gray-500">Obrigatório</p>
-                    </div>
-
-                    <!-- Plano -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-layer-group mr-2 text-gray-500"></i>
-                            Plano
-                            <span class="text-red-500">*</span>
-                        </label>
-                        <select 
-                            name="pk_id_tbl_plano" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            required
-                        >
-                            <option value="">Selecione um plano</option>
-                            {% for plano in planos %}
-                                {% if plano.status %}
-                                    <option value="{{ plano.id_plano }}" 
-                                        {% if cliente and cliente.pk_id_tbl_plano == plano.id_plano %}selected{% endif %}>
-                                        {{ plano.descricao }} - {{ "{:,}".format(plano.tokens).replace(',', '.') }} tokens
-                                    </option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                        <p class="mt-1 text-sm text-gray-500">Selecione o plano de tokens para este cliente</p>
-                    </div>
-                </div>
-
-                <!-- Percentual (somente ativos; visível apenas quando Agência = Sim) -->
-                <div class="mb-6 percentual-section hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-percentage mr-2 text-gray-500"></i>
-                        Percentual
-                    </label>
-                    <select 
-                        name="id_percentual" 
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                    >
-                        <option value="">Selecione um percentual</option>
-                        {% if percentuais %}
-                            {% for perc in percentuais %}
-                                <option value="{{ perc.id_percentual }}" {% if cliente and cliente.id_percentual == perc.id_percentual %}selected{% endif %}>
-                                    {{ perc.display }}
-                                </option>
-                            {% endfor %}
-                        {% endif %}
-                    </select>
-                    <p class="mt-1 text-sm text-gray-500">Lista ordenada pelo índice. Apenas percentuais ativos.</p>
-                </div>
-
-                <!-- Seção de Endereço -->
-                <div class="mt-8 mb-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center border-b pb-2">
-                        <i class="fas fa-map-marker-alt mr-2 text-primary"></i>
-                        Endereço
-                    </h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- CEP -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-map-pin mr-2 text-gray-500"></i>
-                                CEP
-                            </label>
-                            <input 
-                                type="text" 
-                                name="cep" 
-                                id="cep"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                value="{{ cliente.cep if cliente else '' }}"
-                                placeholder="00000-000"
-                                maxlength="9"
-                            >
-                            <p class="mt-1 text-sm text-gray-500">Formato: 00000-000</p>
-                        </div>
-
-                        <!-- Estado -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-flag mr-2 text-gray-500"></i>
-                                Estado
-                            </label>
-                            <select 
-                                name="pk_id_aux_estado" 
-                                id="estado"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                            >
-                                <option value="">Selecione</option>
-                                {% for estado in estados %}
-                                <option value="{{ estado.id_estado }}" 
-                                        {% if cliente and cliente.pk_id_aux_estado == estado.id_estado %}selected{% endif %}>
-                                    {{ estado.sigla }} - {{ estado.descricao }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- Cidade -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-city mr-2 text-gray-500"></i>
-                                Cidade
-                            </label>
-                            <input 
-                                type="text" 
-                                name="cidade" 
-                                id="cidade"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                value="{{ cliente.cidade if cliente else '' }}"
-                                placeholder="Ex: São Paulo"
-                            >
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                        <!-- Bairro -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-home mr-2 text-gray-500"></i>
-                                Bairro
-                            </label>
-                            <input 
-                                type="text" 
-                                name="bairro" 
-                                id="bairro"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                value="{{ cliente.bairro if cliente else '' }}"
-                                placeholder="Ex: Centro"
-                            >
-                        </div>
-
-                        <!-- Logradouro -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-road mr-2 text-gray-500"></i>
-                                Logradouro
-                            </label>
-                            <input 
-                                type="text" 
-                                name="logradouro" 
-                                id="logradouro"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                value="{{ cliente.logradouro if cliente else '' }}"
-                                placeholder="Ex: Rua das Flores"
-                            >
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                        <!-- Número -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-hashtag mr-2 text-gray-500"></i>
-                                Número
-                            </label>
-                            <input 
-                                type="text" 
-                                name="numero" 
-                                id="numero"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                value="{{ cliente.numero if cliente else '' }}"
-                                placeholder="Ex: 123"
-                            >
-                        </div>
-
-                        <!-- Complemento -->
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-building mr-2 text-gray-500"></i>
-                                Complemento
-                            </label>
-                            <input 
-                                type="text" 
-                                name="complemento" 
-                                id="complemento"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
-                                value="{{ cliente.complemento if cliente else '' }}"
-                                placeholder="Ex: Apto 101, Bloco A"
-                            >
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Campo oculto para pessoa física -->
-                <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
-
-                <!-- Actions -->
-                <div class="flex justify-end space-x-4 mt-8">
-                    <a href="{{ url_for('clientes') }}" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 shadow-md">
-                        <i class="fas fa-times mr-2"></i>
-                        Cancelar
-                    </a>
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
-                        <i class="fas fa-save mr-2"></i>
-                        {% if cliente %}Atualizar{% else %}Cadastrar{% endif %}
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    {% endblock %}
-
-    {% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Controle de tabs
-  const tabs = document.querySelectorAll('.tab');
-  const contents = document.querySelectorAll('.tab-content');
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      // Remove active de todas as tabs
-      tabs.forEach(t => t.classList.remove('tab-active'));
-      // Adiciona active na tab clicada
-      tab.classList.add('tab-active');
-      
-      // Esconde todos os conteúdos
-      contents.forEach(content => content.classList.add('hidden'));
-      // Mostra o conteúdo da tab atual
-      document.getElementById('tab-' + tab.dataset.tab).classList.remove('hidden');
-    });
-  });
-
-  // Controle de Tipo de Pessoa
-  const pessoaInputs = document.querySelectorAll('input[name="pessoa"]');
-  const pessoaJuridicaElements = document.querySelectorAll('.pessoa-juridica');
-  const pessoaFisicaElements = document.querySelectorAll('.pessoa-fisica');
-  const percentualSection = document.querySelector('.percentual-section');
-
-  function updatePessoaVisibility(tipo) {
-    if (tipo === 'J') {
-      pessoaJuridicaElements.forEach(el => el.classList.remove('hidden'));
-      pessoaFisicaElements.forEach(el => el.classList.add('hidden'));
-    } else {
-      pessoaJuridicaElements.forEach(el => el.classList.add('hidden'));
-      pessoaFisicaElements.forEach(el => el.classList.remove('hidden'));
-    }
-  }
-
-  pessoaInputs.forEach(input => {
-    input.addEventListener('change', (e) => {
-      updatePessoaVisibility(e.target.value);
-      
-      // Se for PF, força agência 2
-      if (e.target.value === 'F') {
-        document.querySelector('input[name="pk_id_tbl_agencia"][value="2"]').checked = true;
-      }
-    });
-  });
-
-  // Controle de Agência e Percentual
-  const agenciaInputs = document.querySelectorAll('input[name="pk_id_tbl_agencia"]');
-  
-  agenciaInputs.forEach(input => {
-    input.addEventListener('change', (e) => {
-      const isAgenciaSim = e.target.dataset.agenciaKey === 'true' || 
-                          e.target.dataset.agenciaKey === '1' || 
-                          e.target.dataset.agenciaKey === 'sim' || 
-                          e.target.dataset.agenciaKey === 'yes';
-      
-      if (isAgenciaSim && document.querySelector('input[name="pessoa"]:checked').value === 'J') {
-        percentualSection.classList.remove('hidden');
-        document.querySelector('select[name="id_percentual"]').required = true;
-      } else {
-        percentualSection.classList.add('hidden');
-        document.querySelector('select[name="id_percentual"]').required = false;
-      }
-    });
-  });
-
-  // Gatilho inicial para configurar estado correto
-  const pessoaAtual = document.querySelector('input[name="pessoa"]:checked');
-  if (pessoaAtual) {
-    updatePessoaVisibility(pessoaAtual.value);
-  }
-
-  const agenciaAtual = document.querySelector('input[name="pk_id_tbl_agencia"]:checked');
-  if (agenciaAtual) {
-    agenciaAtual.dispatchEvent(new Event('change'));
-  }
-
-  // Máscara para CNPJ/CPF
-  const cnpjInput = document.querySelector('input[name="cnpj"]');
-  
-  function maskCNPJCPF(value, tipo) {
-    value = value.replace(/\D/g, '');
-    if (tipo === 'F') {
-      value = value.replace(/(\d{3})(\d)/, '$1.$2');
-      value = value.replace(/(\d{3})(\d)/, '$1.$2');
-      value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    } else {
-      value = value.replace(/(\d{2})(\d)/, '$1.$2');
-      value = value.replace(/(\d{3})(\d)/, '$1.$2');
-      value = value.replace(/(\d{3})(\d)/, '$1/$2');
-      value = value.replace(/(\d{4})(\d{1,2})$/, '$1-$2');
-    }
-    return value;
-  }
-
-  cnpjInput.addEventListener('input', (e) => {
-    const tipo = document.querySelector('input[name="pessoa"]:checked').value;
-    e.target.value = maskCNPJCPF(e.target.value, tipo);
-  });
-
-  // Máscara para CEP
-  const cepInput = document.querySelector('#cep');
-  
-  cepInput.addEventListener('input', (e) => {
-    let value = e.target.value.replace(/\D/g, '');
-    value = value.replace(/(\d{5})(\d)/, '$1-$2');
-    e.target.value = value;
-  });
-});
-</script>
+  <br>
+  <p>
+    <a href="{{ url_for('clientes') }}">Cancelar</a>
+    <button type="submit">{% if cliente %}Atualizar{% else %}Cadastrar{% endif %}</button>
+  </p>
+</form>
 {% endblock %}

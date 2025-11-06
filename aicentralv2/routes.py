@@ -483,6 +483,7 @@ def init_routes(app):
                         'agencia_key': row.get('agencia_key'),
                         'executivo_id': row.get('executivo_id'),
                         'executivo_nome': row.get('executivo_nome'),
+                        'tipo_pessoa': 'Física' if row.get('pessoa') == 'F' else 'Jurídica' if row.get('pessoa') == 'J' else '-',
                     })
 
             try:

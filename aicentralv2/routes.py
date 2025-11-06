@@ -30,6 +30,14 @@ def init_routes(app):
     @app.route('/favicon.ico')
     def favicon():
         return '', 204
+    
+    # ==================== COMPONENTES ====================
+    
+    @app.route('/components')
+    @login_required
+    def components():
+        """Página de componentes Tailwind"""
+        return render_template('components/tailwind_components.html')
 
     # ==================== ARQUIVOS ESTÁTICOS ====================
     @app.after_request

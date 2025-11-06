@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CentralComm AI{% endblock %}</title>
+    <title>{% block title %}CentralX v2 - AI Central{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: light)">
+    <link href="https://framerusercontent.com/images/xlKOUeMNrkAUmU4dlKVlbRZc.png" rel="icon" media="(prefers-color-scheme: dark)">
 
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
@@ -84,63 +88,187 @@
     <!-- Estilos específicos da página -->
     {% block styles %}{% endblock %}
     
-    <!-- Script para controle do dropdown -->
+    <!-- Script para controle do sidebar e dropdowns -->
     <script>
+        // Funções de Cookie
+        function setCookie(name, value, days) {
+            const expires = new Date(Date.now() + days * 864e5).toUTCString();
+            document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/';
+        }
+
+        function getCookie(name) {
+            return document.cookie.split('; ').reduce((r, v) => {
+                const parts = v.split('=');
+                return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+            }, '');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Função genérica para configurar dropdowns
-            function setupDropdown(buttonId, contentId) {
-                const button = document.getElementById(buttonId);
-                const content = document.getElementById(contentId);
-                
-                if (!button || !content) return;
-
-                function toggleDropdown(e) {
-                    e.preventDefault();
-                    content.classList.toggle('hidden');
-                    const icon = button.querySelector('.fa-chevron-down');
-                    icon.classList.toggle('rotate-180');
+            const sidebar = document.getElementById('mainSidebar');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const mainContent = document.getElementById('mainContent');
+            const sidebarTexts = document.querySelectorAll('.sidebar-text');
+            const sidebarLogo = document.getElementById('sidebarLogo');
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileOverlay = document.getElementById('mobileOverlay');
+            
+            // Restaura estado do sidebar do cookie (apenas desktop)
+            if (window.innerWidth >= 768) {
+                const sidebarState = getCookie('sidebarCollapsed');
+                if (sidebarState === 'true') {
+                    collapseSidebar();
                 }
-
-                button.addEventListener('click', toggleDropdown);
-
-                // Fecha o dropdown ao clicar fora
-                document.addEventListener('click', function(e) {
-                    if (!button.contains(e.target)) {
-                        content.classList.add('hidden');
-                        const icon = button.querySelector('.fa-chevron-down');
-                        icon.classList.remove('rotate-180');
+            }
+            
+            // Mobile menu toggle
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    sidebar.classList.add('mobile-open');
+                    mobileOverlay.classList.add('active');
+                });
+            }
+            
+            if (mobileOverlay) {
+                mobileOverlay.addEventListener('click', function() {
+                    sidebar.classList.remove('mobile-open');
+                    mobileOverlay.classList.remove('active');
+                });
+            }
+            
+            // Fecha menu mobile ao clicar em um link
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth < 768) {
+                        sidebar.classList.remove('mobile-open');
+                        mobileOverlay.classList.remove('active');
                     }
+                });
+            });
+
+            // Toggle do sidebar
+            toggleBtn.addEventListener('click', function() {
+                if (sidebar.classList.contains('w-16')) {
+                    expandSidebar();
+                    setCookie('sidebarCollapsed', 'false', 365);
+                } else {
+                    collapseSidebar();
+                    setCookie('sidebarCollapsed', 'true', 365);
+                }
+            });
+
+            function collapseSidebar() {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-16');
+                mainContent.classList.remove('ml-64');
+                mainContent.classList.add('ml-16');
+                sidebarTexts.forEach(text => text.classList.add('hidden'));
+                sidebarLogo.classList.add('hidden');
+                
+                // Fecha todos os dropdowns
+                document.querySelectorAll('.dropdown-content').forEach(content => {
+                    content.classList.add('hidden');
                 });
             }
 
-            // Configura os dropdowns
-            setupDropdown('cadastrosDropdown', 'cadastrosContent');
-            setupDropdown('comercialDropdown', 'comercialContent');
-            setupDropdown('audienciasDropdown', 'audienciasContent');
+            function expandSidebar() {
+                sidebar.classList.remove('w-16');
+                sidebar.classList.add('w-64');
+                mainContent.classList.remove('ml-16');
+                mainContent.classList.add('ml-64');
+                sidebarTexts.forEach(text => text.classList.remove('hidden'));
+                sidebarLogo.classList.remove('hidden');
+            }
+
+            // Não há mais dropdowns - menus sempre abertos
         });
     </script>
 
     <style>
-        /* Custom scrollbar */
+        /* Custom scrollbar para sidebar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 207, 49, 0.3);
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 207, 49, 0.5);
+        }
+        
+        /* Custom scrollbar para conteúdo principal */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: #f8f9fa;
         }
         ::-webkit-scrollbar-thumb {
-            background: #888;
+            background: #cbd5e0;
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #a0aec0;
         }
         
-        /* Sidebar active state */
+        /* Sidebar active state - mais sutil e moderno */
         .nav-link.active {
-            background-color: #2A6D70;
-            border-left: 4px solid #9CCF31;
+            background: linear-gradient(90deg, rgba(156, 207, 49, 0.15) 0%, rgba(156, 207, 49, 0.05) 100%);
+            border-left: 2px solid #9CCF31;
+            color: #9CCF31;
+        }
+        
+        .nav-link.active i {
+            color: #9CCF31;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .nav-link:active {
+            transform: scale(0.98);
+        }
+        
+        /* Sidebar transitions */
+        #mainSidebar {
+            transition: width 0.3s ease-in-out;
+        }
+        
+        #mainContent {
+            transition: margin-left 0.3s ease-in-out;
+        }
+        
+        .sidebar-text {
+            transition: opacity 0.2s ease-in-out;
+        }
+        
+        /* Tooltip para sidebar colapsado */
+        .nav-tooltip {
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background-color: #1F2937;
+            color: white;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+        }
+        
+        .w-16 .nav-link:hover .nav-tooltip {
+            opacity: 1;
         }
 
         /* Classes utilitárias */
@@ -175,128 +303,206 @@
         .fouc-ready {
             visibility: visible;
         }
+        
+        /* Responsividade Mobile */
+        @media (max-width: 768px) {
+            #mainSidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            
+            #mainSidebar.mobile-open {
+                transform: translateX(0);
+            }
+            
+            #mainContent {
+                margin-left: 0 !important;
+            }
+            
+            .mobile-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 40;
+            }
+            
+            .mobile-overlay.active {
+                display: block;
+            }
+        }
+        
+        /* Melhorias de densidade */
+        @media (min-width: 1920px) {
+            .nav-link {
+                padding: 0.625rem 0.875rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-surface-bg font-sans text-text-primary overflow-hidden no-fouc">
+    <!-- Mobile Menu Button -->
+    <button id="mobileMenuBtn" class="md:hidden fixed top-4 left-4 z-50 p-2 bg-primary rounded-lg shadow-lg">
+        <i class="fas fa-bars text-white"></i>
+    </button>
+    
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="mobile-overlay"></div>
+    
     <div class="flex h-screen">
         <!-- Header Lateral Fixo -->
-        <aside class="w-52 bg-primary-dark text-white flex flex-col shadow-lg fixed h-full z-50">
-            <!-- Logo -->
-            <div class="p-3 border-b border-primary">
-                <h1 class="text-lg font-bold text-center">
-                    <i class="fas fa-brain text-accent-green"></i>
-                    CentralComm
-                </h1>
-                <p class="text-xs text-center text-gray-300">AI Central v2</p>
+        <aside id="mainSidebar" class="w-64 bg-gradient-to-b from-[#1a1f2e] to-[#0f1419] text-white flex flex-col shadow-2xl fixed h-full z-50">
+            <!-- Logo & Toggle -->
+            <div class="p-4 border-b border-gray-700/50 flex items-center justify-between">
+                <div id="sidebarLogo" class="flex items-center">
+                    <div class="w-8 h-8 bg-gradient-to-br from-accent-green to-accent-yellow rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-brain text-sm text-primary-dark"></i>
+                    </div>
+                    <div class="sidebar-text">
+                        <h1 class="text-sm font-bold leading-tight">CentralX v2</h1>
+
+                    </div>
+                </div>
+                <button id="sidebarToggle" class="p-2 hover:bg-gray-700/50 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-bars text-sm text-gray-400"></i>
+                </button>
             </div>
             
             <!-- Navegação Principal -->
-            <nav class="flex-1 overflow-y-auto py-2">
-                <ul class="space-y-0.5 px-2">
+            <nav class="flex-1 overflow-y-auto py-2 px-2 custom-scrollbar">
+                <ul class="space-y-0.5">
+                    <!-- Dashboard -->
                     <li>
-                        <a href="{{ url_for('index') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200">
-                            <i class="fas fa-home w-5"></i>
-                            <span class="ml-2">Dashboard</span>
+                        <a href="{{ url_for('index') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'index' %}active{% endif %}">
+                            <i class="fas fa-th-large text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px] font-medium">Dashboard</span>
+                            <span class="nav-tooltip">Dashboard</span>
                         </a>
                     </li>
 
-                    <!-- Dropdown Comercial -->
-                    <li class="relative">
-                        <button id="comercialDropdown" class="w-full nav-link flex items-center justify-between py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200">
-                            <div class="flex items-center">
-                                <i class="fas fa-briefcase w-5"></i>
-                                <span class="ml-2">Comercial</span>
-                            </div>
-                            <i class="fas fa-chevron-down transition-transform duration-200"></i>
-                        </button>
-                        <div id="comercialContent" class="hidden pl-4 mt-1">
-                            <a href="{{ url_for('clientes') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'clientes' %}active{% endif %}">
-                                <i class="fas fa-building w-5"></i>
-                                <span class="ml-2">Clientes</span>
-                            </a>
-                            <a href="{{ url_for('contatos') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'contatos' %}active{% endif %}">
-                                <i class="fas fa-users w-5"></i>
-                                <span class="ml-2">Contatos</span>
-                            </a>
+                    <!-- Seção Comercial -->
+                    <li class="mt-4 mb-1">
+                        <div class="sidebar-text px-3 py-1.5">
+                            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Comercial</span>
                         </div>
                     </li>
                     
-                    <!-- Divider -->
-                    <li class="my-2 border-t border-primary"></li>
+                    <li>
+                        <a href="{{ url_for('clientes') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'clientes' %}active{% endif %}">
+                            <i class="fas fa-building text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Clientes</span>
+                            <span class="nav-tooltip">Clientes</span>
+                        </a>
+                    </li>
                     
-                        <!-- Dropdown Cadastros -->
-                    <li class="relative">
-                        <button id="cadastrosDropdown" class="w-full nav-link flex items-center justify-between py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200">
-                            <div class="flex items-center">
-                                <i class="fas fa-cogs w-5"></i>
-                                <span class="ml-2">Cadastros</span>
-                            </div>
-                            <i class="fas fa-chevron-down transition-transform duration-200"></i>
-                        </button>
-                        <div id="cadastrosContent" class="hidden pl-4 mt-1">
-                            <a href="{{ url_for('tbl_setor') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                                <i class="fas fa-layer-group w-5"></i>
-                                <span class="ml-2">Setor</span>
-                            </a>
-                            <a href="{{ url_for('tbl_cargo_contato') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
-                                <i class="fas fa-briefcase w-5"></i>
-                                <span class="ml-2">Cargo</span>
-                            </a>
-                            <a href="{{ url_for('planos') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'planos' %}active{% endif %}">
-                                <i class="fas fa-layer-group w-5"></i>
-                                <span class="ml-2">Planos</span>
-                            </a>
-                            <a href="{{ url_for('tipos_cliente') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
-                                <i class="fas fa-tags w-5"></i>
-                                <span class="ml-2">Tipo Cliente</span>
-                            </a>
-                            <a href="{{ url_for('percentual_list') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint in ['percentual_list','percentual_form'] %}active{% endif %}">
-                                <i class="fas fa-bolt w-5"></i>
-                                <span class="ml-2">Percentual</span>
-                            </a>
+                    <li>
+                        <a href="{{ url_for('contatos') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'contatos' %}active{% endif %}">
+                            <i class="fas fa-address-book text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Contatos</span>
+                            <span class="nav-tooltip">Contatos</span>
+                        </a>
+                    </li>
+                    
+                    <!-- Seção Cadastros -->
+                    <li class="mt-4 mb-1">
+                        <div class="sidebar-text px-3 py-1.5">
+                            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cadastros</span>
                         </div>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('tbl_setor') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                            <i class="fas fa-sitemap text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Setores</span>
+                            <span class="nav-tooltip">Setores</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('tbl_cargo_contato') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
+                            <i class="fas fa-user-tie text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Cargos</span>
+                            <span class="nav-tooltip">Cargos</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('planos') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'planos' %}active{% endif %}">
+                            <i class="fas fa-cube text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Planos</span>
+                            <span class="nav-tooltip">Planos</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('tipos_cliente') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
+                            <i class="fas fa-tag text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Tipos de Cliente</span>
+                            <span class="nav-tooltip">Tipos de Cliente</span>
+                        </a>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('percentual_list') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint in ['percentual_list','percentual_form'] %}active{% endif %}">
+                            <i class="fas fa-percentage text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Percentuais</span>
+                            <span class="nav-tooltip">Percentuais</span>
+                        </a>
                     </li>
 
-                    <!-- Dropdown Audiências -->
-                    <li class="relative">
-                        <button id="audienciasDropdown" class="w-full nav-link flex items-center justify-between py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200">
-                            <div class="flex items-center">
-                                <i class="fas fa-headset w-5"></i>
-                                <span class="ml-2">Audiências</span>
-                            </div>
-                            <i class="fas fa-chevron-down transition-transform duration-200"></i>
-                        </button>
-                        <div id="audienciasContent" class="hidden pl-4 mt-1">
-                            <a href="{{ url_for('up_audiencia') }}" class="nav-link flex items-center py-2 px-3 rounded-lg hover:bg-primary-light transition-colors duration-200 {% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                <i class="fas fa-upload w-5"></i>
-                                <span class="ml-2">up_audiencias</span>
-                            </a>
+                    <!-- Seção Audiências -->
+                    <li class="mt-4 mb-1">
+                        <div class="sidebar-text px-3 py-1.5">
+                            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Audiências</span>
                         </div>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('up_audiencia') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'up_audiencia' %}active{% endif %}">
+                            <i class="fas fa-cloud-upload-alt text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Upload de Audiências</span>
+                            <span class="nav-tooltip">Upload de Audiências</span>
+                        </a>
+                    </li>
+
+                    <!-- Seção Desenvolvimento -->
+                    <li class="mt-4 mb-1">
+                        <div class="sidebar-text px-3 py-1.5">
+                            <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Desenvolvimento</span>
+                        </div>
+                    </li>
+                    
+                    <li>
+                        <a href="{{ url_for('components') }}" class="nav-link relative flex items-center py-2 px-3 rounded-md transition-all duration-150 group {% if request.endpoint == 'components' %}active{% endif %}">
+                            <i class="fas fa-palette text-sm w-5 text-gray-300 group-hover:text-accent-green transition-colors"></i>
+                            <span class="sidebar-text ml-3 text-[13px]">Componentes UI</span>
+                            <span class="nav-tooltip">Componentes UI</span>
+                        </a>
                     </li>
                 </ul>
             </nav>
             
             <!-- User Info & Footer -->
-            <div class="border-t border-primary p-3">
-                <div class="flex items-center mb-2">
-                    <div class="w-8 h-8 bg-accent-green rounded-full flex items-center justify-center">
-                        <i class="fas fa-user text-primary-dark"></i>
+            <div class="border-t border-gray-700/50 p-3">
+                <div class="flex items-center mb-3 group cursor-pointer hover:bg-gray-700/30 p-2 rounded-lg transition-colors duration-200">
+                    <div class="w-9 h-9 bg-gradient-to-br from-accent-green to-accent-yellow rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-sm text-primary-dark"></i>
                     </div>
-                    <div class="ml-2 flex-1">
-                        <p class="text-sm font-semibold">{{ session.get('user_name', 'Usuário') }}</p>
-                        <p class="text-xs text-gray-300">{{ session.get('user_email', '') }}</p>
+                    <div class="sidebar-text ml-3 flex-1 min-w-0">
+                        <p class="text-xs font-semibold truncate">{{ session.get('user_name', 'Usuário') }}</p>
+                        <p class="text-[10px] text-gray-400 truncate">{{ session.get('user_email', '') }}</p>
                     </div>
                 </div>
-                <a href="{{ url_for('logout') }}" class="flex items-center justify-center py-1.5 px-3 bg-error rounded-lg hover:bg-red-700 transition-colors duration-200">
-                    <i class="fas fa-sign-out-alt mr-2"></i>
-                    <span>Sair</span>
+                <a href="{{ url_for('logout') }}" class="flex items-center justify-center py-2 px-3 bg-red-600/90 hover:bg-red-600 rounded-lg transition-all duration-200 group">
+                    <i class="fas fa-sign-out-alt text-sm"></i>
+                    <span class="sidebar-text ml-2 text-xs font-medium">Sair</span>
                 </a>
-                <p class="text-xs text-center text-gray-400 mt-2">&copy; 2025 CentralComm</p>
+                <p class="sidebar-text text-[10px] text-center text-gray-500 mt-3">&copy; 2025 CentralX</p>
             </div>
         </aside>
 
         <!-- Container Principal (com margem para o sidebar) -->
-        <div class="flex-1 ml-52 flex">
+        <div id="mainContent" class="flex-1 ml-64 flex transition-all duration-300">
             <!-- Área de Conteúdo Principal -->
             <main class="flex-1 overflow-y-auto">
                 {% block content %}{% endblock %}
@@ -304,8 +510,8 @@
 
             <!-- Sidebar Direita (Opcional) -->
             {% if self.sidebar() %}
-            <aside class="w-full max-w-[250px] bg-surface-element border-l border-border overflow-y-auto">
-                <div class="p-4">
+            <aside class="w-full max-w-[450px] bg-surface-element border-l border-border overflow-y-auto">
+                <div class="p-6">
                     {% block sidebar %}{% endblock %}
                 </div>
             </aside>

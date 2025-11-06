@@ -46,12 +46,12 @@
         {% if messages %}
             <div class="mb-6 space-y-2">
                 {% for category, message in messages %}
-                    <div class="flex items-center p-3 rounded-lg shadow-sm animate-slide-up {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+                    <div class="flex items-center p-4 rounded-lg shadow-sm animate-slide-up transform transition-all duration-300 hover:scale-[1.02] {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+                        <div class="flex-shrink-0 transform transition-transform duration-200 hover:scale-110">
+                            <i class="fas fa-{% if category == 'error' %}exclamation-circle text-red-500{% elif category == 'success' %}check-circle text-green-500{% elif category == 'warning' %}exclamation-triangle text-yellow-500{% else %}info-circle text-blue-500{% endif %} text-lg"></i>
                         </div>
                         <span class="flex-1 ml-3 text-sm font-medium">{{ message }}</span>
-                        <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-400 hover:text-gray-600 transition-colors">
+                        <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:rotate-90">
                             <i class="fas fa-times text-sm"></i>
                         </button>
                     </div>
@@ -76,7 +76,7 @@
             </div>
         </div>
         
-                <!-- Form Content -->\n        <div class=\"p-6\">\n            <form method=\"POST\" autocomplete=\"off\">\n                <!-- Seção: Informações Pessoais -->\n                <div class=\"mb-8\">\n                    <h3 class=\"text-base font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200 flex items-center\">\n                        <i class=\"fas fa-user-circle mr-2 text-primary\"></i>\n                        Informações Pessoais\n                    </h3>\n                    \n                    <div class=\"grid grid-cols-1 md:grid-cols-2 gap-6\">\n                        <!-- Nome Completo -->\n                        <div class=\"md:col-span-2\">\n                            <label class=\"block text-sm font-medium text-gray-700 mb-2\">\n                                <i class=\"fas fa-user mr-2 text-gray-500\"></i>\n                                Nome Completo\n                                <span class=\"text-red-500\">*</span>\n                            </label>\n                            <input \n                                type=\"text\" \n                                name=\"nome_completo\" \n                                id=\"nome_completo\"\n                                class=\"mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-all\"\n                                value=\"{{ contato.nome_completo if contato else '' }}\"\n                                required\n                                placeholder=\"Ex: João Silva\"\n                                autocomplete=\"off\"\n                                data-form-type=\"other\"\n                            >\n                        </div>\n\n                        <!-- Email -->\n                        <div>\n                            <label class=\"block text-sm font-medium text-gray-700 mb-2\">\n                                <i class=\"fas fa-envelope mr-2 text-gray-500\"></i>\n                                Email\n                                <span class=\"text-red-500\">*</span>\n                            </label>\n                            <!-- Campos falsos para desarmar autofill -->\n                            <input type=\"text\" name=\"email_fake\" tabindex=\"-1\" aria-hidden=\"true\" style=\"position:absolute;left:-9999px;width:1px;height:1px;opacity:0;\" />\n                            <input type=\"password\" name=\"password_fake\" tabindex=\"-1\" aria-hidden=\"true\" style=\"position:absolute;left:-9999px;width:1px;height:1px;opacity:0;\" />\n                            <input \n                                type=\"email\" \n                                name=\"email\" \n                                id=\"email\"\n                                class=\"mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-all\"\n                                value=\"{{ contato.email if contato else '' }}\"\n                                required\n                                placeholder=\"exemplo@email.com\"\n                                autocomplete=\"nope\"\n                                data-form-type=\"other\"\n                                data-new-email=\"true\"\n                            >\n                            <p class=\"mt-1 text-xs text-gray-500\"><i class=\"fas fa-info-circle mr-1\"></i>Será usado para login</p>\n                        </div>\n\n                        <!-- Telefone -->\n                        <div>\n                            <label class=\"block text-sm font-medium text-gray-700 mb-2\">\n                                <i class=\"fas fa-phone mr-2 text-gray-500\"></i>\n                                Telefone\n                            </label>\n                            <input \n                                type=\"tel\" \n                                name=\"telefone\" \n                                id=\"telefone\"\n                                class=\"mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-all\"\n                                value=\"{{ contato.telefone if contato else '' }}\"\n                                placeholder=\"(00) 00000-0000\"\n                                maxlength=\"15\"\n                                autocomplete=\"nope\"\n                                data-form-type=\"other\"\n                            >\n                            <p class=\"mt-1 text-xs text-gray-500\"><i class=\"fas fa-info-circle mr-1\"></i>Opcional</p>\n                        </div>\n                    </div>\n                </div>
+                <!-- Form Content -->\n        <div class=\"p-6\">\n            <form method=\"POST\" autocomplete=\"off\" id=\"contatoForm\">\n                <!-- Feedback de Validação -->\n                <div id=\"formFeedback\" class=\"hidden mb-6 p-4 rounded-lg border animate-slide-up\"></div>\n                <!-- Seção: Informações Pessoais -->\n                <div class=\"mb-8\">\n                    <h3 class=\"text-base font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200 flex items-center\">\n                        <i class=\"fas fa-user-circle mr-2 text-primary\"></i>\n                        Informações Pessoais\n                    </h3>\n                    \n                    <div class=\"grid grid-cols-1 md:grid-cols-2 gap-6\">\n                        <!-- Nome Completo -->\n                        <div class=\"md:col-span-2\">\n                            <label class=\"block text-sm font-medium text-gray-700 mb-2\">\n                                <i class=\"fas fa-user mr-2 text-gray-500\"></i>\n                                Nome Completo\n                                <span class=\"text-red-500\">*</span>\n                            </label>\n                            <input \n                                type=\"text\" \n                                name=\"nome_completo\" \n                                id=\"nome_completo\"\n                                class=\"mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-all\"\n                                value=\"{{ contato.nome_completo if contato else '' }}\"\n                                required\n                                placeholder=\"Ex: João Silva\"\n                                autocomplete=\"off\"\n                                data-form-type=\"other\"\n                            >\n                        </div>\n\n                        <!-- Email -->\n                        <div>\n                            <label class=\"block text-sm font-medium text-gray-700 mb-2\">\n                                <i class=\"fas fa-envelope mr-2 text-gray-500\"></i>\n                                Email\n                                <span class=\"text-red-500\">*</span>\n                            </label>\n                            <!-- Campos falsos para desarmar autofill -->\n                            <input type=\"text\" name=\"email_fake\" tabindex=\"-1\" aria-hidden=\"true\" style=\"position:absolute;left:-9999px;width:1px;height:1px;opacity:0;\" />\n                            <input type=\"password\" name=\"password_fake\" tabindex=\"-1\" aria-hidden=\"true\" style=\"position:absolute;left:-9999px;width:1px;height:1px;opacity:0;\" />\n                            <input \n                                type=\"email\" \n                                name=\"email\" \n                                id=\"email\"\n                                class=\"mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-all\"\n                                value=\"{{ contato.email if contato else '' }}\"\n                                required\n                                placeholder=\"exemplo@email.com\"\n                                autocomplete=\"nope\"\n                                data-form-type=\"other\"\n                                data-new-email=\"true\"\n                            >\n                            <p class=\"mt-1 text-xs text-gray-500\"><i class=\"fas fa-info-circle mr-1\"></i>Será usado para login</p>\n                        </div>\n\n                        <!-- Telefone -->\n                        <div>\n                            <label class=\"block text-sm font-medium text-gray-700 mb-2\">\n                                <i class=\"fas fa-phone mr-2 text-gray-500\"></i>\n                                Telefone\n                            </label>\n                            <input \n                                type=\"tel\" \n                                name=\"telefone\" \n                                id=\"telefone\"\n                                class=\"mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-all\"\n                                value=\"{{ contato.telefone if contato else '' }}\"\n                                placeholder=\"(00) 00000-0000\"\n                                maxlength=\"15\"\n                                autocomplete=\"nope\"\n                                data-form-type=\"other\"\n                            >\n                            <p class=\"mt-1 text-xs text-gray-500\"><i class=\"fas fa-info-circle mr-1\"></i>Opcional</p>\n                        </div>\n                    </div>\n                </div>
 
                                 <!-- Seção: Organização -->
                 <div class="mb-8">
@@ -282,9 +282,155 @@
         </div>
     </div>
 </div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center z-50 hidden">
+    <div class="bg-white/90 backdrop-blur rounded-xl p-6 max-w-[220px] w-full text-center shadow-xl animate-slide-up">
+        <div class="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-gray-600 text-sm font-medium">Processando...</p>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div id="confirmModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl animate-slide-up">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center">
+                <i class="fas fa-question-circle text-3xl text-yellow-500"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Confirmar Ação</h3>
+            <p id="confirmMessage" class="text-gray-600"></p>
+        </div>
+        <div class="flex items-center justify-end space-x-3">
+            <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                Cancelar
+            </button>
+            <button id="confirmBtn" class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors">
+                Confirmar
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center z-50 hidden">
+    <div class="bg-white/90 backdrop-blur rounded-xl p-6 max-w-[220px] w-full text-center shadow-xl animate-slide-up">
+        <div class="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-gray-600 text-sm font-medium">Processando...</p>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div id="confirmModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl animate-slide-up">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center">
+                <i class="fas fa-question-circle text-3xl text-yellow-500"></i>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Confirmar Ação</h3>
+            <p id="confirmMessage" class="text-gray-600"></p>
+        </div>
+        <div class="flex items-center justify-end space-x-3">
+            <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                Cancelar
+            </button>
+            <button id="confirmBtn" class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors">
+                Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/contato_form.js') }}"></script>
-<script src="{{ url_for('static', filename='js/tbl_cargo_contato.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/contato_form.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tbl_cargo_contato.js') }}"></script>
+
+    <script>
+        // Validação em tempo real
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('contatoForm');
+            const feedback = document.getElementById('formFeedback');
+            
+            // Validação de campos
+            function validateField(field) {
+                const value = field.value.trim();
+                let isValid = true;
+                let message = '';
+                
+                switch(field.name) {
+                    case 'email':
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                            isValid = false;
+                            message = 'Email inválido';
+                        }
+                        break;
+                    case 'senha_visible':
+                    case 'nova_senha_visible':
+                        if (value && value.length < 6) {
+                            isValid = false;
+                            message = 'Senha deve ter no mínimo 6 caracteres';
+                        }
+                        break;
+                    case 'telefone':
+                        if (value && !/^\([0-9]{2}\) [0-9]{4,5}-[0-9]{4}$/.test(value)) {
+                            isValid = false;
+                            message = 'Telefone inválido';
+                        }
+                        break;
+                }
+                
+                field.classList.toggle('border-red-300', !isValid);
+                field.classList.toggle('focus:border-red-500', !isValid);
+                field.classList.toggle('focus:ring-red-500', !isValid);
+                
+                const feedbackEl = field.nextElementSibling?.classList.contains('field-feedback') 
+                    ? field.nextElementSibling 
+                    : document.createElement('p');
+                    
+                if (!field.nextElementSibling?.classList.contains('field-feedback')) {
+                    feedbackEl.classList.add('field-feedback', 'text-xs', 'text-red-500', 'mt-1');
+                    field.parentNode.insertBefore(feedbackEl, field.nextSibling);
+                }
+                
+                feedbackEl.textContent = message;
+                feedbackEl.style.display = isValid ? 'none' : 'block';
+                
+                return isValid;
+            }
+            
+            // Validar ao digitar
+            form.querySelectorAll('input, select').forEach(field => {
+                field.addEventListener('input', () => validateField(field));
+                field.addEventListener('blur', () => validateField(field));
+            });
+            
+            // Validar ao enviar
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+                
+                form.querySelectorAll('input[required], select[required]').forEach(field => {
+                    if (!validateField(field)) {
+                        isValid = false;
+                    }
+                });
+                
+                if (!isValid) {
+                    e.preventDefault();
+                    feedback.classList.remove('hidden');
+                    feedback.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+                    feedback.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                            <span>Por favor, corrija os erros no formulário antes de continuar.</span>
+                        </div>
+                    `;
+                    feedback.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    document.getElementById('loadingOverlay').classList.remove('hidden');
+                    document.getElementById('loadingOverlay').classList.add('flex');
+                }
+            });
+        });
+    </script>
 {% endblock %}

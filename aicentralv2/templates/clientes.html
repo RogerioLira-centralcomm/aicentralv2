@@ -79,153 +79,224 @@
                 <div class="bg-white rounded-lg shadow-card w-full">
                     {% if clientes %}
                 <!-- Search and Filter Box -->
-                <div class="p-4 border-b border-border">
-                    <div class="flex gap-4 flex-wrap">
-                        <!-- Search Input -->
-                        <div class="relative flex-1">
-                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                            <input 
-                                type="text" 
-                                id="searchInput" 
-                                class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
-                                placeholder="R_Social, Nome"
-                                autocomplete="off"
-                            >
-                        </div>
-                        
-                        <!-- Status Filter -->
-                        <div class="relative w-48">
-                            <select id="statusFilter" class="w-full py-2 px-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white">
-                                <option value="todos">Todos os Status</option>
-                                <option value="false">Ativos</option>
-                                <option value="true">Inativos</option>
-                            </select>
-                            <i class="fas fa-filter absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                <div class="p-6 border-b border-gray-200 bg-white">
+                    <div class="flex flex-col lg:flex-row gap-4">
+                        <!-- Filtro por Vendas CentralComm (Executivo) -->
+                        <div class="lg:w-72">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                <i class="fas fa-user-tie text-primary mr-1.5"></i>
+                                Executivo Responsável
+                            </label>
+                            <div class="relative">
+                                <select id="vendedorFilter" class="w-full py-2.5 pl-4 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none bg-white text-gray-700">
+                                    <option value="">Todos os Executivos</option>
+                                    {% if vendedores_cc %}
+                                        {% for vend in vendedores_cc %}
+                                            <option value="{{ vend.id_contato_cliente }}" {% if filtro_vendas_central_comm and filtro_vendas_central_comm == vend.id_contato_cliente %}selected{% endif %}>{{ vend.nome_completo }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-sm"></i>
+                            </div>
                         </div>
 
-                        <!-- Filtro por Vendas CentralComm (Executivo) -->
-                        <div class="relative w-64">
-                            <select id="vendedorFilter" class="w-full py-2 px-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white">
-                                <option value="">Todos os Executivos</option>
-                                {% if vendedores_cc %}
-                                    {% for vend in vendedores_cc %}
-                                        <option value="{{ vend.id_contato_cliente }}" {% if filtro_vendas_central_comm and filtro_vendas_central_comm == vend.id_contato_cliente %}selected{% endif %}>{{ vend.nome_completo }}</option>
-                                    {% endfor %}
-                                {% endif %}
-                            </select>
-                            <i class="fas fa-user-tie absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <!-- Filtros Secundários -->
+                        <div class="flex-1 flex flex-col lg:flex-row gap-4">
+                            <!-- Search Input -->
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                    <i class="fas fa-search text-gray-400 mr-1.5"></i>
+                                    Buscar Cliente
+                                </label>
+                                <div class="relative">
+                                    <input 
+                                        type="text" 
+                                        id="searchInput" 
+                                        class="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" 
+                                        placeholder="Digite o nome ou razão social..."
+                                        autocomplete="off"
+                                    >
+                                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- Filtros Rápidos -->
+                            <div class="flex gap-2">
+                                <div class="flex-1 lg:w-44">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                        <i class="fas fa-filter text-gray-400 mr-1.5"></i>
+                                        Status
+                                    </label>
+                                    <select id="statusFilter" class="w-full py-2.5 px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none bg-white text-gray-700">
+                                        <option value="todos">Todos</option>
+                                        <option value="false">Ativos</option>
+                                        <option value="true">Inativos</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="flex-1 lg:w-44">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                        <i class="fas fa-building text-gray-400 mr-1.5"></i>
+                                        Tipo
+                                    </label>
+                                    <select id="tipoFilter" class="w-full py-2.5 px-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none bg-white text-gray-700">
+                                        <option value="todos">Todos</option>
+                                        <option value="PJ">Pessoa Jurídica</option>
+                                        <option value="PF">Pessoa Física</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tags de Filtro Ativo -->
+                    <div class="flex flex-wrap gap-2 mt-4 empty:hidden">
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary/10 text-primary">
+                            <span class="mr-2">Executivo: João Silva</span>
+                            <button class="hover:text-primary-dark"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-50 text-green-600">
+                            <span class="mr-2">Ativos</span>
+                            <button class="hover:text-green-700"><i class="fas fa-times"></i></button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Table Container -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                     <div class="overflow-x-auto min-w-full">
                         <table id="clientesTable" class="w-full table-fixed">
                             <thead>
-                                <tr class="bg-gray-50 border-b border-gray-200">
-                                    <th class="py-3 px-2 text-left w-[35%]">
-                                        <div class="flex items-center space-x-1 text-sm font-semibold text-gray-600">
-                                            <span>Razão Social</span>
-                                            <button class="hover:bg-gray-200 p-1 rounded">
+                                <tr class="bg-gray-50/80 border-b border-gray-200">
+                                    <th class="py-4 px-4 text-left w-[40%]">
+                                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                                            <span>Cliente</span>
+                                            <button class="hover:bg-gray-200 p-1.5 rounded-lg transition-colors">
                                                 <i class="fas fa-sort text-gray-400"></i>
                                             </button>
                                         </div>
                                     </th>
-                                    <th class="py-3 px-2 text-left w-[25%]">
-                                        <div class="flex items-center space-x-1 text-sm font-semibold text-gray-600">
-                                            <span>Nome Fantasia</span>
-                                            <button class="hover:bg-gray-200 p-1 rounded">
+                                    <th class="py-4 px-4 text-left w-[25%]">
+                                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                                            <span>Executivo</span>
+                                            <button class="hover:bg-gray-200 p-1.5 rounded-lg transition-colors">
                                                 <i class="fas fa-sort text-gray-400"></i>
                                             </button>
                                         </div>
                                     </th>
-                                    <th class="py-3 px-2 text-left w-[15%]">
-                                        <div class="flex items-center space-x-1 text-sm font-semibold text-gray-600">
-                                            <span>Agência</span>
-                                            <button class="hover:bg-gray-200 p-1 rounded">
-                                                <i class="fas fa-sort text-gray-400"></i>
-                                            </button>
+                                    <th class="py-4 px-4 text-left w-[20%]">
+                                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                                            <span>Tipo / Status</span>
                                         </div>
                                     </th>
-                                    <th class="py-3 px-2 text-center w-[10%]">
-                                        <div class="text-sm font-semibold text-gray-600">
-                                            <span>Contatos</span>
-                                        </div>
-                                    </th>
-                                    <th class="py-3 px-2 text-center w-[15%]">
-                                        <span class="text-sm font-semibold text-gray-600">Ações</span>
+                                    <th class="py-4 px-4 text-right w-[15%]">
+                                        <span class="text-sm font-semibold text-gray-700">Ações</span>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
                                 {% for cliente in clientes %}
-                                <tr class="group hover:bg-gray-50 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
-                                    <td class="py-2 px-2">
-                                        <div class="font-medium text-gray-900 truncate" title="{{ cliente.razao_social }}">{{ cliente.razao_social }}</div>
-                                    </td>
-                                    <td class="py-2 px-2">
-                                        <div class="truncate text-gray-900" title="{{ cliente.nome_fantasia }}">{{ cliente.nome_fantasia }}</div>
-                                    </td>
-                                    <td class="py-2 px-2">
-                                        <div class="text-gray-900">{{ 'Sim' if cliente.agencia_key == True else 'Não' }}</div>
-                                    </td>
-                                    <td class="py-2 px-2">
-                                        <div class="flex justify-center">
-                                            <a href="#" class="group/badge relative">
-                                                <span class="inline-flex items-center justify-center h-6 w-6 rounded-full {% if cliente.total_contatos > 0 %}bg-blue-100 text-blue-800 group-hover/badge:bg-blue-200{% else %}bg-gray-100 text-gray-600 group-hover/badge:bg-gray-200{% endif %} transition-colors duration-200 text-xs">
-                                                    {{ cliente.total_contatos }}
-                                                </span>
-                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-32 hidden group-hover/badge:block z-10">
-                                                    <div class="bg-gray-900 text-white text-xs rounded py-1 px-1.5 text-center">
-                                                        {{ cliente.total_contatos }} contato{{ 's' if cliente.total_contatos != 1 }}
-                                                    </div>
+                                <tr class="group hover:bg-gray-50/80 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-start space-x-3">
+                                            <div class="flex-shrink-0 mt-1">
+                                                <div class="w-8 h-8 rounded-lg flex items-center justify-center {% if cliente.tipo_pessoa == 'PJ' %}bg-primary/10 text-primary{% else %}bg-accent-yellow/10 text-accent-yellow{% endif %}">
+                                                    <i class="fas fa-{% if cliente.tipo_pessoa == 'PJ' %}building{% else %}user{% endif %}"></i>
                                                 </div>
-                                            </a>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="font-medium text-gray-900 truncate" title="{{ cliente.nome_fantasia }}">
+                                                    {{ cliente.nome_fantasia or cliente.razao_social }}
+                                                </div>
+                                                {% if cliente.nome_fantasia %}
+                                                <div class="text-sm text-gray-500 truncate mt-0.5" title="{{ cliente.razao_social }}">
+                                                    {{ cliente.razao_social }}
+                                                </div>
+                                                {% endif %}
+                                                <div class="flex items-center space-x-2 mt-1">
+                                                    <span class="inline-flex items-center text-xs bg-blue-50 text-blue-600 rounded-full py-0.5 px-2">
+                                                        <i class="fas fa-users text-[10px] mr-1"></i>
+                                                        {{ cliente.total_contatos }}
+                                                    </span>
+                                                    {% if cliente.agencia_key %}
+                                                    <span class="inline-flex items-center text-xs bg-purple-50 text-purple-600 rounded-full py-0.5 px-2">
+                                                        <i class="fas fa-briefcase text-[10px] mr-1"></i>
+                                                        Agência
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
                                         </div>
                                     </td>
-                                    <td class="py-2 px-2">
-                                        <div class="flex items-center justify-center gap-2">
-                                            <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" 
-                                               class="relative group/edit">
-                                                <div class="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all duration-200">
-                                                    <i class="fas fa-edit text-sm"></i>
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-center space-x-3">
+                                            {% if cliente.executivo %}
+                                            <div class="flex-shrink-0">
+                                                <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+                                                    <span class="text-xs font-medium text-gray-600">
+                                                        {{ cliente.executivo.nome_completo[:2].upper() }}
+                                                    </span>
                                                 </div>
-                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/edit:block z-10">
-                                                    <div class="bg-gray-900 text-white text-xs rounded py-0.5 px-1.5 text-center whitespace-nowrap">
-                                                        Editar
-                                                    </div>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    {{ cliente.executivo.nome_completo }}
                                                 </div>
-                                            </a>
-                                            
-                                            {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
-                                            <form method="POST" 
-                                                  action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" 
-                                                  class="inline-block">
-                                                <div class="relative group/status">
-                                                    <button type="submit" 
-                                                            class="p-1.5 rounded-lg {% if not cliente.status %}bg-orange-50 text-orange-600 hover:bg-orange-100{% else %}bg-green-50 text-green-600 hover:bg-green-100{% endif %} transition-all duration-200">
-                                                        <i class="fas fa-{% if not cliente.status %}ban{% else %}check{% endif %} text-sm"></i>
-                                                    </button>
-                                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/status:block z-10">
-                                                        <div class="bg-gray-900 text-white text-xs rounded py-0.5 px-1.5 text-center whitespace-nowrap">
-                                                            {% if not cliente.status %}Ativar{% else %}Desativar{% endif %}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </form>
+                                                <div class="text-xs text-gray-500">Vendas CentralComm</div>
+                                            </div>
+                                            {% else %}
+                                            <span class="text-xs text-gray-500">Não atribuído</span>
                                             {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="inline-flex items-center text-xs {% if cliente.tipo_pessoa == 'PJ' %}bg-primary/10 text-primary{% else %}bg-accent-yellow/10 text-accent-yellow{% endif %} rounded-full py-1 px-2 font-medium">
+                                                {{ cliente.tipo_pessoa }}
+                                            </span>
+                                            <span class="inline-flex items-center text-xs {% if cliente.status %}bg-green-50 text-green-600{% else %}bg-orange-50 text-orange-600{% endif %} rounded-full py-1 px-2 font-medium">
+                                                {{ 'Ativo' if cliente.status else 'Inativo' }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" 
+                                               class="relative group/details inline-flex items-center px-2.5 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">
+                                                <i class="fas fa-eye text-gray-400 mr-1.5 group-hover/details:text-primary transition-colors"></i>
+                                                Detalhes
+                                            </a>
                                             
-                                            <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" class="relative group/details">
-                                                <div class="p-1.5 rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition-all duration-200">
-                                                    <i class="fas fa-eye text-sm"></i>
-                                                </div>
-                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/details:block z-10">
-                                                    <div class="bg-gray-900 text-white text-xs rounded py-0.5 px-1.5 text-center whitespace-nowrap">
-                                                        Detalhes
+                                            <div class="relative">
+                                                <button type="button" class="inline-flex items-center p-1.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">
+                                                    <i class="fas fa-ellipsis-h"></i>
+                                                </button>
+                                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden group-hover:block z-20">
+                                                    <div class="py-1">
+                                                        <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" 
+                                                           class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <i class="fas fa-edit w-4 mr-3 text-gray-400"></i>
+                                                            Editar
+                                                        </a>
+                                                        
+                                                        {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
+                                                        <form method="POST" 
+                                                              action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}">
+                                                            <button type="submit" 
+                                                                    class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                                <i class="fas fa-{% if not cliente.status %}check text-green-500{% else %}ban text-orange-500{% endif %} w-4 mr-3"></i>
+                                                                {% if not cliente.status %}Ativar{% else %}Desativar{% endif %}
+                                                            </button>
+                                                        </form>
+                                                        {% endif %}
+                                                        
+                                                        <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <i class="fas fa-user-tie w-4 mr-3 text-gray-400"></i>
+                                                            Alterar Executivo
+                                                        </a>
                                                     </div>
                                                 </div>
-                                            </a>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>

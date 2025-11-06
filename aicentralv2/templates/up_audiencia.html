@@ -113,11 +113,11 @@
   {% endwith %}
 
   <!-- 3 Column Layout -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
     
     <!-- COLUNA 1: Upload & Configuração -->
-    <div class="space-y-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="lg:col-span-3">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-[89px]">
         <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
           <h2 class="text-lg font-semibold text-white flex items-center">
             <i class="fas fa-upload mr-2"></i>
@@ -125,7 +125,7 @@
           </h2>
         </div>
         
-          <form id="upAudienciaForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+          <form id="upAudienciaForm" method="POST" enctype="multipart/form-data" class="space-y-4 p-6">
             
             <!-- Plataforma -->
             <div>
@@ -197,8 +197,8 @@
     </div>
 
     <!-- COLUNA 2: Status & Análise -->
-    <div class="space-y-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="lg:col-span-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-[89px]">
         <div class="bg-gradient-to-r from-accent-green to-accent-yellow px-6 py-4">
           <h2 class="text-lg font-semibold text-primary-dark flex items-center">
             <i class="fas fa-chart-line mr-2"></i>
@@ -275,8 +275,8 @@
     </div>
 
     <!-- COLUNA 3: Ficha da Audiência -->
-    <div class="space-y-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="lg:col-span-5">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-[89px]">
         <div class="bg-gradient-to-r from-primary to-primary-dark px-6 py-4">
           <h2 class="text-lg font-semibold text-white flex items-center">
             <i class="fas fa-file-alt mr-2"></i>

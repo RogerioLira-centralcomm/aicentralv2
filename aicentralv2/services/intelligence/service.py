@@ -269,9 +269,14 @@ def get_document_stats():
     """)
     
     result = cursor.fetchone()
-    
+    if not result:
+        return {'total_documents': 0, 'processing': 0, 'total_chunks': 0}
+    # Permitir acesso por nome de coluna ou índice
+    total_documents = result['total_documents'] if 'total_documents' in result else result[0] if len(result) > 0 else 0
+    processing = result['processing'] if 'processing' in result else result[1] if len(result) > 1 else 0
+    total_chunks = result['total_chunks'] if 'total_chunks' in result else result[2] if len(result) > 2 else 0
     return {
-        'total_documents': result[0],
-        'processing': result[1],
-        'total_chunks': result[2]
+        'total_documents': total_documents or 0,
+        'processing': processing or 0,
+        'total_chunks': total_chunks or 0
     }

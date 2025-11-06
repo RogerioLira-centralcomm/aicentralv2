@@ -452,9 +452,12 @@ def init_routes(app):
                             SELECT COUNT(*) 
                             FROM tbl_contato_cliente ct 
                             WHERE ct.pk_id_tbl_cliente = c.id_cliente
-                        ) as total_contatos
+                        ) as total_contatos,
+                        vend.id_contato_cliente as executivo_id,
+                        vend.nome_completo as executivo_nome
                     FROM tbl_cliente c
                     LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
+                    LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = c.vendas_central_comm
                     """
                 )
                 params = []
@@ -478,6 +481,8 @@ def init_routes(app):
                         'pk_id_aux_agencia': row.get('pk_id_aux_agencia'),
                         'agencia_display': row.get('agencia_display'),
                         'agencia_key': row.get('agencia_key'),
+                        'executivo_id': row.get('executivo_id'),
+                        'executivo_nome': row.get('executivo_nome'),
                     })
 
             try:

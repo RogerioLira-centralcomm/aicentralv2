@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, abort
-from flask_login import login_required
+from aicentralv2.auth import login_required
 import os
 from ..services.intelligence.service import process_document, delete_document, get_document_stats
 from ..db import get_db

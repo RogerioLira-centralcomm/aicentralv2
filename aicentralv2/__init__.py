@@ -17,6 +17,34 @@ mail = Mail()
 def create_app(config_class=Config):
     """
     Cria e configura a aplicação Flask
+    Args:
+        config_class: Classe de configuração
+    Returns:
+        Flask: Aplicação configurada
+    """
+    # Criar aplicação
+    app = Flask(__name__, 
+                static_url_path='/static',
+                static_folder='static')
+    app.config.from_object(config_class)
+
+    # Filtro Jinja2 para datas
+    def format_datetime(value, fmt='%d/%m/%Y %H:%M'):
+        from datetime import datetime
+        if not value:
+            return ''
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value)
+            except Exception:
+                try:
+                    value = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    return value
+        return value.strftime(fmt)
+    app.jinja_env.filters['format_datetime'] = format_datetime
+    """
+    Cria e configura a aplicação Flask
     
     Args:
         config_class: Classe de configuração

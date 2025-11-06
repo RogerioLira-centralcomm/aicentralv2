@@ -30,7 +30,7 @@
                 <div>
                     <h1 class="text-xl font-semibold text-gray-900">{{ document.title }}</h1>
                     <p class="text-sm text-gray-500 mt-0.5">
-                        Adicionado em {{ document.created_at|format_datetime }}
+                        Adicionado em {% if document.created_at %}{{ document.created_at|format_datetime }}{% else %}-{% endif %}
                     </p>
                 </div>
             </div>
@@ -178,7 +178,7 @@
                         <div class="ml-3">
                             <p class="text-sm font-medium text-gray-900">Upload</p>
                             <p class="text-xs text-gray-500">
-                                {{ document.created_at|format_datetime }}
+                                {% if document.created_at %}{{ document.created_at|format_datetime }}{% else %}-{% endif %}
                             </p>
                         </div>
                     </div>
@@ -205,7 +205,7 @@
                         <div class="ml-3">
                             <p class="text-sm font-medium text-gray-900">Concluído</p>
                             <p class="text-xs text-gray-500">
-                                {{ document.updated_at|format_datetime }}
+                                {% if document.updated_at %}{{ document.updated_at|format_datetime }}{% else %}-{% endif %}
                             </p>
                         </div>
                     </div>

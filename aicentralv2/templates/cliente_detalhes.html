@@ -14,8 +14,9 @@
 <ul>
   <li>ID do Cliente: #{{ cliente.id_cliente }}</li>
   <li>Status: {{ 'Ativo' if cliente.status else 'Inativo' }}</li>
+  {# Razão Social #}
   {% if cliente.pessoa != 'F' %}
-  <li>Razão Social: {{ cliente.razao_social }}</li>
+    <li>Razão Social: {{ cliente.razao_social }}</li>
   {% endif %}
   <li>{{ 'Nome Completo' if cliente.pessoa == 'F' else 'Nome Fantasia' }}: {{ cliente.nome_fantasia }}</li>
   <li>{{ 'CPF' if cliente.pessoa == 'F' else 'CNPJ' }}: {{ cliente.cnpj or 'Não informado' }}</li>
@@ -23,16 +24,18 @@
   <li>Executivo de Vendas: {% if cliente.vendedor_nome %}{{ cliente.vendedor_nome }}{% if cliente.vendedor_cargo %} ({{ cliente.vendedor_cargo }}){% endif %}{% else %}—{% endif %}</li>
   <li>Apresentação do Executivo: {{ cliente.apresentacao_executivo_display or 'Não informado' }}</li>
   <li>Fluxo de Boas-Vindas: {{ cliente.fluxo_boas_vindas_display or 'Não informado' }}</li>
+  {# Agência #}
   {% if cliente.pessoa != 'F' %}
-  <li>
-    Agência:
-    {% set ag_key = cliente.agencia_key|string|lower %}
-    {{ 'Sim' if (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) else 'Não' }}
-  </li>
+    <li>
+      Agência:
+      {% set ag_key = cliente.agencia_key|string|lower %}
+      {{ 'Sim' if (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) else 'Não' }}
+    </li>
   {% endif %}
+  {# Percentual #}
   {% set ag_key = cliente.agencia_key|string|lower %}
   {% if cliente.pessoa != 'F' and (cliente.agencia_key == True or ag_key in ['sim','true','1','s','yes','y']) %}
-  <li>Percentual: {{ cliente.percentual_display or '—' }}</li>
+    <li>Percentual: {{ cliente.percentual_display or '—' }}</li>
   {% endif %}
   <li>
     Estado:
@@ -43,9 +46,10 @@
     {% endif %}
   </li>
   <li>Tipo de Cliente: {{ cliente.tipo_cliente_display or 'Não informado' }}</li>
+  {# Inscrições #}
   {% if cliente.pessoa != 'F' %}
-  <li>Inscrição Estadual: {{ cliente.inscricao_estadual or 'Não informado' }}</li>
-  <li>Inscrição Municipal: {{ cliente.inscricao_municipal or 'Não informado' }}</li>
+    <li>Inscrição Estadual: {{ cliente.inscricao_estadual or 'Não informado' }}</li>
+    <li>Inscrição Municipal: {{ cliente.inscricao_municipal or 'Não informado' }}</li>
   {% endif %}
   <li>
     Plano:

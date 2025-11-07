@@ -1,3 +1,6 @@
+# --- (ao final do arquivo, após a última rota existente) ---
+
+# Removido endpoint direto para compatibilidade com factory
 """
 Rotas da Aplicação
 """
@@ -23,6 +26,83 @@ def login_required(f):
 
 
 def init_routes(app):
+    @app.route('/categorias_audiencia/novo', methods=['GET', 'POST'])
+    @login_required
+    def categorias_audiencia_novo():
+        if request.method == 'POST':
+            nome_exibicao = request.form.get('nome_exibicao', '').strip()
+            categoria_nome = request.form.get('categoria', '').strip()
+            subcategoria = request.form.get('subcategoria', '').strip()
+            is_active = request.form.get('is_active') == 'on'
+            if not nome_exibicao:
+                flash('Preencha o nome de exibição.', 'error')
+                return render_template('categorias_audiencia_form.html')
+            novo_id = db.criar_categoria_audiencia({
+                'nome_exibicao': nome_exibicao,
+                'categoria': categoria_nome,
+                'subcategoria': subcategoria,
+                'is_active': is_active
+            })
+            flash('Categoria criada com sucesso!', 'success')
+            return redirect(url_for('categorias_audiencia_detalhes', id_categoria=novo_id))
+        return render_template('categorias_audiencia_form.html')
+    @app.route('/categorias_audiencia/detalhes/<int:id_categoria>')
+    @login_required
+    def categorias_audiencia_detalhes(id_categoria):
+        categoria = db.obter_categoria_audiencia_por_id(id_categoria)
+        if not categoria:
+            flash('Categoria não encontrada.', 'error')
+            return redirect(url_for('categorias_audiencia'))
+        return render_template('categorias_audiencia_detalhes.html', categoria=categoria)
+    @app.route('/categorias_audiencia/editar/<int:id_categoria>', methods=['GET', 'POST'])
+    @login_required
+    def categorias_audiencia_editar(id_categoria):
+        categoria = db.obter_categoria_audiencia_por_id(id_categoria)
+        if request.method == 'POST':
+            nome_exibicao = request.form.get('nome_exibicao', '').strip()
+            categoria_nome = request.form.get('categoria', '').strip()
+            subcategoria = request.form.get('subcategoria', '').strip()
+            is_active = request.form.get('is_active') == 'on'
+            if not nome_exibicao:
+                flash('Preencha o nome de exibição.', 'error')
+                return render_template('categorias_audiencia_form.html', categoria=categoria)
+            db.atualizar_categoria_audiencia(id_categoria, {
+                'nome_exibicao': nome_exibicao,
+                'categoria': categoria_nome,
+                'subcategoria': subcategoria,
+                'is_active': is_active
+            })
+            flash('Categoria atualizada com sucesso!', 'success')
+            return redirect(url_for('categorias_audiencia'))
+        return render_template('categorias_audiencia_form.html', categoria=categoria)
+    # --- API: Verifica se CNPJ/CPF já existe na base ---
+    @app.route('/api/verifica_documento')
+    def verifica_documento():
+        doc = request.args.get('doc', '').replace('.', '').replace('-', '').replace('/', '')
+        tipo = request.args.get('tipo', 'J')
+        if not doc or tipo not in ['J', 'F']:
+            return jsonify({'existe': False})
+        from aicentralv2.db import get_db
+        db = get_db()
+        # Buscar ignorando máscara (removendo pontos, traços, barras do campo cnpj no banco)
+        row = db.execute("""
+            SELECT id_cliente, nome_fantasia, razao_social, inscricao_estadual, inscricao_municipal
+            FROM tbl_cliente
+            WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '-', ''), '/', '') = %s
+        """, (doc,)).fetchone()
+        if row:
+            return jsonify({
+                'existe': True,
+                'cliente': {
+                    'id_cliente': row['id_cliente'],
+                    'nome_fantasia': row['nome_fantasia'],
+                    'razao_social': row['razao_social'],
+                    'inscricao_estadual': row['inscricao_estadual'],
+                    'inscricao_municipal': row['inscricao_municipal']
+                }
+            })
+        else:
+            return jsonify({'existe': False})
     """Inicializa todas as rotas"""
     
     # ==================== FAVICON ====================
@@ -755,13 +835,11 @@ def init_routes(app):
                                 in_price = float((_os.getenv('OPENROUTER_DEFAULT_IN_PRICE') or '3.0').strip() or 3.0)
                             except Exception:
                                 in_price = 3.0
-                            pricing_defaults_used = True
                         if out_price == 0:
                             try:
                                 out_price = float((_os.getenv('OPENROUTER_DEFAULT_OUT_PRICE') or '15.0').strip() or 15.0)
                             except Exception:
                                 out_price = 15.0
-                            pricing_defaults_used = True
 
                         cost_usd = (pt / 1_000_000.0) * in_price + (ct / 1_000_000.0) * out_price
                     model_used = (raw_obj or {}).get('model')
@@ -1637,7 +1715,7 @@ def init_routes(app):
             return jsonify({'message': 'Erro ao atualizar setor'}), 500
 
     # Note: Removed duplicate toggle_status_setor route definition that was causing conflicts
-    # The route /aux_setor/<int:setor_id>/toggle_status is already defined above
+    # The route /aux_setor/<int:setor_id>/toggle_status is already defined acima
 
     # ==================== TBL CARGO CONTATO ====================
     
@@ -1828,3 +1906,50 @@ def init_routes(app):
         return render_template('errors/500.html'), 500
     
     app.logger.info("Rotas registradas com sucesso")
+
+    # ==================== CATEGORIAS AUDIÊNCIA - CRUD ====================
+    from flask import abort
+
+    @app.route('/api/categorias_audiencia', methods=['GET'])
+    @login_required
+    def api_listar_categorias_audiencia():
+        categorias = db.obter_categorias_audiencia()
+        return jsonify(categorias)
+
+    @app.route('/api/categorias_audiencia/<int:id_categoria>', methods=['GET'])
+    @login_required
+    def api_obter_categoria_audiencia(id_categoria):
+        categoria = db.obter_categoria_audiencia_por_id(id_categoria)
+        if not categoria:
+            abort(404)
+        return jsonify(categoria)
+
+    @app.route('/api/categorias_audiencia', methods=['POST'])
+    @login_required
+    def api_criar_categoria_audiencia():
+        data = request.json
+        novo_id = db.criar_categoria_audiencia(data)
+        return jsonify({'id': novo_id}), 201
+
+    @app.route('/api/categorias_audiencia/<int:id_categoria>', methods=['PUT'])
+    @login_required
+    def api_atualizar_categoria_audiencia(id_categoria):
+        data = request.json
+        ok = db.atualizar_categoria_audiencia(id_categoria, data)
+        if not ok:
+            abort(404)
+        return jsonify({'success': True})
+
+    @app.route('/api/categorias_audiencia/<int:id_categoria>', methods=['DELETE'])
+    @login_required
+    def api_excluir_categoria_audiencia(id_categoria):
+        ok = db.excluir_categoria_audiencia(id_categoria)
+        if not ok:
+            abort(404)
+        return jsonify({'success': True})
+
+    @app.route('/categorias_audiencia')
+    @login_required
+    def categorias_audiencia():
+        categorias = db.obter_categorias_audiencia()
+        return render_template('categorias_audiencia.html', categorias=categorias)

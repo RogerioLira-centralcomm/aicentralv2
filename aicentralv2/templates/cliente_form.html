@@ -23,20 +23,23 @@
 
   {% set pessoa_current = request.form.get('pessoa') or (cliente.pessoa if cliente else 'J') %}
 
+
   <fieldset>
     <legend>Informações</legend>
 
     <label>Tipo de Pessoa *</label><br>
-    <label><input type="radio" name="pessoa" value="J" {% if pessoa_current == 'J' %}checked{% endif %}> Pessoa Jurídica</label>
-    <label><input type="radio" name="pessoa" value="F" {% if pessoa_current == 'F' %}checked{% endif %}> Pessoa Física</label>
+    <label><input type="radio" name="pessoa" value="J" {% if pessoa_current == 'J' %}checked{% endif %} onchange="togglePessoaFields()"> Pessoa Jurídica</label>
+    <label><input type="radio" name="pessoa" value="F" {% if pessoa_current == 'F' %}checked{% endif %} onchange="togglePessoaFields()"> Pessoa Física</label>
 
     <br><br>
-    <label>Agência *</label><br>
-    {% for agencia in agencias %}
-      <label><input type="radio" name="pk_id_tbl_agencia" value="{{ agencia.id_agencia }}" data-agencia-key="{{ (agencia.key|string)|lower }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}checked{% endif %}{% if not cliente and loop.first %} checked{% endif %}> {{ agencia.display }}</label>
-    {% endfor %}
+    <div id="agencia_fields">
+      <label>Agência *</label><br>
+      {% for agencia in agencias %}
+        <label><input type="radio" name="pk_id_tbl_agencia" value="{{ agencia.id_agencia }}" data-agencia-key="{{ (agencia.key|string)|lower }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}checked{% endif %}{% if not cliente and loop.first %} checked{% endif %}> {{ agencia.display }}</label>
+      {% endfor %}
+      <br><br>
+    </div>
 
-    <br><br>
     <label>Vendas CentralComm *</label><br>
     <select name="vendas_central_comm" id="vendas_central_comm" required>
       <option value="">Selecione um executivo</option>
@@ -63,27 +66,34 @@
       {% endfor %}
     {% endif %}
 
-    <br><br>
-    <label>Razão Social *</label><br>
-    <input type="text" name="razao_social" value="{{ cliente.razao_social if cliente else '' }}" required>
 
     <br><br>
-    <label>Nome Fantasia *</label><br>
-    <input type="text" name="nome_fantasia" value="{{ cliente.nome_fantasia if cliente else '' }}" required>
+    <div id="razao_social_fields">
+      <label>Razão Social *</label><br>
+      <input type="text" name="razao_social" id="input_razao_social" value="{{ cliente.razao_social if cliente else '' }}" required>
+    </div>
 
     <br><br>
-    <label>CNPJ/CPF *</label><br>
-    <input type="text" name="cnpj" value="{{ cliente.cnpj if cliente else '' }}" required>
+  <label id="label_nome_fantasia">Nome Fantasia *</label><br>
+  <input type="text" name="nome_fantasia" id="input_nome_fantasia" value="{{ cliente.nome_fantasia if cliente else '' }}" required>
 
     <br><br>
-    <label>Inscrição Estadual</label><br>
-    <input type="text" name="inscricao_estadual" value="{{ cliente.inscricao_estadual if cliente else '' }}">
+  <label id="label_cnpj">CNPJ/CPF *</label><br>
+  <input type="text" name="cnpj" id="input_cnpj" value="{{ cliente.cnpj if cliente else '' }}" required onblur="onCnpjCpfBlur()">
+  <span id="cnpjcpf_msg" style="color:red"></span>
 
     <br><br>
-    <label>Inscrição Municipal</label><br>
-    <input type="text" name="inscricao_municipal" value="{{ cliente.inscricao_municipal if cliente else '' }}">
+    <div id="insc_estadual_fields">
+      <label>Inscrição Estadual</label><br>
+      <input type="text" name="inscricao_estadual" value="{{ cliente.inscricao_estadual if cliente else '' }}">
+      <br><br>
+    </div>
+    <div id="insc_municipal_fields">
+      <label>Inscrição Municipal</label><br>
+      <input type="text" name="inscricao_municipal" value="{{ cliente.inscricao_municipal if cliente else '' }}">
+      <br><br>
+    </div>
 
-    <br><br>
     <label>Tipo de Cliente *</label><br>
     <select name="id_tipo_cliente" required>
       <option value="">Selecione um tipo</option>
@@ -104,19 +114,21 @@
     </select>
 
     <br><br>
-    <label>Percentual</label><br>
-    <select name="id_percentual">
-      <option value="">Selecione um percentual</option>
-      {% if percentuais %}
-        {% for perc in percentuais %}
-        <option value="{{ perc.id_percentual }}" {% if cliente and cliente.id_percentual == perc.id_percentual %}selected{% endif %}>{{ perc.display }}</option>
-        {% endfor %}
-      {% endif %}
-    </select>
+    <div id="percentual_fields">
+      <label>Percentual</label><br>
+      <select name="id_percentual">
+        <option value="">Selecione um percentual</option>
+        {% if percentuais %}
+          {% for perc in percentuais %}
+          <option value="{{ perc.id_percentual }}" {% if cliente and cliente.id_percentual == perc.id_percentual %}selected{% endif %}>{{ perc.display }}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+      <br><br>
+    </div>
 
-    <br><br>
-    <label>CEP</label><br>
-    <input type="text" name="cep" id="cep" value="{{ cliente.cep if cliente else '' }}">
+  <label>CEP</label><br>
+  <input type="text" name="cep" id="cep" maxlength="9" value="{{ cliente.cep if cliente else '' }}" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)">
 
     <br><br>
     <label>Estado</label><br>
@@ -147,6 +159,165 @@
     <label>Complemento</label><br>
     <input type="text" name="complemento" id="complemento" value="{{ cliente.complemento if cliente else '' }}">
   </fieldset>
+{% block scripts %}
+<script>
+// Validação de CPF
+function validarCPF(cpf) {
+  cpf = cpf.replace(/\D/g, '');
+  if (cpf.length !== 11 || /^([0-9])\1+$/.test(cpf)) return false;
+  let soma = 0, resto;
+  for (let i = 1; i <= 9; i++) soma += parseInt(cpf.substring(i-1, i)) * (11 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(cpf.substring(9, 10))) return false;
+  soma = 0;
+  for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i-1, i)) * (12 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(cpf.substring(10, 11))) return false;
+  return true;
+}
+
+// Busca dados da empresa pelo CNPJ (ReceitaWS ou similar)
+async function buscarEmpresaPorCNPJ(cnpj) {
+  cnpj = cnpj.replace(/\D/g, '');
+  if (cnpj.length !== 14) return;
+  try {
+    const resp = await fetch('https://www.receitaws.com.br/v1/cnpj/' + cnpj);
+    const data = await resp.json();
+    if (data.status === 'OK') {
+      if (document.getElementById('input_razao_social')) document.getElementById('input_razao_social').value = data.nome || '';
+      var nomeFantasia = document.querySelector('input[name="nome_fantasia"]');
+      if (nomeFantasia) nomeFantasia.value = data.fantasia || '';
+      var inscEstadual = document.querySelector('input[name="inscricao_estadual"]');
+      if (inscEstadual) inscEstadual.value = data.inscricao_estadual || '';
+      var inscMunicipal = document.querySelector('input[name="inscricao_municipal"]');
+      if (inscMunicipal) inscMunicipal.value = data.inscricao_municipal || '';
+    }
+  } catch (e) {}
+}
+
+// Verifica se CNPJ/CPF já existe na base e preenche campos se existir
+async function verificarExistenciaDocumento(doc, tipo) {
+  try {
+    const resp = await fetch(`/api/verifica_documento?doc=${encodeURIComponent(doc)}&tipo=${tipo}`);
+    const data = await resp.json();
+    if (data.existe) {
+      document.getElementById('cnpjcpf_msg').innerText = tipo === 'F' ? 'CPF já cadastrado!' : 'CNPJ já cadastrado!';
+      if (data.cliente) {
+        if (document.getElementById('input_razao_social') && data.cliente.razao_social)
+          document.getElementById('input_razao_social').value = data.cliente.razao_social;
+        var nomeFantasia = document.getElementById('input_nome_fantasia');
+        if (nomeFantasia && data.cliente.nome_fantasia)
+          nomeFantasia.value = data.cliente.nome_fantasia;
+        var inscEstadual = document.querySelector('input[name="inscricao_estadual"]');
+        if (inscEstadual && data.cliente.inscricao_estadual)
+          inscEstadual.value = data.cliente.inscricao_estadual;
+        var inscMunicipal = document.querySelector('input[name="inscricao_municipal"]');
+        if (inscMunicipal && data.cliente.inscricao_municipal)
+          inscMunicipal.value = data.cliente.inscricao_municipal;
+      }
+    } else {
+      document.getElementById('cnpjcpf_msg').innerText = '';
+    }
+  } catch (e) {}
+}
+
+// Handler para blur do campo CNPJ/CPF
+async function onCnpjCpfBlur() {
+  var pessoa = document.querySelector('input[name="pessoa"]:checked').value;
+  var doc = document.getElementById('input_cnpj').value.replace(/\D/g, '');
+  if (!doc) return;
+  if (pessoa === 'F') {
+    if (!validarCPF(doc)) {
+      document.getElementById('cnpjcpf_msg').innerText = 'CPF inválido!';
+      return;
+    } else {
+      document.getElementById('cnpjcpf_msg').innerText = '';
+    }
+    await verificarExistenciaDocumento(doc, 'F');
+  } else {
+    if (doc.length !== 14) {
+      document.getElementById('cnpjcpf_msg').innerText = 'CNPJ inválido!';
+      return;
+    }
+    document.getElementById('cnpjcpf_msg').innerText = '';
+    await verificarExistenciaDocumento(doc, 'J');
+    await buscarEmpresaPorCNPJ(doc);
+  }
+}
+// Máscara para CEP (formato 99999-999)
+function mascaraCep(input) {
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
+  input.value = v.slice(0,9);
+}
+
+// Busca endereço na API ViaCEP
+function buscarEnderecoPorCep(cep) {
+  cep = cep.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  fetch('https://viacep.com.br/ws/' + cep + '/json/')
+    .then(response => response.json())
+    .then(data => {
+      if (!data.erro) {
+        document.getElementById('estado').value = getEstadoIdBySigla(data.uf);
+        document.getElementById('cidade').value = data.localidade || '';
+        document.getElementById('bairro').value = data.bairro || '';
+        document.getElementById('logradouro').value = data.logradouro || '';
+      }
+    });
+}
+
+// Função para mapear sigla do estado ao id do select
+function getEstadoIdBySigla(sigla) {
+  var select = document.getElementById('estado');
+  for (var i = 0; i < select.options.length; i++) {
+    if (select.options[i].text.startsWith(sigla + ' ')) {
+      return select.options[i].value;
+    }
+  }
+  return '';
+}
+function togglePessoaFields() {
+  var pessoa = document.querySelector('input[name="pessoa"]:checked').value;
+  document.getElementById('agencia_fields').style.display = pessoa === 'F' ? 'none' : '';
+  document.getElementById('percentual_fields').style.display = pessoa === 'F' ? 'none' : '';
+  document.getElementById('insc_estadual_fields').style.display = pessoa === 'F' ? 'none' : '';
+  document.getElementById('insc_municipal_fields').style.display = pessoa === 'F' ? 'none' : '';
+  document.getElementById('label_cnpj').innerText = pessoa === 'F' ? 'CPF *' : 'CNPJ *';
+  document.getElementById('input_cnpj').placeholder = pessoa === 'F' ? 'Digite o CPF' : 'Digite o CNPJ';
+  // Razão Social
+  if (pessoa === 'F') {
+    document.getElementById('razao_social_fields').style.display = 'none';
+    document.getElementById('input_razao_social').required = false;
+    document.getElementById('label_nome_fantasia').innerText = 'Nome Completo *';
+    document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome completo';
+    document.getElementById('input_nome_fantasia').required = true;
+  } else {
+    document.getElementById('razao_social_fields').style.display = '';
+    document.getElementById('input_razao_social').required = true;
+    document.getElementById('label_nome_fantasia').innerText = 'Nome Fantasia *';
+    document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome fantasia';
+    document.getElementById('input_nome_fantasia').required = true;
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  togglePessoaFields();
+  var radios = document.querySelectorAll('input[name="pessoa"]');
+  radios.forEach(function(radio) {
+    radio.addEventListener('change', togglePessoaFields);
+  });
+  // Aplica máscara inicial ao CEP se já houver valor
+  var cepInput = document.getElementById('cep');
+  if (cepInput && cepInput.value) mascaraCep(cepInput);
+
+  // Adiciona listener para blur do CNPJ/CPF
+  var cnpjInput = document.getElementById('input_cnpj');
+  if (cnpjInput) cnpjInput.addEventListener('blur', onCnpjCpfBlur);
+});
+</script>
+{% endblock %}
 
   <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 

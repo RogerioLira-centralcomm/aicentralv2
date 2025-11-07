@@ -1,0 +1,59 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{% if categoria %}Editar{% else %}Nova{% endif %} Categoria de Audiência - CentralComm AI{% endblock %}
+
+{% block content %}
+<h1>{% if categoria %}Editar Categoria de Audiência{% else %}Nova Categoria de Audiência{% endif %}</h1>
+<p><a href="{{ url_for('categorias_audiencia') }}">Voltar</a></p>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<ul>
+  {% for category, message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endwith %}
+
+<form method="POST" id="categoriaAudienciaForm">
+  {% if categoria and categoria.id %}
+  <input type="hidden" id="categoria_id" value="{{ categoria.id }}">
+  {% endif %}
+
+  <fieldset>
+    <legend>Informações</legend>
+    <label>Categoria *</label><br>
+    <input type="text" name="categoria" value="{{ categoria.categoria if categoria else '' }}" required><br><br>
+    <label>Subcategoria</label><br>
+    <input type="text" name="subcategoria" value="{{ categoria.subcategoria if categoria else '' }}"><br><br>
+    <label>Nome de Exibição *</label><br>
+    <input type="text" name="nome_exibicao" value="{{ categoria.nome_exibicao if categoria else '' }}" required><br><br>
+    <label>Slug *</label><br>
+    <input type="text" name="slug" value="{{ categoria.slug if categoria else '' }}" required><br><br>
+    <label>Descrição</label><br>
+    <textarea name="descricao">{{ categoria.descricao if categoria else '' }}</textarea><br><br>
+    <label>Ícone</label><br>
+    <input type="text" name="icone" value="{{ categoria.icone if categoria else '' }}"><br><br>
+    <label>Cor (hex)</label><br>
+    <input type="text" name="cor_hex" value="{{ categoria.cor_hex if categoria else '' }}"><br><br>
+    <label>Ordem de Exibição</label><br>
+    <input type="number" name="ordem_exibicao" value="{{ categoria.ordem_exibicao if categoria else 0 }}"><br><br>
+    <label>Ativo</label>
+    <input type="checkbox" name="is_active" value="1" {% if categoria and categoria.is_active %}checked{% endif %}><br><br>
+    <label>Destaque</label>
+    <input type="checkbox" name="is_featured" value="1" {% if categoria and categoria.is_featured %}checked{% endif %}><br><br>
+    <label>Total de Audiências</label><br>
+    <input type="number" name="total_audiencias" value="{{ categoria.total_audiencias if categoria else 0 }}"><br><br>
+    <label>Meta Título</label><br>
+    <input type="text" name="meta_titulo" value="{{ categoria.meta_titulo if categoria else '' }}"><br><br>
+    <label>Meta Descrição</label><br>
+    <textarea name="meta_descricao">{{ categoria.meta_descricao if categoria else '' }}</textarea><br><br>
+  </fieldset>
+  <button type="submit" class="btn btn-primary">Salvar</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/cliente_form.js') }}"></script>
+{% endblock %}

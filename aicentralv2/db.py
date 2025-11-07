@@ -1806,3 +1806,126 @@ def obter_fluxos_boas_vindas():
     except Exception as e:
         conn.rollback()
         raise e
+
+# ==================== CATEGORIAS AUDIÊNCIA - CRUD ====================
+
+def obter_categorias_audiencia():
+    """Retorna todas as categorias de audiência"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, categoria, subcategoria, nome_exibicao, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
+                FROM cadu_categorias_audiencia
+                ORDER BY ordem_exibicao, nome_exibicao
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def obter_categoria_audiencia_por_id(id_categoria):
+    """Retorna uma categoria de audiência por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, categoria, subcategoria, nome_exibicao, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
+                FROM cadu_categorias_audiencia
+                WHERE id = %s
+            ''', (id_categoria,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def criar_categoria_audiencia(data):
+    """Cria uma nova categoria de audiência"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_categorias_audiencia (
+                    categoria, subcategoria, nome_exibicao, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                ) RETURNING id
+            ''', (
+                data.get('categoria'),
+                data.get('subcategoria'),
+                data.get('nome_exibicao'),
+                data.get('slug'),
+                data.get('descricao'),
+                data.get('icone'),
+                data.get('cor_hex'),
+                data.get('ordem_exibicao', 0),
+                data.get('is_active', True),
+                data.get('is_featured', False),
+                data.get('total_audiencias', 0),
+                data.get('meta_titulo'),
+                data.get('meta_descricao')
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def atualizar_categoria_audiencia(id_categoria, data):
+    """Atualiza uma categoria de audiência existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_categorias_audiencia
+                SET categoria = %s,
+                    subcategoria = %s,
+                    nome_exibicao = %s,
+                    slug = %s,
+                    descricao = %s,
+                    icone = %s,
+                    cor_hex = %s,
+                    ordem_exibicao = %s,
+                    is_active = %s,
+                    is_featured = %s,
+                    total_audiencias = %s,
+                    meta_titulo = %s,
+                    meta_descricao = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (
+                data.get('categoria'),
+                data.get('subcategoria'),
+                data.get('nome_exibicao'),
+                data.get('slug'),
+                data.get('descricao'),
+                data.get('icone'),
+                data.get('cor_hex'),
+                data.get('ordem_exibicao', 0),
+                data.get('is_active', True),
+                data.get('is_featured', False),
+                data.get('total_audiencias', 0),
+                data.get('meta_titulo'),
+                data.get('meta_descricao'),
+                id_categoria
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def excluir_categoria_audiencia(id_categoria):
+    """Exclui uma categoria de audiência"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_categorias_audiencia WHERE id = %s
+            ''', (id_categoria,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e

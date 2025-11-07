@@ -1,0 +1,22 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Detalhes da Categoria de Audiência - CentralComm AI{% endblock %}
+
+{% block content %}
+<h1>Detalhes da Categoria de Audiência</h1>
+
+<p>
+  <a href="{{ url_for('categorias_audiencia_editar', id_categoria=categoria.id) }}">Editar Categoria</a> |
+  <a href="{{ url_for('categorias_audiencia') }}">Voltar</a>
+</p>
+
+<h2>Informações da Categoria</h2>
+<ul>
+  <li>ID: #{{ categoria.id }}</li>
+  <li>Status: {{ 'Ativo' if categoria.is_active else 'Inativo' }}</li>
+  <li>Nome de Exibição: {{ categoria.nome_exibicao }}</li>
+  <li>Categoria: {{ categoria.categoria }}</li>
+  <li>Subcategoria: {{ categoria.subcategoria or '—' }}</li>
+</ul>
+
+{% endblock %}

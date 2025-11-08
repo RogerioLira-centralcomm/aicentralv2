@@ -294,22 +294,37 @@
                         <li class="menu-title sidebar-text">
                             <span>Sistema</span>
                         </li>
+                        <li tabindex="0">
+                            <a class="justify-between">
+                                <i class="fas fa-chart-network"></i>
+                                <span class="sidebar-text">Audiências</span>
+                                <i class="fas fa-chevron-down ml-auto"></i>
+                            </a>
+                            <ul class="pl-6">
+                                <li>
+                                    <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
+                                        <i class="fas fa-arrow-up-right-from-square"></i>
+                                        <span class="sidebar-text">Up Audiências</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ url_for('categorias_audiencia') }}" class="{% if request.endpoint == 'categorias_audiencia' %}active{% endif %}">
+                                        <i class="fas fa-layer-group"></i>
+                                        <span class="sidebar-text">Categorias de Audiência</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
+                                        <i class="fas fa-database"></i>
+                                        <span class="sidebar-text">Cadu Audiências</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                         <li>
                             <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
                                 <i class="fas fa-brain"></i>
                                 <span class="sidebar-text">Inteligência</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                <i class="fas fa-chart-network"></i>
-                                <span class="sidebar-text">Audiências</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('categorias_audiencia') }}" class="{% if request.endpoint == 'categorias_audiencia' %}active{% endif %}">
-                                <i class="fas fa-layer-group"></i>
-                                <span class="sidebar-text">Categorias de Audiência</span>
                             </a>
                         </li>
                         <li>

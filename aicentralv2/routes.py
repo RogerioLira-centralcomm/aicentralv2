@@ -26,6 +26,11 @@ def login_required(f):
 
 
 def init_routes(app):
+    @app.route('/cadu_audiencias')
+    @login_required
+    def cadu_audiencias():
+        # Placeholder: renderiza um template simples ou lista vazia
+        return render_template('cadu_audiencias.html')
     @app.route('/categorias_audiencia/novo', methods=['GET', 'POST'])
     @login_required
     def categorias_audiencia_novo():

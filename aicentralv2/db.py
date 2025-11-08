@@ -1929,3 +1929,50 @@ def excluir_categoria_audiencia(id_categoria):
     except Exception as e:
         conn.rollback()
         raise e
+    
+# --- Modelo da tabela cadu_audiencias ---
+class CaduAudiencias:
+    def __init__(self, id, nome, descricao, slug, publico_estimado, publico_numero, categoria_id, categoria, subcategoria, tags, tamanho,
+                 demografia_homens=50, demografia_mulheres=50, idade_18_24=25, idade_25_34=35, idade_35_44=25, idade_45_mais=15,
+                 dispositivo_mobile=60, dispositivo_desktop=35, dispositivo_tablet=5,
+                 cpm_estimado=None, cpm_minimo=None, cpm_maximo=None,
+                 descricao_comercial=None, descricao_ia=None, relevancia_score=0, fonte='MOCK',
+                 dv360_id=None, dv360_advertiser_id=None, is_active=True, is_premium=False,
+                 views_count=0, added_to_cart_count=0, quoted_count=0,
+                 created_at=None, updated_at=None):
+        self.id = id
+        self.nome = nome
+        self.descricao = descricao
+        self.slug = slug
+        self.publico_estimado = publico_estimado
+        self.publico_numero = publico_numero
+        self.categoria_id = categoria_id
+        self.categoria = categoria
+        self.subcategoria = subcategoria
+        self.tags = tags
+        self.tamanho = tamanho
+        self.demografia_homens = demografia_homens
+        self.demografia_mulheres = demografia_mulheres
+        self.idade_18_24 = idade_18_24
+        self.idade_25_34 = idade_25_34
+        self.idade_35_44 = idade_35_44
+        self.idade_45_mais = idade_45_mais
+        self.dispositivo_mobile = dispositivo_mobile
+        self.dispositivo_desktop = dispositivo_desktop
+        self.dispositivo_tablet = dispositivo_tablet
+        self.cpm_estimado = cpm_estimado
+        self.cpm_minimo = cpm_minimo
+        self.cpm_maximo = cpm_maximo
+        self.descricao_comercial = descricao_comercial
+        self.descricao_ia = descricao_ia
+        self.relevancia_score = relevancia_score
+        self.fonte = fonte
+        self.dv360_id = dv360_id
+        self.dv360_advertiser_id = dv360_advertiser_id
+        self.is_active = is_active
+        self.is_premium = is_premium
+        self.views_count = views_count
+        self.added_to_cart_count = added_to_cart_count
+        self.quoted_count = quoted_count
+        self.created_at = created_at
+        self.updated_at = updated_at

@@ -3,10 +3,13 @@
 {% block title %}Clientes - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="px-6 py-6">
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Clientes</h1>
-    <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary"><i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente</a>
+<div class="max-w-5xl mx-auto p-4">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Clientes</h1>
+      <p class="text-sm text-base-content/70">Gerencie os clientes cadastrados na plataforma.</p>
+    </div>
+    <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente</a>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -21,12 +24,12 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-white rounded-xl shadow-lg p-0 overflow-hidden">
+  <div class="bg-base-100 rounded-xl shadow-lg p-0 overflow-hidden">
     {% if clientes %}
       <div class="overflow-x-auto">
-  <table class="min-w-full divide-y divide-gray-200 text-xs">
+        <table class="min-w-full divide-y divide-base-200 text-xs">
           <thead class="bg-gradient-to-r from-primary to-accent text-white text-xs">
-            <tr class="h-6">
+            <tr class="h-7">
               <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Cliente</th>
               <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Executivo</th>
               <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Tipo</th>
@@ -35,17 +38,17 @@
               <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-100 text-xs">
+          <tbody class="bg-base-100 divide-y divide-base-200 text-xs">
             {% for cliente in clientes %}
-            <tr class="hover:bg-gray-50 transition h-5 align-middle text-xs">
+            <tr class="hover:bg-base-200 transition h-7 align-middle text-xs">
               <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                <span class="font-semibold text-gray-900">{{ cliente.nome_fantasia or cliente.razao_social }}</span>
-                {% if cliente.nome_fantasia %}<br><span class="text-xs text-gray-500">{{ cliente.razao_social }}</span>{% endif %}
+                <span class="font-semibold text-base-content">{{ cliente.nome_fantasia or cliente.razao_social }}</span>
+                {% if cliente.nome_fantasia %}<br><span class="text-xs text-base-content/60">{{ cliente.razao_social }}</span>{% endif %}
               </td>
               <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                {% if cliente.executivo_nome %}<span class="text-gray-800">{{ cliente.executivo_nome }}</span>{% else %}<span class="text-gray-400 italic">Não atribuído</span>{% endif %}
+                {% if cliente.executivo_nome %}<span class="text-base-content">{{ cliente.executivo_nome }}</span>{% else %}<span class="text-base-content/40 italic">Não atribuído</span>{% endif %}
               </td>
-              <td class="px-1 py-0 whitespace-nowrap text-gray-700 align-middle text-xs">{{ cliente.tipo_pessoa }}</td>
+              <td class="px-1 py-0 whitespace-nowrap text-base-content align-middle text-xs">{{ cliente.tipo_pessoa }}</td>
               <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold
                   {% if cliente.status %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
@@ -55,13 +58,17 @@
               </td>
               <td class="px-1 py-0 whitespace-nowrap text-center align-middle text-xs">{{ cliente.total_contatos }}</td>
               <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                <div class="flex flex-wrap gap-2">
-                  <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-outline btn-primary"><i class="fas fa-edit mr-1"></i>Editar</a>
-                  <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-outline btn-info"><i class="fas fa-eye mr-1"></i>Detalhes</a>
+                <div class="flex items-center gap-1">
+                  <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-info" title="Detalhes">
+                    <i class="fas fa-eye"></i>
+                  </a>
                   {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
                   <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" style="display:inline">
-                    <button type="submit" class="btn btn-xs btn-outline {% if not cliente.status %}btn-success{% else %}btn-error{% endif %}">
-                      {% if not cliente.status %}<i class="fas fa-check mr-1"></i>Ativar{% else %}<i class="fas fa-ban mr-1"></i>Desativar{% endif %}
+                    <button type="submit" class="btn btn-xs btn-circle btn-outline {% if not cliente.status %}btn-success{% else %}btn-error{% endif %}" title="{% if not cliente.status %}Ativar{% else %}Desativar{% endif %}">
+                      {% if not cliente.status %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-ban"></i>{% endif %}
                     </button>
                   </form>
                   {% endif %}
@@ -74,8 +81,8 @@
       </div>
     {% else %}
       <div class="text-center py-8">
-        <p class="mb-2 text-gray-500">Nenhum cliente cadastrado.</p>
-        <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary"><i class="fas fa-plus mr-2 text-xs"></i>Cadastrar Primeiro Cliente</a>
+        <p class="mb-2 text-base-content/60 text-sm">Nenhum cliente cadastrado.</p>
+        <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Cadastrar Primeiro Cliente</a>
       </div>
     {% endif %}
   </div>

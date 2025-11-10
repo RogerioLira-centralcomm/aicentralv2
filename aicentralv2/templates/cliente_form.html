@@ -3,161 +3,129 @@
 {% block title %}{% if cliente %}Editar{% else %}Novo{% endif %} Cliente - CentralComm AI{% endblock %}
 
 {% block content %}
-<h1>{% if cliente %}Editar Cliente{% else %}Novo Cliente{% endif %}</h1>
-<p><a href="{{ url_for('clientes') }}">Voltar</a></p>
+<div class="max-w-2xl mx-auto p-4 bg-base-100 rounded-xl shadow-lg">
+  <h2 class="text-lg font-semibold mb-1">{% if cliente %}Editar Cliente{% else %}Novo Cliente{% endif %}</h2>
+  <p class="text-base-content/70 mb-3 text-sm">Preencha os dados abaixo para {% if cliente %}editar{% else %}cadastrar{% endif %} um cliente.</p>
+  <form method="post" class="space-y-2">
+          <!-- CSRF token removido pois não está definido no contexto -->
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-<ul>
-  {% for category, message in messages %}
-  <li>{{ message }}</li>
-  {% endfor %}
-</ul>
-{% endif %}
-{% endwith %}
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Pessoa <span class="text-error">*</span></label>
+            <div class="flex gap-4">
+              <label class="cursor-pointer flex items-center gap-2">
+                <input type="radio" name="pessoa" value="J" class="radio radio-primary" required checked>
+                <span>Jurídica</span>
+              </label>
+              <label class="cursor-pointer flex items-center gap-2">
+                <input type="radio" name="pessoa" value="F" class="radio radio-primary" required {% if cliente and cliente.pessoa == 'F' %}checked{% endif %}>
+                <span>Física</span>
+              </label>
+            </div>
+          </div>
 
-<form method="POST" id="clienteForm">
-  {% if cliente and cliente.id_cliente %}
-  <input type="hidden" id="cliente_id" value="{{ cliente.id_cliente }}">
-  {% endif %}
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Tipo <span class="text-error">*</span></label>
+            <select name="id_tipo_cliente" class="select select-bordered w-full" required>
+              <option value="">Selecione o tipo</option>
+              {% for tipo in tipos_cliente %}
+                <option value="{{ tipo.id_tipo_cliente }}" {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>{{ tipo.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
 
-  {% set pessoa_current = request.form.get('pessoa') or (cliente.pessoa if cliente else 'J') %}
+          <div class="form-control">
+            <label id="label_cnpj" class="label font-semibold text-sm">CNPJ *</label>
+            <input id="input_cnpj" name="cnpj" value="{{ cliente.cnpj if cliente else '' }}" required class="input input-bordered w-full" placeholder="Digite o CNPJ">
+            <span id="cnpjcpf_msg" class="text-error text-xs mt-1"></span>
+          </div>
+
+          <div id="razao_social_fields" class="form-control">
+            <label class="label font-semibold text-sm">Razão Social *</label>
+            <input id="input_razao_social" name="razao_social" value="{{ cliente.razao_social if cliente else '' }}" required class="input input-bordered w-full" placeholder="Digite a razão social">
+          </div>
+
+          <div class="form-control">
+            <label id="label_nome_fantasia" class="label font-semibold text-sm">Nome Fantasia *</label>
+            <input id="input_nome_fantasia" name="nome_fantasia" value="{{ cliente.nome_fantasia if cliente else '' }}" required class="input input-bordered w-full" placeholder="Digite o nome fantasia">
+          </div>
+
+          <div id="insc_estadual_fields" class="form-control">
+            <label class="label font-semibold text-sm">Inscrição Estadual</label>
+            <input name="inscricao_estadual" value="{{ cliente.inscricao_estadual if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite a inscrição estadual">
+          </div>
+
+          <div id="insc_municipal_fields" class="form-control">
+            <label class="label font-semibold text-sm">Inscrição Municipal</label>
+            <input name="inscricao_municipal" value="{{ cliente.inscricao_municipal if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite a inscrição municipal">
+          </div>
+
+          <div class="divider">Endereço</div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">CEP</label>
+            <input id="cep" name="cep" value="{{ cliente.cep if cliente else '' }}" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="input input-bordered w-full" placeholder="Digite o CEP">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Estado</label>
+            <select id="estado" name="estado" class="select select-bordered w-full">
+              {% for estado in estados %}
+                <option value="{{ estado.id }}" {% if cliente and cliente.estado == estado.id %}selected{% endif %}>{{ estado.sigla }} - {{ estado.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Cidade</label>
+            <input id="cidade" name="cidade" value="{{ cliente.cidade if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite a cidade">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Bairro</label>
+            <input id="bairro" name="bairro" value="{{ cliente.bairro if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o bairro">
+          </div>
+
+          <div class="form-control">
+
+            <label class="label font-semibold text-sm">Logradouro</label>
+            <input id="logradouro" name="logradouro" value="{{ cliente.logradouro if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o logradouro">
+          </div>
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Número</label>
+            <input id="numero" value="{{ cliente.numero if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o número">
+          </div>
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Complemento</label>
+            <input id="complemento" name="complemento" value="{{ cliente.complemento if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o complemento">
+          </div>
+
+          <div id="agencia_fields" class="form-control">
+            <label class="label font-semibold text-sm">Agência <span class="text-error">*</span></label>
+            <select name="id_agencia" class="select select-bordered w-full" required>
+              <option value="">Selecione a agência</option>
+              {% for agencia in agencias %}
+                <option value="{{ agencia.id_agencia }}" {% if cliente and cliente.id_agencia == agencia.id_agencia %}selected{% endif %}>{{ agencia.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="percentual_fields" class="form-control">
+            <label class="label font-semibold text-sm">Percentual</label>
+            <input name="percentual" value="{{ cliente.percentual if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o percentual">
+          </div>
+
+          <!-- Campo hidden pk_id_tbl_agencia_pf removido, não é necessário para o select principal -->
 
 
-  <fieldset>
-    <legend>Informações</legend>
-
-    <label>Tipo de Pessoa *</label><br>
-    <label><input type="radio" name="pessoa" value="J" {% if pessoa_current == 'J' %}checked{% endif %} onchange="togglePessoaFields()"> Pessoa Jurídica</label>
-    <label><input type="radio" name="pessoa" value="F" {% if pessoa_current == 'F' %}checked{% endif %} onchange="togglePessoaFields()"> Pessoa Física</label>
-
-    <br><br>
-    <div id="agencia_fields">
-      <label>Agência *</label><br>
-      {% for agencia in agencias %}
-        <label><input type="radio" name="pk_id_tbl_agencia" value="{{ agencia.id_agencia }}" data-agencia-key="{{ (agencia.key|string)|lower }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}checked{% endif %}{% if not cliente and loop.first %} checked{% endif %}> {{ agencia.display }}</label>
-      {% endfor %}
-      <br><br>
-    </div>
-
-    <label>Vendas CentralComm *</label><br>
-    <select name="vendas_central_comm" id="vendas_central_comm" required>
-      <option value="">Selecione um executivo</option>
-      {% if vendedores_cc %}
-        {% for vend in vendedores_cc %}
-        <option value="{{ vend.id_contato_cliente }}" {% if cliente and (cliente.vendas_central_comm == vend.id_contato_cliente) %}selected{% endif %}>{{ vend.nome_completo }}</option>
-        {% endfor %}
-      {% endif %}
-    </select>
-
-    <br><br>
-    <label>Apresentação do Executivo</label><br>
-    {% if apresentacoes %}
-      {% for ap in apresentacoes %}
-      <label><input type="radio" name="id_apresentacao_executivo" value="{{ ap.id_tbl_apresentacao_executivo }}" {% if (cliente and cliente.id_apresentacao_executivo == ap.id_tbl_apresentacao_executivo) or (not cliente and (ap.display|lower == 'sim' or loop.first)) %}checked{% endif %}> {{ ap.display }}</label>
-      {% endfor %}
-    {% endif %}
-
-    <br><br>
-    <label>Fluxo de Boas-Vindas *</label><br>
-    {% if fluxos %}
-      {% for fx in fluxos %}
-      <label><input type="radio" name="id_fluxo_boas_vindas" value="{{ fx.id_fluxo_boas_vindas }}" {% if (cliente and cliente.id_fluxo_boas_vindas == fx.id_fluxo_boas_vindas) or (not cliente and loop.first) %}checked{% endif %}> {{ fx.display }}</label>
-      {% endfor %}
-    {% endif %}
+          <div class="flex justify-between items-center mt-6">
+            <a href="{{ url_for('clientes') }}" class="btn btn-ghost btn-sm">Cancelar</a>
+            <button type="submit" class="btn btn-primary btn-sm">{% if cliente %}Atualizar{% else %}Cadastrar{% endif %}</button>
+          </div>
+        </form>
+      </div>
 
 
-    <br><br>
-    <div id="razao_social_fields">
-      <label>Razão Social *</label><br>
-      <input type="text" name="razao_social" id="input_razao_social" value="{{ cliente.razao_social if cliente else '' }}" required>
-    </div>
-
-    <br><br>
-  <label id="label_nome_fantasia">Nome Fantasia *</label><br>
-  <input type="text" name="nome_fantasia" id="input_nome_fantasia" value="{{ cliente.nome_fantasia if cliente else '' }}" required>
-
-    <br><br>
-  <label id="label_cnpj">CNPJ/CPF *</label><br>
-  <input type="text" name="cnpj" id="input_cnpj" value="{{ cliente.cnpj if cliente else '' }}" required onblur="onCnpjCpfBlur()">
-  <span id="cnpjcpf_msg" style="color:red"></span>
-
-    <br><br>
-    <div id="insc_estadual_fields">
-      <label>Inscrição Estadual</label><br>
-      <input type="text" name="inscricao_estadual" value="{{ cliente.inscricao_estadual if cliente else '' }}">
-      <br><br>
-    </div>
-    <div id="insc_municipal_fields">
-      <label>Inscrição Municipal</label><br>
-      <input type="text" name="inscricao_municipal" value="{{ cliente.inscricao_municipal if cliente else '' }}">
-      <br><br>
-    </div>
-
-    <label>Tipo de Cliente *</label><br>
-    <select name="id_tipo_cliente" required>
-      <option value="">Selecione um tipo</option>
-      {% for tipo in tipos_cliente %}
-      <option value="{{ tipo.id_tipo_cliente }}" {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>{{ tipo.display }}</option>
-      {% endfor %}
-    </select>
-
-    <br><br>
-    <label>Plano *</label><br>
-    <select name="pk_id_tbl_plano" required>
-      <option value="">Selecione um plano</option>
-      {% for plano in planos %}
-        {% if plano.status %}
-        <option value="{{ plano.id_plano }}" {% if cliente and cliente.pk_id_tbl_plano == plano.id_plano %}selected{% endif %}>{{ plano.descricao }} - {{ "{:,}".format(plano.tokens).replace(',', '.') }} tokens</option>
-        {% endif %}
-      {% endfor %}
-    </select>
-
-    <br><br>
-    <div id="percentual_fields">
-      <label>Percentual</label><br>
-      <select name="id_percentual">
-        <option value="">Selecione um percentual</option>
-        {% if percentuais %}
-          {% for perc in percentuais %}
-          <option value="{{ perc.id_percentual }}" {% if cliente and cliente.id_percentual == perc.id_percentual %}selected{% endif %}>{{ perc.display }}</option>
-          {% endfor %}
-        {% endif %}
-      </select>
-      <br><br>
-    </div>
-
-  <label>CEP</label><br>
-  <input type="text" name="cep" id="cep" maxlength="9" value="{{ cliente.cep if cliente else '' }}" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)">
-
-    <br><br>
-    <label>Estado</label><br>
-    <select name="pk_id_aux_estado" id="estado">
-      <option value="">Selecione</option>
-      {% for estado in estados %}
-      <option value="{{ estado.id_estado }}" {% if cliente and cliente.pk_id_aux_estado == estado.id_estado %}selected{% endif %}>{{ estado.sigla }} - {{ estado.descricao }}</option>
-      {% endfor %}
-    </select>
-
-    <br><br>
-    <label>Cidade</label><br>
-    <input type="text" name="cidade" id="cidade" value="{{ cliente.cidade if cliente else '' }}">
-
-    <br><br>
-    <label>Bairro</label><br>
-    <input type="text" name="bairro" id="bairro" value="{{ cliente.bairro if cliente else '' }}">
-
-    <br><br>
-    <label>Logradouro</label><br>
-    <input type="text" name="logradouro" id="logradouro" value="{{ cliente.logradouro if cliente else '' }}">
-
-    <br><br>
-    <label>Número</label><br>
-    <input type="text" name="numero" id="numero" value="{{ cliente.numero if cliente else '' }}">
-
-    <br><br>
-    <label>Complemento</label><br>
-    <input type="text" name="complemento" id="complemento" value="{{ cliente.complemento if cliente else '' }}">
+  <!-- Campos duplicados removidos, agora estão dentro do form principal -->
   </fieldset>
 {% block scripts %}
 <script>
@@ -322,9 +290,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 
   <br>
-  <p>
-    <a href="{{ url_for('clientes') }}">Cancelar</a>
-    <button type="submit">{% if cliente %}Atualizar{% else %}Cadastrar{% endif %}</button>
-  </p>
+
 </form>
 {% endblock %}

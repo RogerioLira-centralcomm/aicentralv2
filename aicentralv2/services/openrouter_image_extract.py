@@ -136,7 +136,7 @@ def _call_openrouter(image_b64: str, content_type: str, model: Optional[str] = N
                     ]
                 }
             ],
-            'max_tokens': 500,
+            'max_tokens': 4000,  # Aumentado de 500 para 4000 para permitir JSONs maiores
         }
 
     # Tenta em cascata usando candidatos (definidos mais abaixo)
@@ -273,13 +273,25 @@ def _parse_response_to_json_fields(resp_obj: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(content, str):
             # fallback: return raw only
             return { '_raw': resp_obj }
-        # Strip code fences
+        
+        # Strip code fences and try to parse JSON
         txt = content.strip()
+        
+        # Remove markdown code blocks (```json or ```)
         if txt.startswith('```'):
-            txt = txt.strip('`')
-            # remove optional language prefix
+            # Remove opening fence
+            txt = txt.lstrip('`')
+            # Remove language identifier (json, JSON, etc)
             if '\n' in txt:
-                txt = txt.split('\n', 1)[1]
+                lines = txt.split('\n')
+                # First line might be language identifier
+                if lines[0].strip().lower() in ['json', 'JSON', '']:
+                    txt = '\n'.join(lines[1:])
+                else:
+                    txt = '\n'.join(lines)
+            # Remove closing fence
+            txt = txt.rstrip('`').strip()
+        
         # Try to find a JSON object substring
         start = txt.find('{')
         end = txt.rfind('}')
@@ -287,14 +299,27 @@ def _parse_response_to_json_fields(resp_obj: Dict[str, Any]) -> Dict[str, Any]:
             txt_obj = txt[start:end+1]
         else:
             txt_obj = txt
+            
+        # Attempt to parse JSON
         data = json.loads(txt_obj)
         if isinstance(data, dict):
             data['_raw'] = resp_obj
             return data
         # If it's a list or another structure, wrap it
         return { 'data': data, '_raw': resp_obj }
-    except Exception:
-        return { '_raw': resp_obj, 'content': content }
+    except json.JSONDecodeError as e:
+        # JSON parsing failed - return content as-is for debugging
+        return { 
+            '_raw': resp_obj, 
+            'content': content,
+            '_parse_error': f'JSON decode error: {str(e)}'
+        }
+    except Exception as e:
+        return { 
+            '_raw': resp_obj, 
+            'content': content,
+            '_parse_error': f'Parse error: {str(e)}'
+        }
 
 
 def extract_fields_from_image_bytes(image_bytes: bytes, filename: Optional[str] = None, model: Optional[str] = None, prompt: Optional[str] = None) -> Dict[str, Any]:

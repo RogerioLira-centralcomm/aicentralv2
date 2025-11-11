@@ -1,0 +1,319 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{% if subcategoria %}Editar{% else %}Nova{% endif %} Subcategoria - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-6 space-y-6">
+  <!-- Header -->
+  <div class="flex items-center gap-4 mb-6">
+    <a href="{{ url_for('cadu_subcategorias') }}" class="btn btn-ghost btn-sm">
+      <i class="fas fa-arrow-left mr-2"></i>Voltar
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-base-content">
+        {% if subcategoria %}Editar Subcategoria{% else %}Nova Subcategoria{% endif %}
+      </h1>
+      <p class="text-sm text-base-content/70 mt-1">
+        Preencha os dados da subcategoria
+      </p>
+    </div>
+  </div>
+
+  <!-- Formulário -->
+  <form method="POST" class="space-y-6">
+    <!-- Card 1: Informações Básicas -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-4">
+          <i class="fas fa-info-circle mr-2 text-primary"></i>
+          Informações Básicas
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Categoria -->
+          <div class="form-control md:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Categoria <span class="text-error">*</span></span>
+            </label>
+            <select name="categoria_id" class="select select-bordered w-full" required>
+              <option value="">Selecione uma categoria</option>
+              {% for cat in categorias %}
+              <option value="{{ cat.id }}" {% if subcategoria and subcategoria.categoria_id == cat.id %}selected{% endif %}>
+                {{ cat.nome }}
+              </option>
+              {% endfor %}
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Categoria principal desta subcategoria</span>
+            </label>
+          </div>
+
+          <!-- Nome -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Nome <span class="text-error">*</span></span>
+            </label>
+            <input type="text" 
+                   name="nome" 
+                   id="nome"
+                   class="input input-bordered w-full" 
+                   placeholder="Ex: Empreendedores Digitais"
+                   value="{{ subcategoria.nome if subcategoria else '' }}"
+                   required
+                   oninput="gerarSlug()">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Nome da subcategoria (máx. 100 caracteres)</span>
+            </label>
+          </div>
+
+          <!-- Slug -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Slug (URL) <span class="text-error">*</span></span>
+            </label>
+            <input type="text" 
+                   name="slug" 
+                   id="slug"
+                   class="input input-bordered w-full font-mono text-sm" 
+                   placeholder="empreendedores-digitais"
+                   value="{{ subcategoria.slug if subcategoria else '' }}"
+                   required
+                   pattern="[a-z0-9-]+">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Identificador único na URL (somente letras minúsculas, números e hífens)</span>
+            </label>
+          </div>
+
+          <!-- Descrição -->
+          <div class="form-control md:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Descrição</span>
+            </label>
+            <textarea name="descricao" 
+                      class="textarea textarea-bordered h-24" 
+                      placeholder="Descreva esta subcategoria...">{{ subcategoria.descricao if subcategoria else '' }}</textarea>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Breve descrição da subcategoria</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Aparência -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-4">
+          <i class="fas fa-palette mr-2 text-secondary"></i>
+          Aparência
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Ícone -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Ícone (FontAwesome)</span>
+            </label>
+            <input type="text" 
+                   name="icone" 
+                   id="icone"
+                   class="input input-bordered w-full" 
+                   placeholder="fas fa-users"
+                   value="{{ subcategoria.icone if subcategoria else '' }}"
+                   oninput="previewIcon()">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">
+                <a href="https://fontawesome.com/icons" target="_blank" class="link link-primary">
+                  <i class="fas fa-external-link-alt mr-1"></i>Buscar ícones
+                </a>
+              </span>
+            </label>
+          </div>
+
+          <!-- Preview do Ícone -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Preview</span>
+            </label>
+            <div class="flex items-center justify-center h-12 bg-base-200 rounded-lg">
+              <i id="icon-preview" class="{{ subcategoria.icone if subcategoria else 'fas fa-question' }} text-3xl text-primary"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Configurações -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-4">
+          <i class="fas fa-cog mr-2 text-accent"></i>
+          Configurações
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Ordem de Exibição -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Ordem de Exibição</span>
+            </label>
+            <input type="number" 
+                   name="ordem_exibicao" 
+                   class="input input-bordered w-full" 
+                   value="{{ subcategoria.ordem_exibicao if subcategoria else 0 }}"
+                   min="0">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Menor valor aparece primeiro (0 = padrão)</span>
+            </label>
+          </div>
+
+          <!-- Status -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Status</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-3">
+              <input type="checkbox" 
+                     name="is_active" 
+                     class="toggle toggle-success"
+                     {% if not subcategoria or subcategoria.is_active %}checked{% endif %}>
+              <span class="label-text">Subcategoria ativa (visível no site)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: SEO -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-4">
+          <i class="fas fa-search mr-2 text-info"></i>
+          SEO (Otimização para Buscadores)
+        </h2>
+
+        <div class="grid grid-cols-1 gap-4">
+          <!-- Meta Título -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Meta Título</span>
+              <span class="label-text-alt" id="meta-titulo-counter">0/200</span>
+            </label>
+            <input type="text" 
+                   name="meta_titulo" 
+                   id="meta_titulo"
+                   class="input input-bordered w-full" 
+                   placeholder="Título otimizado para SEO"
+                   value="{{ subcategoria.meta_titulo if subcategoria else '' }}"
+                   maxlength="200">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Título que aparece nos resultados de busca (ideal: 50-60 caracteres)</span>
+            </label>
+          </div>
+
+          <!-- Meta Descrição -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Meta Descrição</span>
+              <span class="label-text-alt" id="meta-descricao-counter">0/500</span>
+            </label>
+            <textarea name="meta_descricao" 
+                      id="meta_descricao"
+                      class="textarea textarea-bordered h-24" 
+                      placeholder="Descrição otimizada para SEO..."
+                      maxlength="500">{{ subcategoria.meta_descricao if subcategoria else '' }}</textarea>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Descrição que aparece nos resultados de busca (ideal: 150-160 caracteres)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="flex gap-3 justify-end">
+      <a href="{{ url_for('cadu_subcategorias') }}" class="btn btn-ghost">
+        <i class="fas fa-times mr-2"></i>Cancelar
+      </a>
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save mr-2"></i>
+        {% if subcategoria %}Atualizar{% else %}Criar{% endif %} Subcategoria
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+// Gerar slug automaticamente a partir do nome
+function gerarSlug() {
+  const nome = document.getElementById('nome').value;
+  const slug = nome
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // Remove acentos
+    .replace(/[^a-z0-9\s-]/g, '')     // Remove caracteres especiais
+    .replace(/\s+/g, '-')             // Substitui espaços por hífens
+    .replace(/-+/g, '-')              // Remove hífens duplicados
+    .replace(/^-|-$/g, '');           // Remove hífens das pontas
+  
+  document.getElementById('slug').value = slug;
+}
+
+// Preview do ícone
+function previewIcon() {
+  const icone = document.getElementById('icone').value || 'fas fa-question';
+  document.getElementById('icon-preview').className = icone + ' text-3xl text-primary';
+}
+
+// Contador de caracteres com indicador de limite ideal
+function setupCounter(inputId, counterId) {
+  const input = document.getElementById(inputId);
+  const counter = document.getElementById(counterId);
+  
+  if (!input || !counter) return;
+  
+  function updateCounter() {
+    const length = input.value.length;
+    const maxLength = input.maxLength;
+    counter.textContent = `${length}/${maxLength}`;
+    
+    // Indicadores visuais
+    if (inputId === 'meta_titulo') {
+      if (length >= 50 && length <= 60) {
+        counter.classList.add('text-success');
+        counter.classList.remove('text-warning', 'text-error');
+      } else if (length > 60) {
+        counter.classList.add('text-warning');
+        counter.classList.remove('text-success', 'text-error');
+      } else {
+        counter.classList.remove('text-success', 'text-warning', 'text-error');
+      }
+    } else if (inputId === 'meta_descricao') {
+      if (length >= 150 && length <= 160) {
+        counter.classList.add('text-success');
+        counter.classList.remove('text-warning', 'text-error');
+      } else if (length > 160) {
+        counter.classList.add('text-warning');
+        counter.classList.remove('text-success', 'text-error');
+      } else {
+        counter.classList.remove('text-success', 'text-warning', 'text-error');
+      }
+    }
+    
+    if (length >= maxLength * 0.9) {
+      counter.classList.add('text-error');
+    }
+  }
+  
+  input.addEventListener('input', updateCounter);
+  updateCounter(); // Inicializar
+}
+
+// Inicializar contadores
+document.addEventListener('DOMContentLoaded', function() {
+  setupCounter('meta_titulo', 'meta-titulo-counter');
+  setupCounter('meta_descricao', 'meta-descricao-counter');
+  previewIcon(); // Inicializar preview
+});
+</script>
+{% endblock %}

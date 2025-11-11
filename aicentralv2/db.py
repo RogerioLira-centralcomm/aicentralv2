@@ -1809,29 +1809,29 @@ def obter_fluxos_boas_vindas():
 
 # ==================== CATEGORIAS AUDIÊNCIA - CRUD ====================
 
-def obter_categorias_audiencia():
+def obter_cadu_categorias():
     """Retorna todas as categorias de audiência"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT id, categoria, subcategoria, nome_exibicao, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
-                FROM cadu_categorias_audiencia
-                ORDER BY ordem_exibicao, nome_exibicao
+                SELECT id, nome, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
+                FROM cadu_categorias
+                ORDER BY ordem_exibicao, nome
             ''')
             return cursor.fetchall()
     except Exception as e:
         conn.rollback()
         raise e
 
-def obter_categoria_audiencia_por_id(id_categoria):
+def obter_cadu_categoria_por_id(id_categoria):
     """Retorna uma categoria de audiência por ID"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT id, categoria, subcategoria, nome_exibicao, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
-                FROM cadu_categorias_audiencia
+                SELECT id, nome, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
+                FROM cadu_categorias
                 WHERE id = %s
             ''', (id_categoria,))
             return cursor.fetchone()
@@ -1839,21 +1839,19 @@ def obter_categoria_audiencia_por_id(id_categoria):
         conn.rollback()
         raise e
 
-def criar_categoria_audiencia(data):
+def criar_cadu_categoria(data):
     """Cria uma nova categoria de audiência"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO cadu_categorias_audiencia (
-                    categoria, subcategoria, nome_exibicao, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
+                INSERT INTO cadu_categorias (
+                    nome, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 ) RETURNING id
             ''', (
-                data.get('categoria'),
-                data.get('subcategoria'),
-                data.get('nome_exibicao'),
+                data.get('nome'),
                 data.get('slug'),
                 data.get('descricao'),
                 data.get('icone'),
@@ -1872,16 +1870,14 @@ def criar_categoria_audiencia(data):
         conn.rollback()
         raise e
 
-def atualizar_categoria_audiencia(id_categoria, data):
+def atualizar_cadu_categoria(id_categoria, data):
     """Atualiza uma categoria de audiência existente"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                UPDATE cadu_categorias_audiencia
-                SET categoria = %s,
-                    subcategoria = %s,
-                    nome_exibicao = %s,
+                UPDATE cadu_categorias
+                SET nome = %s,
                     slug = %s,
                     descricao = %s,
                     icone = %s,
@@ -1889,15 +1885,12 @@ def atualizar_categoria_audiencia(id_categoria, data):
                     ordem_exibicao = %s,
                     is_active = %s,
                     is_featured = %s,
-                    total_audiencias = %s,
                     meta_titulo = %s,
                     meta_descricao = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             ''', (
-                data.get('categoria'),
-                data.get('subcategoria'),
-                data.get('nome_exibicao'),
+                data.get('nome'),
                 data.get('slug'),
                 data.get('descricao'),
                 data.get('icone'),
@@ -1905,7 +1898,6 @@ def atualizar_categoria_audiencia(id_categoria, data):
                 data.get('ordem_exibicao', 0),
                 data.get('is_active', True),
                 data.get('is_featured', False),
-                data.get('total_audiencias', 0),
                 data.get('meta_titulo'),
                 data.get('meta_descricao'),
                 id_categoria
@@ -1916,14 +1908,133 @@ def atualizar_categoria_audiencia(id_categoria, data):
         conn.rollback()
         raise e
 
-def excluir_categoria_audiencia(id_categoria):
+def excluir_cadu_categoria(id_categoria):
     """Exclui uma categoria de audiência"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                DELETE FROM cadu_categorias_audiencia WHERE id = %s
+                DELETE FROM cadu_categorias WHERE id = %s
             ''', (id_categoria,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+# ==================== CADU SUBCATEGORIAS ====================
+
+def obter_cadu_subcategorias(categoria_id=None):
+    """Obtém todas as subcategorias ou filtra por categoria"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if categoria_id:
+                cursor.execute('''
+                    SELECT s.*, c.nome as categoria_nome
+                    FROM cadu_subcategorias s
+                    LEFT JOIN cadu_categorias c ON s.categoria_id = c.id
+                    WHERE s.categoria_id = %s
+                    ORDER BY s.ordem_exibicao, s.nome
+                ''', (categoria_id,))
+            else:
+                cursor.execute('''
+                    SELECT s.*, c.nome as categoria_nome
+                    FROM cadu_subcategorias s
+                    LEFT JOIN cadu_categorias c ON s.categoria_id = c.id
+                    ORDER BY c.nome, s.ordem_exibicao, s.nome
+                ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+def obter_cadu_subcategoria_por_id(id_subcategoria):
+    """Obtém uma subcategoria por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT s.*, c.nome as categoria_nome
+                FROM cadu_subcategorias s
+                LEFT JOIN cadu_categorias c ON s.categoria_id = c.id
+                WHERE s.id = %s
+            ''', (id_subcategoria,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+def criar_cadu_subcategoria(dados):
+    """Cria uma nova subcategoria"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_subcategorias 
+                (categoria_id, nome, slug, descricao, icone, ordem_exibicao, is_active, meta_titulo, meta_descricao)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (
+                dados.get('categoria_id'),
+                dados.get('nome'),
+                dados.get('slug'),
+                dados.get('descricao'),
+                dados.get('icone'),
+                dados.get('ordem_exibicao', 0),
+                dados.get('is_active', True),
+                dados.get('meta_titulo'),
+                dados.get('meta_descricao')
+            ))
+            novo_id = cursor.fetchone()[0]
+            conn.commit()
+            return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def atualizar_cadu_subcategoria(id_subcategoria, dados):
+    """Atualiza uma subcategoria existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_subcategorias
+                SET categoria_id = %s,
+                    nome = %s,
+                    slug = %s,
+                    descricao = %s,
+                    icone = %s,
+                    ordem_exibicao = %s,
+                    is_active = %s,
+                    meta_titulo = %s,
+                    meta_descricao = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (
+                dados.get('categoria_id'),
+                dados.get('nome'),
+                dados.get('slug'),
+                dados.get('descricao'),
+                dados.get('icone'),
+                dados.get('ordem_exibicao', 0),
+                dados.get('is_active', True),
+                dados.get('meta_titulo'),
+                dados.get('meta_descricao'),
+                id_subcategoria
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def excluir_cadu_subcategoria(id_subcategoria):
+    """Exclui uma subcategoria"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_subcategorias WHERE id = %s
+            ''', (id_subcategoria,))
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:

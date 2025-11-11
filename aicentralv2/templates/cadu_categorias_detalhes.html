@@ -1,0 +1,140 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Detalhes da Cadu Categoria - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-4">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Detalhes da Cadu Categoria</h1>
+      <p class="text-sm text-base-content/70">{{ categoria.nome_exibicao }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{ url_for('cadu_categorias_editar', id_categoria=categoria.id) }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-edit mr-1"></i>Editar
+      </a>
+      <a href="{{ url_for('cadu_categorias') }}" class="btn btn-ghost btn-sm">
+        <i class="fas fa-arrow-left mr-1"></i>Voltar
+      </a>
+    </div>
+  </div>
+
+  <!-- Informações Principais -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">ID:</span>
+        <span class="text-base-content">#{{ categoria.id }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Status:</span>
+        <span class="badge badge-sm {% if categoria.is_active %}badge-success{% else %}badge-error{% endif %}">
+          {{ 'Ativo' if categoria.is_active else 'Inativo' }}
+        </span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Nome de Exibição:</span>
+        <span class="text-base-content">{{ categoria.nome_exibicao }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Slug:</span>
+        <span class="text-base-content font-mono text-xs">{{ categoria.slug }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Categoria:</span>
+        <span class="text-base-content">{{ categoria.categoria }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Subcategoria:</span>
+        <span class="text-base-content">{{ categoria.subcategoria or '—' }}</span>
+      </div>
+      {% if categoria.descricao %}
+      <div class="flex col-span-2">
+        <span class="font-semibold text-base-content/70 w-40">Descrição:</span>
+        <span class="text-base-content">{{ categoria.descricao }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Aparência -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-palette mr-2 text-success"></i>Aparência
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Ícone:</span>
+        <span class="text-base-content">
+          {% if categoria.icone %}
+            <i class="fas {{ categoria.icone }} mr-2"></i>{{ categoria.icone }}
+          {% else %}
+            —
+          {% endif %}
+        </span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Cor:</span>
+        <span class="text-base-content flex items-center gap-2">
+          {% if categoria.cor_hex %}
+            <span class="inline-block w-6 h-6 rounded border border-base-300" style="background-color: {{ categoria.cor_hex }}"></span>
+            <span class="font-mono text-xs">{{ categoria.cor_hex }}</span>
+          {% else %}
+            —
+          {% endif %}
+        </span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Ordem de Exibição:</span>
+        <span class="text-base-content">{{ categoria.ordem_exibicao }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Destaque:</span>
+        <span class="badge badge-sm {% if categoria.is_featured %}badge-warning{% else %}badge-ghost{% endif %}">
+          {{ 'Sim' if categoria.is_featured else 'Não' }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estatísticas -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-chart-bar mr-2 text-info"></i>Estatísticas
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Total de Audiências:</span>
+        <span class="text-base-content font-semibold">{{ categoria.total_audiencias }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEO -->
+  {% if categoria.meta_titulo or categoria.meta_descricao %}
+  <div class="bg-base-100 rounded-xl shadow-lg p-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-search mr-2 text-warning"></i>SEO (Otimização para Buscadores)
+    </h2>
+    <div class="grid grid-cols-1 gap-3 text-sm">
+      {% if categoria.meta_titulo %}
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Meta Título:</span>
+        <span class="text-base-content">{{ categoria.meta_titulo }}</span>
+      </div>
+      {% endif %}
+      {% if categoria.meta_descricao %}
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Meta Descrição:</span>
+        <span class="text-base-content">{{ categoria.meta_descricao }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

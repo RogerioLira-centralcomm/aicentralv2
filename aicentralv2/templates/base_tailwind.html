@@ -328,9 +328,15 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url_for('categorias_audiencia') }}" class="{% if request.endpoint == 'categorias_audiencia' %}active{% endif %}">
+                                        <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
                                             <i class="fas fa-layer-group"></i>
-                                            <span class="sidebar-text">Categorias Audiências</span>
+                                            <span class="sidebar-text">Cadu Categorias</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
+                                            <i class="fas fa-sitemap"></i>
+                                            <span class="sidebar-text">Cadu Subcategorias</span>
                                         </a>
                                     </li>
                                     <li>

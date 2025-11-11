@@ -1,0 +1,183 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Cadu Subcategorias - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6 space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-base-content">Cadu Subcategorias</h1>
+      <p class="text-sm text-base-content/70 mt-1">Gerencie as subcategorias do catálogo de audiências</p>
+    </div>
+    <a href="{{ url_for('cadu_subcategorias_novo') }}" class="btn btn-primary">
+      <i class="fas fa-plus mr-2"></i>Nova Subcategoria
+    </a>
+  </div>
+
+  <!-- Filtro por Categoria -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4">
+      <form method="GET" class="flex gap-3 items-end">
+        <div class="form-control flex-1">
+          <label class="label">
+            <span class="label-text font-medium">Filtrar por Categoria</span>
+          </label>
+          <select name="categoria_id" class="select select-bordered w-full" onchange="this.form.submit()">
+            <option value="">Todas as categorias</option>
+            {% for cat in categorias %}
+            <option value="{{ cat.id }}" {% if categoria_id_filtro == cat.id %}selected{% endif %}>
+              {{ cat.nome }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if categoria_id_filtro %}
+        <a href="{{ url_for('cadu_subcategorias') }}" class="btn btn-ghost btn-sm">
+          <i class="fas fa-times mr-1"></i>Limpar Filtro
+        </a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
+    <div class="stat">
+      <div class="stat-figure text-primary">
+        <i class="fas fa-sitemap text-3xl"></i>
+      </div>
+      <div class="stat-title">Total</div>
+      <div class="stat-value text-primary">{{ subcategorias|length }}</div>
+      <div class="stat-desc">subcategorias cadastradas</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-figure text-success">
+        <i class="fas fa-check-circle text-3xl"></i>
+      </div>
+      <div class="stat-title">Ativas</div>
+      <div class="stat-value text-success">{{ subcategorias|selectattr('is_active')|list|length }}</div>
+      <div class="stat-desc">disponíveis no site</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-figure text-info">
+        <i class="fas fa-layer-group text-3xl"></i>
+      </div>
+      <div class="stat-title">Categorias</div>
+      <div class="stat-value text-info">{{ categorias|length }}</div>
+      <div class="stat-desc">categorias disponíveis</div>
+    </div>
+  </div>
+
+  <!-- Grid de Subcategorias -->
+  {% if subcategorias %}
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for sub in subcategorias %}
+    <div class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow border border-base-300">
+      <div class="card-body">
+        <!-- Header -->
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <h2 class="card-title text-lg mb-1">
+              {% if sub.icone %}
+              <i class="{{ sub.icone }} mr-2 text-primary"></i>
+              {% endif %}
+              {{ sub.nome }}
+            </h2>
+            <div class="text-xs text-base-content/60 mb-2">
+              <i class="fas fa-tag mr-1"></i>{{ sub.categoria_nome or 'Sem categoria' }}
+            </div>
+          </div>
+          <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+              <i class="fas fa-ellipsis-v"></i>
+            </label>
+            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li><a href="{{ url_for('cadu_subcategorias_detalhes', id_subcategoria=sub.id) }}">
+                <i class="fas fa-eye"></i>Ver Detalhes
+              </a></li>
+              <li><a href="{{ url_for('cadu_subcategorias_editar', id_subcategoria=sub.id) }}">
+                <i class="fas fa-edit"></i>Editar
+              </a></li>
+              <li><a href="#" onclick="confirmarExclusao({{ sub.id }}, '{{ sub.nome }}')" class="text-error">
+                <i class="fas fa-trash"></i>Excluir
+              </a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Descrição -->
+        {% if sub.descricao %}
+        <p class="text-sm text-base-content/70 line-clamp-2 mb-3">
+          {{ sub.descricao }}
+        </p>
+        {% endif %}
+
+        <!-- Slug -->
+        <div class="text-xs font-mono bg-base-200 px-2 py-1 rounded mb-3">
+          /{{ sub.slug }}
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between text-xs text-base-content/60">
+          <div class="flex gap-2">
+            {% if sub.is_active %}
+            <span class="badge badge-success badge-sm">Ativa</span>
+            {% else %}
+            <span class="badge badge-ghost badge-sm">Inativa</span>
+            {% endif %}
+          </div>
+          <div>
+            <i class="fas fa-sort mr-1"></i>Ordem: {{ sub.ordem_exibicao }}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body py-16">
+      <div class="flex flex-col items-center justify-center text-center">
+        <i class="fas fa-sitemap text-6xl text-base-content/20 mb-4"></i>
+        <h3 class="font-semibold text-lg text-base-content/70 mb-2">
+          {% if categoria_id_filtro %}
+          Nenhuma subcategoria nesta categoria
+          {% else %}
+          Nenhuma subcategoria cadastrada
+          {% endif %}
+        </h3>
+        <p class="text-sm text-base-content/50 mb-6">Comece criando sua primeira subcategoria</p>
+        <a href="{{ url_for('cadu_subcategorias_novo') }}" class="btn btn-primary">
+          <i class="fas fa-plus mr-2"></i>Criar Primeira Subcategoria
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function confirmarExclusao(id, nome) {
+  if (confirm(`Tem certeza que deseja excluir a subcategoria "${nome}"?\n\nEsta ação não pode ser desfeita.`)) {
+    fetch(`/api/cadu_subcategorias/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      }
+    })
+    .catch(error => {
+      alert('Erro ao excluir subcategoria: ' + error);
+    });
+  }
+}
+</script>
+{% endblock %}

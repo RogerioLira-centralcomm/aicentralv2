@@ -105,8 +105,8 @@
 *REGRAS DE EXTRAÇÃO E PROCESSAMENTO:*
 
 1. *Análise de Segmentos (segments):*
-   * source: Extraia o prefixo de texto que identifica a origem do dado (ex: "OAN", "LiveRamp","Navegg","Semasio").
-   * id: Extraia APENAS a sequência numérica do identificador do segmento.
+   * source: Extraia o prefixo de texto que identifica a origem do dado (ex: "OAN", "LiveRamp","Navegg","Semasio","TallTarget","Lotame").
+   * id: Extraia APENAS a sequência numérica do identificador do segmento. (verifique 2 vezes esse id, está vindo errado, não invente números)
    * name_original: Copie a string completa do nome do segmento.
    * name_ptbr_normalized: Crie uma descrição clara e acionável em Português-Brasil, focando na intenção e perfil do público, não em uma tradução literal.
    * cpm: Extraia o valor numérico do Custo Por Mil. Assuma a moeda como "BRL" se o símbolo for "R$".
@@ -184,6 +184,75 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
           </div>
           {% endif %}
 
+          <!-- DEBUG: Mostrar estrutura do result -->
+          <details class="collapse collapse-arrow bg-warning/10 border border-warning/30" open>
+            <summary class="collapse-title text-xs font-mono cursor-pointer">
+              🔍 DEBUG: Estrutura de dados (clique para expandir)
+            </summary>
+            <div class="collapse-content">
+              <div class="text-xs font-mono bg-base-100 p-3 rounded space-y-2">
+                <p><strong>result.raw type:</strong> {{ result.raw.__class__.__name__ if result.raw else 'None' }}</p>
+                <p><strong>result.raw keys:</strong> {{ result.raw.keys()|list if result.raw is mapping else 'N/A' }}</p>
+                <p><strong>result.fields type:</strong> {{ result.fields.__class__.__name__ if result.fields else 'None' }}</p>
+                <p><strong>result.fields keys:</strong> {{ result.fields.keys()|list if result.fields is mapping else 'N/A' }}</p>
+                <p><strong>Has segments in raw?</strong> {{ 'segments' in result.raw if result.raw is mapping else 'N/A' }}</p>
+                <p><strong>Has segments in fields?</strong> {{ 'segments' in result.fields if result.fields is mapping else 'N/A' }}</p>
+                {% if result.raw is mapping and 'content' in result.raw %}
+                <p><strong>result.raw.content type:</strong> {{ result.raw.content.__class__.__name__ }}</p>
+                {% endif %}
+                {% if result.raw is mapping and '_parse_error' in result.raw %}
+                <p class="text-error"><strong>⚠️ Parse Error:</strong> {{ result.raw._parse_error }}</p>
+                {% endif %}
+                {% if result.raw is mapping and '_content_parse_attempt_error' in result.raw %}
+                <p class="text-warning"><strong>⚠️ Content Parse Attempt Error:</strong> {{ result.raw._content_parse_attempt_error }}</p>
+                {% endif %}
+                
+                {# Check if response was truncated #}
+                {% set raw_response = result.raw._raw if result.raw is mapping and '_raw' in result.raw else {} %}
+                {% set choices = raw_response.choices if raw_response and 'choices' in raw_response else [] %}
+                {% set finish_reason = choices[0].finish_reason if choices and choices|length > 0 else none %}
+                {% if finish_reason == 'length' %}
+                <div class="alert alert-error mt-2">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  <div>
+                    <strong>⚠️ RESPOSTA TRUNCADA!</strong>
+                    <p class="text-xs">O modelo atingiu o limite de tokens (max_tokens) antes de completar o JSON. A resposta foi cortada e está incompleta. Tente novamente - o código já foi corrigido para permitir respostas maiores.</p>
+                  </div>
+                </div>
+                {% endif %}
+                
+                <div class="divider my-2"></div>
+                <p class="font-bold text-warning">🔍 VERIFICANDO LOCALIZAÇÕES DE SEGMENTS:</p>
+                
+                {% set test_segments_1 = result.fields.segments if result.fields is mapping else none %}
+                <p><strong>result.fields.segments:</strong> {{ test_segments_1|length if test_segments_1 else 'None/Empty' }} - Type: {{ test_segments_1.__class__.__name__ if test_segments_1 else 'N/A' }}</p>
+                
+                {% set test_segments_2 = result.fields.audienceSegments if result.fields is mapping else none %}
+                <p><strong>result.fields.audienceSegments:</strong> {{ test_segments_2|length if test_segments_2 else 'None/Empty' }} - Type: {{ test_segments_2.__class__.__name__ if test_segments_2 else 'N/A' }}</p>
+                
+                {% set test_segments_3 = result.raw.segments if result.raw is mapping else none %}
+                <p><strong>result.raw.segments:</strong> {{ test_segments_3|length if test_segments_3 else 'None/Empty' }} - Type: {{ test_segments_3.__class__.__name__ if test_segments_3 else 'N/A' }}</p>
+                
+                {% set test_segments_4 = result.raw.audienceSegments if result.raw is mapping else none %}
+                <p><strong>result.raw.audienceSegments:</strong> {{ test_segments_4|length if test_segments_4 else 'None/Empty' }} - Type: {{ test_segments_4.__class__.__name__ if test_segments_4 else 'N/A' }}</p>
+                
+                <div class="divider my-2"></div>
+                <p class="font-bold text-info">📄 AMOSTRA DE result.fields (primeiras 500 chars):</p>
+                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px]">{{ result.fields|string|truncate(500) }}</pre>
+                
+                <div class="divider my-2"></div>
+                <p class="font-bold text-info">📄 AMOSTRA DE result.raw (primeiras 500 chars):</p>
+                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px]">{{ result.raw|string|truncate(500) }}</pre>
+                
+                {% if result.raw is mapping and 'content' in result.raw %}
+                <div class="divider my-2"></div>
+                <p class="font-bold text-error">📝 CONTEÚDO COMPLETO DE result.raw.content:</p>
+                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] max-h-96">{{ result.raw.content }}</pre>
+                {% endif %}
+              </div>
+            </div>
+          </details>
+
           <!-- JSON Viewer -->
           <div class="card bg-base-200 shadow-sm">
             <div class="card-body p-4">
@@ -218,6 +287,83 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
     </div>
 
   </div>
+
+  <!-- Tabela de Audiências (Full Width abaixo do grid) -->
+  {% if result %}
+    {% set segments = result.fields.segments or result.fields.audienceSegments or result.raw.segments or result.raw.audienceSegments or [] %}
+    {% if segments and segments|length > 0 %}
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-table text-primary"></i>
+            <div>
+              <h4 class="font-semibold">Audiências Encontradas</h4>
+              <p class="text-xs text-base-content/60">
+                <span class="badge badge-success badge-sm">{{ segments|length }}</span> 
+                audiências extraídas com sucesso
+              </p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <table class="table table-xs">
+            <thead>
+              <tr class="bg-gradient-to-r from-primary to-accent text-primary-content">
+                <th class="w-16">ID</th>
+                <th>Nome</th>
+                <th>Parceiro</th>
+                <th class="text-right">CPM</th>
+                <th>Gender</th>
+                <th>Age</th>
+                <th>Parental</th>
+                <th>Dispositivo</th>
+                <th class="text-center w-24">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for segment in segments %}
+              <tr class="hover">
+                <td class="font-mono text-xs">{{ segment.id or '—' }}</td>
+                <td class="max-w-xs truncate" title="{{ segment.name_ptbr_normalized or segment.name_original }}">
+                  {{ segment.name_ptbr_normalized or segment.name_original or '—' }}
+                </td>
+                <td>
+                  <span class="badge badge-sm badge-outline text-xs">{{ segment.source or '—' }}</span>
+                </td>
+                <td class="text-right font-mono text-xs">
+                  {% if segment.cpm is mapping %}
+                    {% if segment.cpm.value is number %}
+                      {{ '%.2f'|format(segment.cpm.value) }}
+                    {% else %}
+                      {{ segment.cpm.value or '—' }}
+                    {% endif %}
+                  {% elif segment.cpm is number %}
+                    {{ '%.2f'|format(segment.cpm) }}
+                  {% elif segment.cpm %}
+                    {{ segment.cpm }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="text-xs text-base-content/70">—</td>
+                <td class="text-xs text-base-content/70">—</td>
+                <td class="text-xs text-base-content/70">—</td>
+                <td class="text-xs text-base-content/70">—</td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-xs btn-primary btn-outline" title="Enriquecer audiência">
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
 </div>
 
 <!-- Loading Overlay -->

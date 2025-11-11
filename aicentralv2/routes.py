@@ -31,55 +31,184 @@ def init_routes(app):
     def cadu_audiencias():
         # Placeholder: renderiza um template simples ou lista vazia
         return render_template('cadu_audiencias.html')
-    @app.route('/categorias_audiencia/novo', methods=['GET', 'POST'])
+    @app.route('/cadu_categorias')
     @login_required
-    def categorias_audiencia_novo():
+    def cadu_categorias():
+        categorias = db.obter_cadu_categorias()
+        return render_template('cadu_categorias.html', categorias=categorias)
+    @app.route('/cadu_categorias/novo', methods=['GET', 'POST'])
+    @login_required
+    def cadu_categorias_novo():
         if request.method == 'POST':
-            nome_exibicao = request.form.get('nome_exibicao', '').strip()
-            categoria_nome = request.form.get('categoria', '').strip()
-            subcategoria = request.form.get('subcategoria', '').strip()
+            nome = request.form.get('nome', '').strip()
+            slug = request.form.get('slug', '').strip()
+            descricao = request.form.get('descricao', '').strip()
+            icone = request.form.get('icone', '').strip()
+            cor_hex = request.form.get('cor_hex', '').strip()
+            ordem_exibicao = request.form.get('ordem_exibicao', 0)
             is_active = request.form.get('is_active') == 'on'
-            if not nome_exibicao:
-                flash('Preencha o nome de exibição.', 'error')
-                return render_template('categorias_audiencia_form.html')
-            novo_id = db.criar_categoria_audiencia({
-                'nome_exibicao': nome_exibicao,
-                'categoria': categoria_nome,
-                'subcategoria': subcategoria,
-                'is_active': is_active
+            is_featured = request.form.get('is_featured') == 'on'
+            meta_titulo = request.form.get('meta_titulo', '').strip()
+            meta_descricao = request.form.get('meta_descricao', '').strip()
+            
+            if not nome or not slug:
+                flash('Preencha o nome e o slug.', 'error')
+                return render_template('cadu_categorias_form.html')
+            
+            novo_id = db.criar_cadu_categoria({
+                'nome': nome,
+                'slug': slug,
+                'descricao': descricao,
+                'icone': icone,
+                'cor_hex': cor_hex,
+                'ordem_exibicao': ordem_exibicao,
+                'is_active': is_active,
+                'is_featured': is_featured,
+                'meta_titulo': meta_titulo,
+                'meta_descricao': meta_descricao
             })
             flash('Categoria criada com sucesso!', 'success')
-            return redirect(url_for('categorias_audiencia_detalhes', id_categoria=novo_id))
-        return render_template('categorias_audiencia_form.html')
-    @app.route('/categorias_audiencia/detalhes/<int:id_categoria>')
+            return redirect(url_for('cadu_categorias_detalhes', id_categoria=novo_id))
+        return render_template('cadu_categorias_form.html')
+    
+    @app.route('/cadu_categorias/detalhes/<int:id_categoria>')
     @login_required
-    def categorias_audiencia_detalhes(id_categoria):
-        categoria = db.obter_categoria_audiencia_por_id(id_categoria)
+    def cadu_categorias_detalhes(id_categoria):
+        categoria = db.obter_cadu_categoria_por_id(id_categoria)
         if not categoria:
             flash('Categoria não encontrada.', 'error')
-            return redirect(url_for('categorias_audiencia'))
-        return render_template('categorias_audiencia_detalhes.html', categoria=categoria)
-    @app.route('/categorias_audiencia/editar/<int:id_categoria>', methods=['GET', 'POST'])
+            return redirect(url_for('cadu_categorias'))
+        return render_template('cadu_categorias_detalhes.html', categoria=categoria)
+    
+    @app.route('/cadu_categorias/editar/<int:id_categoria>', methods=['GET', 'POST'])
     @login_required
-    def categorias_audiencia_editar(id_categoria):
-        categoria = db.obter_categoria_audiencia_por_id(id_categoria)
+    def cadu_categorias_editar(id_categoria):
+        categoria = db.obter_cadu_categoria_por_id(id_categoria)
         if request.method == 'POST':
-            nome_exibicao = request.form.get('nome_exibicao', '').strip()
-            categoria_nome = request.form.get('categoria', '').strip()
-            subcategoria = request.form.get('subcategoria', '').strip()
+            nome = request.form.get('nome', '').strip()
+            slug = request.form.get('slug', '').strip()
+            descricao = request.form.get('descricao', '').strip()
+            icone = request.form.get('icone', '').strip()
+            cor_hex = request.form.get('cor_hex', '').strip()
+            ordem_exibicao = request.form.get('ordem_exibicao', 0)
             is_active = request.form.get('is_active') == 'on'
-            if not nome_exibicao:
-                flash('Preencha o nome de exibição.', 'error')
-                return render_template('categorias_audiencia_form.html', categoria=categoria)
-            db.atualizar_categoria_audiencia(id_categoria, {
-                'nome_exibicao': nome_exibicao,
-                'categoria': categoria_nome,
-                'subcategoria': subcategoria,
-                'is_active': is_active
+            is_featured = request.form.get('is_featured') == 'on'
+            meta_titulo = request.form.get('meta_titulo', '').strip()
+            meta_descricao = request.form.get('meta_descricao', '').strip()
+            
+            if not nome or not slug:
+                flash('Preencha o nome e o slug.', 'error')
+                return render_template('cadu_categorias_form.html', categoria=categoria)
+            
+            db.atualizar_cadu_categoria(id_categoria, {
+                'nome': nome,
+                'slug': slug,
+                'descricao': descricao,
+                'icone': icone,
+                'cor_hex': cor_hex,
+                'ordem_exibicao': ordem_exibicao,
+                'is_active': is_active,
+                'is_featured': is_featured,
+                'meta_titulo': meta_titulo,
+                'meta_descricao': meta_descricao
             })
             flash('Categoria atualizada com sucesso!', 'success')
-            return redirect(url_for('categorias_audiencia'))
-        return render_template('categorias_audiencia_form.html', categoria=categoria)
+            return redirect(url_for('cadu_categorias'))
+        return render_template('cadu_categorias_form.html', categoria=categoria)
+
+    # ==================== CADU SUBCATEGORIAS ====================
+    
+    @app.route('/cadu_subcategorias')
+    @login_required
+    def cadu_subcategorias():
+        categoria_id = request.args.get('categoria_id', type=int)
+        subcategorias = db.obter_cadu_subcategorias(categoria_id)
+        categorias = db.obter_cadu_categorias()  # Para filtro
+        return render_template('cadu_subcategorias.html', 
+                             subcategorias=subcategorias, 
+                             categorias=categorias,
+                             categoria_id_filtro=categoria_id)
+    
+    @app.route('/cadu_subcategorias/novo', methods=['GET', 'POST'])
+    @login_required
+    def cadu_subcategorias_novo():
+        if request.method == 'POST':
+            categoria_id = request.form.get('categoria_id', type=int)
+            nome = request.form.get('nome', '').strip()
+            slug = request.form.get('slug', '').strip()
+            descricao = request.form.get('descricao', '').strip()
+            icone = request.form.get('icone', '').strip()
+            ordem_exibicao = request.form.get('ordem_exibicao', 0)
+            is_active = request.form.get('is_active') == 'on'
+            meta_titulo = request.form.get('meta_titulo', '').strip()
+            meta_descricao = request.form.get('meta_descricao', '').strip()
+            
+            if not categoria_id or not nome or not slug:
+                flash('Preencha a categoria, nome e slug.', 'error')
+                categorias = db.obter_cadu_categorias()
+                return render_template('cadu_subcategorias_form.html', categorias=categorias)
+            
+            novo_id = db.criar_cadu_subcategoria({
+                'categoria_id': categoria_id,
+                'nome': nome,
+                'slug': slug,
+                'descricao': descricao,
+                'icone': icone,
+                'ordem_exibicao': ordem_exibicao,
+                'is_active': is_active,
+                'meta_titulo': meta_titulo,
+                'meta_descricao': meta_descricao
+            })
+            flash('Subcategoria criada com sucesso!', 'success')
+            return redirect(url_for('cadu_subcategorias_detalhes', id_subcategoria=novo_id))
+        categorias = db.obter_cadu_categorias()
+        return render_template('cadu_subcategorias_form.html', categorias=categorias)
+    
+    @app.route('/cadu_subcategorias/detalhes/<int:id_subcategoria>')
+    @login_required
+    def cadu_subcategorias_detalhes(id_subcategoria):
+        subcategoria = db.obter_cadu_subcategoria_por_id(id_subcategoria)
+        if not subcategoria:
+            flash('Subcategoria não encontrada.', 'error')
+            return redirect(url_for('cadu_subcategorias'))
+        return render_template('cadu_subcategorias_detalhes.html', subcategoria=subcategoria)
+    
+    @app.route('/cadu_subcategorias/editar/<int:id_subcategoria>', methods=['GET', 'POST'])
+    @login_required
+    def cadu_subcategorias_editar(id_subcategoria):
+        subcategoria = db.obter_cadu_subcategoria_por_id(id_subcategoria)
+        if request.method == 'POST':
+            categoria_id = request.form.get('categoria_id', type=int)
+            nome = request.form.get('nome', '').strip()
+            slug = request.form.get('slug', '').strip()
+            descricao = request.form.get('descricao', '').strip()
+            icone = request.form.get('icone', '').strip()
+            ordem_exibicao = request.form.get('ordem_exibicao', 0)
+            is_active = request.form.get('is_active') == 'on'
+            meta_titulo = request.form.get('meta_titulo', '').strip()
+            meta_descricao = request.form.get('meta_descricao', '').strip()
+            
+            if not categoria_id or not nome or not slug:
+                flash('Preencha a categoria, nome e slug.', 'error')
+                categorias = db.obter_cadu_categorias()
+                return render_template('cadu_subcategorias_form.html', subcategoria=subcategoria, categorias=categorias)
+            
+            db.atualizar_cadu_subcategoria(id_subcategoria, {
+                'categoria_id': categoria_id,
+                'nome': nome,
+                'slug': slug,
+                'descricao': descricao,
+                'icone': icone,
+                'ordem_exibicao': ordem_exibicao,
+                'is_active': is_active,
+                'meta_titulo': meta_titulo,
+                'meta_descricao': meta_descricao
+            })
+            flash('Subcategoria atualizada com sucesso!', 'success')
+            return redirect(url_for('cadu_subcategorias'))
+        categorias = db.obter_cadu_categorias()
+        return render_template('cadu_subcategorias_form.html', subcategoria=subcategoria, categorias=categorias)
+
     # --- API: Verifica se CNPJ/CPF já existe na base ---
     @app.route('/api/verifica_documento')
     def verifica_documento():
@@ -714,6 +843,40 @@ def init_routes(app):
                 elif prompt_text:
                     image_bytes = file.read()
                     data = extract_fields_from_image_bytes(image_bytes, filename=file.filename, model=selected_model_id, prompt=prompt_text)
+                    
+                    # FALLBACK: Se data não tem campos estruturados mas tem 'content' como string, tenta parsear
+                    if isinstance(data, dict) and 'content' in data and isinstance(data['content'], str):
+                        # Verifica se não tem outros campos além de _raw e content
+                        other_keys = [k for k in data.keys() if k not in ('_raw', 'content', '_parse_error')]
+                        if not other_keys:
+                            import json as _json
+                            content_str = data['content'].strip()
+                            # Remove markdown code fences se existir
+                            if content_str.startswith('```'):
+                                content_str = content_str.lstrip('`')
+                                if '\n' in content_str:
+                                    lines = content_str.split('\n')
+                                    if lines[0].strip().lower() in ['json', 'JSON', '']:
+                                        content_str = '\n'.join(lines[1:])
+                                    else:
+                                        content_str = '\n'.join(lines)
+                                content_str = content_str.rstrip('`').strip()
+                            # Tenta encontrar e parsear JSON
+                            try:
+                                start = content_str.find('{')
+                                end = content_str.rfind('}')
+                                if start != -1 and end != -1 and end > start:
+                                    json_str = content_str[start:end+1]
+                                    parsed = _json.loads(json_str)
+                                    if isinstance(parsed, dict):
+                                        # Substitui data com o JSON parseado, mantendo _raw
+                                        raw_backup = data.get('_raw')
+                                        data = parsed
+                                        data['_raw'] = raw_backup
+                            except Exception as e:
+                                # Se falhar, mantém data original mas adiciona informação de erro
+                                data['_content_parse_attempt_error'] = str(e)
+                    
                     # data esperado: dict com campos extraídos conforme o prompt (genérico)
                     # Monta texto chave:valor para exibição à esquerda somente com chaves não vazias
                     def _serialize_value(val):
@@ -1915,46 +2078,83 @@ def init_routes(app):
     # ==================== CATEGORIAS AUDIÊNCIA - CRUD ====================
     from flask import abort
 
-    @app.route('/api/categorias_audiencia', methods=['GET'])
+    @app.route('/api/cadu_categorias', methods=['GET'])
     @login_required
-    def api_listar_categorias_audiencia():
-        categorias = db.obter_categorias_audiencia()
+    def api_listar_cadu_categorias():
+        categorias = db.obter_cadu_categorias()
         return jsonify(categorias)
 
-    @app.route('/api/categorias_audiencia/<int:id_categoria>', methods=['GET'])
+    @app.route('/api/cadu_categorias/<int:id_categoria>', methods=['GET'])
     @login_required
-    def api_obter_categoria_audiencia(id_categoria):
-        categoria = db.obter_categoria_audiencia_por_id(id_categoria)
+    def api_obter_cadu_categoria(id_categoria):
+        categoria = db.obter_cadu_categoria_por_id(id_categoria)
         if not categoria:
             abort(404)
         return jsonify(categoria)
 
-    @app.route('/api/categorias_audiencia', methods=['POST'])
+    @app.route('/api/cadu_categorias', methods=['POST'])
     @login_required
-    def api_criar_categoria_audiencia():
+    def api_criar_cadu_categoria():
         data = request.json
-        novo_id = db.criar_categoria_audiencia(data)
+        novo_id = db.criar_cadu_categoria(data)
         return jsonify({'id': novo_id}), 201
 
-    @app.route('/api/categorias_audiencia/<int:id_categoria>', methods=['PUT'])
+    @app.route('/api/cadu_categorias/<int:id_categoria>', methods=['PUT'])
     @login_required
-    def api_atualizar_categoria_audiencia(id_categoria):
+    def api_atualizar_cadu_categoria(id_categoria):
         data = request.json
-        ok = db.atualizar_categoria_audiencia(id_categoria, data)
+        ok = db.atualizar_cadu_categoria(id_categoria, data)
         if not ok:
             abort(404)
         return jsonify({'success': True})
 
-    @app.route('/api/categorias_audiencia/<int:id_categoria>', methods=['DELETE'])
+    @app.route('/api/cadu_categorias/<int:id_categoria>', methods=['DELETE'])
     @login_required
-    def api_excluir_categoria_audiencia(id_categoria):
-        ok = db.excluir_categoria_audiencia(id_categoria)
+    def api_excluir_cadu_categoria(id_categoria):
+        ok = db.excluir_cadu_categoria(id_categoria)
         if not ok:
             abort(404)
         return jsonify({'success': True})
 
-    @app.route('/categorias_audiencia')
+    # ==================== API CADU SUBCATEGORIAS ====================
+
+    @app.route('/api/cadu_subcategorias', methods=['GET'])
     @login_required
-    def categorias_audiencia():
-        categorias = db.obter_categorias_audiencia()
-        return render_template('categorias_audiencia.html', categorias=categorias)
+    def api_listar_cadu_subcategorias():
+        categoria_id = request.args.get('categoria_id', type=int)
+        subcategorias = db.obter_cadu_subcategorias(categoria_id)
+        return jsonify([dict(s) for s in subcategorias])
+
+    @app.route('/api/cadu_subcategorias/<int:id_subcategoria>', methods=['GET'])
+    @login_required
+    def api_obter_cadu_subcategoria(id_subcategoria):
+        subcategoria = db.obter_cadu_subcategoria_por_id(id_subcategoria)
+        if not subcategoria:
+            abort(404)
+        return jsonify(dict(subcategoria))
+
+    @app.route('/api/cadu_subcategorias', methods=['POST'])
+    @login_required
+    def api_criar_cadu_subcategoria():
+        dados = request.get_json()
+        novo_id = db.criar_cadu_subcategoria(dados)
+        return jsonify({'id': novo_id, 'success': True}), 201
+
+    @app.route('/api/cadu_subcategorias/<int:id_subcategoria>', methods=['PUT'])
+    @login_required
+    def api_atualizar_cadu_subcategoria(id_subcategoria):
+        dados = request.get_json()
+        ok = db.atualizar_cadu_subcategoria(id_subcategoria, dados)
+        if not ok:
+            abort(404)
+        return jsonify({'success': True})
+
+    @app.route('/api/cadu_subcategorias/<int:id_subcategoria>', methods=['DELETE'])
+    @login_required
+    def api_excluir_cadu_subcategoria(id_subcategoria):
+        ok = db.excluir_cadu_subcategoria(id_subcategoria)
+        if not ok:
+            abort(404)
+        return jsonify({'success': True})
+
+    # ==================== UP AUDIÊNCIA ====================

@@ -1,0 +1,208 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{{ subcategoria.nome }} - Cadu Subcategoria - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-6 space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-4">
+      <a href="{{ url_for('cadu_subcategorias') }}" class="btn btn-ghost btn-sm">
+        <i class="fas fa-arrow-left mr-2"></i>Voltar
+      </a>
+      <div>
+        <h1 class="text-2xl font-bold text-base-content flex items-center gap-3">
+          {% if subcategoria.icone %}
+          <i class="{{ subcategoria.icone }} text-primary"></i>
+          {% endif %}
+          {{ subcategoria.nome }}
+        </h1>
+        <p class="text-sm text-base-content/70 mt-1">
+          <i class="fas fa-tag mr-1"></i>{{ subcategoria.categoria_nome or 'Sem categoria' }}
+        </p>
+      </div>
+    </div>
+    
+    <div class="flex gap-2">
+      <a href="{{ url_for('cadu_subcategorias_editar', id_subcategoria=subcategoria.id) }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-edit mr-2"></i>Editar
+      </a>
+    </div>
+  </div>
+
+  <!-- Status Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <i class="fas fa-toggle-on text-2xl text-primary"></i>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-base-content/60">Status</p>
+            <p class="text-lg font-bold">
+              {% if subcategoria.is_active %}
+              <span class="text-success">Ativa</span>
+              {% else %}
+              <span class="text-base-content/50">Inativa</span>
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0">
+            <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
+              <i class="fas fa-sort text-2xl text-secondary"></i>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-base-content/60">Ordem de Exibição</p>
+            <p class="text-lg font-bold">{{ subcategoria.ordem_exibicao }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body p-4">
+        <div class="flex items-center gap-3">
+          <div class="flex-shrink-0">
+            <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+              <i class="fas fa-clock text-2xl text-accent"></i>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-base-content/60">Criada em</p>
+            <p class="text-sm font-bold">
+              {{ subcategoria.created_at.strftime('%d/%m/%Y') if subcategoria.created_at else 'N/A' }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Informações Gerais -->
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body">
+      <h2 class="card-title text-lg mb-4">
+        <i class="fas fa-info-circle mr-2 text-primary"></i>
+        Informações Gerais
+      </h2>
+
+      <div class="space-y-4">
+        <!-- Nome -->
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Nome</p>
+          <p class="text-base">{{ subcategoria.nome }}</p>
+        </div>
+
+        <!-- Slug -->
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Slug (URL)</p>
+          <code class="bg-base-200 px-3 py-1 rounded text-sm font-mono">/{{ subcategoria.slug }}</code>
+        </div>
+
+        <!-- Categoria -->
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Categoria Principal</p>
+          <p class="text-base">
+            <i class="fas fa-layer-group mr-1 text-primary"></i>
+            {{ subcategoria.categoria_nome or 'Sem categoria' }}
+          </p>
+        </div>
+
+        <!-- Descrição -->
+        {% if subcategoria.descricao %}
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Descrição</p>
+          <p class="text-base text-base-content/80">{{ subcategoria.descricao }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Ícone -->
+        {% if subcategoria.icone %}
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Ícone</p>
+          <div class="flex items-center gap-3">
+            <i class="{{ subcategoria.icone }} text-3xl text-primary"></i>
+            <code class="bg-base-200 px-3 py-1 rounded text-sm font-mono">{{ subcategoria.icone }}</code>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- SEO -->
+  {% if subcategoria.meta_titulo or subcategoria.meta_descricao %}
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body">
+      <h2 class="card-title text-lg mb-4">
+        <i class="fas fa-search mr-2 text-info"></i>
+        SEO (Otimização para Buscadores)
+      </h2>
+
+      <div class="space-y-4">
+        {% if subcategoria.meta_titulo %}
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Meta Título</p>
+          <p class="text-base">{{ subcategoria.meta_titulo }}</p>
+          <p class="text-xs text-base-content/50 mt-1">{{ subcategoria.meta_titulo|length }} caracteres</p>
+        </div>
+        {% endif %}
+
+        {% if subcategoria.meta_descricao %}
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Meta Descrição</p>
+          <p class="text-base text-base-content/80">{{ subcategoria.meta_descricao }}</p>
+          <p class="text-xs text-base-content/50 mt-1">{{ subcategoria.meta_descricao|length }} caracteres</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Timestamps -->
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body">
+      <h2 class="card-title text-lg mb-4">
+        <i class="fas fa-history mr-2 text-accent"></i>
+        Histórico
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Criado em</p>
+          <p class="text-base">
+            {% if subcategoria.created_at %}
+            {{ subcategoria.created_at.strftime('%d/%m/%Y às %H:%M') }}
+            {% else %}
+            N/A
+            {% endif %}
+          </p>
+        </div>
+
+        <div>
+          <p class="text-sm font-semibold text-base-content/60 mb-1">Última atualização</p>
+          <p class="text-base">
+            {% if subcategoria.updated_at %}
+            {{ subcategoria.updated_at.strftime('%d/%m/%Y às %H:%M') }}
+            {% else %}
+            N/A
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

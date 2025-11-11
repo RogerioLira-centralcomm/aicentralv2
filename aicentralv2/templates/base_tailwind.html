@@ -171,11 +171,11 @@
         }
     </style>
 </head>
-<body class="bg-base-100 font-sans overflow-hidden no-fouc">
+<body class="bg-base-100 font-sans no-fouc">
     <!-- Mobile Drawer -->
     <div class="drawer lg:drawer-open">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" />
-        <div class="drawer-content flex flex-col">
+        <div class="drawer-content flex flex-col h-screen">
             <!-- Mobile Navbar -->
             <div class="navbar bg-base-100 lg:hidden shadow-sm">
                 <div class="flex-none">
@@ -189,7 +189,7 @@
             </div>
             
             <!-- Main Content Area -->
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto p-4">
                 {% block content %}{% endblock %}
             </div>
             
@@ -243,16 +243,26 @@
                             <span>Comercial</span>
                         </li>
                         <li>
-                            <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
-                                <i class="fas fa-building"></i>
-                                <span class="sidebar-text">Clientes</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('contatos') }}" class="{% if request.endpoint == 'contatos' %}active{% endif %}">
-                                <i class="fas fa-address-book"></i>
-                                <span class="sidebar-text">Contatos</span>
-                            </a>
+                            <details>
+                                <summary>
+                                    <i class="fas fa-briefcase"></i>
+                                    <span class="sidebar-text">Comercial</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
+                                            <i class="fas fa-building"></i>
+                                            <span class="sidebar-text">Clientes</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('contatos') }}" class="{% if request.endpoint == 'contatos' %}active{% endif %}">
+                                            <i class="fas fa-address-book"></i>
+                                            <span class="sidebar-text">Contatos</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
 
                         <!-- Cadastros -->
@@ -260,66 +270,77 @@
                             <span>Cadastros</span>
                         </li>
                         <li>
-                            <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                                <i class="fas fa-sitemap"></i>
-                                <span class="sidebar-text">Setores</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
-                                <i class="fas fa-user-tie"></i>
-                                <span class="sidebar-text">Cargos</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('planos') }}" class="{% if request.endpoint == 'planos' %}active{% endif %}">
-                                <i class="fas fa-cube"></i>
-                                <span class="sidebar-text">Planos</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
-                                <i class="fas fa-tag"></i>
-                                <span class="sidebar-text">Tipos de Cliente</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('percentual_list') }}" class="{% if request.endpoint == 'percentual_list' %}active{% endif %}">
-                                <i class="fas fa-percentage"></i>
-                                <span class="sidebar-text">Percentuais</span>
-                            </a>
+                            <details>
+                                <summary>
+                                    <i class="fas fa-database"></i>
+                                    <span class="sidebar-text">Cadastros</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                                            <i class="fas fa-sitemap"></i>
+                                            <span class="sidebar-text">Setores</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
+                                            <i class="fas fa-user-tie"></i>
+                                            <span class="sidebar-text">Cargos</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('planos') }}" class="{% if request.endpoint == 'planos' %}active{% endif %}">
+                                            <i class="fas fa-cube"></i>
+                                            <span class="sidebar-text">Planos</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
+                                            <i class="fas fa-tag"></i>
+                                            <span class="sidebar-text">Tipos de Cliente</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('percentual_list') }}" class="{% if request.endpoint == 'percentual_list' %}active{% endif %}">
+                                            <i class="fas fa-percentage"></i>
+                                            <span class="sidebar-text">Percentuais</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
 
                         <!-- Sistema -->
                         <li class="menu-title sidebar-text">
                             <span>Sistema</span>
                         </li>
-                        <li tabindex="0">
-                            <a class="justify-between">
-                                <i class="fas fa-chart-network"></i>
-                                <span class="sidebar-text">Audiências</span>
-                                <i class="fas fa-chevron-down ml-auto"></i>
-                            </a>
-                            <ul class="pl-6">
-                                <li>
-                                    <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                        <i class="fas fa-arrow-up-right-from-square"></i>
-                                        <span class="sidebar-text">Up Audiências</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="{{ url_for('categorias_audiencia') }}" class="{% if request.endpoint == 'categorias_audiencia' %}active{% endif %}">
-                                        <i class="fas fa-layer-group"></i>
-                                        <span class="sidebar-text">Categorias de Audiência</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
-                                        <i class="fas fa-database"></i>
-                                        <span class="sidebar-text">Cadu Audiências</span>
-                                    </a>
-                                </li>
-                            </ul>
+                        <li>
+                            <details>
+                                <summary>
+                                    <i class="fas fa-chart-network"></i>
+                                    <span class="sidebar-text">Audiências</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
+                                            <i class="fas fa-arrow-up-right-from-square"></i>
+                                            <span class="sidebar-text">Up Audiências</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('categorias_audiencia') }}" class="{% if request.endpoint == 'categorias_audiencia' %}active{% endif %}">
+                                            <i class="fas fa-layer-group"></i>
+                                            <span class="sidebar-text">Categorias Audiências</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
+                                            <i class="fas fa-database"></i>
+                                            <span class="sidebar-text">Cadu Audiências</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                         <li>
                             <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
@@ -328,10 +349,34 @@
                             </a>
                         </li>
                         <li>
-                            <a href="{{ url_for('components') }}" class="{% if request.endpoint == 'components' %}active{% endif %}">
-                                <i class="fas fa-palette"></i>
-                                <span class="sidebar-text">Design System</span>
-                            </a>
+                            <details>
+                                <summary>
+                                    <i class="fas fa-palette"></i>
+                                    <span class="sidebar-text">Design System</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('components') }}" class="{% if request.endpoint == 'components' %}active{% endif %}">
+                                            <i class="fas fa-shapes"></i>
+                                            <span class="sidebar-text">Componentes</span>
+                                        </a>
+                                    </li>
+                                    <li class="px-2 py-2">
+                                        <div class="flex items-center gap-2 px-2 text-sm opacity-70">
+                                            <i class="fas fa-brush"></i>
+                                            <span class="sidebar-text">Tema</span>
+                                        </div>
+                                        <div class="px-2 pt-1">
+                                            <select id="themeSelector" class="select select-bordered select-sm w-full text-xs">
+                                                <option value="centralcomm">CentralComm</option>
+                                                <option value="light">Light</option>
+                                                <option value="dark">Dark</option>
+                                                <option value="corporate">Corporate</option>
+                                            </select>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                     </ul>
                 </nav>
@@ -357,17 +402,6 @@
                             <li class="menu-title"><span>Conta</span></li>
                             <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i>Sair</a></li>
                         </ul>
-                    </div>
-
-                    <!-- Theme Selector -->
-                    <div class="mt-3">
-                        <label class="label-text text-xs opacity-60 mb-1 block">Tema</label>
-                        <select id="themeSelector" class="select select-bordered select-sm w-full">
-                            <option value="centralcomm">CentralComm</option>
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                            <option value="corporate">Corporate</option>
-                        </select>
                     </div>
                 </div>
             </aside>
@@ -400,7 +434,7 @@
         });
 
         // Theme management
-        (function(){
+        document.addEventListener('DOMContentLoaded', function(){
             const storageKey = 'theme';
             const htmlEl = document.documentElement;
             const selector = document.getElementById('themeSelector');
@@ -413,17 +447,19 @@
             // init from localStorage
             const saved = localStorage.getItem(storageKey) || defaultTheme;
             applyTheme(saved);
-            if (selector){ selector.value = saved; }
-
-            // handle change
-            if (selector){
+            
+            // Set the selector value after DOM is loaded
+            if (selector){ 
+                selector.value = saved;
+                
+                // handle change
                 selector.addEventListener('change', function(){
                     const t = selector.value;
                     localStorage.setItem(storageKey, t);
                     applyTheme(t);
                 });
             }
-        })();
+        });
     </script>
 
     <!-- Scripts específicos da página -->

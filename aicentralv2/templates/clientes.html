@@ -3,7 +3,7 @@
 {% block title %}Clientes - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto p-4">
+<div class="max-w-7xl mx-auto">
   <div class="flex items-center justify-between mb-3">
     <div>
       <h1 class="text-lg font-semibold leading-tight">Clientes</h1>
@@ -24,41 +24,47 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-base-100 rounded-xl shadow-lg p-0 overflow-hidden">
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
     {% if clientes %}
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-base-200 text-xs">
-          <thead class="bg-gradient-to-r from-primary to-accent text-white text-xs">
-            <tr class="h-7">
-              <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Cliente</th>
-              <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Executivo</th>
-              <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Tipo</th>
-              <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Status</th>
-              <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Contatos</th>
-              <th class="px-2 py-1 text-left font-bold uppercase tracking-wider">Ações</th>
+        <table class="table table-xs w-full">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Cliente</th>
+              <th class="text-left font-bold uppercase">Executivo</th>
+              <th class="text-center font-bold uppercase w-16">Tipo</th>
+              <th class="text-center font-bold uppercase w-24">Status</th>
+              <th class="text-center font-bold uppercase w-20">Contatos</th>
+              <th class="text-center font-bold uppercase w-28">Ações</th>
             </tr>
           </thead>
-          <tbody class="bg-base-100 divide-y divide-base-200 text-xs">
+          <tbody>
             {% for cliente in clientes %}
-            <tr class="hover:bg-base-200 transition h-7 align-middle text-xs">
-              <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                <span class="font-semibold text-base-content">{{ cliente.nome_fantasia or cliente.razao_social }}</span>
-                {% if cliente.nome_fantasia %}<br><span class="text-xs text-base-content/60">{{ cliente.razao_social }}</span>{% endif %}
+            <tr class="hover">
+              <td>
+                <div class="font-semibold text-base-content">{{ cliente.nome_fantasia or cliente.razao_social }}</div>
+                {% if cliente.nome_fantasia %}<div class="text-xs text-base-content/60">{{ cliente.razao_social }}</div>{% endif %}
               </td>
-              <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                {% if cliente.executivo_nome %}<span class="text-base-content">{{ cliente.executivo_nome }}</span>{% else %}<span class="text-base-content/40 italic">Não atribuído</span>{% endif %}
+              <td>
+                {% if cliente.executivo_nome %}
+                  <span class="text-base-content">{{ cliente.executivo_nome }}</span>
+                {% else %}
+                  <span class="text-base-content/40 italic">Não atribuído</span>
+                {% endif %}
               </td>
-              <td class="px-1 py-0 whitespace-nowrap text-base-content align-middle text-xs">{{ cliente.tipo_pessoa }}</td>
-              <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold
+              <td class="text-center">{{ cliente.tipo_pessoa }}</td>
+              <td class="text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
                   {% if cliente.status %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
                   {% if cliente.status %}<i class="fas fa-check-circle mr-1 text-green-500"></i>{% else %}<i class="fas fa-ban mr-1 text-red-500"></i>{% endif %}
                   {{ 'Ativo' if cliente.status else 'Inativo' }}
                 </span>
               </td>
-              <td class="px-1 py-0 whitespace-nowrap text-center align-middle text-xs">{{ cliente.total_contatos }}</td>
-              <td class="px-1 py-0 whitespace-nowrap align-middle text-xs">
-                <div class="flex items-center gap-1">
+              <td class="text-center">
+                <span class="badge badge-sm badge-ghost">{{ cliente.total_contatos }}</span>
+              </td>
+              <td>
+                <div class="flex items-center justify-center gap-1">
                   <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
                     <i class="fas fa-edit"></i>
                   </a>
@@ -66,9 +72,9 @@
                     <i class="fas fa-eye"></i>
                   </a>
                   {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
-                  <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" style="display:inline">
+                  <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" class="inline-block">
                     <button type="submit" class="btn btn-xs btn-circle btn-outline {% if not cliente.status %}btn-success{% else %}btn-error{% endif %}" title="{% if not cliente.status %}Ativar{% else %}Desativar{% endif %}">
-                      {% if not cliente.status %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-ban"></i>{% endif %}
+                      <i class="fas {% if not cliente.status %}fa-check{% else %}fa-ban{% endif %}"></i>
                     </button>
                   </form>
                   {% endif %}

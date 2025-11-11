@@ -3,294 +3,85 @@
 {% block title %}Contatos - CentralComm AI{% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-  <div class="px-6 py-4">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center text-sm text-gray-500 mb-3">
-      <a href="{{ url_for('index') }}" class="hover:text-primary transition-colors">
-        <i class="fas fa-home"></i>
-      </a>
-      <i class="fas fa-chevron-right mx-2 text-xs"></i>
-      <span class="text-gray-400">Comercial</span>
-      <i class="fas fa-chevron-right mx-2 text-xs"></i>
-      <span class="text-gray-900 font-medium">Contatos</span>
-    </nav>
-    
-    <!-- Title & Actions -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-green to-accent-yellow flex items-center justify-center shadow-sm">
-          <i class="fas fa-address-book text-primary-dark text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-xl font-semibold text-gray-900">Contatos</h1>
-          <p class="text-sm text-gray-500 mt-0.5">Gerencie seus contatos comerciais</p>
-        </div>
-      </div>
-      
-      <!-- Quick Actions -->
-      <div class="flex items-center space-x-2">
-        <a href="{{ url_for('contato_novo') }}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors shadow-sm">
-          <i class="fas fa-plus mr-2 text-xs"></i>
-          Novo Contato
-        </a>
-        <button type="button" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <i class="fas fa-download mr-2 text-xs"></i>
-          Exportar
-        </button>
-      </div>
+<div class="max-w-7xl mx-auto">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Contatos</h1>
+      <p class="text-sm text-base-content/70">Gerencie os contatos cadastrados na plataforma.</p>
     </div>
+    <a href="{{ url_for('contato_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Novo Contato</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+    {% if contatos %}
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Nome</th>
+              <th class="text-left font-bold uppercase">Email</th>
+              <th class="text-left font-bold uppercase">Cliente</th>
+              <th class="text-left font-bold uppercase">Cargo</th>
+              <th class="text-center font-bold uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for contato in contatos %}
+            <tr class="hover">
+              <td>
+                <div class="font-semibold text-base-content">{{ contato.nome_completo }}</div>
+              </td>
+              <td>
+                <a href="mailto:{{ contato.email }}" class="text-primary hover:underline text-sm">{{ contato.email }}</a>
+              </td>
+              <td>
+                <span class="text-base-content text-sm">{{ contato.nome_fantasia }}</span>
+              </td>
+              <td>
+                <span class="text-base-content/70 text-sm">{{ contato.cargo_descricao or 'Não definido' }}</span>
+              </td>
+              <td>
+                <div class="flex items-center justify-center gap-1">
+                  <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  {% if contato.id_contato_cliente != session.user_id %}
+                  <form method="POST" action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" class="inline-block">
+                    <button type="submit" class="btn btn-xs btn-circle btn-outline {% if not contato.status %}btn-success{% else %}btn-error{% endif %}" title="{% if not contato.status %}Ativar{% else %}Desativar{% endif %}">
+                      <i class="fas {% if not contato.status %}fa-check{% else %}fa-ban{% endif %}"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                  <form method="POST" action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" class="inline-block" onsubmit="return confirm('Tem certeza que deseja deletar este contato?');">
+                    <button type="submit" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-8">
+        <p class="mb-2 text-base-content/60 text-sm">Nenhum contato cadastrado.</p>
+        <a href="{{ url_for('contato_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Cadastrar Primeiro Contato</a>
+      </div>
+    {% endif %}
   </div>
 </div>
-
-<div class="p-6">
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="mb-6 space-y-2">
-                {% for category, message in messages %}
-                    <div class="flex items-center p-3 rounded-lg shadow-sm animate-slide-up {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
-                        </div>
-                        <span class="flex-1 ml-3 text-sm font-medium">{{ message }}</span>
-                        <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-400 hover:text-gray-600 transition-colors">
-                            <i class="fas fa-times text-sm"></i>
-                        </button>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}    <!-- Content -->
-    <div class="bg-white rounded-lg shadow-card">
-        {% if contatos %}
-            <!-- Search Box and Filters -->
-            <div class="p-4 border-b border-border">
-                <div class="flex gap-4">
-                    <!-- Search Input -->
-                    <div class="relative flex-1">
-                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input 
-                            type="text" 
-                            id="searchInput" 
-                            class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" 
-                            placeholder="Pesquisar por Nome ou Email..."
-                            autocomplete="off"
-                        >
-                        <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500" id="searchResults"></span>
-                    </div>
-                    <!-- Status Filter -->
-                    <div class="relative min-w-[200px]">
-                        <select 
-                            id="statusFilter" 
-                            class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white"
-                        >
-                            <option value="todos">Todos os Status</option>
-                            <option value="true">Ativos</option>
-                            <option value="false">Inativos</option>
-                        </select>
-                        <i class="fas fa-filter absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <i class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Table Container -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div class="overflow-x-auto">
-                    <table id="contatosTable" class="w-full table-fixed">
-                        <thead>
-                            <tr class="bg-gray-50 border-b border-gray-200">
-                                <th class="py-4 px-4 text-left w-[22%]">
-                                    <div class="flex items-center space-x-2 text-xs font-semibold text-gray-600">
-                                        <span>Nome</span>
-                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="nome">
-                                            <i class="fas fa-sort text-gray-400"></i>
-                                        </button>
-                                    </div>
-                                </th>
-                                <th class="py-4 px-4 text-left w-[23%]">
-                                    <div class="flex items-center space-x-2 text-xs font-semibold text-gray-600">
-                                        <span>Email</span>
-                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="email">
-                                            <i class="fas fa-sort text-gray-400"></i>
-                                        </button>
-                                    </div>
-                                </th>
-                                <th class="py-4 px-4 text-left w-[20%]">
-                                    <div class="flex items-center space-x-2 text-xs font-semibold text-gray-600">
-                                        <span>Cliente</span>
-                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="cliente">
-                                            <i class="fas fa-sort text-gray-400"></i>
-                                        </button>
-                                    </div>
-                                </th>
-                                <th class="py-4 px-4 text-left w-[20%]">
-                                    <div class="flex items-center space-x-2 text-xs font-semibold text-gray-600">
-                                        <span>Cargo</span>
-                                        <button class="hover:bg-gray-200 p-1 rounded sort-btn" data-column="cargo">
-                                            <i class="fas fa-sort text-gray-400"></i>
-                                        </button>
-                                    </div>
-                                </th>
-                                <th class="py-4 px-4 text-center w-[15%]">
-                                    <span class="text-xs font-semibold text-gray-600">Ações</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            {% for contato in contatos %}
-                            <tr class="group hover:bg-gray-50 transition-all duration-200 {% if loop.index is even %}bg-gray-50/30{% endif %}">
-                                <td class="py-3 px-4 truncate">
-                                    <div class="font-medium text-sm text-gray-900 truncate" title="{{ contato.nome_completo }}">{{ contato.nome_completo }}</div>
-                                </td>
-                                <td class="py-3 px-4 truncate">
-                                    <a href="mailto:{{ contato.email }}" class="text-primary hover:text-primary-dark truncate block text-xs" title="{{ contato.email }}">
-                                        {{ contato.email }}
-                                    </a>
-                                </td>
-                                <td class="py-3 px-4 truncate">
-                                    <span class="text-gray-800 truncate block text-sm" title="{{ contato.nome_fantasia }}">{{ contato.nome_fantasia }}</span>
-                                </td>
-                                <td class="py-3 px-4 truncate">
-                                    <span class="text-gray-600 truncate block text-sm" title="{{ contato.cargo_descricao }}">{{ contato.cargo_descricao or 'Não definido' }}</span>
-                                </td>
-                                <td class="py-2 px-4">
-                                    <div class="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity duration-200">
-                                        <a href="{{ url_for('contato_editar', contato_id=contato.id_contato_cliente) }}" 
-                                           class="relative group/edit" title="Editar contato">
-                                            <div class="p-1.5 rounded text-gray-600 hover:bg-gray-100 transition-all duration-200">
-                                                <i class="fas fa-edit text-xs"></i>
-                                            </div>
-                                        </a>
-                                        
-                                        {% if contato.id_contato_cliente != session.user_id %}
-                                        <form method="POST" 
-                                              action="{{ url_for('contato_toggle_status', contato_id=contato.id_contato_cliente) }}" 
-                                              class="inline-block">
-                                            <button type="submit" 
-                                                    class="p-1.5 rounded {% if not contato.status %}text-orange-600{% else %}text-green-600{% endif %} hover:bg-gray-100 transition-all duration-200"
-                                                    title="{% if not contato.status %}Ativar{% else %}Desativar{% endif %} contato">
-                                                <i class="fas fa-{% if not contato.status %}ban{% else %}check{% endif %} text-xs"></i>
-                                            </button>
-                                        </form>
-                                        {% endif %}
-                                        
-                                        <form method="POST" 
-                                              action="{{ url_for('contato_deletar', contato_id=contato.id_contato_cliente) }}" 
-                                              class="inline-block"
-                                              onsubmit="return confirm('Tem certeza que deseja deletar este contato?');">
-                                            <button type="submit" 
-                                                    class="p-1.5 rounded text-red-600 hover:bg-gray-100 transition-all duration-200"
-                                                    title="Deletar contato">
-                                                <i class="fas fa-trash text-xs"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- Table Footer with Pagination -->
-                <div class="border-t border-gray-200 px-6 py-3 flex items-center justify-between bg-gray-50/50">
-                    <div class="flex items-center text-sm text-gray-500">
-                        <span>Mostrando <span id="showing-start">1</span>-<span id="showing-end">{{ contatos|length }}</span> de <span id="total-items">{{ contatos|length }}</span> resultados</span>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button id="prev-page" class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
-                            <i class="fas fa-chevron-left mr-1"></i>
-                            Anterior
-                        </button>
-                        <button id="next-page" class="px-3 py-1 rounded border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
-                            Próximo
-                            <i class="fas fa-chevron-right ml-1"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- No Results Message -->
-            <div class="p-8 text-center hidden" id="noResults">
-                <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
-                <p class="text-lg text-gray-600 mb-4">Nenhum contato encontrado com esse termo de pesquisa.</p>
-                <button onclick="clearSearch()" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200">
-                    <i class="fas fa-times mr-2"></i>
-                    Limpar Pesquisa
-                </button>
-            </div>
-        {% else %}
-            <div class="p-12 text-center">
-                <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-                <p class="text-xl text-gray-600 mb-6">Nenhum contato cadastrado</p>
-                <a href="{{ url_for('contato_novo') }}" class="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
-                    <i class="fas fa-plus mr-2"></i>
-                    Cadastrar Primeiro Contato
-                </a>
-            </div>
-        {% endif %}
-    </div>
-</div>
-{% endblock %}
-
-{% block sidebar %}
-<div class="space-y-6">
-    <!-- Estatísticas -->
-    <div class="bg-gradient-to-br from-primary to-primary-light rounded-lg p-6 text-white shadow-lg">
-        <h3 class="text-lg font-semibold mb-4 flex items-center">
-            <i class="fas fa-chart-bar mr-2"></i>
-            Estatísticas
-        </h3>
-        <div class="space-y-3">
-            <div class="flex justify-between items-center">
-                <span class="text-sm opacity-90">Total de Contatos:</span>
-                <span class="text-2xl font-bold">{{ contatos|length if contatos else 0 }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-sm opacity-90">Ativos:</span>
-                <span class="text-xl font-semibold">{{ contatos|selectattr('status')|list|length if contatos else 0 }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-sm opacity-90">Inativos:</span>
-                <span class="text-xl font-semibold">{{ contatos|rejectattr('status')|list|length if contatos else 0 }}</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Ações Rápidas -->
-    <div class="bg-white rounded-lg p-6 shadow-md border border-border">
-        <h3 class="text-lg font-semibold mb-4 text-text-primary flex items-center">
-            <i class="fas fa-bolt mr-2 text-accent-yellow"></i>
-            Ações Rápidas
-        </h3>
-        <div class="space-y-2">
-            <a href="{{ url_for('contato_novo') }}" class="block w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 text-center">
-                <i class="fas fa-plus mr-2"></i>
-                Novo Contato
-            </a>
-            <a href="{{ url_for('clientes') }}" class="block w-full px-4 py-2 bg-gray-100 text-text-primary rounded-lg hover:bg-gray-200 transition-colors duration-200 text-center">
-                <i class="fas fa-building mr-2"></i>
-                Ver Clientes
-            </a>
-        </div>
-    </div>
-
-    <!-- Ajuda -->
-    <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
-        <h3 class="text-lg font-semibold mb-2 text-blue-900 flex items-center">
-            <i class="fas fa-info-circle mr-2"></i>
-            Dica
-        </h3>
-        <p class="text-sm text-blue-800">
-            Use a barra de pesquisa para encontrar contatos rapidamente por nome ou email.
-        </p>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/contatos.js') }}"></script>
 {% endblock %}

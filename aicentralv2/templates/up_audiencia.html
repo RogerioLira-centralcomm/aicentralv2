@@ -1,627 +1,387 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}Analisador de Audiência{% endblock %}
-
-{% block styles %}
-<style>
-  .drop-zone {
-    border: 2px dashed #cbd5e0;
-    transition: all 0.3s ease;
-  }
-  .drop-zone.drag-over {
-    border-color: #1E4D4F;
-    background-color: #f0fdf4;
-  }
-  .step-indicator {
-    position: relative;
-  }
-  .step-indicator::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 100%;
-    width: 100%;
-    height: 2px;
-    background: #e5e7eb;
-    transform: translateY(-50%);
-  }
-  .step-indicator.active {
-    background: linear-gradient(135deg, #1E4D4F 0%, #2A6D70 100%);
-    color: white;
-  }
-  .step-indicator.completed {
-    background: #9CCF31;
-    color: white;
-  }
-  .json-viewer {
-    max-height: 500px;
-    overflow-y: auto;
-  }
-  .field-group {
-    transition: all 0.2s ease;
-  }
-  .field-group:hover {
-    background-color: #f9fafb;
-  }
-</style>
-{% endblock %}
+{% block title %}Analisador de Audiência - CentralComm AI{% endblock %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-  <div class="px-6 py-4">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center text-sm text-gray-500 mb-3">
-      <a href="{{ url_for('index') }}" class="hover:text-primary transition-colors">
-        <i class="fas fa-home"></i>
-      </a>
-      <i class="fas fa-chevron-right mx-2 text-xs"></i>
-      <span class="text-gray-400">Audiências</span>
-      <i class="fas fa-chevron-right mx-2 text-xs"></i>
-      <span class="text-gray-900 font-medium">Analisador de Imagem</span>
-    </nav>
+<div class="max-w-7xl mx-auto p-6 space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-base-content">Analisador de Audiência IA</h1>
+      <p class="text-sm text-base-content/70 mt-1">Extração inteligente de dados de imagens de audiências</p>
+    </div>
     
-    <!-- Title & Progress -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-          <i class="fas fa-brain text-white text-lg"></i>
-        </div>
-        <div>
-          <h1 class="text-xl font-semibold text-gray-900">Analisador de Audiência IA</h1>
-          <p class="text-sm text-gray-500 mt-0.5">Extração inteligente de dados de audiências</p>
-        </div>
+    <!-- Steps -->
+    <div class="hidden lg:flex items-center gap-2">
+      <div class="flex items-center gap-2">
+        <div class="badge badge-primary badge-lg">1</div>
+        <span class="text-sm font-medium">Upload</span>
       </div>
-      
-      <!-- Step Indicators -->
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2">
-          <div class="step-indicator active w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold">1</div>
-          <span class="text-sm font-medium text-gray-700">Upload</span>
-        </div>
-        <div class="flex items-center space-x-2">
-          <div class="step-indicator w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-gray-200 text-gray-600">2</div>
-          <span
-        </div>
-        <div class="flex items-center space-x-2">
-          <div class="step-indicator w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-gray-200 text-gray-600">3</div>
-          <span class="text-sm text-gray-500">Ficha</span>
-        </div>
+      <i class="fas fa-chevron-right text-xs text-base-content/30"></i>
+      <div class="flex items-center gap-2">
+        <div class="badge badge-ghost badge-lg">2</div>
+        <span class="text-sm text-base-content/70">Análise</span>
       </div>
     </div>
   </div>
-</div>
 
-<div class="p-6 bg-gray-50 min-h-screen">
   <!-- Flash Messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-6 space-y-2">
+      <div class="space-y-2">
         {% for category, message in messages %}
-          <div class="flex items-center p-3 rounded-lg shadow-sm animate-slide-up {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200{% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200{% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-            <div class="flex-shrink-0">
-              <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
-            </div>
-            <span class="flex-1 ml-3 text-sm font-medium">{{ message }}</span>
-            <button onclick="closeFlashMessage(this)" class="ml-4 text-gray-400 hover:text-gray-600 transition-colors">
-              <i class="fas fa-times text-sm"></i>
-            </button>
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+            <span>{{ message }}</span>
           </div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <!-- 3 Column Layout -->
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <!-- COLUNA 1: Upload & Configuração -->
-    <div class="lg:col-span-4 w-full max-w-md" style="min-width:320px;">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-[89px]">
-        <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
-          <h2 class="text-lg font-semibold text-white flex items-center">
-            <i class="fas fa-upload mr-2"></i>
-            1. Upload da Audiência
-          </h2>
-        </div>
+  <!-- Layout em Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- CARD 1: Upload & Configuração -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">
+          <i class="fas fa-upload text-primary"></i>
+          Upload da Audiência
+        </h2>
+        <div class="divider my-1"></div>
         
-          <form id="upAudienciaForm" method="POST" enctype="multipart/form-data" class="space-y-4 p-6">
-            
-            <!-- Plataforma -->
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Plataforma</label>
-              <select id="platform" name="platform" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                <option value="google-dv360">Google DV360</option>
-                <option value="meta-ads">Meta Ads Manager</option>
-                <option value="google-ads">Google Ads</option>
-                <option value="linkedin-ads">LinkedIn Ads</option>
-                <option value="tiktok-ads">TikTok Ads</option>
-              </select>
-            </div>
+        <form id="upAudienciaForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+          
+          <!-- Plataforma -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Plataforma</span>
+            </label>
+            <select id="platform" name="platform" class="select select-bordered w-full">
+              <option value="google-dv360">Google DV360</option>
+              <option value="meta-ads">Meta Ads Manager</option>
+              <option value="google-ads">Google Ads</option>
+              <option value="linkedin-ads">LinkedIn Ads</option>
+              <option value="tiktok-ads">TikTok Ads</option>
+            </select>
+          </div>
 
-            <!-- Drag & Drop Zone -->
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Imagem da Audiência</label>
-              <div id="dropZone" class="drop-zone relative bg-gray-50 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-100 transition-all">
-                <input id="upimagem" type="file" name="upimagem" accept="image/*" class="sr-only" required />
-                <div id="dropZoneContent">
-                  <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
-                  <p class="text-sm font-medium text-gray-700 mb-1">Arraste a imagem aqui</p>
-                  <p class="text-xs text-gray-500 mb-3">ou clique para selecionar</p>
-                  <button type="button" onclick="document.getElementById('upimagem').click()" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-folder-open mr-2"></i>
-                    Escolher Arquivo
-                  </button>
-                </div>
-                <div id="imagePreview" class="hidden">
-                  <img id="previewImg" src="" alt="Preview" class="max-h-48 mx-auto rounded-lg shadow-md mb-3" />
-                  <p id="fileName" class="text-sm font-medium text-gray-700"></p>
-                  <button type="button" onclick="clearImage()" class="mt-2 text-xs text-red-600 hover:text-red-700">
-                    <i class="fas fa-times mr-1"></i>Remover
-                  </button>
-                </div>
+          <!-- Drag & Drop Zone -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Imagem da Audiência</span>
+            </label>
+            <div id="dropZone" class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-base-200/50 transition-all">
+              <input id="upimagem" type="file" name="upimagem" accept="image/*" class="hidden" required />
+              <div id="dropZoneContent">
+                <i class="fas fa-cloud-upload-alt text-5xl text-base-content/30 mb-3"></i>
+                <p class="font-medium text-base-content mb-1">Arraste a imagem aqui</p>
+                <p class="text-sm text-base-content/60 mb-3">ou clique para selecionar</p>
+                <button type="button" id="chooseFileBtn" class="btn btn-sm btn-outline">
+                  <i class="fas fa-folder-open mr-2"></i>
+                  Escolher Arquivo
+                </button>
+              </div>
+              <div id="imagePreview" class="hidden">
+                <img id="previewImg" src="" alt="Preview" class="max-h-48 mx-auto rounded-lg shadow-md mb-3" />
+                <p id="fileName" class="font-medium text-base-content mb-2"></p>
+                <button type="button" onclick="clearImage()" class="btn btn-sm btn-error btn-outline">
+                  <i class="fas fa-times mr-2"></i>Remover
+                </button>
               </div>
             </div>
+          </div>
 
-            <!-- Prompt (Collapsible) -->
-            <div>
-              <button type="button" id="togglePrompt" class="w-full flex items-center justify-between text-sm font-semibold text-gray-700 mb-2 hover:text-primary transition-colors">
-                <span>Prompt de Extração (Avançado)</span>
-                <i class="fas fa-chevron-down transition-transform"></i>
-              </button>
-              <div id="promptSection" class="hidden space-y-2">
-                <textarea id="prompt" name="prompt" rows="8" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm font-mono" placeholder="Prompt personalizado...">{{ prompt or 'Analise esta imagem de audiência e extraia os seguintes dados em formato JSON estruturado:\n\n1. Informações da Audiência:\n- ID da audiência\n- Nome original da audiência\n- Tipo de audiência\n- Fonte/Plataforma\n\n2. Sumário da Audiência:\n- Tamanho do público (total)\n- Distribuição por gênero (masculino/feminino em %)\n- Faixa etária predominante\n- Dispositivos principais\n- CPM em USD\n\n3. Segmentos (se aplicável):\n- Lista de segmentos com ID, nome, CPM e categorias\n\nRetorne apenas o JSON limpo e estruturado.' }}</textarea>
-                <p class="text-xs text-gray-500">Personalize o prompt para extrações específicas</p>
+          <!-- Prompt (Collapsible) -->
+          <div class="form-control">
+            <details class="collapse collapse-arrow bg-base-200">
+              <summary class="collapse-title text-sm font-semibold cursor-pointer">
+                <i class="fas fa-magic mr-2"></i>Prompt de Extração (Avançado)
+              </summary>
+              <div class="collapse-content">
+                <textarea id="prompt" name="prompt" rows="12" class="textarea textarea-bordered w-full text-sm font-mono" placeholder="Digite seu prompt personalizado...">Você é um assistente especialista em análise de dados de publicidade digital. Sua tarefa é analisar uma imagem de uma plataforma de anúncios, extrair informações de audiência e estruturá-las em um formato JSON específico, seguindo rigorosamente as regras abaixo.
+
+*REGRAS DE EXTRAÇÃO E PROCESSAMENTO:*
+
+1. *Análise de Segmentos (segments):*
+   * source: Extraia o prefixo de texto que identifica a origem do dado (ex: "OAN", "LiveRamp","Navegg","Semasio").
+   * id: Extraia APENAS a sequência numérica do identificador do segmento.
+   * name_original: Copie a string completa do nome do segmento.
+   * name_ptbr_normalized: Crie uma descrição clara e acionável em Português-Brasil, focando na intenção e perfil do público, não em uma tradução literal.
+   * cpm: Extraia o valor numérico do Custo Por Mil. Assuma a moeda como "BRL" se o símbolo for "R$".
+   * categories: Atribua categorias como type, industry, interest, etc., com base na sua interpretação do nome.
+
+2. *Análise do Resumo (audienceSummary):*
+   * Extraia valores como overallReach, convertendo abreviações como "M" para seu valor numérico completo (ex: "26.3M" se torna 26300000).
+
+3. *Análise Demográfica (demographics):*
+   * Analise os gráficos e estime as porcentagens para gender, age, e devices.
+
+*FORMATO DE SAÍDA OBRIGATÓRIO:*
+
+Sua resposta deve ser *APENAS o objeto JSON*, sem nenhum texto ou explicação adicional. Preencha todos os campos possíveis e use null para informações não encontradas. A resposta deve ser um JSON válido.
+Retorne apenas o JSON limpo e estruturado.</textarea>
+                <p class="label-text-alt mt-2 text-base-content/60">Personalize o prompt para extrações específicas</p>
               </div>
-            </div>
+            </details>
+          </div>
 
-            <!-- Modelo LLM (Compact) -->
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-2">Modelo IA</label>
-              <select id="model" name="model" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm">
-                {% set sel_model = selected_model_id or '' %}
-                {% for m in models or [] %}
-                  <option value="{{ m.id }}" {% if m.id == sel_model %}selected{% endif %}>{{ m.label or m.id }}</option>
-                {% endfor %}
-              </select>
-            </div>
+          <!-- Modelo LLM -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Modelo IA</span>
+            </label>
+            <select id="model" name="model" class="select select-bordered w-full">
+              {% set sel_model = selected_model_id or '' %}
+              {% for m in models or [] %}
+                <option value="{{ m.id }}" {% if m.id == sel_model %}selected{% endif %}>{{ m.label or m.id }}</option>
+              {% endfor %}
+            </select>
+          </div>
 
-            <!-- CTA Button -->
-            <button id="submitBtn" type="submit" class="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 opacity-50 cursor-not-allowed flex items-center justify-center" disabled>
+          <!-- Submit Button -->
+          <div class="card-actions justify-end pt-4">
+            <button id="submitBtn" type="submit" class="btn btn-primary w-full" disabled>
               <i class="fas fa-magic mr-2"></i>
               Analisar Imagem
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
 
-    <!-- COLUNA 2: Status & Análise -->
-    <div class="lg:col-span-4">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-[89px]">
-        <div class="bg-gradient-to-r from-accent-green to-accent-yellow px-6 py-4">
-          <h2 class="text-lg font-semibold text-primary-dark flex items-center">
-            <i class="fas fa-chart-line mr-2"></i>
-            2. Análise & Resultados
-          </h2>
-        </div>
+    <!-- CARD 2: Análise & Resultados -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">
+          <i class="fas fa-chart-line text-success"></i>
+          Análise & Resultados
+        </h2>
+        <div class="divider my-1"></div>
         
-        <div class="p-6 space-y-4">
-          {% if result %}
-            <!-- Status Success -->
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <i class="fas fa-check-circle text-2xl text-green-600"></i>
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-sm font
-                  <p class="text-xs text-green-700 mt-1">Dados extraídos com sucesso</p>
-                </div>
-              </div>
+        {% if result %}
+          <!-- Status Success -->
+          <div class="alert alert-success">
+            <i class="fas fa-check-circle text-xl"></i>
+            <div>
+              <h3 class="font-semibold">Análise Concluída!</h3>
+              <p class="text-sm">Dados extraídos com sucesso</p>
             </div>
+          </div>
 
-            <!-- Metrics -->
-            {% if result.usage or result.cost_usd is not none %}
-            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-              <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Métricas da Análise</h4>
-              <div class="grid grid-cols-2 gap-3 text-xs">
-                <div class="bg-white p-2 rounded border border-gray-200">
-                  <span class="text-gray-500">Tokens:</span>
-                  <span class="font-semibold text-gray-900 ml-1">{{ result.usage.total_tokens if result.usage else '—' }}</span>
-                </div>
-                <div class="bg-white p-2 rounded border border-gray-200">
-                  <span class="text-gray-500">Custo:</span>
-                  <span class="font-semibold text-gray-900 ml-1">{% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}</span>
-                </div>
-              </div>
+          <!-- Metrics -->
+          {% if result.usage or result.cost_usd is not none %}
+          <div class="stats shadow w-full">
+            <div class="stat">
+              <div class="stat-title">Tokens</div>
+              <div class="stat-value text-2xl">{{ result.usage.total_tokens if result.usage else '—' }}</div>
             </div>
-            {% endif %}
+            <div class="stat">
+              <div class="stat-title">Custo (USD)</div>
+              <div class="stat-value text-2xl">{% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}</div>
+            </div>
+          </div>
+          {% endif %}
 
-            <!-- JSON Viewer -->
-            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-                <h4 class="text-sm font-semibold text-gray-700">Dados Extraídos (JSON)</h4>
-                <button type="button" id="copyJsonBtn" class="text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors">
+          <!-- JSON Viewer -->
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="font-semibold text-sm">Dados Extraídos (JSON)</h4>
+                <button type="button" id="copyJsonBtn" class="btn btn-xs btn-ghost">
                   <i class="fas fa-copy mr-1"></i>Copiar
                 </button>
               </div>
-              <div class="json-viewer p-4">
-                <pre id="json_output" class="text-xs font-mono text-gray-800 whitespace-pre-wrap">{{ result.json_text | safe }}</pre>
-              </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="flex gap-2">
-              <button type="button" onclick="fillAudienceForm()" class="flex-1 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors">
-                <i class="fas fa-arrow-right mr-2"></i>
-                Preencher Ficha
-              </button>
-              <button type="button" onclick="retryAnalysis()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
-                <i class="fas fa-redo"></i>
-              </button>
-            </div>
-
-          {% else %}
-            <!-- Empty State -->
-            <div class="text-center py-12">
-              <i class="fas fa-robot text-5xl text-gray-300 mb-4"></i>
-              <p class="text-sm font-medium text-gray-600">Aguardando análise...</p>
-              <p class="text-xs text-gray-500 mt-1">Faça upload de uma imagem para começar</p>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- COLUNA 3: Ficha da Audiência -->
-    <div class="lg:col-span-5">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-[89px]">
-        <div class="bg-gradient-to-r from-primary to-primary-dark px-6 py-4">
-          <h2 class="text-lg font-semibold text-white flex items-center">
-            <i class="fas fa-file-alt mr-2"></i>
-            3. Ficha da Audiência
-          </h2>
-        </div>
-        
-        <div class="p-6 space-y-6 max-h-[800px] overflow-y-auto">
-          <!-- Informações da Audiência -->
-          <div class="field-group p-4 rounded-lg border border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-              <i class="fas fa-info-circle text-primary mr-2"></i>
-              Informações da Audiência
-            </h3>
-            <div class="space-y-3">
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Nome Real</label>
-                <input type="text" id="audienceName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Nome original da audiência">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Nome Normalizado</label>
-                <input type="text" id="audienceNameNormalized" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Nome melhorado">
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Categoria</label>
-                  <select id="audienceCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
-                    <option value="">Selecione...</option>
-                    <option value="comportamento">Comportamento</option>
-                    <option value="demografia">Demografia</option>
-                    <option value="interesse">Interesse</option>
-                    <option value="remarketing">Remarketing</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Subcategoria</label>
-                  <select id="audienceSubcategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
-                    <option value="">Selecione...</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Tags</label>
-                <input type="text" id="audienceTags" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="tag1, tag2, tag3">
-                <p class="text-xs text-gray-500 mt-1">Separadas por vírgula</p>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Descrição</label>
-                <textarea id="audienceDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Descrição da audiência"></textarea>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Aplicabilidade</label>
-                <textarea id="audienceApplicability" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Onde e como usar esta audiência"></textarea>
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">ID</label>
-                  <input type="text" id="audienceId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50" readonly>
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
-                  <input type="text" id="audienceType" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50" readonly>
-                </div>
+              <div class="max-h-96 overflow-y-auto">
+                <pre id="json_output" class="text-xs font-mono bg-base-100 p-3 rounded">{{ result.json_text | safe }}</pre>
               </div>
             </div>
           </div>
 
-          <!-- Sumário da Audiência -->
-          <div class="field-group p-4 rounded-lg border border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-              <i class="fas fa-chart-pie text-accent-green mr-2"></i>
-              Sumário da Audiência
-            </h3>
-            <div class="space-y-3">
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Tamanho do Público</label>
-                <input type="text" id="audienceSize" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Ex: 1.5M">
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Masculino (%)</label>
-                  <input type="number" id="genderMale" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="50">
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">Feminino (%)</label>
-                  <input type="number" id="genderFemale" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="50">
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Faixa Etária</label>
-                <input type="text" id="ageRange" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Ex: 25-34">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Dispositivos</label>
-                <input type="text" id="devices" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Ex: Mobile, Desktop">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">CPM (USD)</label>
-                <input type="number" step="0.01" id="cpmUsd" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="0.00">
-              </div>
-            </div>
+          <!-- Action Buttons -->
+          <div class="card-actions justify-end gap-2">
+            <button type="button" onclick="retryAnalysis()" class="btn btn-ghost btn-sm">
+              <i class="fas fa-redo mr-2"></i>Nova Análise
+            </button>
           </div>
 
-          <!-- Save Button -->
-          <button type="button" class="w-full py-3 bg-gradient-to-r from-accent-green to-accent-yellow text-primary-dark rounded-lg font-semibold hover:shadow-lg transition-all duration-200">
-            <i class="fas fa-save mr-2"></i>
-            Salvar Ficha da Audiência
-          </button>
-        </div>
+        {% else %}
+          <!-- Empty State -->
+          <div class="flex flex-col items-center justify-center py-12 text-center">
+            <i class="fas fa-robot text-6xl text-base-content/20 mb-4"></i>
+            <p class="font-medium text-base-content/70">Aguardando análise...</p>
+            <p class="text-sm text-base-content/50 mt-1">Faça upload de uma imagem para começar</p>
+          </div>
+        {% endif %}
       </div>
     </div>
 
   </div>
-  <!-- End 3 Column Layout -->
 </div>
-<!-- Overlay de Carregamento -->
+
+<!-- Loading Overlay -->
 <div class="fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center z-50 hidden" id="loadingOverlay">
-  <div class="bg-white/90 backdrop-blur rounded-xl p-6 max-w-[220px] w-full text-center shadow-xl">
-    <div class="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-    <p class="text-gray-600 text-sm font-medium">Processando...</p>
+  <div class="card bg-base-100 shadow-xl max-w-xs">
+    <div class="card-body items-center text-center">
+      <span class="loading loading-spinner loading-lg text-primary"></span>
+      <p class="font-medium mt-4">Processando imagem...</p>
+      <p class="text-sm text-base-content/60">Aguarde enquanto a IA analisa</p>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const input = document.getElementById('upimagem');
-    const dropZone = document.getElementById('dropZone');
-    const dropZoneContent = document.getElementById('dropZoneContent');
-    const imagePreview = document.getElementById('imagePreview');
-    const previewImg = document.getElementById('previewImg');
-    const fileName = document.getElementById('fileName');
-    const promptEl = document.getElementById('prompt');
-    const submitBtn = document.getElementById('submitBtn');
-    const togglePromptBtn = document.getElementById('togglePrompt');
-    const promptSection = document.getElementById('promptSection');
+document.addEventListener('DOMContentLoaded', function() {
+  const input = document.getElementById('upimagem');
+  const dropZone = document.getElementById('dropZone');
+  const dropZoneContent = document.getElementById('dropZoneContent');
+  const imagePreview = document.getElementById('imagePreview');
+  const previewImg = document.getElementById('previewImg');
+  const fileName = document.getElementById('fileName');
+  const promptEl = document.getElementById('prompt');
+  const submitBtn = document.getElementById('submitBtn');
+  const chooseFileBtn = document.getElementById('chooseFileBtn');
 
-    // Drag & Drop
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
-    });
-
-    dropZone.addEventListener('drop', handleDrop, false);
-    dropZone.addEventListener('click', () => input.click());
-
-    function handleDrop(e) {
-      const dt = e.dataTransfer;
-      const files = dt.files;
-      if (files.length) {
-        input.files = files;
-        handleFiles(files);
-      }
-    }
-
-    input.addEventListener('change', function() {
-      if (this.files.length) {
-        handleFiles(this.files);
-      }
-    });
-
-    function handleFiles(files) {
-      const file = files[0];
-      if (file && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          previewImg.src = e.target.result;
-          fileName.textContent = file.name;
-          dropZoneContent.classList.add('hidden');
-          imagePreview.classList.remove('hidden');
-          updateSubmitState();
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    window.clearImage = function() {
-      input.value = '';
-      previewImg.src = '';
-      fileName.textContent = '';
-      dropZoneContent.classList.remove('hidden');
-      imagePreview.classList.add('hidden');
-      updateSubmitState();
-    };
-
-    // Toggle Prompt
-    if (togglePromptBtn && promptSection) {
-      togglePromptBtn.addEventListener('click', () => {
-        promptSection.classList.toggle('hidden');
-        const icon = togglePromptBtn.querySelector('i');
-        icon.classList.toggle('fa-chevron-down');
-        icon.classList.toggle('fa-chevron-up');
-      });
-    }
-
-    // Update Submit State
-    function updateSubmitState() {
-      const okPrompt = !!(promptEl && promptEl.value && promptEl.value.trim().length > 0);
-      const okFile = !!(input && input.files && input.files.length > 0);
-      const can = okPrompt && okFile;
-      if (submitBtn) {
-        submitBtn.disabled = !can;
-        submitBtn.classList.toggle('opacity-50', !can);
-        submitBtn.classList.toggle('cursor-not-allowed', !can);
-      }
-    }
-
-    if (promptEl) {
-      ['input','change','keyup','paste'].forEach(ev => promptEl.addEventListener(ev, updateSubmitState));
-    }
-    updateSubmitState();
-
-    // Copiar JSON
-    const copyBtn = document.getElementById('copyJsonBtn');
-    const jsonOutput = document.getElementById('json_output');
-    if (copyBtn && jsonOutput) {
-      copyBtn.addEventListener('click', async () => {
-        try {
-          const text = jsonOutput.textContent || jsonOutput.innerText;
-          await navigator.clipboard.writeText(text);
-          const originalHTML = copyBtn.innerHTML;
-          copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Copiado!';
-          copyBtn.classList.add('bg-green-50', 'text-green-700', 'border-green-200');
-          setTimeout(() => {
-            copyBtn.innerHTML = originalHTML;
-            copyBtn.classList.remove('bg-green-50', 'text-green-700', 'border-green-200');
-          }, 2000);
-        } catch (e) {
-          console.error('Erro ao copiar:', e);
-        }
-      });
-    }
-
-    // Fill Audience Form
-    window.fillAudienceForm = function() {
-      try {
-        const jsonText = jsonOutput ? (jsonOutput.textContent || jsonOutput.innerText) : '';
-        if (!jsonText) return;
-        
-        const data = JSON.parse(jsonText);
-        
-        // Parse content if it's a string
-        let audienceData = data;
-        if (data.content && typeof data.content === 'string') {
-          try {
-            audienceData = JSON.parse(data.content);
-          } catch (e) {
-            console.log('Content is not JSON, using raw data');
-          }
-        }
-
-        // Fill form fields
-        const setField = (id, value) => {
-          const el = document.getElementById(id);
-          if (el && value) el.value = value;
-        };
-
-        // Audience Info
-        setField('audienceName', audienceData.name_original || audienceData.name || '');
-        setField('audienceNameNormalized', audienceData.name_ptbr_normalized || '');
-        setField('audienceId', audienceData.id || audienceData.audience_id || '');
-        setField('audienceType', audienceData.type || audienceData.audience_type || '');
-
-        // Auto-generate tags
-        const name = audienceData.name_original || audienceData.name || '';
-        const tags = name.toLowerCase().split(/[\s,]+/).filter(t => t.length > 3).slice(0, 5);
-        setField('audienceTags', tags.join(', '));
-
-        // Auto-generate description
-        const desc = `Audiência ${name} - ${audienceData.type || 'tipo não especificado'}`;
-        setField('audienceDescription', desc);
-
-        // Summary
-        const summary = audienceData.audienceSummary || audienceData.summary || {};
-        setField('audienceSize', summary.audience_size || summary.size || '');
-        setField('genderMale', summary.gender_male || summary.male_percentage || '');
-        setField('genderFemale', summary.gender_female || summary.female_percentage || '');
-        setField('ageRange', summary.age_range || '');
-        setField('devices', summary.devices || '');
-        setField('cpmUsd', summary.cpm_usd || summary.cpm || '');
-
-        // Show success message
-        showNotification('Formulário preenchido com sucesso!', 'success');
-        
-        // Scroll to form
-        document.getElementById('audienceName').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } catch (e) {
-        console.error('Erro ao preencher formulário:', e);
-        showNotification('Erro ao preencher formulário. Verifique os dados.', 'error');
-      }
-    };
-
-    // Retry Analysis
-    window.retryAnalysis = function() {
-      window.location.reload();
-    };
-
-    // Show Notification
-    function showNotification(message, type = 'info') {
-      const colors = {
-        success: 'bg-green-50 text-green-800 border-green-200',
-        error: 'bg-red-50 text-red-800 border-red-200',
-        warning: 'bg-yellow-50 text-yellow-800 border-yellow-200',
-        info: 'bg-blue-50 text-blue-800 border-blue-200'
-      };
-      
-      const notification = document.createElement('div');
-      notification.className = `fixed top-4 right-4 z-50 flex items-center p-4 rounded-lg shadow-lg border ${colors[type]} animate-slide-up`;
-      notification.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-3"></i>
-        <span class="font-medium">${message}</span>
-      `;
-      
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
-    }
-
-    // Loading Overlay on Submit
-    const form = document.getElementById('upAudienciaForm');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (form && loadingOverlay) {
-      form.addEventListener('submit', function(e) {
-        if (!submitBtn || submitBtn.disabled) {
-          e.preventDefault();
-          return;
-        }
-        loadingOverlay.classList.remove('hidden');
-        loadingOverlay.classList.add('flex');
-        const btns = form.querySelectorAll('button, input[type="submit"]');
-        btns.forEach(b => b.setAttribute('disabled', 'disabled'));
-      });
-    }
-
+  // Drag & Drop
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
   });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+      dropZone.classList.add('border-primary', 'bg-primary/10');
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+      dropZone.classList.remove('border-primary', 'bg-primary/10');
+    }, false);
+  });
+
+  dropZone.addEventListener('drop', handleDrop, false);
+  
+  // Clique no botão abre o seletor de arquivo
+  if (chooseFileBtn) {
+    chooseFileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      input.click();
+    });
+  }
+  
+  // Clique na área de drop também abre (exceto quando já tem preview)
+  dropZone.addEventListener('click', (e) => {
+    if (!imagePreview.classList.contains('hidden')) {
+      return; // Não faz nada se já tem preview
+    }
+    if (e.target !== chooseFileBtn && !chooseFileBtn.contains(e.target)) {
+      input.click();
+    }
+  });
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if (files.length) {
+      input.files = files;
+      handleFiles(files);
+    }
+  }
+
+  input.addEventListener('change', function() {
+    if (this.files.length) {
+      handleFiles(this.files);
+    }
+  });
+
+  function handleFiles(files) {
+    const file = files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        fileName.textContent = file.name;
+        dropZoneContent.classList.add('hidden');
+        imagePreview.classList.remove('hidden');
+        updateSubmitState();
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  window.clearImage = function() {
+    input.value = '';
+    previewImg.src = '';
+    fileName.textContent = '';
+    dropZoneContent.classList.remove('hidden');
+    imagePreview.classList.add('hidden');
+    updateSubmitState();
+  };
+
+  // Update Submit State
+  function updateSubmitState() {
+    const okPrompt = !!(promptEl && promptEl.value && promptEl.value.trim().length > 0);
+    const okFile = !!(input && input.files && input.files.length > 0);
+    const can = okPrompt && okFile;
+    if (submitBtn) {
+      submitBtn.disabled = !can;
+    }
+  }
+
+  if (promptEl) {
+    ['input','change','keyup','paste'].forEach(ev => promptEl.addEventListener(ev, updateSubmitState));
+  }
+  updateSubmitState();
+
+  // Copiar JSON
+  const copyBtn = document.getElementById('copyJsonBtn');
+  const jsonOutput = document.getElementById('json_output');
+  if (copyBtn && jsonOutput) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        const text = jsonOutput.textContent || jsonOutput.innerText;
+        await navigator.clipboard.writeText(text);
+        const originalHTML = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Copiado!';
+        copyBtn.classList.add('btn-success');
+        setTimeout(() => {
+          copyBtn.innerHTML = originalHTML;
+          copyBtn.classList.remove('btn-success');
+        }, 2000);
+      } catch (e) {
+        console.error('Erro ao copiar:', e);
+      }
+    });
+  }
+
+  // Retry Analysis
+  window.retryAnalysis = function() {
+    window.location.reload();
+  };
+
+  // Loading Overlay on Submit
+  const form = document.getElementById('upAudienciaForm');
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  if (form && loadingOverlay) {
+    form.addEventListener('submit', function(e) {
+      if (!submitBtn || submitBtn.disabled) {
+        e.preventDefault();
+        return;
+      }
+      loadingOverlay.classList.remove('hidden');
+      loadingOverlay.classList.add('flex');
+      const btns = form.querySelectorAll('button, input[type="submit"]');
+      btns.forEach(b => b.setAttribute('disabled', 'disabled'));
+    });
+  }
+});
 </script>
 {% endblock %}

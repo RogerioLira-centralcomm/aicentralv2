@@ -1136,7 +1136,20 @@ def init_routes(app):
                 except Exception:
                     app.logger.error(f"Erro no processamento da imagem: {e}")
                     flash('Erro ao processar a imagem.', 'error')
-        return render_template('up_audiencia.html', result=result, prompt=prompt_text, models=models, selected_model_id=selected_model_id)
+        
+        # Buscar categorias para o dropdown
+        categorias = []
+        try:
+            categorias = db.obter_cadu_categorias() or []
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar categorias: {e}")
+        
+        return render_template('up_audiencia.html', 
+                             result=result, 
+                             prompt=prompt_text, 
+                             models=models, 
+                             selected_model_id=selected_model_id,
+                             categorias=categorias)
 
     # ==================== PERCENTUAL (Fluxo de Boas-Vindas) ====================
 

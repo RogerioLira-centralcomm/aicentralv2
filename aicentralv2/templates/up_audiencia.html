@@ -140,6 +140,22 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
             </select>
           </div>
 
+          <!-- Categoria -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Categoria</span>
+            </label>
+            <select id="categoria_id" name="categoria_id" class="select select-bordered w-full">
+              <option value="">Selecione uma categoria</option>
+              {% for cat in categorias or [] %}
+                <option value="{{ cat.id }}">{{ cat.nome }}</option>
+              {% endfor %}
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Categoria para classificar as audiências extraídas</span>
+            </label>
+          </div>
+
           <!-- Submit Button -->
           <div class="card-actions justify-end pt-4">
             <button id="submitBtn" type="submit" class="btn btn-primary w-full" disabled>
@@ -172,14 +188,35 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
 
           <!-- Metrics -->
           {% if result.usage or result.cost_usd is not none %}
-          <div class="stats shadow w-full">
-            <div class="stat">
-              <div class="stat-title">Tokens</div>
-              <div class="stat-value text-2xl">{{ result.usage.total_tokens if result.usage else '—' }}</div>
+          <div class="stats stats-vertical lg:stats-horizontal shadow w-full bg-gradient-to-br from-base-100 to-base-200">
+            <div class="stat py-3">
+              <div class="stat-figure text-primary">
+                <i class="fas fa-coins text-lg"></i>
+              </div>
+              <div class="stat-title text-[10px] font-semibold uppercase tracking-wide">Tokens</div>
+              <div class="stat-value text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                {{ result.usage.total_tokens if result.usage else '—' }}
+              </div>
+              <div class="stat-desc text-[9px]">
+                {% if result.usage %}
+                <span class="text-success">↗︎ {{ result.usage.prompt_tokens or 0 }}</span> · 
+                <span class="text-info">↙︎ {{ result.usage.completion_tokens or 0 }}</span>
+                {% endif %}
+              </div>
             </div>
-            <div class="stat">
-              <div class="stat-title">Custo (USD)</div>
-              <div class="stat-value text-2xl">{% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}</div>
+            <div class="stat py-3">
+              <div class="stat-figure text-success">
+                <i class="fas fa-dollar-sign text-lg"></i>
+              </div>
+              <div class="stat-title text-[10px] font-semibold uppercase tracking-wide">Custo (USD)</div>
+              <div class="stat-value text-lg font-bold font-mono bg-gradient-to-r from-success to-accent bg-clip-text text-transparent">
+                {% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}
+              </div>
+              <div class="stat-desc text-[9px]">
+                {% if result.cost_brl %}
+                ≈ R$ {{ '%.2f'|format(result.cost_brl) }}
+                {% endif %}
+              </div>
             </div>
           </div>
           {% endif %}
@@ -238,16 +275,16 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                 
                 <div class="divider my-2"></div>
                 <p class="font-bold text-info">📄 AMOSTRA DE result.fields (primeiras 500 chars):</p>
-                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px]">{{ result.fields|string|truncate(500) }}</pre>
+                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] break-words whitespace-pre-wrap">{{ result.fields|string|truncate(500) }}</pre>
                 
                 <div class="divider my-2"></div>
                 <p class="font-bold text-info">📄 AMOSTRA DE result.raw (primeiras 500 chars):</p>
-                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px]">{{ result.raw|string|truncate(500) }}</pre>
+                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] break-words whitespace-pre-wrap">{{ result.raw|string|truncate(500) }}</pre>
                 
                 {% if result.raw is mapping and 'content' in result.raw %}
                 <div class="divider my-2"></div>
                 <p class="font-bold text-error">📝 CONTEÚDO COMPLETO DE result.raw.content:</p>
-                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] max-h-96">{{ result.raw.content }}</pre>
+                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] max-h-96 break-words whitespace-pre-wrap">{{ result.raw.content }}</pre>
                 {% endif %}
               </div>
             </div>
@@ -262,8 +299,8 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                   <i class="fas fa-copy mr-1"></i>Copiar
                 </button>
               </div>
-              <div class="max-h-96 overflow-y-auto">
-                <pre id="json_output" class="text-xs font-mono bg-base-100 p-3 rounded">{{ result.json_text | safe }}</pre>
+              <div class="max-h-96 overflow-y-auto overflow-x-auto">
+                <pre id="json_output" class="text-xs font-mono bg-base-100 p-3 rounded break-words whitespace-pre-wrap">{{ result.json_text | safe }}</pre>
               </div>
             </div>
           </div>
@@ -306,27 +343,34 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
             </div>
           </div>
         </div>
-        <div>
-          <table class="table table-xs">
+        
+        <!-- Layout responsivo: Cards em mobile, Tabela em desktop -->
+        <div class="hidden lg:block w-full">
+          <table class="table table-xs w-full">
             <thead>
               <tr class="bg-gradient-to-r from-primary to-accent text-primary-content">
-                <th class="w-16">ID</th>
-                <th>Nome</th>
-                <th>Parceiro</th>
-                <th class="text-right">CPM</th>
-                <th>Gender</th>
-                <th>Age</th>
-                <th>Parental</th>
-                <th>Dispositivo</th>
-                <th class="text-center w-24">Ações</th>
+                <th class="w-20">ID</th>
+                <th class="min-w-[200px]">Nome</th>
+                <th class="w-24">Parceiro</th>
+                <th class="text-right w-20">CPM</th>
+                <th class="text-center w-20">Ações</th>
               </tr>
             </thead>
             <tbody>
               {% for segment in segments %}
               <tr class="hover">
                 <td class="font-mono text-xs">{{ segment.id or '—' }}</td>
-                <td class="max-w-xs truncate" title="{{ segment.name_ptbr_normalized or segment.name_original }}">
-                  {{ segment.name_ptbr_normalized or segment.name_original or '—' }}
+                <td class="max-w-md">
+                  <div class="space-y-1">
+                    <p class="font-medium text-xs truncate" title="{{ segment.name_ptbr_normalized }}">
+                      {{ segment.name_ptbr_normalized or '—' }}
+                    </p>
+                    {% if segment.name_original %}
+                    <p class="text-[10px] text-base-content/60 truncate italic" title="{{ segment.name_original }}">
+                      {{ segment.name_original }}
+                    </p>
+                    {% endif %}
+                  </div>
                 </td>
                 <td>
                   <span class="badge badge-sm badge-outline text-xs">{{ segment.source or '—' }}</span>
@@ -346,10 +390,6 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                     —
                   {% endif %}
                 </td>
-                <td class="text-xs text-base-content/70">—</td>
-                <td class="text-xs text-base-content/70">—</td>
-                <td class="text-xs text-base-content/70">—</td>
-                <td class="text-xs text-base-content/70">—</td>
                 <td class="text-center">
                   <button type="button" class="btn btn-xs btn-primary btn-outline" title="Enriquecer audiência">
                     <i class="fas fa-plus"></i>
@@ -359,6 +399,53 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
               {% endfor %}
             </tbody>
           </table>
+        </div>
+
+        <!-- Cards para mobile/tablet -->
+        <div class="lg:hidden space-y-3">
+          {% for segment in segments %}
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body p-3 space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-semibold truncate" title="{{ segment.name_ptbr_normalized }}">
+                    {{ segment.name_ptbr_normalized or '—' }}
+                  </p>
+                  {% if segment.name_original %}
+                  <p class="text-[10px] text-base-content/60 truncate italic mt-0.5" title="{{ segment.name_original }}">
+                    {{ segment.name_original }}
+                  </p>
+                  {% endif %}
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="badge badge-xs badge-outline">{{ segment.source or '—' }}</span>
+                    <span class="text-xs font-mono">ID: {{ segment.id or '—' }}</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-xs btn-primary btn-outline flex-shrink-0" title="Enriquecer">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-base-content/60">CPM:</span>
+                <span class="font-mono font-semibold">
+                  {% if segment.cpm is mapping %}
+                    {% if segment.cpm.value is number %}
+                      {{ '%.2f'|format(segment.cpm.value) }}
+                    {% else %}
+                      {{ segment.cpm.value or '—' }}
+                    {% endif %}
+                  {% elif segment.cpm is number %}
+                    {{ '%.2f'|format(segment.cpm) }}
+                  {% elif segment.cpm %}
+                    {{ segment.cpm }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
         </div>
       </div>
     </div>

@@ -393,6 +393,7 @@ def init_routes(app):
                                 clientes_ativos=0,
                                 clientes_inativos=0,
                                 total_contatos=0,
+                                pessoas_stats={'fisica': {'total': 0, 'ativos': 0}, 'juridica': {'total': 0, 'ativos': 0}},
                                 atividades=[])
     
     # ==================== FORGOT PASSWORD ====================
@@ -1150,6 +1151,50 @@ def init_routes(app):
                              models=models, 
                              selected_model_id=selected_model_id,
                              categorias=categorias)
+
+    @app.route('/api/webhook-proxy', methods=['POST'])
+    @login_required
+    def webhook_proxy():
+        """Proxy para enviar dados ao webhook n8n de forma assíncrona (contorna CORS)"""
+        try:
+            import requests
+            import threading
+            
+            # URL do webhook n8n
+            webhook_url = 'https://n8n.centralcomm.media/webhook/f8702380-85c1-4a1d-8b6b-1996a9c6d822'
+            
+            # Obter dados do request
+            payload = request.get_json()
+            
+            if not payload:
+                return jsonify({'success': False, 'error': 'Payload vazio'}), 400
+            
+            # Função para enviar webhook em background
+            def send_webhook_async():
+                try:
+                    response = requests.post(
+                        webhook_url,
+                        json=payload,
+                        headers={'Content-Type': 'application/json'},
+                        timeout=60
+                    )
+                    app.logger.info(f'Webhook enviado com sucesso: {response.status_code}')
+                except Exception as e:
+                    app.logger.error(f'Erro ao enviar webhook: {str(e)}')
+            
+            # Iniciar thread para envio assíncrono
+            thread = threading.Thread(target=send_webhook_async)
+            thread.daemon = True
+            thread.start()
+            
+            # Retornar resposta imediata
+            return jsonify({
+                'success': True,
+                'message': 'Webhook enviado para processamento assíncrono'
+            }), 202
+            
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
 
     # ==================== PERCENTUAL (Fluxo de Boas-Vindas) ====================
 

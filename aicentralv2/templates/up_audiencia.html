@@ -156,6 +156,21 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
             </label>
           </div>
 
+          <!-- Subcategoria Dropdown -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">
+                <i class="fas fa-tag text-secondary mr-2"></i>Subcategoria
+              </span>
+            </label>
+            <select id="subcategoria_id" name="subcategoria_id" class="select select-bordered w-full" disabled>
+              <option value="">Selecione uma categoria primeiro</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Subcategoria específica (opcional)</span>
+            </label>
+          </div>
+
           <!-- Submit Button -->
           <div class="card-actions justify-end pt-4">
             <button id="submitBtn" type="submit" class="btn btn-primary w-full" disabled>
@@ -222,7 +237,7 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
           {% endif %}
 
           <!-- DEBUG: Mostrar estrutura do result -->
-          <details class="collapse collapse-arrow bg-warning/10 border border-warning/30" open>
+          <details class="collapse collapse-arrow bg-warning/10 border border-warning/30">
             <summary class="collapse-title text-xs font-mono cursor-pointer">
               🔍 DEBUG: Estrutura de dados (clique para expandir)
             </summary>
@@ -293,23 +308,19 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
           <!-- JSON Viewer -->
           <div class="card bg-base-200 shadow-sm">
             <div class="card-body p-4">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="font-semibold text-sm">Dados Extraídos (JSON)</h4>
-                <button type="button" id="copyJsonBtn" class="btn btn-xs btn-ghost">
-                  <i class="fas fa-copy mr-1"></i>Copiar
-                </button>
-              </div>
+              <h4 class="font-semibold text-sm mb-2">Dados Extraídos (JSON)</h4>
               <div class="max-h-96 overflow-y-auto overflow-x-auto">
                 <pre id="json_output" class="text-xs font-mono bg-base-100 p-3 rounded break-words whitespace-pre-wrap">{{ result.json_text | safe }}</pre>
               </div>
             </div>
           </div>
 
-          <!-- Action Buttons -->
-          <div class="card-actions justify-end gap-2">
-            <button type="button" onclick="retryAnalysis()" class="btn btn-ghost btn-sm">
-              <i class="fas fa-redo mr-2"></i>Nova Análise
-            </button>
+          <!-- Novo Textarea para Dados Customizados -->
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body p-4">
+              <h4 class="font-semibold text-sm mb-2">Dados Customizados (JSON)</h4>
+              <textarea id="customData" class="textarea textarea-bordered w-full text-sm font-mono" rows="12" placeholder='{"audienceSummary": {"overallReach": 1370000}, "demographics": {"gender": {"male": 0.59, "female": 0.41}}}'>{% if result %}{% set custom_obj = {} %}{% if result.fields.audienceSummary %}{% set _ = custom_obj.update({"audienceSummary": result.fields.audienceSummary}) %}{% endif %}{% if result.fields.demographics %}{% set _ = custom_obj.update({"demographics": result.fields.demographics}) %}{% endif %}{% if custom_obj %}{{ custom_obj|tojson(indent=2) }}{% endif %}{% endif %}</textarea>
+            </div>
           </div>
 
         {% else %}
@@ -391,7 +402,10 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                   {% endif %}
                 </td>
                 <td class="text-center">
-                  <button type="button" class="btn btn-xs btn-primary btn-outline" title="Enriquecer audiência">
+                  <button type="button" 
+                          class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" 
+                          title="Enriquecer audiência"
+                          data-segment='{{ segment|tojson }}'>
                     <i class="fas fa-plus"></i>
                   </button>
                 </td>
@@ -421,7 +435,10 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                     <span class="text-xs font-mono">ID: {{ segment.id or '—' }}</span>
                   </div>
                 </div>
-                <button type="button" class="btn btn-xs btn-primary btn-outline flex-shrink-0" title="Enriquecer">
+                <button type="button" 
+                        class="btn btn-xs btn-primary btn-outline flex-shrink-0 btn-enviar-webhook" 
+                        title="Enriquecer"
+                        data-segment='{{ segment|tojson }}'>
                   <i class="fas fa-plus"></i>
                 </button>
               </div>
@@ -467,6 +484,14 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
 
 {% block scripts %}
 <script>
+// Variável global para audienceSummary
+{% if result %}
+  {% set audience_summary = result.fields.audienceSummary or result.fields.audience_summary or result.raw.audienceSummary or result.raw.audience_summary or {} %}
+  window.audienceSummary = {{ audience_summary|tojson|safe }};
+{% else %}
+  window.audienceSummary = null;
+{% endif %}
+
 document.addEventListener('DOMContentLoaded', function() {
   const input = document.getElementById('upimagem');
   const dropZone = document.getElementById('dropZone');
@@ -477,6 +502,48 @@ document.addEventListener('DOMContentLoaded', function() {
   const promptEl = document.getElementById('prompt');
   const submitBtn = document.getElementById('submitBtn');
   const chooseFileBtn = document.getElementById('chooseFileBtn');
+  const categoriaSelect = document.getElementById('categoria_id');
+  const subcategoriaSelect = document.getElementById('subcategoria_id');
+
+  // Popular subcategorias quando categoria for selecionada
+  if (categoriaSelect && subcategoriaSelect) {
+    categoriaSelect.addEventListener('change', async function() {
+      const categoriaId = this.value;
+      
+      // Limpar subcategorias
+      subcategoriaSelect.innerHTML = '<option value="">Carregando...</option>';
+      subcategoriaSelect.disabled = true;
+      
+      if (!categoriaId) {
+        subcategoriaSelect.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+        return;
+      }
+      
+      try {
+        // Buscar subcategorias da categoria selecionada
+        const response = await fetch(`/api/cadu_subcategorias?categoria_id=${categoriaId}`);
+        const data = await response.json();
+        
+        // Popular dropdown
+        subcategoriaSelect.innerHTML = '<option value="">Nenhuma subcategoria</option>';
+        
+        if (data && data.length > 0) {
+          data.forEach(sub => {
+            const option = document.createElement('option');
+            option.value = sub.id;
+            option.textContent = sub.nome;
+            subcategoriaSelect.appendChild(option);
+          });
+          subcategoriaSelect.disabled = false;
+        } else {
+          subcategoriaSelect.innerHTML = '<option value="">Nenhuma subcategoria disponível</option>';
+        }
+      } catch (error) {
+        console.error('Erro ao carregar subcategorias:', error);
+        subcategoriaSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+      }
+    });
+  }
 
   // Drag & Drop
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -574,31 +641,149 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   updateSubmitState();
 
-  // Copiar JSON
-  const copyBtn = document.getElementById('copyJsonBtn');
-  const jsonOutput = document.getElementById('json_output');
-  if (copyBtn && jsonOutput) {
-    copyBtn.addEventListener('click', async () => {
+  // Event delegation para botões de webhook
+  document.addEventListener('click', async function(e) {
+    const button = e.target.closest('.btn-enviar-webhook');
+    if (!button) return;
+    
+    e.preventDefault();
+    
+    // Usar proxy local para contornar CORS
+    const webhookUrl = '{{ url_for("webhook_proxy") }}';
+    
+    // Obter dados completos da lista
+    let segmentData;
+    try {
+      segmentData = JSON.parse(button.getAttribute('data-segment'));
+    } catch (error) {
+      console.error('Erro ao parsear dados do segment:', error);
+      alert('Erro ao processar dados da audiência');
+      return;
+    }
+    
+    // Obter categoria selecionada
+    const categoriaSelect = document.getElementById('categoria_id');
+    const categoriaId = categoriaSelect ? categoriaSelect.value : null;
+    const categoriaNome = categoriaSelect ? categoriaSelect.options[categoriaSelect.selectedIndex]?.text : null;
+    
+    // Obter subcategoria selecionada
+    const subcategoriaSelect = document.getElementById('subcategoria_id');
+    const subcategoriaId = subcategoriaSelect ? subcategoriaSelect.value : null;
+    const subcategoriaNome = subcategoriaSelect && subcategoriaId ? subcategoriaSelect.options[subcategoriaSelect.selectedIndex]?.text : null;
+    
+    // Obter dados customizados do textarea
+    let customData = {};
+    const customDataTextarea = document.getElementById('customData');
+    if (customDataTextarea && customDataTextarea.value.trim()) {
       try {
-        const text = jsonOutput.textContent || jsonOutput.innerText;
-        await navigator.clipboard.writeText(text);
-        const originalHTML = copyBtn.innerHTML;
-        copyBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Copiado!';
-        copyBtn.classList.add('btn-success');
-        setTimeout(() => {
-          copyBtn.innerHTML = originalHTML;
-          copyBtn.classList.remove('btn-success');
-        }, 2000);
-      } catch (e) {
-        console.error('Erro ao copiar:', e);
+        const jsonText = customDataTextarea.value.trim();
+        customData = JSON.parse(jsonText);
+        console.log('Dados customizados parseados:', customData);
+      } catch (error) {
+        console.error('Erro ao parsear dados customizados:', error);
+        console.error('Texto que causou erro:', customDataTextarea.value);
+        
+        // Tentar identificar a posição do erro
+        let errorMsg = 'Erro: O JSON dos dados customizados é inválido.';
+        if (error.message.includes('position')) {
+          const match = error.message.match(/position (\d+)/);
+          if (match) {
+            const pos = parseInt(match[1]);
+            errorMsg += `\n\nErro na posição ${pos}: "${customDataTextarea.value.substring(Math.max(0, pos-10), pos+10)}"`;
+          }
+        }
+        errorMsg += '\n\n' + error.message;
+        
+        alert(errorMsg);
+        return;
       }
-    });
-  }
-
-  // Retry Analysis
-  window.retryAnalysis = function() {
-    window.location.reload();
-  };
+    }
+    
+    // Preparar payload - dados do segment + dados estruturados do textarea
+    const payload = {
+      id: segmentData.id,
+      name_original: segmentData.name_original,
+      name_ptbr_normalized: segmentData.name_ptbr_normalized,
+      source: segmentData.source,
+      cpm: segmentData.cpm,
+      categoria_id: categoriaId,
+      categoria_nome: categoriaNome,
+      subcategoria_id: subcategoriaId,
+      subcategoria_nome: subcategoriaNome,
+      audienceSummary: customData.audienceSummary || null,
+      demographics: customData.demographics || null,
+      timestamp: new Date().toISOString(),
+      source_page: 'up_audiencia'
+    };
+    
+    console.log('Enviando payload:', payload);
+    
+    // Salvar estado original do botão
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        // Sucesso
+        button.innerHTML = '<i class="fas fa-check"></i>';
+        button.classList.remove('btn-outline');
+        button.classList.add('btn-success');
+        
+        // Mostrar toast de sucesso
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-end';
+        toast.innerHTML = `
+          <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            <span>Audiência enviada com sucesso!</span>
+          </div>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+        
+      } else {
+        const errorText = await response.text();
+        console.error('Resposta do webhook:', response.status, errorText);
+        throw new Error(`Webhook retornou status ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Erro ao enviar webhook:', error);
+      console.error('Detalhes:', error.message);
+      
+      // Erro
+      button.innerHTML = '<i class="fas fa-times"></i>';
+      button.classList.add('btn-error');
+      
+      // Mostrar toast de erro
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-top toast-end';
+      toast.innerHTML = `
+        <div class="alert alert-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <span>Erro ao enviar: ${error.message}</span>
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+      
+      // Restaurar botão após 2 segundos
+      setTimeout(() => {
+        button.innerHTML = originalHTML;
+        button.disabled = false;
+        button.classList.remove('btn-error');
+        button.classList.add('btn-outline');
+      }, 2000);
+    }
+  });
 
   // Loading Overlay on Submit
   const form = document.getElementById('upAudienciaForm');

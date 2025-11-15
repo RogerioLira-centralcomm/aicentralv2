@@ -2041,49 +2041,378 @@ def excluir_cadu_subcategoria(id_subcategoria):
         conn.rollback()
         raise e
     
-# --- Modelo da tabela cadu_audiencias ---
+# ==================== CADU AUDIÊNCIAS - MODELO ====================
+
 class CaduAudiencias:
-    def __init__(self, id, nome, descricao, slug, publico_estimado, publico_numero, categoria_id, categoria, subcategoria, tags, tamanho,
-                 demografia_homens=50, demografia_mulheres=50, idade_18_24=25, idade_25_34=35, idade_35_44=25, idade_45_mais=15,
+    """Modelo da tabela cadu_audiencias - Catálogo de Audiências"""
+    
+    def __init__(self, id, id_audiencia_plataforma, fonte, nome, slug, 
+                 categoria_id, subcategoria_id=None,
+                 titulo_chamativo=None, descricao=None, descricao_curta=None, 
+                 descricao_comercial=None, descricao_ia=None,
+                 storytelling=None, caso_uso_principal=None, 
+                 insights_planejamento=None, diferenciais_competitivos=None,
+                 tags=None, publico_estimado=None, publico_numero=None, 
+                 tamanho='media',
+                 # Demografia
+                 demografia_homens=50, demografia_mulheres=50,
+                 idade_18_24=18, idade_25_34=20, idade_35_44=19, idade_45_mais=43,
+                 # Dispositivos
                  dispositivo_mobile=60, dispositivo_desktop=35, dispositivo_tablet=5,
-                 cpm_estimado=None, cpm_minimo=None, cpm_maximo=None,
-                 descricao_comercial=None, descricao_ia=None, relevancia_score=0, fonte='MOCK',
-                 dv360_id=None, dv360_advertiser_id=None, is_active=True, is_premium=False,
+                 # Perfil Socioeconômico
+                 perfil_socioeconomico='BC', grau_instrucao='Não especificado',
+                 estado_civil_predominante='Não especificado',
+                 # Pricing
+                 cpm_custo=None, cpm_venda=None, cpm_minimo=None, cpm_maximo=None,
+                 # Performance e Consumo
+                 perfil_consumo=None, momentos_chave=None, interesses_correlatos=None,
+                 ctr_medio_estimado=None, taxa_conversao_estimada=None,
+                 cpa_estimado_min=None, cpa_estimado_max=None,
+                 categorias_alto_desempenho=None, tamanho_mercado_brl=None,
+                 ticket_medio_estimado=None, propensao_compra='media', sazonalidade=None,
+                 # Métricas e Overlaps
+                 relevancia_score=0, overlap_facebook=0, overlap_google=0,
+                 alcance_incremental=None,
+                 # Status e Flags
+                 is_premium=False, is_active=True,
                  views_count=0, added_to_cart_count=0, quoted_count=0,
-                 created_at=None, updated_at=None):
+                 # Validação e Qualidade
+                 confiabilidade_score=0, dados_validos=True,
+                 campos_estimados_total=0, campos_com_dados_reais=0,
+                 versao_pipeline='1.0', validacao_final=None,
+                 # Metadados
+                 metadados_geracao=None, pipeline_tracking=None,
+                 data_processamento=None, created_at=None, updated_at=None):
+        
+        # Identificação
         self.id = id
+        self.id_audiencia_plataforma = id_audiencia_plataforma
+        self.fonte = fonte
         self.nome = nome
-        self.descricao = descricao
         self.slug = slug
+        
+        # Textos e Descrições
+        self.titulo_chamativo = titulo_chamativo
+        self.descricao = descricao
+        self.descricao_curta = descricao_curta
+        self.descricao_comercial = descricao_comercial
+        self.descricao_ia = descricao_ia
+        self.storytelling = storytelling
+        self.caso_uso_principal = caso_uso_principal
+        self.insights_planejamento = insights_planejamento
+        self.diferenciais_competitivos = diferenciais_competitivos
+        
+        # Categorização
+        self.categoria_id = categoria_id
+        self.subcategoria_id = subcategoria_id
+        self.tags = tags or []
+        
+        # Público
         self.publico_estimado = publico_estimado
         self.publico_numero = publico_numero
-        self.categoria_id = categoria_id
-        self.categoria = categoria
-        self.subcategoria = subcategoria
-        self.tags = tags
         self.tamanho = tamanho
+        
+        # Demografia
         self.demografia_homens = demografia_homens
         self.demografia_mulheres = demografia_mulheres
         self.idade_18_24 = idade_18_24
         self.idade_25_34 = idade_25_34
         self.idade_35_44 = idade_35_44
         self.idade_45_mais = idade_45_mais
+        
+        # Dispositivos
         self.dispositivo_mobile = dispositivo_mobile
         self.dispositivo_desktop = dispositivo_desktop
         self.dispositivo_tablet = dispositivo_tablet
-        self.cpm_estimado = cpm_estimado
+        
+        # Perfil Socioeconômico
+        self.perfil_socioeconomico = perfil_socioeconomico
+        self.grau_instrucao = grau_instrucao
+        self.estado_civil_predominante = estado_civil_predominante
+        
+        # Pricing
+        self.cpm_custo = cpm_custo
+        self.cpm_venda = cpm_venda
         self.cpm_minimo = cpm_minimo
         self.cpm_maximo = cpm_maximo
-        self.descricao_comercial = descricao_comercial
-        self.descricao_ia = descricao_ia
+        
+        # Performance e Consumo
+        self.perfil_consumo = perfil_consumo
+        self.momentos_chave = momentos_chave or []
+        self.interesses_correlatos = interesses_correlatos or []
+        self.ctr_medio_estimado = ctr_medio_estimado
+        self.taxa_conversao_estimada = taxa_conversao_estimada
+        self.cpa_estimado_min = cpa_estimado_min
+        self.cpa_estimado_max = cpa_estimado_max
+        self.categorias_alto_desempenho = categorias_alto_desempenho or []
+        self.tamanho_mercado_brl = tamanho_mercado_brl
+        self.ticket_medio_estimado = ticket_medio_estimado
+        self.propensao_compra = propensao_compra
+        self.sazonalidade = sazonalidade
+        
+        # Métricas e Overlaps
         self.relevancia_score = relevancia_score
-        self.fonte = fonte
-        self.dv360_id = dv360_id
-        self.dv360_advertiser_id = dv360_advertiser_id
-        self.is_active = is_active
+        self.overlap_facebook = overlap_facebook
+        self.overlap_google = overlap_google
+        self.alcance_incremental = alcance_incremental
+        
+        # Status e Flags
         self.is_premium = is_premium
+        self.is_active = is_active
         self.views_count = views_count
         self.added_to_cart_count = added_to_cart_count
         self.quoted_count = quoted_count
+        
+        # Validação e Qualidade
+        self.confiabilidade_score = confiabilidade_score
+        self.dados_validos = dados_validos
+        self.campos_estimados_total = campos_estimados_total
+        self.campos_com_dados_reais = campos_com_dados_reais
+        self.versao_pipeline = versao_pipeline
+        self.validacao_final = validacao_final
+        
+        # Metadados
+        self.metadados_geracao = metadados_geracao
+        self.pipeline_tracking = pipeline_tracking
+        self.data_processamento = data_processamento
         self.created_at = created_at
         self.updated_at = updated_at
+    
+    def to_dict(self):
+        """Converte a instância para dicionário"""
+        return {
+            'id': self.id,
+            'id_audiencia_plataforma': self.id_audiencia_plataforma,
+            'fonte': self.fonte,
+            'nome': self.nome,
+            'slug': self.slug,
+            'titulo_chamativo': self.titulo_chamativo,
+            'descricao': self.descricao,
+            'descricao_curta': self.descricao_curta,
+            'descricao_comercial': self.descricao_comercial,
+            'descricao_ia': self.descricao_ia,
+            'storytelling': self.storytelling,
+            'caso_uso_principal': self.caso_uso_principal,
+            'insights_planejamento': self.insights_planejamento,
+            'diferenciais_competitivos': self.diferenciais_competitivos,
+            'categoria_id': self.categoria_id,
+            'subcategoria_id': self.subcategoria_id,
+            'tags': self.tags,
+            'publico_estimado': self.publico_estimado,
+            'publico_numero': self.publico_numero,
+            'tamanho': self.tamanho,
+            'demografia_homens': self.demografia_homens,
+            'demografia_mulheres': self.demografia_mulheres,
+            'idade_18_24': self.idade_18_24,
+            'idade_25_34': self.idade_25_34,
+            'idade_35_44': self.idade_35_44,
+            'idade_45_mais': self.idade_45_mais,
+            'dispositivo_mobile': self.dispositivo_mobile,
+            'dispositivo_desktop': self.dispositivo_desktop,
+            'dispositivo_tablet': self.dispositivo_tablet,
+            'perfil_socioeconomico': self.perfil_socioeconomico,
+            'grau_instrucao': self.grau_instrucao,
+            'estado_civil_predominante': self.estado_civil_predominante,
+            'cpm_custo': float(self.cpm_custo) if self.cpm_custo else None,
+            'cpm_venda': float(self.cpm_venda) if self.cpm_venda else None,
+            'cpm_minimo': float(self.cpm_minimo) if self.cpm_minimo else None,
+            'cpm_maximo': float(self.cpm_maximo) if self.cpm_maximo else None,
+            'perfil_consumo': self.perfil_consumo,
+            'momentos_chave': self.momentos_chave,
+            'interesses_correlatos': self.interesses_correlatos,
+            'ctr_medio_estimado': float(self.ctr_medio_estimado) if self.ctr_medio_estimado else None,
+            'taxa_conversao_estimada': float(self.taxa_conversao_estimada) if self.taxa_conversao_estimada else None,
+            'cpa_estimado_min': float(self.cpa_estimado_min) if self.cpa_estimado_min else None,
+            'cpa_estimado_max': float(self.cpa_estimado_max) if self.cpa_estimado_max else None,
+            'categorias_alto_desempenho': self.categorias_alto_desempenho,
+            'tamanho_mercado_brl': self.tamanho_mercado_brl,
+            'ticket_medio_estimado': float(self.ticket_medio_estimado) if self.ticket_medio_estimado else None,
+            'propensao_compra': self.propensao_compra,
+            'sazonalidade': self.sazonalidade,
+            'relevancia_score': self.relevancia_score,
+            'overlap_facebook': self.overlap_facebook,
+            'overlap_google': self.overlap_google,
+            'alcance_incremental': self.alcance_incremental,
+            'is_premium': self.is_premium,
+            'is_active': self.is_active,
+            'views_count': self.views_count,
+            'added_to_cart_count': self.added_to_cart_count,
+            'quoted_count': self.quoted_count,
+            'confiabilidade_score': self.confiabilidade_score,
+            'dados_validos': self.dados_validos,
+            'campos_estimados_total': self.campos_estimados_total,
+            'campos_com_dados_reais': self.campos_com_dados_reais,
+            'versao_pipeline': self.versao_pipeline,
+            'validacao_final': self.validacao_final,
+            'metadados_geracao': self.metadados_geracao,
+            'pipeline_tracking': self.pipeline_tracking,
+            'data_processamento': self.data_processamento,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
+        }
+
+# ==================== CADU AUDIÊNCIAS - CRUD ====================
+
+def obter_cadu_audiencias():
+    """Retorna todas as audiências do catálogo com informações de categoria e subcategoria"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    a.id,
+                    a.id_audiencia_plataforma,
+                    a.fonte,
+                    a.nome,
+                    a.slug,
+                    a.categoria_id,
+                    a.subcategoria_id,
+                    a.campos_com_dados_reais,
+                    a.cpm_custo,
+                    a.is_active,
+                    a.created_at,
+                    a.updated_at,
+                    c.nome as categoria_nome,
+                    s.nome as subcategoria_nome
+                FROM cadu_audiencias a
+                LEFT JOIN cadu_categorias c ON a.categoria_id = c.id
+                LEFT JOIN cadu_subcategorias s ON a.subcategoria_id = s.id
+                ORDER BY a.created_at DESC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+def obter_cadu_audiencia_por_id(id_audiencia):
+    """Retorna uma audiência específica por ID com todas as informações"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    a.*,
+                    c.nome as categoria_nome,
+                    s.nome as subcategoria_nome
+                FROM cadu_audiencias a
+                LEFT JOIN cadu_categorias c ON a.categoria_id = c.id
+                LEFT JOIN cadu_subcategorias s ON a.subcategoria_id = s.id
+                WHERE a.id = %s
+            ''', (id_audiencia,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+def criar_cadu_audiencia(dados):
+    """Cria uma nova audiência no catálogo"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_audiencias (
+                    id_audiencia_plataforma, fonte, nome, slug, 
+                    titulo_chamativo, descricao, descricao_curta, descricao_comercial,
+                    cpm_custo, cpm_venda, cpm_minimo, cpm_maximo,
+                    categoria_id, subcategoria_id, is_active
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                ) RETURNING id
+            ''', (
+                dados.get('id_audiencia_plataforma'),
+                dados.get('fonte'),
+                dados.get('nome'),
+                dados.get('slug'),
+                dados.get('titulo_chamativo'),
+                dados.get('descricao'),
+                dados.get('descricao_curta'),
+                dados.get('descricao_comercial'),
+                dados.get('cpm_custo'),
+                dados.get('cpm_venda'),
+                dados.get('cpm_minimo'),
+                dados.get('cpm_maximo'),
+                dados.get('categoria_id'),
+                dados.get('subcategoria_id'),
+                dados.get('is_active', True)
+            ))
+            novo_id = cursor.fetchone()['id']
+            conn.commit()
+            return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def atualizar_cadu_audiencia(id_audiencia, dados):
+    """Atualiza uma audiência existente (não atualiza is_active - usar toggle)"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_audiencias
+                SET id_audiencia_plataforma = %s,
+                    fonte = %s,
+                    nome = %s,
+                    slug = %s,
+                    titulo_chamativo = %s,
+                    descricao = %s,
+                    descricao_curta = %s,
+                    descricao_comercial = %s,
+                    cpm_custo = %s,
+                    cpm_venda = %s,
+                    cpm_minimo = %s,
+                    cpm_maximo = %s,
+                    categoria_id = %s,
+                    subcategoria_id = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (
+                dados.get('id_audiencia_plataforma'),
+                dados.get('fonte'),
+                dados.get('nome'),
+                dados.get('slug'),
+                dados.get('titulo_chamativo'),
+                dados.get('descricao'),
+                dados.get('descricao_curta'),
+                dados.get('descricao_comercial'),
+                dados.get('cpm_custo'),
+                dados.get('cpm_venda'),
+                dados.get('cpm_minimo'),
+                dados.get('cpm_maximo'),
+                dados.get('categoria_id'),
+                dados.get('subcategoria_id'),
+                id_audiencia
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def excluir_cadu_audiencia(id_audiencia):
+    """Exclui uma audiência do catálogo"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_audiencias WHERE id = %s', (id_audiencia,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def toggle_status_cadu_audiencia(id_audiencia):
+    """Alterna o status ativo/inativo de uma audiência"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_audiencias
+                SET is_active = NOT is_active,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING is_active
+            ''', (id_audiencia,))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['is_active'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e

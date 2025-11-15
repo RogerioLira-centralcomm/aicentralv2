@@ -402,12 +402,20 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                   {% endif %}
                 </td>
                 <td class="text-center">
-                  <button type="button" 
-                          class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" 
-                          title="Enriquecer audiência"
-                          data-segment='{{ segment|tojson }}'>
-                    <i class="fas fa-plus"></i>
-                  </button>
+                  <div class="flex items-center justify-center gap-1">
+                    <button type="button" 
+                            class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" 
+                            title="Enriquecer audiência"
+                            data-segment='{{ segment|tojson }}'>
+                      <i class="fas fa-plus"></i>
+                    </button>
+                    <button type="button" 
+                            class="btn btn-xs btn-ghost btn-reenviar-webhook hidden" 
+                            title="Reenviar enriquecimento"
+                            data-segment='{{ segment|tojson }}'>
+                      <i class="fas fa-redo"></i>
+                    </button>
+                  </div>
                 </td>
               </tr>
               {% endfor %}
@@ -435,12 +443,20 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                     <span class="text-xs font-mono">ID: {{ segment.id or '—' }}</span>
                   </div>
                 </div>
-                <button type="button" 
-                        class="btn btn-xs btn-primary btn-outline flex-shrink-0 btn-enviar-webhook" 
-                        title="Enriquecer"
-                        data-segment='{{ segment|tojson }}'>
-                  <i class="fas fa-plus"></i>
-                </button>
+                <div class="flex flex-col gap-1 flex-shrink-0">
+                  <button type="button" 
+                          class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" 
+                          title="Enriquecer"
+                          data-segment='{{ segment|tojson }}'>
+                    <i class="fas fa-plus"></i>
+                  </button>
+                  <button type="button" 
+                          class="btn btn-xs btn-ghost btn-reenviar-webhook hidden" 
+                          title="Reenviar"
+                          data-segment='{{ segment|tojson }}'>
+                    <i class="fas fa-redo"></i>
+                  </button>
+                </div>
               </div>
               <div class="flex items-center justify-between text-xs">
                 <span class="text-base-content/60">CPM:</span>
@@ -641,12 +657,14 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   updateSubmitState();
 
-  // Event delegation para botões de webhook
+  // Event delegation para botões de webhook (enviar e reenviar)
   document.addEventListener('click', async function(e) {
-    const button = e.target.closest('.btn-enviar-webhook');
+    const button = e.target.closest('.btn-enviar-webhook, .btn-reenviar-webhook');
     if (!button) return;
     
     e.preventDefault();
+    
+    const isResend = button.classList.contains('btn-reenviar-webhook');
     
     // Usar proxy local para contornar CORS
     const webhookUrl = '{{ url_for("webhook_proxy") }}';
@@ -738,13 +756,23 @@ document.addEventListener('DOMContentLoaded', function() {
         button.classList.remove('btn-outline');
         button.classList.add('btn-success');
         
+        // Se foi envio inicial, mostrar botão de reenvio
+        if (!isResend) {
+          // Encontrar o botão de reenvio correspondente (mesmo card/row)
+          const container = button.closest('td, .card-body');
+          const resendBtn = container?.querySelector('.btn-reenviar-webhook');
+          if (resendBtn) {
+            resendBtn.classList.remove('hidden');
+          }
+        }
+        
         // Mostrar toast de sucesso
         const toast = document.createElement('div');
         toast.className = 'toast toast-top toast-end';
         toast.innerHTML = `
           <div class="alert alert-success">
             <i class="fas fa-check-circle"></i>
-            <span>Audiência enviada com sucesso!</span>
+            <span>${isResend ? 'Reenviado' : 'Enviado'} com sucesso!</span>
           </div>
         `;
         document.body.appendChild(toast);
@@ -775,12 +803,14 @@ document.addEventListener('DOMContentLoaded', function() {
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
       
-      // Restaurar botão após 2 segundos
+      // Restaurar botão após 2 segundos (apenas se foi erro)
       setTimeout(() => {
         button.innerHTML = originalHTML;
         button.disabled = false;
         button.classList.remove('btn-error');
-        button.classList.add('btn-outline');
+        if (!isResend) {
+          button.classList.add('btn-outline');
+        }
       }, 2000);
     }
   });

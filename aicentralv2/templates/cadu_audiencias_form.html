@@ -1,0 +1,368 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{{ 'Editar' if audiencia else 'Nova' }} Audiência - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="mb-6">
+    <div class="flex items-center gap-2 mb-2">
+      <a href="{{ url_for('cadu_audiencias') }}" class="btn btn-ghost btn-sm btn-circle">
+        <i class="fas fa-arrow-left"></i>
+      </a>
+      <h1 class="text-lg font-semibold">{{ 'Editar' if audiencia else 'Nova' }} Audiência</h1>
+    </div>
+    <p class="text-sm text-base-content/70 ml-11">
+      Preencha os dados da audiência para o catálogo.
+    </p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" class="bg-base-100 rounded-xl shadow-lg p-6">
+    <div class="space-y-6">
+      <!-- Seção: Identificação -->
+      <div>
+        <h2 class="text-base font-semibold mb-4 pb-2 border-b border-base-300">
+          <i class="fas fa-id-card mr-2 text-primary"></i>Identificação
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">ID da Plataforma <span class="text-error">*</span></span>
+            </label>
+            <input 
+              type="text" 
+              name="id_audiencia_plataforma" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.id_audiencia_plataforma if audiencia else '' }}"
+              required
+              placeholder="Ex: 1234567890">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Identificador único da plataforma (DV360, etc)</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Fonte</span>
+            </label>
+            <input 
+              type="text" 
+              name="fonte" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.fonte if audiencia else '' }}"
+              placeholder="Ex: Navegg, LiveRamp">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Fonte</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Nome da Audiência <span class="text-error">*</span></span>
+            </label>
+            <input 
+              type="text" 
+              name="nome" 
+              id="nome"
+              class="input input-bordered input-sm"
+              value="{{ audiencia.nome if audiencia else '' }}"
+              required
+              placeholder="Ex: Interessados em Tecnologia">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Nome descritivo da audiência</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Slug <span class="text-error">*</span></span>
+            </label>
+            <input 
+              type="text" 
+              name="slug" 
+              id="slug"
+              class="input input-bordered input-sm"
+              value="{{ audiencia.slug if audiencia else '' }}"
+              required
+              placeholder="interessados-em-tecnologia">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">URL amigável (gerado automaticamente)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Descrições -->
+      <div>
+        <h2 class="text-base font-semibold mb-4 pb-2 border-b border-base-300">
+          <i class="fas fa-align-left mr-2 text-primary"></i>Descrições
+        </h2>
+        
+        <div class="grid grid-cols-1 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Título Chamativo</span>
+            </label>
+            <input 
+              type="text" 
+              name="titulo_chamativo" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.titulo_chamativo if audiencia else '' }}"
+              placeholder="Ex: Conquiste consumidores de tecnologia">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Título atrativo para marketing</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Descrição Curta</span>
+            </label>
+            <textarea 
+              name="descricao_curta" 
+              class="textarea textarea-bordered h-20"
+              placeholder="Descrição resumida da audiência (1-2 linhas)"
+            >{{ audiencia.descricao_curta if audiencia else '' }}</textarea>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Resumo para listagens e cards</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Descrição</span>
+            </label>
+            <textarea 
+              name="descricao" 
+              class="textarea textarea-bordered h-32"
+              placeholder="Descrição detalhada da audiência, características e comportamentos"
+            >{{ audiencia.descricao if audiencia else '' }}</textarea>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Descrição completa para página de detalhes</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Descrição Comercial</span>
+            </label>
+            <textarea 
+              name="descricao_comercial" 
+              class="textarea textarea-bordered h-24"
+              placeholder="Pitch de vendas, benefícios e diferenciais para clientes"
+            >{{ audiencia.descricao_comercial if audiencia else '' }}</textarea>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Texto orientado para vendas</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Precificação -->
+      <div>
+        <h2 class="text-base font-semibold mb-4 pb-2 border-b border-base-300">
+          <i class="fas fa-dollar-sign mr-2 text-primary"></i>Precificação (CPM)
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">CPM Custo</span>
+            </label>
+            <input 
+              type="number" 
+              step="0.01"
+              name="cpm_custo" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.cpm_custo if audiencia else '' }}"
+              placeholder="0.00">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Custo por mil impressões (R$)</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">CPM Venda</span>
+            </label>
+            <input 
+              type="number" 
+              step="0.01"
+              name="cpm_venda" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.cpm_venda if audiencia else '' }}"
+              placeholder="0.00">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Preço de venda por mil impressões (R$)</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">CPM Mínimo</span>
+            </label>
+            <input 
+              type="number" 
+              step="0.01"
+              name="cpm_minimo" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.cpm_minimo if audiencia else '' }}"
+              placeholder="0.00">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Valor mínimo aceitável (R$)</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">CPM Máximo</span>
+            </label>
+            <input 
+              type="number" 
+              step="0.01"
+              name="cpm_maximo" 
+              class="input input-bordered input-sm"
+              value="{{ audiencia.cpm_maximo if audiencia else '' }}"
+              placeholder="0.00">
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Valor máximo praticado (R$)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Categorização -->
+      <div>
+        <h2 class="text-base font-semibold mb-4 pb-2 border-b border-base-300">
+          <i class="fas fa-tags mr-2 text-primary"></i>Categorização
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Categoria <span class="text-error">*</span></span>
+            </label>
+            <select name="categoria_id" id="categoria_id" class="select select-bordered w-full h-10 min-h-10" required>
+              <option value="">Selecione uma categoria</option>
+              {% for categoria in categorias %}
+                <option value="{{ categoria.id }}" 
+                  {{ 'selected' if audiencia and audiencia.categoria_id == categoria.id else '' }}>
+                  {{ categoria.nome }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Subcategoria</span>
+            </label>
+            <select name="subcategoria_id" id="subcategoria_id" class="select select-bordered w-full h-10 min-h-10">
+              <option value="">Selecione uma subcategoria</option>
+              {% if audiencia and audiencia.subcategoria_id %}
+                {% for subcategoria in subcategorias %}
+                  {% if subcategoria.categoria_id == audiencia.categoria_id %}
+                    <option value="{{ subcategoria.id }}" 
+                      {{ 'selected' if subcategoria.id == audiencia.subcategoria_id else '' }}>
+                      {{ subcategoria.nome }}
+                    </option>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/60">Carregado dinamicamente conforme categoria</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-base-300">
+        <button type="submit" class="btn btn-primary flex-1 sm:flex-none">
+          <i class="fas fa-save mr-2"></i>
+          {{ 'Atualizar' if audiencia else 'Cadastrar' }} Audiência
+        </button>
+        <a href="{{ url_for('cadu_audiencias') }}" class="btn btn-ghost flex-1 sm:flex-none">
+          <i class="fas fa-times mr-2"></i>Cancelar
+        </a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const nomeInput = document.getElementById('nome');
+  const slugInput = document.getElementById('slug');
+  const categoriaSelect = document.getElementById('categoria_id');
+  const subcategoriaSelect = document.getElementById('subcategoria_id');
+
+  // Auto-gerar slug a partir do nome
+  nomeInput.addEventListener('input', function() {
+    if (!slugInput.dataset.manual) {
+      const slug = this.value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      slugInput.value = slug;
+    }
+  });
+
+  // Marcar como manual se usuário editar o slug diretamente
+  slugInput.addEventListener('input', function() {
+    this.dataset.manual = 'true';
+  });
+
+  // Carregar subcategorias dinamicamente ao trocar categoria
+  categoriaSelect.addEventListener('change', async function() {
+    const categoriaId = this.value;
+    subcategoriaSelect.innerHTML = '<option value="">Carregando...</option>';
+    subcategoriaSelect.disabled = true;
+
+    if (!categoriaId) {
+      subcategoriaSelect.innerHTML = '<option value="">Selecione uma subcategoria</option>';
+      subcategoriaSelect.disabled = false;
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/cadu-subcategorias?categoria_id=${categoriaId}`);
+      const data = await response.json();
+
+      subcategoriaSelect.innerHTML = '<option value="">Selecione uma subcategoria</option>';
+      
+      if (data.subcategorias && data.subcategorias.length > 0) {
+        data.subcategorias.forEach(sub => {
+          const option = document.createElement('option');
+          option.value = sub.id;
+          option.textContent = sub.nome;
+          subcategoriaSelect.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar subcategorias:', error);
+      subcategoriaSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+    } finally {
+      subcategoriaSelect.disabled = false;
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,8 +1,489 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}Cadu Audiências - CentralComm AI{% endblock %}
+{% block title %}Base de Audiências - CentralComm AI{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Cadu Audiências</h1>
-<p>Em breve: listagem e gestão das audiências cadastradas.</p>
+<div class="max-w-7xl mx-auto">
+  <div class="mb-3">
+    <h1 class="text-lg font-semibold leading-tight">Base de Audiências</h1>
+    <p class="text-sm text-base-content/70">Catálogo completo de audiências disponíveis para campanhas.</p>
+  </div>
+
+  <!-- Filtros -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Categoria</span>
+        </label>
+        <select id="filtro-categoria" class="select select-bordered w-full h-10 min-h-10">
+          <option value="" selected>Todas as categorias</option>
+          {% for categoria in categorias %}
+            <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Subcategoria</span>
+        </label>
+        <select id="filtro-subcategoria" class="select select-bordered w-full h-10 min-h-10" disabled>
+          <option value="" selected>Todas as subcategorias</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text opacity-0">Ações</span>
+        </label>
+        <button type="button" id="btn-limpar-filtros" class="btn btn-ghost btn-sm w-full h-10">
+          <i class="fas fa-times mr-2"></i>Limpar Filtros
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Stats Cards -->
+  {% if stats %}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+    <div class="bg-base-100 border border-base-300 rounded-lg p-3 shadow-sm">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 uppercase">Total</p>
+          <p class="text-lg font-semibold">{{ stats.total }}</p>
+        </div>
+        <i class="fas fa-users text-xl text-base-content/20"></i>
+      </div>
+    </div>
+    <div class="bg-base-100 border border-success/30 rounded-lg p-3 shadow-sm">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 uppercase">Ativas</p>
+          <p class="text-lg font-semibold text-success">{{ stats.ativos }}</p>
+        </div>
+        <i class="fas fa-check-circle text-xl text-success/20"></i>
+      </div>
+    </div>
+    <div class="bg-base-100 border border-error/30 rounded-lg p-3 shadow-sm">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 uppercase">Inativas</p>
+          <p class="text-lg font-semibold text-error">{{ stats.inativos }}</p>
+        </div>
+        <i class="fas fa-ban text-xl text-error/20"></i>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Desktop Table -->
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden hidden md:block">
+    {% if audiencias %}
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">ID Plataforma</th>
+              <th class="text-left font-bold uppercase">Fonte</th>
+              <th class="text-left font-bold uppercase">Nome</th>
+              <th class="text-left font-bold uppercase">Categoria</th>
+              <th class="text-left font-bold uppercase">Subcategoria</th>
+              <th class="text-center font-bold uppercase w-24">Dados Reais</th>
+              <th class="text-center font-bold uppercase w-20">CPM</th>
+              <th class="text-center font-bold uppercase w-24">Status</th>
+              <th class="text-center font-bold uppercase w-32">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for audiencia in audiencias %}
+            <tr class="hover">
+              <td>
+                <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+              </td>
+              <td>
+                <span class="badge badge-sm badge-outline">{{ audiencia.fonte }}</span>
+              </td>
+              <td>
+                <div class="font-semibold text-base-content">{{ audiencia.nome }}</div>
+                {% if audiencia.slug %}
+                  <div class="text-xs text-base-content/60">{{ audiencia.slug }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if audiencia.categoria_nome %}
+                  <span class="text-base-content">{{ audiencia.categoria_nome }}</span>
+                {% else %}
+                  <span class="text-base-content/40 italic">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if audiencia.subcategoria_nome %}
+                  <span class="text-base-content/80">{{ audiencia.subcategoria_nome }}</span>
+                {% else %}
+                  <span class="text-base-content/40 italic">-</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm {% if audiencia.campos_com_dados_reais and audiencia.campos_com_dados_reais > 0 %}badge-info{% else %}badge-ghost{% endif %}">
+                  {{ audiencia.campos_com_dados_reais or 0 }}
+                </span>
+              </td>
+              <td class="text-center">
+                {% if audiencia.cpm_custo %}
+                  <span class="font-mono text-sm">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
+                {% else %}
+                  <span class="text-base-content/40 italic">-</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                  {% if audiencia.is_active %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
+                  {% if audiencia.is_active %}
+                    <i class="fas fa-check-circle mr-1 text-green-500"></i>
+                  {% else %}
+                    <i class="fas fa-ban mr-1 text-red-500"></i>
+                  {% endif %}
+                  {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
+                </span>
+              </td>
+              <td>
+                <div class="flex items-center justify-center gap-1">
+                  <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" 
+                     class="btn btn-xs btn-circle btn-outline btn-primary" 
+                     title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <button type="button" 
+                          class="btn btn-xs btn-circle btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"
+                          data-audiencia-id="{{ audiencia.id }}"
+                          title="{% if audiencia.is_active %}Desativar{% else %}Ativar{% endif %}">
+                    <i class="fas {% if audiencia.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                  </button>
+                  <button type="button" 
+                          class="btn btn-xs btn-circle btn-outline btn-error btn-delete"
+                          data-audiencia-id="{{ audiencia.id }}"
+                          data-audiencia-nome="{{ audiencia.nome }}"
+                          title="Deletar">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-8">
+        <p class="text-base-content/60 text-sm">Nenhuma audiência cadastrada.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Mobile Cards -->
+  <div class="block md:hidden space-y-4">
+    {% if audiencias %}
+      {% for audiencia in audiencias %}
+      <div class="card bg-base-100 shadow-lg">
+        <div class="card-body p-4">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex-1">
+              <h3 class="font-semibold text-sm mb-1">{{ audiencia.nome }}</h3>
+              <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+            </div>
+            <span class="badge badge-sm badge-outline ml-2">{{ audiencia.fonte }}</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between">
+              <span class="text-base-content/60">Categoria:</span>
+              <span class="font-medium">{{ audiencia.categoria_nome or '-' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-base-content/60">Subcategoria:</span>
+              <span class="font-medium">{{ audiencia.subcategoria_nome or '-' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-base-content/60">Dados Reais:</span>
+              <span class="badge badge-sm {% if audiencia.campos_com_dados_reais and audiencia.campos_com_dados_reais > 0 %}badge-info{% else %}badge-ghost{% endif %}">
+                {{ audiencia.campos_com_dados_reais or 0 }}
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-base-content/60">CPM:</span>
+              {% if audiencia.cpm_custo %}
+                <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
+              {% else %}
+                <span class="text-base-content/40 italic">-</span>
+              {% endif %}
+            </div>
+            <div class="flex justify-between">
+              <span class="text-base-content/60">Status:</span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                {% if audiencia.is_active %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
+                {% if audiencia.is_active %}
+                  <i class="fas fa-check-circle mr-1 text-green-500"></i>Ativa
+                {% else %}
+                  <i class="fas fa-ban mr-1 text-red-500"></i>Inativa
+                {% endif %}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mt-4">
+            <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" 
+               class="btn btn-sm btn-outline btn-primary flex-1">
+              <i class="fas fa-edit mr-1"></i>Editar
+            </a>
+            <button type="button" 
+                    class="btn btn-sm btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"
+                    data-audiencia-id="{{ audiencia.id }}">
+              <i class="fas {% if audiencia.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %} mr-1"></i>
+              {% if audiencia.is_active %}Desativar{% else %}Ativar{% endif %}
+            </button>
+            <button type="button" 
+                    class="btn btn-sm btn-circle btn-outline btn-error btn-delete"
+                    data-audiencia-id="{{ audiencia.id }}"
+                    data-audiencia-nome="{{ audiencia.nome }}">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="text-center py-8 bg-base-100 rounded-xl shadow-lg">
+        <p class="text-base-content/60">Nenhuma audiência cadastrada.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<dialog id="modal-delete" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Confirmar Exclusão</h3>
+    <p class="py-4">Tem certeza que deseja excluir a audiência <strong id="delete-audiencia-nome"></strong>?</p>
+    <p class="text-sm text-error">Esta ação não pode ser desfeita.</p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost">Cancelar</button>
+      </form>
+      <button id="confirm-delete-btn" class="btn btn-error">
+        <i class="fas fa-trash mr-2"></i>Excluir
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  let audienciaIdToDelete = null;
+  const filtroCategoria = document.getElementById('filtro-categoria');
+  const filtroSubcategoria = document.getElementById('filtro-subcategoria');
+  const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
+
+  // Carregar subcategorias ao trocar categoria
+  filtroCategoria.addEventListener('change', async function() {
+    const categoriaId = this.value;
+    filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
+    filtroSubcategoria.disabled = true;
+
+    if (categoriaId) {
+      try {
+        const response = await fetch(`/api/cadu-subcategorias?categoria_id=${categoriaId}`);
+        const data = await response.json();
+
+        if (data.success && data.subcategorias.length > 0) {
+          data.subcategorias.forEach(sub => {
+            const option = document.createElement('option');
+            option.value = sub.id;
+            option.textContent = sub.nome;
+            filtroSubcategoria.appendChild(option);
+          });
+          filtroSubcategoria.disabled = false;
+        }
+      } catch (error) {
+        console.error('Erro ao carregar subcategorias:', error);
+      }
+    }
+
+    aplicarFiltros();
+  });
+
+  // Aplicar filtro ao trocar subcategoria
+  filtroSubcategoria.addEventListener('change', aplicarFiltros);
+
+  // Limpar filtros
+  btnLimparFiltros.addEventListener('click', function() {
+    filtroCategoria.value = '';
+    filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
+    filtroSubcategoria.disabled = true;
+    aplicarFiltros();
+  });
+
+  // Função para aplicar filtros
+  function aplicarFiltros() {
+    const categoriaId = filtroCategoria.value;
+    const subcategoriaId = filtroSubcategoria.value;
+
+    // Filtrar linhas da tabela desktop
+    const tableRows = document.querySelectorAll('table tbody tr');
+    tableRows.forEach(row => {
+      const categoriaText = row.cells[3].textContent.trim();
+      const subcategoriaText = row.cells[4].textContent.trim();
+      
+      let showRow = true;
+
+      if (categoriaId) {
+        const categoriaOption = filtroCategoria.querySelector(`option[value="${categoriaId}"]`);
+        const categoriaNome = categoriaOption ? categoriaOption.textContent : '';
+        if (categoriaText !== categoriaNome) {
+          showRow = false;
+        }
+      }
+
+      if (subcategoriaId && showRow) {
+        const subcategoriaOption = filtroSubcategoria.querySelector(`option[value="${subcategoriaId}"]`);
+        const subcategoriaNome = subcategoriaOption ? subcategoriaOption.textContent : '';
+        if (subcategoriaText !== subcategoriaNome) {
+          showRow = false;
+        }
+      }
+
+      row.style.display = showRow ? '' : 'none';
+    });
+
+    // Filtrar cards mobile
+    const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
+    mobileCards.forEach(card => {
+      const categoriaElements = card.querySelectorAll('.space-y-2 > div');
+      let categoriaText = '';
+      let subcategoriaText = '';
+
+      categoriaElements.forEach(div => {
+        const label = div.querySelector('.text-base-content\\/60');
+        if (label && label.textContent.includes('Categoria:')) {
+          categoriaText = div.querySelector('.font-medium').textContent.trim();
+        }
+        if (label && label.textContent.includes('Subcategoria:')) {
+          subcategoriaText = div.querySelector('.font-medium').textContent.trim();
+        }
+      });
+
+      let showCard = true;
+
+      if (categoriaId) {
+        const categoriaOption = filtroCategoria.querySelector(`option[value="${categoriaId}"]`);
+        const categoriaNome = categoriaOption ? categoriaOption.textContent : '';
+        if (categoriaText !== categoriaNome) {
+          showCard = false;
+        }
+      }
+
+      if (subcategoriaId && showCard) {
+        const subcategoriaOption = filtroSubcategoria.querySelector(`option[value="${subcategoriaId}"]`);
+        const subcategoriaNome = subcategoriaOption ? subcategoriaOption.textContent : '';
+        if (subcategoriaText !== subcategoriaNome) {
+          showCard = false;
+        }
+      }
+
+      card.style.display = showCard ? '' : 'none';
+    });
+
+    // Atualizar mensagem de "Nenhuma audiência" se necessário
+    atualizarMensagemVazia();
+  }
+
+  function atualizarMensagemVazia() {
+    const tableRows = document.querySelectorAll('table tbody tr');
+    const visibleRows = Array.from(tableRows).filter(row => row.style.display !== 'none');
+    
+    const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
+    const visibleCards = Array.from(mobileCards).filter(card => card.style.display !== 'none');
+
+    // Não implementar mensagem dinâmica para manter simplicidade
+    // Usuário verá a tabela/cards vazios com filtros ativos
+  }
+
+  // Toggle Status
+  document.querySelectorAll('.btn-toggle-status').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const audienciaId = this.dataset.audienciaId;
+      
+      try {
+        const response = await fetch(`/api/cadu-audiencias/toggle-status/${audienciaId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          window.location.reload();
+        } else {
+          alert('Erro ao alterar status: ' + (data.message || 'Erro desconhecido'));
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao alterar status da audiência');
+      }
+    });
+  });
+
+  // Delete
+  document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', function() {
+      audienciaIdToDelete = this.dataset.audienciaId;
+      const audienciaNome = this.dataset.audienciaNome;
+      
+      document.getElementById('delete-audiencia-nome').textContent = audienciaNome;
+      document.getElementById('modal-delete').showModal();
+    });
+  });
+
+  document.getElementById('confirm-delete-btn').addEventListener('click', async function() {
+    if (!audienciaIdToDelete) return;
+
+    try {
+      const response = await fetch(`/cadu-audiencias/deletar/${audienciaIdToDelete}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert('Erro ao excluir: ' + (data.message || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('Erro ao excluir audiência');
+    }
+  });
+});
+</script>
 {% endblock %}

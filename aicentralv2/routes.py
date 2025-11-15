@@ -26,11 +26,6 @@ def login_required(f):
 
 
 def init_routes(app):
-    @app.route('/cadu_audiencias')
-    @login_required
-    def cadu_audiencias():
-        # Placeholder: renderiza um template simples ou lista vazia
-        return render_template('cadu_audiencias.html')
     @app.route('/cadu_categorias')
     @login_required
     def cadu_categorias():
@@ -1161,7 +1156,7 @@ def init_routes(app):
             import threading
             
             # URL do webhook n8n
-            webhook_url = 'https://n8n.centralcomm.media/webhook/f8702380-85c1-4a1d-8b6b-1996a9c6d822'
+            webhook_url = 'https://n8n.centralcomm.media/webhook-test/f8702380-85c1-4a1d-8b6b-1996a9c6d822'
             
             # Obter dados do request
             payload = request.get_json()
@@ -2115,6 +2110,221 @@ def init_routes(app):
             flash('Não é possível excluir este tipo de cliente pois está em uso.', 'error')
         
         return redirect(url_for('tipos_cliente'))
+    
+    # ==================== CADU AUDIÊNCIAS - ROTAS ====================
+    
+    @app.route('/cadu-audiencias')
+    @login_required
+    def cadu_audiencias():
+        """Lista todas as audiências do catálogo"""
+        try:
+            audiencias = db.obter_cadu_audiencias()
+            categorias = db.obter_cadu_categorias()
+            
+            # Calcular estatísticas
+            total = len(audiencias)
+            ativos = sum(1 for a in audiencias if a.get('is_active'))
+            inativos = total - ativos
+            
+            stats = {
+                'total': total,
+                'ativos': ativos,
+                'inativos': inativos
+            }
+            
+            return render_template('cadu_audiencias.html', 
+                                 audiencias=audiencias,
+                                 categorias=categorias,
+                                 stats=stats)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar audiências: {str(e)}")
+            flash('Erro ao carregar audiências.', 'error')
+            return render_template('cadu_audiencias.html', 
+                                 audiencias=[],
+                                 categorias=[],
+                                 stats={'total': 0, 'ativos': 0, 'inativos': 0})
+    
+    @app.route('/cadu-audiencias/nova', methods=['GET', 'POST'])
+    @login_required
+    def cadu_audiencia_nova():
+        """Cria nova audiência"""
+        if request.method == 'POST':
+            try:
+                dados = {
+                    'id_audiencia_plataforma': request.form.get('id_audiencia_plataforma', '').strip(),
+                    'fonte': request.form.get('fonte', '').strip(),
+                    'nome': request.form.get('nome', '').strip(),
+                    'slug': request.form.get('slug', '').strip(),
+                    'titulo_chamativo': request.form.get('titulo_chamativo', '').strip(),
+                    'descricao': request.form.get('descricao', '').strip(),
+                    'descricao_curta': request.form.get('descricao_curta', '').strip(),
+                    'descricao_comercial': request.form.get('descricao_comercial', '').strip(),
+                    'cpm_custo': float(request.form.get('cpm_custo')) if request.form.get('cpm_custo') else None,
+                    'cpm_venda': float(request.form.get('cpm_venda')) if request.form.get('cpm_venda') else None,
+                    'cpm_minimo': float(request.form.get('cpm_minimo')) if request.form.get('cpm_minimo') else None,
+                    'cpm_maximo': float(request.form.get('cpm_maximo')) if request.form.get('cpm_maximo') else None,
+                    'categoria_id': int(request.form.get('categoria_id')),
+                    'subcategoria_id': int(request.form.get('subcategoria_id')) if request.form.get('subcategoria_id') else None,
+                    'is_active': True  # Sempre ativa por padrão ao criar
+                }
+                
+                # Validações
+                if not dados['id_audiencia_plataforma']:
+                    flash('ID da Plataforma é obrigatório!', 'error')
+                    raise ValueError('ID Plataforma obrigatório')
+                
+                if not dados['nome']:
+                    flash('Nome da audiência é obrigatório!', 'error')
+                    raise ValueError('Nome obrigatório')
+                
+                if not dados['slug']:
+                    flash('Slug é obrigatório!', 'error')
+                    raise ValueError('Slug obrigatório')
+                
+                novo_id = db.criar_cadu_audiencia(dados)
+                
+                if novo_id:
+                    flash(f'Audiência "{dados["nome"]}" cadastrada com sucesso!', 'success')
+                    return redirect(url_for('cadu_audiencias'))
+                else:
+                    flash('Erro ao cadastrar audiência.', 'error')
+                    
+            except Exception as e:
+                app.logger.error(f"Erro ao criar audiência: {str(e)}")
+                flash(f'Erro ao cadastrar audiência: {str(e)}', 'error')
+        
+        # GET - Carregar formulário
+        try:
+            categorias = db.obter_cadu_categorias()
+            subcategorias = db.obter_cadu_subcategorias()
+            return render_template('cadu_audiencias_form.html',
+                                 categorias=categorias,
+                                 subcategorias=subcategorias,
+                                 audiencia=None)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar formulário: {str(e)}")
+            flash('Erro ao carregar formulário.', 'error')
+            return redirect(url_for('cadu_audiencias'))
+    
+    @app.route('/cadu-audiencias/editar/<int:audiencia_id>', methods=['GET', 'POST'])
+    @login_required
+    def cadu_audiencia_editar(audiencia_id):
+        """Edita audiência existente"""
+        if request.method == 'POST':
+            try:
+                dados = {
+                    'id_audiencia_plataforma': request.form.get('id_audiencia_plataforma', '').strip(),
+                    'fonte': request.form.get('fonte', '').strip(),
+                    'nome': request.form.get('nome', '').strip(),
+                    'slug': request.form.get('slug', '').strip(),
+                    'titulo_chamativo': request.form.get('titulo_chamativo', '').strip(),
+                    'descricao': request.form.get('descricao', '').strip(),
+                    'descricao_curta': request.form.get('descricao_curta', '').strip(),
+                    'descricao_comercial': request.form.get('descricao_comercial', '').strip(),
+                    'cpm_custo': float(request.form.get('cpm_custo')) if request.form.get('cpm_custo') else None,
+                    'cpm_venda': float(request.form.get('cpm_venda')) if request.form.get('cpm_venda') else None,
+                    'cpm_minimo': float(request.form.get('cpm_minimo')) if request.form.get('cpm_minimo') else None,
+                    'cpm_maximo': float(request.form.get('cpm_maximo')) if request.form.get('cpm_maximo') else None,
+                    'categoria_id': int(request.form.get('categoria_id')),
+                    'subcategoria_id': int(request.form.get('subcategoria_id')) if request.form.get('subcategoria_id') else None
+                    # is_active removido - usar toggle na listagem
+                }
+                
+                if db.atualizar_cadu_audiencia(audiencia_id, dados):
+                    flash(f'Audiência "{dados["nome"]}" atualizada com sucesso!', 'success')
+                    return redirect(url_for('cadu_audiencias'))
+                else:
+                    flash('Erro ao atualizar audiência.', 'error')
+                    
+            except Exception as e:
+                app.logger.error(f"Erro ao atualizar audiência: {str(e)}")
+                flash(f'Erro ao atualizar audiência: {str(e)}', 'error')
+        
+        # GET - Carregar formulário com dados
+        try:
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            
+            if not audiencia:
+                flash('Audiência não encontrada!', 'error')
+                return redirect(url_for('cadu_audiencias'))
+            
+            categorias = db.obter_cadu_categorias()
+            subcategorias = db.obter_cadu_subcategorias()
+            
+            return render_template('cadu_audiencias_form.html',
+                                 audiencia=audiencia,
+                                 categorias=categorias,
+                                 subcategorias=subcategorias)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar audiência: {str(e)}")
+            flash('Erro ao carregar audiência.', 'error')
+            return redirect(url_for('cadu_audiencias'))
+    
+    @app.route('/cadu-audiencias/deletar/<int:audiencia_id>', methods=['POST'])
+    @login_required
+    def cadu_audiencia_deletar(audiencia_id):
+        """Deleta audiência"""
+        try:
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            
+            if not audiencia:
+                return jsonify({'success': False, 'message': 'Audiência não encontrada'})
+            
+            if db.excluir_cadu_audiencia(audiencia_id):
+                return jsonify({'success': True, 'message': f'Audiência "{audiencia["nome"]}" excluída com sucesso'})
+            else:
+                return jsonify({'success': False, 'message': 'Erro ao excluir audiência'})
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao deletar audiência: {str(e)}")
+            return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/cadu-audiencias/toggle-status/<int:audiencia_id>', methods=['POST'])
+    @login_required
+    def cadu_audiencia_toggle_status(audiencia_id):
+        """Alterna status ativo/inativo da audiência"""
+        try:
+            novo_status = db.toggle_status_cadu_audiencia(audiencia_id)
+            
+            if novo_status is not None:
+                return jsonify({
+                    'success': True, 
+                    'is_active': novo_status,
+                    'message': f'Status alterado para {"Ativa" if novo_status else "Inativa"}'
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Audiência não encontrada'})
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status: {str(e)}")
+            return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/cadu-subcategorias')
+    @login_required
+    def api_cadu_subcategorias():
+        """API para carregar subcategorias por categoria"""
+        try:
+            categoria_id = request.args.get('categoria_id', type=int)
+            
+            if categoria_id:
+                subcategorias = db.obter_cadu_subcategorias(categoria_id=categoria_id)
+            else:
+                subcategorias = db.obter_cadu_subcategorias()
+            
+            return jsonify({
+                'success': True,
+                'subcategorias': [
+                    {
+                        'id': sub['id'],
+                        'nome': sub['nome'],
+                        'categoria_id': sub['categoria_id']
+                    }
+                    for sub in subcategorias
+                ]
+            })
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar subcategorias: {str(e)}")
+            return jsonify({'success': False, 'message': str(e)})
 
     # ==================== ERRO HANDLERS ====================
 

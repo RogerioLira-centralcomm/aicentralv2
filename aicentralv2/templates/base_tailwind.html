@@ -229,11 +229,11 @@
             
                 <!-- Navegação Principal -->
                 <nav class="flex-1 overflow-y-auto py-4 custom-scrollbar">
-                    <ul class="menu menu-compact px-3">
+                    <ul class="menu menu-sm px-3">
                         <!-- Dashboard -->
                         <li>
                             <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
-                                <i class="fas fa-chart-bar"></i>
+                                <i class="fas fa-chart-bar w-5"></i>
                                 <span class="sidebar-text">Dashboard</span>
                             </a>
                         </li>
@@ -243,33 +243,29 @@
                             <span>Gestão</span>
                         </li>
                         <li>
-                            <details id="collapse-comercial">
+                            <details data-group="gestao" open>
                                 <summary>
-                                    <i class="fas fa-briefcase"></i>
+                                    <i class="fas fa-briefcase w-5"></i>
                                     <span class="sidebar-text">Gestão Comercial</span>
                                 </summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
-                                            <i class="fas fa-building"></i>
                                             <span class="sidebar-text">Clientes</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('contatos') }}" class="{% if request.endpoint == 'contatos' %}active{% endif %}">
-                                            <i class="fas fa-users"></i>
                                             <span class="sidebar-text">Contatos</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('planos') }}" class="{% if request.endpoint == 'planos' %}active{% endif %}">
-                                            <i class="fas fa-tags"></i>
                                             <span class="sidebar-text">Planos</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
-                                            <i class="fas fa-shapes"></i>
                                             <span class="sidebar-text">Tipos de Cliente</span>
                                         </a>
                                     </li>
@@ -282,33 +278,29 @@
                             <span>Audiências</span>
                         </li>
                         <li>
-                            <details id="collapse-audiencias">
+                            <details data-group="audiencias" open>
                                 <summary>
-                                    <i class="fas fa-chart-network"></i>
+                                    <i class="fas fa-chart-network w-5"></i>
                                     <span class="sidebar-text">Análise de Audiências</span>
                                 </summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                            <i class="fas fa-wand-magic-sparkles"></i>
                                             <span class="sidebar-text">Análise com IA</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
-                                            <i class="fas fa-layer-group"></i>
                                             <span class="sidebar-text">Categorias</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
-                                            <i class="fas fa-sitemap"></i>
                                             <span class="sidebar-text">Subcategorias</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
-                                            <i class="fas fa-database"></i>
                                             <span class="sidebar-text">Base de Audiências</span>
                                         </a>
                                     </li>
@@ -321,27 +313,24 @@
                             <span>Configurações</span>
                         </li>
                         <li>
-                            <details id="collapse-cadastros">
+                            <details data-group="cadastros" open>
                                 <summary>
-                                    <i class="fas fa-cog"></i>
+                                    <i class="fas fa-cog w-5"></i>
                                     <span class="sidebar-text">Cadastros Base</span>
                                 </summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                                            <i class="fas fa-sitemap"></i>
                                             <span class="sidebar-text">Setores</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
-                                            <i class="fas fa-user-tag"></i>
                                             <span class="sidebar-text">Cargos</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ url_for('percentual_list') }}" class="{% if request.endpoint == 'percentual_list' %}active{% endif %}">
-                                            <i class="fas fa-handshake"></i>
                                             <span class="sidebar-text">Boas-Vindas</span>
                                         </a>
                                     </li>
@@ -355,26 +344,24 @@
                         </li>
                         <li>
                             <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
-                                <i class="fas fa-brain"></i>
+                                <i class="fas fa-brain w-5"></i>
                                 <span class="sidebar-text">Inteligência IA</span>
                             </a>
                         </li>
                         <li>
-                            <details id="collapse-design">
+                            <details data-group="design" open>
                                 <summary>
-                                    <i class="fas fa-palette"></i>
+                                    <i class="fas fa-palette w-5"></i>
                                     <span class="sidebar-text">Design System</span>
                                 </summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('components') }}" class="{% if request.endpoint == 'components' %}active{% endif %}">
-                                            <i class="fas fa-shapes"></i>
                                             <span class="sidebar-text">Componentes</span>
                                         </a>
                                     </li>
                                     <li class="px-2 py-2">
                                         <div class="flex items-center gap-2 px-2 text-sm opacity-70">
-                                            <i class="fas fa-brush"></i>
                                             <span class="sidebar-text">Tema</span>
                                         </div>
                                         <div class="px-2 pt-1">
@@ -444,29 +431,22 @@
             });
         });
 
-        // Collapse state persistence via localStorage
+        // Collapse state persistence via localStorage (DaisyUI native)
         document.addEventListener('DOMContentLoaded', function(){
-            const collapseElements = {
-                'collapse-comercial': document.getElementById('collapse-comercial'),
-                'collapse-audiencias': document.getElementById('collapse-audiencias'),
-                'collapse-cadastros': document.getElementById('collapse-cadastros'),
-                'collapse-design': document.getElementById('collapse-design')
-            };
-
-            // Restaurar estado inicial dos collapses
-            Object.entries(collapseElements).forEach(([key, element]) => {
-                if (!element) return;
-                
-                const savedState = localStorage.getItem(`sidebar_${key}`);
-                if (savedState === 'open') {
-                    element.setAttribute('open', '');
-                }
-                
-                // Listener para salvar estado ao alternar
-                element.addEventListener('toggle', function() {
-                    const isOpen = element.hasAttribute('open');
-                    localStorage.setItem(`sidebar_${key}`, isOpen ? 'open' : 'closed');
+            // Salvar estado quando abrir/fechar
+            document.querySelectorAll('details[data-group]').forEach(detail => {
+                detail.addEventListener('toggle', (e) => {
+                    const groupId = e.target.dataset.group;
+                    localStorage.setItem(`sidebar-${groupId}`, e.target.open ? 'open' : 'closed');
                 });
+            });
+
+            // Restaurar estado ao carregar
+            document.querySelectorAll('details[data-group]').forEach(detail => {
+                const groupId = detail.dataset.group;
+                const saved = localStorage.getItem(`sidebar-${groupId}`);
+                if (saved === 'closed') detail.removeAttribute('open');
+                if (saved === 'open') detail.setAttribute('open', '');
             });
         });
 

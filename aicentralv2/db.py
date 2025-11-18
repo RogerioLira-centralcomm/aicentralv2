@@ -2269,6 +2269,7 @@ def obter_cadu_audiencias():
                     a.subcategoria_id,
                     a.campos_com_dados_reais,
                     a.cpm_custo,
+                    a.cpm_venda,
                     a.is_active,
                     a.created_at,
                     a.updated_at,

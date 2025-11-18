@@ -1,0 +1,178 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Detalhes da Audiência - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-4">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Detalhes da Audiência</h1>
+      <p class="text-sm text-base-content/70">{{ audiencia.nome }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-edit mr-1"></i>Editar
+      </a>
+      <a href="{{ url_for('cadu_audiencias') }}" class="btn btn-ghost btn-sm">
+        <i class="fas fa-arrow-left mr-1"></i>Voltar
+      </a>
+    </div>
+  </div>
+
+  <!-- Informações Principais -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">ID da Audiência:</span>
+        <span class="text-base-content">#{{ audiencia.id }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Status:</span>
+        <span class="badge badge-sm {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %}">
+          {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
+        </span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">ID Plataforma:</span>
+        <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Fonte:</span>
+        <span class="badge badge-sm badge-outline">{{ audiencia.fonte }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Nome:</span>
+        <span class="text-base-content font-semibold">{{ audiencia.nome }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Slug:</span>
+        <span class="text-base-content">{{ audiencia.slug }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Categoria:</span>
+        <span class="text-base-content">{{ audiencia.categoria_nome or 'Não informado' }}</span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Subcategoria:</span>
+        <span class="text-base-content">{{ audiencia.subcategoria_nome or 'Não informado' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Títulos e Descrições -->
+  {% if audiencia.titulo_chamativo or audiencia.descricao or audiencia.descricao_curta or audiencia.descricao_comercial %}
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-align-left mr-2 text-primary"></i>Conteúdo e Descrições
+    </h2>
+    <div class="space-y-3 text-sm">
+      {% if audiencia.titulo_chamativo %}
+      <div>
+        <span class="font-semibold text-base-content/70 block mb-1">Título Chamativo:</span>
+        <p class="text-base-content bg-base-200 p-2 rounded">{{ audiencia.titulo_chamativo }}</p>
+      </div>
+      {% endif %}
+      {% if audiencia.descricao %}
+      <div>
+        <span class="font-semibold text-base-content/70 block mb-1">Descrição:</span>
+        <p class="text-base-content bg-base-200 p-2 rounded whitespace-pre-wrap">{{ audiencia.descricao }}</p>
+      </div>
+      {% endif %}
+      {% if audiencia.descricao_curta %}
+      <div>
+        <span class="font-semibold text-base-content/70 block mb-1">Descrição Curta:</span>
+        <p class="text-base-content bg-base-200 p-2 rounded">{{ audiencia.descricao_curta }}</p>
+      </div>
+      {% endif %}
+      {% if audiencia.descricao_comercial %}
+      <div>
+        <span class="font-semibold text-base-content/70 block mb-1">Descrição Comercial:</span>
+        <p class="text-base-content bg-base-200 p-2 rounded whitespace-pre-wrap">{{ audiencia.descricao_comercial }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Precificação -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-dollar-sign mr-2 text-primary"></i>Precificação
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">CPMC (Custo):</span>
+        <span class="font-mono text-base-content">
+          {% if audiencia.cpm_custo %}
+            R$ {{ "%.2f"|format(audiencia.cpm_custo) }}
+          {% else %}
+            <span class="text-base-content/40 italic">Não informado</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">CPMV (Venda):</span>
+        <span class="font-mono text-base-content">
+          {% if audiencia.cpm_venda %}
+            R$ {{ "%.2f"|format(audiencia.cpm_venda) }}
+          {% else %}
+            <span class="text-base-content/40 italic">Não informado</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metadados do Sistema -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-clock mr-2 text-primary"></i>Metadados do Sistema
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Criado em:</span>
+        <span class="text-base-content">
+          {% if audiencia.created_at %}
+            {{ audiencia.created_at.strftime('%d/%m/%Y às %H:%M') }}
+          {% else %}
+            Não informado
+          {% endif %}
+        </span>
+      </div>
+      <div class="flex">
+        <span class="font-semibold text-base-content/70 w-40">Atualizado em:</span>
+        <span class="text-base-content">
+          {% if audiencia.updated_at %}
+            {{ audiencia.updated_at.strftime('%d/%m/%Y às %H:%M') }}
+          {% else %}
+            Não informado
+          {% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ações -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4">
+    <h2 class="text-md font-semibold mb-3 flex items-center">
+      <i class="fas fa-cog mr-2 text-primary"></i>Ações
+    </h2>
+    <div class="flex gap-2">
+      <form method="POST" action="{{ url_for('cadu_audiencia_toggle_status', audiencia_id=audiencia.id) }}">
+        <button type="submit" class="btn btn-sm {% if audiencia.is_active %}btn-error{% else %}btn-success{% endif %}">
+          <i class="fas {% if audiencia.is_active %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>
+          {{ 'Desativar' if audiencia.is_active else 'Ativar' }} Audiência
+        </button>
+      </form>
+      <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" class="btn btn-sm btn-primary">
+        <i class="fas fa-edit mr-1"></i>Editar Audiência
+      </a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

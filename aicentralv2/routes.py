@@ -1155,8 +1155,8 @@ def init_routes(app):
             import requests
             import threading
             
-            # URL do webhook n8n
-            webhook_url = 'https://n8n.centralcomm.media/webhook-test/f8702380-85c1-4a1d-8b6b-1996a9c6d822'
+            # URL do webhook n8n (PRODUÇÃO)
+            webhook_url = 'https://n8n.centralcomm.media/webhook/f8702380-85c1-4a1d-8b6b-1996a9c6d822'
             
             # Obter dados do request
             payload = request.get_json()
@@ -2279,10 +2279,57 @@ def init_routes(app):
             app.logger.error(f"Erro ao deletar audiência: {str(e)}")
             return jsonify({'success': False, 'message': str(e)})
     
-    @app.route('/api/cadu-audiencias/toggle-status/<int:audiencia_id>', methods=['POST'])
+    @app.route('/cadu-audiencias/<int:audiencia_id>')
+    @login_required
+    def cadu_audiencia_detalhes(audiencia_id):
+        """Exibe detalhes de uma audiência específica"""
+        try:
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            
+            if not audiencia:
+                flash('Audiência não encontrada!', 'error')
+                return redirect(url_for('cadu_audiencias'))
+            
+            return render_template('cadu_audiencias_detalhes.html', audiencia=audiencia)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar detalhes da audiência: {str(e)}")
+            flash('Erro ao carregar detalhes da audiência.', 'error')
+            return redirect(url_for('cadu_audiencias'))
+    
+    @app.route('/cadu-audiencias/toggle-status/<int:audiencia_id>', methods=['POST'])
     @login_required
     def cadu_audiencia_toggle_status(audiencia_id):
-        """Alterna status ativo/inativo da audiência"""
+        """Alterna o status (ativo/inativo) de uma audiência"""
+        try:
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            
+            if not audiencia:
+                flash('Audiência não encontrada!', 'error')
+                return redirect(url_for('cadu_audiencias'))
+            
+            novo_status = db.toggle_status_cadu_audiencia(audiencia_id)
+            
+            if novo_status is not None:
+                status_texto = 'ativada' if novo_status else 'desativada'
+                flash(f'Audiência "{audiencia["nome"]}" {status_texto} com sucesso!', 'success')
+            else:
+                flash('Erro ao alterar status da audiência.', 'error')
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status da audiência: {str(e)}")
+            flash(f'Erro ao alterar status: {str(e)}', 'error')
+        
+        # Redirecionar de volta para a página de origem
+        referer = request.referrer
+        if referer and 'cadu-audiencias' in referer:
+            return redirect(referer)
+        return redirect(url_for('cadu_audiencias'))
+
+    
+    @app.route('/api/cadu-audiencias/toggle-status/<int:audiencia_id>', methods=['POST'])
+    @login_required
+    def api_cadu_audiencia_toggle_status(audiencia_id):
+        """Alterna status ativo/inativo da audiência (API)"""
         try:
             novo_status = db.toggle_status_cadu_audiencia(audiencia_id)
             

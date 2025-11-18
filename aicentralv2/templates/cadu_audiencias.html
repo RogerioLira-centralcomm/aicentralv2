@@ -101,8 +101,8 @@
               <th class="text-left font-bold uppercase">Nome</th>
               <th class="text-left font-bold uppercase">Categoria</th>
               <th class="text-left font-bold uppercase">Subcategoria</th>
-              <th class="text-center font-bold uppercase w-24">Dados Reais</th>
-              <th class="text-center font-bold uppercase w-20">CPM</th>
+              <th class="text-center font-bold uppercase w-20">CPMC</th>
+              <th class="text-center font-bold uppercase w-20">CPMV</th>
               <th class="text-center font-bold uppercase w-24">Status</th>
               <th class="text-center font-bold uppercase w-32">Ações</th>
             </tr>
@@ -111,16 +111,20 @@
             {% for audiencia in audiencias %}
             <tr class="hover">
               <td>
-                <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+                <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
+                  <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+                </a>
               </td>
               <td>
                 <span class="badge badge-sm badge-outline">{{ audiencia.fonte }}</span>
               </td>
               <td>
-                <div class="font-semibold text-base-content">{{ audiencia.nome }}</div>
-                {% if audiencia.slug %}
-                  <div class="text-xs text-base-content/60">{{ audiencia.slug }}</div>
-                {% endif %}
+                <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
+                  <div class="font-semibold text-base-content">{{ audiencia.nome }}</div>
+                  {% if audiencia.slug %}
+                    <div class="text-xs text-base-content/60">{{ audiencia.slug }}</div>
+                  {% endif %}
+                </a>
               </td>
               <td>
                 {% if audiencia.categoria_nome %}
@@ -137,13 +141,15 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span class="badge badge-sm {% if audiencia.campos_com_dados_reais and audiencia.campos_com_dados_reais > 0 %}badge-info{% else %}badge-ghost{% endif %}">
-                  {{ audiencia.campos_com_dados_reais or 0 }}
-                </span>
-              </td>
-              <td class="text-center">
                 {% if audiencia.cpm_custo %}
                   <span class="font-mono text-sm">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
+                {% else %}
+                  <span class="text-base-content/40 italic">-</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if audiencia.cpm_venda %}
+                  <span class="font-mono text-sm">R$ {{ "%.2f"|format(audiencia.cpm_venda) }}</span>
                 {% else %}
                   <span class="text-base-content/40 italic">-</span>
                 {% endif %}
@@ -201,8 +207,12 @@
         <div class="card-body p-4">
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
-              <h3 class="font-semibold text-sm mb-1">{{ audiencia.nome }}</h3>
-              <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+              <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
+                <h3 class="font-semibold text-sm mb-1">{{ audiencia.nome }}</h3>
+              </a>
+              <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
+                <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+              </a>
             </div>
             <span class="badge badge-sm badge-outline ml-2">{{ audiencia.fonte }}</span>
           </div>
@@ -217,15 +227,17 @@
               <span class="font-medium">{{ audiencia.subcategoria_nome or '-' }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-base-content/60">Dados Reais:</span>
-              <span class="badge badge-sm {% if audiencia.campos_com_dados_reais and audiencia.campos_com_dados_reais > 0 %}badge-info{% else %}badge-ghost{% endif %}">
-                {{ audiencia.campos_com_dados_reais or 0 }}
-              </span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-base-content/60">CPM:</span>
+              <span class="text-base-content/60">CPMC:</span>
               {% if audiencia.cpm_custo %}
                 <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
+              {% else %}
+                <span class="text-base-content/40 italic">-</span>
+              {% endif %}
+            </div>
+            <div class="flex justify-between">
+              <span class="text-base-content/60">CPMV:</span>
+              {% if audiencia.cpm_venda %}
+                <span class="font-mono font-medium">R$ {{ "%.2f"|format(audiencia.cpm_venda) }}</span>
               {% else %}
                 <span class="text-base-content/40 italic">-</span>
               {% endif %}

@@ -56,9 +56,12 @@
                     </td>
                     <td class="py-3 px-6 text-center">{{ "{:,}".format(plano.tokens).replace(',', '.') }}</td>
                     <td class="py-3 px-6 text-center">
-                        <button onclick="toggleStatus('{{ plano.id_plano }}')" class="relative">
-                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary-light dark:peer-focus:ring-primary dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 {% if plano.status %}peer-checked{% endif %} {% if plano.status %}bg-primary{% endif %}">
-                            </div>
+                        <button onclick="toggleStatus('{{ plano.id_plano }}')" 
+                                class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition-colors
+                                       {% if plano.status %}bg-green-100 text-green-800 border border-green-300 hover:bg-green-200{% else %}bg-red-100 text-red-700 border border-red-300 hover:bg-red-200{% endif %}"
+                                title="Clique para {% if plano.status %}desativar{% else %}ativar{% endif %}">
+                            <i class="fas {% if plano.status %}fa-check-circle text-green-500{% else %}fa-ban text-red-500{% endif %} mr-1"></i>
+                            {% if plano.status %}Ativo{% else %}Inativo{% endif %}
                         </button>
                     </td>
                     <td class="py-3 px-6 text-center">

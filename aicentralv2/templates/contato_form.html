@@ -132,13 +132,14 @@
       </label>
       <select 
         name="pk_id_cliente" 
+        id="cliente_select"
         class="select select-bordered w-full"
         required
       >
         <option value="">Selecione um cliente</option>
         {% for cliente in clientes %}
           <option value="{{ cliente.id_cliente }}" 
-            {% if contato and contato.pk_id_tbl_cliente == cliente.id_cliente %}selected{% endif %}>
+            {% if (contato and contato.pk_id_tbl_cliente == cliente.id_cliente) or (request.args.get('cliente_id')|int == cliente.id_cliente) %}selected{% endif %}>
             {{ cliente.nome_fantasia or cliente.razao_social }}
           </option>
         {% endfor %}

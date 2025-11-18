@@ -11,21 +11,21 @@
 
           <div class="form-control">
             <label class="label font-semibold text-sm">Pessoa <span class="text-error">*</span></label>
-            <div class="flex gap-4">
-              <label class="cursor-pointer flex items-center gap-2">
-                <input type="radio" name="pessoa" value="J" class="radio radio-primary" required checked>
-                <span>Jurídica</span>
+            <div class="flex gap-3">
+              <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg hover:border-primary transition-colors bg-base-100">
+                <input type="radio" name="pessoa" value="J" class="radio radio-primary radio-sm" required checked>
+                <span class="font-medium">Jurídica</span>
               </label>
-              <label class="cursor-pointer flex items-center gap-2">
-                <input type="radio" name="pessoa" value="F" class="radio radio-primary" required {% if cliente and cliente.pessoa == 'F' %}checked{% endif %}>
-                <span>Física</span>
+              <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg hover:border-primary transition-colors bg-base-100">
+                <input type="radio" name="pessoa" value="F" class="radio radio-primary radio-sm" required {% if cliente and cliente.pessoa == 'F' %}checked{% endif %}>
+                <span class="font-medium">Física</span>
               </label>
             </div>
           </div>
 
-          <div class="form-control">
+          <div id="tipo_cliente_fields" class="form-control">
             <label class="label font-semibold text-sm">Tipo <span class="text-error">*</span></label>
-            <select name="id_tipo_cliente" class="select select-bordered w-full" required>
+            <select id="select_tipo_cliente" name="id_tipo_cliente" class="select select-bordered w-full" required>
               <option value="">Selecione o tipo</option>
               {% for tipo in tipos_cliente %}
                 <option value="{{ tipo.id_tipo_cliente }}" {% if cliente and cliente.id_tipo_cliente == tipo.id_tipo_cliente %}selected{% endif %}>{{ tipo.display }}</option>
@@ -69,8 +69,9 @@
           <div class="form-control">
             <label class="label font-semibold text-sm">Estado</label>
             <select id="estado" name="estado" class="select select-bordered w-full">
+              <option value="">Selecione o estado</option>
               {% for estado in estados %}
-                <option value="{{ estado.id }}" {% if cliente and cliente.estado == estado.id %}selected{% endif %}>{{ estado.sigla }} - {{ estado.nome }}</option>
+                <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}" {% if cliente and cliente.estado == estado.id_estado %}selected{% endif %}>{{ estado.sigla }} - {{ estado.descricao }}</option>
               {% endfor %}
             </select>
           </div>
@@ -104,7 +105,7 @@
             <select name="id_agencia" class="select select-bordered w-full" required>
               <option value="">Selecione a agência</option>
               {% for agencia in agencias %}
-                <option value="{{ agencia.id_agencia }}" {% if cliente and cliente.id_agencia == agencia.id_agencia %}selected{% endif %}>{{ agencia.display }}</option>
+                <option value="{{ agencia.id_agencia }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}selected{% endif %}>{{ agencia.display }}</option>
               {% endfor %}
             </select>
           </div>
@@ -240,15 +241,55 @@ function buscarEnderecoPorCep(cep) {
 // Função para mapear sigla do estado ao id do select
 function getEstadoIdBySigla(sigla) {
   var select = document.getElementById('estado');
+  console.log('Procurando estado com sigla:', sigla);
+  
+  // Primeiro, tenta encontrar usando o atributo data-sigla
+  for (var i = 0; i < select.options.length; i++) {
+    var option = select.options[i];
+    if (option.dataset.sigla === sigla) {
+      console.log('Estado encontrado:', option.value, option.text);
+      return option.value;
+    }
+  }
+  
+  // Fallback: procura no texto da opção
   for (var i = 0; i < select.options.length; i++) {
     if (select.options[i].text.startsWith(sigla + ' ')) {
+      console.log('Estado encontrado (fallback):', select.options[i].value, select.options[i].text);
       return select.options[i].value;
     }
   }
+  
+  console.log('Estado não encontrado para sigla:', sigla);
   return '';
 }
 function togglePessoaFields() {
   var pessoa = document.querySelector('input[name="pessoa"]:checked').value;
+  
+  // Atualizar estilos visuais dos radio buttons
+  document.querySelectorAll('input[name="pessoa"]').forEach(function(radio) {
+    var label = radio.closest('label');
+    if (radio.checked) {
+      label.classList.add('border-primary', 'bg-primary/10');
+      label.classList.remove('border-base-300');
+    } else {
+      label.classList.remove('border-primary', 'bg-primary/10');
+      label.classList.add('border-base-300');
+    }
+  });
+  
+  // Mostrar/ocultar tipo de cliente (apenas para Pessoa Jurídica)
+  var tipoClienteField = document.getElementById('tipo_cliente_fields');
+  var selectTipoCliente = document.getElementById('select_tipo_cliente');
+  if (pessoa === 'F') {
+    tipoClienteField.style.display = 'none';
+    selectTipoCliente.required = false;
+    selectTipoCliente.value = ''; // Limpa seleção
+  } else {
+    tipoClienteField.style.display = '';
+    selectTipoCliente.required = true;
+  }
+  
   document.getElementById('agencia_fields').style.display = pessoa === 'F' ? 'none' : '';
   document.getElementById('percentual_fields').style.display = pessoa === 'F' ? 'none' : '';
   document.getElementById('insc_estadual_fields').style.display = pessoa === 'F' ? 'none' : '';

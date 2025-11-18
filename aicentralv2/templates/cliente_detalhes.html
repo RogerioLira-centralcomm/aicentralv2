@@ -132,9 +132,16 @@
 
   <!-- Contatos Vinculados -->
   <div class="bg-base-100 rounded-xl shadow-lg p-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-address-book mr-2 text-primary"></i>Contatos Vinculados
-    </h2>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-md font-semibold flex items-center">
+        <i class="fas fa-address-book mr-2 text-primary"></i>Contatos Vinculados
+      </h2>
+      {% if contatos %}
+      <a href="{{ url_for('contato_novo') }}?cliente_id={{ cliente.id_cliente }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus mr-1"></i>Adicionar Contato
+      </a>
+      {% endif %}
+    </div>
     {% if contatos %}
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-base-200 text-xs">

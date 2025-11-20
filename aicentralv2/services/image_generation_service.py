@@ -7,6 +7,7 @@ import requests
 import os
 from typing import Dict, Optional
 import logging
+from flask import request
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,21 @@ if not OPENROUTER_API_KEY:
     raise ValueError("OPENROUTER_API_KEY não encontrada no .env")
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def get_base_url():
+    """Detecta automaticamente a URL base baseado na requisição"""
+    try:
+        # Tenta pegar da requisição atual
+        if request:
+            scheme = request.scheme  # http ou https
+            host = request.host  # localhost:5000 ou dominio.com
+            return f"{scheme}://{host}"
+    except:
+        pass
+    
+    # Fallback para variável de ambiente ou localhost
+    return os.getenv('BASE_URL', 'http://localhost:5000')
 
 # System prompt para o Gemini 2.5 Flash
 SYSTEM_PROMPT_PREPARADOR = {
@@ -288,7 +304,7 @@ def extrair_url_imagem(response_data: Dict) -> Optional[str]:
                                     f.write(image_bytes)
                                 
                                 # URL completa para acesso externo
-                                base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+                                base_url = get_base_url()
                                 public_url = f"{base_url}/static/uploads/audiencias/{filename}"
                                 print(f"SUCESSO! Imagem salva: {public_url}")
                                 print("=" * 80)
@@ -330,7 +346,7 @@ def extrair_url_imagem(response_data: Dict) -> Optional[str]:
                                 f.write(image_bytes)
                             
                             # URL completa para acesso externo
-                            base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+                            base_url = get_base_url()
                             public_url = f"{base_url}/static/uploads/audiencias/{filename}"
                             print(f"SUCESSO! Imagem salva: {public_url}")
                             print("=" * 80)

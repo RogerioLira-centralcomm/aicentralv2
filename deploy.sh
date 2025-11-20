@@ -20,6 +20,17 @@ fi
 echo "Atualizando codigo..."
 git pull origin main
 
+# Ativar ambiente virtual
+echo "Ativando ambiente virtual..."
+if [ -d "venv" ]; then
+    source venv/bin/activate
+elif [ -d "venv_new" ]; then
+    source venv_new/bin/activate
+else
+    echo "ERRO: Ambiente virtual nao encontrado (venv ou venv_new)"
+    exit 1
+fi
+
 # Instalar/atualizar dependencias
 echo "Instalando dependencias..."
 pip install -r requirements.txt --upgrade

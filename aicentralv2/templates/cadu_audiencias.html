@@ -173,13 +173,13 @@
                     <i class="fas fa-edit"></i>
                   </a>
                   <button type="button" 
-                          class="btn btn-xs btn-circle btn-outline btn-info btn-gerar-imagem" 
+                          class="btn btn-xs btn-circle btn-outline {% if audiencia.imagem_url %}btn-success{% else %}btn-info{% endif %} btn-gerar-imagem" 
                           data-audiencia-id="{{ audiencia.id }}"
                           data-audiencia-nome="{{ audiencia.nome }}"
                           data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
                           data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
                           data-audiencia-imagem="{{ audiencia.imagem_url or '' }}"
-                          title="Gerar Imagem">
+                          title="{% if audiencia.imagem_url %}Editar Imagem{% else %}Gerar Imagem{% endif %}">
                     <i class="fas fa-image"></i>
                   </button>
                   <button type="button" 
@@ -271,13 +271,13 @@
               <i class="fas fa-edit mr-1"></i>Editar
             </a>
             <button type="button" 
-                    class="btn btn-sm btn-outline btn-info btn-gerar-imagem"
+                    class="btn btn-sm btn-outline {% if audiencia.imagem_url %}btn-success{% else %}btn-info{% endif %} btn-gerar-imagem"
                     data-audiencia-id="{{ audiencia.id }}"
                     data-audiencia-nome="{{ audiencia.nome }}"
                     data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
                     data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
                     data-audiencia-imagem="{{ audiencia.imagem_url or '' }}">
-              <i class="fas fa-image mr-1"></i>Imagem
+              <i class="fas fa-image mr-1"></i>{% if audiencia.imagem_url %}Editar{% else %}Imagem{% endif %}
             </button>
             <button type="button" 
                     class="btn btn-sm btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"

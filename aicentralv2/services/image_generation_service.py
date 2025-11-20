@@ -287,7 +287,9 @@ def extrair_url_imagem(response_data: Dict) -> Optional[str]:
                                 with open(filepath, 'wb') as f:
                                     f.write(image_bytes)
                                 
-                                public_url = f"/static/uploads/audiencias/{filename}"
+                                # URL completa para acesso externo
+                                base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+                                public_url = f"{base_url}/static/uploads/audiencias/{filename}"
                                 print(f"SUCESSO! Imagem salva: {public_url}")
                                 print("=" * 80)
                                 return public_url
@@ -327,7 +329,9 @@ def extrair_url_imagem(response_data: Dict) -> Optional[str]:
                             with open(filepath, 'wb') as f:
                                 f.write(image_bytes)
                             
-                            public_url = f"/static/uploads/audiencias/{filename}"
+                            # URL completa para acesso externo
+                            base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+                            public_url = f"{base_url}/static/uploads/audiencias/{filename}"
                             print(f"SUCESSO! Imagem salva: {public_url}")
                             print("=" * 80)
                             return public_url

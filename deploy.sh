@@ -1,57 +1,53 @@
 #!/bin/bash
 
-# Script de Deploy para Produção
-# Uso: ./deploy.sh
+# Script de Deploy - AIcentral v2
+# Atualiza codigo, instala dependencias e reinicia servico
 
-set -e  # Parar em caso de erro
+set -e  # Parar execucao em caso de erro
 
-echo "🚀 Iniciando Deploy..."
-
-# Cores
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Configurações
-APP_DIR="/var/www/aicentralv2"
-VENV_DIR="$APP_DIR/venv"
-SERVICE_NAME="aicentralv2"
+echo "========================================"
+echo "Deploy AIcentral v2"
+echo "========================================"
 
 # Verificar se .env existe
-if [ ! -f "$APP_DIR/.env" ]; then
-    echo -e "${RED}❌ ERRO: Arquivo .env não encontrado!${NC}"
-    echo -e "${YELLOW}Crie o arquivo .env com as variáveis necessárias:${NC}"
-    echo "  - DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD"
-    echo "  - SECRET_KEY"
-    echo "  - OPENROUTER_API_KEY"
+if [ ! -f .env ]; then
+    echo "ERRO: Arquivo .env nao encontrado!"
+    echo "Copie .env.example para .env e configure as variaveis"
     exit 1
 fi
 
-echo -e "${YELLOW}📥 Atualizando código...${NC}"
-cd $APP_DIR
+# Atualizar codigo
+echo "Atualizando codigo..."
 git pull origin main
 
-echo -e "${YELLOW}📦 Ativando ambiente virtual...${NC}"
-source $VENV_DIR/bin/activate
-
-echo -e "${YELLOW}📥 Instalando/Atualizando dependências...${NC}"
+# Instalar/atualizar dependencias
+echo "Instalando dependencias..."
 pip install -r requirements.txt --upgrade
 
-# Criar diretório de uploads se não existir
-echo -e "${YELLOW}📁 Verificando diretórios...${NC}"
-mkdir -p $APP_DIR/aicentralv2/static/uploads/audiencias
-chmod 755 $APP_DIR/aicentralv2/static/uploads/audiencias
+# Criar diretorio de uploads se nao existir
+echo "Verificando diretorio de uploads..."
+mkdir -p aicentralv2/static/uploads/audiencias
+chmod 755 aicentralv2/static/uploads/audiencias
 
 # Limpar cache Python
-echo -e "${YELLOW}🧹 Limpando cache Python...${NC}"
-find $APP_DIR -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-find $APP_DIR -type f -name "*.pyc" -delete 2>/dev/null || true
+echo "Limpando cache Python..."
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
-echo -e "${YELLOW}🔄 Reiniciando serviço...${NC}"
-sudo systemctl restart $SERVICE_NAME
+# Reiniciar servico
+echo "Reiniciando servico..."
+sudo systemctl restart aicentralv2
 
-echo -e "${YELLOW}✅ Verificando status...${NC}"
-sudo systemctl status $SERVICE_NAME --no-pager
-
-echo -e "${GREEN}✅ Deploy concluído com sucesso!${NC}"
+echo "========================================"
+echo "Deploy concluido com sucesso!"
+echo "========================================"
+echo ""
+echo "Imagens serao salvas em:"
+echo "aicentralv2/static/uploads/audiencias/"
+echo ""
+echo "Verifique o status:"
+echo "sudo systemctl status aicentralv2"
+echo ""
+echo "Logs:"
+echo "sudo journalctl -u aicentralv2 -f"
+echo ""

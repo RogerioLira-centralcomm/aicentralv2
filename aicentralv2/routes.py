@@ -2424,8 +2424,11 @@ def init_routes(app):
     @app.route('/api/salvar-imagem-audiencia', methods=['POST'])
     @login_required
     def api_salvar_imagem_audiencia():
-        """Salva URL da imagem gerada no banco de dados"""
+        """Salva URL da imagem gerada no banco de dados e deleta a imagem antiga"""
         try:
+            import os
+            from pathlib import Path
+            
             data = request.get_json()
             audiencia_id = data.get('audiencia_id')
             imagem_url = data.get('imagem_url', '').strip()
@@ -2433,9 +2436,33 @@ def init_routes(app):
             if not audiencia_id or not imagem_url:
                 return jsonify({'success': False, 'error': 'ID da audiência e URL da imagem são obrigatórios'})
             
+            # Buscar imagem antiga antes de atualizar
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            imagem_antiga = audiencia.get('imagem_url') if audiencia else None
+            
             # Atualizar no banco
             if db.atualizar_imagem_audiencia(audiencia_id, imagem_url):
                 app.logger.info(f"Imagem salva para audiência {audiencia_id}: {imagem_url}")
+                
+                # Deletar imagem antiga se existir e for diferente da nova
+                if imagem_antiga and imagem_antiga != imagem_url:
+                    try:
+                        # Extrair nome do arquivo da URL (tanto relativa quanto completa)
+                        # Ex: /static/uploads/audiencias/gemini_123.png -> gemini_123.png
+                        # Ex: http://localhost:5000/static/uploads/audiencias/gemini_123.png -> gemini_123.png
+                        if '/static/uploads/audiencias/' in imagem_antiga:
+                            filename = imagem_antiga.split('/static/uploads/audiencias/')[-1]
+                            caminho_completo = Path('aicentralv2/static/uploads/audiencias') / filename
+                            
+                            if caminho_completo.exists():
+                                caminho_completo.unlink()
+                                app.logger.info(f"✅ Imagem antiga deletada: {filename}")
+                            else:
+                                app.logger.warning(f"⚠️ Imagem antiga não encontrada: {caminho_completo}")
+                    except Exception as e:
+                        app.logger.error(f"❌ Erro ao deletar imagem antiga: {e}")
+                        # Não falhar a operação por causa disso
+                
                 return jsonify({'success': True, 'message': 'Imagem salva com sucesso'})
             else:
                 return jsonify({'success': False, 'error': 'Falha ao salvar imagem no banco'})

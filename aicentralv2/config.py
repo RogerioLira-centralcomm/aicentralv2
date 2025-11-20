@@ -17,6 +17,9 @@ class Config:
 	SECRET_KEY = os.getenv('SECRET_KEY', 'chave-padrao-desenvolvimento')
 	DEBUG = False
 	TESTING = False
+	
+	# URL base da aplicação (para acesso externo às imagens)
+	BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')
     
 	# Projeto
 	PROJECT_NAME = 'AIcentralv2'

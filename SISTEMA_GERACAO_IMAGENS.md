@@ -62,10 +62,13 @@
 
 ### Configuração
 
-**API Key OpenRouter**: Configurada em `.env`
+A API Key do OpenRouter é carregada automaticamente do arquivo `.env`:
+```python
+# A aplicação lê automaticamente de .env
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 ```
-OPENROUTER_API_KEY=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
-```
+
+Certifique-se de que o arquivo `.env` contém sua chave (o arquivo não é commitado no git).
 
 ### Custos Estimados
 

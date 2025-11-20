@@ -2373,6 +2373,77 @@ def init_routes(app):
             app.logger.error(f"Erro ao carregar subcategorias: {str(e)}")
             return jsonify({'success': False, 'message': str(e)})
 
+    # ==================== GERAÇÃO DE IMAGENS PARA AUDIÊNCIAS ====================
+
+    @app.route('/api/preparar-prompt-imagem', methods=['POST'])
+    @login_required
+    def api_preparar_prompt_imagem():
+        """Prepara prompt otimizado para geração de imagem usando Gemini 2.5 Flash"""
+        try:
+            from aicentralv2.services import image_generation_service
+            
+            data = request.get_json()
+            nome_audiencia = data.get('nome_audiencia', '')
+            categoria = data.get('categoria', '')
+            descricao = data.get('descricao', '')
+            
+            if not nome_audiencia:
+                return jsonify({'success': False, 'error': 'Nome da audiência é obrigatório'})
+            
+            resultado = image_generation_service.preparar_prompt_imagem(nome_audiencia, categoria, descricao)
+            return jsonify(resultado)
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao preparar prompt de imagem: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
+    @app.route('/api/gerar-imagem-audiencia', methods=['POST'])
+    @login_required
+    def api_gerar_imagem_audiencia():
+        """Gera imagem usando modelo escolhido via OpenRouter"""
+        try:
+            from aicentralv2.services import image_generation_service
+            
+            data = request.get_json()
+            prompt = data.get('prompt', '').strip()
+            modelo = data.get('modelo', 'google/gemini-2.5-flash-image')
+            audiencia_id = data.get('audiencia_id')
+            
+            if not prompt or len(prompt) < 50:
+                return jsonify({'success': False, 'error': 'Prompt muito curto. Mínimo 50 caracteres.'})
+            
+            # Gerar imagem com modelo selecionado
+            resultado = image_generation_service.gerar_imagem_audiencia(prompt, modelo)
+            
+            return jsonify(resultado)
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao gerar imagem: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
+    @app.route('/api/salvar-imagem-audiencia', methods=['POST'])
+    @login_required
+    def api_salvar_imagem_audiencia():
+        """Salva URL da imagem gerada no banco de dados"""
+        try:
+            data = request.get_json()
+            audiencia_id = data.get('audiencia_id')
+            imagem_url = data.get('imagem_url', '').strip()
+            
+            if not audiencia_id or not imagem_url:
+                return jsonify({'success': False, 'error': 'ID da audiência e URL da imagem são obrigatórios'})
+            
+            # Atualizar no banco
+            if db.atualizar_imagem_audiencia(audiencia_id, imagem_url):
+                app.logger.info(f"Imagem salva para audiência {audiencia_id}: {imagem_url}")
+                return jsonify({'success': True, 'message': 'Imagem salva com sucesso'})
+            else:
+                return jsonify({'success': False, 'error': 'Falha ao salvar imagem no banco'})
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao salvar imagem: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
     # ==================== ERRO HANDLERS ====================
 
     @app.errorhandler(403)

@@ -2273,6 +2273,7 @@ def obter_cadu_audiencias():
                     a.is_active,
                     a.created_at,
                     a.updated_at,
+                    a.imagem_url,
                     c.nome as categoria_nome,
                     s.nome as subcategoria_nome
                 FROM cadu_audiencias a
@@ -2414,6 +2415,225 @@ def toggle_status_cadu_audiencia(id_audiencia):
             result = cursor.fetchone()
             conn.commit()
             return result['is_active'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+# ============================================================================
+# INTERESSE PRODUTO - Gestao de interesses de contatos em produtos
+# ============================================================================
+
+def obter_interesses_produto(contato_id=None, tipo_produto=None, notificado=None):
+    """
+    Retorna interesses de produto com filtros opcionais
+    
+    Args:
+        contato_id: Filtrar por ID do contato
+        tipo_produto: Filtrar por tipo de produto
+        notificado: Filtrar por status de notifica��o (True/False/None)
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    i.*,
+                    c.nome_completo,
+                    c.email,
+                    cli.nome_fantasia,
+                    cli.razao_social
+                FROM tbl_interesse_produto i
+                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                WHERE 1=1
+            '''
+            params = []
+            
+            if contato_id is not None:
+                query += ' AND i.fk_id_contato_cliente = %s'
+                params.append(contato_id)
+            
+            if tipo_produto:
+                query += ' AND i.tipo_produto = %s'
+                params.append(tipo_produto)
+            
+            if notificado is not None:
+                query += ' AND i.notificado = %s'
+                params.append(notificado)
+            
+            query += ' ORDER BY i.data_registro DESC'
+            
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+def obter_interesse_produto_por_id(id_interesse):
+    """Retorna um interesse de produto especifico por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    i.*,
+                    c.nome_completo,
+                    c.email,
+                    cli.nome_fantasia,
+                    cli.razao_social
+                FROM tbl_interesse_produto i
+                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                WHERE i.id_interesse = %s
+            ''', (id_interesse,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+def criar_interesse_produto(fk_id_contato_cliente, tipo_produto, ip_registro=None, user_agent=None, dados_adicionais=None):
+    """
+    Cria um novo registro de interesse em produto
+    
+    Args:
+        fk_id_contato_cliente: ID do contato cliente
+        tipo_produto: Tipo do produto de interesse
+        ip_registro: IP do registro (opcional)
+        user_agent: User agent do navegador (opcional)
+        dados_adicionais: Dados adicionais em formato dict (opcional)
+    
+    Returns:
+        ID do interesse criado ou None se ja existir
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Verifica se ja existe (constraint uk_interesse_unico)
+            cursor.execute('''
+                SELECT id_interesse 
+                FROM tbl_interesse_produto 
+                WHERE fk_id_contato_cliente = %s AND tipo_produto = %s
+            ''', (fk_id_contato_cliente, tipo_produto))
+            
+            existe = cursor.fetchone()
+            if existe:
+                return None  # Ja existe, nao cria duplicado
+            
+            # Converte dados_adicionais para JSON se fornecido
+            import json
+            dados_json = json.dumps(dados_adicionais) if dados_adicionais else None
+            
+            cursor.execute('''
+                INSERT INTO tbl_interesse_produto (
+                    fk_id_contato_cliente,
+                    tipo_produto,
+                    ip_registro,
+                    user_agent,
+                    dados_adicionais
+                ) VALUES (%s, %s, %s, %s, %s)
+                RETURNING id_interesse
+            ''', (fk_id_contato_cliente, tipo_produto, ip_registro, user_agent, dados_json))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_interesse'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def marcar_interesse_notificado(id_interesse):
+    """Marca um interesse como notificado"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_interesse_produto
+                SET notificado = true,
+                    data_notificacao = CURRENT_TIMESTAMP
+                WHERE id_interesse = %s
+                RETURNING id_interesse
+            ''', (id_interesse,))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def excluir_interesse_produto(id_interesse):
+    """Exclui um interesse de produto"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM tbl_interesse_produto
+                WHERE id_interesse = %s
+                RETURNING id_interesse
+            ''', (id_interesse,))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+def obter_tipos_produto_com_interesse():
+    """Retorna lista de tipos de produto que tem pelo menos um interesse registrado"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT DISTINCT tipo_produto, COUNT(*) as total_interesses
+                FROM tbl_interesse_produto
+                GROUP BY tipo_produto
+                ORDER BY tipo_produto
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+def obter_interesses_nao_notificados():
+    """Retorna todos os interesses que ainda nao foram notificados"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    i.*,
+                    c.nome_completo,
+                    c.email,
+                    c.telefone,
+                    cli.nome_fantasia,
+                    cli.razao_social
+                FROM tbl_interesse_produto i
+                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                WHERE i.notificado = false
+                ORDER BY i.data_registro ASC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+# ============================================================================
+# GERAÇÃO DE IMAGENS PARA AUDIÊNCIAS
+# ============================================================================
+
+def atualizar_imagem_audiencia(audiencia_id, imagem_url):
+    """Atualiza a URL da imagem de uma audiência"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_audiencias
+                SET imagem_url = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id
+            ''', (imagem_url, audiencia_id))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
     except Exception as e:
         conn.rollback()
         raise e

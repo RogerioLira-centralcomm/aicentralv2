@@ -6,7 +6,10 @@ import json
 import requests
 from typing import Dict, Any
 
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+if not OPENROUTER_API_KEY:
+    raise ValueError("OPENROUTER_API_KEY não encontrada no .env")
+
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Prompt otimizado para transformar texto em FAQ estruturado

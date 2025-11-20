@@ -173,6 +173,16 @@
                     <i class="fas fa-edit"></i>
                   </a>
                   <button type="button" 
+                          class="btn btn-xs btn-circle btn-outline btn-info btn-gerar-imagem" 
+                          data-audiencia-id="{{ audiencia.id }}"
+                          data-audiencia-nome="{{ audiencia.nome }}"
+                          data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
+                          data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
+                          data-audiencia-imagem="{{ audiencia.imagem_url or '' }}"
+                          title="Gerar Imagem">
+                    <i class="fas fa-image"></i>
+                  </button>
+                  <button type="button" 
                           class="btn btn-xs btn-circle btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"
                           data-audiencia-id="{{ audiencia.id }}"
                           title="{% if audiencia.is_active %}Desativar{% else %}Ativar{% endif %}">
@@ -260,6 +270,15 @@
                class="btn btn-sm btn-outline btn-primary flex-1">
               <i class="fas fa-edit mr-1"></i>Editar
             </a>
+            <button type="button" 
+                    class="btn btn-sm btn-outline btn-info btn-gerar-imagem"
+                    data-audiencia-id="{{ audiencia.id }}"
+                    data-audiencia-nome="{{ audiencia.nome }}"
+                    data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
+                    data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
+                    data-audiencia-imagem="{{ audiencia.imagem_url or '' }}">
+              <i class="fas fa-image mr-1"></i>Imagem
+            </button>
             <button type="button" 
                     class="btn btn-sm btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"
                     data-audiencia-id="{{ audiencia.id }}">
@@ -496,6 +515,439 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('Erro ao excluir audiência');
     }
   });
+
+  // ==================== GERAÇÃO DE IMAGENS ====================
+  
+  // Event listener para botões de gerar imagem
+  document.querySelectorAll('.btn-gerar-imagem').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.dataset.audienciaId;
+      const nome = this.dataset.audienciaNome;
+      const categoria = this.dataset.audienciaCategoria;
+      const descricao = this.dataset.audienciaDescricao;
+      const imagemUrl = this.dataset.audienciaImagem;
+      
+      abrirModalGerarImagem(id, nome, categoria, descricao, imagemUrl);
+    });
+  });
+  
+  let imagemAtualUrl = null;
+  let audienciaAtualId = null;
+
+  window.abrirModalGerarImagem = async function(id, nome, categoria, descricao, imagemUrl) {
+    console.log('Dados recebidos:', { id, nome, categoria, descricao, imagemUrl });
+    console.log('imagemUrl type:', typeof imagemUrl, 'value:', imagemUrl, 'trimmed:', imagemUrl ? imagemUrl.trim() : 'null');
+    
+    audienciaAtualId = id;
+    
+    document.getElementById('modal-titulo').textContent = `Gerar Imagem - ${nome}`;
+    document.getElementById('modal-categoria').textContent = categoria || 'Sem categoria';
+    document.getElementById('audiencia-id').value = id;
+    document.getElementById('audiencia-descricao').value = descricao;
+    
+    // LIMPAR preview anterior PRIMEIRO
+    const imgElement = document.getElementById('preview-imagem');
+    imgElement.src = '';
+    imgElement.onload = null;
+    imgElement.onerror = null;
+    imagemAtualUrl = null;
+    
+    // Resetar para estado vazio
+    mostrarEstadoPreview('vazio');
+    document.getElementById('acoes-imagem').classList.add('hidden');
+    
+    // Se já tem imagem salva, mostra no preview
+    if (imagemUrl && imagemUrl.trim() !== '') {
+      console.log('TEM IMAGEM SALVA - Carregando preview...');
+      imagemAtualUrl = imagemUrl;
+      
+      // Configurar callbacks ANTES de definir src
+      imgElement.onload = () => {
+        console.log('✅ IMAGEM EXISTENTE CARREGOU COM SUCESSO!');
+        console.log('📐 Tamanho:', imgElement.naturalWidth, 'x', imgElement.naturalHeight);
+        
+        mostrarEstadoPreview('imagem');
+        document.getElementById('acoes-imagem').classList.remove('hidden');
+      };
+      imgElement.onerror = (e) => {
+        console.error('❌ ERRO ao carregar imagem existente:', e, 'URL:', imagemUrl);
+        mostrarEstadoPreview('vazio');
+        document.getElementById('acoes-imagem').classList.add('hidden');
+      };
+      
+      // Agora sim definir src (dispara o onload)
+      console.log('🔄 Definindo src da imagem existente:', imagemUrl);
+      imgElement.src = imagemUrl;
+    } else {
+      console.log('NÃO TEM IMAGEM SALVA - Mostrando estado vazio');
+    }
+    
+    document.getElementById('modal-gerar-imagem').showModal();
+    
+    await prepararPrompt(nome, categoria, descricao);
+  };
+
+  async function prepararPrompt(nome, categoria, descricao) {
+    // v2 - Descrição opcional
+    const textarea = document.getElementById('prompt-textarea');
+    textarea.value = 'Carregando prompt...';
+    textarea.disabled = true;
+    
+    try {
+      // Garantir que pelo menos o nome existe
+      if (!nome || nome.trim() === '') {
+        throw new Error('Nome da audiência é obrigatório');
+      }
+      
+      const response = await fetch('/api/preparar-prompt-imagem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome_audiencia: nome.trim(),
+          categoria: categoria ? categoria.trim() : '',
+          descricao: descricao ? descricao.trim() : ''
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        textarea.value = data.prompt;
+        textarea.disabled = false;
+      } else {
+        throw new Error(data.error || 'Erro ao preparar prompt');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      textarea.value = 'Erro ao gerar prompt. Tente novamente.';
+      textarea.disabled = false;
+      mostrarToast('Erro ao preparar prompt', 'error');
+    }
+  }
+
+  window.regenerarPrompt = async function() {
+    const nome = document.getElementById('modal-titulo').textContent.replace('Gerar Imagem - ', '');
+    const categoria = document.getElementById('modal-categoria').textContent;
+    const descricao = document.getElementById('audiencia-descricao').value;
+    await prepararPrompt(nome, categoria, descricao);
+  };
+
+  window.gerarImagem = async function() {
+    const prompt = document.getElementById('prompt-textarea').value.trim();
+    const modelo = document.getElementById('modelo-imagem').value;
+    
+    if (!prompt || prompt.length < 50) {
+      mostrarToast('Prompt muito curto. Mínimo 50 caracteres.', 'warning');
+      return;
+    }
+    
+    mostrarEstadoPreview('loading');
+    document.getElementById('btn-gerar-imagem').disabled = true;
+    document.getElementById('status-geracao').textContent = `Gerando com ${modelo.split('/')[1]}...`;
+    
+    try {
+      const response = await fetch('/api/gerar-imagem-audiencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: prompt,
+          modelo: modelo,
+          audiencia_id: audienciaAtualId
+        })
+      });
+      
+      const data = await response.json();
+      
+      console.log('Resposta da geração:', data);
+      
+      if (data.success && data.image_url) {
+        imagemAtualUrl = data.image_url;
+        const imgElement = document.getElementById('preview-imagem');
+        console.log('URL da imagem:', data.image_url);
+        console.log('Elemento img:', imgElement);
+        
+        // Configurar callbacks antes de definir src
+        imgElement.onload = () => {
+          console.log('✅ IMAGEM CARREGOU COM SUCESSO!');
+          console.log('📐 Tamanho:', imgElement.naturalWidth, 'x', imgElement.naturalHeight);
+          console.log('🎨 Elemento:', imgElement);
+          console.log('🔍 Computed style:', window.getComputedStyle(imgElement).display);
+          console.log('🔍 Inline style:', imgElement.style.display);
+          console.log('🔍 Opacity:', window.getComputedStyle(imgElement).opacity);
+          console.log('🔍 Visibility:', window.getComputedStyle(imgElement).visibility);
+          console.log('🔍 Z-index:', window.getComputedStyle(imgElement).zIndex);
+          
+          mostrarEstadoPreview('imagem');
+          
+          // Verificar DEPOIS de mostrar
+          setTimeout(() => {
+          console.log('🔍 DEPOIS de mostrarEstadoPreview:');
+          console.log('  - display:', window.getComputedStyle(imgElement).display);
+          console.log('  - opacity:', window.getComputedStyle(imgElement).opacity);
+          console.log('  - visibility:', window.getComputedStyle(imgElement).visibility);
+          
+          // Verificar container pai
+          const container = document.getElementById('preview-container');
+          console.log('📦 Container pai:', container);
+          console.log('📦 Container display:', window.getComputedStyle(container).display);
+          console.log('📦 Container overflow:', window.getComputedStyle(container).overflow);
+          console.log('📦 Container height:', container.offsetHeight);
+          console.log('📦 Container width:', container.offsetWidth);
+          
+          // FORÇAR se necessário
+          if (window.getComputedStyle(imgElement).display === 'none') {
+            console.error('⚠️ AINDA ESTÁ DISPLAY NONE! Forçando...');
+            imgElement.style.display = 'block !important';
+          }
+          if (window.getComputedStyle(imgElement).opacity === '0') {
+            console.error('⚠️ OPACITY É 0! Forçando...');
+            imgElement.style.opacity = '1';
+          }
+        }, 100);          document.getElementById('acoes-imagem').classList.remove('hidden');
+          document.getElementById('status-geracao').textContent = 'Gerada com sucesso';
+          mostrarToast('Imagem gerada com sucesso!', 'success');
+        };
+        imgElement.onerror = (e) => {
+          console.error('❌ ERRO ao carregar imagem:', e);
+          console.error('URL que falhou:', data.image_url);
+          mostrarEstadoPreview('vazio');
+          mostrarToast('Erro ao carregar imagem. URL: ' + data.image_url, 'error');
+        };
+        
+        // Agora sim definir a src (isso dispara o onload)
+        console.log('🔄 Definindo src da imagem:', data.image_url);
+        imgElement.src = data.image_url;
+      } else {
+        throw new Error(data.error || 'Erro ao gerar imagem');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      mostrarEstadoPreview('vazio');
+      document.getElementById('status-geracao').textContent = 'Erro na geração';
+      mostrarToast('Erro ao gerar imagem. Tente novamente.', 'error');
+    } finally {
+      document.getElementById('btn-gerar-imagem').disabled = false;
+    }
+  };
+
+  function mostrarEstadoPreview(estado) {
+    console.log('Mostrando estado:', estado);
+    const vazio = document.getElementById('preview-vazio');
+    const loading = document.getElementById('preview-loading');
+    const imagem = document.getElementById('preview-imagem');
+    
+    console.log('Elementos:', { vazio, loading, imagem });
+    
+    // Esconder todos
+    vazio.style.display = 'none';
+    loading.style.display = 'none';
+    imagem.style.display = 'none';
+    
+    // Forçar reflow (force browser repaint)
+    void imagem.offsetHeight;
+    
+    // Mostrar o estado solicitado
+    if (estado === 'vazio') {
+      vazio.style.display = 'flex';
+    } else if (estado === 'loading') {
+      loading.style.display = 'flex';
+    } else if (estado === 'imagem') {
+      imagem.style.display = 'block';
+      imagem.style.opacity = '1';
+      imagem.style.visibility = 'visible';
+      
+      // Forçar reflow novamente
+      void imagem.offsetHeight;
+      
+      console.log('Imagem deve estar visível agora. Style:', imagem.style.display);
+      console.log('🎨 Classes:', imagem.className);
+      console.log('🎨 Parent:', imagem.parentElement);
+    }
+  }
+
+  window.confirmarImagem = async function() {
+    if (!imagemAtualUrl || !audienciaAtualId) {
+      mostrarToast('Erro: dados incompletos', 'error');
+      return;
+    }
+    
+    const btnConfirmar = document.querySelector('#acoes-imagem button');
+    btnConfirmar.disabled = true;
+    btnConfirmar.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Salvando...';
+    
+    try {
+      const response = await fetch('/api/salvar-imagem-audiencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audiencia_id: audienciaAtualId,
+          imagem_url: imagemAtualUrl
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        mostrarToast('Imagem salva com sucesso!', 'success');
+        fecharModalImagem();
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        throw new Error(data.error || 'Erro ao salvar');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      mostrarToast('Erro ao salvar imagem', 'error');
+      btnConfirmar.disabled = false;
+      btnConfirmar.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Confirmar e Salvar Imagem';
+    }
+  };
+
+  window.fecharModalImagem = function() {
+    document.getElementById('modal-gerar-imagem').close();
+    imagemAtualUrl = null;
+    audienciaAtualId = null;
+  };
+
+  function mostrarToast(mensagem, tipo = 'info') {
+    const tipoClasse = tipo === 'error' ? 'alert-error' : tipo === 'success' ? 'alert-success' : tipo === 'warning' ? 'alert-warning' : 'alert-info';
+    const alert = document.createElement('div');
+    alert.className = `alert ${tipoClasse} shadow-lg fixed bottom-4 right-4 w-auto z-50`;
+    alert.innerHTML = `<span>${mensagem}</span>`;
+    document.body.appendChild(alert);
+    setTimeout(() => alert.remove(), 3000);
+  }
 });
 </script>
+
+<!-- Modal Gerar Imagem -->
+<dialog id="modal-gerar-imagem" class="modal">
+  <div class="modal-box max-w-6xl w-full">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h3 class="font-bold text-xl" id="modal-titulo">Gerar Imagem</h3>
+        <p class="text-sm text-base-content/60 mt-1">
+          <span class="badge badge-sm" id="modal-categoria">Categoria</span>
+        </p>
+      </div>
+      <button onclick="fecharModalImagem()" class="btn btn-sm btn-circle btn-ghost">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <!-- Grid 2 Colunas -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- COLUNA 1: Prompt Editor -->
+      <div class="space-y-4">
+        
+        <!-- Seletor de Modelo -->
+        <div>
+          <label class="label">
+            <span class="label-text font-semibold">Modelo de Geração</span>
+            <span class="label-text-alt text-xs text-base-content/60">Escolha o modelo AI</span>
+          </label>
+          <select id="modelo-imagem" class="select select-bordered w-full">
+            <option value="google/gemini-2.5-flash-image">Gemini 2.5 Flash Image (Base64)</option>
+            <option value="google/gemini-exp-1206:free">Gemini Experimental 1206 (Gratuito)</option>
+            <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Gratuito)</option>
+            <option value="openai/gpt-4o">GPT-4o (Multimodal)</option>
+            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Multimodal)</option>
+          </select>
+          <div class="label">
+            <span class="label-text-alt text-xs">⚠️ Nem todos modelos geram imagens. Use Gemini 2.5 Flash Image para garantir.</span>
+          </div>
+        </div>
+        
+        <div>
+          <label class="label">
+            <span class="label-text font-semibold">Prompt para Geração</span>
+            <span class="label-text-alt text-xs text-base-content/60">Editável</span>
+          </label>
+          <textarea 
+            id="prompt-textarea" 
+            class="textarea textarea-bordered w-full h-64 font-mono text-sm"
+            placeholder="Carregando prompt..."></textarea>
+          <div class="label">
+            <span class="label-text-alt text-xs">150-500 caracteres, em inglês, formato 16:9</span>
+          </div>
+        </div>
+        
+        <!-- Ações da Coluna 1 -->
+        <div class="flex gap-2">
+          <button 
+            onclick="regenerarPrompt()" 
+            id="btn-regenerar-prompt"
+            class="btn btn-sm btn-outline gap-2 flex-1">
+            <i class="fas fa-sync-alt"></i>
+            Gerar Novo Prompt
+          </button>
+          <button 
+            onclick="gerarImagem()" 
+            id="btn-gerar-imagem"
+            class="btn btn-sm btn-primary gap-2 flex-1">
+            <i class="fas fa-magic"></i>
+            Gerar Imagem
+          </button>
+        </div>
+      </div>
+      
+      <!-- COLUNA 2: Preview da Imagem -->
+      <div class="space-y-4">
+        <div>
+          <label class="label">
+            <span class="label-text font-semibold">Preview da Imagem</span>
+            <span class="label-text-alt text-xs text-base-content/60" id="status-geracao"></span>
+          </label>
+          
+          <!-- Container com aspect ratio 16:9 -->
+          <div class="w-full bg-base-200 rounded-lg border-2 border-base-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 300px;">
+            
+            <!-- Estado Inicial -->
+            <div id="preview-vazio" class="text-center p-6 absolute inset-0 flex flex-col items-center justify-center">
+              <i class="fas fa-image text-4xl text-base-content/40 mb-2 block"></i>
+              <p class="text-sm text-base-content/60">Clique em "Gerar Imagem" para criar</p>
+            </div>
+            
+            <!-- Loading State (oculto por padrão) -->
+            <div id="preview-loading" class="absolute inset-0 flex flex-col items-center justify-center p-6" style="display: none;">
+              <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
+              <p class="text-sm font-semibold mb-1">Gerando imagem...</p>
+              <p class="text-xs text-base-content/60">Isso pode levar 20-40 segundos</p>
+            </div>
+            
+            <!-- Imagem Gerada (oculto por padrão) -->
+            <img id="preview-imagem" class="absolute inset-0 w-full h-full object-cover" style="display: none;" alt="Imagem gerada">
+            
+          </div>
+        </div>
+        
+        <!-- Ações da Coluna 2 -->
+        <div id="acoes-imagem" class="hidden">
+          <button 
+            onclick="confirmarImagem()" 
+            class="btn btn-success w-full gap-2">
+            <i class="fas fa-check-circle"></i>
+            Confirmar e Salvar Imagem
+          </button>
+        </div>
+      </div>
+      
+    </div>
+    
+    <!-- Informações da Audiência (oculto, usado pelo JS) -->
+    <input type="hidden" id="audiencia-id">
+    <input type="hidden" id="audiencia-descricao">
+    
+  </div>
+  
+  <!-- Backdrop -->
+  <form method="dialog" class="modal-backdrop">
+    <button onclick="fecharModalImagem()">fechar</button>
+  </form>
+</dialog>
+
+<!-- Cache buster: v2.1 - Unsplash placeholder -->
+
 {% endblock %}

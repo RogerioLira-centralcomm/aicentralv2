@@ -1,0 +1,169 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Interesses em Produtos - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Interesses em Produtos</h1>
+      <p class="text-sm text-base-content/70">Visualize os contatos interessados em nossos produtos.</p>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Filtros -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <form method="GET" action="{{ url_for('interesse_produto_listar') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Tipo de Produto</span>
+        </label>
+        <select name="tipo_produto" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          <option value="Planejamento de Mídia" {% if filtro_tipo == 'Planejamento de Mídia' %}selected{% endif %}>Planejamento de Mídia</option>
+          <option value="Análise de Dados" {% if filtro_tipo == 'Análise de Dados' %}selected{% endif %}>Análise de Dados</option>
+          <option value="Criação de Conteúdo" {% if filtro_tipo == 'Criação de Conteúdo' %}selected{% endif %}>Criação de Conteúdo</option>
+          <option value="Consultoria Estratégica" {% if filtro_tipo == 'Consultoria Estratégica' %}selected{% endif %}>Consultoria Estratégica</option>
+          <option value="Outro" {% if filtro_tipo == 'Outro' %}selected{% endif %}>Outro</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Status Notificação</span>
+        </label>
+        <select name="notificado" class="select select-bordered w-full">
+          <option value="">Todos</option>
+          <option value="true" {% if filtro_notificado == 'true' %}selected{% endif %}>Notificado</option>
+          <option value="false" {% if filtro_notificado == 'false' %}selected{% endif %}>Não Notificado</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Cliente</span>
+        </label>
+        <input type="text" name="cliente" value="{{ filtro_cliente or '' }}" placeholder="Nome do cliente..." class="input input-bordered w-full">
+      </div>
+
+      <div class="form-control flex flex-row gap-2 items-end">
+        <button type="submit" class="btn btn-primary btn-sm flex-1">
+          <i class="fas fa-filter mr-2"></i>Filtrar
+        </button>
+        <a href="{{ url_for('interesse_produto_listar') }}" class="btn btn-outline btn-sm">
+          <i class="fas fa-times"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+    {% if interesses %}
+      <!-- Desktop -->
+      <div class="hidden md:block overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Contato</th>
+              <th class="text-left font-bold uppercase">Cliente</th>
+              <th class="text-left font-bold uppercase">Tipo Produto</th>
+              <th class="text-center font-bold uppercase w-32">Notificado</th>
+              <th class="text-center font-bold uppercase w-32">Data Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for interesse in interesses %}
+            <tr class="hover">
+              <td>
+                <div class="font-semibold text-base-content">{{ interesse.nome_completo }}</div>
+                <div class="text-xs text-base-content/60">{{ interesse.email }}</div>
+              </td>
+              <td>
+                <span class="text-base-content">{{ interesse.nome_fantasia or interesse.razao_social or 'N/A' }}</span>
+              </td>
+              <td>
+                <span class="badge badge-sm badge-outline">{{ interesse.tipo_produto }}</span>
+              </td>
+              <td class="text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                  {% if interesse.notificado %}bg-green-100 text-green-800 border border-green-300{% else %}bg-yellow-100 text-yellow-700 border border-yellow-300{% endif %}">
+                  {% if interesse.notificado %}
+                    <i class="fas fa-check-circle mr-1 text-green-500"></i>Sim
+                  {% else %}
+                    <i class="fas fa-clock mr-1 text-yellow-500"></i>Não
+                  {% endif %}
+                </span>
+              </td>
+              <td class="text-center text-xs text-base-content/70">
+                {{ interesse.data_registro.strftime('%d/%m/%Y %H:%M') if interesse.data_registro else '-' }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile -->
+      <div class="md:hidden divide-y divide-base-300">
+        {% for interesse in interesses %}
+        <div class="p-4 hover:bg-base-200">
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex-1">
+              <div class="font-semibold text-base-content">{{ interesse.nome_completo }}</div>
+              <div class="text-xs text-base-content/60">{{ interesse.email }}</div>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+              {% if interesse.notificado %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+              {% if interesse.notificado %}
+                <i class="fas fa-check-circle mr-1"></i>Notificado
+              {% else %}
+                <i class="fas fa-clock mr-1"></i>Pendente
+              {% endif %}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs mt-2">
+            <div>
+              <span class="text-base-content/60">Cliente:</span>
+              <div class="font-medium">{{ interesse.nome_fantasia or interesse.razao_social or 'N/A' }}</div>
+            </div>
+            <div>
+              <span class="text-base-content/60">Produto:</span>
+              <div><span class="badge badge-sm badge-outline">{{ interesse.tipo_produto }}</span></div>
+            </div>
+          </div>
+          {% if interesse.observacoes %}
+          <div class="text-xs text-base-content/70 mt-2 p-2 bg-base-300 rounded">
+            {{ interesse.observacoes }}
+          </div>
+          {% endif %}
+          <div class="text-xs text-base-content/50 mt-2">
+            <i class="fas fa-calendar mr-1"></i>{{ interesse.data_registro.strftime('%d/%m/%Y %H:%M') if interesse.data_registro else '-' }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-center py-8">
+        <p class="mb-2 text-base-content/60 text-sm">Nenhum interesse cadastrado com os filtros selecionados.</p>
+        {% if filtro_tipo or filtro_notificado or filtro_cliente %}
+        <a href="{{ url_for('interesse_produto_listar') }}" class="btn btn-outline btn-sm">
+          <i class="fas fa-times mr-2"></i>Limpar Filtros
+        </a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

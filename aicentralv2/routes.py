@@ -721,6 +721,60 @@ def init_routes(app):
                 pessoas_stats={'fisica': {'total': 0, 'ativos': 0}, 'juridica': {'total': 0, 'ativos': 0}}
             )
 
+    # ==================== INTERESSE PRODUTO ====================
+    
+    @app.route('/interesse-produto')
+    @login_required
+    def interesse_produto_listar():
+        """Lista de interesses em produtos com filtros."""
+        try:
+            # Obter filtros da query string
+            filtro_tipo = request.args.get('tipo_produto', '').strip()
+            filtro_notificado = request.args.get('notificado', '').strip()
+            filtro_cliente = request.args.get('cliente', '').strip()
+            
+            # Converter filtro_notificado para boolean ou None
+            notificado_param = None
+            if filtro_notificado == 'true':
+                notificado_param = True
+            elif filtro_notificado == 'false':
+                notificado_param = False
+            
+            # Buscar interesses
+            interesses = db.obter_interesses_produto(
+                tipo_produto=filtro_tipo if filtro_tipo else None,
+                notificado=notificado_param
+            )
+            
+            # Filtrar por nome do cliente se especificado
+            if filtro_cliente:
+                interesses = [
+                    i for i in interesses 
+                    if filtro_cliente.lower() in (i.get('nome_fantasia', '') or '').lower() 
+                    or filtro_cliente.lower() in (i.get('razao_social', '') or '').lower()
+                ]
+            
+            return render_template(
+                'interesse_produto.html',
+                interesses=interesses,
+                filtro_tipo=filtro_tipo,
+                filtro_notificado=filtro_notificado,
+                filtro_cliente=filtro_cliente
+            )
+        except Exception as e:
+            import traceback
+            app.logger.error("Erro ao listar interesses em produtos:")
+            app.logger.error(str(e))
+            app.logger.error(traceback.format_exc())
+            flash(f'Erro ao buscar interesses: {str(e)}', 'error')
+            return render_template(
+                'interesse_produto.html',
+                interesses=[],
+                filtro_tipo='',
+                filtro_notificado='',
+                filtro_cliente=''
+            )
+
     # ==================== AUX SETOR ====================
     
     @app.route('/tbl_setor')

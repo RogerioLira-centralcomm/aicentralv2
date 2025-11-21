@@ -441,6 +441,7 @@ def obter_contato_por_id(contato_id):
                 c.data_cadastro,
                 c.data_modificacao,
                 c.cohorts,
+                c.user_type,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
@@ -2658,7 +2659,6 @@ def obter_usuarios_sistema(filtros=None):
                 c.user_type,
                 c.pk_id_tbl_cliente,
                 c.data_cadastro,
-                c.ultimo_acesso,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
@@ -3311,3 +3311,430 @@ def atualizar_invoice_status(invoice_id, novo_status, paid_date=None):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+# ==================== INVOICES - FUNÇÕES ADICIONAIS ====================
+
+def obter_invoice_por_id(invoice_id):
+    """
+    Retorna uma invoice específica com detalhes do cliente
+    
+    Args:
+        invoice_id (int): ID da invoice
+    
+    Returns:
+        dict: Dados da invoice com informações do cliente
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    i.*,
+                    cli.nome_fantasia,
+                    cli.razao_social,
+                    cli.cnpj
+                FROM cadu_invoices i
+                INNER JOIN tbl_cliente cli ON i.id_cliente = cli.id_cliente
+                WHERE i.id = %s
+            ''', (invoice_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def obter_invoices_cliente(cliente_id, limit=12):
+    """
+    Retorna as últimas invoices de um cliente
+    
+    Args:
+        cliente_id (int): ID do cliente
+        limit (int): Número máximo de registros
+    
+    Returns:
+        list: Lista de invoices do cliente
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT *
+                FROM cadu_invoices
+                WHERE id_cliente = %s
+                ORDER BY billing_month DESC, created_at DESC
+                LIMIT %s
+            ''', (cliente_id, limit))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_invoices_pendentes():
+    """
+    Retorna todas as invoices com status pending ou overdue
+    
+    Returns:
+        list: Lista de invoices pendentes
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    i.*,
+                    cli.nome_fantasia,
+                    cli.razao_social,
+                    cli.cnpj
+                FROM cadu_invoices i
+                INNER JOIN tbl_cliente cli ON i.id_cliente = cli.id_cliente
+                WHERE i.status IN ('pending', 'overdue')
+                ORDER BY i.due_date ASC, i.created_at DESC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def marcar_invoice_paga(invoice_id, data_pagamento=None):
+    """
+    Marca uma invoice como paga
+    
+    Args:
+        invoice_id (int): ID da invoice
+        data_pagamento (datetime, optional): Data do pagamento (default: agora)
+    
+    Returns:
+        bool: True se atualizado com sucesso
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_invoices
+                SET status = 'paid',
+                    paid_at = COALESCE(%s, CURRENT_TIMESTAMP)
+                WHERE id = %s
+                RETURNING id
+            ''', (data_pagamento, invoice_id))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def calcular_total_invoice(tokens_used, tokens_cost, image_credits_used, image_credits_cost, 
+                          extra_users, extra_users_cost, tax_percentage=0):
+    """
+    Calcula os totais de uma invoice
+    
+    Args:
+        tokens_used (int): Tokens utilizados
+        tokens_cost (float): Custo dos tokens
+        image_credits_used (int): Créditos de imagem utilizados
+        image_credits_cost (float): Custo das imagens
+        extra_users (int): Usuários extras
+        extra_users_cost (float): Custo de usuários extras
+        tax_percentage (float): Percentual de impostos (default: 0)
+    
+    Returns:
+        dict: Dicionário com subtotal, tax, total
+    """
+    subtotal = float(tokens_cost) + float(image_credits_cost) + float(extra_users_cost)
+    tax = subtotal * (float(tax_percentage) / 100)
+    total = subtotal + tax
+    
+    return {
+        'subtotal': round(subtotal, 2),
+        'tax': round(tax, 2),
+        'total': round(total, 2)
+    }
+
+
+def gerar_numero_invoice():
+    """
+    Gera próximo número de invoice no formato INV-XXXXXX
+    
+    Returns:
+        str: Número da invoice (ex: INV-001234)
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT COALESCE(MAX(
+                    CAST(SUBSTRING(invoice_number FROM 5) AS INTEGER)
+                ), 0) + 1 as next_number
+                FROM cadu_invoices
+                WHERE invoice_number LIKE 'INV-%'
+            ''')
+            
+            result = cursor.fetchone()
+            next_num = result['next_number'] if result else 1
+            return f'INV-{next_num:06d}'
+    except Exception as e:
+        raise e
+
+
+# ==================== AUDIT LOG - FUNÇÕES ====================
+
+def registrar_audit_log(fk_id_usuario, acao, modulo, descricao=None, registro_id=None, 
+                       registro_tipo=None, ip_address=None, user_agent=None, 
+                       dados_anteriores=None, dados_novos=None):
+    """
+    Registra uma ação administrativa no log de auditoria
+    
+    Args:
+        fk_id_usuario (int): ID do usuário que realizou a ação
+        acao (str): Tipo de ação (criar, editar, deletar, visualizar, etc)
+        modulo (str): Módulo do sistema (usuarios, clientes, planos, etc)
+        descricao (str, optional): Descrição detalhada da ação
+        registro_id (int, optional): ID do registro afetado
+        registro_tipo (str, optional): Tipo do registro (cliente, usuario, plano, etc)
+        ip_address (str, optional): Endereço IP do usuário
+        user_agent (str, optional): User agent do navegador
+        dados_anteriores (dict, optional): Dados antes da alteração (convertido para JSONB)
+        dados_novos (dict, optional): Dados depois da alteração (convertido para JSONB)
+    
+    Returns:
+        int: ID do log criado
+    """
+    import json
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Converter dicts para JSON string se necessário
+            dados_ant_json = json.dumps(dados_anteriores) if dados_anteriores else None
+            dados_nov_json = json.dumps(dados_novos) if dados_novos else None
+            
+            cursor.execute('''
+                INSERT INTO tbl_admin_audit_log 
+                (fk_id_usuario, acao, modulo, descricao, registro_id, registro_tipo,
+                 ip_address, user_agent, dados_anteriores, dados_novos)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                RETURNING id_log
+            ''', (fk_id_usuario, acao, modulo, descricao, registro_id, registro_tipo,
+                  ip_address, user_agent, dados_ant_json, dados_nov_json))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_log'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_audit_logs(filtros=None, limit=100, offset=0):
+    """
+    Retorna logs de auditoria com filtros opcionais
+    
+    Args:
+        filtros (dict, optional): Filtros (modulo, acao, usuario_id, data_inicio, data_fim)
+        limit (int): Número máximo de registros
+        offset (int): Offset para paginação
+    
+    Returns:
+        list: Lista de logs de auditoria
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    l.*,
+                    u.nome_completo as usuario_nome,
+                    u.email as usuario_email
+                FROM tbl_admin_audit_log l
+                INNER JOIN tbl_contato_cliente u ON l.fk_id_usuario = u.id_contato_cliente
+                WHERE 1=1
+            '''
+            
+            params = []
+            
+            if filtros:
+                if filtros.get('modulo'):
+                    query += ' AND l.modulo = %s'
+                    params.append(filtros['modulo'])
+                
+                if filtros.get('acao'):
+                    query += ' AND l.acao = %s'
+                    params.append(filtros['acao'])
+                
+                if filtros.get('usuario_id'):
+                    query += ' AND l.fk_id_usuario = %s'
+                    params.append(filtros['usuario_id'])
+                
+                if filtros.get('data_inicio'):
+                    query += ' AND l.data_acao >= %s'
+                    params.append(filtros['data_inicio'])
+                
+                if filtros.get('data_fim'):
+                    query += ' AND l.data_acao <= %s'
+                    params.append(filtros['data_fim'])
+                
+                if filtros.get('registro_id') and filtros.get('registro_tipo'):
+                    query += ' AND l.registro_id = %s AND l.registro_tipo = %s'
+                    params.append(filtros['registro_id'])
+                    params.append(filtros['registro_tipo'])
+            
+            query += ' ORDER BY l.data_acao DESC LIMIT %s OFFSET %s'
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_audit_log_por_id(log_id):
+    """
+    Retorna um log de auditoria específico
+    
+    Args:
+        log_id (int): ID do log
+    
+    Returns:
+        dict: Dados do log com informações do usuário
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    l.*,
+                    u.nome_completo as usuario_nome,
+                    u.email as usuario_email
+                FROM tbl_admin_audit_log l
+                INNER JOIN tbl_contato_cliente u ON l.fk_id_usuario = u.id_contato_cliente
+                WHERE l.id_log = %s
+            ''', (log_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def obter_audit_logs_usuario(usuario_id, limit=50):
+    """
+    Retorna os últimos logs de um usuário específico
+    
+    Args:
+        usuario_id (int): ID do usuário
+        limit (int): Número máximo de registros
+    
+    Returns:
+        list: Lista de logs do usuário
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT *
+                FROM tbl_admin_audit_log
+                WHERE fk_id_usuario = %s
+                ORDER BY data_acao DESC
+                LIMIT %s
+            ''', (usuario_id, limit))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_audit_logs_registro(registro_id, registro_tipo, limit=50):
+    """
+    Retorna todos os logs relacionados a um registro específico
+    
+    Args:
+        registro_id (int): ID do registro
+        registro_tipo (str): Tipo do registro (cliente, usuario, plano, etc)
+        limit (int): Número máximo de registros
+    
+    Returns:
+        list: Lista de logs do registro
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    l.*,
+                    u.nome_completo as usuario_nome,
+                    u.email as usuario_email
+                FROM tbl_admin_audit_log l
+                INNER JOIN tbl_contato_cliente u ON l.fk_id_usuario = u.id_contato_cliente
+                WHERE l.registro_id = %s AND l.registro_tipo = %s
+                ORDER BY l.data_acao DESC
+                LIMIT %s
+            ''', (registro_id, registro_tipo, limit))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_estatisticas_audit_log(dias=30):
+    """
+    Retorna estatísticas do log de auditoria
+    
+    Args:
+        dias (int): Número de dias para análise
+    
+    Returns:
+        dict: Estatísticas (total_acoes, por_modulo, por_acao, usuarios_ativos)
+    """
+    from datetime import datetime, timedelta
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            stats = {}
+            
+            # Calcular data de corte
+            data_corte = datetime.now() - timedelta(days=dias)
+            
+            # Total de ações nos últimos N dias
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM tbl_admin_audit_log
+                WHERE data_acao >= %s
+            ''', (data_corte,))
+            stats['total_acoes'] = cursor.fetchone()['total']
+            
+            # Ações por módulo
+            cursor.execute('''
+                SELECT modulo, COUNT(*) as total
+                FROM tbl_admin_audit_log
+                WHERE data_acao >= %s
+                GROUP BY modulo
+                ORDER BY total DESC
+            ''', (data_corte,))
+            stats['por_modulo'] = cursor.fetchall()
+            
+            # Ações por tipo
+            cursor.execute('''
+                SELECT acao, COUNT(*) as total
+                FROM tbl_admin_audit_log
+                WHERE data_acao >= %s
+                GROUP BY acao
+                ORDER BY total DESC
+            ''', (data_corte,))
+            stats['por_acao'] = cursor.fetchall()
+            
+            # Usuários mais ativos
+            cursor.execute('''
+                SELECT 
+                    u.nome_completo,
+                    u.email,
+                    COUNT(*) as total_acoes
+                FROM tbl_admin_audit_log l
+                INNER JOIN tbl_contato_cliente u ON l.fk_id_usuario = u.id_contato_cliente
+                WHERE l.data_acao >= %s
+                GROUP BY u.id_contato_cliente, u.nome_completo, u.email
+                ORDER BY total_acoes DESC
+                LIMIT 10
+            ''', (data_corte,))
+            stats['usuarios_ativos'] = cursor.fetchall()
+            
+            return stats
+    except Exception as e:
+        raise e
+

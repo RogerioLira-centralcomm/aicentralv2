@@ -103,7 +103,7 @@
           <div id="agencia_fields" class="form-control">
             <label class="label font-semibold text-sm">Agência <span class="text-error">*</span></label>
             <select name="id_agencia" class="select select-bordered w-full" required>
-              <option value="">Selecione a agência</option>
+              <option value="">É agência?</option>
               {% for agencia in agencias %}
                 <option value="{{ agencia.id_agencia }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}selected{% endif %}>{{ agencia.display }}</option>
               {% endfor %}

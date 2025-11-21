@@ -13,6 +13,30 @@ from aicentralv2 import db
 from aicentralv2.email_service import send_password_reset_email, send_password_changed_email
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 
+# Helper para registro de auditoria
+def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
+    """Helper para registrar auditoria automaticamente"""
+    try:
+        user_id = session.get('user_id')
+        if user_id:
+            ip = request.remote_addr
+            user_agent = request.headers.get('User-Agent', '')[:255]
+            db.registrar_audit_log(
+                fk_id_usuario=user_id,
+                acao=acao,
+                modulo=modulo,
+                descricao=descricao,
+                registro_id=registro_id,
+                registro_tipo=registro_tipo,
+                ip_address=ip,
+                user_agent=user_agent,
+                dados_anteriores=dados_anteriores,
+                dados_novos=dados_novos
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Erro ao registrar auditoria: {e}")
+
 
 def login_required(f):
     """Decorator para rotas protegidas"""
@@ -62,6 +86,17 @@ def init_routes(app):
                 'meta_titulo': meta_titulo,
                 'meta_descricao': meta_descricao
             })
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='criar',
+                modulo='categorias',
+                descricao=f'Categoria criada: {nome}',
+                registro_id=novo_id,
+                registro_tipo='categoria',
+                dados_novos={'nome': nome, 'slug': slug}
+            )
+            
             flash('Categoria criada com sucesso!', 'success')
             return redirect(url_for('cadu_categorias_detalhes', id_categoria=novo_id))
         return render_template('cadu_categorias_form.html')
@@ -107,6 +142,18 @@ def init_routes(app):
                 'meta_titulo': meta_titulo,
                 'meta_descricao': meta_descricao
             })
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='editar',
+                modulo='categorias',
+                descricao=f'Categoria editada: {nome}',
+                registro_id=id_categoria,
+                registro_tipo='categoria',
+                dados_anteriores=dict(categoria) if categoria else None,
+                dados_novos={'nome': nome, 'slug': slug}
+            )
+            
             flash('Categoria atualizada com sucesso!', 'success')
             return redirect(url_for('cadu_categorias'))
         return render_template('cadu_categorias_form.html', categoria=categoria)
@@ -154,6 +201,17 @@ def init_routes(app):
                 'meta_titulo': meta_titulo,
                 'meta_descricao': meta_descricao
             })
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='criar',
+                modulo='subcategorias',
+                descricao=f'Subcategoria criada: {nome}',
+                registro_id=novo_id,
+                registro_tipo='subcategoria',
+                dados_novos={'nome': nome, 'slug': slug, 'categoria_id': categoria_id}
+            )
+            
             flash('Subcategoria criada com sucesso!', 'success')
             return redirect(url_for('cadu_subcategorias_detalhes', id_subcategoria=novo_id))
         categorias = db.obter_cadu_categorias()
@@ -199,6 +257,18 @@ def init_routes(app):
                 'meta_titulo': meta_titulo,
                 'meta_descricao': meta_descricao
             })
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='editar',
+                modulo='subcategorias',
+                descricao=f'Subcategoria editada: {nome}',
+                registro_id=id_subcategoria,
+                registro_tipo='subcategoria',
+                dados_anteriores=dict(subcategoria) if subcategoria else None,
+                dados_novos={'nome': nome, 'slug': slug, 'categoria_id': categoria_id}
+            )
+            
             flash('Subcategoria atualizada com sucesso!', 'success')
             return redirect(url_for('cadu_subcategorias'))
         categorias = db.obter_cadu_categorias()
@@ -604,6 +674,17 @@ def init_routes(app):
                 ):
                     flash('Cliente não encontrado!', 'error')
                     return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='editar',
+                    modulo='clientes',
+                    descricao=f'Cliente editado: {nome_fantasia}',
+                    registro_id=cliente_id,
+                    registro_tipo='cliente',
+                    dados_anteriores=dict(cliente),
+                    dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
+                )
                 
                 flash(f'Cliente "{nome_fantasia}" atualizado!', 'success')
                 return redirect(url_for('clientes'))
@@ -1477,6 +1558,16 @@ def init_routes(app):
                 except Exception as e:
                     app.logger.warning(f"Falha ao inicializar tokens do cliente {id_cliente}: {e}")
                 
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='criar',
+                    modulo='clientes',
+                    descricao=f'Cliente criado: {nome_fantasia}',
+                    registro_id=id_cliente,
+                    registro_tipo='cliente',
+                    dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
+                )
+                
                 flash(f'Cliente "{nome_fantasia}" criado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
@@ -1515,6 +1606,18 @@ def init_routes(app):
                     WHERE id_cliente = %s
                 ''', (novo_status, cliente_id))
                 conn.commit()
+                
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='editar',
+                    modulo='clientes',
+                    descricao=f'Status do cliente {cliente["nome_fantasia"]} alterado para {"ativo" if novo_status else "inativo"}',
+                    registro_id=cliente_id,
+                    registro_tipo='cliente',
+                    dados_anteriores={'status': cliente['status']},
+                    dados_novos={'status': novo_status}
+                )
+                
                 flash('Status atualizado!', 'success')
         except Exception as e:
             app.logger.error(f"Erro: {e}")
@@ -1793,6 +1896,15 @@ def init_routes(app):
                     cohorts=cohorts
                 )
                 
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='criar',
+                    modulo='usuarios',
+                    descricao=f'Usuário criado: {nome_completo}',
+                    registro_tipo='usuario',
+                    dados_novos={'nome_completo': nome_completo, 'email': email}
+                )
+                
                 flash(f'Contato "{nome_completo}" criado!', 'success')
                 return redirect(url_for('contatos'))
             except ValueError as e:
@@ -1827,9 +1939,14 @@ def init_routes(app):
                 pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo', type=int)
                 nova_senha = request.form.get('nova_senha', '').strip()
                 cohorts = request.form.get('cohorts', type=int) or 1
+                chk_user_type = request.form.get('chk_user_type', 'client')
+                
+                # Debug
+                app.logger.info(f"EDITAR CONTATO - Form data: cliente={pk_id_tbl_cliente}, setor={pk_id_aux_setor}, cargo={pk_id_tbl_cargo}")
                 
                 # Agora setor e cargo são obrigatórios na edição também
                 if not all([nome_completo, email, pk_id_tbl_cliente, pk_id_aux_setor, pk_id_tbl_cargo]):
+                    app.logger.error(f"CAMPOS FALTANDO - nome={bool(nome_completo)}, email={bool(email)}, cliente={bool(pk_id_tbl_cliente)}, setor={bool(pk_id_aux_setor)}, cargo={bool(pk_id_tbl_cargo)}")
                     flash('Campos obrigatórios (incluindo Setor e Cargo)!', 'error')
                     return redirect(url_for('contato_editar', contato_id=contato_id))
 
@@ -1855,16 +1972,29 @@ def init_routes(app):
                         UPDATE tbl_contato_cliente
                         SET nome_completo = %s, email = %s, telefone = %s, cohorts = %s,
                             pk_id_tbl_cliente = %s, pk_id_tbl_cargo = %s, pk_id_tbl_setor = %s,
+                            user_type = %s,
                             data_modificacao = CURRENT_TIMESTAMP
                         WHERE id_contato_cliente = %s
               ''', (nome_completo, email, telefone, cohorts, pk_id_tbl_cliente,
-                  pk_id_tbl_cargo, pk_id_aux_setor,
+                  pk_id_tbl_cargo, pk_id_aux_setor, chk_user_type,
                           contato_id))
                 
                 if nova_senha:
                     db.atualizar_senha_contato(contato_id, nova_senha)
                 
                 conn.commit()
+                
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='editar',
+                    modulo='usuarios',
+                    descricao=f'Usuário editado: {nome_completo}',
+                    registro_id=contato_id,
+                    registro_tipo='usuario',
+                    dados_anteriores=dict(contato) if contato else None,
+                    dados_novos={'nome_completo': nome_completo, 'email': email, 'user_type': chk_user_type}
+                )
+                
                 flash(f'Contato "{nome_completo}" atualizado!', 'success')
                 return redirect(url_for('contatos'))
             except Exception as e:
@@ -1921,6 +2051,18 @@ def init_routes(app):
                     WHERE id_contato_cliente = %s
                 ''', (novo_status, contato_id))
                 conn.commit()
+                
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='editar',
+                    modulo='usuarios',
+                    descricao=f'Status alterado para {"ativo" if novo_status else "inativo"}',
+                    registro_id=contato_id,
+                    registro_tipo='usuario',
+                    dados_anteriores={'status': result['status']},
+                    dados_novos={'status': novo_status}
+                )
+                
                 flash(f'Contato {"desativado" if not novo_status else "ativado"} com sucesso!', 'success')
         except Exception as e:
             app.logger.error(f"Erro: {e}")
@@ -1944,6 +2086,17 @@ def init_routes(app):
                 with conn.cursor() as cursor:
                     cursor.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
                 conn.commit()
+                
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='usuarios',
+                    descricao=f'Usuário deletado: {contato["nome_completo"]}',
+                    registro_id=contato_id,
+                    registro_tipo='usuario',
+                    dados_anteriores=dict(contato)
+                )
+                
                 flash(f'Contato "{contato["nome_completo"]}" deletado!', 'warning')
             else:
                 flash('Contato não encontrado!', 'error')
@@ -2161,6 +2314,15 @@ def init_routes(app):
                 return redirect(url_for('tipos_cliente'))
             
             if db.excluir_tipo_cliente(id_tipo):
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='tipos_cliente',
+                    descricao=f'Tipo de cliente deletado: {tipo["display"]}',
+                    registro_id=id_tipo,
+                    registro_tipo='tipo_cliente',
+                    dados_anteriores=dict(tipo)
+                )
                 flash(f'Tipo de cliente "{tipo["display"]}" excluído com sucesso!', 'success')
             else:
                 flash('Erro ao excluir tipo de cliente.', 'error')
@@ -2333,6 +2495,15 @@ def init_routes(app):
                 return jsonify({'success': False, 'message': 'Audiência não encontrada'})
             
             if db.excluir_cadu_audiencia(audiencia_id):
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='audiencias',
+                    descricao=f'Audiência deletada: {audiencia["nome"]}',
+                    registro_id=audiencia_id,
+                    registro_tipo='audiencia',
+                    dados_anteriores=dict(audiencia)
+                )
                 return jsonify({'success': True, 'message': f'Audiência "{audiencia["nome"]}" excluída com sucesso'})
             else:
                 return jsonify({'success': False, 'message': 'Erro ao excluir audiência'})
@@ -2506,6 +2677,29 @@ def init_routes(app):
             if db.atualizar_imagem_audiencia(audiencia_id, imagem_url):
                 app.logger.info(f"Imagem salva para audiência {audiencia_id}: {imagem_url}")
                 
+                # Incrementar contador de imagens no plano do cliente
+                if audiencia and audiencia.get('id_cliente'):
+                    try:
+                        # Buscar plano ativo do cliente
+                        conn = db.get_db()
+                        with conn.cursor() as cursor:
+                            cursor.execute('''
+                                SELECT id_plan 
+                                FROM cadu_client_plans 
+                                WHERE id_cliente = %s AND plan_status = 'active'
+                                LIMIT 1
+                            ''', (audiencia['id_cliente'],))
+                            plano = cursor.fetchone()
+                            
+                            if plano:
+                                # Incrementar contador de imagens (apenas se for imagem nova, não atualização)
+                                if not imagem_antiga:
+                                    db.atualizar_consumo_tokens(plano['id_plan'], 0, 1)
+                                    app.logger.info(f"✅ Contador de imagens incrementado para plano {plano['id_plan']}")
+                    except Exception as e:
+                        app.logger.error(f"⚠️ Erro ao incrementar contador de imagens: {e}")
+                        # Não falhar a operação por causa disso
+                
                 # Deletar imagem antiga se existir e for diferente da nova
                 if imagem_antiga and imagem_antiga != imagem_url:
                     try:
@@ -2586,9 +2780,23 @@ def init_routes(app):
     @app.route('/api/cadu_categorias/<int:id_categoria>', methods=['DELETE'])
     @login_required
     def api_excluir_cadu_categoria(id_categoria):
+        # Busca categoria antes de deletar para auditoria
+        categoria = db.obter_cadu_categoria_por_id(id_categoria)
         ok = db.excluir_cadu_categoria(id_categoria)
         if not ok:
             abort(404)
+        
+        # Registro de auditoria
+        if categoria:
+            registrar_auditoria(
+                acao='deletar',
+                modulo='categorias',
+                descricao=f'Categoria deletada: {categoria.get("nome", "")}',
+                registro_id=id_categoria,
+                registro_tipo='categoria',
+                dados_anteriores=dict(categoria)
+            )
+        
         return jsonify({'success': True})
 
     # ==================== API CADU SUBCATEGORIAS ====================

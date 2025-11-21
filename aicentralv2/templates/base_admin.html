@@ -125,15 +125,15 @@
                         <span>Gestão</span>
                     </li>
                     <li>
-                        <a href="{{ url_for('admin.usuarios_lista') }}"
-                           class="{% if 'usuarios' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('contatos') }}"
+                           class="{% if request.endpoint == 'contatos' %}active{% endif %}">
                             <i class="fas fa-users w-5"></i>
                             Usuários
                         </a>
                     </li>
                     <li>
-                        <a href="{{ url_for('admin.clientes_lista') }}"
-                           class="{% if 'clientes' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('clientes') }}"
+                           class="{% if request.endpoint == 'clientes' %}active{% endif %}">
                             <i class="fas fa-building w-5"></i>
                             Clientes
                         </a>
@@ -166,7 +166,7 @@
                     </li>
                     {% endif %}
                     <li>
-                        <a href="{{ url_for('admin.sistema_logs') }}"
+                        <a href="{{ url_for('admin.admin_logs') }}"
                            class="{% if 'logs' in request.endpoint %}active{% endif %}">
                             <i class="fas fa-list-ul w-5"></i>
                             Logs de Auditoria

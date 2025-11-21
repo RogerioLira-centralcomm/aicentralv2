@@ -350,6 +350,19 @@
                             </details>
                         </li>
 
+                        <!-- Administração (apenas para admin/superadmin) -->
+                        {% if session.user_type in ['admin', 'superadmin'] %}
+                        <li class="menu-title sidebar-text">
+                            <span>Administração</span>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin.admin_logs') }}" class="{% if request.endpoint == 'admin.admin_logs' %}active{% endif %}">
+                                <i class="fas fa-clipboard-list w-5"></i>
+                                <span class="sidebar-text">Logs de Auditoria</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
                         <!-- IA & Ferramentas -->
                         <li class="menu-title sidebar-text">
                             <span>Ferramentas</span>

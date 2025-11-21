@@ -21,7 +21,7 @@
     {% endif %}
   {% endwith %}
 
-  <form method="POST" autocomplete="off" class="space-y-2">
+  <form method="POST" autocomplete="off" class="space-y-2" onsubmit="console.log('SUBMIT - Cliente:', document.getElementById('cliente_select').value, 'Setor:', document.getElementById('setor_select').value, 'Cargo:', document.getElementById('cargo_select').value);">
     <!-- Informações Pessoais -->
     <div class="form-control">
       <label class="label font-semibold text-sm">
@@ -131,7 +131,7 @@
         <span>Cliente <span class="text-error">*</span></span>
       </label>
       <select 
-        name="pk_id_cliente" 
+        name="pk_id_tbl_cliente" 
         id="cliente_select"
         class="select select-bordered w-full"
         required
@@ -183,6 +183,29 @@
       >
       <label class="label">
         <span class="label-text-alt text-base-content/60">Deixe em branco para manter a senha atual</span>
+      </label>
+    </div>
+    {% endif %}
+
+    <!-- Tipo de Usuário -->
+    {% if session.user_type in ['admin', 'superadmin'] %}
+    <div class="form-control">
+      <label class="label font-semibold text-sm">
+        <span>Tipo de Usuário</span>
+      </label>
+      <select 
+        name="chk_user_type" 
+        class="select select-bordered w-full"
+      >
+        <option value="client" {% if contato and contato.user_type == 'client' %}selected{% elif not contato %}selected{% endif %}>client</option>
+        <option value="readonly" {% if contato and contato.user_type == 'readonly' %}selected{% endif %}>readonly</option>
+        <option value="admin" {% if contato and contato.user_type == 'admin' %}selected{% endif %}>admin</option>
+        {% if session.user_type == 'superadmin' %}
+        <option value="superadmin" {% if contato and contato.user_type == 'superadmin' %}selected{% endif %}>superadmin</option>
+        {% endif %}
+      </select>
+      <label class="label">
+        <span class="label-text-alt text-base-content/60">Define o nível de acesso do usuário</span>
       </label>
     </div>
     {% endif %}
@@ -251,39 +274,48 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('Setor selecionado:', setorSelecionado);
       console.log('Cargo atual:', cargoAtual);
       
-      // Limpar
-      cargoSelect.innerHTML = '<option value="">Selecione um cargo</option>';
-      
-      if (setorSelecionado) {
-        let cargosAdicionados = 0;
-        
-        // Adicionar cargos do setor
-        todasOpcoes.forEach(cargo => {
-          console.log('Comparando:', cargo.setor, '===', setorSelecionado, '?', cargo.setor === setorSelecionado);
-          if (cargo.setor === setorSelecionado) {
-            const opt = document.createElement('option');
-            opt.value = cargo.value;
-            opt.textContent = cargo.text;
-            opt.setAttribute('data-setor', cargo.setor);
-            cargoSelect.appendChild(opt);
-            cargosAdicionados++;
-          }
-        });
-        
-        console.log('Cargos adicionados:', cargosAdicionados);
-        
-        // Habilitar
-        cargoSelect.disabled = false;
-        
-        // Tentar restaurar valor
-        if (cargoAtual) {
-          cargoSelect.value = cargoAtual;
-        }
-      } else {
+      if (!setorSelecionado) {
         cargoSelect.disabled = true;
+        console.log('Sem setor, desabilitando cargo');
+        return;
       }
       
-      console.log('Estado final - disabled:', cargoSelect.disabled, 'options:', cargoSelect.options.length);
+      // Guardar cargo atual antes de limpar
+      const cargoParaRestaurar = cargoAtual;
+      
+      // Limpar opções
+      cargoSelect.innerHTML = '<option value="">Selecione um cargo</option>';
+      
+      let cargosAdicionados = 0;
+      
+      // Adicionar cargos do setor
+      todasOpcoes.forEach(cargo => {
+        // Converter ambos para string para comparação
+        const cargoSetor = String(cargo.setor);
+        const setorComparacao = String(setorSelecionado);
+        console.log('Comparando:', cargoSetor, '===', setorComparacao, '?', cargoSetor === setorComparacao);
+        if (cargoSetor === setorComparacao) {
+          const opt = document.createElement('option');
+          opt.value = cargo.value;
+          opt.textContent = cargo.text;
+          opt.setAttribute('data-setor', cargo.setor);
+          cargoSelect.appendChild(opt);
+          cargosAdicionados++;
+        }
+      });
+      
+      console.log('Cargos adicionados:', cargosAdicionados);
+      
+      // Habilitar select
+      cargoSelect.disabled = false;
+      
+      // Restaurar valor se tinha
+      if (cargoParaRestaurar) {
+        cargoSelect.value = cargoParaRestaurar;
+        console.log('Restaurado cargo:', cargoParaRestaurar, 'Atual:', cargoSelect.value);
+      }
+      
+      console.log('Estado final - disabled:', cargoSelect.disabled, 'options:', cargoSelect.options.length, 'value:', cargoSelect.value);
     }
     
     // Listener
@@ -307,6 +339,8 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Valor inicial do setor:', setorSelect.value);
     if (setorSelect.value) {
       atualizarCargos();
+      // Garantir que o cargo não fique disabled
+      cargoSelect.disabled = false;
     } else {
       cargoSelect.disabled = true;
     }

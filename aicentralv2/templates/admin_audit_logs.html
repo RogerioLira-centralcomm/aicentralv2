@@ -1,0 +1,347 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Logs de Auditoria - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="w-full px-2 sm:px-4">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Logs de Auditoria</h1>
+      <p class="text-sm text-base-content/70">Histórico completo de ações administrativas do sistema.</p>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Filtros -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <form method="GET" action="{{ url_for('admin.admin_logs') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-xs font-semibold">Módulo</span>
+        </label>
+        <select name="modulo" class="select select-bordered w-full text-sm font-medium">
+          <option value="">Todos</option>
+          <option value="usuarios" {% if filtros.get('modulo') == 'usuarios' %}selected{% endif %}>Usuários</option>
+          <option value="clientes" {% if filtros.get('modulo') == 'clientes' %}selected{% endif %}>Clientes</option>
+          <option value="planos" {% if filtros.get('modulo') == 'planos' %}selected{% endif %}>Planos</option>
+          <option value="categorias" {% if filtros.get('modulo') == 'categorias' %}selected{% endif %}>Categorias</option>
+          <option value="subcategorias" {% if filtros.get('modulo') == 'subcategorias' %}selected{% endif %}>Subcategorias</option>
+          <option value="audiencias" {% if filtros.get('modulo') == 'audiencias' %}selected{% endif %}>Audiências</option>
+          <option value="faturamento" {% if filtros.get('modulo') == 'faturamento' %}selected{% endif %}>Faturamento</option>
+          <option value="tipos_cliente" {% if filtros.get('modulo') == 'tipos_cliente' %}selected{% endif %}>Tipos Cliente</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-xs font-semibold">Ação</span>
+        </label>
+        <select name="acao" class="select select-bordered w-full text-sm font-medium">
+          <option value="">Todas</option>
+          <option value="criar" {% if filtros.get('acao') == 'criar' %}selected{% endif %}>Criar</option>
+          <option value="editar" {% if filtros.get('acao') == 'editar' %}selected{% endif %}>Editar</option>
+          <option value="deletar" {% if filtros.get('acao') == 'deletar' %}selected{% endif %}>Deletar</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-xs font-semibold">Usuário</span>
+        </label>
+        <select name="usuario_id" class="select select-bordered w-full text-sm font-medium">
+          <option value="">Todos</option>
+          {% for usuario in usuarios_filtro %}
+            <option value="{{ usuario.id_contato_cliente }}" {% if filtros.get('usuario_id') == usuario.id_contato_cliente|string %}selected{% endif %}>
+              {{ usuario.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-xs font-semibold">Período (dias)</span>
+        </label>
+        <select name="dias" class="select select-bordered w-full text-sm font-medium">
+          <option value="7" {% if filtros.get('dias') == '7' %}selected{% endif %}>Últimos 7 dias</option>
+          <option value="30" {% if filtros.get('dias') == '30' or not filtros.get('dias') %}selected{% endif %}>Últimos 30 dias</option>
+          <option value="60" {% if filtros.get('dias') == '60' %}selected{% endif %}>Últimos 60 dias</option>
+          <option value="90" {% if filtros.get('dias') == '90' %}selected{% endif %}>Últimos 90 dias</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-xs">&nbsp;</span>
+        </label>
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary btn-sm flex-1">
+            <i class="fas fa-filter mr-1"></i>Filtrar
+          </button>
+          <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-ghost btn-sm">
+            <i class="fas fa-times"></i>
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Estatísticas -->
+  {% if stats %}
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 font-semibold uppercase">Total de Ações</p>
+          <p class="text-2xl font-bold text-primary">{{ stats.total_acoes }}</p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+          <i class="fas fa-list text-primary text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 font-semibold uppercase">Módulo Mais Usado</p>
+          <p class="text-lg font-bold text-accent">
+            {% if stats.por_modulo %}
+              {{ stats.por_modulo[0].modulo|title }}
+            {% else %}
+              N/A
+            {% endif %}
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+          <i class="fas fa-layer-group text-accent text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 font-semibold uppercase">Ação Mais Comum</p>
+          <p class="text-lg font-bold text-info">
+            {% if stats.por_acao %}
+              {{ stats.por_acao[0].acao|title }}
+            {% else %}
+              N/A
+            {% endif %}
+          </p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center">
+          <i class="fas fa-bolt text-info text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-base-100 rounded-xl shadow-lg p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-base-content/60 font-semibold uppercase">Usuários Ativos</p>
+          <p class="text-2xl font-bold text-success">{{ stats.usuarios_ativos|length }}</p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+          <i class="fas fa-users text-success text-xl"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tabela de Logs -->
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+    {% if logs %}
+      <div class="overflow-x-auto">
+        <table class="table table-xs">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th class="text-left font-bold uppercase whitespace-nowrap">Data/Hora</th>
+              <th class="text-left font-bold uppercase whitespace-nowrap">Usuário</th>
+              <th class="text-center font-bold uppercase whitespace-nowrap">Ação</th>
+              <th class="text-center font-bold uppercase whitespace-nowrap">Módulo</th>
+              <th class="text-left font-bold uppercase">Descrição</th>
+              <th class="text-center font-bold uppercase whitespace-nowrap">IP</th>
+              <th class="text-center font-bold uppercase whitespace-nowrap">Detalhes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+            <tr class="hover">
+              <td class="text-xs">
+                <div class="font-semibold">{{ log.data_acao.strftime('%d/%m/%Y') if log.data_acao else '-' }}</div>
+                <div class="text-base-content/60">{{ log.data_acao.strftime('%H:%M:%S') if log.data_acao else '-' }}</div>
+              </td>
+              <td>
+                <div class="font-semibold text-base-content">{{ log.usuario_nome or 'Sistema' }}</div>
+                <div class="text-xs text-base-content/60">{{ log.usuario_email or '-' }}</div>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm 
+                  {% if log.acao == 'criar' %}badge-success
+                  {% elif log.acao == 'editar' %}badge-info
+                  {% elif log.acao == 'deletar' %}badge-error
+                  {% else %}badge-ghost{% endif %}">
+                  {% if log.acao == 'criar' %}<i class="fas fa-plus mr-1"></i>
+                  {% elif log.acao == 'editar' %}<i class="fas fa-edit mr-1"></i>
+                  {% elif log.acao == 'deletar' %}<i class="fas fa-trash mr-1"></i>
+                  {% endif %}
+                  {{ log.acao|title }}
+                </span>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm badge-outline">{{ log.modulo|title }}</span>
+              </td>
+              <td>
+                <div class="text-sm">{{ log.descricao or '-' }}</div>
+                {% if log.registro_tipo and log.registro_id %}
+                  <div class="text-xs text-base-content/60">
+                    {{ log.registro_tipo|title }} #{{ log.registro_id }}
+                  </div>
+                {% endif %}
+              </td>
+              <td class="text-center text-xs">
+                <span class="tooltip" data-tip="{{ log.user_agent or 'N/A' }}">
+                  {{ log.ip_address or '-' }}
+                </span>
+              </td>
+              <td class="text-center">
+                <button data-modal-id="modal_log_{{ log.id_log }}" class="btn btn-xs btn-circle btn-outline btn-info show-modal-btn" title="Ver detalhes">
+                  <i class="fas fa-info"></i>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Modal de detalhes -->
+            <dialog id="modal_log_{{ log.id_log }}" class="modal">
+              <div class="modal-box max-w-3xl">
+                <h3 class="font-bold text-lg mb-4">Detalhes do Log #{{ log.id_log }}</h3>
+                
+                <div class="space-y-3">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <p class="text-xs font-semibold text-base-content/60">Data/Hora</p>
+                      <p class="text-sm">{{ log.data_acao.strftime('%d/%m/%Y %H:%M:%S') if log.data_acao else '-' }}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-base-content/60">Usuário</p>
+                      <p class="text-sm">{{ log.usuario_nome or 'Sistema' }}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-base-content/60">Ação</p>
+                      <p class="text-sm">{{ log.acao|title }}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-base-content/60">Módulo</p>
+                      <p class="text-sm">{{ log.modulo|title }}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-base-content/60">IP</p>
+                      <p class="text-sm font-mono">{{ log.ip_address or '-' }}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold text-base-content/60">Registro</p>
+                      <p class="text-sm">{{ log.registro_tipo|title if log.registro_tipo else '-' }} #{{ log.registro_id if log.registro_id else '-' }}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-semibold text-base-content/60 mb-1">User Agent</p>
+                    <p class="text-xs font-mono bg-base-200 p-2 rounded">{{ log.user_agent or '-' }}</p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs font-semibold text-base-content/60 mb-1">Descrição</p>
+                    <p class="text-sm">{{ log.descricao or '-' }}</p>
+                  </div>
+
+                  {% if log.dados_anteriores %}
+                  <div>
+                    <p class="text-xs font-semibold text-base-content/60 mb-1">Dados Anteriores</p>
+                    <pre class="text-xs bg-base-200 p-2 rounded overflow-x-auto">{{ log.dados_anteriores|tojson(indent=2) }}</pre>
+                  </div>
+                  {% endif %}
+
+                  {% if log.dados_novos %}
+                  <div>
+                    <p class="text-xs font-semibold text-base-content/60 mb-1">Dados Novos</p>
+                    <pre class="text-xs bg-base-200 p-2 rounded overflow-x-auto">{{ log.dados_novos|tojson(indent=2) }}</pre>
+                  </div>
+                  {% endif %}
+                </div>
+
+                <div class="modal-action">
+                  <form method="dialog">
+                    <button class="btn btn-sm">Fechar</button>
+                  </form>
+                </div>
+              </div>
+              <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+              </form>
+            </dialog>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginação -->
+      {% if total_logs > limit %}
+      <div class="flex items-center justify-between p-4 border-t border-base-300">
+        <div class="text-sm text-base-content/60">
+          Mostrando {{ offset + 1 }} - {{ [offset + limit, total_logs]|min }} de {{ total_logs }} registros
+        </div>
+        <div class="join">
+          {% if offset > 0 %}
+            <a href="{{ url_for('admin.admin_logs', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset-limit) }}" class="join-item btn btn-sm">«</a>
+          {% else %}
+            <button class="join-item btn btn-sm btn-disabled">«</button>
+          {% endif %}
+          
+          <button class="join-item btn btn-sm">Página {{ (offset // limit) + 1 }}</button>
+          
+          {% if offset + limit < total_logs %}
+            <a href="{{ url_for('admin.admin_logs', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset+limit) }}" class="join-item btn btn-sm">»</a>
+          {% else %}
+            <button class="join-item btn btn-sm btn-disabled">»</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% else %}
+      <div class="text-center py-8">
+        <i class="fas fa-clipboard-list text-6xl text-base-content/20 mb-4"></i>
+        <p class="mb-2 text-base-content/60 text-sm">Nenhum log encontrado para os filtros selecionados.</p>
+        <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-ghost btn-sm">
+          <i class="fas fa-redo mr-2"></i>Limpar Filtros
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  // Adicionar event listener para todos os botões de modal
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.show-modal-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const modalId = this.getAttribute('data-modal-id');
+        document.getElementById(modalId).showModal();
+      });
+    });
+  });
+</script>
+{% endblock %}

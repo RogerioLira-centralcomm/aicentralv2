@@ -12,6 +12,29 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 logger = logging.getLogger(__name__)
 
+# Helper para registro de auditoria
+def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
+    """Helper para registrar auditoria automaticamente"""
+    try:
+        user_id = session.get('user_id')
+        if user_id:
+            ip = request.remote_addr
+            user_agent = request.headers.get('User-Agent', '')[:255]
+            db.registrar_audit_log(
+                fk_id_usuario=user_id,
+                acao=acao,
+                modulo=modulo,
+                descricao=descricao,
+                registro_id=registro_id,
+                registro_tipo=registro_tipo,
+                ip_address=ip,
+                user_agent=user_agent,
+                dados_anteriores=dados_anteriores,
+                dados_novos=dados_novos
+            )
+    except Exception as e:
+        logger.error(f"Erro ao registrar auditoria: {e}")
+
 
 # ==================== DASHBOARD ====================
 
@@ -121,9 +144,8 @@ def usuario_alterar_tipo(user_id):
         # Atualizar
         if db.atualizar_user_type(user_id, novo_tipo):
             # Registrar auditoria
-            audit.registrar_acao_admin(
-                user_id=session['user_id'],
-                acao='UPDATE_USER_TYPE',
+            registrar_auditoria(
+                acao='editar',
                 modulo='usuarios',
                 descricao=f"Alterou tipo de usuário de {usuario_anterior['user_type']} para {novo_tipo}",
                 registro_id=user_id,
@@ -256,9 +278,8 @@ def plano_novo():
             plan_id = db.criar_client_plan(dados)
             
             # Auditoria
-            audit.registrar_acao_admin(
-                user_id=session['user_id'],
-                acao='CREATE',
+            registrar_auditoria(
+                acao='criar',
                 modulo='planos',
                 descricao=f"Criou plano {dados['plan_type']} para cliente ID {dados['id_cliente']}",
                 registro_id=plan_id,
@@ -303,9 +324,8 @@ def plano_editar(plan_id):
             
             if db.atualizar_client_plan(plan_id, dados):
                 # Auditoria
-                audit.registrar_acao_admin(
-                    user_id=session['user_id'],
-                    acao='UPDATE',
+                registrar_auditoria(
+                    acao='editar',
                     modulo='planos',
                     descricao=f"Atualizou plano ID {plan_id}",
                     registro_id=plan_id,
@@ -376,33 +396,66 @@ def sistema_configuracoes():
                          settings=settings)
 
 
-@admin_bp.route('/sistema/logs')
+@admin_bp.route('/logs')
 @admin_required
-def sistema_logs():
-    """Visualizar logs de auditoria"""
+def admin_logs():
+    """Visualizar logs de auditoria administrativa"""
     try:
-        # Filtros
-        limite = int(request.args.get('limite', 50))
-        modulo = request.args.get('modulo')
-        user_id = request.args.get('user_id')
-        acao = request.args.get('acao')
+        from datetime import datetime, timedelta
         
-        logs = audit.obter_logs_recentes(
-            limite=limite,
-            modulo=modulo,
-            user_id=int(user_id) if user_id else None,
-            acao=acao
-        )
+        # Filtros
+        filtros = {}
+        dias = int(request.args.get('dias', 30))
+        
+        if request.args.get('modulo'):
+            filtros['modulo'] = request.args.get('modulo')
+        
+        if request.args.get('acao'):
+            filtros['acao'] = request.args.get('acao')
+        
+        if request.args.get('usuario_id'):
+            filtros['usuario_id'] = int(request.args.get('usuario_id'))
+        
+        # Calcular data de início baseado em dias
+        data_inicio = datetime.now() - timedelta(days=dias)
+        filtros['data_inicio'] = data_inicio
+        
+        # Paginação
+        limit = 50
+        offset = int(request.args.get('offset', 0))
+        
+        # Buscar logs
+        logs = db.obter_audit_logs(filtros=filtros, limit=limit, offset=offset)
+        
+        # Contar total (para paginação)
+        total_logs = len(db.obter_audit_logs(filtros=filtros, limit=10000, offset=0))
         
         # Estatísticas
-        stats = audit.estatisticas_auditoria(periodo_dias=30)
+        stats = db.obter_estatisticas_audit_log(dias=dias)
         
-        return render_template('admin/sistema/logs.html',
+        # Lista de usuários para filtro - APENAS CENTRALCOMM
+        usuarios_filtro = db.obter_usuarios_sistema({'status': True})
+        # Filtrar apenas usuários da CENTRALCOMM
+        usuarios_filtro = [u for u in usuarios_filtro if u.get('nome_fantasia') and 
+                          ('centralcomm' in u['nome_fantasia'].lower() or 
+                           'central comm' in u['nome_fantasia'].lower())]
+        
+        return render_template('admin_audit_logs.html',
                              logs=logs,
-                             stats=stats)
+                             stats=stats,
+                             filtros={'modulo': request.args.get('modulo', ''),
+                                     'acao': request.args.get('acao', ''),
+                                     'usuario_id': request.args.get('usuario_id', ''),
+                                     'dias': str(dias)},
+                             usuarios_filtro=usuarios_filtro,
+                             limit=limit,
+                             offset=offset,
+                             total_logs=total_logs)
     except Exception as e:
+        import traceback
         logger.error(f"Erro ao carregar logs: {str(e)}")
-        flash('Erro ao carregar logs.', 'error')
+        logger.error(traceback.format_exc())
+        flash(f'Erro ao carregar logs: {str(e)}', 'error')
         return redirect(url_for('admin.admin_dashboard'))
 
 
@@ -444,9 +497,8 @@ def faturamento_marcar_paga(invoice_id):
         
         if db.atualizar_invoice_status(invoice_id, 'paid', paid_date=date.today()):
             # Auditoria
-            audit.registrar_acao_admin(
-                user_id=session['user_id'],
-                acao='UPDATE',
+            registrar_auditoria(
+                acao='editar',
                 modulo='faturamento',
                 descricao=f"Marcou fatura #{invoice_id} como paga",
                 registro_id=invoice_id,

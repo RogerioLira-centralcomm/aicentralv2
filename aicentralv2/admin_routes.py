@@ -18,7 +18,10 @@ def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo
     try:
         user_id = session.get('user_id')
         if user_id:
-            ip = request.remote_addr
+            # Capturar IP real mesmo atrás de proxy/load balancer
+            ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                 request.headers.get('X-Real-IP', '').strip() or \
+                 request.remote_addr or 'unknown'
             user_agent = request.headers.get('User-Agent', '')[:255]
             db.registrar_audit_log(
                 fk_id_usuario=user_id,

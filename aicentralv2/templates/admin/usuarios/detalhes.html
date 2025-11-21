@@ -1,0 +1,237 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}{{ usuario.nome_completo }} - Usuário{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('admin.usuarios_lista') }}" class="btn btn-ghost btn-circle">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h2 class="text-2xl font-bold">{{ usuario.nome_completo }}</h2>
+                <p class="text-base-content/60">{{ usuario.email }}</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ url_for('contatos_editar', contato_id=usuario.id_contato_cliente) }}" 
+               class="btn btn-outline">
+                <i class="fas fa-edit mr-2"></i>
+                Editar
+            </a>
+        </div>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">Tipo de Usuário</div>
+                <div class="stat-value text-2xl">
+                    <span class="badge badge-lg 
+                        {% if usuario.user_type == 'superadmin' %}badge-error
+                        {% elif usuario.user_type == 'admin' %}badge-warning
+                        {% else %}badge-ghost{% endif %}">
+                        {{ usuario.user_type|upper if usuario.user_type else 'CLIENT' }}
+                    </span>
+                </div>
+                <div class="stat-actions mt-2">
+                    <button onclick="modal_alterar_tipo.showModal()" class="btn btn-sm btn-outline">
+                        <i class="fas fa-exchange-alt mr-2"></i>
+                        Alterar Tipo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">Status</div>
+                <div class="stat-value text-2xl">
+                    {% if usuario.status %}
+                        <span class="badge badge-success badge-lg">Ativo</span>
+                    {% else %}
+                        <span class="badge badge-error badge-lg">Inativo</span>
+                    {% endif %}
+                </div>
+                <div class="stat-desc">
+                    {% if usuario.ultimo_acesso %}
+                        Último acesso: {{ usuario.ultimo_acesso.strftime('%d/%m/%Y %H:%M') }}
+                    {% else %}
+                        Nunca acessou
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="stats shadow">
+            <div class="stat">
+                <div class="stat-title">Cadastro</div>
+                <div class="stat-value text-2xl">
+                    <i class="fas fa-calendar-alt text-primary"></i>
+                </div>
+                <div class="stat-desc">
+                    {{ usuario.data_cadastro.strftime('%d/%m/%Y') if usuario.data_cadastro else '-' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalhes -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Informações Pessoais -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-user"></i>
+                    Informações Pessoais
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <span class="text-sm text-base-content/60">Nome Completo:</span>
+                        <p class="font-semibold">{{ usuario.nome_completo }}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-base-content/60">Email:</span>
+                        <p class="font-semibold">{{ usuario.email }}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-base-content/60">Telefone:</span>
+                        <p class="font-semibold">{{ usuario.telefone or '-' }}</p>
+                    </div>
+                    {% if usuario.setor_nome %}
+                    <div>
+                        <span class="text-sm text-base-content/60">Setor:</span>
+                        <p class="font-semibold">{{ usuario.setor_nome }}</p>
+                    </div>
+                    {% endif %}
+                    {% if usuario.cargo_nome %}
+                    <div>
+                        <span class="text-sm text-base-content/60">Cargo:</span>
+                        <p class="font-semibold">{{ usuario.cargo_nome }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Informações do Cliente -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <i class="fas fa-building"></i>
+                    Cliente
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <span class="text-sm text-base-content/60">Nome Fantasia:</span>
+                        <p class="font-semibold">{{ usuario.nome_fantasia or '-' }}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-base-content/60">Razão Social:</span>
+                        <p class="font-semibold">{{ usuario.razao_social or '-' }}</p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-base-content/60">CNPJ:</span>
+                        <p class="font-semibold">{{ usuario.cnpj or '-' }}</p>
+                    </div>
+                    {% if usuario.pk_id_tbl_cliente %}
+                    <div class="card-actions">
+                        <a href="{{ url_for('admin.cliente_detalhes', cliente_id=usuario.pk_id_tbl_cliente) }}" 
+                           class="btn btn-sm btn-outline">
+                            <i class="fas fa-external-link-alt mr-2"></i>
+                            Ver Cliente
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs de Atividade -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h3 class="card-title">
+                <i class="fas fa-history"></i>
+                Histórico de Atividades
+                <span class="badge">{{ logs|length }}</span>
+            </h3>
+
+            {% if logs %}
+            <div class="overflow-x-auto">
+                <table class="table table-sm table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Ação</th>
+                            <th>Módulo</th>
+                            <th>Descrição</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="text-xs">{{ log.data_acao.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                <span class="badge badge-sm 
+                                    {% if log.acao == 'CREATE' %}badge-success
+                                    {% elif log.acao == 'DELETE' %}badge-error
+                                    {% elif log.acao == 'UPDATE' %}badge-warning
+                                    {% else %}badge-info{% endif %}">
+                                    {{ log.acao }}
+                                </span>
+                            </td>
+                            <td><span class="badge badge-ghost badge-sm">{{ log.modulo }}</span></td>
+                            <td class="text-xs">{{ log.descricao }}</td>
+                            <td class="text-xs">{{ log.ip_address or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert">
+                <i class="fas fa-info-circle"></i>
+                <span>Nenhuma atividade registrada para este usuário</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Alterar Tipo -->
+<dialog id="modal_alterar_tipo" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Alterar Tipo de Usuário</h3>
+        <p class="py-4">Selecione o novo tipo para <strong>{{ usuario.nome_completo }}</strong>:</p>
+        
+        <form method="POST" action="{{ url_for('admin.usuario_alterar_tipo', user_id=usuario.id_contato_cliente) }}">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text font-semibold">Tipo de Usuário</span>
+                </label>
+                <select name="user_type" class="select select-bordered" required>
+                    <option value="client" {% if usuario.user_type == 'client' %}selected{% endif %}>Cliente</option>
+                    <option value="readonly" {% if usuario.user_type == 'readonly' %}selected{% endif %}>Somente Leitura</option>
+                    <option value="admin" {% if usuario.user_type == 'admin' %}selected{% endif %}>Administrador</option>
+                    {% if session.user_type == 'superadmin' %}
+                    <option value="superadmin" {% if usuario.user_type == 'superadmin' %}selected{% endif %}>Super Administrador</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="modal-action">
+                <button type="button" onclick="modal_alterar_tipo.close()" class="btn btn-ghost">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+{% endblock %}

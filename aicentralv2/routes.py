@@ -296,9 +296,15 @@ def init_routes(app):
                 session['user_name'] = user['nome_completo']
                 session['user_email'] = user['email']
                 session['cliente_id'] = user['pk_id_tbl_cliente']
+                session['user_type'] = user.get('user_type', 'client')
                 
-                app.logger.info(f"Login: {user['nome_completo']} ({email})")
+                app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']}")
                 flash(f'Bem-vindo, {user["nome_completo"]}!', 'success')
+                
+                # Redirecionar admins para painel administrativo
+                if session['user_type'] in ['admin', 'superadmin']:
+                    return redirect(url_for('admin.admin_dashboard'))
+                
                 return redirect(url_for('index'))
             else:
                 flash('Email ou senha incorretos.', 'error')
@@ -2209,6 +2215,7 @@ def init_routes(app):
                     'fonte': request.form.get('fonte', '').strip(),
                     'nome': request.form.get('nome', '').strip(),
                     'slug': request.form.get('slug', '').strip(),
+                    'perfil_socioeconomico': request.form.get('perfil_socioeconomico', '').strip(),
                     'titulo_chamativo': request.form.get('titulo_chamativo', '').strip(),
                     'descricao': request.form.get('descricao', '').strip(),
                     'descricao_curta': request.form.get('descricao_curta', '').strip(),
@@ -2271,6 +2278,7 @@ def init_routes(app):
                     'fonte': request.form.get('fonte', '').strip(),
                     'nome': request.form.get('nome', '').strip(),
                     'slug': request.form.get('slug', '').strip(),
+                    'perfil_socioeconomico': request.form.get('perfil_socioeconomico', '').strip(),
                     'titulo_chamativo': request.form.get('titulo_chamativo', '').strip(),
                     'descricao': request.form.get('descricao', '').strip(),
                     'descricao_curta': request.form.get('descricao_curta', '').strip(),

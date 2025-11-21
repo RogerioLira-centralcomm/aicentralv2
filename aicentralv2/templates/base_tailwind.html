@@ -232,10 +232,17 @@
                     <ul class="menu menu-sm px-3">
                         <!-- Dashboard -->
                         <li>
+                            {% if session.user_type in ['admin', 'superadmin'] %}
+                            <a href="{{ url_for('admin.admin_dashboard') }}" class="{% if request.endpoint == 'admin.admin_dashboard' %}active{% endif %}">
+                                <i class="fas fa-chart-bar w-5"></i>
+                                <span class="sidebar-text">Dashboard Admin</span>
+                            </a>
+                            {% else %}
                             <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
                                 <i class="fas fa-chart-bar w-5"></i>
                                 <span class="sidebar-text">Dashboard</span>
                             </a>
+                            {% endif %}
                         </li>
 
                         <!-- Gestão Comercial -->

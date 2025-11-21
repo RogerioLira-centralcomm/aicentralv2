@@ -248,6 +248,7 @@ def verificar_credenciais(email, password):
                 c.id_centralx,
                 c.pk_id_tbl_cliente,
                 c.data_cadastro,
+                c.user_type,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
@@ -274,16 +275,6 @@ def verificar_credenciais(email, password):
                 f"(Email: {email})"
             )
             return {'inactive_user': True}
-        
-        # ==================== RESTRIÇÃO CENTRALCOMM ====================
-        # APENAS clientes CENTRALCOMM podem acessar
-        if not user['razao_social'] or user['razao_social'].upper() != 'CENTRALCOMM':
-            current_app.logger.warning(
-                f"Tentativa de login negada - Cliente não autorizado: {user['razao_social']} "
-                f"(Email: {email})"
-            )
-            return None  # Retorna None como se as credenciais estivessem erradas
-        # ===============================================================
         
         # Verificar se cliente está ativo
         if not user['cliente_status']:
@@ -2265,6 +2256,7 @@ def obter_cadu_audiencias():
                     a.fonte,
                     a.nome,
                     a.slug,
+                    a.perfil_socioeconomico,
                     a.categoria_id,
                     a.subcategoria_id,
                     a.campos_com_dados_reais,
@@ -2311,18 +2303,19 @@ def criar_cadu_audiencia(dados):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_audiencias (
-                    id_audiencia_plataforma, fonte, nome, slug, 
+                    id_audiencia_plataforma, fonte, nome, slug, perfil_socioeconomico,
                     titulo_chamativo, descricao, descricao_curta, descricao_comercial,
                     cpm_custo, cpm_venda, cpm_minimo, cpm_maximo,
                     categoria_id, subcategoria_id, is_active
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 ) RETURNING id
             ''', (
                 dados.get('id_audiencia_plataforma'),
                 dados.get('fonte'),
                 dados.get('nome'),
                 dados.get('slug'),
+                dados.get('perfil_socioeconomico'),
                 dados.get('titulo_chamativo'),
                 dados.get('descricao'),
                 dados.get('descricao_curta'),
@@ -2353,6 +2346,7 @@ def atualizar_cadu_audiencia(id_audiencia, dados):
                     fonte = %s,
                     nome = %s,
                     slug = %s,
+                    perfil_socioeconomico = %s,
                     titulo_chamativo = %s,
                     descricao = %s,
                     descricao_curta = %s,
@@ -2370,6 +2364,7 @@ def atualizar_cadu_audiencia(id_audiencia, dados):
                 dados.get('fonte'),
                 dados.get('nome'),
                 dados.get('slug'),
+                dados.get('perfil_socioeconomico'),
                 dados.get('titulo_chamativo'),
                 dados.get('descricao'),
                 dados.get('descricao_curta'),
@@ -2630,6 +2625,685 @@ def atualizar_imagem_audiencia(audiencia_id, imagem_url):
                 WHERE id = %s
                 RETURNING id
             ''', (imagem_url, audiencia_id))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== FUNÇÕES ADMINISTRATIVAS ====================
+
+def obter_usuarios_sistema(filtros=None):
+    """
+    Retorna todos os usuários do sistema com informações de cliente
+    
+    Args:
+        filtros (dict): Filtros opcionais (user_type, status, cliente_id, search)
+    
+    Returns:
+        list: Lista de usuários
+    """
+    conn = get_db()
+    try:
+        query = '''
+            SELECT 
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.status,
+                c.user_type,
+                c.pk_id_tbl_cliente,
+                c.data_cadastro,
+                c.ultimo_acesso,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                cli.status as cliente_status
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+            WHERE 1=1
+        '''
+        
+        params = []
+        
+        if filtros:
+            if filtros.get('user_type'):
+                query += ' AND c.user_type = %s'
+                params.append(filtros['user_type'])
+            
+            if filtros.get('status') is not None:
+                query += ' AND c.status = %s'
+                params.append(filtros['status'])
+            
+            if filtros.get('cliente_id'):
+                query += ' AND c.pk_id_tbl_cliente = %s'
+                params.append(filtros['cliente_id'])
+            
+            if filtros.get('search'):
+                query += ' AND (c.nome_completo ILIKE %s OR c.email ILIKE %s)'
+                search_term = f"%{filtros['search']}%"
+                params.extend([search_term, search_term])
+        
+        query += ' ORDER BY c.data_cadastro DESC'
+        
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_usuario_por_id(user_id):
+    """Retorna informações completas de um usuário específico"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    c.*,
+                    cli.nome_fantasia,
+                    cli.razao_social,
+                    cli.cnpj,
+                    cli.status as cliente_status,
+                    s.nome as setor_nome,
+                    car.nome as cargo_nome
+                FROM tbl_contato_cliente c
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_setor s ON c.fk_id_setor = s.id_setor
+                LEFT JOIN tbl_cargo car ON c.fk_id_cargo = car.id_cargo
+                WHERE c.id_contato_cliente = %s
+            ''', (user_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def atualizar_user_type(user_id, novo_tipo):
+    """
+    Atualiza o tipo de usuário
+    
+    Args:
+        user_id (int): ID do usuário
+        novo_tipo (str): Novo tipo (client, admin, superadmin, readonly)
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET user_type = %s
+                WHERE id_contato_cliente = %s
+                RETURNING id_contato_cliente
+            ''', (novo_tipo, user_id))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_clientes_sistema(filtros=None):
+    """
+    Retorna todos os clientes do sistema
+    
+    Args:
+        filtros (dict): Filtros opcionais (status, tipo_cliente, search)
+    
+    Returns:
+        list: Lista de clientes com contagem de usuários
+    """
+    conn = get_db()
+    try:
+        query = '''
+            SELECT 
+                cli.*,
+                tc.nome as tipo_cliente_nome,
+                ag.nome as agencia_nome,
+                e.nome as estado_nome,
+                COUNT(DISTINCT c.id_contato_cliente) as total_usuarios,
+                COUNT(DISTINCT c.id_contato_cliente) FILTER (WHERE c.status = true) as usuarios_ativos
+            FROM tbl_cliente cli
+            LEFT JOIN aux_tipo_cliente tc ON cli.fk_aux_tipo_cliente = tc.id_tipo_cliente
+            LEFT JOIN tbl_agencia ag ON cli.fk_id_agencia = ag.id_agencia
+            LEFT JOIN tbl_estado e ON cli.fk_id_estado = e.id_estado
+            LEFT JOIN tbl_contato_cliente c ON cli.id_cliente = c.pk_id_tbl_cliente
+            WHERE 1=1
+        '''
+        
+        params = []
+        
+        if filtros:
+            if filtros.get('status') is not None:
+                query += ' AND cli.status = %s'
+                params.append(filtros['status'])
+            
+            if filtros.get('tipo_cliente'):
+                query += ' AND cli.fk_aux_tipo_cliente = %s'
+                params.append(filtros['tipo_cliente'])
+            
+            if filtros.get('search'):
+                query += ' AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s OR cli.cnpj ILIKE %s)'
+                search_term = f"%{filtros['search']}%"
+                params.extend([search_term, search_term, search_term])
+        
+        query += '''
+            GROUP BY cli.id_cliente, tc.nome, ag.nome, e.nome
+            ORDER BY cli.data_criacao DESC
+        '''
+        
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_system_settings():
+    """Retorna todas as configurações do sistema"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    setting_key,
+                    setting_value,
+                    setting_type,
+                    description,
+                    is_public,
+                    updated_at
+                FROM tbl_system_settings
+                ORDER BY setting_key
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_system_setting(key):
+    """Retorna uma configuração específica do sistema"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT setting_value, setting_type
+                FROM tbl_system_settings
+                WHERE setting_key = %s
+            ''', (key,))
+            
+            result = cursor.fetchone()
+            if not result:
+                return None
+            
+            # Converter para tipo correto
+            if result['setting_type'] == 'boolean':
+                return result['setting_value'].lower() == 'true'
+            elif result['setting_type'] == 'integer':
+                return int(result['setting_value'])
+            elif result['setting_type'] == 'float':
+                return float(result['setting_value'])
+            else:
+                return result['setting_value']
+    except Exception as e:
+        raise e
+
+
+def atualizar_system_setting(key, value, updated_by=None):
+    """
+    Atualiza uma configuração do sistema
+    
+    Args:
+        key (str): Chave da configuração
+        value: Novo valor
+        updated_by (int): ID do usuário que atualizou
+    """
+    conn = get_db()
+    try:
+        # Converter valor para string
+        if isinstance(value, bool):
+            value_str = 'true' if value else 'false'
+        else:
+            value_str = str(value)
+        
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_system_settings
+                SET setting_value = %s,
+                    updated_by = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE setting_key = %s
+                RETURNING setting_key
+            ''', (value_str, updated_by, key))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_planos_clientes(filtros=None):
+    """
+    Retorna planos de todos os clientes
+    
+    Args:
+        filtros (dict): Filtros opcionais (plan_status, plan_type, cliente_id)
+    
+    Returns:
+        list: Lista de planos
+    """
+    conn = get_db()
+    try:
+        query = '''
+            SELECT 
+                p.*,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                CASE 
+                    WHEN p.tokens_monthly_limit > 0 THEN 
+                        ROUND((p.tokens_used_current_month::decimal / p.tokens_monthly_limit) * 100, 1)
+                    ELSE 0 
+                END as tokens_usage_percentage,
+                CASE 
+                    WHEN p.image_credits_monthly > 0 THEN 
+                        ROUND((p.image_credits_used_current_month::decimal / p.image_credits_monthly) * 100, 1)
+                    ELSE 0 
+                END as images_usage_percentage
+            FROM cadu_client_plans p
+            INNER JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+            WHERE 1=1
+        '''
+        
+        params = []
+        
+        if filtros:
+            if filtros.get('plan_status'):
+                query += ' AND p.plan_status = %s'
+                params.append(filtros['plan_status'])
+            
+            if filtros.get('plan_type'):
+                query += ' AND p.plan_type = %s'
+                params.append(filtros['plan_type'])
+            
+            if filtros.get('cliente_id'):
+                query += ' AND p.id_cliente = %s'
+                params.append(filtros['cliente_id'])
+        
+        query += ' ORDER BY p.created_at DESC'
+        
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_plano_por_id(plan_id):
+    """Retorna informações de um plano específico"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    p.*,
+                    cli.nome_fantasia,
+                    cli.razao_social,
+                    u.nome_completo as created_by_name
+                FROM cadu_client_plans p
+                INNER JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente u ON p.created_by = u.id_contato_cliente
+                WHERE p.id_plan = %s
+            ''', (plan_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def criar_client_plan(dados):
+    """
+    Cria um novo plano para cliente
+    
+    Args:
+        dados (dict): Dados do plano
+    
+    Returns:
+        int: ID do plano criado
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_client_plans (
+                    id_cliente, plan_type, plan_name,
+                    tokens_monthly_limit, image_credits_monthly, max_users,
+                    features, plan_status, valid_from, valid_until, created_by
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s
+                ) RETURNING id_plan
+            ''', (
+                dados['id_cliente'],
+                dados['plan_type'],
+                dados.get('plan_name'),
+                dados.get('tokens_monthly_limit', 100000),
+                dados.get('image_credits_monthly', 50),
+                dados.get('max_users', 5),
+                dados.get('features', '{}'),
+                dados.get('plan_status', 'active'),
+                dados.get('valid_from'),
+                dados.get('valid_until'),
+                dados.get('created_by')
+            ))
+            
+            plan_id = cursor.fetchone()['id_plan']
+            conn.commit()
+            return plan_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_client_plan(plan_id, dados):
+    """Atualiza dados de um plano existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_client_plans
+                SET plan_type = %s,
+                    plan_name = %s,
+                    tokens_monthly_limit = %s,
+                    image_credits_monthly = %s,
+                    max_users = %s,
+                    features = %s::jsonb,
+                    plan_status = %s,
+                    valid_from = %s,
+                    valid_until = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id_plan = %s
+                RETURNING id_plan
+            ''', (
+                dados['plan_type'],
+                dados.get('plan_name'),
+                dados['tokens_monthly_limit'],
+                dados['image_credits_monthly'],
+                dados['max_users'],
+                dados.get('features', '{}'),
+                dados['plan_status'],
+                dados['valid_from'],
+                dados.get('valid_until'),
+                plan_id
+            ))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_consumo_tokens(plan_id, tokens_usados, imagens_usadas=0):
+    """
+    Incrementa o consumo de tokens e imagens de um plano
+    
+    Args:
+        plan_id (int): ID do plano
+        tokens_usados (int): Quantidade de tokens consumidos
+        imagens_usadas (int): Quantidade de imagens geradas
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_client_plans
+                SET tokens_used_current_month = tokens_used_current_month + %s,
+                    image_credits_used_current_month = image_credits_used_current_month + %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id_plan = %s
+                RETURNING id_plan
+            ''', (tokens_usados, imagens_usadas, plan_id))
+            
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def resetar_contadores_mensais(plan_id=None):
+    """
+    Reseta contadores mensais de consumo
+    
+    Args:
+        plan_id (int, optional): ID do plano específico, ou None para todos
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if plan_id:
+                cursor.execute('''
+                    UPDATE cadu_client_plans
+                    SET tokens_used_current_month = 0,
+                        image_credits_used_current_month = 0,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_plan = %s
+                    RETURNING id_plan
+                ''', (plan_id,))
+            else:
+                cursor.execute('''
+                    UPDATE cadu_client_plans
+                    SET tokens_used_current_month = 0,
+                        image_credits_used_current_month = 0,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE plan_status = 'active'
+                ''')
+            
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_dashboard_stats():
+    """Retorna estatísticas para o dashboard administrativo"""
+    conn = get_db()
+    try:
+        stats = {}
+        
+        with conn.cursor() as cursor:
+            # Total de clientes ativos
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM tbl_cliente
+                WHERE status = true
+            ''')
+            stats['total_clientes_ativos'] = cursor.fetchone()['total']
+            
+            # Total de usuários
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM tbl_contato_cliente
+                WHERE status = true
+            ''')
+            stats['total_usuarios'] = cursor.fetchone()['total']
+            
+            # Tokens consumidos no mês atual
+            cursor.execute('''
+                SELECT COALESCE(SUM(tokens_used_current_month), 0) as total
+                FROM cadu_client_plans
+                WHERE plan_status = 'active'
+            ''')
+            stats['tokens_mes_atual'] = cursor.fetchone()['total']
+            
+            # Imagens geradas no mês atual
+            cursor.execute('''
+                SELECT COALESCE(SUM(image_credits_used_current_month), 0) as total
+                FROM cadu_client_plans
+                WHERE plan_status = 'active'
+            ''')
+            stats['imagens_mes_atual'] = cursor.fetchone()['total']
+            
+            # Planos próximos do limite (> 80%)
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM cadu_client_plans
+                WHERE plan_status = 'active'
+                AND (
+                    (tokens_used_current_month::decimal / NULLIF(tokens_monthly_limit, 0)) > 0.8
+                    OR
+                    (image_credits_used_current_month::decimal / NULLIF(image_credits_monthly, 0)) > 0.8
+                )
+            ''')
+            stats['planos_proximo_limite'] = cursor.fetchone()['total']
+            
+            # Planos próximos do vencimento (< 7 dias)
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM cadu_client_plans
+                WHERE plan_status = 'active'
+                AND valid_until IS NOT NULL
+                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+            ''')
+            stats['planos_vencendo'] = cursor.fetchone()['total']
+            
+        return stats
+    except Exception as e:
+        raise e
+
+
+def obter_invoices(filtros=None):
+    """
+    Retorna faturas do sistema
+    
+    Args:
+        filtros (dict): Filtros opcionais (invoice_status, cliente_id, reference_month)
+    
+    Returns:
+        list: Lista de faturas
+    """
+    conn = get_db()
+    try:
+        query = '''
+            SELECT 
+                i.*,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj
+            FROM cadu_invoices i
+            INNER JOIN tbl_cliente cli ON i.id_cliente = cli.id_cliente
+            WHERE 1=1
+        '''
+        
+        params = []
+        
+        if filtros:
+            if filtros.get('invoice_status'):
+                query += ' AND i.invoice_status = %s'
+                params.append(filtros['invoice_status'])
+            
+            if filtros.get('cliente_id'):
+                query += ' AND i.id_cliente = %s'
+                params.append(filtros['cliente_id'])
+            
+            if filtros.get('reference_month'):
+                query += ' AND i.reference_month = %s'
+                params.append(filtros['reference_month'])
+        
+        query += ' ORDER BY i.reference_month DESC, i.issue_date DESC'
+        
+        with conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def criar_invoice(dados):
+    """
+    Cria uma nova fatura
+    
+    Args:
+        dados (dict): Dados da fatura
+    
+    Returns:
+        int: ID da fatura criada
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Gerar número de fatura
+            cursor.execute("SELECT nextval('seq_invoice_number')")
+            invoice_number = f"INV-{cursor.fetchone()['nextval']:06d}"
+            
+            cursor.execute('''
+                INSERT INTO cadu_invoices (
+                    invoice_number, id_cliente, id_plan, reference_month,
+                    tokens_consumed, tokens_cost,
+                    images_generated, images_cost,
+                    extra_users_count, extra_users_cost,
+                    subtotal, taxes_amount, total,
+                    invoice_status, issue_date, due_date,
+                    created_by
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                ) RETURNING id_invoice
+            ''', (
+                invoice_number,
+                dados['id_cliente'],
+                dados.get('id_plan'),
+                dados['reference_month'],
+                dados.get('tokens_consumed', 0),
+                dados.get('tokens_cost', 0),
+                dados.get('images_generated', 0),
+                dados.get('images_cost', 0),
+                dados.get('extra_users_count', 0),
+                dados.get('extra_users_cost', 0),
+                dados['subtotal'],
+                dados.get('taxes_amount', 0),
+                dados['total'],
+                dados.get('invoice_status', 'pending'),
+                dados.get('issue_date'),
+                dados['due_date'],
+                dados.get('created_by')
+            ))
+            
+            invoice_id = cursor.fetchone()['id_invoice']
+            conn.commit()
+            return invoice_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_invoice_status(invoice_id, novo_status, paid_date=None):
+    """
+    Atualiza status de uma fatura
+    
+    Args:
+        invoice_id (int): ID da fatura
+        novo_status (str): Novo status (pending, sent, paid, overdue, cancelled)
+        paid_date (date, optional): Data de pagamento
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_invoices
+                SET invoice_status = %s,
+                    paid_date = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id_invoice = %s
+                RETURNING id_invoice
+            ''', (novo_status, paid_date, invoice_id))
             
             result = cursor.fetchone()
             conn.commit()

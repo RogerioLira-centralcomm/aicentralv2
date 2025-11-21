@@ -1,0 +1,178 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Usuários - Admin{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold">Gestão de Usuários</h2>
+            <p class="text-base-content/60">Todos os usuários do sistema</p>
+        </div>
+        <a href="{{ url_for('contatos_novo') }}" class="btn btn-primary">
+            <i class="fas fa-user-plus mr-2"></i>
+            Novo Usuário
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Tipo</span>
+                    </label>
+                    <select name="user_type" class="select select-bordered">
+                        <option value="">Todos os tipos</option>
+                        <option value="client" {% if filtros.get('user_type') == 'client' %}selected{% endif %}>Cliente</option>
+                        <option value="admin" {% if filtros.get('user_type') == 'admin' %}selected{% endif %}>Admin</option>
+                        <option value="superadmin" {% if filtros.get('user_type') == 'superadmin' %}selected{% endif %}>Super Admin</option>
+                        <option value="readonly" {% if filtros.get('user_type') == 'readonly' %}selected{% endif %}>Somente Leitura</option>
+                    </select>
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Status</span>
+                    </label>
+                    <select name="status" class="select select-bordered">
+                        <option value="">Todos</option>
+                        <option value="true" {% if filtros.get('status') == True %}selected{% endif %}>Ativos</option>
+                        <option value="false" {% if filtros.get('status') == False %}selected{% endif %}>Inativos</option>
+                    </select>
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Cliente</span>
+                    </label>
+                    <select name="cliente_id" class="select select-bordered">
+                        <option value="">Todos os clientes</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id_cliente }}" 
+                                {% if filtros.get('cliente_id') == cliente.id_cliente %}selected{% endif %}>
+                            {{ cliente.nome_fantasia }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">Buscar</span>
+                    </label>
+                    <div class="join">
+                        <input type="text" name="search" value="{{ filtros.get('search', '') }}" 
+                               placeholder="Nome ou email..." class="input input-bordered join-item flex-1">
+                        <button type="submit" class="btn btn-primary join-item">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Usuários -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="card-title">
+                    <i class="fas fa-users"></i>
+                    Usuários
+                    <span class="badge badge-lg">{{ usuarios|length }}</span>
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Cliente</th>
+                            <th>Tipo</th>
+                            <th>Status</th>
+                            <th>Cadastro</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr class="hover">
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <div class="avatar placeholder">
+                                        <div class="bg-neutral text-neutral-content rounded-full w-10">
+                                            <span>{{ usuario.nome_completo[0] if usuario.nome_completo else '?' }}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="font-bold">{{ usuario.nome_completo }}</div>
+                                        <div class="text-sm opacity-50">{{ usuario.email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if usuario.nome_fantasia %}
+                                    <span class="badge badge-ghost">{{ usuario.nome_fantasia }}</span>
+                                {% else %}
+                                    <span class="text-base-content/40">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if usuario.user_type == 'superadmin' %}badge-error
+                                    {% elif usuario.user_type == 'admin' %}badge-warning
+                                    {% elif usuario.user_type == 'readonly' %}badge-info
+                                    {% else %}badge-ghost{% endif %}">
+                                    {{ usuario.user_type|upper if usuario.user_type else 'CLIENT' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if usuario.status %}
+                                    <span class="badge badge-success gap-2">
+                                        <i class="fas fa-check-circle"></i>
+                                        Ativo
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-error gap-2">
+                                        <i class="fas fa-times-circle"></i>
+                                        Inativo
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-sm">{{ usuario.data_cadastro.strftime('%d/%m/%Y') if usuario.data_cadastro else '-' }}</span>
+                            </td>
+                            <td>
+                                <div class="join">
+                                    <a href="{{ url_for('admin.usuario_detalhes', user_id=usuario.id_contato_cliente) }}" 
+                                       class="btn btn-sm btn-ghost join-item">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('contatos_editar', contato_id=usuario.id_contato_cliente) }}" 
+                                       class="btn btn-sm btn-ghost join-item">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-8">
+                                <div class="flex flex-col items-center gap-4">
+                                    <i class="fas fa-users text-4xl text-base-content/20"></i>
+                                    <p class="text-base-content/60">Nenhum usuário encontrado</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

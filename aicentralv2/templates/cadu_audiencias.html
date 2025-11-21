@@ -99,6 +99,7 @@
               <th class="text-left font-bold uppercase">ID Plataforma</th>
               <th class="text-left font-bold uppercase">Fonte</th>
               <th class="text-left font-bold uppercase">Nome</th>
+              <th class="text-left font-bold uppercase">Perfil</th>
               <th class="text-left font-bold uppercase">Categoria</th>
               <th class="text-left font-bold uppercase">Subcategoria</th>
               <th class="text-center font-bold uppercase w-20">CPMC</th>
@@ -125,6 +126,13 @@
                     <div class="text-xs text-base-content/60">{{ audiencia.slug }}</div>
                   {% endif %}
                 </a>
+              </td>
+              <td>
+                {% if audiencia.perfil_socioeconomico %}
+                  <span class="text-base-content">{{ audiencia.perfil_socioeconomico }}</span>
+                {% else %}
+                  <span class="text-base-content/40 italic">-</span>
+                {% endif %}
               </td>
               <td>
                 {% if audiencia.categoria_nome %}
@@ -377,8 +385,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Filtrar linhas da tabela desktop
     const tableRows = document.querySelectorAll('table tbody tr');
     tableRows.forEach(row => {
-      const categoriaText = row.cells[3].textContent.trim();
-      const subcategoriaText = row.cells[4].textContent.trim();
+      const categoriaText = row.cells[4].textContent.trim();
+      const subcategoriaText = row.cells[5].textContent.trim();
       
       let showRow = true;
 

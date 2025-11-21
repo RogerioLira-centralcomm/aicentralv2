@@ -43,20 +43,7 @@ def create_app(config_class=Config):
                     return value
         return value.strftime(fmt)
     app.jinja_env.filters['format_datetime'] = format_datetime
-    """
-    Cria e configura a aplicação Flask
-    
-    Args:
-        config_class: Classe de configuração
-    
-    Returns:
-        Flask: Aplicação configurada
-    """
-    # Criar aplicação
-    app = Flask(__name__, 
-                static_url_path='/static',
-                static_folder='static')
-    app.config.from_object(config_class)
+    app.jinja_env.filters['datetime_format'] = format_datetime  # Alias
     
     # Configurar logging
     setup_logging(app)
@@ -97,6 +84,10 @@ def create_app(config_class=Config):
         # Registrar blueprint da Inteligência
         from .intelligence_routes.intelligence import bp as intelligence_bp
         app.register_blueprint(intelligence_bp)
+        
+        # Registrar blueprint Administrativo
+        from .admin_routes import admin_bp
+        app.register_blueprint(admin_bp)
         
         app.logger.info("OK Rotas registradas")
     except Exception as e:

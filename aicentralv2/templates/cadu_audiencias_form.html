@@ -104,6 +104,21 @@
             </label>
           </div>
         </div>
+
+        <div class="form-control mt-4">
+          <label class="label">
+            <span class="label-text font-semibold">Perfil Socioeconômico</span>
+          </label>
+          <input 
+            type="text" 
+            name="perfil_socioeconomico" 
+            class="input input-bordered input-sm"
+            value="{{ audiencia.perfil_socioeconomico if audiencia else '' }}"
+            placeholder="Ex: Classes A e B, Renda acima de R$ 5.000">
+          <label class="label">
+            <span class="label-text-alt text-base-content/60">Descrição do perfil socioeconômico da audiência</span>
+          </label>
+        </div>
       </div>
 
       <!-- Seção: Descrições -->

@@ -14,6 +14,9 @@
       <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" class="btn btn-primary btn-sm">
         <i class="fas fa-edit mr-1"></i>Editar
       </a>
+      <button onclick="criarPlanoBetaTester({{ cliente.id_cliente }})" class="btn btn-accent btn-sm">
+        <i class="fas fa-gift mr-1"></i>Criar Plano Beta
+      </button>
       <a href="{{ url_for('clientes') }}" class="btn btn-ghost btn-sm">
         <i class="fas fa-arrow-left mr-1"></i>Voltar
       </a>
@@ -198,5 +201,32 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+function criarPlanoBetaTester(clienteId) {
+    if (!confirm('Deseja criar um Plano Beta Tester para este cliente?\n\nDetalhes do plano:\n- 100.000 tokens/mês\n- 50 imagens/mês\n- 10 usuários\n- Válido por 3 meses')) {
+        return;
+    }
+    
+    fetch(`/admin/cliente/${clienteId}/criar-plano-beta`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Plano Beta Tester criado com sucesso!');
+            location.reload();
+        } else {
+            alert('Erro ao criar plano: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        alert('Erro na requisição: ' + error.message);
+    });
+}
+</script>
 
 {% endblock %}

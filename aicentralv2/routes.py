@@ -9,7 +9,7 @@ from flask import session, redirect, url_for, flash, request, render_template, j
 from functools import wraps
 from datetime import datetime, timedelta
 import secrets
-from aicentralv2 import db
+from aicentralv2 import db, audit
 from aicentralv2.email_service import send_password_reset_email, send_password_changed_email
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 
@@ -401,74 +401,35 @@ def init_routes(app):
     def index():
         """Página inicial - Dashboard"""
         try:
-            # Obtém conexão usando o padrão do projeto
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                # Total de clientes
-                cursor.execute("SELECT COUNT(*) FROM tbl_cliente")
-                total_clientes = cursor.fetchone()['count']
-                
-                # Clientes ativos (status = TRUE significa ativo)
-                cursor.execute("SELECT COUNT(*) FROM tbl_cliente WHERE status = TRUE")
-                clientes_ativos = cursor.fetchone()['count']
-                
-                # Clientes inativos (status = FALSE significa inativo)
-                cursor.execute("SELECT COUNT(*) FROM tbl_cliente WHERE status = FALSE")
-                clientes_inativos = cursor.fetchone()['count']
-                
-                # Total de contatos
-                cursor.execute("SELECT COUNT(*) FROM tbl_contato_cliente")
-                total_contatos = cursor.fetchone()['count']
-                
-                # Segmentação por tipo de pessoa
-                cursor.execute("""
-                    SELECT 
-                        pessoa,
-                        COUNT(*) as total,
-                        SUM(CASE WHEN status = TRUE THEN 1 ELSE 0 END) as ativos
-                    FROM tbl_cliente 
-                    GROUP BY pessoa
-                """)
-                pessoas = cursor.fetchall()
-                
-                # Processar dados de pessoas
-                pessoas_stats = {
-                    'fisica': {'total': 0, 'ativos': 0},
-                    'juridica': {'total': 0, 'ativos': 0}
-                }
-                
-                for p in pessoas:
-                    if p['pessoa'] == 'F':
-                        pessoas_stats['fisica'] = {
-                            'total': p['total'],
-                            'ativos': p['ativos']
-                        }
-                    elif p['pessoa'] == 'J':
-                        pessoas_stats['juridica'] = {
-                            'total': p['total'],
-                            'ativos': p['ativos']
-                        }
-                
-                dados = {
-                    'total_clientes': total_clientes,
-                    'clientes_ativos': clientes_ativos,
-                    'clientes_inativos': clientes_inativos,
-                    'total_contatos': total_contatos,
-                    'pessoas_stats': pessoas_stats,
-                    'atividades': []  # TODO: Implementar atividades recentes
-                }
-                
-                return render_template('index_tailwind.html', **dados)
+            # Estatísticas principais
+            stats = db.obter_dashboard_stats()
+            
+            # Logs recentes
+            logs_recentes = audit.obter_logs_recentes(limite=10)
+            
+            # Planos próximos do limite
+            planos_alerta = db.obter_planos_clientes({
+                'plan_status': 'active'
+            })
+            
+            # Filtrar apenas os que estão acima de 80%
+            planos_alerta = [p for p in planos_alerta 
+                            if p.get('tokens_usage_percentage', 0) > 80 
+                            or p.get('images_usage_percentage', 0) > 80]
+            
+            return render_template('index_tailwind.html',
+                                 stats=stats,
+                                 logs_recentes=logs_recentes,
+                                 planos_alerta=planos_alerta)
         except Exception as e:
             app.logger.error(f"Erro ao carregar dashboard: {str(e)}")
             flash('Erro ao carregar dados do dashboard.', 'error')
             return render_template('index_tailwind.html', 
-                                total_clientes=0,
-                                clientes_ativos=0,
-                                clientes_inativos=0,
-                                total_contatos=0,
-                                pessoas_stats={'fisica': {'total': 0, 'ativos': 0}, 'juridica': {'total': 0, 'ativos': 0}},
-                                atividades=[])
+                                stats={'total_clientes_ativos': 0, 'total_usuarios': 0, 
+                                       'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
+                                       'planos_proximo_limite': 0, 'planos_vencendo': 0},
+                                logs_recentes=[],
+                                planos_alerta=[])
     
     # ==================== FORGOT PASSWORD ====================
     
@@ -521,7 +482,7 @@ def init_routes(app):
     @login_required
     def cliente_editar(cliente_id):
         """Editar cliente"""
-        planos = db.obter_planos()
+        planos = []  # Lista vazia - planos antigos foram removidos
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
@@ -897,58 +858,6 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao alterar status do setor: {str(e)}")
             return jsonify({'message': 'Erro ao alterar status'}), 500
-
-    # ==================== PLANOS ====================
-
-    @app.route('/planos')
-    @login_required
-    def planos():
-        """Lista os planos cadastrados."""
-        try:
-            lista = db.obter_planos() or []
-            return render_template('planos.html', planos=lista)
-        except Exception as e:
-            app.logger.error(f"Erro ao listar planos: {e}")
-            flash('Erro ao carregar planos.', 'error')
-            return render_template('planos.html', planos=[])
-
-    @app.route('/planos/form', methods=['GET', 'POST'])
-    @login_required
-    def plano_form():
-        """Criação e edição de plano (identificado por query param id_plano)."""
-        id_plano = request.args.get('id_plano', type=int)
-        if request.method == 'POST':
-            try:
-                descricao = (request.form.get('descricao') or '').strip()
-                tokens = request.form.get('tokens', type=int)
-                if not descricao or not tokens:
-                    flash('Descrição e Tokens são obrigatórios.', 'error')
-                    plano = db.obter_plano(id_plano) if id_plano else None
-                    return render_template('plano_form.html', plano=plano)
-                if id_plano:
-                    db.atualizar_plano(id_plano, descricao, tokens)
-                    flash('Plano atualizado com sucesso!', 'success')
-                else:
-                    novo_id = db.criar_plano(descricao, tokens)
-                    flash(f'Plano criado com sucesso (ID {novo_id})!', 'success')
-                return redirect(url_for('planos'))
-            except Exception as e:
-                app.logger.error(f"Erro ao salvar plano: {e}")
-                flash('Erro ao salvar plano.', 'error')
-        plano = db.obter_plano(id_plano) if id_plano else None
-        return render_template('plano_form.html', plano=plano)
-
-    @app.route('/planos/<int:id_plano>/toggle_status', methods=['POST'])
-    @login_required
-    def toggle_status_plano(id_plano):
-        try:
-            ok = db.toggle_status_plano(id_plano)
-            if ok:
-                return jsonify({'message': 'Status alterado com sucesso'}), 200
-            return jsonify({'message': 'Plano não encontrado'}), 404
-        except Exception as e:
-            app.logger.error(f"Erro ao alterar status do plano: {e}")
-            return jsonify({'message': 'Erro ao alterar status do plano'}), 500
 
     # ==================== UP AUDIÊNCIA ====================
 
@@ -1408,7 +1317,7 @@ def init_routes(app):
     @login_required
     def cliente_novo():
         """Criar cliente"""
-        planos = db.obter_planos()
+        planos = []  # Lista vazia - planos antigos foram removidos
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
@@ -1665,10 +1574,6 @@ def init_routes(app):
                         es.sigla as estado_sigla,
                         es.descricao as estado_descricao,
                         tc.display as tipo_cliente_display,
-                        p.id_plano,
-                        p.descricao as plano_descricao,
-                        p.tokens as plano_tokens,
-                        p.status as plano_status,
                         COALESCE(c.total_token_gasto, 0) as total_tokens_gasto,
                         c.vendas_central_comm,
                         vend.nome_completo AS vendedor_nome,
@@ -1680,7 +1585,6 @@ def init_routes(app):
                     LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
                     LEFT JOIN tbl_estado es ON es.id_estado = c.pk_id_aux_estado
                     LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
-                    LEFT JOIN tbl_plano p ON p.id_plano = c.pk_id_tbl_plano
                     LEFT JOIN tbl_apresentacao_executivo ae ON ae.id_tbl_apresentacao_executivo = c.id_apresentacao_executivo
                     LEFT JOIN tbl_fluxo_boas_vindas fb ON fb.id_fluxo_boas_vindas = c.id_fluxo_boas_vindas
                     LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = c.vendas_central_comm

@@ -44,32 +44,8 @@ def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo
 @admin_bp.route('/')
 @admin_required
 def admin_dashboard():
-    """Dashboard administrativo com métricas globais"""
-    try:
-        # Estatísticas principais
-        stats = db.obter_dashboard_stats()
-        
-        # Logs recentes
-        logs_recentes = audit.obter_logs_recentes(limite=10)
-        
-        # Planos próximos do limite
-        planos_alerta = db.obter_planos_clientes({
-            'plan_status': 'active'
-        })
-        
-        # Filtrar apenas os que estão acima de 80%
-        planos_alerta = [p for p in planos_alerta 
-                        if p.get('tokens_usage_percentage', 0) > 80 
-                        or p.get('images_usage_percentage', 0) > 80]
-        
-        return render_template('admin/dashboard.html',
-                             stats=stats,
-                             logs_recentes=logs_recentes,
-                             planos_alerta=planos_alerta)
-    except Exception as e:
-        logger.error(f"Erro ao carregar dashboard admin: {str(e)}")
-        flash('Erro ao carregar dashboard.', 'error')
-        return redirect(url_for('index'))
+    """Redireciona para o dashboard principal"""
+    return redirect(url_for('index'))
 
 
 # ==================== GESTÃO DE USUÁRIOS ====================
@@ -232,6 +208,44 @@ def cliente_detalhes(cliente_id):
         return redirect(url_for('admin.clientes_lista'))
 
 
+@admin_bp.route('/cliente/<int:cliente_id>/criar-plano-beta', methods=['POST'])
+@admin_required
+def criar_plano_beta_cliente(cliente_id):
+    """Cria um plano Beta Tester para um cliente"""
+    try:
+        # Verificar se cliente existe
+        cliente = db.obter_cliente_por_id(cliente_id)
+        if not cliente:
+            return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
+        
+        # Verificar se já existe plano ativo
+        planos_ativos = db.obter_planos_clientes({'cliente_id': cliente_id, 'plan_status': 'active'})
+        if planos_ativos:
+            return jsonify({'success': False, 'error': 'Cliente já possui um plano ativo'}), 400
+        
+        # Criar plano Beta Tester
+        plan_id = db.criar_plano_beta_tester(
+            cliente_id=cliente_id,
+            created_by=session.get('user_id')
+        )
+        
+        # Registrar auditoria
+        registrar_auditoria(
+            acao='criar',
+            modulo='planos',
+            descricao=f'Criou plano Beta Tester para cliente {cliente.get("nome_fantasia", cliente_id)}',
+            registro_id=plan_id,
+            registro_tipo='cadu_client_plans'
+        )
+        
+        logger.info(f"Plano Beta Tester criado para cliente {cliente_id} por usuário {session.get('user_id')}")
+        return jsonify({'success': True, 'plan_id': plan_id})
+        
+    except Exception as e:
+        logger.error(f"Erro ao criar plano beta para cliente {cliente_id}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ==================== GESTÃO DE PLANOS ====================
 
 @admin_bp.route('/planos')
@@ -291,7 +305,7 @@ def plano_novo():
             )
             
             flash('Plano criado com sucesso!', 'success')
-            return redirect(url_for('admin.planos_lista'))
+            return redirect(url_for('admin.dashboard'))
             
         except Exception as e:
             logger.error(f"Erro ao criar plano: {str(e)}")
@@ -338,7 +352,7 @@ def plano_editar(plan_id):
                 )
                 
                 flash('Plano atualizado com sucesso!', 'success')
-                return redirect(url_for('admin.planos_lista'))
+                return redirect(url_for('admin.dashboard'))
             else:
                 flash('Erro ao atualizar plano.', 'error')
                 
@@ -351,7 +365,7 @@ def plano_editar(plan_id):
     
     if not plano:
         flash('Plano não encontrado.', 'error')
-        return redirect(url_for('admin.planos_lista'))
+        return redirect(url_for('admin.dashboard'))
     
     return render_template('admin/planos/form.html',
                          plano=plano,

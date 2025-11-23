@@ -252,32 +252,6 @@ def criar_plano_beta_cliente(cliente_id):
 
 # ==================== GESTÃO DE PLANOS ====================
 
-@admin_bp.route('/planos')
-@admin_required
-def planos_lista():
-    """Lista todos os planos de clientes"""
-    try:
-        # Filtros
-        filtros = {}
-        
-        if request.args.get('plan_status'):
-            filtros['plan_status'] = request.args.get('plan_status')
-        
-        if request.args.get('plan_type'):
-            filtros['plan_type'] = request.args.get('plan_type')
-        
-        planos = db.obter_planos_clientes(filtros)
-        
-        return render_template('cadu_planos.html',
-                             planos=planos,
-                             filtros=filtros,
-                             today=date.today())
-    except Exception as e:
-        logger.error(f"Erro ao listar planos: {str(e)}")
-        flash('Erro ao carregar lista de planos.', 'error')
-        return redirect(url_for('admin.admin_dashboard'))
-
-
 @admin_bp.route('/planos/novo', methods=['GET', 'POST'])
 @admin_required
 def plano_novo():

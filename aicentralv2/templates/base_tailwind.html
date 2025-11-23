@@ -288,7 +288,7 @@
                                     </li>
                                     {% if session.user_type in ['admin', 'superadmin'] %}
                                     <li>
-                                        <a href="{{ url_for('admin.planos_lista') }}" class="{% if request.endpoint == 'admin.planos_lista' %}active{% endif %}">
+                                        <a href="{{ url_for('planos_lista') }}" class="{% if request.endpoint == 'planos_lista' %}active{% endif %}">
                                             <span class="sidebar-text">Planos</span>
                                         </a>
                                     </li>

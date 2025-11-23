@@ -53,6 +53,31 @@ def login_required(f):
 
 
 def init_routes(app):
+    @app.route('/planos')
+    @login_required
+    def planos_lista():
+        """Lista todos os planos de clientes"""
+        from datetime import date
+        try:
+            # Filtros
+            filtros = {}
+            
+            if request.args.get('plan_status'):
+                filtros['plan_status'] = request.args.get('plan_status')
+            
+            if request.args.get('plan_type'):
+                filtros['plan_type'] = request.args.get('plan_type')
+            
+            planos = db.obter_planos_clientes(filtros)
+            
+            return render_template('cadu_planos.html',
+                                 planos=planos,
+                                 filtros=filtros,
+                                 today=date.today())
+        except Exception as e:
+            flash('Erro ao carregar lista de planos.', 'error')
+            return redirect(url_for('index'))
+
     @app.route('/cadu_categorias')
     @login_required
     def cadu_categorias():

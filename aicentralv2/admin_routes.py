@@ -3,7 +3,7 @@ AIcentralv2 - Rotas Administrativas
 Painel de administração para gestão de clientes, usuários, planos e faturamento
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
-from aicentralv2.auth import admin_required, superadmin_required
+from aicentralv2.auth import admin_required, superadmin_required, admin_required_api
 from aicentralv2 import db, audit
 import logging
 
@@ -209,7 +209,7 @@ def cliente_detalhes(cliente_id):
 
 
 @admin_bp.route('/cliente/<int:cliente_id>/criar-plano-beta', methods=['POST'])
-@admin_required
+@admin_required_api
 def criar_plano_beta_cliente(cliente_id):
     """Cria um plano Beta Tester para um cliente"""
     try:
@@ -239,10 +239,13 @@ def criar_plano_beta_cliente(cliente_id):
         )
         
         logger.info(f"Plano Beta Tester criado para cliente {cliente_id} por usuário {session.get('user_id')}")
-        return jsonify({'success': True, 'plan_id': plan_id})
+        return jsonify({'success': True, 'plan_id': plan_id}), 200
         
     except Exception as e:
-        logger.error(f"Erro ao criar plano beta para cliente {cliente_id}: {str(e)}")
+        import traceback
+        error_detail = traceback.format_exc()
+        logger.error(f"Erro ao criar plano beta para cliente {cliente_id}:")
+        logger.error(error_detail)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

@@ -212,19 +212,34 @@ function criarPlanoBetaTester(clienteId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-        }
+        },
+        credentials: 'same-origin'  // Importante: inclui cookies de sessão
     })
-    .then(response => response.json())
+    .then(response => {
+        // Se não for JSON (ex: HTML de erro), lança erro
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Servidor retornou resposta inválida. Verifique se está logado.');
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert('Plano Beta Tester criado com sucesso!');
             location.reload();
         } else {
-            alert('Erro ao criar plano: ' + (data.error || 'Erro desconhecido'));
+            // Tratar erros de autenticação/autorização
+            if (data.error && (data.error.includes('Sessão') || data.error.includes('login'))) {
+                alert(data.error + '\n\nVocê será redirecionado para a página de login.');
+                window.location.href = '/login';
+            } else {
+                alert('Erro ao criar plano: ' + (data.error || 'Erro desconhecido'));
+            }
         }
     })
     .catch(error => {
-        alert('Erro na requisição: ' + error.message);
+        console.error('Erro completo:', error);
+        alert('Erro na requisição: ' + error.message + '\n\nVerifique o console para mais detalhes.');
     });
 }
 </script>

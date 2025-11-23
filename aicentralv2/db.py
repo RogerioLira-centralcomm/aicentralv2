@@ -2845,7 +2845,7 @@ def obter_plano_por_id(plan_id):
                 FROM cadu_client_plans p
                 INNER JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente u ON p.created_by = u.id_contato_cliente
-                WHERE p.id_plan = %s
+                WHERE p.id = %s
             ''', (plan_id,))
             return cursor.fetchone()
     except Exception as e:
@@ -2913,8 +2913,8 @@ def atualizar_client_plan(plan_id, dados):
                     valid_from = %s,
                     valid_until = %s,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id_plan = %s
-                RETURNING id_plan
+                WHERE id = %s
+                RETURNING id
             ''', (
                 dados['plan_type'],
                 dados.get('plan_name'),
@@ -2953,8 +2953,8 @@ def atualizar_consumo_tokens(plan_id, tokens_usados, imagens_usadas=0):
                 SET tokens_used_current_month = tokens_used_current_month + %s,
                     image_credits_used_current_month = image_credits_used_current_month + %s,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id_plan = %s
-                RETURNING id_plan
+                WHERE id = %s
+                RETURNING id
             ''', (tokens_usados, imagens_usadas, plan_id))
             
             result = cursor.fetchone()
@@ -2981,8 +2981,8 @@ def resetar_contadores_mensais(plan_id=None):
                     SET tokens_used_current_month = 0,
                         image_credits_used_current_month = 0,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE id_plan = %s
-                    RETURNING id_plan
+                    WHERE id = %s
+                    RETURNING id
                 ''', (plan_id,))
             else:
                 cursor.execute('''
@@ -3039,6 +3039,131 @@ def criar_plano_beta_tester(cliente_id, created_by=None, valid_until=None):
     return criar_client_plan(dados)
 
 
+# ==================== CONTADOR DE TOKENS ====================
+
+def registrar_uso_token(conversation_id, tipo, quantidade, id_cliente=None, id_contato_cliente=None, 
+                       message_id=None, modelo=None, custo_estimado=0):
+    """
+    Registra o uso de tokens na tabela cadu_token_usage
+    
+    Args:
+        conversation_id (str): ID da conversa
+        tipo (str): Tipo de uso (ex: 'chat', 'completion', 'embedding', etc)
+        quantidade (int): Quantidade de tokens usados
+        id_cliente (int, optional): ID do cliente
+        id_contato_cliente (int, optional): ID do contato/usuário
+        message_id (str, optional): ID da mensagem
+        modelo (str, optional): Nome do modelo usado
+        custo_estimado (float, optional): Custo estimado do uso
+    
+    Returns:
+        int: ID do registro criado
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_token_usage (
+                    conversation_id, message_id, tipo, quantidade,
+                    modelo, custo_estimado, id_cliente, id_contato_cliente
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s
+                ) RETURNING id
+            ''', (
+                conversation_id,
+                message_id,
+                tipo,
+                quantidade,
+                modelo,
+                custo_estimado,
+                id_cliente,
+                id_contato_cliente
+            ))
+            
+            registro_id = cursor.fetchone()['id']
+            conn.commit()
+            return registro_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_uso_tokens_cliente(id_cliente, data_inicio=None, data_fim=None):
+    """
+    Obtém o total de tokens usados por um cliente em um período
+    
+    Args:
+        id_cliente (int): ID do cliente
+        data_inicio (datetime, optional): Data inicial do período
+        data_fim (datetime, optional): Data final do período
+    
+    Returns:
+        dict: Totais por tipo de uso
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    tipo,
+                    SUM(quantidade) as total_tokens,
+                    SUM(custo_estimado) as total_custo,
+                    COUNT(*) as total_registros
+                FROM cadu_token_usage
+                WHERE id_cliente = %s
+            '''
+            params = [id_cliente]
+            
+            if data_inicio:
+                query += ' AND created_at >= %s'
+                params.append(data_inicio)
+            
+            if data_fim:
+                query += ' AND created_at <= %s'
+                params.append(data_fim)
+            
+            query += ' GROUP BY tipo ORDER BY total_tokens DESC'
+            
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_uso_tokens_mes_atual(id_cliente=None):
+    """
+    Obtém o total de tokens usados no mês atual
+    
+    Args:
+        id_cliente (int, optional): ID do cliente. Se None, retorna total de todos os clientes
+    
+    Returns:
+        int: Total de tokens do mês
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if id_cliente:
+                cursor.execute('''
+                    SELECT COALESCE(SUM(quantidade), 0) as total
+                    FROM cadu_token_usage
+                    WHERE id_cliente = %s
+                    AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+                    AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+                ''', (id_cliente,))
+            else:
+                cursor.execute('''
+                    SELECT COALESCE(SUM(quantidade), 0) as total
+                    FROM cadu_token_usage
+                    WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+                    AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+                ''')
+            
+            return cursor.fetchone()['total']
+    except Exception as e:
+        raise e
+
+
 def obter_dashboard_stats():
     """Retorna estatísticas para o dashboard administrativo"""
     conn = get_db()
@@ -3062,13 +3187,20 @@ def obter_dashboard_stats():
             ''')
             stats['total_usuarios'] = cursor.fetchone()['total']
             
-            # Tokens consumidos no mês atual
-            cursor.execute('''
-                SELECT COALESCE(SUM(tokens_used_current_month), 0) as total
-                FROM cadu_client_plans
-                WHERE plan_status = 'active'
-            ''')
-            stats['tokens_mes_atual'] = cursor.fetchone()['total']
+            # Tokens consumidos no mês atual (usando cadu_token_usage)
+            stats['tokens_mes_atual'] = obter_uso_tokens_mes_atual()
+            
+            # Nome do mês atual
+            import locale
+            from datetime import datetime
+            try:
+                locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
+            except:
+                try:
+                    locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
+                except:
+                    pass
+            stats['mes_atual'] = datetime.now().strftime('%B/%Y').capitalize()
             
             # Imagens geradas no mês atual
             cursor.execute('''
@@ -3172,7 +3304,7 @@ def criar_invoice(dados):
             
             cursor.execute('''
                 INSERT INTO cadu_invoices (
-                    invoice_number, id_cliente, id_plan, reference_month,
+                    invoice_number, id_cliente, id, reference_month,
                     tokens_consumed, tokens_cost,
                     images_generated, images_cost,
                     extra_users_count, extra_users_cost,
@@ -3185,7 +3317,7 @@ def criar_invoice(dados):
             ''', (
                 invoice_number,
                 dados['id_cliente'],
-                dados.get('id_plan'),
+                dados.get('id'),
                 dados['reference_month'],
                 dados.get('tokens_consumed', 0),
                 dados.get('tokens_cost', 0),

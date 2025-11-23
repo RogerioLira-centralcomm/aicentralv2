@@ -99,6 +99,26 @@
             background: #a0aec0;
         }
         
+        /* Fix para selects - garantir visibilidade */
+        select.select,
+        select.select-bordered {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        select.select option,
+        select.select-bordered option {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        select.select option:checked,
+        select.select-bordered option:checked {
+            background-color: #9ccf31 !important;
+            color: white !important;
+            font-weight: 600;
+        }
+        
         /* Menu active state */
         .menu li > a.active {
             background-color: hsl(var(--p) / 0.1);
@@ -266,6 +286,13 @@
                                             <span class="sidebar-text">Contatos</span>
                                         </a>
                                     </li>
+                                    {% if session.user_type in ['admin', 'superadmin'] %}
+                                    <li>
+                                        <a href="{{ url_for('admin.planos_lista') }}" class="{% if request.endpoint == 'admin.planos_lista' %}active{% endif %}">
+                                            <span class="sidebar-text">Planos</span>
+                                        </a>
+                                    </li>
+                                    {% endif %}
                                     <li>
                                         <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
                                             <span class="sidebar-text">Interesse em Produtos</span>

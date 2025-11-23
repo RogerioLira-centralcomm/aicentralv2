@@ -1,0 +1,161 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Planos - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Planos</h1>
+      <p class="text-sm text-base-content/70">Gerencie os planos dos clientes na plataforma.</p>
+    </div>
+    <a href="{{ url_for('admin.plano_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Novo Plano</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Filtros -->
+  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Status do Plano</span>
+        </label>
+        <select name="plan_status" class="select select-bordered w-full">
+          <option value="" {% if not filtros.get('plan_status') %}selected{% endif %}>Todos</option>
+          <option value="active" {% if filtros.get('plan_status') == 'active' %}selected{% endif %}>Ativo</option>
+          <option value="inactive" {% if filtros.get('plan_status') == 'inactive' %}selected{% endif %}>Inativo</option>
+          <option value="expired" {% if filtros.get('plan_status') == 'expired' %}selected{% endif %}>Expirado</option>
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Tipo de Plano</span>
+        </label>
+        <select name="plan_type" class="select select-bordered w-full">
+          <option value="" {% if not filtros.get('plan_type') %}selected{% endif %}>Todos</option>
+          <option value="Plano Beta Tester" {% if filtros.get('plan_type') == 'Plano Beta Tester' %}selected{% endif %}>Plano Beta Tester</option>
+          <option value="Básico" {% if filtros.get('plan_type') == 'Básico' %}selected{% endif %}>Básico</option>
+          <option value="Profissional" {% if filtros.get('plan_type') == 'Profissional' %}selected{% endif %}>Profissional</option>
+          <option value="Empresarial" {% if filtros.get('plan_type') == 'Empresarial' %}selected{% endif %}>Empresarial</option>
+        </select>
+      </div>
+      <div class="form-control flex flex-row gap-2 items-end">
+        <button type="submit" class="btn btn-primary btn-sm flex-1">
+          <i class="fas fa-filter mr-2"></i>Filtrar
+        </button>
+        <a href="{{ url_for('admin.planos_lista') }}" class="btn btn-outline btn-sm">
+          <i class="fas fa-times"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+    {% if planos %}
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Cliente</th>
+              <th class="text-left font-bold uppercase">Tipo de Plano</th>
+              <th class="text-center font-bold uppercase w-24">Status</th>
+              <th class="text-center font-bold uppercase w-28">Tokens</th>
+              <th class="text-center font-bold uppercase w-28">Imagens</th>
+              <th class="text-center font-bold uppercase w-20">Usuários</th>
+              <th class="text-center font-bold uppercase w-28">Validade</th>
+              <th class="text-center font-bold uppercase w-28">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for plano in planos %}
+            <tr class="hover">
+              <td>
+                <a href="{{ url_for('cliente_detalhes', cliente_id=plano.id_cliente) }}" class="link link-primary">
+                  <div class="font-semibold text-base-content">{{ plano.nome_fantasia }}</div>
+                  {% if plano.razao_social and plano.razao_social != plano.nome_fantasia %}
+                    <div class="text-xs text-base-content/60">{{ plano.razao_social }}</div>
+                  {% endif %}
+                </a>
+              </td>
+              <td>
+                <span class="badge badge-sm badge-ghost">{{ plano.plan_type }}</span>
+              </td>
+              <td class="text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                  {% if plano.plan_status == 'active' %}bg-green-100 text-green-800 border border-green-300
+                  {% elif plano.plan_status == 'expired' %}bg-red-100 text-red-700 border border-red-300
+                  {% else %}bg-gray-100 text-gray-700 border border-gray-300{% endif %}">
+                  {{ plano.plan_status|capitalize }}
+                </span>
+              </td>
+              <td class="text-center">
+                <div class="text-xs">
+                  <div class="font-semibold">{{ "{:,}".format(plano.tokens_used_current_month or 0).replace(',', '.') }} / {{ "{:,}".format(plano.tokens_monthly_limit).replace(',', '.') }}</div>
+                  <div class="radial-progress text-xs {% if plano.tokens_usage_percentage >= 90 %}text-error{% elif plano.tokens_usage_percentage >= 80 %}text-warning{% else %}text-success{% endif %}" 
+                       style="--value:{{ plano.tokens_usage_percentage or 0 }}; --size:2rem;">
+                    {{ plano.tokens_usage_percentage or 0 }}%
+                  </div>
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="text-xs">
+                  <div class="font-semibold">{{ plano.image_credits_used_current_month or 0 }} / {{ plano.image_credits_monthly }}</div>
+                  <div class="radial-progress text-xs {% if plano.images_usage_percentage >= 90 %}text-error{% elif plano.images_usage_percentage >= 80 %}text-warning{% else %}text-success{% endif %}" 
+                       style="--value:{{ plano.images_usage_percentage or 0 }}; --size:2rem;">
+                    {{ plano.images_usage_percentage or 0 }}%
+                  </div>
+                </div>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm badge-ghost">{{ plano.max_users }}</span>
+              </td>
+              <td class="text-center text-xs">
+                {% if plano.valid_until %}
+                  <div class="font-semibold">{{ plano.valid_until.strftime('%d/%m/%Y') }}</div>
+                  {% set dias_restantes = (plano.valid_until - today).days %}
+                  {% if dias_restantes < 0 %}
+                    <div class="text-error">Expirado</div>
+                  {% elif dias_restantes <= 7 %}
+                    <div class="text-warning">{{ dias_restantes }} dias</div>
+                  {% else %}
+                    <div class="text-success">{{ dias_restantes }} dias</div>
+                  {% endif %}
+                {% else %}
+                  <span class="text-base-content/40 italic">Sem validade</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="flex items-center justify-center gap-1">
+                  <a href="{{ url_for('admin.plano_editar', plan_id=plano.id) }}" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a href="{{ url_for('cliente_detalhes', cliente_id=plano.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-info" title="Ver Cliente">
+                    <i class="fas fa-user"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-8">
+        <p class="mb-2 text-base-content/60 text-sm">Nenhum plano encontrado.</p>
+        <a href="{{ url_for('admin.plano_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Criar Primeiro Plano</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

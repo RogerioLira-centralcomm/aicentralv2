@@ -3207,17 +3207,20 @@ def obter_dashboard_stats():
             # Tokens consumidos no mês atual (usando cadu_token_usage)
             stats['tokens_mes_atual'] = obter_uso_tokens_mes_atual()
             
-            # Nome do mês atual
+            # Nome do mês atual em português
             import locale
             from datetime import datetime
-            try:
-                locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
-            except:
-                try:
-                    locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
-                except:
-                    pass
-            stats['mes_atual'] = datetime.now().strftime('%B/%Y').capitalize()
+            
+            # Mapeamento manual de meses em português
+            meses_pt = {
+                1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+                5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+                9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+            }
+            
+            agora = datetime.now()
+            mes_nome = meses_pt[agora.month]
+            stats['mes_atual'] = f"{mes_nome}/{agora.year}"
             
             # Imagens geradas no mês atual
             cursor.execute('''

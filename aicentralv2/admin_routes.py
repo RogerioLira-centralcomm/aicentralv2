@@ -5,6 +5,7 @@ Painel de administração para gestão de clientes, usuários, planos e faturame
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from aicentralv2.auth import admin_required, superadmin_required, admin_required_api
 from aicentralv2 import db, audit
+from datetime import date
 import logging
 
 # Criar blueprint
@@ -267,9 +268,10 @@ def planos_lista():
         
         planos = db.obter_planos_clientes(filtros)
         
-        return render_template('admin/planos/lista.html',
+        return render_template('cadu_planos.html',
                              planos=planos,
-                             filtros=filtros)
+                             filtros=filtros,
+                             today=date.today())
     except Exception as e:
         logger.error(f"Erro ao listar planos: {str(e)}")
         flash('Erro ao carregar lista de planos.', 'error')

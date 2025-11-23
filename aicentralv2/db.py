@@ -797,36 +797,6 @@ def atualizar_senha_contato(contato_id, nova_senha):
         conn.rollback()
         raise
 
-# ==================== CLIENTE - TOKENS ====================
-
-def atualizar_tokens_cliente(id_cliente: int, total_token_plano: Optional[int] = None, total_token_gasto: Optional[int] = None) -> bool:
-    """Atualiza campos de tokens do cliente, quando existirem.
-
-    - total_token_plano: Quantidade total de tokens do plano vigente a ser registrada no cliente
-    - total_token_gasto: Quantidade já consumida pelo cliente
-    """
-    conn = get_db()
-    sets = []
-    params = []
-    if total_token_plano is not None:
-        sets.append("total_token_plano = %s")
-        params.append(total_token_plano)
-    if total_token_gasto is not None:
-        sets.append("total_token_gasto = %s")
-        params.append(total_token_gasto)
-    if not sets:
-        return False
-    params.append(id_cliente)
-    query = f"UPDATE tbl_cliente SET {', '.join(sets)}, data_modificacao = NOW() WHERE id_cliente = %s"
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, tuple(params))
-        conn.commit()
-        return True
-    except Exception:
-        conn.rollback()
-        raise
-
 
 # ==================== RECUPERAÇÃO DE SENHA ====================
 

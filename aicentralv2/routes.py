@@ -671,9 +671,11 @@ def init_routes(app):
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 id_fluxo_boas_vindas = request.form.get('id_fluxo_boas_vindas', type=int) or None
                 id_percentual = request.form.get('id_percentual', type=int) or None
+                
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
                     return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
+                
                 if not id_fluxo_boas_vindas:
                     flash('Fluxo de Boas-Vindas é obrigatório!', 'error')
                     return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
@@ -706,7 +708,6 @@ def init_routes(app):
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
                     inscricao_municipal=inscricao_municipal,
-                    pk_id_tbl_plano=pk_id_tbl_plano,
                     pk_id_aux_agencia=pk_id_tbl_agencia,
                     pk_id_aux_estado=pk_id_aux_estado,
                     vendas_central_comm=vendas_central_comm,
@@ -1487,12 +1488,11 @@ def init_routes(app):
                 id_apresentacao_executivo = request.form.get('id_apresentacao_executivo', type=int) or None
                 id_fluxo_boas_vindas = request.form.get('id_fluxo_boas_vindas', type=int) or None
                 id_percentual = request.form.get('id_percentual', type=int) or None
+                
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
                     return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
 
-                # Nova opção: apresentação do executivo (opcional)
-                id_apresentacao_executivo = request.form.get('id_apresentacao_executivo', type=int) or None
                 # Fluxo de boas-vindas (não opcional)
                 if not id_fluxo_boas_vindas:
                     flash('Fluxo de Boas-Vindas é obrigatório!', 'error')
@@ -1539,20 +1539,6 @@ def init_routes(app):
                     id_fluxo_boas_vindas=id_fluxo_boas_vindas,
                     id_percentual=id_percentual
                 )
-
-                # Inicializa os tokens do cliente: total do plano e gasto = 0
-                try:
-                    if pk_id_tbl_plano:
-                        plano = db.obter_plano(pk_id_tbl_plano)
-                        if plano and 'tokens' in plano:
-                            db.atualizar_tokens_cliente(id_cliente, total_token_plano=plano['tokens'], total_token_gasto=0)
-                        else:
-                            # Se não conseguir obter o plano, ao menos zera o gasto
-                            db.atualizar_tokens_cliente(id_cliente, total_token_gasto=0)
-                    else:
-                        db.atualizar_tokens_cliente(id_cliente, total_token_gasto=0)
-                except Exception as e:
-                    app.logger.warning(f"Falha ao inicializar tokens do cliente {id_cliente}: {e}")
                 
                 # Registro de auditoria
                 registrar_auditoria(
@@ -1658,7 +1644,6 @@ def init_routes(app):
                         es.sigla as estado_sigla,
                         es.descricao as estado_descricao,
                         tc.display as tipo_cliente_display,
-                        COALESCE(c.total_token_gasto, 0) as total_tokens_gasto,
                         c.vendas_central_comm,
                         vend.nome_completo AS vendedor_nome,
                         vendcar.descricao AS vendedor_cargo,

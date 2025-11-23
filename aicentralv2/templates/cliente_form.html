@@ -68,7 +68,7 @@
 
           <div class="form-control">
             <label class="label font-semibold text-sm">Estado</label>
-            <select id="estado" name="estado" class="select select-bordered w-full">
+            <select id="estado" name="pk_id_aux_estado" class="select select-bordered w-full">
               <option value="">Selecione o estado</option>
               {% for estado in estados %}
                 <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}" {% if cliente and cliente.estado == estado.id_estado %}selected{% endif %}>{{ estado.sigla }} - {{ estado.descricao }}</option>
@@ -93,7 +93,7 @@
           </div>
           <div class="form-control">
             <label class="label font-semibold text-sm">Número</label>
-            <input id="numero" value="{{ cliente.numero if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o número">
+            <input id="numero" name="numero" value="{{ cliente.numero if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o número">
           </div>
           <div class="form-control">
             <label class="label font-semibold text-sm">Complemento</label>
@@ -102,7 +102,7 @@
 
           <div id="agencia_fields" class="form-control">
             <label class="label font-semibold text-sm">Agência <span class="text-error">*</span></label>
-            <select name="id_agencia" class="select select-bordered w-full" required>
+            <select name="pk_id_tbl_agencia" class="select select-bordered w-full" required>
               <option value="">É agência?</option>
               {% for agencia in agencias %}
                 <option value="{{ agencia.id_agencia }}" {% if cliente and cliente.pk_id_tbl_agencia == agencia.id_agencia %}selected{% endif %}>{{ agencia.display }}</option>
@@ -113,6 +113,36 @@
           <div id="percentual_fields" class="form-control">
             <label class="label font-semibold text-sm">Percentual</label>
             <input name="percentual" value="{{ cliente.percentual if cliente else '' }}" class="input input-bordered w-full" placeholder="Digite o percentual">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Vendas CentralComm <span class="text-error">*</span></label>
+            <select name="vendas_central_comm" class="select select-bordered w-full" required>
+              <option value="">Selecione o vendedor</option>
+              {% for vendedor in vendedores_cc %}
+                <option value="{{ vendedor.id_contato_cliente }}" {% if cliente and cliente.vendas_central_comm == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Apresentação Executivo</label>
+            <select name="id_apresentacao_executivo" class="select select-bordered w-full">
+              <option value="">Selecione a apresentação</option>
+              {% for apresentacao in apresentacoes %}
+                <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}" {% if cliente and cliente.id_apresentacao_executivo == apresentacao.id_tbl_apresentacao_executivo %}selected{% endif %}>{{ apresentacao.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm">Fluxo de Boas-Vindas <span class="text-error">*</span></label>
+            <select name="id_fluxo_boas_vindas" class="select select-bordered w-full" required>
+              <option value="">Selecione o fluxo</option>
+              {% for fluxo in fluxos %}
+                <option value="{{ fluxo.id_fluxo_boas_vindas }}" {% if cliente and cliente.id_fluxo_boas_vindas == fluxo.id_fluxo_boas_vindas %}selected{% endif %}>{{ fluxo.display }}</option>
+              {% endfor %}
+            </select>
           </div>
 
           <!-- Campo hidden pk_id_tbl_agencia_pf removido, não é necessário para o select principal -->

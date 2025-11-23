@@ -401,26 +401,40 @@ def init_routes(app):
     def index():
         """Página inicial - Dashboard"""
         try:
+            from datetime import date
+            import importlib.util
+            import os
+            
+            # Carregar config.py diretamente
+            config_path = os.path.join(os.path.dirname(__file__), 'config.py')
+            spec = importlib.util.spec_from_file_location("config_module", config_path)
+            config_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(config_module)
+            ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
+            
             # Estatísticas principais
             stats = db.obter_dashboard_stats()
             
-            # Logs recentes
-            logs_recentes = audit.obter_logs_recentes(limite=10)
+            # Logs recentes do usuário logado
+            user_id = session.get('user_id')
+            logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
             
-            # Planos próximos do limite
+            # Planos próximos do limite (ativos e válidos)
             planos_alerta = db.obter_planos_clientes({
                 'plan_status': 'active'
             })
             
-            # Filtrar apenas os que estão acima de 80%
+            # Filtrar apenas planos válidos e acima do limite de alerta
             planos_alerta = [p for p in planos_alerta 
-                            if p.get('tokens_usage_percentage', 0) > 80 
-                            or p.get('images_usage_percentage', 0) > 80]
+                            if p.get('valid_until') and p['valid_until'] >= date.today()
+                            and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
+                                 or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
             
             return render_template('index_tailwind.html',
                                  stats=stats,
                                  logs_recentes=logs_recentes,
-                                 planos_alerta=planos_alerta)
+                                 planos_alerta=planos_alerta,
+                                 aviso_plan=config_module.AVISO_PLAN)
         except Exception as e:
             app.logger.error(f"Erro ao carregar dashboard: {str(e)}")
             flash('Erro ao carregar dados do dashboard.', 'error')

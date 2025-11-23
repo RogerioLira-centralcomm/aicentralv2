@@ -76,11 +76,20 @@ config = {
 # Pinecone configuration
 # ----------------------
 PINECONE_CONFIG = {
-	'api_key': os.getenv('PINECONE_API_KEY', 'pcsk_4pgNhm_8GkhGWp44uAqjfqFJP9gb3nQSTwYEot9Fq5VZi2MnbXm7BUwqQXJE1AuuDtgUCd'),
+	'api_key': os.getenv('PINECONE_API_KEY'),
 	'environment': os.getenv('PINECONE_ENVIRONMENT', 'aped-4627-b74a'),  # Extraído do host
 	'index_name': os.getenv('PINECONE_INDEX_NAME', 'cadu-v2'),
-	'host': os.getenv('PINECONE_HOST', 'https://cadu-v2-phka0d2.svc.aped-4627-b74a.pinecone.io'),
+	'host': os.getenv('PINECONE_HOST'),
 	'dimension': int(os.getenv('PINECONE_DIMENSION', '512')),
 	'metric': os.getenv('PINECONE_METRIC', 'cosine'),
 	'region': os.getenv('PINECONE_REGION', 'us-east-1'),
 }
+
+# ----------------------
+# Alertas e Limites
+# ----------------------
+# Percentual de consumo de tokens para gerar alerta (ex: 80 = 80%)
+ALERTA_CONSUMO_TOKEN = int(os.getenv('ALERTA_CONSUMO_TOKEN', '80'))
+
+# Dias de antecedência para alertar sobre vencimento de planos
+AVISO_PLAN = int(os.getenv('AVISO_PLAN', '20'))

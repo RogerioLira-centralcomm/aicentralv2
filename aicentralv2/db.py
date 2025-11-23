@@ -3133,6 +3133,7 @@ def obter_uso_tokens_cliente(id_cliente, data_inicio=None, data_fim=None):
 def obter_uso_tokens_mes_atual(id_cliente=None):
     """
     Obtém o total de tokens usados no mês atual
+    Considera apenas clientes com planos ativos e válidos
     
     Args:
         id_cliente (int, optional): ID do cliente. Se None, retorna total de todos os clientes
@@ -3145,18 +3146,24 @@ def obter_uso_tokens_mes_atual(id_cliente=None):
         with conn.cursor() as cursor:
             if id_cliente:
                 cursor.execute('''
-                    SELECT COALESCE(SUM(quantidade), 0) as total
-                    FROM cadu_token_usage
-                    WHERE id_cliente = %s
-                    AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-                    AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+                    SELECT COALESCE(SUM(t.quantidade), 0) as total
+                    FROM cadu_token_usage t
+                    INNER JOIN cadu_client_plans p ON t.id_cliente = p.id_cliente
+                    WHERE t.id_cliente = %s
+                    AND p.plan_status = 'active'
+                    AND p.valid_until >= CURRENT_DATE
+                    AND EXTRACT(YEAR FROM t.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+                    AND EXTRACT(MONTH FROM t.created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
                 ''', (id_cliente,))
             else:
                 cursor.execute('''
-                    SELECT COALESCE(SUM(quantidade), 0) as total
-                    FROM cadu_token_usage
-                    WHERE EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-                    AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+                    SELECT COALESCE(SUM(t.quantidade), 0) as total
+                    FROM cadu_token_usage t
+                    INNER JOIN cadu_client_plans p ON t.id_cliente = p.id_cliente
+                    WHERE p.plan_status = 'active'
+                    AND p.valid_until >= CURRENT_DATE
+                    AND EXTRACT(YEAR FROM t.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+                    AND EXTRACT(MONTH FROM t.created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
                 ''')
             
             return cursor.fetchone()['total']
@@ -3166,6 +3173,16 @@ def obter_uso_tokens_mes_atual(id_cliente=None):
 
 def obter_dashboard_stats():
     """Retorna estatísticas para o dashboard administrativo"""
+    import importlib.util
+    import os
+    
+    # Carregar config.py diretamente
+    config_path = os.path.join(os.path.dirname(__file__), 'config.py')
+    spec = importlib.util.spec_from_file_location("config_module", config_path)
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
+    
     conn = get_db()
     try:
         stats = {}
@@ -3210,26 +3227,29 @@ def obter_dashboard_stats():
             ''')
             stats['imagens_mes_atual'] = cursor.fetchone()['total']
             
-            # Planos próximos do limite (> 80%)
+            # Planos próximos do limite (usando ALERTA_CONSUMO_TOKEN do config)
+            limite_alerta = ALERTA_CONSUMO_TOKEN / 100.0  # Converter percentual para decimal
             cursor.execute('''
                 SELECT COUNT(*) as total
                 FROM cadu_client_plans
                 WHERE plan_status = 'active'
+                AND valid_until >= CURRENT_DATE
                 AND (
-                    (tokens_used_current_month::decimal / NULLIF(tokens_monthly_limit, 0)) > 0.8
+                    (tokens_used_current_month::decimal / NULLIF(tokens_monthly_limit, 0)) >= %s
                     OR
-                    (image_credits_used_current_month::decimal / NULLIF(image_credits_monthly, 0)) > 0.8
+                    (image_credits_used_current_month::decimal / NULLIF(image_credits_monthly, 0)) >= %s
                 )
-            ''')
+            ''', (limite_alerta, limite_alerta))
             stats['planos_proximo_limite'] = cursor.fetchone()['total']
             
-            # Planos próximos do vencimento (< 7 dias)
-            cursor.execute('''
+            # Planos próximos do vencimento (usando AVISO_PLAN do config)
+            AVISO_PLAN = config_module.AVISO_PLAN
+            cursor.execute(f'''
                 SELECT COUNT(*) as total
                 FROM cadu_client_plans
                 WHERE plan_status = 'active'
                 AND valid_until IS NOT NULL
-                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '{AVISO_PLAN} days'
             ''')
             stats['planos_vencendo'] = cursor.fetchone()['total']
             

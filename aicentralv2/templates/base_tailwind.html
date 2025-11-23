@@ -286,13 +286,11 @@
                                             <span class="sidebar-text">Contatos</span>
                                         </a>
                                     </li>
-                                    {% if session.user_type in ['admin', 'superadmin'] %}
                                     <li>
                                         <a href="{{ url_for('planos_lista') }}" class="{% if request.endpoint == 'planos_lista' %}active{% endif %}">
                                             <span class="sidebar-text">Planos</span>
                                         </a>
                                     </li>
-                                    {% endif %}
                                     <li>
                                         <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
                                             <span class="sidebar-text">Interesse em Produtos</span>

@@ -52,13 +52,49 @@ def login_required(f):
     return decorated_function
 
 
+def is_centralcomm_user():
+    """Verifica se o usuário logado pertence ao cliente CENTRALCOMM"""
+    if 'user_id' not in session:
+        return False
+    
+    try:
+        # Buscar informações do usuário
+        contato = db.obter_contato_por_id(session['user_id'])
+        if not contato:
+            return False
+        
+        # Verificar se tem cliente associado
+        if not contato.get('pk_id_tbl_cliente'):
+            return False
+        
+        # Buscar dados do cliente
+        cliente = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
+        if not cliente:
+            return False
+        
+        # Verificar se é CENTRALCOMM
+        nome_fantasia = cliente.get('nome_fantasia', '').upper()
+        return nome_fantasia == 'CENTRALCOMM'
+    except:
+        return False
+
+
 def init_routes(app):
     @app.route('/planos')
     @login_required
     def planos_lista():
-        """Lista todos os planos de clientes"""
+        """Lista todos os planos de clientes - Admin ou usuários CENTRALCOMM"""
         from datetime import date
         try:
+            # Verificar permissões
+            user_type = session.get('user_type', 'client')
+            is_admin = user_type in ['admin', 'superadmin']
+            is_cc = is_centralcomm_user()
+            
+            if not is_admin and not is_cc:
+                flash('Você não tem permissão para acessar esta página.', 'error')
+                return redirect(url_for('index'))
+            
             # Filtros
             filtros = {}
             
@@ -444,21 +480,30 @@ def init_routes(app):
             user_id = session.get('user_id')
             logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
             
-            # Planos próximos do limite (ativos e válidos)
-            planos_alerta = db.obter_planos_clientes({
-                'plan_status': 'active'
-            })
+            # Verificar se deve mostrar alertas de planos
+            user_type = session.get('user_type', 'client')
+            is_admin = user_type in ['admin', 'superadmin']
+            is_cc = is_centralcomm_user()
+            show_plan_alerts = is_admin or is_cc
             
-            # Filtrar apenas planos válidos e acima do limite de alerta
-            planos_alerta = [p for p in planos_alerta 
-                            if p.get('valid_until') and p['valid_until'] >= date.today()
-                            and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
-                                 or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
+            planos_alerta = []
+            if show_plan_alerts:
+                # Planos próximos do limite (ativos e válidos)
+                planos_alerta = db.obter_planos_clientes({
+                    'plan_status': 'active'
+                })
+                
+                # Filtrar apenas planos válidos e acima do limite de alerta
+                planos_alerta = [p for p in planos_alerta 
+                                if p.get('valid_until') and p['valid_until'] >= date.today()
+                                and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
+                                     or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
             
             return render_template('index_tailwind.html',
                                  stats=stats,
                                  logs_recentes=logs_recentes,
                                  planos_alerta=planos_alerta,
+                                 show_plan_alerts=show_plan_alerts,
                                  aviso_plan=config_module.AVISO_PLAN)
         except Exception as e:
             app.logger.error(f"Erro ao carregar dashboard: {str(e)}")

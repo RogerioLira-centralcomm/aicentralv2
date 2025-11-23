@@ -6,12 +6,53 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from aicentralv2.auth import admin_required, superadmin_required, admin_required_api
 from aicentralv2 import db, audit
 from datetime import date
+from functools import wraps
 import logging
 
 # Criar blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 logger = logging.getLogger(__name__)
+
+
+# Helper para verificar se usuário é CENTRALCOMM
+def is_centralcomm_user():
+    """Verifica se o usuário logado pertence ao cliente CENTRALCOMM"""
+    if 'user_id' not in session:
+        return False
+    
+    try:
+        contato = db.obter_contato_por_id(session['user_id'])
+        if not contato or not contato.get('pk_id_tbl_cliente'):
+            return False
+        
+        cliente = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
+        if not cliente:
+            return False
+        
+        return cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
+    except:
+        return False
+
+
+# Decorator para permitir admin ou usuário CENTRALCOMM (API)
+def admin_or_centralcomm_required_api(f):
+    """Decorator para rotas API que requerem admin ou usuário CENTRALCOMM"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Sessão expirada'}), 401
+        
+        user_type = session.get('user_type', 'client')
+        is_admin = user_type in ['admin', 'superadmin']
+        is_cc = is_centralcomm_user()
+        
+        if not is_admin and not is_cc:
+            return jsonify({'success': False, 'error': 'Permissão negada'}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 # Helper para registro de auditoria
 def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
@@ -210,9 +251,9 @@ def cliente_detalhes(cliente_id):
 
 
 @admin_bp.route('/cliente/<int:cliente_id>/criar-plano-beta', methods=['POST'])
-@admin_required_api
+@admin_or_centralcomm_required_api
 def criar_plano_beta_cliente(cliente_id):
-    """Cria um plano Beta Tester para um cliente"""
+    """Cria um plano Beta Tester para um cliente - Admin ou CENTRALCOMM"""
     try:
         # Verificar se cliente existe
         cliente = db.obter_cliente_por_id(cliente_id)

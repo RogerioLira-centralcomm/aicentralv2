@@ -114,6 +114,63 @@ def init_routes(app):
             flash('Erro ao carregar lista de planos.', 'error')
             return redirect(url_for('index'))
 
+    @app.route('/logs')
+    @login_required
+    def logs_auditoria():
+        """Visualizar logs de auditoria"""
+        from datetime import datetime, timedelta
+        try:
+            # Filtros
+            filtros = {}
+            dias = int(request.args.get('dias', 30))
+            
+            if request.args.get('modulo'):
+                filtros['modulo'] = request.args.get('modulo')
+            
+            if request.args.get('acao'):
+                filtros['acao'] = request.args.get('acao')
+            
+            if request.args.get('usuario_id'):
+                filtros['usuario_id'] = int(request.args.get('usuario_id'))
+            
+            # Calcular data de início baseado em dias
+            data_inicio = datetime.now() - timedelta(days=dias)
+            filtros['data_inicio'] = data_inicio
+            
+            # Paginação
+            limit = 50
+            offset = int(request.args.get('offset', 0))
+            
+            # Buscar logs
+            logs = db.obter_audit_logs(filtros=filtros, limit=limit, offset=offset)
+            
+            # Contar total (para paginação)
+            total_logs = len(db.obter_audit_logs(filtros=filtros, limit=10000, offset=0))
+            
+            # Estatísticas
+            stats = db.obter_estatisticas_audit_log(dias=dias)
+            
+            # Lista de usuários para filtro
+            usuarios_filtro = db.obter_usuarios_sistema({'status': True})
+            
+            return render_template('admin_audit_logs.html',
+                                 logs=logs,
+                                 stats=stats,
+                                 filtros={'modulo': request.args.get('modulo', ''),
+                                         'acao': request.args.get('acao', ''),
+                                         'usuario_id': request.args.get('usuario_id', ''),
+                                         'dias': str(dias)},
+                                 usuarios_filtro=usuarios_filtro,
+                                 limit=limit,
+                                 offset=offset,
+                                 total_logs=total_logs)
+        except Exception as e:
+            import traceback
+            app.logger.error(f"Erro ao carregar logs: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            flash(f'Erro ao carregar logs: {str(e)}', 'error')
+            return redirect(url_for('index'))
+
     @app.route('/cadu_categorias')
     @login_required
     def cadu_categorias():
@@ -670,7 +727,7 @@ def init_routes(app):
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 id_fluxo_boas_vindas = request.form.get('id_fluxo_boas_vindas', type=int) or None
-                id_percentual = request.form.get('id_percentual', type=int) or None
+                percentual = request.form.get('percentual', '').strip()
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
@@ -688,16 +745,13 @@ def init_routes(app):
                     return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
 
                 # Percentual obrigatório quando Agência = Sim (Pessoa Jurídica)
-                try:
-                    if pessoa == 'J' and pk_id_tbl_agencia:
-                        ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
-                        ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and 'key' in ag else '')
-                        if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
-                            if not id_percentual:
-                                flash('Percentual é obrigatório quando Agência = Sim.', 'error')
-                                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
-                except Exception as _e:
-                    app.logger.warning(f"Falha ao validar obrigatoriedade de Percentual: {_e}")
+                if pessoa == 'J' and pk_id_tbl_agencia:
+                    ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
+                    ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and 'key' in ag else '')
+                    if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
+                        if not percentual:
+                            flash('Percentual é obrigatório quando Agência = Sim.', 'error')
+                            return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
 
                 if not db.atualizar_cliente(
                     id_cliente=cliente_id,
@@ -713,7 +767,7 @@ def init_routes(app):
                     vendas_central_comm=vendas_central_comm,
                     id_apresentacao_executivo=request.form.get('id_apresentacao_executivo', type=int) or None,
                     id_fluxo_boas_vindas=id_fluxo_boas_vindas,
-                    id_percentual=id_percentual,
+                    id_percentual=int(percentual) if percentual else None,
                     cep=cep,
                     bairro=bairro,
                     cidade=cidade,
@@ -1487,7 +1541,7 @@ def init_routes(app):
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 id_apresentacao_executivo = request.form.get('id_apresentacao_executivo', type=int) or None
                 id_fluxo_boas_vindas = request.form.get('id_fluxo_boas_vindas', type=int) or None
-                id_percentual = request.form.get('id_percentual', type=int) or None
+                percentual = request.form.get('percentual', '').strip()
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
@@ -1506,16 +1560,13 @@ def init_routes(app):
                     return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
 
                 # Percentual obrigatório quando Agência = Sim (Pessoa Jurídica)
-                try:
-                    if pessoa == 'J' and pk_id_tbl_agencia:
-                        ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
-                        ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and 'key' in ag else '')
-                        if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
-                            if not id_percentual:
-                                flash('Percentual é obrigatório quando Agência = Sim.', 'error')
-                                return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
-                except Exception as _e:
-                    app.logger.warning(f"Falha ao validar obrigatoriedade de Percentual: {_e}")
+                if pessoa == 'J' and pk_id_tbl_agencia:
+                    ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
+                    ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and 'key' in ag else '')
+                    if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
+                        if not percentual:
+                            flash('Percentual é obrigatório quando Agência = Sim.', 'error')
+                            return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
 
                 id_cliente = db.criar_cliente(
                     razao_social=razao_social,
@@ -1537,7 +1588,7 @@ def init_routes(app):
                     complemento=complemento,
                     id_apresentacao_executivo=id_apresentacao_executivo,
                     id_fluxo_boas_vindas=id_fluxo_boas_vindas,
-                    id_percentual=id_percentual
+                    id_percentual=int(percentual) if percentual else None
                 )
                 
                 # Registro de auditoria

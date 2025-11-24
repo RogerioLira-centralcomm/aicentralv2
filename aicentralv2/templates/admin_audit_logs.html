@@ -25,7 +25,7 @@
 
   <!-- Filtros -->
   <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <form method="GET" action="{{ url_for('admin.admin_logs') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+    <form method="GET" action="{{ url_for('logs_auditoria') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
       <div class="form-control">
         <label class="label">
           <span class="label-text text-xs font-semibold">Módulo</span>
@@ -89,7 +89,7 @@
           <button type="submit" class="btn btn-primary btn-sm flex-1">
             <i class="fas fa-filter mr-1"></i>Filtrar
           </button>
-          <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-ghost btn-sm">
+          <a href="{{ url_for('logs_auditoria') }}" class="btn btn-ghost btn-sm">
             <i class="fas fa-times"></i>
           </a>
         </div>
@@ -306,7 +306,7 @@
         </div>
         <div class="join">
           {% if offset > 0 %}
-            <a href="{{ url_for('admin.admin_logs', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset-limit) }}" class="join-item btn btn-sm">«</a>
+            <a href="{{ url_for('logs_auditoria', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset-limit) }}" class="join-item btn btn-sm">«</a>
           {% else %}
             <button class="join-item btn btn-sm btn-disabled">«</button>
           {% endif %}
@@ -314,7 +314,7 @@
           <button class="join-item btn btn-sm">Página {{ (offset // limit) + 1 }}</button>
           
           {% if offset + limit < total_logs %}
-            <a href="{{ url_for('admin.admin_logs', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset+limit) }}" class="join-item btn btn-sm">»</a>
+            <a href="{{ url_for('logs_auditoria', modulo=filtros.modulo, acao=filtros.acao, usuario_id=filtros.usuario_id, dias=filtros.dias, offset=offset+limit) }}" class="join-item btn btn-sm">»</a>
           {% else %}
             <button class="join-item btn btn-sm btn-disabled">»</button>
           {% endif %}
@@ -325,7 +325,7 @@
       <div class="text-center py-8">
         <i class="fas fa-clipboard-list text-6xl text-base-content/20 mb-4"></i>
         <p class="mb-2 text-base-content/60 text-sm">Nenhum log encontrado para os filtros selecionados.</p>
-        <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-ghost btn-sm">
+        <a href="{{ url_for('logs_auditoria') }}" class="btn btn-ghost btn-sm">
           <i class="fas fa-redo mr-2"></i>Limpar Filtros
         </a>
       </div>

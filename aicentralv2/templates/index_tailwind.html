@@ -251,7 +251,7 @@
 
         {% if session.user_type in ['admin', 'superadmin'] %}
         <div class="card-actions justify-end mt-4">
-            <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-sm btn-ghost gap-2">
+            <a href="{{ url_for('logs_auditoria') }}" class="btn btn-sm btn-ghost gap-2">
                 <span>Ver Todos os Logs</span>
                 <i class="fas fa-arrow-right"></i>
             </a>

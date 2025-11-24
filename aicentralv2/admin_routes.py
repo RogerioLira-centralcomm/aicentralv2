@@ -433,68 +433,6 @@ def sistema_configuracoes():
                          settings=settings)
 
 
-@admin_bp.route('/logs')
-@admin_required
-def admin_logs():
-    """Visualizar logs de auditoria administrativa"""
-    try:
-        from datetime import datetime, timedelta
-        
-        # Filtros
-        filtros = {}
-        dias = int(request.args.get('dias', 30))
-        
-        if request.args.get('modulo'):
-            filtros['modulo'] = request.args.get('modulo')
-        
-        if request.args.get('acao'):
-            filtros['acao'] = request.args.get('acao')
-        
-        if request.args.get('usuario_id'):
-            filtros['usuario_id'] = int(request.args.get('usuario_id'))
-        
-        # Calcular data de início baseado em dias
-        data_inicio = datetime.now() - timedelta(days=dias)
-        filtros['data_inicio'] = data_inicio
-        
-        # Paginação
-        limit = 50
-        offset = int(request.args.get('offset', 0))
-        
-        # Buscar logs
-        logs = db.obter_audit_logs(filtros=filtros, limit=limit, offset=offset)
-        
-        # Contar total (para paginação)
-        total_logs = len(db.obter_audit_logs(filtros=filtros, limit=10000, offset=0))
-        
-        # Estatísticas
-        stats = db.obter_estatisticas_audit_log(dias=dias)
-        
-        # Lista de usuários para filtro - APENAS CENTRALCOMM
-        usuarios_filtro = db.obter_usuarios_sistema({'status': True})
-        # Filtrar apenas usuários da CENTRALCOMM
-        usuarios_filtro = [u for u in usuarios_filtro if u.get('nome_fantasia') and 
-                          ('centralcomm' in u['nome_fantasia'].lower() or 
-                           'central comm' in u['nome_fantasia'].lower())]
-        
-        return render_template('admin_audit_logs.html',
-                             logs=logs,
-                             stats=stats,
-                             filtros={'modulo': request.args.get('modulo', ''),
-                                     'acao': request.args.get('acao', ''),
-                                     'usuario_id': request.args.get('usuario_id', ''),
-                                     'dias': str(dias)},
-                             usuarios_filtro=usuarios_filtro,
-                             limit=limit,
-                             offset=offset,
-                             total_logs=total_logs)
-    except Exception as e:
-        import traceback
-        logger.error(f"Erro ao carregar logs: {str(e)}")
-        logger.error(traceback.format_exc())
-        flash(f'Erro ao carregar logs: {str(e)}', 'error')
-        return redirect(url_for('admin.admin_dashboard'))
-
 
 # ==================== FATURAMENTO ====================
 

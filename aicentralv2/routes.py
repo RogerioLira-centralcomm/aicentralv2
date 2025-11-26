@@ -13,6 +13,21 @@ from aicentralv2 import db, audit
 from aicentralv2.email_service import send_password_reset_email, send_password_changed_email
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 
+# Helper para serializar dados para JSON
+def serializar_para_json(obj):
+    """Converte objetos (incluindo datetime) para formato JSON serializável"""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return {k: serializar_para_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [serializar_para_json(item) for item in obj]
+    if isinstance(obj, (datetime, timedelta)):
+        return obj.isoformat()
+    if hasattr(obj, '__dict__'):
+        return serializar_para_json(obj.__dict__)
+    return obj
+
 # Helper para registro de auditoria
 def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
     """Helper para registrar auditoria automaticamente"""
@@ -24,6 +39,11 @@ def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo
                  request.headers.get('X-Real-IP', '').strip() or \
                  request.remote_addr or 'unknown'
             user_agent = request.headers.get('User-Agent', '')[:255]
+            
+            # Serializar dados para JSON
+            dados_anteriores_json = serializar_para_json(dados_anteriores)
+            dados_novos_json = serializar_para_json(dados_novos)
+            
             db.registrar_audit_log(
                 fk_id_usuario=user_id,
                 acao=acao,
@@ -33,8 +53,8 @@ def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo
                 registro_tipo=registro_tipo,
                 ip_address=ip,
                 user_agent=user_agent,
-                dados_anteriores=dados_anteriores,
-                dados_novos=dados_novos
+                dados_anteriores=dados_anteriores_json,
+                dados_novos=dados_novos_json
             )
     except Exception as e:
         import logging
@@ -622,7 +642,12 @@ def init_routes(app):
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required
     def cliente_editar(cliente_id):
-        """Editar cliente"""
+        """Editar cliente - Redireciona para lista de clientes onde o modal é usado"""
+        # GET: redireciona para a página de clientes
+        if request.method == 'GET':
+            return redirect(url_for('clientes'))
+        
+        # POST: processa o formulário do modal
         planos = []  # Lista vazia - planos antigos foram removidos
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
@@ -800,6 +825,30 @@ def init_routes(app):
 
     # ==================== CLIENTES ====================
 
+    @app.route('/api/cliente/<int:cliente_id>')
+    @login_required
+    def api_cliente(cliente_id):
+        """API para retornar dados do cliente em JSON"""
+        try:
+            cliente = db.obter_cliente_por_id(cliente_id)
+            if not cliente:
+                return jsonify({'error': 'Cliente não encontrado'}), 404
+            return jsonify(cliente)
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar cliente {cliente_id}: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cliente/<int:cliente_id>/contatos')
+    @login_required
+    def api_cliente_contatos(cliente_id):
+        """API para retornar contatos do cliente em JSON"""
+        try:
+            contatos = db.obter_contatos_por_cliente(cliente_id)
+            return jsonify(contatos or [])
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar contatos do cliente {cliente_id}: {e}")
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/clientes')
     @login_required
     def clientes():
@@ -853,6 +902,13 @@ def init_routes(app):
                             FROM tbl_contato_cliente ct 
                             WHERE ct.pk_id_tbl_cliente = c.id_cliente
                         ) as total_contatos,
+                        (
+                            SELECT COUNT(*) 
+                            FROM cadu_client_plans cp 
+                            WHERE cp.id_cliente = c.id_cliente 
+                            AND cp.plan_status = 'active'
+                            AND (cp.valid_until IS NULL OR cp.valid_until >= CURRENT_DATE)
+                        ) as planos_ativos,
                         vend.id_contato_cliente as executivo_id,
                         vend.nome_completo as executivo_nome
                     FROM tbl_cliente c
@@ -878,6 +934,7 @@ def init_routes(app):
                         'cnpj': row.get('cnpj') or '',
                         'status': bool(row.get('status')) if row.get('status') is not None else False,
                         'total_contatos': row.get('total_contatos') or 0,
+                        'planos_ativos': row.get('planos_ativos') or 0,
                         'pk_id_aux_agencia': row.get('pk_id_aux_agencia'),
                         'agencia_display': row.get('agencia_display'),
                         'agencia_key': row.get('agencia_key'),
@@ -892,12 +949,26 @@ def init_routes(app):
                 app.logger.warning(f"Falha ao obter vendedores CentralComm: {_e}")
                 vendedores_cc = []
 
+            # Dados para o modal de criação
+            agencias = db.obter_aux_agencia()
+            tipos_cliente = db.obter_tipos_cliente()
+            estados = db.obter_estados()
+            fluxos = db.obter_fluxos_boas_vindas()
+            apresentacoes = db.obter_apresentacoes_executivo()
+            percentuais = db.obter_percentuais_ativos()
+
             return render_template(
                 'clientes.html',
                 clientes=lista,
                 pessoas_stats=pessoas_stats,
                 vendedores_cc=vendedores_cc,
-                filtro_vendas_central_comm=filtro_vendedor
+                filtro_vendas_central_comm=filtro_vendedor,
+                agencias=agencias,
+                tipos_cliente=tipos_cliente,
+                estados=estados,
+                fluxos=fluxos,
+                apresentacoes=apresentacoes,
+                percentuais=percentuais
             )
         except Exception as e:
             import traceback
@@ -1455,7 +1526,12 @@ def init_routes(app):
     @app.route('/clientes/novo', methods=['GET', 'POST'])
     @login_required
     def cliente_novo():
-        """Criar cliente"""
+        """Criar cliente - Redireciona para lista de clientes onde o modal é usado"""
+        # GET: redireciona para a página de clientes
+        if request.method == 'GET':
+            return redirect(url_for('clientes'))
+        
+        # POST: processa o formulário do modal
         planos = []  # Lista vazia - planos antigos foram removidos
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
@@ -2459,7 +2535,12 @@ def init_routes(app):
     @app.route('/cadu-audiencias/editar/<int:audiencia_id>', methods=['GET', 'POST'])
     @login_required
     def cadu_audiencia_editar(audiencia_id):
-        """Edita audiência existente"""
+        """Edita audiência existente - GET redireciona para lista onde o modal é usado"""
+        # GET: redireciona para a página de audiências
+        if request.method == 'GET':
+            return redirect(url_for('cadu_audiencias'))
+        
+        # POST: processa o formulário do modal
         if request.method == 'POST':
             try:
                 dados = {
@@ -2632,6 +2713,20 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao carregar subcategorias: {str(e)}")
             return jsonify({'success': False, 'message': str(e)})
+    
+    @app.route('/api/cadu-audiencia/<int:audiencia_id>')
+    @login_required
+    def api_cadu_audiencia(audiencia_id):
+        """API para buscar dados de uma audiência"""
+        try:
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            if audiencia:
+                return jsonify(audiencia)
+            else:
+                return jsonify({'error': 'Audiência não encontrada'}), 404
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar audiência: {str(e)}")
+            return jsonify({'error': str(e)}), 500
 
     # ==================== GERAÇÃO DE IMAGENS PARA AUDIÊNCIAS ====================
 

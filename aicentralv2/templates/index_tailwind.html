@@ -127,7 +127,7 @@
                         {% for plano in planos_alerta[:5] %}
                         <tr class="hover">
                             <td class="text-xs">
-                                <a href="{{ url_for('cliente_detalhes', cliente_id=plano.id_cliente) }}" 
+                                <a href="{{ url_for('clientes') }}" 
                                    class="link link-primary link-hover font-medium truncate block max-w-[100px] sm:max-w-none">
                                     {{ plano.nome_fantasia }}
                                 </a>

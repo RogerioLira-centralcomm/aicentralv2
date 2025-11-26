@@ -175,11 +175,11 @@
               </td>
               <td>
                 <div class="flex items-center justify-center gap-1">
-                  <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" 
+                  <button onclick="abrirModalEditarAudiencia({{ audiencia.id }})" 
                      class="btn btn-xs btn-circle btn-outline btn-primary" 
                      title="Editar">
                     <i class="fas fa-edit"></i>
-                  </a>
+                  </button>
                   <button type="button" 
                           class="btn btn-xs btn-circle btn-outline {% if audiencia.imagem_url %}btn-success{% else %}btn-info{% endif %} btn-gerar-imagem" 
                           data-audiencia-id="{{ audiencia.id }}"
@@ -332,13 +332,138 @@
 </dialog>
 
 <script>
+// Funções do Modal de Audiência (apenas para edição)
+async function abrirModalEditarAudiencia(audienciaId) {
+  try {
+    const response = await fetch(`/api/cadu-audiencia/${audienciaId}`);
+    const audiencia = await response.json();
+    
+    document.getElementById('modal_audiencia_title').textContent = 'Editar Audiência';
+    document.getElementById('audiencia_id').value = audienciaId;
+    document.getElementById('btn_submit_audiencia_text').textContent = 'Atualizar';
+    
+    document.getElementById('id_audiencia_plataforma').value = audiencia.id_audiencia_plataforma || '';
+    document.getElementById('fonte').value = audiencia.fonte || '';
+    document.getElementById('nome_audiencia').value = audiencia.nome || '';
+    document.getElementById('slug_audiencia').value = audiencia.slug || '';
+    document.getElementById('perfil_socioeconomico').value = audiencia.perfil_socioeconomico || '';
+    document.getElementById('titulo_chamativo').value = audiencia.titulo_chamativo || '';
+    document.getElementById('descricao_curta').value = audiencia.descricao_curta || '';
+    document.getElementById('descricao_audiencia').value = audiencia.descricao || '';
+    document.getElementById('descricao_comercial').value = audiencia.descricao_comercial || '';
+    document.getElementById('cpm_custo').value = audiencia.cpm_custo || '';
+    document.getElementById('cpm_venda').value = audiencia.cpm_venda || '';
+    document.getElementById('categoria_id_modal').value = audiencia.categoria_id || '';
+    
+    if (audiencia.categoria_id) {
+      await carregarSubcategoriasModal(audiencia.categoria_id, audiencia.subcategoria_id);
+    }
+    
+    modal_audiencia.showModal();
+  } catch (error) {
+    console.error('Erro ao carregar audiência:', error);
+    alert('Erro ao carregar dados da audiência.');
+  }
+}
+
+async function carregarSubcategoriasModal(categoriaId, subcategoriaSelecionada = null) {
+  const select = document.getElementById('subcategoria_id_modal');
+  select.innerHTML = '<option value="">Carregando...</option>';
+  select.disabled = true;
+  
+  if (!categoriaId) {
+    select.innerHTML = '<option value="">Selecione uma subcategoria</option>';
+    select.disabled = false;
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cadu-subcategorias?categoria_id=${categoriaId}`);
+    const data = await response.json();
+    
+    select.innerHTML = '<option value="">Selecione uma subcategoria</option>';
+    
+    if (data.success && data.subcategorias && data.subcategorias.length > 0) {
+      data.subcategorias.forEach(sub => {
+        const option = document.createElement('option');
+        option.value = sub.id;
+        option.textContent = sub.nome;
+        if (subcategoriaSelecionada && sub.id == subcategoriaSelecionada) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao carregar subcategorias:', error);
+    select.innerHTML = '<option value="">Erro ao carregar</option>';
+  } finally {
+    select.disabled = false;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   let audienciaIdToDelete = null;
   const filtroCategoria = document.getElementById('filtro-categoria');
   const filtroSubcategoria = document.getElementById('filtro-subcategoria');
   const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
 
-  // Carregar subcategorias ao trocar categoria
+  // Event listeners do Modal de Audiência
+  const formAudiencia = document.getElementById('form_audiencia');
+  const nomeAudiencia = document.getElementById('nome_audiencia');
+  const slugAudiencia = document.getElementById('slug_audiencia');
+  const categoriaModal = document.getElementById('categoria_id_modal');
+  
+  // Auto-gerar slug
+  nomeAudiencia.addEventListener('input', function() {
+    if (!slugAudiencia.dataset.manual) {
+      const slug = this.value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      slugAudiencia.value = slug;
+    }
+  });
+  
+  slugAudiencia.addEventListener('input', function() {
+    this.dataset.manual = 'true';
+  });
+  
+  // Carregar subcategorias no modal
+  categoriaModal.addEventListener('change', function() {
+    carregarSubcategoriasModal(this.value);
+  });
+  
+  // Submit do formulário de audiência
+  formAudiencia.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const audienciaId = document.getElementById('audiencia_id').value;
+    const formData = new FormData(formAudiencia);
+    const url = audienciaId ? `/cadu/audiencias/${audienciaId}/editar` : '/cadu/audiencias/nova';
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (response.ok || response.redirected) {
+        modal_audiencia.close();
+        alert(audienciaId ? 'Audiência atualizada com sucesso!' : 'Audiência cadastrada com sucesso!');
+        window.location.reload();
+      } else {
+        alert('Erro ao salvar audiência.');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('Erro ao salvar audiência.');
+    }
+  });
+
+  // Carregar subcategorias ao trocar categoria nos filtros
   filtroCategoria.addEventListener('change', async function() {
     const categoriaId = this.value;
     filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
@@ -953,6 +1078,163 @@ document.addEventListener('DOMContentLoaded', function() {
   <!-- Backdrop -->
   <form method="dialog" class="modal-backdrop">
     <button onclick="fecharModalImagem()">fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal de Audiência -->
+<dialog id="modal_audiencia" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    
+    <h3 class="font-bold text-lg mb-4">
+      <span id="modal_audiencia_title">Nova Audiência</span>
+    </h3>
+    
+    <form id="form_audiencia" method="post" class="space-y-4">
+      <input type="hidden" id="audiencia_id" name="audiencia_id" value="">
+      
+      <!-- Seção: Identificação -->
+      <div>
+        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
+          <i class="fas fa-id-card mr-2 text-primary"></i>Identificação
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">ID da Plataforma <span class="text-error">*</span></label>
+            <input type="text" name="id_audiencia_plataforma" id="id_audiencia_plataforma" required 
+                   class="input input-bordered input-sm w-full" placeholder="Ex: 1234567890">
+            <span class="text-xs text-base-content/60 mt-1">Identificador único da plataforma</span>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Fonte</label>
+            <input type="text" name="fonte" id="fonte" class="input input-bordered input-sm w-full" 
+                   placeholder="Ex: Navegg, LiveRamp">
+            <span class="text-xs text-base-content/60 mt-1">Fonte dos dados</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Nome da Audiência <span class="text-error">*</span></label>
+            <input type="text" name="nome" id="nome_audiencia" required 
+                   class="input input-bordered input-sm w-full" placeholder="Ex: Interessados em Tecnologia">
+            <span class="text-xs text-base-content/60 mt-1">Nome descritivo da audiência</span>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Slug <span class="text-error">*</span></label>
+            <input type="text" name="slug" id="slug_audiencia" required 
+                   class="input input-bordered input-sm w-full" placeholder="interessados-em-tecnologia">
+            <span class="text-xs text-base-content/60 mt-1">URL amigável (gerado automaticamente)</span>
+          </div>
+        </div>
+
+        <div class="form-control mt-3">
+          <label class="label font-semibold text-sm py-1">Perfil Socioeconômico</label>
+          <input type="text" name="perfil_socioeconomico" id="perfil_socioeconomico" 
+                 class="input input-bordered input-sm w-full" placeholder="Ex: Classes A e B">
+          <span class="text-xs text-base-content/60 mt-1">Descrição do perfil socioeconômico</span>
+        </div>
+      </div>
+
+      <!-- Seção: Descrições -->
+      <div>
+        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
+          <i class="fas fa-align-left mr-2 text-primary"></i>Descrições
+        </h4>
+        
+        <div class="space-y-3">
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Título Chamativo</label>
+            <input type="text" name="titulo_chamativo" id="titulo_chamativo" 
+                   class="input input-bordered input-sm w-full" placeholder="Ex: Conquiste consumidores de tecnologia">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Descrição Curta</label>
+            <textarea name="descricao_curta" id="descricao_curta" class="textarea textarea-bordered textarea-sm h-16"
+                      placeholder="Descrição resumida (1-2 linhas)"></textarea>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Descrição</label>
+            <textarea name="descricao" id="descricao_audiencia" class="textarea textarea-bordered textarea-sm h-24"
+                      placeholder="Descrição detalhada da audiência"></textarea>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Descrição Comercial</label>
+            <textarea name="descricao_comercial" id="descricao_comercial" class="textarea textarea-bordered textarea-sm h-20"
+                      placeholder="Pitch de vendas e benefícios"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Precificação -->
+      <div>
+        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
+          <i class="fas fa-dollar-sign mr-2 text-primary"></i>Precificação (CPM)
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">CPM Custo</label>
+            <input type="number" step="0.01" name="cpm_custo" id="cpm_custo" 
+                   class="input input-bordered input-sm w-full" placeholder="0.00">
+            <span class="text-xs text-base-content/60 mt-1">Custo por mil impressões (R$)</span>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">CPM Venda</label>
+            <input type="number" step="0.01" name="cpm_venda" id="cpm_venda" 
+                   class="input input-bordered input-sm w-full" placeholder="0.00">
+            <span class="text-xs text-base-content/60 mt-1">Preço de venda por mil impressões (R$)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Categorização -->
+      <div>
+        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
+          <i class="fas fa-tags mr-2 text-primary"></i>Categorização
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Categoria <span class="text-error">*</span></label>
+            <select name="categoria_id" id="categoria_id_modal" class="select select-bordered w-full h-10 min-h-10" required>
+              <option value="">Selecione uma categoria</option>
+              {% for categoria in categorias %}
+                <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Subcategoria</label>
+            <select name="subcategoria_id" id="subcategoria_id_modal" class="select select-bordered w-full h-10 min-h-10">
+              <option value="">Selecione uma subcategoria</option>
+            </select>
+            <span class="text-xs text-base-content/60 mt-1">Carregada dinamicamente</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botões do Modal -->
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_audiencia.close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-save mr-2"></i><span id="btn_submit_audiencia_text">Cadastrar</span>
+        </button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
   </form>
 </dialog>
 

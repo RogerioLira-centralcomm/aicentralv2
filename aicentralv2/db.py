@@ -521,13 +521,15 @@ def obter_cliente_por_id(id_cliente):
                 tc.display as tipo_cliente_display,
                 ae.display as apresentacao_executivo_display,
                 fb.display as fluxo_boas_vindas_display,
-                pr.display as percentual_display
+                pr.display as percentual_display,
+                vend.nome_completo as executivo_nome
             FROM tbl_cliente c
             LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
             LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
             LEFT JOIN tbl_apresentacao_executivo ae ON c.id_apresentacao_executivo = ae.id_tbl_apresentacao_executivo
             LEFT JOIN tbl_fluxo_boas_vindas fb ON c.id_fluxo_boas_vindas = fb.id_fluxo_boas_vindas
             LEFT JOIN tbl_percentual pr ON pr.id_percentual = c.id_percentual
+            LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
         return cursor.fetchone()

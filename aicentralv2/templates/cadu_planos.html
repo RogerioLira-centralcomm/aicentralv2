@@ -80,7 +80,7 @@
             {% for plano in planos %}
             <tr class="hover">
               <td>
-                <a href="{{ url_for('cliente_detalhes', cliente_id=plano.id_cliente) }}" class="link link-primary">
+                <a href="{{ url_for('clientes') }}" class="link link-primary">
                   <div class="font-semibold text-base-content">{{ plano.nome_fantasia }}</div>
                   {% if plano.razao_social and plano.razao_social != plano.nome_fantasia %}
                     <div class="text-xs text-base-content/60">{{ plano.razao_social }}</div>
@@ -139,7 +139,7 @@
                   <a href="{{ url_for('admin.plano_editar', plan_id=plano.id) }}" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
                     <i class="fas fa-edit"></i>
                   </a>
-                  <a href="{{ url_for('cliente_detalhes', cliente_id=plano.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-info" title="Ver Cliente">
+                  <a href="{{ url_for('clientes') }}" class="btn btn-xs btn-circle btn-outline btn-info" title="Ver Cliente">
                     <i class="fas fa-user"></i>
                   </a>
                 </div>

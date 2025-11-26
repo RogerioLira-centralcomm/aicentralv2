@@ -9,7 +9,9 @@
       <h1 class="text-lg font-semibold leading-tight">Clientes</h1>
       <p class="text-sm text-base-content/70">Gerencie os clientes cadastrados na plataforma.</p>
     </div>
-    <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente</a>
+    <button onclick="abrirModalNovo()" class="btn btn-primary btn-sm">
+      <i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente
+    </button>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -26,6 +28,21 @@
 
   <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
     {% if clientes %}
+      <!-- Filtro por Executivo -->
+      <div class="p-4 border-b border-base-300">
+        <div class="flex items-center gap-3">
+          <label class="label font-semibold text-sm py-1">Filtrar por Executivo:</label>
+          <select id="filtro_executivo" onchange="filtrarPorExecutivo()" class="select select-bordered w-64 h-10 min-h-10">
+            <option value="">Todos os executivos</option>
+            {% for vendedor in vendedores_cc %}
+              <option value="{{ vendedor.nome_completo }}">{{ vendedor.nome_completo }}</option>
+            {% endfor %}
+            <option value="NAO_ATRIBUIDO">Não atribuído</option>
+          </select>
+          <span id="contador_filtro" class="text-sm text-base-content/70"></span>
+        </div>
+      </div>
+      
       <div class="overflow-x-auto">
         <table class="table table-xs w-full">
           <thead class="bg-gradient-to-r from-primary to-accent text-white">
@@ -54,30 +71,33 @@
               </td>
               <td class="text-center">{{ cliente.tipo_pessoa }}</td>
               <td class="text-center">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-                  {% if cliente.status %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
-                  {% if cliente.status %}<i class="fas fa-check-circle mr-1 text-green-500"></i>{% else %}<i class="fas fa-ban mr-1 text-red-500"></i>{% endif %}
-                  {{ 'Ativo' if cliente.status else 'Inativo' }}
-                </span>
+                {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
+                  <button type="button"
+                          class="badge badge-sm cursor-pointer transition-all hover:scale-105 {% if cliente.status %}badge-success{% else %}badge-error{% endif %}"
+                          onclick="toggleStatus({{ cliente.id_cliente }}, this, {{ 'true' if cliente.status else 'false' }})"
+                          title="Clique para {% if cliente.status %}desativar{% else %}ativar{% endif %}">
+                    {% if cliente.status %}Ativo{% else %}Inativo{% endif %}
+                  </button>
+                {% else %}
+                  <span class="badge badge-success badge-sm">
+                    <i class="fas fa-lock mr-1"></i>Ativo
+                  </span>
+                {% endif %}
               </td>
               <td class="text-center">
                 <span class="badge badge-sm badge-ghost">{{ cliente.total_contatos }}</span>
               </td>
               <td>
                 <div class="flex items-center justify-center gap-1">
-                  <a href="{{ url_for('cliente_editar', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                  <button onclick="abrirModalEditar({{ cliente.id_cliente }})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
                     <i class="fas fa-edit"></i>
-                  </a>
-                  <a href="{{ url_for('cliente_detalhes', cliente_id=cliente.id_cliente) }}" class="btn btn-xs btn-circle btn-outline btn-info" title="Detalhes">
+                  </button>
+                  <button id="btn_detalhes_{{ cliente.id_cliente }}" 
+                     onclick="abrirModalDetalhes({{ cliente.id_cliente }})" 
+                     class="btn btn-xs btn-circle btn-outline {% if cliente.planos_ativos > 0 %}btn-success{% else %}btn-info{% endif %}" 
+                     title="Detalhes{% if cliente.planos_ativos > 0 %} - {{ cliente.planos_ativos }} plano(s) ativo(s){% endif %}">
                     <i class="fas fa-eye"></i>
-                  </a>
-                  {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
-                  <form method="POST" action="{{ url_for('cliente_toggle_status', cliente_id=cliente.id_cliente) }}" class="inline-block">
-                    <button type="submit" class="btn btn-xs btn-circle btn-outline {% if not cliente.status %}btn-success{% else %}btn-error{% endif %}" title="{% if not cliente.status %}Ativar{% else %}Desativar{% endif %}">
-                      <i class="fas {% if not cliente.status %}fa-check{% else %}fa-ban{% endif %}"></i>
-                    </button>
-                  </form>
-                  {% endif %}
+                  </button>
                 </div>
               </td>
             </tr>
@@ -93,4 +113,931 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Modal de Cliente -->
+<dialog id="modal_cliente" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    
+    <h3 class="font-bold text-lg mb-4">
+      <span id="modal_title">Novo Cliente</span>
+    </h3>
+    
+    <form id="form_cliente" method="post" class="space-y-4">
+      <input type="hidden" id="cliente_id" name="cliente_id" value="">
+      
+      <!-- Tipo de Pessoa -->
+      <div class="form-control">
+        <label class="label font-semibold text-sm">Pessoa <span class="text-error">*</span></label>
+        <div class="flex gap-3">
+          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg hover:border-primary transition-colors bg-base-100">
+            <input type="radio" name="pessoa" value="J" class="radio radio-primary radio-sm" required checked>
+            <span class="font-medium">Jurídica</span>
+          </label>
+          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg hover:border-primary transition-colors bg-base-100">
+            <input type="radio" name="pessoa" value="F" class="radio radio-primary radio-sm" required>
+            <span class="font-medium">Física</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Grid de 2 Colunas -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Coluna 1 -->
+        <div class="space-y-3">
+          <!-- CNPJ/CPF -->
+          <div class="form-control">
+            <label id="label_cnpj" class="label font-semibold text-sm py-1">CNPJ *</label>
+            <input id="input_cnpj" name="cnpj" required class="input input-bordered input-sm w-full" placeholder="Digite o CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+            <span id="cnpjcpf_msg" class="text-error text-xs mt-1"></span>
+          </div>
+
+          <!-- Razão Social -->
+          <div id="razao_social_fields" class="form-control">
+            <label class="label font-semibold text-sm py-1">Razão Social *</label>
+            <input id="input_razao_social" name="razao_social" required class="input input-bordered input-sm w-full" placeholder="Digite a razão social">
+          </div>
+
+          <!-- Nome Fantasia -->
+          <div class="form-control">
+            <label id="label_nome_fantasia" class="label font-semibold text-sm py-1">Nome Fantasia *</label>
+            <input id="input_nome_fantasia" name="nome_fantasia" required class="input input-bordered input-sm w-full" placeholder="Digite o nome fantasia">
+          </div>
+
+          <!-- Inscrições (apenas PJ) -->
+          <div id="inscricoes_fields" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="form-control">
+              <label class="label font-semibold text-sm py-1">Inscrição Estadual</label>
+              <input name="inscricao_estadual" class="input input-bordered input-sm w-full" placeholder="Digite a inscrição estadual">
+            </div>
+
+            <div class="form-control">
+              <label class="label font-semibold text-sm py-1">Inscrição Municipal</label>
+              <input name="inscricao_municipal" class="input input-bordered input-sm w-full" placeholder="Digite a inscrição municipal">
+            </div>
+          </div>
+        </div>
+
+        <!-- Coluna 2 -->
+        <div class="space-y-3">
+          <!-- Tipo de Cliente -->
+          <div id="tipo_cliente_fields" class="form-control">
+            <label class="label font-semibold text-sm py-1">Tipo <span class="text-error">*</span></label>
+            <select id="select_tipo_cliente" name="id_tipo_cliente" class="select select-bordered w-full h-10 min-h-10" required>
+              <option value="">Selecione o tipo</option>
+              {% for tipo in tipos_cliente %}
+                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Vendas CentralComm -->
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Vendas CentralComm <span class="text-error">*</span></label>
+            <select name="vendas_central_comm" class="select select-bordered w-full h-10 min-h-10" required>
+              <option value="">Selecione o vendedor</option>
+              {% for vendedor in vendedores_cc %}
+                <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Agência (apenas PJ) -->
+          <div id="agencia_fields" class="form-control">
+            <label class="label font-semibold text-sm py-1">Agência <span class="text-error">*</span></label>
+            <select name="pk_id_tbl_agencia" class="select select-bordered w-full h-10 min-h-10" required>
+              <option value="">É agência?</option>
+              {% for agencia in agencias %}
+                <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Percentual (apenas PJ) -->
+          <div id="percentual_fields" class="form-control">
+            <label class="label font-semibold text-sm py-1">Percentual</label>
+            <input name="percentual" type="number" step="0.01" class="input input-bordered input-sm w-full" placeholder="Percentual">
+          </div>
+
+          <!-- Apresentação e Fluxo em Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Apresentação Executivo -->
+            <div class="form-control">
+              <label class="label font-semibold text-sm py-1">Apresentação Executivo</label>
+              <select name="id_apresentacao_executivo" class="select select-bordered w-full h-10 min-h-10">
+                <option value="">Selecione a apresentação</option>
+                {% for apresentacao in apresentacoes %}
+                  <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}">{{ apresentacao.display }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Fluxo de Boas-Vindas -->
+            <div class="form-control">
+              <label class="label font-semibold text-sm py-1">Fluxo de Boas-Vindas <span class="text-error">*</span></label>
+              <select name="id_fluxo_boas_vindas" class="select select-bordered w-full h-10 min-h-10" required>
+                <option value="">Selecione o fluxo</option>
+                {% for fluxo in fluxos %}
+                  <option value="{{ fluxo.id_fluxo_boas_vindas }}">{{ fluxo.display }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider Endereço -->
+      <div class="divider text-sm my-2">Endereço</div>
+
+      <!-- Endereço em Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">CEP</label>
+          <input id="cep" name="cep" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="input input-bordered input-sm w-full" placeholder="Digite o CEP">
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Estado</label>
+          <select id="estado" name="pk_id_aux_estado" class="select select-bordered w-full h-10 min-h-10">
+            <option value="">Selecione o estado</option>
+            {% for estado in estados %}
+              <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }} - {{ estado.descricao }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Cidade</label>
+          <input id="cidade" name="cidade" class="input input-bordered input-sm w-full" placeholder="Digite a cidade">
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Bairro</label>
+          <input id="bairro" name="bairro" class="input input-bordered input-sm w-full" placeholder="Digite o bairro">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="form-control md:col-span-2">
+          <label class="label font-semibold text-sm py-1">Logradouro</label>
+          <input id="logradouro" name="logradouro" class="input input-bordered input-sm w-full" placeholder="Digite o logradouro">
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Número</label>
+          <input id="numero" name="numero" class="input input-bordered input-sm w-full" placeholder="Número">
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label font-semibold text-sm py-1">Complemento</label>
+        <input id="complemento" name="complemento" class="input input-bordered input-sm w-full" placeholder="Digite o complemento">
+      </div>
+
+      <!-- Hidden field para pessoa física -->
+      <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
+
+      <!-- Botões do Modal -->
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-save mr-2"></i><span id="btn_submit_text">Cadastrar</span>
+        </button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal de Detalhes do Cliente -->
+<dialog id="modal_detalhes" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    
+    <h3 class="font-bold text-lg mb-4">
+      <span id="detalhes_title">Detalhes do Cliente</span>
+    </h3>
+    
+    <div id="detalhes_content" class="space-y-4">
+      <!-- Informações Principais -->
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <h4 class="text-md font-semibold mb-3 flex items-center">
+          <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
+        </h4>
+        <div id="info_principais" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Endereço -->
+      <div id="endereco_section" class="bg-base-200/50 rounded-lg p-4" style="display:none;">
+        <h4 class="text-md font-semibold mb-3 flex items-center">
+          <i class="fas fa-map-marker-alt mr-2 text-primary"></i>Endereço
+        </h4>
+        <div id="info_endereco" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Contatos Vinculados -->
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <h4 class="text-md font-semibold mb-3 flex items-center">
+          <i class="fas fa-address-book mr-2 text-primary"></i>Contatos Vinculados
+        </h4>
+        <div id="lista_contatos">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-action mt-6">
+      <button type="button" onclick="modal_detalhes.close()" class="btn btn-ghost btn-sm">Fechar</button>
+      <button type="button" onclick="criarPlanoBetaTester(clienteIdAtual)" class="btn btn-accent btn-sm">
+        <i class="fas fa-gift mr-2"></i>Criar Plano Beta
+      </button>
+      <button type="button" onclick="editarClienteDoModal()" class="btn btn-primary btn-sm">
+        <i class="fas fa-edit mr-2"></i>Editar Cliente
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+// Funções do Modal de Cliente
+document.addEventListener('DOMContentLoaded', function() {
+  const formCliente = document.getElementById('form_cliente');
+  
+  if (formCliente) {
+    // Handler para mudança de pessoa (PF/PJ) no modal
+    const pessoaRadios = formCliente.querySelectorAll('input[name="pessoa"]');
+    pessoaRadios.forEach(radio => {
+      radio.addEventListener('change', togglePessoaFieldsModal);
+    });
+    
+    // Handler para blur do CNPJ/CPF no modal
+    const cnpjInput = document.getElementById('input_cnpj');
+    if (cnpjInput) {
+      cnpjInput.addEventListener('blur', onCnpjCpfBlur);
+    }
+    
+    // Handler para submit do formulário
+    formCliente.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const clienteId = document.getElementById('cliente_id').value;
+      const formData = new FormData(formCliente);
+      const url = clienteId ? `/clientes/${clienteId}/editar` : '/clientes/novo';
+      
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok || response.redirected) {
+          // Fechar modal e mostrar mensagem de sucesso
+          modal_cliente.close();
+          alert(clienteId ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!');
+          
+          if (clienteId) {
+            // EDIÇÃO: Atualizar apenas a linha da tabela
+            const clienteResponse = await fetch(`/api/cliente/${clienteId}`);
+            const cliente = await clienteResponse.json();
+            
+            const row = document.querySelector(`button[onclick="abrirModalEditar(${clienteId})"]`)?.closest('tr');
+            if (row) {
+              const cells = row.children;
+              // Atualizar nome do cliente (coluna 0)
+              cells[0].innerHTML = `
+                <div class="font-semibold text-base-content">${cliente.nome_fantasia || cliente.razao_social}</div>
+                ${cliente.nome_fantasia && cliente.razao_social !== cliente.nome_fantasia ? `<div class="text-xs text-base-content/60">${cliente.razao_social}</div>` : ''}
+              `;
+              // Atualizar executivo (coluna 1)
+              if (cliente.executivo_nome) {
+                cells[1].innerHTML = `<span class="text-base-content">${cliente.executivo_nome}</span>`;
+              } else {
+                cells[1].innerHTML = `<span class="text-base-content/40 italic">Não atribuído</span>`;
+              }
+            }
+          } else {
+            // NOVO CLIENTE: Extrair ID do redirecionamento e buscar dados
+            const urlParams = new URL(response.url);
+            const novoClienteId = urlParams.pathname.match(/\/clientes\/(\d+)/)?.[1];
+            
+            if (novoClienteId) {
+              const clienteResponse = await fetch(`/api/cliente/${novoClienteId}`);
+              const cliente = await clienteResponse.json();
+              
+              // Criar nova linha na tabela
+              const tbody = document.querySelector('table tbody');
+              const novaLinha = document.createElement('tr');
+              novaLinha.className = 'hover';
+              novaLinha.innerHTML = `
+                <td>
+                  <div class="font-semibold text-base-content">${cliente.nome_fantasia || cliente.razao_social}</div>
+                  ${cliente.nome_fantasia && cliente.razao_social !== cliente.nome_fantasia ? `<div class="text-xs text-base-content/60">${cliente.razao_social}</div>` : ''}
+                </td>
+                <td>
+                  ${cliente.executivo_nome ? `<span class="text-base-content">${cliente.executivo_nome}</span>` : `<span class="text-base-content/40 italic">Não atribuído</span>`}
+                </td>
+                <td class="text-center">${cliente.pessoa}</td>
+                <td class="text-center">
+                  ${cliente.nome_fantasia && cliente.nome_fantasia.toUpperCase() !== 'CENTRALCOMM' ? `
+                    <button type="button"
+                            class="badge badge-sm cursor-pointer transition-all hover:scale-105 ${cliente.status ? 'badge-success' : 'badge-error'}"
+                            onclick="toggleStatus(${cliente.id_cliente}, this, ${cliente.status})"
+                            title="Clique para ${cliente.status ? 'desativar' : 'ativar'}">
+                      ${cliente.status ? 'Ativo' : 'Inativo'}
+                    </button>
+                  ` : `
+                    <span class="badge badge-success badge-sm">
+                      <i class="fas fa-lock mr-1"></i>Ativo
+                    </span>
+                  `}
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-sm badge-ghost">0</span>
+                </td>
+                <td>
+                  <div class="flex items-center justify-center gap-1">
+                    <button onclick="abrirModalEditar(${cliente.id_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button id="btn_detalhes_${cliente.id_cliente}" 
+                       onclick="abrirModalDetalhes(${cliente.id_cliente})" 
+                       class="btn btn-xs btn-circle btn-outline btn-info" 
+                       title="Detalhes">
+                      <i class="fas fa-eye"></i>
+                    </button>
+                  </div>
+                </td>
+              `;
+              
+              // Adicionar linha ao topo da tabela
+              tbody.insertBefore(novaLinha, tbody.firstChild);
+            } else {
+              window.location.reload();
+            }
+          }
+        } else {
+          alert('Erro ao salvar cliente.');
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao salvar cliente.');
+      }
+    });
+    
+    // Inicializar campos ao abrir modal
+    togglePessoaFieldsModal();
+  }
+});
+
+// Função para abrir modal para novo cliente
+function abrirModalNovo() {
+  // Limpar formulário
+  document.getElementById('form_cliente').reset();
+  document.getElementById('modal_title').textContent = 'Novo Cliente';
+  document.getElementById('cliente_id').value = '';
+  document.getElementById('btn_submit_text').textContent = 'Cadastrar';
+  
+  // Resetar para Pessoa Jurídica
+  document.querySelector('input[name="pessoa"][value="J"]').checked = true;
+  
+  // Limpar mensagens de erro
+  document.getElementById('cnpjcpf_msg').innerText = '';
+  
+  // Atualizar campos visíveis
+  togglePessoaFieldsModal();
+  
+  // Abrir modal
+  modal_cliente.showModal();
+}
+
+// Função para abrir modal em modo de edição
+async function abrirModalEditar(clienteId) {
+  try {
+    // Buscar dados do cliente
+    const response = await fetch(`/api/cliente/${clienteId}`);
+    const cliente = await response.json();
+    
+    // Preencher o formulário
+    document.getElementById('modal_title').textContent = 'Editar Cliente';
+    document.getElementById('cliente_id').value = clienteId;
+    document.getElementById('btn_submit_text').textContent = 'Atualizar';
+    
+    // Tipo de pessoa
+    const pessoaRadio = document.querySelector(`input[name="pessoa"][value="${cliente.pessoa}"]`);
+    if (pessoaRadio) pessoaRadio.checked = true;
+    
+    // Campos básicos
+    document.getElementById('select_tipo_cliente').value = cliente.id_tipo_cliente || '';
+    document.getElementById('input_cnpj').value = cliente.cnpj || '';
+    document.getElementById('input_razao_social').value = cliente.razao_social || '';
+    document.getElementById('input_nome_fantasia').value = cliente.nome_fantasia || '';
+    
+    // Inscrições
+    document.querySelector('input[name="inscricao_estadual"]').value = cliente.inscricao_estadual || '';
+    document.querySelector('input[name="inscricao_municipal"]').value = cliente.inscricao_municipal || '';
+    
+    // Endereço
+    document.getElementById('cep').value = cliente.cep || '';
+    document.getElementById('estado').value = cliente.estado || '';
+    document.getElementById('cidade').value = cliente.cidade || '';
+    document.getElementById('bairro').value = cliente.bairro || '';
+    document.getElementById('logradouro').value = cliente.logradouro || '';
+    document.getElementById('numero').value = cliente.numero || '';
+    document.getElementById('complemento').value = cliente.complemento || '';
+    
+    // Informações comerciais
+    document.querySelector('select[name="vendas_central_comm"]').value = cliente.vendas_central_comm || '';
+    document.querySelector('select[name="pk_id_tbl_agencia"]').value = cliente.pk_id_tbl_agencia || '';
+    document.querySelector('input[name="percentual"]').value = cliente.percentual || '';
+    document.querySelector('select[name="id_apresentacao_executivo"]').value = cliente.id_apresentacao_executivo || '';
+    document.querySelector('select[name="id_fluxo_boas_vindas"]').value = cliente.id_fluxo_boas_vindas || '';
+    
+    // Atualizar campos visíveis baseado no tipo de pessoa
+    togglePessoaFieldsModal();
+    
+    // Abrir modal
+    modal_cliente.showModal();
+  } catch (error) {
+    console.error('Erro ao carregar cliente:', error);
+    alert('Erro ao carregar dados do cliente.');
+  }
+}
+
+function togglePessoaFieldsModal() {
+  const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
+  
+  // Atualizar estilos dos radio buttons
+  document.querySelectorAll('#form_cliente input[name="pessoa"]').forEach(radio => {
+    const label = radio.closest('label');
+    if (radio.checked) {
+      label.classList.add('border-primary', 'bg-primary/10');
+      label.classList.remove('border-base-300');
+    } else {
+      label.classList.remove('border-primary', 'bg-primary/10');
+      label.classList.add('border-base-300');
+    }
+  });
+  
+  // Campos específicos de PJ
+  const tipoClienteField = document.getElementById('tipo_cliente_fields');
+  const selectTipoCliente = document.getElementById('select_tipo_cliente');
+  const agenciaFields = document.getElementById('agencia_fields');
+  const percentualFields = document.getElementById('percentual_fields');
+  const inscricoesFields = document.getElementById('inscricoes_fields');
+  const razaoSocialFields = document.getElementById('razao_social_fields');
+  const inputRazaoSocial = document.getElementById('input_razao_social');
+  
+  if (pessoa === 'F') {
+    // Pessoa Física
+    tipoClienteField.style.display = 'none';
+    selectTipoCliente.required = false;
+    agenciaFields.style.display = 'none';
+    percentualFields.style.display = 'none';
+    inscricoesFields.style.display = 'none';
+    razaoSocialFields.style.display = 'none';
+    inputRazaoSocial.required = false;
+    
+    document.getElementById('label_cnpj').innerText = 'CPF *';
+    document.getElementById('input_cnpj').placeholder = 'Digite o CPF';
+    document.getElementById('label_nome_fantasia').innerText = 'Nome Completo *';
+    document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome completo';
+  } else {
+    // Pessoa Jurídica
+    tipoClienteField.style.display = '';
+    selectTipoCliente.required = true;
+    agenciaFields.style.display = '';
+    percentualFields.style.display = '';
+    inscricoesFields.style.display = '';
+    razaoSocialFields.style.display = '';
+    inputRazaoSocial.required = true;
+    
+    document.getElementById('label_cnpj').innerText = 'CNPJ *';
+    document.getElementById('input_cnpj').placeholder = 'Digite o CNPJ';
+    document.getElementById('label_nome_fantasia').innerText = 'Nome Fantasia *';
+    document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome fantasia';
+  }
+}
+
+function validarCPF(cpf) {
+  cpf = cpf.replace(/\D/g, '');
+  if (cpf.length !== 11 || /^([0-9])\1+$/.test(cpf)) return false;
+  let soma = 0, resto;
+  for (let i = 1; i <= 9; i++) soma += parseInt(cpf.substring(i-1, i)) * (11 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(cpf.substring(9, 10))) return false;
+  soma = 0;
+  for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i-1, i)) * (12 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10 || resto === 11) resto = 0;
+  if (resto !== parseInt(cpf.substring(10, 11))) return false;
+  return true;
+}
+
+async function buscarEmpresaPorCNPJ(cnpj) {
+  cnpj = cnpj.replace(/\D/g, '');
+  if (cnpj.length !== 14) return;
+  
+  try {
+    const resp = await fetch('https://www.receitaws.com.br/v1/cnpj/' + cnpj);
+    const data = await resp.json();
+    if (data.status === 'OK') {
+      // Sempre atualizar razão social e nome fantasia
+      const inputRazaoSocial = document.getElementById('input_razao_social');
+      const inputNomeFantasia = document.getElementById('input_nome_fantasia');
+      
+      if (inputRazaoSocial && data.nome) {
+        inputRazaoSocial.value = data.nome;
+      }
+      if (inputNomeFantasia && data.fantasia) {
+        inputNomeFantasia.value = data.fantasia;
+      }
+      
+      // Atualizar inscrições
+      const inscEstadual = document.querySelector('#form_cliente input[name="inscricao_estadual"]');
+      if (inscEstadual && data.inscricao_estadual) {
+        inscEstadual.value = data.inscricao_estadual;
+      }
+      const inscMunicipal = document.querySelector('#form_cliente input[name="inscricao_municipal"]');
+      if (inscMunicipal && data.inscricao_municipal) {
+        inscMunicipal.value = data.inscricao_municipal;
+      }
+    } else {
+      console.log('ReceitaWS retornou status diferente de OK:', data);
+    }
+  } catch (e) {
+    console.error('Erro ao buscar CNPJ:', e);
+  }
+}
+
+async function verificarExistenciaDocumento(doc, tipo) {
+  try {
+    const resp = await fetch(`/api/verifica_documento?doc=${encodeURIComponent(doc)}&tipo=${tipo}`);
+    const data = await resp.json();
+    if (data.existe) {
+      document.getElementById('cnpjcpf_msg').innerText = tipo === 'F' ? 'CPF já cadastrado!' : 'CNPJ já cadastrado!';
+      if (data.cliente) {
+        if (document.getElementById('input_razao_social') && data.cliente.razao_social)
+          document.getElementById('input_razao_social').value = data.cliente.razao_social;
+        if (document.getElementById('input_nome_fantasia') && data.cliente.nome_fantasia)
+          document.getElementById('input_nome_fantasia').value = data.cliente.nome_fantasia;
+      }
+    } else {
+      document.getElementById('cnpjcpf_msg').innerText = '';
+    }
+  } catch (e) {
+    console.error('Erro ao verificar documento:', e);
+  }
+}
+
+async function onCnpjCpfBlur() {
+  const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
+  const doc = document.getElementById('input_cnpj').value.replace(/\D/g, '');
+  if (!doc) return;
+  
+  const clienteId = document.getElementById('cliente_id').value;
+  
+  if (pessoa === 'F') {
+    if (!validarCPF(doc)) {
+      document.getElementById('cnpjcpf_msg').innerText = 'CPF inválido!';
+      return;
+    }
+    document.getElementById('cnpjcpf_msg').innerText = '';
+    
+    // Se está editando, verificar se o CPF é diferente do original
+    if (clienteId) {
+      const response = await fetch(`/api/cliente/${clienteId}`);
+      const clienteOriginal = await response.json();
+      const docOriginal = clienteOriginal.cnpj ? clienteOriginal.cnpj.replace(/\D/g, '') : '';
+      
+      // Só verificar duplicidade se o CPF mudou
+      if (doc !== docOriginal) {
+        await verificarExistenciaDocumento(doc, 'F');
+      }
+    } else {
+      await verificarExistenciaDocumento(doc, 'F');
+    }
+  } else {
+    if (doc.length !== 14) {
+      document.getElementById('cnpjcpf_msg').innerText = 'CNPJ inválido!';
+      return;
+    }
+    document.getElementById('cnpjcpf_msg').innerText = '';
+    
+    // Sempre buscar dados na ReceitaWS primeiro
+    await buscarEmpresaPorCNPJ(doc);
+    
+    // Se está editando, verificar se o CNPJ é diferente do original
+    if (clienteId) {
+      const response = await fetch(`/api/cliente/${clienteId}`);
+      const clienteOriginal = await response.json();
+      const docOriginal = clienteOriginal.cnpj ? clienteOriginal.cnpj.replace(/\D/g, '') : '';
+      
+      // Só verificar duplicidade se o CNPJ mudou
+      if (doc !== docOriginal) {
+        await verificarExistenciaDocumento(doc, 'J');
+      }
+    } else {
+      await verificarExistenciaDocumento(doc, 'J');
+    }
+  }
+}
+
+function mascaraCep(input) {
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
+  input.value = v.slice(0,9);
+}
+
+function mascaraCnpjCpf(input) {
+  const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
+  let v = input.value.replace(/\D/g, '');
+  
+  if (pessoa === 'F') {
+    // Máscara CPF: 999.999.999-99 (14 caracteres)
+    v = v.slice(0, 11); // Limita a 11 dígitos
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    input.maxLength = 14;
+  } else {
+    // Máscara CNPJ: 99.999.999/9999-99 (18 caracteres)
+    v = v.slice(0, 14); // Limita a 14 dígitos
+    v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+    v = v.replace(/(\d{4})(\d)/, '$1-$2');
+    input.maxLength = 18;
+  }
+  
+  input.value = v;
+}
+
+function buscarEnderecoPorCep(cep) {
+  cep = cep.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  fetch('https://viacep.com.br/ws/' + cep + '/json/')
+    .then(response => response.json())
+    .then(data => {
+      if (!data.erro) {
+        document.getElementById('estado').value = getEstadoIdBySigla(data.uf);
+        document.getElementById('cidade').value = data.localidade || '';
+        document.getElementById('bairro').value = data.bairro || '';
+        document.getElementById('logradouro').value = data.logradouro || '';
+      }
+    })
+    .catch(e => console.error('Erro ao buscar CEP:', e));
+}
+
+function getEstadoIdBySigla(sigla) {
+  const select = document.getElementById('estado');
+  for (let i = 0; i < select.options.length; i++) {
+    const option = select.options[i];
+    if (option.dataset.sigla === sigla) {
+      return option.value;
+    }
+  }
+  // Fallback
+  for (let i = 0; i < select.options.length; i++) {
+    if (select.options[i].text.startsWith(sigla + ' ')) {
+      return select.options[i].value;
+    }
+  }
+  return '';
+}
+
+// Função para toggle de status de cliente
+async function toggleStatus(clienteId, badgeElement, statusAtual) {
+  const novoStatus = !statusAtual;
+  
+  // Desabilitar badge durante a requisição
+  badgeElement.disabled = true;
+  badgeElement.classList.add('opacity-50');
+  
+  try {
+    const response = await fetch(`/clientes/${clienteId}/toggle-status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (response.ok) {
+      // Atualizar o badge
+      badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
+      badgeElement.className = `badge badge-sm cursor-pointer transition-all hover:scale-105 ${novoStatus ? 'badge-success' : 'badge-error'}`;
+      badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
+      badgeElement.setAttribute('onclick', `toggleStatus(${clienteId}, this, ${novoStatus})`);
+    } else {
+      alert('Erro ao alterar status do cliente.');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao alterar status do cliente.');
+  } finally {
+    badgeElement.disabled = false;
+    badgeElement.classList.remove('opacity-50');
+  }
+}
+
+// Função para abrir modal de detalhes
+let clienteIdAtual = null;
+
+async function abrirModalDetalhes(clienteId) {
+  clienteIdAtual = clienteId;
+  try {
+    // Buscar dados do cliente
+    const response = await fetch(`/api/cliente/${clienteId}`);
+    const cliente = await response.json();
+    
+    // Buscar contatos do cliente
+    const contatosResponse = await fetch(`/api/cliente/${clienteId}/contatos`);
+    const contatos = await contatosResponse.json();
+    
+    // Preencher título
+    document.getElementById('detalhes_title').textContent = `Detalhes: ${cliente.nome_fantasia || cliente.razao_social}`;
+    
+    // Preencher informações principais
+    const infoPrincipais = document.getElementById('info_principais');
+    infoPrincipais.innerHTML = `
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">ID:</span><span>#${cliente.id_cliente}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Status:</span>
+        <span class="badge badge-sm ${cliente.status ? 'badge-success' : 'badge-error'}">${cliente.status ? 'Ativo' : 'Inativo'}</span>
+      </div>
+      ${cliente.pessoa !== 'F' ? `<div class="flex"><span class="font-semibold text-base-content/70 w-40">Razão Social:</span><span>${cliente.razao_social || '—'}</span></div>` : ''}
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'Nome Completo' : 'Nome Fantasia'}:</span><span>${cliente.nome_fantasia || '—'}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || 'Não informado'}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Tipo:</span><span>${cliente.tipo_cliente_display || 'Não informado'}</span></div>
+      ${cliente.pessoa !== 'F' ? `
+        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Estadual:</span><span>${cliente.inscricao_estadual || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Municipal:</span><span>${cliente.inscricao_municipal || '—'}</span></div>
+      ` : ''}
+    `;
+    
+    // Preencher endereço se existir
+    const enderecoSection = document.getElementById('endereco_section');
+    const infoEndereco = document.getElementById('info_endereco');
+    if (cliente.cep || cliente.logradouro || cliente.cidade) {
+      enderecoSection.style.display = '';
+      infoEndereco.innerHTML = `
+        <div class="flex"><span class="font-semibold text-base-content/70 w-40">CEP:</span><span>${cliente.cep || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
+        <div class="flex"><span class="font-semibold text-base-content/70 w-40">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
+        <div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Logradouro:</span><span>${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}</span></div>
+        ${cliente.complemento ? `<div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Complemento:</span><span>${cliente.complemento}</span></div>` : ''}
+      `;
+    } else {
+      enderecoSection.style.display = 'none';
+    }
+    
+    // Preencher contatos
+    const listaContatos = document.getElementById('lista_contatos');
+    if (contatos && contatos.length > 0) {
+      listaContatos.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="table table-xs w-full">
+            <thead class="bg-gradient-to-r from-primary to-accent text-white">
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Setor</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${contatos.map(c => `
+                <tr class="hover">
+                  <td class="font-semibold">${c.nome_completo}</td>
+                  <td>${c.email || '—'}</td>
+                  <td>${c.telefone || '—'}</td>
+                  <td>${c.setor || '—'}</td>
+                  <td><span class="badge badge-xs ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      listaContatos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contato vinculado</p>';
+    }
+    
+    // Abrir modal
+    modal_detalhes.showModal();
+  } catch (error) {
+    console.error('Erro ao carregar detalhes:', error);
+    alert('Erro ao carregar dados do cliente.');
+  }
+}
+
+function editarClienteDoModal() {
+  if (clienteIdAtual) {
+    modal_detalhes.close();
+    abrirModalEditar(clienteIdAtual);
+  }
+}
+
+function criarPlanoBetaTester(clienteId) {
+  if (!confirm('Deseja criar um Plano Beta Tester para este cliente?\n\nDetalhes do plano:\n- 100.000 tokens/mês\n- 50 imagens/mês\n- 10 usuários\n- Válido por 3 meses')) {
+    return;
+  }
+  
+  fetch(`/admin/cliente/${clienteId}/criar-plano-beta`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'same-origin'
+  })
+  .then(response => {
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Servidor retornou resposta inválida. Verifique se está logado.');
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.success) {
+      alert('Plano Beta Tester criado com sucesso!');
+      // Atualizar a cor do botão de detalhes na listagem
+      const btnDetalhes = document.getElementById(`btn_detalhes_${clienteId}`);
+      if (btnDetalhes) {
+        btnDetalhes.classList.remove('btn-info');
+        btnDetalhes.classList.add('btn-success');
+        btnDetalhes.title = 'Detalhes - 1 plano(s) ativo(s)';
+      }
+      modal_detalhes.close();
+    } else {
+      if (data.error && (data.error.includes('Sessão') || data.error.includes('login'))) {
+        alert(data.error + '\n\nVocê será redirecionado para a página de login.');
+        window.location.href = '/login';
+      } else {
+        alert('Erro ao criar plano: ' + (data.error || 'Erro desconhecido'));
+      }
+    }
+  })
+  .catch(error => {
+    console.error('Erro completo:', error);
+    alert('Erro na requisição: ' + error.message + '\n\nVerifique o console para mais detalhes.');
+  });
+}
+
+// Função para filtrar clientes por executivo
+function filtrarPorExecutivo() {
+  const filtro = document.getElementById('filtro_executivo').value;
+  const tbody = document.querySelector('table tbody');
+  const linhas = tbody.querySelectorAll('tr');
+  let totalVisiveis = 0;
+  
+  linhas.forEach(linha => {
+    const executivoCell = linha.children[1]; // Segunda coluna = executivo
+    const executivoTexto = executivoCell.textContent.trim();
+    
+    if (filtro === '') {
+      // Mostrar todos
+      linha.style.display = '';
+      totalVisiveis++;
+    } else if (filtro === 'NAO_ATRIBUIDO') {
+      // Mostrar apenas não atribuídos
+      if (executivoTexto === 'Não atribuído') {
+        linha.style.display = '';
+        totalVisiveis++;
+      } else {
+        linha.style.display = 'none';
+      }
+    } else {
+      // Filtrar por executivo específico
+      if (executivoTexto === filtro) {
+        linha.style.display = '';
+        totalVisiveis++;
+      } else {
+        linha.style.display = 'none';
+      }
+    }
+  });
+  
+  // Atualizar contador
+  const contador = document.getElementById('contador_filtro');
+  if (filtro === '') {
+    contador.textContent = '';
+  } else {
+    contador.textContent = `${totalVisiveis} cliente(s) encontrado(s)`;
+  }
+}
+</script>
 {% endblock %}

@@ -1,0 +1,20 @@
+[Unit]
+Description=AIcentralv2 Flask Application
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/www/aicentralv2
+Environment="PATH=/var/www/aicentralv2/venv/bin"
+ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --config gunicorn_config.py "aicentralv2:create_app()"
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=30
+PrivateTmp=true
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

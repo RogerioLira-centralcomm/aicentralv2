@@ -102,10 +102,6 @@ def create_app(config_class=Config):
         from .intelligence_routes.intelligence import bp as intelligence_bp
         app.register_blueprint(intelligence_bp)
         
-        # Registrar blueprint Administrativo
-        from .admin_routes import admin_bp
-        app.register_blueprint(admin_bp)
-        
         app.logger.info("OK Rotas registradas")
     except Exception as e:
         app.logger.error(f"FALHA Erro ao registrar rotas: {e}")

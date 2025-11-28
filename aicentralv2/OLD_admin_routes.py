@@ -54,6 +54,27 @@ def admin_or_centralcomm_required_api(f):
     return decorated_function
 
 
+# Decorator para permitir admin ou usuário CENTRALCOMM (Páginas HTML)
+def admin_or_centralcomm_required(f):
+    """Decorator para páginas HTML que requerem admin ou usuário CENTRALCOMM"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Você precisa estar logado para acessar esta página.', 'error')
+            return redirect(url_for('login'))
+        
+        user_type = session.get('user_type', 'client')
+        is_admin = user_type in ['admin', 'superadmin']
+        is_cc = is_centralcomm_user()
+        
+        if not is_admin and not is_cc:
+            flash('Você não tem permissão para acessar esta página.', 'error')
+            return redirect(url_for('index'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 # Helper para registro de auditoria
 def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
     """Helper para registrar auditoria automaticamente"""
@@ -294,21 +315,23 @@ def criar_plano_beta_cliente(cliente_id):
 # ==================== GESTÃO DE PLANOS ====================
 
 @admin_bp.route('/planos/novo', methods=['GET', 'POST'])
-@admin_required
-def plano_novo():
+@admin_or_centralcomm_required
+def planos_novo():
     """Criar novo plano para cliente"""
     if request.method == 'POST':
         try:
+            cliente_id = request.form.get('cliente_id') or request.form.get('id_cliente')
             dados = {
-                'id_cliente': int(request.form.get('id_cliente')),
+                'id_cliente': int(cliente_id),
                 'plan_type': request.form.get('plan_type'),
-                'plan_name': request.form.get('plan_name'),
+                'plan_name': request.form.get('plan_name') or request.form.get('plan_type'),
+                'plan_status': request.form.get('plan_status', 'active'),
                 'tokens_monthly_limit': int(request.form.get('tokens_monthly_limit', 100000)),
                 'image_credits_monthly': int(request.form.get('image_credits_monthly', 50)),
                 'max_users': int(request.form.get('max_users', 5)),
                 'valid_from': request.form.get('valid_from'),
                 'valid_until': request.form.get('valid_until') or None,
-                'features': request.form.get('features', '{}'),
+                'features': request.form.get('features') or request.form.get('observacoes', '{}'),
                 'created_by': session['user_id']
             }
             
@@ -333,7 +356,7 @@ def plano_novo():
     
     # GET - carregar formulário
     clientes = db.obter_clientes_sistema({'status': True})
-    return render_template('admin/planos/form.html',
+    return render_template('plano_form.html',
                          clientes=clientes,
                          plano=None)
 
@@ -504,4 +527,29 @@ def api_stats():
         return jsonify({'success': True, 'stats': stats})
     except Exception as e:
         logger.error(f"Erro API stats: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/planos')
+@admin_or_centralcomm_required_api
+def planos_lista_api():
+    """API para listar planos de clientes - Todos os usuários podem acessar"""
+    try:
+        # Filtros
+        filtros = {}
+        
+        if request.args.get('cliente_id'):
+            filtros['cliente_id'] = int(request.args.get('cliente_id'))
+        
+        if request.args.get('plan_status'):
+            filtros['plan_status'] = request.args.get('plan_status')
+        
+        if request.args.get('plan_type'):
+            filtros['plan_type'] = request.args.get('plan_type')
+        
+        planos = db.obter_planos_clientes(filtros)
+        
+        return jsonify({'success': True, 'planos': planos})
+    except Exception as e:
+        logger.error(f"Erro ao listar planos: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500

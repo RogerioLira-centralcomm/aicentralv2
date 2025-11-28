@@ -28,17 +28,34 @@
 
   <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
     {% if clientes %}
-      <!-- Filtro por Executivo -->
+      <!-- Filtros -->
       <div class="p-4 border-b border-base-300">
-        <div class="flex items-center gap-3">
-          <label class="label font-semibold text-sm py-1">Filtrar por Executivo:</label>
-          <select id="filtro_executivo" onchange="filtrarPorExecutivo()" class="select select-bordered w-64 h-10 min-h-10">
-            <option value="">Todos os executivos</option>
-            {% for vendedor in vendedores_cc %}
-              <option value="{{ vendedor.nome_completo }}">{{ vendedor.nome_completo }}</option>
-            {% endfor %}
-            <option value="NAO_ATRIBUIDO">Não atribuído</option>
-          </select>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- Pesquisa por Nome -->
+          <div class="flex items-center gap-3">
+            <label class="label font-semibold text-sm py-1">Pesquisar:</label>
+            <input 
+              type="text" 
+              id="pesquisa_cliente" 
+              oninput="pesquisarCliente()" 
+              class="input input-bordered input-sm flex-1" 
+              placeholder="Digite o nome fantasia ou razão social..."
+            >
+          </div>
+          
+          <!-- Filtro por Executivo -->
+          <div class="flex items-center gap-3">
+            <label class="label font-semibold text-sm py-1">Executivo:</label>
+            <select id="filtro_executivo" onchange="filtrarClientes()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
+              <option value="">Todos os executivos</option>
+              {% for vendedor in vendedores_cc %}
+                <option value="{{ vendedor.nome_completo }}">{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+              <option value="NAO_ATRIBUIDO">Não atribuído</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-2">
           <span id="contador_filtro" class="text-sm text-base-content/70"></span>
         </div>
       </div>
@@ -52,14 +69,18 @@
               <th class="text-center font-bold uppercase w-16">Tipo</th>
               <th class="text-center font-bold uppercase w-24">Status</th>
               <th class="text-center font-bold uppercase w-20">Contatos</th>
-              <th class="text-center font-bold uppercase w-28">Ações</th>
             </tr>
           </thead>
           <tbody>
             {% for cliente in clientes %}
             <tr class="hover">
               <td>
-                <div class="font-semibold text-base-content">{{ cliente.nome_fantasia or cliente.razao_social }}</div>
+                <div>
+                  <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;" 
+                     class="font-semibold text-primary hover:text-primary-focus cursor-pointer transition-colors">
+                    {{ cliente.nome_fantasia or cliente.razao_social }}
+                  </a>
+                </div>
                 {% if cliente.nome_fantasia %}<div class="text-xs text-base-content/60">{{ cliente.razao_social }}</div>{% endif %}
               </td>
               <td>
@@ -87,19 +108,6 @@
               <td class="text-center">
                 <span class="badge badge-sm badge-ghost">{{ cliente.total_contatos }}</span>
               </td>
-              <td>
-                <div class="flex items-center justify-center gap-1">
-                  <button onclick="abrirModalEditar({{ cliente.id_cliente }})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button id="btn_detalhes_{{ cliente.id_cliente }}" 
-                     onclick="abrirModalDetalhes({{ cliente.id_cliente }})" 
-                     class="btn btn-xs btn-circle btn-outline {% if cliente.planos_ativos > 0 %}btn-success{% else %}btn-info{% endif %}" 
-                     title="Detalhes{% if cliente.planos_ativos > 0 %} - {{ cliente.planos_ativos }} plano(s) ativo(s){% endif %}">
-                    <i class="fas fa-eye"></i>
-                  </button>
-                </div>
-              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -125,6 +133,23 @@
       <span id="modal_title">Novo Cliente</span>
     </h3>
     
+    <!-- Abas (apenas visível em modo edição) -->
+    <div id="tabs_container" class="tabs tabs-boxed mb-4" style="display:none;">
+      <a id="tab_editar" class="tab tab-active" onclick="trocarAba('editar')">
+        <i class="fas fa-edit mr-2"></i>Editar
+      </a>
+      <a id="tab_detalhes" class="tab" onclick="trocarAba('detalhes')">
+        <i class="fas fa-info-circle mr-2"></i>Detalhes
+      </a>
+      <a id="tab_contatos" class="tab" onclick="trocarAba('contatos')">
+        <i class="fas fa-address-book mr-2"></i>Contatos
+      </a>
+      <a id="tab_contratos" class="tab" onclick="trocarAba('contratos')">
+        <i class="fas fa-file-contract mr-2"></i>Contratos
+      </a>
+    </div>
+    
+    <!-- Conteúdo Editar -->
     <form id="form_cliente" method="post" class="space-y-4">
       <input type="hidden" id="cliente_id" name="cliente_id" value="">
       
@@ -307,6 +332,79 @@
         </button>
       </div>
     </form>
+    
+    <!-- Conteúdo Detalhes (dentro do mesmo modal) -->
+    <div id="detalhes_aba_content" class="space-y-4" style="display:none;">
+      <!-- Informações Principais -->
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <h4 class="text-md font-semibold mb-3 flex items-center">
+          <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
+        </h4>
+        <div id="info_principais_aba" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Endereço -->
+      <div id="endereco_section_aba" class="bg-base-200/50 rounded-lg p-4" style="display:none;">
+        <h4 class="text-md font-semibold mb-3 flex items-center">
+          <i class="fas fa-map-marker-alt mr-2 text-primary"></i>Endereço
+        </h4>
+        <div id="info_endereco_aba" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Botões da aba Detalhes -->
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
+      </div>
+    </div>
+    
+    <!-- Conteúdo Contatos (dentro do mesmo modal) -->
+    <div id="contatos_aba_content" class="space-y-4" style="display:none;">
+      <div class="flex justify-between items-center mb-4">
+        <h4 class="text-md font-semibold">Contatos Vinculados</h4>
+        <button type="button" onclick="abrirModalNovoContato()" class="btn btn-primary btn-sm">
+          <i class="fas fa-plus mr-2"></i>Novo Contato
+        </button>
+      </div>
+      
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <div id="lista_contatos_aba">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Botões da aba Contatos -->
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
+      </div>
+    </div>
+    
+    <!-- Conteúdo Contratos (dentro do mesmo modal) -->
+    <div id="contratos_aba_content" class="space-y-4" style="display:none;">
+      <div class="flex justify-between items-center mb-4">
+        <h4 class="text-md font-semibold">Contratos do Cliente</h4>
+        <button type="button" onclick="abrirModalNovoContrato()" class="btn btn-primary btn-sm">
+          <i class="fas fa-plus mr-2"></i>Novo Contrato
+        </button>
+      </div>
+      
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <div id="lista_contratos_aba">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Botões da aba Contratos -->
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
+        <button type="button" onclick="criarPlanoBetaTesterAba()" class="btn btn-accent btn-sm">
+          <i class="fas fa-gift mr-2"></i>Criar Plano Beta
+        </button>
+      </div>
+    </div>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>close</button>
@@ -358,13 +456,156 @@
 
     <div class="modal-action mt-6">
       <button type="button" onclick="modal_detalhes.close()" class="btn btn-ghost btn-sm">Fechar</button>
-      <button type="button" onclick="criarPlanoBetaTester(clienteIdAtual)" class="btn btn-accent btn-sm">
-        <i class="fas fa-gift mr-2"></i>Criar Plano Beta
-      </button>
       <button type="button" onclick="editarClienteDoModal()" class="btn btn-primary btn-sm">
         <i class="fas fa-edit mr-2"></i>Editar Cliente
       </button>
     </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal de Novo Contrato -->
+<dialog id="modal_novo_contrato" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    
+    <h3 class="font-bold text-lg mb-4">Novo Contrato</h3>
+    
+    <form id="form_novo_contrato" class="space-y-4">
+      <input type="hidden" id="contrato_cliente_id" name="cliente_id" value="">
+      
+      <div class="form-control">
+        <label class="label font-semibold text-sm">Tipo de Plano <span class="text-error">*</span></label>
+        <select name="plan_type" class="select select-bordered w-full" required>
+          <option value="">Selecione o tipo</option>
+          <option value="Plano Beta Tester">Plano Beta Tester (100k tokens, 50 imagens, 10 usuários, 3 meses)</option>
+          <option value="Plano Trial">Plano Trial (50k tokens, 25 imagens, 5 usuários, 1 mês)</option>
+          <option value="Plano Básico">Plano Básico (200k tokens, 100 imagens, 20 usuários)</option>
+          <option value="Plano Profissional">Plano Profissional (500k tokens, 250 imagens, 50 usuários)</option>
+          <option value="Plano Empresarial">Plano Empresarial (Ilimitado)</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Tokens Mensais <span class="text-error">*</span></label>
+          <input type="number" name="tokens_monthly_limit" class="input input-bordered w-full" required placeholder="Ex: 100000">
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Imagens Mensais <span class="text-error">*</span></label>
+          <input type="number" name="image_credits_monthly" class="input input-bordered w-full" required placeholder="Ex: 50">
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Máx. Usuários <span class="text-error">*</span></label>
+          <input type="number" name="max_users" class="input input-bordered w-full" required placeholder="Ex: 10">
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label font-semibold text-sm">Validade (meses) <span class="text-error">*</span></label>
+        <input type="number" name="valid_months" class="input input-bordered w-full" required placeholder="Ex: 3" value="3">
+      </div>
+
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_novo_contrato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-save mr-2"></i>Criar Contrato
+        </button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal de Novo/Editar Contato -->
+<dialog id="modal_contato" class="modal modal-bottom sm:modal-middle">
+  <div class="modal-box max-w-2xl">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    
+    <h3 class="font-bold text-lg mb-4" id="contato_modal_title">Novo Contato</h3>
+    
+    <form id="form_contato" class="space-y-4">
+      <input type="hidden" id="contato_id" name="contato_id" value="">
+      <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
+      
+      <div class="form-control">
+        <label class="label font-semibold text-sm">Nome Completo <span class="text-error">*</span></label>
+        <input type="text" id="contato_nome_completo" name="nome_completo" class="input input-bordered w-full" required placeholder="Digite o nome completo">
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Email <span class="text-error">*</span></label>
+          <input type="email" id="contato_email" name="email" class="input input-bordered w-full" required placeholder="email@exemplo.com">
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Telefone</label>
+          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered w-full" placeholder="(00) 00000-0000">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Setor <span class="text-error">*</span></label>
+          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered w-full" required onchange="carregarCargosPorSetor(this.value)">
+            <option value="">Selecione o setor</option>
+            {% for setor in setores %}
+            <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Cargo <span class="text-error">*</span></label>
+          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered w-full" required>
+            <option value="">Selecione primeiro o setor</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="form-control">
+          <label class="label font-semibold text-sm">
+            <span id="senha_label">Senha <span class="text-error">*</span></span>
+          </label>
+          <input type="password" id="contato_senha" name="senha" class="input input-bordered w-full" placeholder="Digite a senha">
+          <label class="label">
+            <span class="label-text-alt text-base-content/60" id="senha_hint">Mínimo 6 caracteres</span>
+          </label>
+        </div>
+
+        <div class="form-control">
+          <label class="label font-semibold text-sm">Tipo de Usuário</label>
+          <select id="contato_user_type" name="user_type" class="select select-bordered w-full">
+            <option value="client">Cliente</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label font-semibold text-sm">Cohorts</label>
+        <input type="number" id="contato_cohorts" name="cohorts" class="input input-bordered w-full" value="1" min="1">
+      </div>
+
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_contato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-save mr-2"></i><span id="contato_btn_text">Criar Contato</span>
+        </button>
+      </div>
+    </form>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>close</button>
@@ -519,6 +760,13 @@ function abrirModalNovo() {
   // Atualizar campos visíveis
   togglePessoaFieldsModal();
   
+  // Ocultar abas (modo novo)
+  document.getElementById('tabs_container').style.display = 'none';
+  document.getElementById('form_cliente').style.display = '';
+  document.getElementById('detalhes_aba_content').style.display = 'none';
+  document.getElementById('contatos_aba_content').style.display = 'none';
+  document.getElementById('contratos_aba_content').style.display = 'none';
+  
   // Abrir modal
   modal_cliente.showModal();
 }
@@ -530,8 +778,12 @@ async function abrirModalEditar(clienteId) {
     const response = await fetch(`/api/cliente/${clienteId}`);
     const cliente = await response.json();
     
+    // Buscar contatos do cliente
+    const contatosResponse = await fetch(`/api/cliente/${clienteId}/contatos`);
+    const contatos = await contatosResponse.json();
+    
     // Preencher o formulário
-    document.getElementById('modal_title').textContent = 'Editar Cliente';
+    document.getElementById('modal_title').textContent = cliente.nome_fantasia || cliente.razao_social;
     document.getElementById('cliente_id').value = clienteId;
     document.getElementById('btn_submit_text').textContent = 'Atualizar';
     
@@ -567,6 +819,13 @@ async function abrirModalEditar(clienteId) {
     
     // Atualizar campos visíveis baseado no tipo de pessoa
     togglePessoaFieldsModal();
+    
+    // Preencher aba de detalhes
+    preencherAbaDetalhes(cliente, contatos);
+    
+    // Mostrar abas (modo edição)
+    document.getElementById('tabs_container').style.display = '';
+    trocarAba('editar'); // Começar na aba Editar
     
     // Abrir modal
     modal_cliente.showModal();
@@ -957,7 +1216,7 @@ function criarPlanoBetaTester(clienteId) {
     return;
   }
   
-  fetch(`/admin/cliente/${clienteId}/criar-plano-beta`, {
+  fetch(`/api/cliente/${clienteId}/criar-plano-beta`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -974,6 +1233,13 @@ function criarPlanoBetaTester(clienteId) {
   .then(data => {
     if (data.success) {
       alert('Plano Beta Tester criado com sucesso!');
+      
+      // Recarregar lista de contratos se estiver na aba de contratos
+      if (document.getElementById('contratos_aba_content') && 
+          document.getElementById('contratos_aba_content').style.display !== 'none') {
+        carregarContratosCliente(clienteId);
+      }
+      
       // Atualizar a cor do botão de detalhes na listagem
       const btnDetalhes = document.getElementById(`btn_detalhes_${clienteId}`);
       if (btnDetalhes) {
@@ -998,46 +1264,635 @@ function criarPlanoBetaTester(clienteId) {
 }
 
 // Função para filtrar clientes por executivo
-function filtrarPorExecutivo() {
-  const filtro = document.getElementById('filtro_executivo').value;
+function filtrarClientes() {
+  const pesquisa = document.getElementById('pesquisa_cliente')?.value.toLowerCase().trim() || '';
+  const filtroExecutivo = document.getElementById('filtro_executivo').value;
   const tbody = document.querySelector('table tbody');
   const linhas = tbody.querySelectorAll('tr');
   let totalVisiveis = 0;
   
   linhas.forEach(linha => {
+    const nomeCell = linha.children[0]; // Primeira coluna = nome
     const executivoCell = linha.children[1]; // Segunda coluna = executivo
+    
+    const nomeFantasia = nomeCell.querySelector('.font-semibold')?.textContent.toLowerCase() || '';
+    const razaoSocial = nomeCell.querySelector('.text-xs')?.textContent.toLowerCase() || '';
     const executivoTexto = executivoCell.textContent.trim();
     
-    if (filtro === '') {
-      // Mostrar todos
+    // Verificar se passa no filtro de pesquisa
+    const passaPesquisa = !pesquisa || nomeFantasia.includes(pesquisa) || razaoSocial.includes(pesquisa);
+    
+    // Verificar se passa no filtro de executivo
+    let passaExecutivo = true;
+    if (filtroExecutivo === 'NAO_ATRIBUIDO') {
+      passaExecutivo = executivoTexto === 'Não atribuído';
+    } else if (filtroExecutivo !== '') {
+      passaExecutivo = executivoTexto === filtroExecutivo;
+    }
+    
+    // Mostrar apenas se passar em ambos os filtros
+    if (passaPesquisa && passaExecutivo) {
       linha.style.display = '';
       totalVisiveis++;
-    } else if (filtro === 'NAO_ATRIBUIDO') {
-      // Mostrar apenas não atribuídos
-      if (executivoTexto === 'Não atribuído') {
-        linha.style.display = '';
-        totalVisiveis++;
-      } else {
-        linha.style.display = 'none';
-      }
     } else {
-      // Filtrar por executivo específico
-      if (executivoTexto === filtro) {
-        linha.style.display = '';
-        totalVisiveis++;
-      } else {
-        linha.style.display = 'none';
-      }
+      linha.style.display = 'none';
     }
   });
   
   // Atualizar contador
   const contador = document.getElementById('contador_filtro');
-  if (filtro === '') {
-    contador.textContent = '';
+  const totalClientes = linhas.length;
+  
+  if (pesquisa || filtroExecutivo) {
+    contador.textContent = `Mostrando ${totalVisiveis} de ${totalClientes} cliente(s)`;
   } else {
-    contador.textContent = `${totalVisiveis} cliente(s) encontrado(s)`;
+    contador.textContent = '';
   }
 }
+
+// Função para pesquisar cliente (chama filtrarClientes)
+function pesquisarCliente() {
+  filtrarClientes();
+}
+
+// Manter compatibilidade com código antigo
+function filtrarPorExecutivo() {
+  filtrarClientes();
+}
+
+// Função para trocar entre abas no modal
+function trocarAba(aba) {
+  const tabEditar = document.getElementById('tab_editar');
+  const tabDetalhes = document.getElementById('tab_detalhes');
+  const tabContatos = document.getElementById('tab_contatos');
+  const tabContratos = document.getElementById('tab_contratos');
+  const formCliente = document.getElementById('form_cliente');
+  const detalhesContent = document.getElementById('detalhes_aba_content');
+  const contatosContent = document.getElementById('contatos_aba_content');
+  const contratosContent = document.getElementById('contratos_aba_content');
+  
+  // Remover active de todas as abas
+  tabEditar.classList.remove('tab-active');
+  tabDetalhes.classList.remove('tab-active');
+  tabContatos.classList.remove('tab-active');
+  tabContratos.classList.remove('tab-active');
+  
+  // Ocultar todos os conteúdos
+  formCliente.style.display = 'none';
+  detalhesContent.style.display = 'none';
+  contatosContent.style.display = 'none';
+  contratosContent.style.display = 'none';
+  
+  // Mostrar aba selecionada
+  if (aba === 'editar') {
+    tabEditar.classList.add('tab-active');
+    formCliente.style.display = '';
+  } else if (aba === 'detalhes') {
+    tabDetalhes.classList.add('tab-active');
+    detalhesContent.style.display = '';
+  } else if (aba === 'contatos') {
+    tabContatos.classList.add('tab-active');
+    contatosContent.style.display = '';
+  } else if (aba === 'contratos') {
+    tabContratos.classList.add('tab-active');
+    contratosContent.style.display = '';
+  }
+}
+
+// Função para preencher aba de detalhes
+function preencherAbaDetalhes(cliente, contatos) {
+  // Preencher informações principais
+  const infoPrincipais = document.getElementById('info_principais_aba');
+  infoPrincipais.innerHTML = `
+    <div class="flex"><span class="font-semibold text-base-content/70 w-40">ID:</span><span>#${cliente.id_cliente}</span></div>
+    <div class="flex"><span class="font-semibold text-base-content/70 w-40">Status:</span>
+      <span class="badge badge-sm ${cliente.status ? 'badge-success' : 'badge-error'}">${cliente.status ? 'Ativo' : 'Inativo'}</span>
+    </div>
+    ${cliente.pessoa !== 'F' ? `<div class="flex"><span class="font-semibold text-base-content/70 w-40">Razão Social:</span><span>${cliente.razao_social || '—'}</span></div>` : ''}
+    <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'Nome Completo' : 'Nome Fantasia'}:</span><span>${cliente.nome_fantasia || '—'}</span></div>
+    <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || 'Não informado'}</span></div>
+    <div class="flex"><span class="font-semibold text-base-content/70 w-40">Tipo:</span><span>${cliente.tipo_cliente_display || 'Não informado'}</span></div>
+    <div class="flex"><span class="font-semibold text-base-content/70 w-40">Executivo:</span><span>${cliente.executivo_nome || 'Não atribuído'}</span></div>
+    ${cliente.pessoa !== 'F' ? `
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Estadual:</span><span>${cliente.inscricao_estadual || '—'}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Municipal:</span><span>${cliente.inscricao_municipal || '—'}</span></div>
+    ` : ''}
+  `;
+  
+  // Preencher endereço se existir
+  const enderecoSection = document.getElementById('endereco_section_aba');
+  const infoEndereco = document.getElementById('info_endereco_aba');
+  if (cliente.cep || cliente.logradouro || cliente.cidade) {
+    enderecoSection.style.display = '';
+    infoEndereco.innerHTML = `
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">CEP:</span><span>${cliente.cep || '—'}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
+      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
+      <div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Logradouro:</span><span>${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}</span></div>
+      ${cliente.complemento ? `<div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Complemento:</span><span>${cliente.complemento}</span></div>` : ''}
+    `;
+  } else {
+    enderecoSection.style.display = 'none';
+  }
+  
+  // Preencher contatos
+  const listaContatos = document.getElementById('lista_contatos_aba');
+  if (contatos && contatos.length > 0) {
+    listaContatos.innerHTML = `
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-gradient-to-r from-primary to-accent text-white">
+            <tr>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Telefone</th>
+              <th>Setor</th>
+              <th>Status</th>
+              <th class="text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${contatos.map(c => `
+              <tr class="hover">
+                <td class="font-semibold">${c.nome_completo}</td>
+                <td>${c.email || '—'}</td>
+                <td>${c.telefone || '—'}</td>
+                <td>${c.setor || '—'}</td>
+                <td><span class="badge badge-xs ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
+                <td class="text-center">
+                  <div class="flex items-center justify-center gap-1">
+                    <button onclick="abrirModalEditarContato(${c.id_contato_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="toggleContatoStatus(${c.id_contato_cliente}, ${cliente.id_cliente})" class="btn btn-xs btn-circle btn-outline btn-warning" title="Ativar/Desativar">
+                      <i class="fas fa-power-off"></i>
+                    </button>
+                    <button onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    listaContatos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contato vinculado</p>';
+  }
+  
+  // Carregar contratos do cliente
+  carregarContratosCliente(cliente.id_cliente);
+}
+
+// Função para carregar contatos na aba
+async function carregarContatosAba(clienteId) {
+  const listaContatos = document.getElementById('lista_contatos_aba');
+  
+  if (!listaContatos) {
+    console.error('Elemento lista_contatos_aba não encontrado');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}/contatos`);
+    if (!response.ok) throw new Error('Erro ao buscar contatos');
+    
+    const contatos = await response.json();
+    
+    if (contatos && contatos.length > 0) {
+      listaContatos.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="table table-xs w-full">
+            <thead class="bg-gradient-to-r from-primary to-accent text-white">
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Setor</th>
+                <th>Status</th>
+                <th class="text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${contatos.map(c => `
+                <tr class="hover">
+                  <td class="font-semibold">${c.nome_completo}</td>
+                  <td>${c.email || '—'}</td>
+                  <td>${c.telefone || '—'}</td>
+                  <td>${c.setor || '—'}</td>
+                  <td><span class="badge badge-xs ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
+                  <td class="text-center">
+                    <div class="flex items-center justify-center gap-1">
+                      <button onclick="abrirModalEditarContato(${c.id_contato_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button onclick="toggleContatoStatus(${c.id_contato_cliente}, ${clienteId})" class="btn btn-xs btn-circle btn-outline btn-warning" title="Ativar/Desativar">
+                        <i class="fas fa-power-off"></i>
+                      </button>
+                      <button onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      listaContatos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contato vinculado</p>';
+    }
+    
+  } catch (error) {
+    console.error('Erro ao carregar contatos:', error);
+    listaContatos.innerHTML = '<p class="text-center text-error text-sm py-4">Erro ao carregar contatos</p>';
+  }
+}
+
+// Função para carregar contratos do cliente
+async function carregarContratosCliente(clienteId) {
+  const listaContratos = document.getElementById('lista_contratos_aba');
+  
+  if (!listaContratos) {
+    console.error('Elemento lista_contratos_aba não encontrado');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}/planos`);
+    const data = await response.json();
+    
+    if (data.success && data.planos && data.planos.length > 0) {
+      listaContratos.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="table table-xs w-full">
+            <thead class="bg-gradient-to-r from-primary to-accent text-white">
+              <tr>
+                <th>Tipo de Plano</th>
+                <th>Status</th>
+                <th>Tokens</th>
+                <th>Imagens</th>
+                <th>Usuários</th>
+                <th>Validade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.planos.map(p => `
+                <tr class="hover">
+                  <td class="font-semibold">${p.plan_type || '—'}</td>
+                  <td>
+                    <span class="badge badge-xs ${p.plan_status === 'active' ? 'badge-success' : p.plan_status === 'suspended' ? 'badge-warning' : 'badge-error'}">
+                      ${p.plan_status === 'active' ? 'Ativo' : p.plan_status === 'suspended' ? 'Suspenso' : 'Cancelado'}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="text-xs">
+                      ${p.tokens_used_current_month?.toLocaleString() || 0} / ${p.tokens_monthly_limit?.toLocaleString() || 0}
+                    </div>
+                    <div class="text-xs text-base-content/60">${p.tokens_usage_percentage || 0}%</div>
+                  </td>
+                  <td>
+                    <div class="text-xs">
+                      ${p.image_credits_used_current_month || 0} / ${p.image_credits_monthly || 0}
+                    </div>
+                    <div class="text-xs text-base-content/60">${p.images_usage_percentage || 0}%</div>
+                  </td>
+                  <td>${p.max_users || '—'}</td>
+                  <td class="text-xs">${p.valid_until ? new Date(p.valid_until).toLocaleDateString('pt-BR') : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contrato vinculado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar contratos:', error);
+    listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Erro ao carregar contratos</p>';
+  }
+}
+
+// Função para criar plano beta tester da aba
+function criarPlanoBetaTesterAba() {
+  const clienteId = document.getElementById('cliente_id').value;
+  if (clienteId) {
+    criarPlanoBetaTester(clienteId);
+  }
+}
+
+// Função para abrir modal de novo contato
+function abrirModalNovoContato() {
+  const clienteId = document.getElementById('cliente_id').value;
+  if (clienteId) {
+    // Resetar formulário
+    document.getElementById('form_contato').reset();
+    document.getElementById('contato_id').value = '';
+    document.getElementById('contato_cliente_id').value = clienteId;
+    
+    // Atualizar título e botão
+    document.getElementById('contato_modal_title').textContent = 'Novo Contato';
+    document.getElementById('contato_btn_text').textContent = 'Criar Contato';
+    
+    // Tornar senha obrigatória
+    document.getElementById('contato_senha').required = true;
+    document.getElementById('senha_label').innerHTML = 'Senha <span class="text-error">*</span>';
+    document.getElementById('senha_hint').textContent = 'Mínimo 6 caracteres';
+    
+    // Limpar select de cargos
+    const cargoSelect = document.getElementById('contato_cargo');
+    cargoSelect.innerHTML = '<option value="">Selecione primeiro o setor</option>';
+    
+    // Abrir modal
+    modal_contato.showModal();
+  }
+}
+
+// Função para abrir modal de editar contato
+async function abrirModalEditarContato(contatoId) {
+  try {
+    // Buscar dados do contato
+    const response = await fetch(`/api/contato/${contatoId}`);
+    if (!response.ok) throw new Error('Erro ao buscar dados do contato');
+    
+    const contato = await response.json();
+    
+    console.log('Dados do contato:', contato); // Debug
+    
+    // Preencher formulário
+    document.getElementById('contato_id').value = contato.id_contato_cliente;
+    document.getElementById('contato_cliente_id').value = contato.pk_id_tbl_cliente;
+    document.getElementById('contato_nome_completo').value = contato.nome_completo;
+    document.getElementById('contato_email').value = contato.email;
+    document.getElementById('contato_telefone').value = contato.telefone || '';
+    document.getElementById('contato_cohorts').value = contato.cohorts || 1;
+    document.getElementById('contato_user_type').value = contato.user_type || 'client';
+    
+    // Setor e cargo
+    const setorId = contato.pk_id_tbl_setor;
+    if (setorId) {
+      document.getElementById('contato_setor').value = setorId;
+      // Carregar cargos do setor e depois selecionar o cargo
+      await carregarCargosPorSetor(setorId);
+      document.getElementById('contato_cargo').value = contato.pk_id_tbl_cargo || '';
+    }
+    
+    // Atualizar título e botão
+    document.getElementById('contato_modal_title').textContent = 'Editar Contato';
+    document.getElementById('contato_btn_text').textContent = 'Atualizar Contato';
+    
+    // Tornar senha opcional na edição
+    document.getElementById('contato_senha').required = false;
+    document.getElementById('contato_senha').value = '';
+    document.getElementById('senha_label').innerHTML = 'Nova Senha (deixe em branco para manter)';
+    document.getElementById('senha_hint').textContent = 'Deixe em branco para manter a senha atual';
+    
+    // Abrir modal
+    modal_contato.showModal();
+    
+  } catch (error) {
+    console.error('Erro ao carregar contato:', error);
+    alert('Erro ao carregar dados do contato!');
+  }
+}
+
+// Função para carregar cargos por setor
+async function carregarCargosPorSetor(setorId) {
+  const cargoSelect = document.getElementById('contato_cargo');
+  
+  if (!setorId) {
+    cargoSelect.innerHTML = '<option value="">Selecione primeiro o setor</option>';
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/setor/${setorId}/cargos`);
+    if (!response.ok) throw new Error('Erro ao buscar cargos');
+    
+    const cargos = await response.json();
+    
+    cargoSelect.innerHTML = '<option value="">Selecione o cargo</option>';
+    cargos.forEach(cargo => {
+      const option = document.createElement('option');
+      option.value = cargo.id_cargo_contato;
+      option.textContent = cargo.descricao;
+      cargoSelect.appendChild(option);
+    });
+    
+  } catch (error) {
+    console.error('Erro ao carregar cargos:', error);
+    cargoSelect.innerHTML = '<option value="">Erro ao carregar cargos</option>';
+  }
+}
+
+// Handler para submit do formulário de contato
+document.addEventListener('DOMContentLoaded', function() {
+  const formContato = document.getElementById('form_contato');
+  
+  if (formContato) {
+    formContato.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const contatoId = document.getElementById('contato_id').value;
+      const clienteId = document.getElementById('contato_cliente_id').value;
+      
+      // Validar senha no modo criação
+      const senha = document.getElementById('contato_senha').value;
+      if (!contatoId && senha.length < 6) {
+        alert('A senha deve ter no mínimo 6 caracteres!');
+        return;
+      }
+      
+      // Preparar dados
+      const formData = new FormData(formContato);
+      const data = {
+        nome_completo: formData.get('nome_completo'),
+        email: formData.get('email'),
+        telefone: formData.get('telefone'),
+        pk_id_aux_setor: parseInt(formData.get('pk_id_aux_setor')),
+        pk_id_tbl_cargo: parseInt(formData.get('pk_id_tbl_cargo')),
+        cohorts: parseInt(formData.get('cohorts')),
+        user_type: formData.get('user_type')
+      };
+      
+      // Adicionar senha apenas se preenchida
+      if (senha) {
+        if (contatoId) {
+          data.nova_senha = senha;
+        } else {
+          data.senha = senha;
+        }
+      }
+      
+      try {
+        let response;
+        if (contatoId) {
+          // Editar contato existente
+          response = await fetch(`/api/contato/${contatoId}/editar`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        } else {
+          // Criar novo contato
+          response = await fetch(`/api/cliente/${clienteId}/criar-contato`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert(result.message);
+          modal_contato.close();
+          
+          // Recarregar lista de contatos se estiver na aba de contatos
+          if (document.getElementById('contatos_aba_content').style.display !== 'none') {
+            await carregarContatosAba(clienteId);
+          }
+        } else {
+          alert(result.message || 'Erro ao salvar contato!');
+        }
+        
+      } catch (error) {
+        console.error('Erro ao salvar contato:', error);
+        alert('Erro ao salvar contato!');
+      }
+    });
+  }
+});
+
+// Função para alternar status do contato
+async function toggleContatoStatus(contatoId, clienteId) {
+  if (!confirm('Deseja alterar o status deste contato?')) return;
+  
+  try {
+    const response = await fetch(`/api/contato/${contatoId}/toggle-status`, {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message);
+      // Recarregar lista de contatos
+      await carregarContatosAba(clienteId);
+    } else {
+      alert(result.message || 'Erro ao alterar status!');
+    }
+    
+  } catch (error) {
+    console.error('Erro ao alterar status:', error);
+    alert('Erro ao alterar status do contato!');
+  }
+}
+
+// Função para deletar contato
+async function deletarContato(contatoId, clienteId, nomeContato) {
+  if (!confirm(`Tem certeza que deseja deletar o contato "${nomeContato}"? Esta ação não pode ser desfeita!`)) return;
+  
+  try {
+    const response = await fetch(`/api/contato/${contatoId}/deletar`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message);
+      // Recarregar lista de contatos
+      await carregarContatosAba(clienteId);
+    } else {
+      alert(result.message || 'Erro ao deletar contato!');
+    }
+    
+  } catch (error) {
+    console.error('Erro ao deletar contato:', error);
+    alert('Erro ao deletar contato!');
+  }
+}
+
+// Função para abrir modal/página de novo contrato
+function abrirModalNovoContrato() {
+  const clienteId = document.getElementById('cliente_id').value;
+  if (clienteId) {
+    // Preencher o cliente_id no formulário
+    document.getElementById('contrato_cliente_id').value = clienteId;
+    
+    // Preencher valores padrão para beta tester
+    const form = document.getElementById('form_novo_contrato');
+    form.querySelector('[name="plan_type"]').value = 'Plano Beta Tester';
+    form.querySelector('[name="tokens_monthly_limit"]').value = '100000';
+    form.querySelector('[name="image_credits_monthly"]').value = '50';
+    form.querySelector('[name="max_users"]').value = '10';
+    form.querySelector('[name="valid_months"]').value = '3';
+    
+    // Abrir modal
+    modal_novo_contrato.showModal();
+  }
+}
+
+// Handler para submit do formulário de novo contrato
+document.addEventListener('DOMContentLoaded', function() {
+  const formNovoContrato = document.getElementById('form_novo_contrato');
+  
+  if (formNovoContrato) {
+    formNovoContrato.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(formNovoContrato);
+      const clienteId = formData.get('cliente_id');
+      
+      // Preparar dados do plano
+      const planData = {
+        plan_type: formData.get('plan_type'),
+        tokens_monthly_limit: parseInt(formData.get('tokens_monthly_limit')),
+        image_credits_monthly: parseInt(formData.get('image_credits_monthly')),
+        max_users: parseInt(formData.get('max_users')),
+        valid_months: parseInt(formData.get('valid_months'))
+      };
+      
+      try {
+        const response = await fetch(`/api/cliente/${clienteId}/criar-plano`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(planData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('Contrato criado com sucesso!');
+          modal_novo_contrato.close();
+          
+          // Recarregar lista de contratos na aba
+          carregarContratosCliente(clienteId);
+          
+          // Atualizar botão de detalhes na listagem principal
+          const btnDetalhes = document.getElementById(`btn_detalhes_${clienteId}`);
+          if (btnDetalhes && !btnDetalhes.classList.contains('btn-success')) {
+            btnDetalhes.classList.remove('btn-info');
+            btnDetalhes.classList.add('btn-success');
+            btnDetalhes.title = 'Detalhes - 1 plano(s) ativo(s)';
+          }
+        } else {
+          alert('Erro ao criar contrato: ' + (data.error || 'Erro desconhecido'));
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao criar contrato.');
+      }
+    });
+  }
+});
 </script>
 {% endblock %}

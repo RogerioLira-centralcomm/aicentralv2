@@ -1,0 +1,129 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{{ 'Novo Contrato' if modo == 'novo' else 'Editar Contrato' }} - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold">{{ 'Novo Contrato/Plano' if modo == 'novo' else 'Editar Contrato/Plano' }}</h1>
+    <p class="text-sm text-base-content/70">Preencha os dados do contrato do cliente.</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-base-100 rounded-xl shadow-lg p-6">
+    <form method="POST" action="{{ url_for('admin.planos_novo') }}" class="space-y-6">
+      <!-- Cliente -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Cliente <span class="text-error">*</span></span>
+        </label>
+        <select name="cliente_id" class="select select-bordered w-full" required {% if cliente_id %}disabled{% endif %}>
+          <option value="">Selecione o cliente</option>
+          {% if clientes %}
+            {% for cliente in clientes %}
+              <option value="{{ cliente.id_cliente }}" {% if cliente_id and cliente.id_cliente|string == cliente_id %}selected{% endif %}>
+                {{ cliente.nome_fantasia or cliente.razao_social or 'Cliente sem nome' }}
+              </option>
+            {% endfor %}
+          {% endif %}
+        </select>
+        {% if cliente_id %}
+          <input type="hidden" name="cliente_id" value="{{ cliente_id }}">
+        {% endif %}
+      </div>
+
+      <!-- Tipo de Plano -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Tipo de Plano <span class="text-error">*</span></span>
+        </label>
+        <select name="plan_type" class="select select-bordered w-full" required>
+          <option value="">Selecione o tipo</option>
+          <option value="Beta Tester">Beta Tester</option>
+          <option value="Básico">Básico</option>
+          <option value="Profissional">Profissional</option>
+          <option value="Enterprise">Enterprise</option>
+          <option value="Personalizado">Personalizado</option>
+        </select>
+      </div>
+
+      <!-- Grid 2 colunas -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Tokens Mensais -->
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Tokens Mensais <span class="text-error">*</span></span>
+          </label>
+          <input type="number" name="tokens_monthly_limit" class="input input-bordered w-full" placeholder="100000" required>
+        </div>
+
+        <!-- Créditos de Imagens -->
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Créditos de Imagens <span class="text-error">*</span></span>
+          </label>
+          <input type="number" name="image_credits_monthly" class="input input-bordered w-full" placeholder="50" required>
+        </div>
+
+        <!-- Máximo de Usuários -->
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Máximo de Usuários <span class="text-error">*</span></span>
+          </label>
+          <input type="number" name="max_users" class="input input-bordered w-full" placeholder="10" required>
+        </div>
+
+        <!-- Status -->
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Status <span class="text-error">*</span></span>
+          </label>
+          <select name="plan_status" class="select select-bordered w-full" required>
+            <option value="active">Ativo</option>
+            <option value="suspended">Suspenso</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Validade -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Válido Até</span>
+        </label>
+        <input type="date" name="valid_until" class="input input-bordered w-full">
+        <label class="label">
+          <span class="label-text-alt">Deixe em branco para validade indefinida</span>
+        </label>
+      </div>
+
+      <!-- Observações -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Observações</span>
+        </label>
+        <textarea name="observacoes" class="textarea textarea-bordered w-full" rows="3" placeholder="Observações sobre o contrato..."></textarea>
+      </div>
+
+      <!-- Botões -->
+      <div class="flex justify-end gap-3 pt-4">
+        <a href="{{ url_for('planos_lista') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save mr-2"></i>{{ 'Criar Contrato' if modo == 'novo' else 'Atualizar Contrato' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

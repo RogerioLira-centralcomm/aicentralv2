@@ -134,6 +134,40 @@ def init_routes(app):
             flash('Erro ao carregar lista de planos.', 'error')
             return redirect(url_for('index'))
 
+    @app.route('/contratos/novo')
+    @login_required
+    def contrato_novo():
+        """Formulário para criar novo contrato/plano"""
+        try:
+            # Verificar permissões
+            user_type = session.get('user_type', 'client')
+            is_admin = user_type in ['admin', 'superadmin']
+            is_cc = is_centralcomm_user()
+            
+            if not is_admin and not is_cc:
+                flash('Você não tem permissão para acessar esta página.', 'error')
+                return redirect(url_for('index'))
+            
+            # Obter lista de clientes para o select
+            clientes = db.obter_clientes_sistema({'status': True})
+            if not clientes:
+                clientes = []
+            
+            # Cliente pré-selecionado via query string
+            cliente_id = request.args.get('cliente_id', '')
+            
+            return render_template('plano_form.html',
+                                 clientes=clientes,
+                                 cliente_id=cliente_id,
+                                 modo='novo')
+        except Exception as e:
+            import logging
+            import traceback
+            logging.getLogger(__name__).error(f"Erro ao carregar formulário de contrato: {str(e)}")
+            logging.getLogger(__name__).error(traceback.format_exc())
+            flash(f'Erro ao carregar formulário de contrato: {str(e)}', 'error')
+            return redirect(url_for('index'))
+
     @app.route('/logs')
     @login_required
     def logs_auditoria():
@@ -753,6 +787,7 @@ def init_routes(app):
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 id_fluxo_boas_vindas = request.form.get('id_fluxo_boas_vindas', type=int) or None
                 percentual = request.form.get('percentual', '').strip()
+                id_centralx = request.form.get('id_centralx', '').strip() or None
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
@@ -793,6 +828,7 @@ def init_routes(app):
                     id_apresentacao_executivo=request.form.get('id_apresentacao_executivo', type=int) or None,
                     id_fluxo_boas_vindas=id_fluxo_boas_vindas,
                     id_percentual=int(percentual) if percentual else None,
+                    id_centralx=id_centralx,
                     cep=cep,
                     bairro=bairro,
                     cidade=cidade,
@@ -848,6 +884,401 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao buscar contatos do cliente {cliente_id}: {e}")
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/contato/<int:contato_id>')
+    @login_required
+    def api_contato_detalhes(contato_id):
+        """API para retornar detalhes de um contato"""
+        try:
+            contato = db.obter_contato_por_id(contato_id)
+            if not contato:
+                return jsonify({'error': 'Contato não encontrado'}), 404
+            return jsonify(dict(contato))
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar contato {contato_id}: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cliente/<int:cliente_id>/criar-contato', methods=['POST'])
+    @login_required
+    def api_criar_contato_cliente(cliente_id):
+        """API para criar contato do cliente"""
+        try:
+            data = request.get_json()
+            
+            nome_completo = data.get('nome_completo', '').strip()
+            email = data.get('email', '').strip().lower()
+            senha = data.get('senha', '').strip()
+            telefone = data.get('telefone', '').strip() or None
+            pk_id_aux_setor = data.get('pk_id_aux_setor', type=int)
+            pk_id_tbl_cargo = data.get('pk_id_tbl_cargo', type=int)
+            cohorts = data.get('cohorts', 1)
+            user_type = data.get('user_type', 'client')
+            
+            # Validação de campos obrigatórios
+            if not all([nome_completo, email, senha, pk_id_aux_setor, pk_id_tbl_cargo]):
+                return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
+            
+            # Validar se cargo pertence ao setor
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
+                             (pk_id_tbl_cargo, pk_id_aux_setor))
+                if cursor.fetchone() is None:
+                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+            
+            # Criar contato
+            contato_id = db.criar_contato(
+                nome_completo=nome_completo,
+                email=email,
+                senha=senha,
+                pk_id_tbl_cliente=cliente_id,
+                pk_id_tbl_cargo=pk_id_tbl_cargo,
+                pk_id_tbl_setor=pk_id_aux_setor,
+                telefone=telefone,
+                cohorts=cohorts,
+                user_type=user_type
+            )
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='CREATE',
+                modulo='CONTATOS',
+                descricao=f'Criado contato {nome_completo} para cliente ID {cliente_id}',
+                registro_id=contato_id,
+                registro_tipo='contato',
+                dados_novos={
+                    'nome_completo': nome_completo,
+                    'email': email,
+                    'cliente_id': cliente_id
+                }
+            )
+            
+            return jsonify({'success': True, 'message': f'Contato "{nome_completo}" criado com sucesso!', 'contato_id': contato_id})
+            
+        except ValueError as e:
+            return jsonify({'success': False, 'message': str(e)}), 400
+        except Exception as e:
+            app.logger.error(f"Erro ao criar contato para cliente {cliente_id}: {e}")
+            return jsonify({'success': False, 'message': f'Erro ao criar contato: {str(e)}'}), 500
+
+    @app.route('/api/contato/<int:contato_id>/editar', methods=['PUT'])
+    @login_required
+    def api_editar_contato(contato_id):
+        """API para editar contato"""
+        try:
+            data = request.get_json()
+            
+            nome_completo = data.get('nome_completo', '').strip()
+            email = data.get('email', '').strip().lower()
+            telefone = data.get('telefone', '').strip() or None
+            pk_id_aux_setor = data.get('pk_id_aux_setor')
+            pk_id_tbl_cargo = data.get('pk_id_tbl_cargo')
+            nova_senha = data.get('nova_senha', '').strip()
+            cohorts = data.get('cohorts', 1)
+            user_type = data.get('user_type', 'client')
+            
+            # Validação de campos obrigatórios
+            if not all([nome_completo, email, pk_id_aux_setor, pk_id_tbl_cargo]):
+                return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
+            
+            # Validar se cargo pertence ao setor
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
+                             (pk_id_tbl_cargo, pk_id_aux_setor))
+                if cursor.fetchone() is None:
+                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+                
+                # Verificar duplicação de email
+                cursor.execute('''
+                    SELECT id_contato_cliente 
+                    FROM tbl_contato_cliente 
+                    WHERE LOWER(email) = %s AND id_contato_cliente != %s
+                ''', (email, contato_id))
+                
+                if cursor.fetchone():
+                    return jsonify({'success': False, 'message': 'Email já cadastrado!'}), 400
+                
+                # Buscar dados anteriores para auditoria
+                contato_anterior = db.obter_contato_por_id(contato_id)
+                
+                # Atualizar contato
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                    SET nome_completo = %s, email = %s, telefone = %s, cohorts = %s,
+                        pk_id_tbl_cargo = %s, pk_id_tbl_setor = %s,
+                        user_type = %s,
+                        data_modificacao = CURRENT_TIMESTAMP
+                    WHERE id_contato_cliente = %s
+                ''', (nome_completo, email, telefone, cohorts,
+                      pk_id_tbl_cargo, pk_id_aux_setor, user_type,
+                      contato_id))
+            
+            # Atualizar senha se fornecida
+            if nova_senha:
+                db.atualizar_senha_contato(contato_id, nova_senha)
+            
+            conn.commit()
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='CONTATOS',
+                descricao=f'Editado contato {nome_completo}',
+                registro_id=contato_id,
+                registro_tipo='contato',
+                dados_anteriores=dict(contato_anterior) if contato_anterior else None,
+                dados_novos={
+                    'nome_completo': nome_completo,
+                    'email': email,
+                    'user_type': user_type
+                }
+            )
+            
+            return jsonify({'success': True, 'message': f'Contato "{nome_completo}" atualizado com sucesso!'})
+            
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            app.logger.error(f"Erro ao editar contato {contato_id}: {e}")
+            return jsonify({'success': False, 'message': f'Erro ao editar contato: {str(e)}'}), 500
+
+    @app.route('/api/contato/<int:contato_id>/toggle-status', methods=['POST'])
+    @login_required
+    def api_toggle_status_contato(contato_id):
+        """API para ativar/desativar contato"""
+        try:
+            # Verificar se não está tentando desativar a si mesmo
+            if contato_id == session.get('user_id'):
+                return jsonify({'success': False, 'message': 'Você não pode desativar seu próprio usuário!'}), 400
+            
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT status, nome_completo FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+                result = cursor.fetchone()
+                
+                if not result:
+                    return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
+                
+                novo_status = not result['status']
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                    SET status = %s, data_modificacao = CURRENT_TIMESTAMP
+                    WHERE id_contato_cliente = %s
+                ''', (novo_status, contato_id))
+                conn.commit()
+                
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='CONTATOS',
+                    descricao=f'Status alterado para {"ativo" if novo_status else "inativo"}',
+                    registro_id=contato_id,
+                    registro_tipo='contato',
+                    dados_anteriores={'status': result['status']},
+                    dados_novos={'status': novo_status}
+                )
+                
+                return jsonify({
+                    'success': True, 
+                    'message': f'Contato {"ativado" if novo_status else "desativado"} com sucesso!',
+                    'novo_status': novo_status
+                })
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status do contato {contato_id}: {e}")
+            return jsonify({'success': False, 'message': f'Erro ao alterar status: {str(e)}'}), 500
+
+    @app.route('/api/contato/<int:contato_id>/deletar', methods=['DELETE'])
+    @login_required
+    def api_deletar_contato(contato_id):
+        """API para deletar contato"""
+        try:
+            # Verificar se não está tentando deletar a si mesmo
+            if contato_id == session.get('user_id'):
+                return jsonify({'success': False, 'message': 'Você não pode deletar sua própria conta!'}), 400
+            
+            contato = db.obter_contato_por_id(contato_id)
+            
+            if not contato:
+                return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
+            
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
+            conn.commit()
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='DELETE',
+                modulo='CONTATOS',
+                descricao=f'Usuário deletado: {contato["nome_completo"]}',
+                registro_id=contato_id,
+                registro_tipo='contato',
+                dados_anteriores=dict(contato)
+            )
+            
+            return jsonify({'success': True, 'message': f'Contato "{contato["nome_completo"]}" deletado com sucesso!'})
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao deletar contato {contato_id}: {e}")
+            return jsonify({'success': False, 'message': f'Erro ao deletar contato: {str(e)}'}), 500
+
+    @app.route('/api/setor/<int:setor_id>/cargos')
+    @login_required
+    def api_cargos_por_setor(setor_id):
+        """API para retornar cargos de um setor"""
+        try:
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT id_cargo_contato, descricao 
+                    FROM tbl_cargo_contato 
+                    WHERE pk_id_aux_setor = %s 
+                    ORDER BY descricao
+                ''', (setor_id,))
+                cargos = cursor.fetchall()
+            return jsonify(cargos or [])
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar cargos do setor {setor_id}: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cliente/<int:cliente_id>/criar-plano', methods=['POST'])
+    @login_required
+    def api_criar_plano_cliente(cliente_id):
+        """API para criar um plano para o cliente"""
+        try:
+            user_id = session.get('user_id')
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
+            
+            # Extrair dados do plano
+            plan_type = data.get('plan_type')
+            tokens_monthly = data.get('tokens_monthly_limit')
+            image_credits = data.get('image_credits_monthly')
+            max_users = data.get('max_users')
+            valid_months = data.get('valid_months', 3)
+            
+            if not all([plan_type, tokens_monthly, image_credits, max_users]):
+                return jsonify({'success': False, 'error': 'Dados incompletos'}), 400
+            
+            # Verificar se já existe plano ativo com o mesmo tipo para este cliente
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT id FROM cadu_client_plans 
+                    WHERE id_cliente = %s 
+                    AND plan_type = %s 
+                    AND plan_status = 'active'
+                ''', (cliente_id, plan_type))
+                plano_existente = cursor.fetchone()
+                
+                if plano_existente:
+                    return jsonify({
+                        'success': False, 
+                        'error': f'Já existe um plano {plan_type} ativo para este cliente'
+                    }), 400
+            
+            # Calcular data de validade
+            valid_from = datetime.now()
+            valid_until = datetime.now() + timedelta(days=30 * valid_months)
+            
+            # Preparar dados do plano
+            plan_data = {
+                'id_cliente': cliente_id,
+                'plan_type': plan_type,
+                'tokens_monthly_limit': tokens_monthly,
+                'image_credits_monthly': image_credits,
+                'max_users': max_users,
+                'features': '{"all_modes": true, "unlimited_docs": true, "unlimited_conversations": true}',
+                'plan_status': 'active',
+                'valid_from': valid_from,
+                'valid_until': valid_until,
+                'plan_start_date': valid_from,
+                'plan_end_date': valid_until
+            }
+            
+            # Criar plano usando função do db
+            plano_id = db.criar_client_plan(plan_data)
+            
+            if plano_id:
+                # Registrar auditoria
+                registrar_auditoria(
+                    acao='CREATE',
+                    modulo='PLANOS',
+                    descricao=f'Criado plano {plan_type} para cliente {cliente_id}',
+                    registro_id=plano_id,
+                    registro_tipo='client_plan',
+                    dados_novos={
+                        'cliente_id': cliente_id,
+                        'plan_type': plan_type,
+                        'tokens_monthly_limit': tokens_monthly,
+                        'image_credits_monthly': image_credits,
+                        'max_users': max_users,
+                        'valid_until': valid_until.isoformat()
+                    }
+                )
+                
+                return jsonify({'success': True, 'plano_id': plano_id})
+            else:
+                return jsonify({'success': False, 'error': 'Erro ao criar plano'}), 500
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao criar plano para cliente {cliente_id}: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/cliente/<int:cliente_id>/planos', methods=['GET'])
+    @login_required
+    def api_obter_planos_cliente(cliente_id):
+        """API para obter os planos de um cliente"""
+        try:
+            # Verificar se o cliente existe
+            cliente = db.obter_cliente_por_id(cliente_id)
+            if not cliente:
+                return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
+            
+            # Buscar planos do cliente usando a função do db.py
+            planos_raw = db.obter_planos_clientes({'cliente_id': cliente_id})
+            
+            # Formatar planos para a resposta
+            planos = []
+            for plano in planos_raw:
+                tokens_usage_percentage = 0
+                tokens_monthly = plano.get('tokens_monthly_limit') or 0
+                tokens_used = plano.get('tokens_used_current_month') or 0
+                if tokens_monthly > 0:
+                    tokens_usage_percentage = round((tokens_used / tokens_monthly) * 100, 2)
+                
+                images_usage_percentage = 0
+                images_monthly = plano.get('image_credits_monthly') or 0
+                images_used = plano.get('image_credits_used_current_month') or 0
+                if images_monthly > 0:
+                    images_usage_percentage = round((images_used / images_monthly) * 100, 2)
+                
+                planos.append({
+                    'id': plano.get('id'),
+                    'plan_type': plano.get('plan_type'),
+                    'plan_status': plano.get('plan_status'),
+                    'tokens_monthly_limit': tokens_monthly,
+                    'tokens_used_current_month': tokens_used,
+                    'tokens_usage_percentage': tokens_usage_percentage,
+                    'image_credits_monthly': images_monthly,
+                    'image_credits_used_current_month': images_used,
+                    'images_usage_percentage': images_usage_percentage,
+                    'max_users': plano.get('max_users'),
+                    'valid_until': plano.get('valid_until').isoformat() if plano.get('valid_until') else None,
+                    'valid_from': plano.get('valid_from').isoformat() if plano.get('valid_from') else None
+                })
+            
+            return jsonify({'success': True, 'planos': planos})
+            
+        except Exception as e:
+            import traceback
+            app.logger.error(f"Erro ao obter planos do cliente {cliente_id}: {e}")
+            app.logger.error(traceback.format_exc())
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/clientes')
     @login_required
@@ -956,6 +1387,7 @@ def init_routes(app):
             fluxos = db.obter_fluxos_boas_vindas()
             apresentacoes = db.obter_apresentacoes_executivo()
             percentuais = db.obter_percentuais_ativos()
+            setores = db.obter_setores()
 
             return render_template(
                 'clientes.html',
@@ -968,7 +1400,8 @@ def init_routes(app):
                 estados=estados,
                 fluxos=fluxos,
                 apresentacoes=apresentacoes,
-                percentuais=percentuais
+                percentuais=percentuais,
+                setores=setores
             )
         except Exception as e:
             import traceback
@@ -1618,6 +2051,7 @@ def init_routes(app):
                 id_apresentacao_executivo = request.form.get('id_apresentacao_executivo', type=int) or None
                 id_fluxo_boas_vindas = request.form.get('id_fluxo_boas_vindas', type=int) or None
                 percentual = request.form.get('percentual', '').strip()
+                id_centralx = request.form.get('id_centralx', '').strip() or None
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
@@ -1656,6 +2090,7 @@ def init_routes(app):
                     pk_id_aux_agencia=pk_id_tbl_agencia,
                     pk_id_aux_estado=pk_id_aux_estado,
                     vendas_central_comm=vendas_central_comm,
+                    id_centralx=id_centralx,
                     cep=cep,
                     bairro=bairro,
                     cidade=cidade,
@@ -1677,7 +2112,49 @@ def init_routes(app):
                     dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
                 )
                 
-                flash(f'Cliente "{nome_fantasia}" criado!', 'success')
+                # Criar plano Beta Tester automaticamente
+                try:
+                    valid_from = datetime.now()
+                    valid_until = datetime.now() + timedelta(days=90)  # 3 meses
+                    
+                    plan_data = {
+                        'id_cliente': id_cliente,
+                        'plan_type': 'Plano Beta Tester',
+                        'tokens_monthly_limit': 100000,
+                        'image_credits_monthly': 50,
+                        'max_users': 10,
+                        'features': '{"all_modes": true, "unlimited_docs": true, "unlimited_conversations": true}',
+                        'plan_status': 'active',
+                        'valid_from': valid_from,
+                        'valid_until': valid_until,
+                        'plan_start_date': valid_from,
+                        'plan_end_date': valid_until
+                    }
+                    
+                    plano_id = db.criar_client_plan(plan_data)
+                    
+                    if plano_id:
+                        # Registrar auditoria do plano
+                        registrar_auditoria(
+                            acao='CREATE',
+                            modulo='PLANOS',
+                            descricao=f'Criado plano Beta Tester automaticamente para cliente {nome_fantasia}',
+                            registro_id=plano_id,
+                            registro_tipo='client_plan',
+                            dados_novos={
+                                'cliente_id': id_cliente,
+                                'plan_type': 'Plano Beta Tester',
+                                'tokens_monthly_limit': 100000,
+                                'image_credits_monthly': 50,
+                                'max_users': 10,
+                                'valid_until': valid_until.isoformat()
+                            }
+                        )
+                except Exception as e:
+                    app.logger.warning(f"Erro ao criar plano Beta Tester para cliente {id_cliente}: {e}")
+                    # Não falha a criação do cliente se o plano falhar
+                
+                flash(f'Cliente "{nome_fantasia}" criado com plano Beta Tester!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro: {e}")
@@ -1848,20 +2325,6 @@ def init_routes(app):
             flash(f'Erro ao carregar detalhes do cliente: {str(e)}', 'error')
             return redirect(url_for('clientes'))
     
-    # ==================== CONTATOS ====================
-    
-    @app.route('/contatos')
-    @login_required
-    def contatos():
-        """Lista contatos"""
-        try:
-            contatos = db.obter_contatos()
-            return render_template('contatos.html', contatos=contatos)
-        except Exception as e:
-            app.logger.error(f"Erro: {e}")
-            flash('Erro ao carregar.', 'error')
-            return redirect(url_for('index'))
-
     # ==================== API: Consulta CNPJ ====================
     @app.route('/api/cnpj/<cnpj>', methods=['GET'])
     @login_required
@@ -1949,266 +2412,6 @@ def init_routes(app):
             return jsonify({'ok': False, 'error': 'Erro ao validar dados'}), 500
     
     
-    @app.route('/contatos/novo', methods=['GET', 'POST'])
-    @login_required
-    def contato_novo():
-        """Criar contato"""
-        conn = db.get_db()
-        
-        if request.method == 'POST':
-            try:
-                nome_completo = request.form.get('nome_completo', '').strip()
-                email = request.form.get('email', '').strip().lower()
-                senha = request.form.get('senha', '').strip()
-                telefone = request.form.get('telefone', '').strip() or None
-                pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente', type=int)
-                pk_id_aux_setor = request.form.get('pk_id_aux_setor', type=int)
-                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo', type=int)
-                cohorts = request.form.get('cohorts', type=int) or 1
-                
-                # Agora setor e cargo são obrigatórios
-                if not all([nome_completo, email, senha, pk_id_tbl_cliente, pk_id_aux_setor, pk_id_tbl_cargo]):
-                    flash('Preencha todos os campos obrigatórios (incluindo Setor e Cargo)!', 'error')
-                    with conn.cursor() as cursor:
-                        cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
-                        clientes = cursor.fetchall()
-                        setores = db.obter_setores()
-                        cargos = db.obter_cargos()
-                    return render_template('contato_form.html', contato=None, clientes=clientes, setores=setores, cargos=cargos)
-
-                # Validação: cargo deve pertencer ao setor informado
-                with conn.cursor() as cursor:
-                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', (pk_id_tbl_cargo, pk_id_aux_setor))
-                    if cursor.fetchone() is None:
-                        flash('Cargo selecionado não pertence ao Setor escolhido.', 'error')
-                        with conn.cursor() as c2:
-                            c2.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
-                            clientes = c2.fetchall()
-                        setores = db.obter_setores()
-                        cargos = db.obter_cargos()
-                        return render_template('contato_form.html', contato=None, clientes=clientes, setores=setores, cargos=cargos)
-                
-                db.criar_contato(
-                    nome_completo=nome_completo,
-                    email=email,
-                    senha=senha,
-                    pk_id_tbl_cliente=pk_id_tbl_cliente,
-                    pk_id_tbl_cargo=pk_id_tbl_cargo,
-                    pk_id_tbl_setor=pk_id_aux_setor,
-                    telefone=telefone,
-                    cohorts=cohorts
-                )
-                
-                # Registro de auditoria
-                registrar_auditoria(
-                    acao='criar',
-                    modulo='usuarios',
-                    descricao=f'Usuário criado: {nome_completo}',
-                    registro_tipo='usuario',
-                    dados_novos={'nome_completo': nome_completo, 'email': email}
-                )
-                
-                flash(f'Contato "{nome_completo}" criado!', 'success')
-                return redirect(url_for('contatos'))
-            except ValueError as e:
-                flash(str(e), 'error')
-            except Exception as e:
-                app.logger.error(f"Erro: {e}")
-                flash('Erro ao criar.', 'error')
-        
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
-            clientes = cursor.fetchall()
-            
-            # Busca setores e cargos
-            setores = db.obter_setores()
-            cargos = db.obter_cargos()
-        
-        return render_template('contato_form.html', contato=None, clientes=clientes, setores=setores, cargos=cargos)
-    
-    @app.route('/contatos/<int:contato_id>/editar', methods=['GET', 'POST'])
-    @login_required
-    def contato_editar(contato_id):
-        """Editar contato"""
-        conn = db.get_db()
-        
-        if request.method == 'POST':
-            try:
-                nome_completo = request.form.get('nome_completo', '').strip()
-                email = request.form.get('email', '').strip().lower()
-                telefone = request.form.get('telefone', '').strip() or None
-                pk_id_tbl_cliente = request.form.get('pk_id_tbl_cliente', type=int)
-                pk_id_aux_setor = request.form.get('pk_id_aux_setor', type=int)
-                pk_id_tbl_cargo = request.form.get('pk_id_tbl_cargo', type=int)
-                nova_senha = request.form.get('nova_senha', '').strip()
-                cohorts = request.form.get('cohorts', type=int) or 1
-                chk_user_type = request.form.get('chk_user_type', 'client')
-                
-                # Debug
-                app.logger.info(f"EDITAR CONTATO - Form data: cliente={pk_id_tbl_cliente}, setor={pk_id_aux_setor}, cargo={pk_id_tbl_cargo}")
-                
-                # Agora setor e cargo são obrigatórios na edição também
-                if not all([nome_completo, email, pk_id_tbl_cliente, pk_id_aux_setor, pk_id_tbl_cargo]):
-                    app.logger.error(f"CAMPOS FALTANDO - nome={bool(nome_completo)}, email={bool(email)}, cliente={bool(pk_id_tbl_cliente)}, setor={bool(pk_id_aux_setor)}, cargo={bool(pk_id_tbl_cargo)}")
-                    flash('Campos obrigatórios (incluindo Setor e Cargo)!', 'error')
-                    return redirect(url_for('contato_editar', contato_id=contato_id))
-
-                # Validação: cargo deve pertencer ao setor informado
-                with conn.cursor() as cursor:
-                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', (pk_id_tbl_cargo, pk_id_aux_setor))
-                    if cursor.fetchone() is None:
-                        flash('Cargo selecionado não pertence ao Setor escolhido.', 'error')
-                        return redirect(url_for('contato_editar', contato_id=contato_id))
-                
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        SELECT id_contato_cliente 
-                        FROM tbl_contato_cliente 
-                        WHERE LOWER(email) = %s AND id_contato_cliente != %s
-                    ''', (email, contato_id))
-                    
-                    if cursor.fetchone():
-                        flash('Email já cadastrado!', 'error')
-                        return redirect(url_for('contato_editar', contato_id=contato_id))
-                    
-                    cursor.execute('''
-                        UPDATE tbl_contato_cliente
-                        SET nome_completo = %s, email = %s, telefone = %s, cohorts = %s,
-                            pk_id_tbl_cliente = %s, pk_id_tbl_cargo = %s, pk_id_tbl_setor = %s,
-                            user_type = %s,
-                            data_modificacao = CURRENT_TIMESTAMP
-                        WHERE id_contato_cliente = %s
-              ''', (nome_completo, email, telefone, cohorts, pk_id_tbl_cliente,
-                  pk_id_tbl_cargo, pk_id_aux_setor, chk_user_type,
-                          contato_id))
-                
-                if nova_senha:
-                    db.atualizar_senha_contato(contato_id, nova_senha)
-                
-                conn.commit()
-                
-                # Registro de auditoria
-                registrar_auditoria(
-                    acao='editar',
-                    modulo='usuarios',
-                    descricao=f'Usuário editado: {nome_completo}',
-                    registro_id=contato_id,
-                    registro_tipo='usuario',
-                    dados_anteriores=dict(contato) if contato else None,
-                    dados_novos={'nome_completo': nome_completo, 'email': email, 'user_type': chk_user_type}
-                )
-                
-                flash(f'Contato "{nome_completo}" atualizado!', 'success')
-                return redirect(url_for('contatos'))
-            except Exception as e:
-                conn.rollback()
-                app.logger.error(f"Erro: {e}")
-                flash('Erro ao atualizar.', 'error')
-        
-        contato = db.obter_contato_por_id(contato_id)
-        
-        if not contato:
-            flash('Contato não encontrado!', 'error')
-            return redirect(url_for('contatos'))
-        
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT id_cliente, razao_social, nome_fantasia FROM tbl_cliente WHERE status = TRUE ORDER BY razao_social')
-            clientes = cursor.fetchall()
-            
-            # Busca setores e TODOS os cargos (necessário para filtrar no front ao trocar setor)
-            setores = db.obter_setores()
-            cargos = db.obter_cargos()
-        
-        return render_template('contato_form.html', contato=contato, clientes=clientes, setores=setores, cargos=cargos)
-    
-    @app.route('/contatos/<int:contato_id>/toggle-status', methods=['POST'])
-    @login_required
-    def contato_toggle_status(contato_id):
-        """Ativar/desativar"""
-        # Verifica se o usuário está tentando desativar seu próprio perfil
-        if contato_id == session.get('user_id'):
-            flash('Você não pode desativar seu próprio usuário!', 'error')
-            return redirect(url_for('contatos'))
-            
-        try:
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                # Verifica o contato e seu cliente
-                cursor.execute('''
-                    SELECT c.status, cli.nome_fantasia
-                    FROM tbl_contato_cliente c
-                    JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
-                    WHERE c.id_contato_cliente = %s
-                ''', (contato_id,))
-                result = cursor.fetchone()
-                
-                if not result:
-                    flash('Contato não encontrado!', 'error')
-                    return redirect(url_for('contatos'))
-                    
-                # Se chegou aqui, pode alterar o status
-                novo_status = not result['status']
-                cursor.execute('''
-                    UPDATE tbl_contato_cliente
-                    SET status = %s, data_modificacao = CURRENT_TIMESTAMP
-                    WHERE id_contato_cliente = %s
-                ''', (novo_status, contato_id))
-                conn.commit()
-                
-                # Registro de auditoria
-                registrar_auditoria(
-                    acao='editar',
-                    modulo='usuarios',
-                    descricao=f'Status alterado para {"ativo" if novo_status else "inativo"}',
-                    registro_id=contato_id,
-                    registro_tipo='usuario',
-                    dados_anteriores={'status': result['status']},
-                    dados_novos={'status': novo_status}
-                )
-                
-                flash(f'Contato {"desativado" if not novo_status else "ativado"} com sucesso!', 'success')
-        except Exception as e:
-            app.logger.error(f"Erro: {e}")
-            flash('Erro.', 'error')
-        
-        return redirect(url_for('contatos'))
-    
-    @app.route('/contatos/<int:contato_id>/deletar', methods=['POST'])
-    @login_required
-    def contato_deletar(contato_id):
-        """Deletar contato"""
-        try:
-            if contato_id == session.get('user_id'):
-                flash('Não pode deletar sua própria conta!', 'error')
-                return redirect(url_for('contatos'))
-            
-            contato = db.obter_contato_por_id(contato_id)
-            
-            if contato:
-                conn = db.get_db()
-                with conn.cursor() as cursor:
-                    cursor.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
-                conn.commit()
-                
-                # Registro de auditoria
-                registrar_auditoria(
-                    acao='deletar',
-                    modulo='usuarios',
-                    descricao=f'Usuário deletado: {contato["nome_completo"]}',
-                    registro_id=contato_id,
-                    registro_tipo='usuario',
-                    dados_anteriores=dict(contato)
-                )
-                
-                flash(f'Contato "{contato["nome_completo"]}" deletado!', 'warning')
-            else:
-                flash('Contato não encontrado!', 'error')
-        except Exception as e:
-            app.logger.error(f"Erro: {e}")
-            flash('Erro ao deletar.', 'error')
-        
-        return redirect(url_for('contatos'))
-
     # Note: Removed duplicate aux_setor route definition that was causing conflicts
     # The route /aux_setor is already defined above
 
@@ -2961,5 +3164,63 @@ def init_routes(app):
         if not ok:
             abort(404)
         return jsonify({'success': True})
+
+    # ==================== ROTAS ADMIN ====================
+    
+    @app.route('/api/cliente/<int:cliente_id>/criar-plano-beta', methods=['POST'])
+    @login_required
+    def criar_plano_beta_cliente(cliente_id):
+        """Cria um plano Beta Tester para um cliente"""
+        try:
+            # Verificar permissão (admin ou usuário CENTRALCOMM)
+            user_type = session.get('user_type', 'client')
+            is_admin = user_type in ['admin', 'superadmin']
+            
+            # Verificar se é usuário CENTRALCOMM
+            is_centralcomm = False
+            if not is_admin:
+                contato = db.obter_contato_por_id(session.get('user_id'))
+                if contato and contato.get('pk_id_tbl_cliente'):
+                    cliente_user = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
+                    if cliente_user:
+                        is_centralcomm = cliente_user.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
+            
+            if not is_admin and not is_centralcomm:
+                return jsonify({'success': False, 'error': 'Permissão negada'}), 403
+            
+            # Verificar se cliente existe
+            cliente = db.obter_cliente_por_id(cliente_id)
+            if not cliente:
+                return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
+            
+            # Verificar se já existe plano ativo
+            planos_ativos = db.obter_planos_clientes({'cliente_id': cliente_id, 'plan_status': 'active'})
+            if planos_ativos:
+                return jsonify({'success': False, 'error': 'Cliente já possui um plano ativo'}), 400
+            
+            # Criar plano Beta Tester
+            plan_id = db.criar_plano_beta_tester(
+                cliente_id=cliente_id,
+                created_by=session.get('user_id')
+            )
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='criar',
+                modulo='planos',
+                descricao=f'Criou plano Beta Tester para cliente {cliente.get("nome_fantasia", cliente_id)}',
+                registro_id=plan_id,
+                registro_tipo='cadu_client_plans'
+            )
+            
+            app.logger.info(f"Plano Beta Tester criado para cliente {cliente_id} por usuário {session.get('user_id')}")
+            return jsonify({'success': True, 'plan_id': plan_id}), 200
+            
+        except Exception as e:
+            import traceback
+            error_detail = traceback.format_exc()
+            app.logger.error(f"Erro ao criar plano beta para cliente {cliente_id}:")
+            app.logger.error(error_detail)
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

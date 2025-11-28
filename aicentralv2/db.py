@@ -438,6 +438,7 @@ def obter_contato_por_id(contato_id):
                 c.id_centralx,
                 c.pk_id_tbl_cliente,
                 c.pk_id_tbl_cargo,
+                c.pk_id_tbl_setor,
                 c.data_cadastro,
                 c.data_modificacao,
                 c.cohorts,
@@ -453,7 +454,7 @@ def obter_contato_por_id(contato_id):
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
             LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
-            LEFT JOIN tbl_setor s ON s.id_setor = car.pk_id_aux_setor
+            LEFT JOIN tbl_setor s ON s.id_setor = c.pk_id_tbl_setor
             WHERE c.id_contato_cliente = %s
         ''', (contato_id,))
         return cursor.fetchone()
@@ -725,7 +726,7 @@ def deletar_percentual(id_percentual: int) -> bool:
 
 # ==================== CONTATOS - CRIAR/ATUALIZAR ====================
 
-def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1):
+def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1, user_type='client'):
     """Cria um novo contato"""
     conn = get_db()
     senha_md5 = gerar_senha_md5(senha)
@@ -737,10 +738,10 @@ def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None,
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO tbl_contato_cliente 
-                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_contato_cliente
-            ''', (nome_completo, email.lower().strip(), senha_md5, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts))
+            ''', (nome_completo, email.lower().strip(), senha_md5, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type))
 
             novo_id = cursor.fetchone()['id_contato_cliente']
 
@@ -2621,15 +2622,13 @@ def obter_clientes_sistema(filtros=None):
         query = '''
             SELECT 
                 cli.*,
-                tc.nome as tipo_cliente_nome,
-                ag.nome as agencia_nome,
+                tc.display as tipo_cliente_nome,
                 e.nome as estado_nome,
                 COUNT(DISTINCT c.id_contato_cliente) as total_usuarios,
                 COUNT(DISTINCT c.id_contato_cliente) FILTER (WHERE c.status = true) as usuarios_ativos
             FROM tbl_cliente cli
-            LEFT JOIN aux_tipo_cliente tc ON cli.fk_aux_tipo_cliente = tc.id_tipo_cliente
-            LEFT JOIN tbl_agencia ag ON cli.fk_id_agencia = ag.id_agencia
-            LEFT JOIN tbl_estado e ON cli.fk_id_estado = e.id_estado
+            LEFT JOIN tbl_tipo_cliente tc ON cli.id_tipo_cliente = tc.id_tipo_cliente
+            LEFT JOIN tbl_estado e ON cli.pk_id_aux_estado = e.id_estado
             LEFT JOIN tbl_contato_cliente c ON cli.id_cliente = c.pk_id_tbl_cliente
             WHERE 1=1
         '''
@@ -2642,7 +2641,7 @@ def obter_clientes_sistema(filtros=None):
                 params.append(filtros['status'])
             
             if filtros.get('tipo_cliente'):
-                query += ' AND cli.fk_aux_tipo_cliente = %s'
+                query += ' AND cli.id_tipo_cliente = %s'
                 params.append(filtros['tipo_cliente'])
             
             if filtros.get('search'):

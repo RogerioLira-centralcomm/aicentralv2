@@ -278,18 +278,6 @@
                             </a>
                         </li>
                         <li>
-                            <a href="{{ url_for('contatos') }}" class="{% if request.endpoint == 'contatos' %}active{% endif %}">
-                                <i class="fas fa-address-book w-4"></i>
-                                <span class="sidebar-text">Contatos</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('planos_lista') }}" class="{% if request.endpoint == 'planos_lista' %}active{% endif %}">
-                                <i class="fas fa-box w-4"></i>
-                                <span class="sidebar-text">Planos Contratados</span>
-                            </a>
-                        </li>
-                        <li>
                             <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
                                 <i class="fas fa-star w-4"></i>
                                 <span class="sidebar-text">Interesses</span>

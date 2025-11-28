@@ -60,7 +60,7 @@ def criar_tabela_client_plans():
                     created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente),
                     
                     -- Constraint: apenas um plano ativo por cliente
-                    CONSTRAINT chk_plan_type CHECK (plan_type IN ('beta_tester', 'starter', 'pro', 'enterprise', 'custom')),
+                    CONSTRAINT chk_plan_type CHECK (plan_type IN ('Plano Beta Tester', 'starter', 'pro', 'enterprise', 'custom')),
                     CONSTRAINT chk_plan_status CHECK (plan_status IN ('active', 'suspended', 'cancelled', 'expired'))
                 )
             ''')
@@ -91,7 +91,7 @@ def criar_tabela_client_plans():
             conn.commit()
             print("✅ Tabela cadu_client_plans criada com sucesso!")
             print("✅ Índices e constraints criados")
-            print("📋 Tipos de plano: beta_tester, starter, pro, enterprise, custom")
+            print("📋 Tipos de plano: 'Plano Beta Tester', starter, pro, enterprise, custom")
             print("📋 Status possíveis: active, suspended, cancelled, expired")
             
     except Exception as e:

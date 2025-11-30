@@ -1229,67 +1229,6 @@ def init_routes(app):
             app.logger.error(f"Erro ao criar plano para cliente {cliente_id}: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
-    @app.route('/api/cliente/<int:cliente_id>/planos', methods=['GET'])
-    @login_required
-    def api_obter_planos_cliente(cliente_id):
-        """API para obter os planos de um cliente"""
-        try:
-            # Buscar planos do cliente
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                cursor.execute('''
-                    SELECT 
-                        id,
-                        plan_type,
-                        plan_status,
-                        tokens_monthly_limit,
-                        COALESCE(tokens_used_current_month, 0) as tokens_used_current_month,
-                        image_credits_monthly,
-                        COALESCE(image_credits_used_current_month, 0) as image_credits_used_current_month,
-                        max_users,
-                        valid_until,
-                        valid_from
-                    FROM cadu_client_plans
-                    WHERE id_cliente = %s
-                    ORDER BY created_at DESC
-                ''', (cliente_id,))
-                
-                planos_raw = cursor.fetchall()
-            
-            # Formatar planos para a resposta
-            planos = []
-            for p in planos_raw:
-                tokens_usage_percentage = 0
-                if p[3] and p[3] > 0:
-                    tokens_usage_percentage = round((p[4] / p[3]) * 100, 2)
-                
-                images_usage_percentage = 0
-                if p[5] and p[5] > 0:
-                    images_usage_percentage = round((p[6] / p[5]) * 100, 2)
-                
-                planos.append({
-                    'id': p[0],
-                    'plan_type': p[1],
-                    'plan_status': p[2],
-                    'tokens_monthly_limit': p[3],
-                    'tokens_used_current_month': p[4],
-                    'tokens_usage_percentage': tokens_usage_percentage,
-                    'image_credits_monthly': p[5],
-                    'image_credits_used_current_month': p[6],
-                    'images_usage_percentage': images_usage_percentage,
-                    'max_users': p[7],
-                    'valid_until': p[8].isoformat() if p[8] else None,
-                    'valid_from': p[9].isoformat() if p[9] else None
-                })
-            
-            return jsonify({'success': True, 'planos': planos})
-            
-        except Exception as e:
-            import traceback
-            app.logger.error(f"Erro ao obter planos do cliente {cliente_id}: {e}")
-            app.logger.error(traceback.format_exc())
-            return jsonify({'success': False, 'error': str(e)}), 500
-
     @app.route('/clientes')
     @login_required
     def clientes():

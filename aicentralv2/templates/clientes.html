@@ -1522,60 +1522,7 @@ async function carregarContratosCliente(clienteId) {
     return;
   }
   
-  try {
-    const response = await fetch(`/api/cliente/${clienteId}/planos`);
-    const data = await response.json();
-    
-    if (data.success && data.planos && data.planos.length > 0) {
-      listaContratos.innerHTML = `
-        <div class="overflow-x-auto">
-          <table class="table table-xs w-full">
-            <thead class="bg-gradient-to-r from-primary to-accent text-white">
-              <tr>
-                <th>Tipo de Plano</th>
-                <th>Status</th>
-                <th>Tokens</th>
-                <th>Imagens</th>
-                <th>Usuários</th>
-                <th>Validade</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.planos.map(p => `
-                <tr class="hover">
-                  <td class="font-semibold">${p.plan_type || '—'}</td>
-                  <td>
-                    <span class="badge badge-xs ${p.plan_status === 'active' ? 'badge-success' : p.plan_status === 'suspended' ? 'badge-warning' : 'badge-error'}">
-                      ${p.plan_status === 'active' ? 'Ativo' : p.plan_status === 'suspended' ? 'Suspenso' : 'Cancelado'}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="text-xs">
-                      ${p.tokens_used_current_month?.toLocaleString() || 0} / ${p.tokens_monthly_limit?.toLocaleString() || 0}
-                    </div>
-                    <div class="text-xs text-base-content/60">${p.tokens_usage_percentage || 0}%</div>
-                  </td>
-                  <td>
-                    <div class="text-xs">
-                      ${p.image_credits_used_current_month || 0} / ${p.image_credits_monthly || 0}
-                    </div>
-                    <div class="text-xs text-base-content/60">${p.images_usage_percentage || 0}%</div>
-                  </td>
-                  <td>${p.max_users || '—'}</td>
-                  <td class="text-xs">${p.valid_until ? new Date(p.valid_until).toLocaleDateString('pt-BR') : '—'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    } else {
-      listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contrato vinculado</p>';
-    }
-  } catch (error) {
-    console.error('Erro ao carregar contratos:', error);
-    listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Erro ao carregar contratos</p>';
-  }
+  listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Carregando contratos...</p>';
 }
 
 // Função para criar plano beta tester da aba

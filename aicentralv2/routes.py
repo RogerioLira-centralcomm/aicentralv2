@@ -575,78 +575,64 @@ def init_routes(app):
     @login_required
     def index():
         """Página inicial - Dashboard"""
-        import traceback
+        from datetime import date, timedelta
+        
+        # Valores padrão seguros
+        stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
+                'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
+                'planos_proximo_limite': 0, 'planos_vencendo': 0,
+                'mes_atual': 'N/A'}
+        logs_recentes = []
+        planos_alerta = []
+        planos_vencendo = []
+        show_plan_alerts = False
+        ALERTA_CONSUMO_TOKEN = 80
+        aviso_plan = 20
+        
         try:
-            from datetime import date, timedelta
-            from . import config
-            
-            # Valores padrão
-            stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
-                    'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
-                    'planos_proximo_limite': 0, 'planos_vencendo': 0,
-                    'mes_atual': 'N/A'}
-            logs_recentes = []
-            planos_alerta = []
-            planos_vencendo = []
-            show_plan_alerts = False
-            
-            # Obter configurações
-            ALERTA_CONSUMO_TOKEN = getattr(config, 'ALERTA_CONSUMO_TOKEN', 80)
-            aviso_plan = getattr(config, 'AVISO_PLAN', 20)
-            
             # Estatísticas principais
-            try:
-                stats = db.obter_dashboard_stats()
-            except Exception as e:
-                app.logger.error(f"Erro ao obter stats: {str(e)}")
-                app.logger.error(traceback.format_exc())
-            
-            # Logs recentes do usuário logado
-            try:
-                user_id = session.get('user_id')
-                logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
-            except Exception as e:
-                app.logger.error(f"Erro ao obter logs: {str(e)}")
-                app.logger.error(traceback.format_exc())
-            
-            # Verificar se deve mostrar alertas de planos
-            try:
-                user_type = session.get('user_type', 'client')
-                is_admin = user_type in ['admin', 'superadmin']
-                is_cc = is_centralcomm_user()
-                show_plan_alerts = is_admin or is_cc
-                
-                if show_plan_alerts:
-                    # Planos próximos do limite (ativos e válidos)
-                    planos_alerta = db.obter_planos_clientes({
-                        'plan_status': 'active'
-                    })
-                    
-                    # Filtrar apenas planos válidos e acima do limite de alerta
-                    planos_alerta = [p for p in planos_alerta 
-                                    if p.get('valid_until') and p['valid_until'] >= date.today()
-                                    and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
-                                         or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
-                    
-                    # Planos vencendo (usar aviso_plan do config)
-                    data_limite = date.today() + timedelta(days=aviso_plan)
-                    planos_vencendo = [p for p in db.obter_planos_clientes({'plan_status': 'active'})
-                                      if p.get('valid_until') and date.today() <= p['valid_until'] <= data_limite]
-            except Exception as e:
-                app.logger.error(f"Erro ao obter planos: {str(e)}")
-                app.logger.error(traceback.format_exc())
-            
-            return render_template('index_tailwind.html',
-                                 stats=stats,
-                                 logs_recentes=logs_recentes,
-                                 planos_alerta=planos_alerta,
-                                 planos_vencendo=planos_vencendo,
-                                 show_plan_alerts=show_plan_alerts,
-                                 aviso_plan=aviso_plan,
-                                 today=date.today())
+            stats = db.obter_dashboard_stats()
         except Exception as e:
-            app.logger.error(f"Erro crítico ao carregar dashboard: {str(e)}")
-            app.logger.error(traceback.format_exc())
+            app.logger.error(f"Erro stats: {str(e)}")
+        
+        try:
+            # Logs recentes
+            user_id = session.get('user_id')
+            logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
+        except Exception as e:
+            app.logger.error(f"Erro logs: {str(e)}")
+        
+        try:
+            # Alertas de planos
+            user_type = session.get('user_type', 'client')
+            is_admin = user_type in ['admin', 'superadmin']
+            is_cc = is_centralcomm_user()
+            show_plan_alerts = is_admin or is_cc
+            
+            if show_plan_alerts:
+                todos_planos = db.obter_planos_clientes({'plan_status': 'active'})
+                
+                # Filtrar planos em alerta
+                planos_alerta = [p for p in todos_planos 
+                                if p.get('valid_until') and p['valid_until'] >= date.today()
+                                and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
+                                     or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
+                
+                # Filtrar planos vencendo
+                data_limite = date.today() + timedelta(days=aviso_plan)
+                planos_vencendo = [p for p in todos_planos
+                                  if p.get('valid_until') and date.today() <= p['valid_until'] <= data_limite]
+        except Exception as e:
+            app.logger.error(f"Erro planos: {str(e)}")
+        
+        return render_template('index_tailwind.html',
+                             stats=stats,
+                             logs_recentes=logs_recentes,
+                             planos_alerta=planos_alerta,
+                             planos_vencendo=planos_vencendo,
+                             show_plan_alerts=show_plan_alerts,
+                             aviso_plan=aviso_plan,
+                             today=date.today())
             # Retornar página com valores vazios em vez de erro 500
             return render_template('index_tailwind.html', 
                                 stats={'total_clientes_ativos': 0, 'total_usuarios': 0, 

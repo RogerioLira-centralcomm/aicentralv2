@@ -577,9 +577,8 @@ def init_routes(app):
         """Página inicial - Dashboard"""
         import traceback
         try:
-            from datetime import date
-            import importlib.util
-            import os
+            from datetime import date, timedelta
+            from . import config
             
             # Valores padrão
             stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
@@ -588,20 +587,12 @@ def init_routes(app):
                     'mes_atual': 'N/A'}
             logs_recentes = []
             planos_alerta = []
+            planos_vencendo = []
             show_plan_alerts = False
-            aviso_plan = 90
             
-            # Carregar config.py diretamente
-            try:
-                config_path = os.path.join(os.path.dirname(__file__), 'config.py')
-                spec = importlib.util.spec_from_file_location("config_module", config_path)
-                config_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(config_module)
-                ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
-                aviso_plan = config_module.AVISO_PLAN
-            except Exception as e:
-                app.logger.error(f"Erro ao carregar config: {str(e)}")
-                ALERTA_CONSUMO_TOKEN = 80
+            # Obter configurações
+            ALERTA_CONSUMO_TOKEN = getattr(config, 'ALERTA_CONSUMO_TOKEN', 80)
+            aviso_plan = getattr(config, 'AVISO_PLAN', 20)
             
             # Estatísticas principais
             try:
@@ -619,7 +610,6 @@ def init_routes(app):
                 app.logger.error(traceback.format_exc())
             
             # Verificar se deve mostrar alertas de planos
-            planos_vencendo = []
             try:
                 user_type = session.get('user_type', 'client')
                 is_admin = user_type in ['admin', 'superadmin']
@@ -639,7 +629,6 @@ def init_routes(app):
                                          or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
                     
                     # Planos vencendo (usar aviso_plan do config)
-                    from datetime import timedelta
                     data_limite = date.today() + timedelta(days=aviso_plan)
                     planos_vencendo = [p for p in db.obter_planos_clientes({'plan_status': 'active'})
                                       if p.get('valid_until') and date.today() <= p['valid_until'] <= data_limite]

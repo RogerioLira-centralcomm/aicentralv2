@@ -8,7 +8,7 @@ User=root
 Group=root
 WorkingDirectory=/var/www/aicentralv2
 Environment="PATH=/var/www/aicentralv2/venv/bin"
-ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --config gunicorn_config.py "aicentralv2:create_app()"
+ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --config gunicorn_config.py run:app
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=30

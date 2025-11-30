@@ -252,17 +252,10 @@
                     <ul class="menu menu-sm px-3">
                         <!-- Dashboard -->
                         <li>
-                            {% if session.user_type in ['admin', 'superadmin'] %}
-                            <a href="{{ url_for('admin.admin_dashboard') }}" class="{% if request.endpoint == 'admin.admin_dashboard' %}active{% endif %}">
-                                <i class="fas fa-home w-4"></i>
-                                <span class="sidebar-text">Dashboard</span>
-                            </a>
-                            {% else %}
                             <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
                                 <i class="fas fa-home w-4"></i>
                                 <span class="sidebar-text">Dashboard</span>
                             </a>
-                            {% endif %}
                         </li>
 
                         <li class="my-2"><hr class="border-base-300"></li>
@@ -328,14 +321,7 @@
                             </a>
                         </li>
                         
-                        {% if session.user_type in ['admin', 'superadmin'] %}
-                        <li>
-                            <a href="{{ url_for('admin.admin_audit') }}" class="{% if request.endpoint == 'admin.admin_audit' %}active{% endif %}">
-                                <i class="fas fa-history w-4"></i>
-                                <span class="sidebar-text">Auditoria</span>
-                            </a>
-                        </li>
-                        {% endif %}
+
 
                         <li class="my-2"><hr class="border-base-300"></li>
 

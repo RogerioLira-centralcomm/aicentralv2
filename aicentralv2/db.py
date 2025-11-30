@@ -3045,15 +3045,13 @@ def obter_uso_tokens_mes_atual(id_cliente=None):
 
 def obter_dashboard_stats():
     """Retorna estatísticas para o dashboard administrativo"""
-    import importlib.util
     import os
+    from dotenv import load_dotenv
     
-    # Carregar config.py diretamente
-    config_path = os.path.join(os.path.dirname(__file__), 'config.py')
-    spec = importlib.util.spec_from_file_location("config_module", config_path)
-    config_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(config_module)
-    ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
+    load_dotenv()
+    AVISO_PLAN = int(os.getenv('AVISO_PLAN', '20'))
+    ALERTA_CONSUMO_TOKEN = int(os.getenv('ALERTA_CONSUMO_TOKEN', '80'))
+    limite_alerta = ALERTA_CONSUMO_TOKEN / 100.0
     
     conn = get_db()
     try:
@@ -3080,7 +3078,6 @@ def obter_dashboard_stats():
             stats['tokens_mes_atual'] = obter_uso_tokens_mes_atual()
             
             # Nome do mês atual em português
-            import locale
             from datetime import datetime
             
             # Mapeamento manual de meses em português
@@ -3102,8 +3099,7 @@ def obter_dashboard_stats():
             ''')
             stats['imagens_mes_atual'] = cursor.fetchone()['total']
             
-            # Planos próximos do limite (usando ALERTA_CONSUMO_TOKEN do config)
-            limite_alerta = ALERTA_CONSUMO_TOKEN / 100.0  # Converter percentual para decimal
+            # Planos próximos do limite (usar ALERTA_CONSUMO_TOKEN do .env)
             cursor.execute('''
                 SELECT COUNT(*) as total
                 FROM cadu_client_plans
@@ -3117,15 +3113,14 @@ def obter_dashboard_stats():
             ''', (limite_alerta, limite_alerta))
             stats['planos_proximo_limite'] = cursor.fetchone()['total']
             
-            # Planos próximos do vencimento (usando AVISO_PLAN do config)
-            AVISO_PLAN = config_module.AVISO_PLAN
-            cursor.execute(f'''
+            # Planos próximos do vencimento (usar AVISO_PLAN do .env)
+            cursor.execute('''
                 SELECT COUNT(*) as total
                 FROM cadu_client_plans
                 WHERE plan_status = 'active'
                 AND valid_until IS NOT NULL
-                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '{AVISO_PLAN} days'
-            ''')
+                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '%s days'
+            ''' % AVISO_PLAN)
             stats['planos_vencendo'] = cursor.fetchone()['total']
             
         return stats

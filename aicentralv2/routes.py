@@ -610,7 +610,7 @@ def init_routes(app):
             show_plan_alerts = is_admin or is_cc
             
             if show_plan_alerts:
-                todos_planos = db.obter_planos_clientes({'plan_status': 'active'})
+                todos_planos = db.obter_planos_clientes({'plan_status': 'active'}) or []
                 
                 # Filtrar planos em alerta
                 planos_alerta = [p for p in todos_planos 

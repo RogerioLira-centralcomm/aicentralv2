@@ -517,19 +517,20 @@ def obter_cliente_por_id(id_cliente):
             SELECT 
                 c.*,
                 c.pk_id_tbl_agencia as pk_id_aux_agencia,
+                c.pk_id_aux_estado as estado,
                 ag.display as agencia_display,
                 ag.key as agencia_key,
                 tc.display as tipo_cliente_display,
                 ae.display as apresentacao_executivo_display,
                 fb.display as fluxo_boas_vindas_display,
-                pr.display as percentual_display,
+                est.descricao as estado_nome,
                 vend.nome_completo as executivo_nome
             FROM tbl_cliente c
             LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
             LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
             LEFT JOIN tbl_apresentacao_executivo ae ON c.id_apresentacao_executivo = ae.id_tbl_apresentacao_executivo
             LEFT JOIN tbl_fluxo_boas_vindas fb ON c.id_fluxo_boas_vindas = fb.id_fluxo_boas_vindas
-            LEFT JOIN tbl_percentual pr ON pr.id_percentual = c.id_percentual
+            LEFT JOIN tbl_estado est ON c.pk_id_aux_estado = est.id_estado
             LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
             WHERE c.id_cliente = %s
         ''', (id_cliente,))
@@ -537,7 +538,7 @@ def obter_cliente_por_id(id_cliente):
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_aux_agencia=None,
-                pk_id_aux_estado=None, vendas_central_comm=None, id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, id_percentual=None):
+                pk_id_aux_estado=None, vendas_central_comm=None, id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, percentual=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -548,7 +549,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, id_centralx, bairro, cidade, logradouro, numero, 
                     complemento, cep, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                    id_apresentacao_executivo, id_fluxo_boas_vindas, id_percentual
+                    id_apresentacao_executivo, id_fluxo_boas_vindas, percentual
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s
@@ -557,7 +558,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                id_apresentacao_executivo, id_fluxo_boas_vindas, id_percentual
+                id_apresentacao_executivo, id_fluxo_boas_vindas, percentual
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -571,7 +572,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
                      numero=None, complemento=None, cep=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None,
-                     id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, id_percentual=None):
+                     id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, percentual=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -598,7 +599,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     id_tipo_cliente = %s,
                     id_apresentacao_executivo = %s,
                     id_fluxo_boas_vindas = %s,
-                    id_percentual = %s,
+                    percentual = %s,
                     vendas_central_comm = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
@@ -606,7 +607,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
-                id_apresentacao_executivo, id_fluxo_boas_vindas, id_percentual, vendas_central_comm, id_cliente
+                id_apresentacao_executivo, id_fluxo_boas_vindas, percentual, vendas_central_comm, id_cliente
             ))
             
             conn.commit()
@@ -617,112 +618,6 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
         raise e
 
 # ==================== PERCENTUAL (CTA) ====================
-
-def obter_percentuais():
-    """Retorna todos os percentuais (CTA) ordenados pelo índice (ID)."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute('''
-                SELECT 
-                    id_percentual,
-                    display,
-                    status
-                FROM tbl_percentual
-                ORDER BY id_percentual
-            ''')
-            return cur.fetchall()
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-def obter_percentuais_ativos():
-    """Retorna apenas percentuais ativos, ordenados pelo índice (ID)."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                '''
-                SELECT id_percentual, display, status
-                FROM tbl_percentual
-                WHERE status = TRUE
-                ORDER BY id_percentual
-                '''
-            )
-            return cur.fetchall()
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-def obter_percentual_por_id(id_percentual: int):
-    """Retorna um percentual específico pelo ID."""
-    conn = get_db()
-    with conn.cursor() as cur:
-        cur.execute(
-            '''
-            SELECT id_percentual, display, status
-            FROM tbl_percentual
-            WHERE id_percentual = %s
-            ''',
-            (id_percentual,)
-        )
-        return cur.fetchone()
-
-def criar_percentual(id_percentual: int, display: str, status: bool = True) -> int:
-    """Cria um novo percentual com ID explícito e retorna o ID criado."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                '''
-                INSERT INTO tbl_percentual (id_percentual, display, status)
-                VALUES (%s, %s, %s)
-                RETURNING id_percentual
-                ''',
-                (id_percentual, display.strip(), bool(status))
-            )
-            novo_id = cur.fetchone()['id_percentual']
-        conn.commit()
-        return novo_id
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-def atualizar_percentual(id_percentual: int, display: str, status: bool) -> bool:
-    """Atualiza o display e status de um percentual existente."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                '''
-                UPDATE tbl_percentual
-                SET display = %s,
-                    status = %s
-                WHERE id_percentual = %s
-                ''',
-                (display.strip(), bool(status), id_percentual)
-            )
-        conn.commit()
-        return True
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-def deletar_percentual(id_percentual: int) -> bool:
-    """Exclui um percentual. Retorna False se não existir."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                'DELETE FROM tbl_percentual WHERE id_percentual = %s',
-                (id_percentual,)
-            )
-            apagados = cur.rowcount
-        conn.commit()
-        return apagados > 0
-    except Exception as e:
-        conn.rollback()
-        raise e
 
 # ==================== CONTATOS - CRIAR/ATUALIZAR ====================
 
@@ -2277,7 +2172,7 @@ def toggle_status_cadu_audiencia(id_audiencia):
 # INTERESSE PRODUTO - Gestao de interesses de contatos em produtos
 # ============================================================================
 
-def obter_interesses_produto(contato_id=None, tipo_produto=None, notificado=None):
+def obter_interesses_produto(contato_id=None, tipo_produto=None, notificado=None, cliente_id=None):
     """
     Retorna interesses de produto com filtros opcionais
     
@@ -2285,6 +2180,7 @@ def obter_interesses_produto(contato_id=None, tipo_produto=None, notificado=None
         contato_id: Filtrar por ID do contato
         tipo_produto: Filtrar por tipo de produto
         notificado: Filtrar por status de notifica��o (True/False/None)
+        cliente_id: Filtrar por ID do cliente
     """
     conn = get_db()
     try:
@@ -2294,6 +2190,7 @@ def obter_interesses_produto(contato_id=None, tipo_produto=None, notificado=None
                     i.*,
                     c.nome_completo,
                     c.email,
+                    c.pk_id_tbl_cliente as id_cliente,
                     cli.nome_fantasia,
                     cli.razao_social
                 FROM tbl_interesse_produto i
@@ -2314,6 +2211,10 @@ def obter_interesses_produto(contato_id=None, tipo_produto=None, notificado=None
             if notificado is not None:
                 query += ' AND i.notificado = %s'
                 params.append(notificado)
+            
+            if cliente_id is not None:
+                query += ' AND c.pk_id_tbl_cliente = %s'
+                params.append(cliente_id)
             
             query += ' ORDER BY i.data_registro DESC'
             
@@ -2623,7 +2524,7 @@ def obter_clientes_sistema(filtros=None):
             SELECT 
                 cli.*,
                 tc.display as tipo_cliente_nome,
-                e.nome as estado_nome,
+                e.descricao as estado_nome,
                 COUNT(DISTINCT c.id_contato_cliente) as total_usuarios,
                 COUNT(DISTINCT c.id_contato_cliente) FILTER (WHERE c.status = true) as usuarios_ativos
             FROM tbl_cliente cli
@@ -2650,8 +2551,8 @@ def obter_clientes_sistema(filtros=None):
                 params.extend([search_term, search_term, search_term])
         
         query += '''
-            GROUP BY cli.id_cliente, tc.nome, ag.nome, e.nome
-            ORDER BY cli.data_criacao DESC
+            GROUP BY cli.id_cliente, tc.display, e.descricao
+            ORDER BY cli.nome_fantasia ASC
         '''
         
         with conn.cursor() as cursor:

@@ -242,8 +242,8 @@
 
           <!-- Percentual (apenas PJ) -->
           <div id="percentual_fields" class="form-control">
-            <label class="label font-semibold text-sm py-1">Percentual</label>
-            <input name="percentual" type="number" step="0.01" class="input input-bordered input-sm w-full" placeholder="Percentual">
+            <label class="label font-semibold text-sm py-1">Percentual (%)</label>
+            <input name="percentual" type="text" maxlength="5" class="input input-bordered input-sm w-full" placeholder="00,00" oninput="mascaraPercentual(this)">
           </div>
 
           <!-- Apresentação e Fluxo em Grid -->
@@ -386,9 +386,6 @@
     <div id="contratos_aba_content" class="space-y-4" style="display:none;">
       <div class="flex justify-between items-center mb-4">
         <h4 class="text-md font-semibold">Contratos do Cliente</h4>
-        <button type="button" onclick="abrirModalNovoContrato()" class="btn btn-primary btn-sm">
-          <i class="fas fa-plus mr-2"></i>Novo Contrato
-        </button>
       </div>
       
       <div class="bg-base-200/50 rounded-lg p-4">
@@ -460,65 +457,6 @@
         <i class="fas fa-edit mr-2"></i>Editar Cliente
       </button>
     </div>
-  </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>close</button>
-  </form>
-</dialog>
-
-<!-- Modal de Novo Contrato -->
-<dialog id="modal_novo_contrato" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box">
-    <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-    </form>
-    
-    <h3 class="font-bold text-lg mb-4">Novo Contrato</h3>
-    
-    <form id="form_novo_contrato" class="space-y-4">
-      <input type="hidden" id="contrato_cliente_id" name="cliente_id" value="">
-      
-      <div class="form-control">
-        <label class="label font-semibold text-sm">Tipo de Plano <span class="text-error">*</span></label>
-        <select name="plan_type" class="select select-bordered w-full" required>
-          <option value="">Selecione o tipo</option>
-          <option value="Plano Beta Tester">Plano Beta Tester (100k tokens, 50 imagens, 10 usuários, 3 meses)</option>
-          <option value="Plano Trial">Plano Trial (50k tokens, 25 imagens, 5 usuários, 1 mês)</option>
-          <option value="Plano Básico">Plano Básico (200k tokens, 100 imagens, 20 usuários)</option>
-          <option value="Plano Profissional">Plano Profissional (500k tokens, 250 imagens, 50 usuários)</option>
-          <option value="Plano Empresarial">Plano Empresarial (Ilimitado)</option>
-        </select>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Tokens Mensais <span class="text-error">*</span></label>
-          <input type="number" name="tokens_monthly_limit" class="input input-bordered w-full" required placeholder="Ex: 100000">
-        </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Imagens Mensais <span class="text-error">*</span></label>
-          <input type="number" name="image_credits_monthly" class="input input-bordered w-full" required placeholder="Ex: 50">
-        </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Máx. Usuários <span class="text-error">*</span></label>
-          <input type="number" name="max_users" class="input input-bordered w-full" required placeholder="Ex: 10">
-        </div>
-      </div>
-
-      <div class="form-control">
-        <label class="label font-semibold text-sm">Validade (meses) <span class="text-error">*</span></label>
-        <input type="number" name="valid_months" class="input input-bordered w-full" required placeholder="Ex: 3" value="3">
-      </div>
-
-      <div class="modal-action mt-6">
-        <button type="button" onclick="modal_novo_contrato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm">
-          <i class="fas fa-save mr-2"></i>Criar Contrato
-        </button>
-      </div>
-    </form>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>close</button>
@@ -645,30 +583,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         if (response.ok || response.redirected) {
-          // Fechar modal e mostrar mensagem de sucesso
+          // Fechar modal
           modal_cliente.close();
-          alert(clienteId ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!');
           
           if (clienteId) {
-            // EDIÇÃO: Atualizar apenas a linha da tabela
-            const clienteResponse = await fetch(`/api/cliente/${clienteId}`);
-            const cliente = await clienteResponse.json();
-            
-            const row = document.querySelector(`button[onclick="abrirModalEditar(${clienteId})"]`)?.closest('tr');
-            if (row) {
-              const cells = row.children;
-              // Atualizar nome do cliente (coluna 0)
-              cells[0].innerHTML = `
-                <div class="font-semibold text-base-content">${cliente.nome_fantasia || cliente.razao_social}</div>
-                ${cliente.nome_fantasia && cliente.razao_social !== cliente.nome_fantasia ? `<div class="text-xs text-base-content/60">${cliente.razao_social}</div>` : ''}
-              `;
-              // Atualizar executivo (coluna 1)
-              if (cliente.executivo_nome) {
-                cells[1].innerHTML = `<span class="text-base-content">${cliente.executivo_nome}</span>`;
-              } else {
-                cells[1].innerHTML = `<span class="text-base-content/40 italic">Não atribuído</span>`;
-              }
-            }
+            // EDIÇÃO: Recarregar página para garantir dados atualizados
+            alert('Cliente atualizado com sucesso!');
+            window.location.reload();
           } else {
             // NOVO CLIENTE: Extrair ID do redirecionamento e buscar dados
             const urlParams = new URL(response.url);
@@ -813,7 +734,15 @@ async function abrirModalEditar(clienteId) {
     // Informações comerciais
     document.querySelector('select[name="vendas_central_comm"]').value = cliente.vendas_central_comm || '';
     document.querySelector('select[name="pk_id_tbl_agencia"]').value = cliente.pk_id_tbl_agencia || '';
-    document.querySelector('input[name="percentual"]').value = cliente.percentual || '';
+    
+    // Percentual - formatar com vírgula
+    if (cliente.percentual) {
+      const percentualFormatado = parseFloat(cliente.percentual).toFixed(2).replace('.', ',');
+      document.querySelector('input[name="percentual"]').value = percentualFormatado;
+    } else {
+      document.querySelector('input[name="percentual"]').value = '';
+    }
+    
     document.querySelector('select[name="id_apresentacao_executivo"]').value = cliente.id_apresentacao_executivo || '';
     document.querySelector('select[name="id_fluxo_boas_vindas"]').value = cliente.id_fluxo_boas_vindas || '';
     
@@ -833,6 +762,29 @@ async function abrirModalEditar(clienteId) {
     console.error('Erro ao carregar cliente:', error);
     alert('Erro ao carregar dados do cliente.');
   }
+}
+
+// Máscara para percentual XX,XX
+function mascaraPercentual(input) {
+  // Remove tudo que não é dígito
+  let valor = input.value.replace(/\D/g, '');
+  
+  // Se vazio, limpa o campo
+  if (valor.length === 0) {
+    input.value = '';
+    return;
+  }
+  
+  // Limita a 4 dígitos (9999 = 99,99)
+  if (valor.length > 4) {
+    valor = valor.substring(0, 4);
+  }
+  
+  // Converte para número e divide por 100 para ter 2 casas decimais
+  const numero = parseInt(valor) / 100;
+  
+  // Formata com 2 casas decimais e substitui ponto por vírgula
+  input.value = numero.toFixed(2).replace('.', ',');
 }
 
 function togglePessoaFieldsModal() {
@@ -1356,6 +1308,11 @@ function trocarAba(aba) {
   } else if (aba === 'contratos') {
     tabContratos.classList.add('tab-active');
     contratosContent.style.display = '';
+    // Carregar contratos ao abrir a aba
+    const clienteId = document.getElementById('cliente_id').value;
+    if (clienteId) {
+      carregarContratosCliente(clienteId);
+    }
   }
 }
 
@@ -1522,7 +1479,62 @@ async function carregarContratosCliente(clienteId) {
     return;
   }
   
-  listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Carregando contratos...</p>';
+  listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Carregando...</p>';
+  
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}/planos`);
+    const data = await response.json();
+    
+    if (data.success && data.planos && data.planos.length > 0) {
+      listaContratos.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="table table-xs w-full">
+            <thead class="bg-gradient-to-r from-primary to-accent text-white">
+              <tr>
+                <th>Tipo</th>
+                <th>Status</th>
+                <th>Tokens</th>
+                <th>Imagens</th>
+                <th>Usuários</th>
+                <th>Validade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.planos.map(p => `
+                <tr class="hover">
+                  <td class="font-semibold">${p.plan_type || '—'}</td>
+                  <td>
+                    <span class="badge badge-xs ${p.plan_status === 'active' ? 'badge-success' : p.plan_status === 'suspended' ? 'badge-warning' : 'badge-error'}">
+                      ${p.plan_status === 'active' ? 'Ativo' : p.plan_status === 'suspended' ? 'Suspenso' : 'Cancelado'}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="text-xs">
+                      ${(p.tokens_used_current_month || 0).toLocaleString()} / ${(p.tokens_monthly_limit || 0).toLocaleString()}
+                    </div>
+                    <div class="text-xs text-base-content/60">${p.tokens_usage_percentage || 0}%</div>
+                  </td>
+                  <td>
+                    <div class="text-xs">
+                      ${p.image_credits_used_current_month || 0} / ${p.image_credits_monthly || 0}
+                    </div>
+                    <div class="text-xs text-base-content/60">${p.images_usage_percentage || 0}%</div>
+                  </td>
+                  <td>${p.max_users || '—'}</td>
+                  <td class="text-xs">${p.valid_until ? new Date(p.valid_until).toLocaleDateString('pt-BR') : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contrato encontrado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar contratos:', error);
+    listaContratos.innerHTML = '<p class="text-center text-error text-sm py-4">Erro ao carregar contratos</p>';
+  }
 }
 
 // Função para criar plano beta tester da aba
@@ -1765,81 +1777,5 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
     alert('Erro ao deletar contato!');
   }
 }
-
-// Função para abrir modal/página de novo contrato
-function abrirModalNovoContrato() {
-  const clienteId = document.getElementById('cliente_id').value;
-  if (clienteId) {
-    // Preencher o cliente_id no formulário
-    document.getElementById('contrato_cliente_id').value = clienteId;
-    
-    // Preencher valores padrão para beta tester
-    const form = document.getElementById('form_novo_contrato');
-    form.querySelector('[name="plan_type"]').value = 'Plano Beta Tester';
-    form.querySelector('[name="tokens_monthly_limit"]').value = '100000';
-    form.querySelector('[name="image_credits_monthly"]').value = '50';
-    form.querySelector('[name="max_users"]').value = '10';
-    form.querySelector('[name="valid_months"]').value = '3';
-    
-    // Abrir modal
-    modal_novo_contrato.showModal();
-  }
-}
-
-// Handler para submit do formulário de novo contrato
-document.addEventListener('DOMContentLoaded', function() {
-  const formNovoContrato = document.getElementById('form_novo_contrato');
-  
-  if (formNovoContrato) {
-    formNovoContrato.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      const formData = new FormData(formNovoContrato);
-      const clienteId = formData.get('cliente_id');
-      
-      // Preparar dados do plano
-      const planData = {
-        plan_type: formData.get('plan_type'),
-        tokens_monthly_limit: parseInt(formData.get('tokens_monthly_limit')),
-        image_credits_monthly: parseInt(formData.get('image_credits_monthly')),
-        max_users: parseInt(formData.get('max_users')),
-        valid_months: parseInt(formData.get('valid_months'))
-      };
-      
-      try {
-        const response = await fetch(`/api/cliente/${clienteId}/criar-plano`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(planData)
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          alert('Contrato criado com sucesso!');
-          modal_novo_contrato.close();
-          
-          // Recarregar lista de contratos na aba
-          carregarContratosCliente(clienteId);
-          
-          // Atualizar botão de detalhes na listagem principal
-          const btnDetalhes = document.getElementById(`btn_detalhes_${clienteId}`);
-          if (btnDetalhes && !btnDetalhes.classList.contains('btn-success')) {
-            btnDetalhes.classList.remove('btn-info');
-            btnDetalhes.classList.add('btn-success');
-            btnDetalhes.title = 'Detalhes - 1 plano(s) ativo(s)';
-          }
-        } else {
-          alert('Erro ao criar contrato: ' + (data.error || 'Erro desconhecido'));
-        }
-      } catch (error) {
-        console.error('Erro:', error);
-        alert('Erro ao criar contrato.');
-      }
-    });
-  }
-});
 </script>
 {% endblock %}

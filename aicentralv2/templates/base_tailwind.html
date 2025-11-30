@@ -320,40 +320,22 @@
                                 <span class="sidebar-text">Tipos de Cliente</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                                <i class="fas fa-building w-4"></i>
+                                <span class="sidebar-text">Setores</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
+                                <i class="fas fa-user-tie w-4"></i>
+                                <span class="sidebar-text">Cargos</span>
+                            </a>
+                        </li>
                         
 
 
                         <li class="my-2"><hr class="border-base-300"></li>
-
-                        <!-- Outros itens -->
-                        <li class="menu-title sidebar-text">
-                            <span>Outros</span>
-                        </li>
-                        <li>
-                            <details data-group="cadastros">
-                                <summary>
-                                    <i class="fas fa-cog w-5"></i>
-                                    <span class="sidebar-text">Cadastros Base</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                                            <span class="sidebar-text">Setores</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
-                                            <span class="sidebar-text">Cargos</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('percentual_list') }}" class="{% if request.endpoint == 'percentual_list' %}active{% endif %}">
-                                            <span class="sidebar-text">Boas-Vindas</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
 
                         <!-- Administração (apenas para admin/superadmin) -->
                         {% if session.user_type in ['admin', 'superadmin'] %}

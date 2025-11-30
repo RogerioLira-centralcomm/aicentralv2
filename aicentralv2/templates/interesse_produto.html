@@ -55,7 +55,15 @@
         <label class="label">
           <span class="label-text">Cliente</span>
         </label>
-        <input type="text" name="cliente" value="{{ filtro_cliente or '' }}" placeholder="Nome do cliente..." class="input input-bordered w-full">
+        <select name="cliente_id" class="select select-bordered w-full">
+          <option value="">Todos os clientes</option>
+          {% for cliente in clientes_ativos %}
+            <option value="{{ cliente.id_cliente }}" 
+                    {% if filtro_cliente_id and filtro_cliente_id == cliente.id_cliente|string %}selected{% endif %}>
+              {{ cliente.nome_fantasia or cliente.razao_social }}
+            </option>
+          {% endfor %}
+        </select>
       </div>
 
       <div class="form-control flex flex-row gap-2 items-end">

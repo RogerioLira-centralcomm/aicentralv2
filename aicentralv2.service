@@ -3,12 +3,12 @@ Description=AIcentralv2 Flask Application
 After=network.target
 
 [Service]
-Type=simple
+Type=exec
 User=root
 Group=root
 WorkingDirectory=/var/www/aicentralv2
-Environment="PATH=/var/www/aicentralv2/venv/bin"
-ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --config gunicorn_config.py run:app
+Environment="PATH=/var/www/aicentralv2/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/var/www/aicentralv2/venv/bin/gunicorn --bind 127.0.0.1:8001 --workers 4 --timeout 120 --access-logfile /var/www/aicentralv2/logs/access.log --error-logfile /var/www/aicentralv2/logs/error.log --pid /var/www/aicentralv2/gunicorn.pid run:app
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=30

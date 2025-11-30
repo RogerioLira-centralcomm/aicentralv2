@@ -1,76 +1,58 @@
 #!/bin/bash
 
 # Script de Deploy - AIcentral v2
-# Atualiza codigo, instala dependencias e reinicia servico
-
-set -e  # Parar execucao em caso de erro
+set -e
 
 echo "========================================"
 echo "Deploy AIcentral v2"
 echo "========================================"
 
-# Verificar se .env existe
-if [ ! -f .env ]; then
-    echo "ERRO: Arquivo .env nao encontrado!"
-    echo "Copie .env.example para .env e configure as variaveis"
-    exit 1
-fi
-
 # Atualizar codigo
 echo "Atualizando codigo..."
 git pull origin main
 
+# Atualizar systemd
+echo "Atualizando systemd..."
+sudo cp aicentralv2.service /etc/systemd/system/
+sudo systemctl daemon-reload
+
 # Ativar ambiente virtual
 echo "Ativando ambiente virtual..."
-if [ -d "venv" ]; then
-    source venv/bin/activate
-elif [ -d "venv_new" ]; then
-    source venv_new/bin/activate
-else
-    echo "ERRO: Ambiente virtual nao encontrado (venv ou venv_new)"
-    exit 1
-fi
+source venv/bin/activate || source venv_new/bin/activate
 
-# Instalar/atualizar dependencias
+# Instalar dependencias
 echo "Instalando dependencias..."
-pip install -r requirements.txt --upgrade
+pip install -r requirements.txt --upgrade --quiet
 
-# Criar diretorio de uploads se nao existir
-echo "Verificando diretorio de uploads..."
-mkdir -p aicentralv2/static/uploads/audiencias
-chmod 755 aicentralv2/static/uploads/audiencias
+# Criar diretorios
+mkdir -p aicentralv2/static/uploads/audiencias logs
+chmod 755 aicentralv2/static/uploads/audiencias logs
 
-# Limpar cache Python
-echo "Limpando cache Python..."
+# Limpar cache
+echo "Limpando cache..."
 find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
-# Parar servico e limpar processos travados
+# Parar e limpar
 echo "Parando servico..."
-sudo systemctl stop aicentralv2 || true
-
-echo "Limpando processos gunicorn travados..."
+sudo systemctl stop aicentralv2 2>/dev/null || true
 sudo pkill -9 gunicorn 2>/dev/null || true
 sleep 2
+sudo rm -f gunicorn.pid
 
-# Remover arquivo PID se existir
-if [ -f "gunicorn.pid" ]; then
-    echo "Removendo arquivo PID antigo..."
-    sudo rm -f gunicorn.pid
-fi
-
-# Reiniciar servico
+# Iniciar
 echo "Iniciando servico..."
 sudo systemctl start aicentralv2
 
-# Verificar status
+# Verificar
 sleep 3
 if sudo systemctl is-active --quiet aicentralv2; then
-    echo "✓ Servico iniciado com sucesso!"
+    echo "✓ Deploy concluido com sucesso!"
+    sudo systemctl status aicentralv2 --no-pager -l
 else
-    echo "✗ ERRO: Falha ao iniciar servico"
-    echo "Executando diagnostico..."
-    sudo systemctl status aicentralv2 --no-pager
+    echo "✗ ERRO ao iniciar servico"
+    sudo systemctl status aicentralv2 --no-pager -l
+    sudo journalctl -u aicentralv2 -n 50 --no-pager
     exit 1
 fi
 

@@ -579,6 +579,7 @@ def init_routes(app):
             from datetime import date
             import importlib.util
             import os
+            import traceback
             
             # Carregar config.py diretamente
             config_path = os.path.join(os.path.dirname(__file__), 'config.py')
@@ -588,11 +589,22 @@ def init_routes(app):
             ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
             
             # Estatísticas principais
-            stats = db.obter_dashboard_stats()
+            try:
+                stats = db.obter_dashboard_stats()
+            except Exception as e:
+                app.logger.error(f"Erro ao obter stats: {str(e)}")
+                app.logger.error(traceback.format_exc())
+                stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
+                        'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
+                        'planos_proximo_limite': 0, 'planos_vencendo': 0}
             
             # Logs recentes do usuário logado
-            user_id = session.get('user_id')
-            logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
+            try:
+                user_id = session.get('user_id')
+                logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
+            except Exception as e:
+                app.logger.error(f"Erro ao obter logs: {str(e)}")
+                logs_recentes = []
             
             # Verificar se deve mostrar alertas de planos
             user_type = session.get('user_type', 'client')
@@ -602,16 +614,21 @@ def init_routes(app):
             
             planos_alerta = []
             if show_plan_alerts:
-                # Planos próximos do limite (ativos e válidos)
-                planos_alerta = db.obter_planos_clientes({
-                    'plan_status': 'active'
-                })
-                
-                # Filtrar apenas planos válidos e acima do limite de alerta
-                planos_alerta = [p for p in planos_alerta 
-                                if p.get('valid_until') and p['valid_until'] >= date.today()
-                                and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
-                                     or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
+                try:
+                    # Planos próximos do limite (ativos e válidos)
+                    planos_alerta = db.obter_planos_clientes({
+                        'plan_status': 'active'
+                    })
+                    
+                    # Filtrar apenas planos válidos e acima do limite de alerta
+                    planos_alerta = [p for p in planos_alerta 
+                                    if p.get('valid_until') and p['valid_until'] >= date.today()
+                                    and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
+                                         or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
+                except Exception as e:
+                    app.logger.error(f"Erro ao obter planos: {str(e)}")
+                    app.logger.error(traceback.format_exc())
+                    planos_alerta = []
             
             return render_template('index_tailwind.html',
                                  stats=stats,
@@ -620,14 +637,18 @@ def init_routes(app):
                                  show_plan_alerts=show_plan_alerts,
                                  aviso_plan=config_module.AVISO_PLAN)
         except Exception as e:
-            app.logger.error(f"Erro ao carregar dashboard: {str(e)}")
+            import traceback
+            app.logger.error(f"Erro crítico ao carregar dashboard: {str(e)}")
+            app.logger.error(traceback.format_exc())
             flash('Erro ao carregar dados do dashboard.', 'error')
             return render_template('index_tailwind.html', 
                                 stats={'total_clientes_ativos': 0, 'total_usuarios': 0, 
                                        'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
                                        'planos_proximo_limite': 0, 'planos_vencendo': 0},
                                 logs_recentes=[],
-                                planos_alerta=[])
+                                planos_alerta=[],
+                                show_plan_alerts=False,
+                                aviso_plan=90)
     
     # ==================== FORGOT PASSWORD ====================
     

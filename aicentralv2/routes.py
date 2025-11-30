@@ -633,17 +633,6 @@ def init_routes(app):
                              show_plan_alerts=show_plan_alerts,
                              aviso_plan=aviso_plan,
                              today=date.today())
-            # Retornar página com valores vazios em vez de erro 500
-            return render_template('index_tailwind.html', 
-                                stats={'total_clientes_ativos': 0, 'total_usuarios': 0, 
-                                       'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
-                                       'planos_proximo_limite': 0, 'planos_vencendo': 0,
-                                       'mes_atual': 'N/A'},
-                                logs_recentes=[],
-                                planos_alerta=[],
-                                planos_vencendo=[],
-                                show_plan_alerts=False,
-                                aviso_plan=90)
     
     # ==================== FORGOT PASSWORD ====================
     

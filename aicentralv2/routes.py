@@ -575,18 +575,33 @@ def init_routes(app):
     @login_required
     def index():
         """Página inicial - Dashboard"""
+        import traceback
         try:
             from datetime import date
             import importlib.util
             import os
-            import traceback
+            
+            # Valores padrão
+            stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
+                    'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
+                    'planos_proximo_limite': 0, 'planos_vencendo': 0,
+                    'mes_atual': 'N/A'}
+            logs_recentes = []
+            planos_alerta = []
+            show_plan_alerts = False
+            aviso_plan = 90
             
             # Carregar config.py diretamente
-            config_path = os.path.join(os.path.dirname(__file__), 'config.py')
-            spec = importlib.util.spec_from_file_location("config_module", config_path)
-            config_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(config_module)
-            ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
+            try:
+                config_path = os.path.join(os.path.dirname(__file__), 'config.py')
+                spec = importlib.util.spec_from_file_location("config_module", config_path)
+                config_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(config_module)
+                ALERTA_CONSUMO_TOKEN = config_module.ALERTA_CONSUMO_TOKEN
+                aviso_plan = config_module.AVISO_PLAN
+            except Exception as e:
+                app.logger.error(f"Erro ao carregar config: {str(e)}")
+                ALERTA_CONSUMO_TOKEN = 80
             
             # Estatísticas principais
             try:
@@ -594,9 +609,6 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro ao obter stats: {str(e)}")
                 app.logger.error(traceback.format_exc())
-                stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
-                        'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
-                        'planos_proximo_limite': 0, 'planos_vencendo': 0}
             
             # Logs recentes do usuário logado
             try:
@@ -604,17 +616,16 @@ def init_routes(app):
                 logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
             except Exception as e:
                 app.logger.error(f"Erro ao obter logs: {str(e)}")
-                logs_recentes = []
+                app.logger.error(traceback.format_exc())
             
             # Verificar se deve mostrar alertas de planos
-            user_type = session.get('user_type', 'client')
-            is_admin = user_type in ['admin', 'superadmin']
-            is_cc = is_centralcomm_user()
-            show_plan_alerts = is_admin or is_cc
-            
-            planos_alerta = []
-            if show_plan_alerts:
-                try:
+            try:
+                user_type = session.get('user_type', 'client')
+                is_admin = user_type in ['admin', 'superadmin']
+                is_cc = is_centralcomm_user()
+                show_plan_alerts = is_admin or is_cc
+                
+                if show_plan_alerts:
                     # Planos próximos do limite (ativos e válidos)
                     planos_alerta = db.obter_planos_clientes({
                         'plan_status': 'active'
@@ -625,26 +636,25 @@ def init_routes(app):
                                     if p.get('valid_until') and p['valid_until'] >= date.today()
                                     and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
                                          or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
-                except Exception as e:
-                    app.logger.error(f"Erro ao obter planos: {str(e)}")
-                    app.logger.error(traceback.format_exc())
-                    planos_alerta = []
+            except Exception as e:
+                app.logger.error(f"Erro ao obter planos: {str(e)}")
+                app.logger.error(traceback.format_exc())
             
             return render_template('index_tailwind.html',
                                  stats=stats,
                                  logs_recentes=logs_recentes,
                                  planos_alerta=planos_alerta,
                                  show_plan_alerts=show_plan_alerts,
-                                 aviso_plan=config_module.AVISO_PLAN)
+                                 aviso_plan=aviso_plan)
         except Exception as e:
-            import traceback
             app.logger.error(f"Erro crítico ao carregar dashboard: {str(e)}")
             app.logger.error(traceback.format_exc())
-            flash('Erro ao carregar dados do dashboard.', 'error')
+            # Retornar página com valores vazios em vez de erro 500
             return render_template('index_tailwind.html', 
                                 stats={'total_clientes_ativos': 0, 'total_usuarios': 0, 
                                        'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
-                                       'planos_proximo_limite': 0, 'planos_vencendo': 0},
+                                       'planos_proximo_limite': 0, 'planos_vencendo': 0,
+                                       'mes_atual': 'N/A'},
                                 logs_recentes=[],
                                 planos_alerta=[],
                                 show_plan_alerts=False,

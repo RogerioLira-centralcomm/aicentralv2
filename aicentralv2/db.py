@@ -3114,13 +3114,13 @@ def obter_dashboard_stats():
             stats['planos_proximo_limite'] = cursor.fetchone()['total']
             
             # Planos próximos do vencimento (usar AVISO_PLAN do .env)
-            cursor.execute('''
+            cursor.execute(f'''
                 SELECT COUNT(*) as total
                 FROM cadu_client_plans
                 WHERE plan_status = 'active'
                 AND valid_until IS NOT NULL
-                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '%s days'
-            ''' % AVISO_PLAN)
+                AND valid_until BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '{AVISO_PLAN} days'
+            ''')
             stats['planos_vencendo'] = cursor.fetchone()['total']
             
         return stats

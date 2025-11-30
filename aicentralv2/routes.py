@@ -619,6 +619,7 @@ def init_routes(app):
                 app.logger.error(traceback.format_exc())
             
             # Verificar se deve mostrar alertas de planos
+            planos_vencendo = []
             try:
                 user_type = session.get('user_type', 'client')
                 is_admin = user_type in ['admin', 'superadmin']
@@ -636,6 +637,12 @@ def init_routes(app):
                                     if p.get('valid_until') and p['valid_until'] >= date.today()
                                     and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
                                          or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
+                    
+                    # Planos vencendo (usar aviso_plan do config)
+                    from datetime import timedelta
+                    data_limite = date.today() + timedelta(days=aviso_plan)
+                    planos_vencendo = [p for p in db.obter_planos_clientes({'plan_status': 'active'})
+                                      if p.get('valid_until') and date.today() <= p['valid_until'] <= data_limite]
             except Exception as e:
                 app.logger.error(f"Erro ao obter planos: {str(e)}")
                 app.logger.error(traceback.format_exc())
@@ -644,8 +651,10 @@ def init_routes(app):
                                  stats=stats,
                                  logs_recentes=logs_recentes,
                                  planos_alerta=planos_alerta,
+                                 planos_vencendo=planos_vencendo,
                                  show_plan_alerts=show_plan_alerts,
-                                 aviso_plan=aviso_plan)
+                                 aviso_plan=aviso_plan,
+                                 today=date.today())
         except Exception as e:
             app.logger.error(f"Erro crítico ao carregar dashboard: {str(e)}")
             app.logger.error(traceback.format_exc())
@@ -657,6 +666,7 @@ def init_routes(app):
                                        'mes_atual': 'N/A'},
                                 logs_recentes=[],
                                 planos_alerta=[],
+                                planos_vencendo=[],
                                 show_plan_alerts=False,
                                 aviso_plan=90)
     

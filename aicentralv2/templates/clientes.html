@@ -1777,5 +1777,29 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
     alert('Erro ao deletar contato!');
   }
 }
+
+// Abrir modal automaticamente via URL params
+document.addEventListener('DOMContentLoaded', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const clienteId = urlParams.get('open');
+  const tab = urlParams.get('tab');
+  
+  if (clienteId) {
+    abrirModalEditar(parseInt(clienteId)).then(() => {
+      if (tab === 'contratos') {
+        // Aguardar modal abrir e clicar na aba contratos
+        setTimeout(() => {
+          const contratosTab = document.getElementById('tab_contratos');
+          if (contratosTab) {
+            contratosTab.click();
+          }
+        }, 500);
+      }
+    });
+    
+    // Limpar URL sem recarregar página
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+});
 </script>
 {% endblock %}

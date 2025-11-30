@@ -127,7 +127,7 @@
                         {% for plano in planos_alerta[:5] %}
                         <tr class="hover">
                             <td class="text-xs">
-                                <a href="{{ url_for('clientes') }}" 
+                                <a href="{{ url_for('clientes') }}?open={{ plano.id_cliente }}&tab=contratos" 
                                    class="link link-primary link-hover font-medium truncate block max-w-[100px] sm:max-w-none">
                                     {{ plano.nome_fantasia }}
                                 </a>
@@ -174,31 +174,65 @@
     </div>
 
     <!-- Planos Vencendo -->
-    <div class="card bg-base-100 shadow-xl border border-error/20">
-        <div class="card-body">
-            <h2 class="card-title text-error flex items-center gap-2">
-                <div class="badge badge-error badge-lg gap-2">
-                    <i class="fas fa-calendar-times"></i>
+    <div class="card bg-base-100 shadow-xl border border-error/20 overflow-hidden">
+        <div class="card-body p-3 sm:p-6">
+            <h2 class="card-title text-error flex flex-wrap items-center gap-2 text-sm sm:text-base">
+                <div class="badge badge-error badge-sm sm:badge-lg gap-1 sm:gap-2">
+                    <i class="fas fa-calendar-times text-xs"></i>
                     {{ stats.planos_vencendo }}
                 </div>
-                <span>Planos Vencendo</span>
+                <span class="text-sm sm:text-base">Planos Vencendo</span>
             </h2>
             
-            {% if stats.planos_vencendo > 0 %}
-            <div class="alert alert-error shadow-sm mt-4">
-                <i class="fas fa-exclamation-circle text-lg"></i>
-                <span>{{ stats.planos_vencendo }} plano(s) vence(m) nos próximos {{ aviso_plan }} dias</span>
-            </div>
-            <div class="card-actions justify-end mt-4">
-                <a href="{{ url_for('planos_lista') }}?plan_status=active" class="btn btn-error btn-sm gap-2">
-                    <i class="fas fa-eye"></i>
-                    Ver Planos
-                </a>
+            {% if planos_vencendo %}
+            <div class="w-full overflow-x-auto mt-4">
+                <table class="table table-xs w-full min-w-full">
+                    <thead>
+                        <tr class="bg-base-200">
+                            <th class="text-xs">Cliente</th>
+                            <th class="text-xs text-center w-32">Vencimento</th>
+                            <th class="text-xs text-center w-16">Dias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plano in planos_vencendo[:5] %}
+                        <tr class="hover">
+                            <td class="text-xs">
+                                <a href="{{ url_for('clientes') }}?open={{ plano.id_cliente }}&tab=contratos" 
+                                   class="link link-primary link-hover font-medium truncate block max-w-[100px] sm:max-w-none">
+                                    {{ plano.nome_fantasia }}
+                                </a>
+                            </td>
+                            <td class="text-center text-xs">
+                                {{ plano.valid_until.strftime('%d/%m/%Y') if plano.valid_until else 'N/A' }}
+                            </td>
+                            <td class="text-center">
+                                {% set dias_restantes = (plano.valid_until - today).days if plano.valid_until else 0 %}
+                                <span class="badge badge-sm 
+                                    {% if dias_restantes <= 7 %}badge-error
+                                    {% elif dias_restantes <= 15 %}badge-warning
+                                    {% else %}badge-info{% endif %}">
+                                    {{ dias_restantes }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
             {% else %}
-            <div class="alert alert-success shadow-sm mt-4">
-                <i class="fas fa-check-circle text-lg"></i>
-                <span>Nenhum plano vencendo em breve</span>
+            <div class="alert alert-success shadow-sm mt-4 text-xs sm:text-sm">
+                <i class="fas fa-check-circle text-sm sm:text-lg"></i>
+                <span>Nenhum plano vencendo em {{ aviso_plan }} dias</span>
+            </div>
+            {% endif %}
+            
+            {% if planos_vencendo|length > 5 %}
+            <div class="card-actions justify-end mt-4">
+                <button class="btn btn-xs sm:btn-sm btn-ghost gap-1 sm:gap-2">
+                    <i class="fas fa-list text-xs"></i>
+                    <span class="text-xs sm:text-sm">Ver todos ({{ planos_vencendo|length }})</span>
+                </button>
             </div>
             {% endif %}
         </div>

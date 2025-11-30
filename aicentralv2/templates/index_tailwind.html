@@ -21,6 +21,7 @@
 </div>
 
 <!-- Stats Cards -->
+{% if false %}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <!-- Total Clientes Ativos -->
     <div class="card bg-gradient-to-br from-primary to-primary-focus text-primary-content shadow-xl hover:shadow-2xl transition-shadow">
@@ -98,6 +99,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Alertas -->
 {% if false and show_plan_alerts %}
@@ -302,33 +304,5 @@
 </div>
 {% endif %}
 
-<!-- Quick Actions (apenas para admins) -->
-{% if session.user_type in ['admin', 'superadmin'] %}
-<div class="card bg-gradient-to-br from-base-200 to-base-300 shadow-xl">
-    <div class="card-body">
-        <h2 class="card-title flex items-center gap-2">
-            <i class="fas fa-bolt text-warning"></i>
-            Ações Rápidas
-        </h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            <a href="{{ url_for('clientes') }}" class="btn btn-outline btn-primary gap-2 hover:scale-105 transition-transform">
-                <i class="fas fa-users"></i>
-                <span class="hidden md:inline">Ver Clientes</span>
-            </a>
-            <a href="{{ url_for('cliente_novo') }}" class="btn btn-outline btn-secondary gap-2 hover:scale-105 transition-transform">
-                <i class="fas fa-building"></i>
-                <span class="hidden md:inline">Novo Cliente</span>
-            </a>
-            <a href="{{ url_for('contrato_novo') }}" class="btn btn-outline btn-accent gap-2 hover:scale-105 transition-transform">
-                <i class="fas fa-box"></i>
-                <span class="hidden md:inline">Novo Contrato</span>
-            </a>
-            <a href="{{ url_for('audiencias_listar') }}" class="btn btn-outline btn-info gap-2 hover:scale-105 transition-transform">
-                <i class="fas fa-bullseye"></i>
-                <span class="hidden md:inline">Audiências</span>
-            </a>
-        </div>
-    </div>
-</div>
-{% endif %}
+
 {% endblock %}

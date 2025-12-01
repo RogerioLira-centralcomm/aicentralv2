@@ -15,29 +15,46 @@
     </a>
   </div>
 
-  <!-- Filtro por Categoria -->
+  <!-- Filtros -->
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-4">
-      <form method="GET" class="flex gap-3 items-end">
-        <div class="form-control flex-1">
-          <label class="label">
-            <span class="label-text font-medium">Filtrar por Categoria</span>
-          </label>
-          <select name="categoria_id" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="this.form.submit()">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- Pesquisa por Nome -->
+        <div class="flex items-center gap-3">
+          <label class="label font-semibold text-sm py-1">Pesquisar:</label>
+          <input 
+            type="text" 
+            id="pesquisa_subcategoria" 
+            oninput="filtrarSubcategorias()" 
+            class="input input-bordered input-sm flex-1" 
+            placeholder="Digite o nome..."
+          >
+        </div>
+        
+        <!-- Filtro por Categoria -->
+        <div class="flex items-center gap-3">
+          <label class="label font-semibold text-sm py-1">Categoria:</label>
+          <select id="filtro_categoria" onchange="filtrarSubcategorias()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
             <option value="">Todas as categorias</option>
             {% for cat in categorias %}
-            <option value="{{ cat.id }}" {% if categoria_id_filtro|string == cat.id|string %}selected{% endif %}>
-              {{ cat.nome }}
-            </option>
+            <option value="{{ cat.nome }}">{{ cat.nome }}</option>
             {% endfor %}
           </select>
         </div>
-        {% if categoria_id_filtro %}
-        <a href="{{ url_for('cadu_subcategorias') }}" class="btn btn-ghost btn-sm">
-          <i class="fas fa-times mr-1"></i>Limpar Filtro
-        </a>
-        {% endif %}
-      </form>
+
+        <!-- Filtro por Status -->
+        <div class="flex items-center gap-3">
+          <label class="label font-semibold text-sm py-1">Status:</label>
+          <select id="filtro_status" onchange="filtrarSubcategorias()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
+            <option value="">Todos os status</option>
+            <option value="ativa">Ativa</option>
+            <option value="inativa">Inativa</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-2">
+        <span id="contador_filtro" class="text-sm text-base-content/70"></span>
+      </div>
     </div>
   </div>
 
@@ -45,7 +62,7 @@
   <div class="bg-base-100 rounded-xl overflow-hidden">
     {% if subcategorias %}
       <div class="overflow-x-auto">
-        <table class="table table-xs w-full">
+        <table class="table table-xs w-full" id="tabela_subcategorias">
           <thead class="bg-primary text-white">
             <tr>
               <th class="text-left font-bold uppercase">Subcategoria</th>
@@ -58,7 +75,7 @@
           </thead>
           <tbody>
             {% for sub in subcategorias %}
-            <tr class="hover">
+            <tr class="hover" data-categoria="{{ sub.categoria_nome or '' }}" data-status="{{ 'ativa' if sub.is_active else 'inativa' }}">
               <td>
                 <div class="flex items-center gap-3">
                   {% if sub.icone %}
@@ -101,17 +118,17 @@
               <td class="text-center">
                 <div class="flex items-center justify-center gap-2">
                   <a href="{{ url_for('cadu_subcategorias_detalhes', id_subcategoria=sub.id) }}" 
-                     class="btn btn-xs btn-ghost"
+                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
                      title="Ver detalhes">
                     <i class="fas fa-eye"></i>
                   </a>
                   <a href="{{ url_for('cadu_subcategorias_editar', id_subcategoria=sub.id) }}" 
-                     class="btn btn-xs btn-primary"
+                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
                      title="Editar">
                     <i class="fas fa-edit"></i>
                   </a>
                   <button onclick="confirmarExclusao({{ sub.id }}, '{{ sub.nome }}')"
-                          class="btn btn-xs btn-error"
+                          class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors duration-200"
                           title="Excluir">
                     <i class="fas fa-trash"></i>
                   </button>
@@ -140,6 +157,83 @@
 </div>
 
 <script>
+function filtrarSubcategorias() {
+  const pesquisa = document.getElementById('pesquisa_subcategoria').value.toLowerCase().trim();
+  const categoriaFiltro = document.getElementById('filtro_categoria').value.trim();
+  const statusFiltro = document.getElementById('filtro_status').value.trim();
+  const tabela = document.getElementById('tabela_subcategorias');
+  const tbody = tabela.querySelector('tbody');
+  
+  if (!tbody) {
+    console.error('Tbody não encontrado');
+    return;
+  }
+  
+  const linhas = tbody.getElementsByTagName('tr');
+  
+  let visiveis = 0;
+  const total = linhas.length;
+  
+  console.log('=== FILTRO DEBUG ===');
+  console.log('Pesquisa:', pesquisa);
+  console.log('Categoria Filtro:', categoriaFiltro);
+  console.log('Status Filtro:', statusFiltro);
+  console.log('Total de linhas:', total);
+  
+  for (let i = 0; i < linhas.length; i++) {
+    const linha = linhas[i];
+    const colunas = linha.getElementsByTagName('td');
+    
+    if (colunas.length > 0) {
+      // Pegar apenas o texto do nome (dentro do div.font-semibold)
+      const nomeElement = colunas[0].querySelector('.font-semibold');
+      const nome = nomeElement ? nomeElement.textContent.toLowerCase().trim() : '';
+      
+      const categoriaAttr = linha.getAttribute('data-categoria');
+      const categoria = categoriaAttr ? categoriaAttr.trim() : '';
+      
+      const statusAttr = linha.getAttribute('data-status');
+      const status = statusAttr ? statusAttr.trim() : '';
+      
+      const descricao = colunas[2].textContent.toLowerCase().trim();
+      
+      console.log(`Linha ${i}: categoria="${categoria}", status="${status}", nome="${nome}"`);
+      
+      const matchPesquisa = pesquisa === '' || nome.includes(pesquisa) || descricao.includes(pesquisa);
+      const matchCategoria = categoriaFiltro === '' || categoria === categoriaFiltro;
+      const matchStatus = statusFiltro === '' || status === statusFiltro;
+      
+      // Todos filtros devem passar (AND)
+      const mostrar = matchPesquisa && matchCategoria && matchStatus;
+      
+      console.log(`  matchPesquisa: ${matchPesquisa}, matchCategoria: ${matchCategoria}, matchStatus: ${matchStatus}, mostrar: ${mostrar}`);
+      
+      if (mostrar) {
+        linha.style.display = '';
+        visiveis++;
+      } else {
+        linha.style.display = 'none';
+      }
+    }
+  }
+  
+  console.log('Visíveis:', visiveis);
+  console.log('===================');
+  
+  // Atualizar contador
+  const contador = document.getElementById('contador_filtro');
+  if (pesquisa || categoriaFiltro || statusFiltro) {
+    contador.textContent = `Mostrando ${visiveis} de ${total} subcategorias`;
+  } else {
+    contador.textContent = `Total: ${total} subcategorias`;
+  }
+}
+
+// Inicializar contador ao carregar a página
+document.addEventListener('DOMContentLoaded', function() {
+  filtrarSubcategorias();
+});
+
 function confirmarExclusao(id, nome) {
   if (confirm(`Tem certeza que deseja excluir a subcategoria "${nome}"?\n\nEsta ação não pode ser desfeita.`)) {
     fetch(`/api/cadu_subcategorias/${id}`, {

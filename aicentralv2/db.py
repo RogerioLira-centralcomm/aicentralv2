@@ -3091,6 +3091,19 @@ def obter_dashboard_stats():
             mes_nome = meses_pt[agora.month]
             stats['mes_atual'] = f"{mes_nome}/{agora.year}"
             
+            # Tokens do mês anterior
+            mes_anterior_num = agora.month - 1 if agora.month > 1 else 12
+            ano_anterior = agora.year if agora.month > 1 else agora.year - 1
+            cursor.execute('''
+                SELECT COALESCE(SUM(quantidade), 0) as total
+                FROM cadu_token_usage
+                WHERE EXTRACT(YEAR FROM created_at) = %s
+                AND EXTRACT(MONTH FROM created_at) = %s
+            ''', (ano_anterior, mes_anterior_num))
+            stats['tokens_mes_anterior'] = cursor.fetchone()['total']
+            mes_anterior_nome = meses_pt[mes_anterior_num]
+            stats['mes_anterior'] = f"{mes_anterior_nome}/{ano_anterior}"
+            
             # Imagens geradas no mês atual
             cursor.execute('''
                 SELECT COALESCE(SUM(image_credits_used_current_month), 0) as total

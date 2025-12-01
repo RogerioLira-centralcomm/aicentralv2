@@ -11,7 +11,7 @@
 
   <!-- Filtros -->
   <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div class="form-control">
         <label class="label">
           <span class="label-text font-semibold">Categoria</span>
@@ -30,6 +30,17 @@
         </label>
         <select id="filtro-subcategoria" class="select select-bordered w-full h-10 min-h-10" disabled>
           <option value="" selected>Todas as subcategorias</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Status</span>
+        </label>
+        <select id="filtro-status" class="select select-bordered w-full h-10 min-h-10">
+          <option value="" selected>Todos os status</option>
+          <option value="ativa">Ativa</option>
+          <option value="inativa">Inativa</option>
         </select>
       </div>
 
@@ -59,31 +70,31 @@
   <!-- Stats Cards -->
   {% if stats %}
   <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-    <div class="bg-base-100 border border-base-300 rounded-lg p-3 shadow-sm">
+    <div class="bg-base-100 border border-base-300 rounded-lg p-2 shadow-sm">
       <div class="flex items-center justify-between">
         <div>
           <p class="text-xs text-base-content/60 uppercase">Total</p>
-          <p class="text-lg font-semibold">{{ stats.total }}</p>
+          <p class="text-sm font-semibold">{{ stats.total }}</p>
         </div>
-        <i class="fas fa-users text-xl text-base-content/20"></i>
+        <i class="fas fa-users text-lg text-base-content/20"></i>
       </div>
     </div>
-    <div class="bg-base-100 border border-success/30 rounded-lg p-3 shadow-sm">
+    <div class="bg-base-100 border border-success/30 rounded-lg p-2 shadow-sm">
       <div class="flex items-center justify-between">
         <div>
           <p class="text-xs text-base-content/60 uppercase">Ativas</p>
-          <p class="text-lg font-semibold text-success">{{ stats.ativos }}</p>
+          <p class="text-sm font-semibold text-success">{{ stats.ativos }}</p>
         </div>
-        <i class="fas fa-check-circle text-xl text-success/20"></i>
+        <i class="fas fa-check-circle text-lg text-success/20"></i>
       </div>
     </div>
-    <div class="bg-base-100 border border-error/30 rounded-lg p-3 shadow-sm">
+    <div class="bg-base-100 border border-error/30 rounded-lg p-2 shadow-sm">
       <div class="flex items-center justify-between">
         <div>
           <p class="text-xs text-base-content/60 uppercase">Inativas</p>
-          <p class="text-lg font-semibold text-error">{{ stats.inativos }}</p>
+          <p class="text-sm font-semibold text-error">{{ stats.inativos }}</p>
         </div>
-        <i class="fas fa-ban text-xl text-error/20"></i>
+        <i class="fas fa-ban text-lg text-error/20"></i>
       </div>
     </div>
   </div>
@@ -110,7 +121,7 @@
           </thead>
           <tbody>
             {% for audiencia in audiencias %}
-            <tr class="hover">
+            <tr class="hover" data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}">
               <td>
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
                   <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
@@ -163,25 +174,22 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-                  {% if audiencia.is_active %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
-                  {% if audiencia.is_active %}
-                    <i class="fas fa-check-circle mr-1 text-green-500"></i>
-                  {% else %}
-                    <i class="fas fa-ban mr-1 text-red-500"></i>
-                  {% endif %}
-                  {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
-                </span>
+                <button type="button"
+                        class="badge badge-sm cursor-pointer transition-all hover:scale-105 {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %} btn-toggle-status"
+                        data-audiencia-id="{{ audiencia.id }}"
+                        title="Clique para {% if audiencia.is_active %}desativar{% else %}ativar{% endif %}">
+                  {% if audiencia.is_active %}Ativa{% else %}Inativa{% endif %}
+                </button>
               </td>
               <td>
-                <div class="flex items-center justify-center gap-1">
+                <div class="flex items-center justify-center gap-2">
                   <button onclick="abrirModalEditarAudiencia({{ audiencia.id }})" 
-                     class="btn btn-xs btn-circle btn-outline btn-primary" 
+                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200" 
                      title="Editar">
                     <i class="fas fa-edit"></i>
                   </button>
                   <button type="button" 
-                          class="btn btn-xs btn-circle btn-outline {% if audiencia.imagem_url %}btn-success{% else %}btn-info{% endif %} btn-gerar-imagem" 
+                          class="p-2 {% if audiencia.imagem_url %}text-green-600 hover:text-green-800 hover:bg-green-50{% else %}text-blue-600 hover:text-blue-800 hover:bg-blue-50{% endif %} rounded transition-colors duration-200 btn-gerar-imagem" 
                           data-audiencia-id="{{ audiencia.id }}"
                           data-audiencia-nome="{{ audiencia.nome }}"
                           data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
@@ -191,13 +199,7 @@
                     <i class="fas fa-image"></i>
                   </button>
                   <button type="button" 
-                          class="btn btn-xs btn-circle btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"
-                          data-audiencia-id="{{ audiencia.id }}"
-                          title="{% if audiencia.is_active %}Desativar{% else %}Ativar{% endif %}">
-                    <i class="fas {% if audiencia.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
-                  </button>
-                  <button type="button" 
-                          class="btn btn-xs btn-circle btn-outline btn-error btn-delete"
+                          class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors duration-200 btn-delete"
                           data-audiencia-id="{{ audiencia.id }}"
                           data-audiencia-nome="{{ audiencia.nome }}"
                           title="Deletar">
@@ -221,7 +223,7 @@
   <div class="block md:hidden space-y-4">
     {% if audiencias %}
       {% for audiencia in audiencias %}
-      <div class="card bg-base-100 shadow-lg">
+      <div class="card bg-base-100 shadow-lg" data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}">
         <div class="card-body p-4">
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
@@ -262,14 +264,12 @@
             </div>
             <div class="flex justify-between">
               <span class="text-base-content/60">Status:</span>
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-                {% if audiencia.is_active %}bg-green-100 text-green-800 border border-green-300{% else %}bg-red-100 text-red-700 border border-red-300{% endif %}">
-                {% if audiencia.is_active %}
-                  <i class="fas fa-check-circle mr-1 text-green-500"></i>Ativa
-                {% else %}
-                  <i class="fas fa-ban mr-1 text-red-500"></i>Inativa
-                {% endif %}
-              </span>
+              <button type="button"
+                      class="badge badge-sm cursor-pointer transition-all hover:scale-105 {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %} btn-toggle-status"
+                      data-audiencia-id="{{ audiencia.id }}"
+                      title="Clique para {% if audiencia.is_active %}desativar{% else %}ativar{% endif %}">
+                {% if audiencia.is_active %}Ativa{% else %}Inativa{% endif %}
+              </button>
             </div>
           </div>
 
@@ -286,12 +286,6 @@
                     data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
                     data-audiencia-imagem="{{ audiencia.imagem_url or '' }}">
               <i class="fas fa-image mr-1"></i>{% if audiencia.imagem_url %}Editar{% else %}Imagem{% endif %}
-            </button>
-            <button type="button" 
-                    class="btn btn-sm btn-outline {% if audiencia.is_active %}btn-warning{% else %}btn-success{% endif %} btn-toggle-status"
-                    data-audiencia-id="{{ audiencia.id }}">
-              <i class="fas {% if audiencia.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %} mr-1"></i>
-              {% if audiencia.is_active %}Desativar{% else %}Ativar{% endif %}
             </button>
             <button type="button" 
                     class="btn btn-sm btn-circle btn-outline btn-error btn-delete"
@@ -406,6 +400,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let audienciaIdToDelete = null;
   const filtroCategoria = document.getElementById('filtro-categoria');
   const filtroSubcategoria = document.getElementById('filtro-subcategoria');
+  const filtroStatus = document.getElementById('filtro-status');
   const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
 
   // Event listeners do Modal de Audiência
@@ -494,11 +489,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Aplicar filtro ao trocar subcategoria
   filtroSubcategoria.addEventListener('change', aplicarFiltros);
 
+  // Aplicar filtro ao trocar status
+  filtroStatus.addEventListener('change', aplicarFiltros);
+
   // Limpar filtros
   btnLimparFiltros.addEventListener('click', function() {
     filtroCategoria.value = '';
     filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
     filtroSubcategoria.disabled = true;
+    filtroStatus.value = '';
     aplicarFiltros();
   });
 
@@ -506,12 +505,14 @@ document.addEventListener('DOMContentLoaded', function() {
   function aplicarFiltros() {
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
+    const statusFiltro = filtroStatus.value;
 
     // Filtrar linhas da tabela desktop
     const tableRows = document.querySelectorAll('table tbody tr');
     tableRows.forEach(row => {
       const categoriaText = row.cells[4].textContent.trim();
       const subcategoriaText = row.cells[5].textContent.trim();
+      const statusAttr = row.getAttribute('data-status');
       
       let showRow = true;
 
@@ -531,6 +532,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
 
+      if (statusFiltro && showRow) {
+        if (statusAttr !== statusFiltro) {
+          showRow = false;
+        }
+      }
+
       row.style.display = showRow ? '' : 'none';
     });
 
@@ -540,6 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const categoriaElements = card.querySelectorAll('.space-y-2 > div');
       let categoriaText = '';
       let subcategoriaText = '';
+      const statusAttr = card.getAttribute('data-status');
 
       categoriaElements.forEach(div => {
         const label = div.querySelector('.text-base-content\\/60');
@@ -565,6 +573,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const subcategoriaOption = filtroSubcategoria.querySelector(`option[value="${subcategoriaId}"]`);
         const subcategoriaNome = subcategoriaOption ? subcategoriaOption.textContent : '';
         if (subcategoriaText !== subcategoriaNome) {
+          showCard = false;
+        }
+      }
+
+      if (statusFiltro && showCard) {
+        if (statusAttr !== statusFiltro) {
           showCard = false;
         }
       }

@@ -63,18 +63,22 @@
     <!-- Tokens do Mês -->
     <div class="card bg-emerald-600 text-white">
         <div class="card-body">
-            <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-3">
                 <div class="stat-figure text-white/20 flex-shrink-0">
-                    <i class="fas fa-coins text-3xl"></i>
+                    <i class="fas fa-coins text-4xl"></i>
                 </div>
-                <div class="text-right flex-1 min-w-0">
-                    <div class="stat-value text-lg sm:text-xl md:text-2xl font-bold break-words">{{ "{:,}".format(stats.tokens_mes_atual).replace(',', '.') }}</div>
-                    <div class="stat-title text-white/90 text-xs mt-1 font-medium">Tokens ({{ stats.mes_atual }})</div>
+                <div class="flex-1 min-w-0">
+                    <div class="space-y-2">
+                        <div>
+                            <div class="text-xs text-white/70 font-medium">{{ stats.mes_atual }}</div>
+                            <div class="text-2xl font-bold break-words">{{ "{:,}".format(stats.tokens_mes_atual).replace(',', '.') }}</div>
+                        </div>
+                        <div class="border-t border-white/20 pt-2">
+                            <div class="text-xs text-white/70 font-medium">{{ stats.mes_anterior }}</div>
+                            <div class="text-lg font-semibold break-words">{{ "{:,}".format(stats.tokens_mes_anterior).replace(',', '.') }}</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="stat-desc text-white/70 mt-2 text-xs">
-                <i class="fas fa-chart-line mr-1"></i>
-                Consumo atual
             </div>
         </div>
     </div>

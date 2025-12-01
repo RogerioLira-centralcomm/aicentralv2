@@ -210,7 +210,7 @@ def init_routes(app):
             # Lista de usuários para filtro
             usuarios_filtro = db.obter_usuarios_sistema({'status': True})
             
-            return render_template('admin_audit_logs.html',
+            return render_template('audit_logs.html',
                                  logs=logs,
                                  stats=stats,
                                  filtros={'modulo': request.args.get('modulo', ''),
@@ -575,9 +575,10 @@ def init_routes(app):
         
         # Valores padrão seguros
         stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
-                'tokens_mes_atual': 0, 'imagens_mes_atual': 0,
+                'tokens_mes_atual': 0, 'tokens_mes_anterior': 0,
+                'imagens_mes_atual': 0,
                 'planos_proximo_limite': 0, 'planos_vencendo': 0,
-                'mes_atual': 'N/A'}
+                'mes_atual': 'N/A', 'mes_anterior': 'N/A'}
         logs_recentes = []
         planos_alerta = []
         planos_vencendo = []

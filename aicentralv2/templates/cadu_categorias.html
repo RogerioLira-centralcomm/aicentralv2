@@ -28,145 +28,174 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Stats -->
-  {% if categorias %}
-  <div class="stats shadow w-full">
-    <div class="stat">
-      <div class="stat-figure text-primary">
-        <i class="fas fa-folder text-4xl"></i>
-      </div>
-      <div class="stat-title">Total de Categorias</div>
-      <div class="stat-value text-primary">{{ categorias|length }}</div>
-    </div>
-    
-    <div class="stat">
-      <div class="stat-figure text-success">
-        <i class="fas fa-check-circle text-4xl"></i>
-      </div>
-      <div class="stat-title">Ativas</div>
-      <div class="stat-value text-success">{{ categorias|selectattr('is_active')|list|length }}</div>
-    </div>
-    
-    <div class="stat">
-      <div class="stat-figure text-warning">
-        <i class="fas fa-star text-4xl"></i>
-      </div>
-      <div class="stat-title">Destacadas</div>
-      <div class="stat-value text-warning">{{ categorias|selectattr('is_featured')|list|length }}</div>
-    </div>
-    
-    <div class="stat">
-      <div class="stat-figure text-info">
-        <i class="fas fa-users text-4xl"></i>
-      </div>
-      <div class="stat-title">Total Audiências</div>
-      <div class="stat-value text-info">{{ categorias|sum(attribute='total_audiencias') or 0 }}</div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Grid de Cards -->
-  {% if categorias %}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% for cat in categorias %}
-    <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow {% if not cat.is_active %}opacity-60{% endif %}">
-      <div class="card-body">
-        <!-- Header do Card -->
-        <div class="flex items-start justify-between">
+  <div class="bg-base-100 rounded-xl overflow-hidden">
+    {% if categorias %}
+      <!-- Filtros -->
+      <div class="p-4 border-b border-base-300">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- Pesquisa por Descrição -->
           <div class="flex items-center gap-3">
-            {% if cat.icone %}
-            <div class="avatar placeholder">
-              <div class="bg-primary text-primary-content rounded-lg w-12 h-12 flex items-center justify-center">
-                <i class="{{ cat.icone }} text-2xl"></i>
-              </div>
-            </div>
-            {% else %}
-            <div class="avatar placeholder">
-              <div class="bg-neutral text-neutral-content rounded-lg w-12 h-12">
-                <span class="text-xl">{{ cat.nome[0:2]|upper if cat.nome else 'CA' }}</span>
-              </div>
-            </div>
-            {% endif %}
-            
-            <div>
-              <h3 class="card-title text-base">
-                {{ cat.nome }}
-                {% if cat.is_featured %}
-                <i class="fas fa-star text-warning text-sm ml-1" title="Categoria em destaque"></i>
-                {% endif %}
-              </h3>
-              {% if cat.slug %}
-              <p class="text-xs text-base-content/50 font-mono">{{ cat.slug }}</p>
-              {% endif %}
-            </div>
+            <label class="label font-semibold text-sm py-1">Pesquisar:</label>
+            <input 
+              type="text" 
+              id="pesquisa_categoria" 
+              oninput="filtrarCategorias()" 
+              class="input input-bordered input-sm flex-1" 
+              placeholder="Digite o nome ou descrição..."
+            >
           </div>
           
-          {% if cat.cor_hex %}
-          <div class="w-6 h-6 rounded-full border-2 border-base-300" style="background-color: {{ cat.cor_hex }};" title="Cor: {{ cat.cor_hex }}"></div>
-          {% endif %}
-        </div>
-
-        <!-- Descrição -->
-        {% if cat.descricao %}
-        <p class="text-sm text-base-content/70 line-clamp-2 mt-2">{{ cat.descricao }}</p>
-        {% endif %}
-
-        <!-- Stats do Card -->
-        <div class="flex items-center gap-4 mt-4">
-          <div class="flex items-center gap-2">
-            <i class="fas fa-users text-info text-xs"></i>
-            <span class="text-xs font-medium">{{ cat.total_audiencias or 0 }} audiências</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <i class="fas fa-sort-amount-down text-neutral text-xs"></i>
-            <span class="text-xs font-medium">Ordem: {{ cat.ordem_exibicao or 0 }}</span>
+          <!-- Filtro por Status -->
+          <div class="flex items-center gap-3">
+            <label class="label font-semibold text-sm py-1">Status:</label>
+            <select id="filtro_status" onchange="filtrarCategorias()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
+              <option value="">Todos os status</option>
+              <option value="ativa">Ativas</option>
+              <option value="inativa">Inativas</option>
+            </select>
           </div>
         </div>
-
-        <!-- Badges de Status -->
-        <div class="flex flex-wrap gap-2 mt-3">
-          <span class="badge badge-sm {% if cat.is_active %}badge-success{% else %}badge-error{% endif %}">
-            <i class="fas fa-{% if cat.is_active %}check{% else %}times{% endif %} mr-1"></i>
-            {{ 'Ativa' if cat.is_active else 'Inativa' }}
-          </span>
-          {% if cat.is_featured %}
-          <span class="badge badge-sm badge-warning">
-            <i class="fas fa-star mr-1"></i>Destaque
-          </span>
-          {% endif %}
-        </div>
-
-        <!-- Ações -->
-        <div class="card-actions justify-end mt-4 pt-4 border-t border-base-300">
-          <a href="{{ url_for('cadu_categorias_detalhes', id_categoria=cat.id) }}" 
-             class="btn btn-xs btn-ghost"
-             title="Ver detalhes">
-            <i class="fas fa-eye"></i>
-          </a>
-          <a href="{{ url_for('cadu_categorias_editar', id_categoria=cat.id) }}" 
-             class="btn btn-xs btn-primary"
-             title="Editar">
-            <i class="fas fa-edit"></i>
-          </a>
+        <div class="mt-2">
+          <span id="contador_filtro" class="text-sm text-base-content/70"></span>
         </div>
       </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <!-- Empty State -->
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body py-20">
-      <div class="flex flex-col items-center justify-center text-center">
-        <i class="fas fa-folder-open text-6xl text-base-content/20 mb-4"></i>
-        <h3 class="font-semibold text-lg text-base-content/70 mb-2">Nenhuma categoria cadastrada</h3>
-        <p class="text-sm text-base-content/50 mb-6">Comece criando sua primeira categoria de audiência</p>
-        <a href="{{ url_for('cadu_categorias_novo') }}" class="btn btn-primary">
-          <i class="fas fa-plus mr-2"></i>Criar Primeira Categoria
+      
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full" id="tabela_categorias">
+          <thead class="bg-primary text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Categoria</th>
+              <th class="text-left font-bold uppercase">Descrição</th>
+              <th class="text-center font-bold uppercase w-24">Audiências</th>
+              <th class="text-center font-bold uppercase w-20">Ordem</th>
+              <th class="text-center font-bold uppercase w-24">Status</th>
+              <th class="text-center font-bold uppercase w-32">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat in categorias %}
+            <tr class="hover {% if not cat.is_active %}opacity-60{% endif %}" data-status="{{ 'ativa' if cat.is_active else 'inativa' }}">
+              <td>
+                <div class="flex items-center gap-3">
+                  {% if cat.icone %}
+                  <div class="avatar placeholder">
+                    <div class="bg-primary text-primary-content rounded-lg w-8 h-8 flex items-center justify-center">
+                      <i class="{{ cat.icone }} text-sm"></i>
+                    </div>
+                  </div>
+                  {% elif cat.cor_hex %}
+                  <div class="w-8 h-8 rounded-lg border-2 border-base-300" style="background-color: {{ cat.cor_hex }};"></div>
+                  {% else %}
+                  <div class="avatar placeholder">
+                    <div class="bg-neutral text-neutral-content rounded-lg w-8 h-8">
+                      <span class="text-xs">{{ cat.nome[0:2]|upper if cat.nome else 'CA' }}</span>
+                    </div>
+                  </div>
+                  {% endif %}
+                  <div>
+                    <div class="font-semibold text-base-content flex items-center gap-2">
+                      {{ cat.nome }}
+                      {% if cat.is_featured %}
+                      <i class="fas fa-star text-warning text-xs" title="Destaque"></i>
+                      {% endif %}
+                    </div>
+                    {% if cat.slug %}
+                    <div class="text-xs text-base-content/50 font-mono">{{ cat.slug }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="text-xs text-base-content/70 line-clamp-2 max-w-md">
+                  {{ cat.descricao or '-' }}
+                </div>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm badge-info badge-ghost">{{ cat.total_audiencias or 0 }}</span>
+              </td>
+              <td class="text-center">
+                <span class="text-xs">{{ cat.ordem_exibicao or 0 }}</span>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm {% if cat.is_active %}badge-success{% else %}badge-error{% endif %}">
+                  {{ 'Ativa' if cat.is_active else 'Inativa' }}
+                </span>
+              </td>
+              <td class="text-center">
+                <div class="flex items-center justify-center gap-2">
+                  <a href="{{ url_for('cadu_categorias_detalhes', id_categoria=cat.id) }}" 
+                     class="btn btn-xs btn-ghost"
+                     title="Ver detalhes">
+                    <i class="fas fa-eye"></i>
+                  </a>
+                  <a href="{{ url_for('cadu_categorias_editar', id_categoria=cat.id) }}" 
+                     class="btn btn-xs btn-primary"
+                     title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-8">
+        <p class="mb-2 text-base-content/60 text-sm">Nenhuma categoria cadastrada.</p>
+        <a href="{{ url_for('cadu_categorias_novo') }}" class="btn btn-primary btn-sm">
+          <i class="fas fa-plus mr-2 text-xs"></i>Criar Primeira Categoria
         </a>
       </div>
-    </div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
+
+<script>
+function filtrarCategorias() {
+  const pesquisa = document.getElementById('pesquisa_categoria').value.toLowerCase();
+  const statusFiltro = document.getElementById('filtro_status').value.toLowerCase();
+  const tabela = document.getElementById('tabela_categorias');
+  const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+  
+  let visivel = 0;
+  let total = linhas.length;
+  
+  for (let i = 0; i < linhas.length; i++) {
+    const linha = linhas[i];
+    const nome = linha.cells[0].textContent.toLowerCase();
+    const descricao = linha.cells[1].textContent.toLowerCase();
+    const statusLinha = linha.getAttribute('data-status');
+    
+    let mostrarPesquisa = true;
+    let mostrarStatus = true;
+    
+    // Filtro de pesquisa
+    if (pesquisa) {
+      mostrarPesquisa = nome.includes(pesquisa) || descricao.includes(pesquisa);
+    }
+    
+    // Filtro de status
+    if (statusFiltro) {
+      mostrarStatus = statusLinha === statusFiltro;
+    }
+    
+    if (mostrarPesquisa && mostrarStatus) {
+      linha.style.display = '';
+      visivel++;
+    } else {
+      linha.style.display = 'none';
+    }
+  }
+  
+  // Atualizar contador
+  document.getElementById('contador_filtro').textContent = 
+    `Mostrando ${visivel} de ${total} categoria(s)`;
+}
+
+// Inicializar contador ao carregar
+document.addEventListener('DOMContentLoaded', function() {
+  filtrarCategorias();
+});
+</script>
 {% endblock %}

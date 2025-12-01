@@ -203,13 +203,13 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
 
           <!-- Metrics -->
           {% if result.usage or result.cost_usd is not none %}
-          <div class="stats stats-vertical lg:stats-horizontal shadow w-full bg-gradient-to-br from-base-100 to-base-200">
+          <div class="stats stats-vertical lg:stats-horizontal shadow w-full bg-base-100">
             <div class="stat py-3">
               <div class="stat-figure text-primary">
                 <i class="fas fa-coins text-lg"></i>
               </div>
               <div class="stat-title text-[10px] font-semibold uppercase tracking-wide">Tokens</div>
-              <div class="stat-value text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <div class="stat-value text-lg font-bold text-primary">
                 {{ result.usage.total_tokens if result.usage else '—' }}
               </div>
               <div class="stat-desc text-[9px]">
@@ -224,7 +224,7 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
                 <i class="fas fa-dollar-sign text-lg"></i>
               </div>
               <div class="stat-title text-[10px] font-semibold uppercase tracking-wide">Custo (USD)</div>
-              <div class="stat-value text-lg font-bold font-mono bg-gradient-to-r from-success to-accent bg-clip-text text-transparent">
+              <div class="stat-value text-lg font-bold font-mono text-success">
                 {% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}
               </div>
               <div class="stat-desc text-[9px]">
@@ -359,7 +359,7 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
         <div class="hidden lg:block w-full">
           <table class="table table-xs w-full">
             <thead>
-              <tr class="bg-gradient-to-r from-primary to-accent text-primary-content">
+              <tr class="bg-primary text-primary-content">
                 <th class="w-20">ID</th>
                 <th class="min-w-[200px]">Nome</th>
                 <th class="w-24">Parceiro</th>

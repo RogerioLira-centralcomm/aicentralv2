@@ -23,18 +23,18 @@
 <!-- Stats Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <!-- Total Clientes Ativos -->
-    <div class="card bg-gradient-to-br from-primary to-primary-focus text-primary-content shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card bg-blue-600 text-white">
         <div class="card-body">
             <div class="flex items-center justify-between">
-                <div class="stat-figure text-primary-content/30">
+                <div class="stat-figure text-white/20">
                     <i class="fas fa-building text-5xl"></i>
                 </div>
                 <div class="text-right">
                     <div class="stat-value text-4xl font-bold">{{ stats.total_clientes_ativos }}</div>
-                    <div class="stat-title text-primary-content/80 text-sm mt-1">Clientes Ativos</div>
+                    <div class="stat-title text-white/90 text-sm mt-1 font-medium">Clientes Ativos</div>
                 </div>
             </div>
-            <div class="stat-desc text-primary-content/60 mt-2">
+            <div class="stat-desc text-white/70 mt-2">
                 <i class="fas fa-check-circle mr-1"></i>
                 Total no sistema
             </div>
@@ -42,18 +42,18 @@
     </div>
 
     <!-- Total Usuários -->
-    <div class="card bg-gradient-to-br from-secondary to-secondary-focus text-secondary-content shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card bg-purple-600 text-white">
         <div class="card-body">
             <div class="flex items-center justify-between">
-                <div class="stat-figure text-secondary-content/30">
+                <div class="stat-figure text-white/20">
                     <i class="fas fa-users text-5xl"></i>
                 </div>
                 <div class="text-right">
                     <div class="stat-value text-4xl font-bold">{{ stats.total_usuarios }}</div>
-                    <div class="stat-title text-secondary-content/80 text-sm mt-1">Usuários</div>
+                    <div class="stat-title text-white/90 text-sm mt-1 font-medium">Usuários</div>
                 </div>
             </div>
-            <div class="stat-desc text-secondary-content/60 mt-2">
+            <div class="stat-desc text-white/70 mt-2">
                 <i class="fas fa-user-check mr-1"></i>
                 Usuários ativos
             </div>
@@ -61,18 +61,18 @@
     </div>
 
     <!-- Tokens do Mês -->
-    <div class="card bg-gradient-to-br from-accent to-accent-focus text-accent-content shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card bg-emerald-600 text-white">
         <div class="card-body">
             <div class="flex items-center justify-between gap-2">
-                <div class="stat-figure text-accent-content/30 flex-shrink-0">
+                <div class="stat-figure text-white/20 flex-shrink-0">
                     <i class="fas fa-coins text-3xl"></i>
                 </div>
                 <div class="text-right flex-1 min-w-0">
                     <div class="stat-value text-lg sm:text-xl md:text-2xl font-bold break-words">{{ "{:,}".format(stats.tokens_mes_atual).replace(',', '.') }}</div>
-                    <div class="stat-title text-accent-content/80 text-xs mt-1">Tokens ({{ stats.mes_atual }})</div>
+                    <div class="stat-title text-white/90 text-xs mt-1 font-medium">Tokens ({{ stats.mes_atual }})</div>
                 </div>
             </div>
-            <div class="stat-desc text-accent-content/60 mt-2 text-xs">
+            <div class="stat-desc text-white/70 mt-2 text-xs">
                 <i class="fas fa-chart-line mr-1"></i>
                 Consumo atual
             </div>
@@ -80,18 +80,18 @@
     </div>
 
     <!-- Imagens do Mês -->
-    <div class="card bg-gradient-to-br from-info to-info-focus text-info-content shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card bg-orange-600 text-white">
         <div class="card-body">
             <div class="flex items-center justify-between">
-                <div class="stat-figure text-info-content/30">
+                <div class="stat-figure text-white/20">
                     <i class="fas fa-images text-5xl"></i>
                 </div>
                 <div class="text-right">
                     <div class="stat-value text-4xl font-bold">{{ stats.imagens_mes_atual }}</div>
-                    <div class="stat-title text-info-content/80 text-sm mt-1">Imagens (Mês)</div>
+                    <div class="stat-title text-white/90 text-sm mt-1 font-medium">Imagens (Mês)</div>
                 </div>
             </div>
-            <div class="stat-desc text-info-content/60 mt-2">
+            <div class="stat-desc text-white/70 mt-2">
                 <i class="fas fa-camera mr-1"></i>
                 Geradas este mês
             </div>
@@ -103,7 +103,7 @@
 {% if show_plan_alerts %}
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
     <!-- Planos Próximos do Limite -->
-    <div class="card bg-base-100 shadow-xl border border-warning/20 overflow-hidden">
+    <div class="card bg-base-100 border border-warning/20 overflow-hidden">
         <div class="card-body p-3 sm:p-6">
             <h2 class="card-title text-warning flex flex-wrap items-center gap-2 text-sm sm:text-base">
                 <div class="badge badge-warning badge-sm sm:badge-lg gap-1 sm:gap-2">
@@ -156,7 +156,7 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-success shadow-sm mt-4 text-xs sm:text-sm">
+            <div class="alert alert-success mt-4 text-xs sm:text-sm">
                 <i class="fas fa-check-circle text-sm sm:text-lg"></i>
                 <span>Nenhum plano próximo do limite</span>
             </div>
@@ -174,7 +174,7 @@
     </div>
 
     <!-- Planos Vencendo -->
-    <div class="card bg-base-100 shadow-xl border border-error/20 overflow-hidden">
+    <div class="card bg-base-100 border border-error/20 overflow-hidden">
         <div class="card-body p-3 sm:p-6">
             <h2 class="card-title text-error flex flex-wrap items-center gap-2 text-sm sm:text-base">
                 <div class="badge badge-error badge-sm sm:badge-lg gap-1 sm:gap-2">
@@ -221,7 +221,7 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-success shadow-sm mt-4 text-xs sm:text-sm">
+            <div class="alert alert-success mt-4 text-xs sm:text-sm">
                 <i class="fas fa-check-circle text-sm sm:text-lg"></i>
                 <span>Nenhum plano vencendo em {{ aviso_plan }} dias</span>
             </div>
@@ -241,7 +241,7 @@
 {% endif %}
 
 <!-- Atividade Recente -->
-<div class="card bg-base-100 shadow-xl mb-6">
+<div class="card bg-base-100 mb-6">
     <div class="card-body">
         <h2 class="card-title flex items-center gap-2">
             <i class="fas fa-history text-primary"></i>

@@ -549,10 +549,6 @@ def init_routes(app):
                 app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']}")
                 flash(f'Bem-vindo, {user["nome_completo"]}!', 'success')
                 
-                # Redirecionar admins para painel administrativo
-                if session['user_type'] in ['admin', 'superadmin']:
-                    return redirect(url_for('admin.admin_dashboard'))
-                
                 return redirect(url_for('index'))
             else:
                 flash('Email ou senha incorretos.', 'error')

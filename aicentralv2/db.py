@@ -10,6 +10,7 @@ from psycopg.rows import dict_row
 from flask import g, current_app
 import os
 import hashlib
+import bcrypt
 from datetime import datetime, timedelta
 from typing import List, Optional
 import re
@@ -168,13 +169,49 @@ def check_db_connection():
 
 # ==================== FUNÇÕES AUXILIARES ====================
 
+def gerar_senha_hash(senha):
+    """Gera hash bcrypt da senha"""
+    if isinstance(senha, str):
+        senha = senha.encode('utf-8')
+    return bcrypt.hashpw(senha, bcrypt.gensalt()).decode('utf-8')
+
+
+def verificar_senha(senha, senha_hash):
+    """
+    Verifica se senha bate com hash (bcrypt ou MD5 legado)
+    Suporta migração automática de MD5 para bcrypt
+    """
+    if isinstance(senha, str):
+        senha = senha.encode('utf-8')
+    
+    if isinstance(senha_hash, str):
+        senha_hash_bytes = senha_hash.encode('utf-8')
+    else:
+        senha_hash_bytes = senha_hash
+    
+    # Verifica se é hash bcrypt (começa com $2a$, $2b$ ou $2y$)
+    if senha_hash.startswith(('$2a$', '$2b$', '$2y$')):
+        try:
+            return bcrypt.checkpw(senha, senha_hash_bytes)
+        except Exception:
+            return False
+    
+    # Fallback para MD5 legado (32 caracteres hexadecimais)
+    if len(senha_hash) == 32 and all(c in '0123456789abcdef' for c in senha_hash.lower()):
+        senha_md5 = hashlib.md5(senha).hexdigest()
+        return senha_md5 == senha_hash
+    
+    return False
+
+
+# Manter funções MD5 legadas apenas para referência (não usar em código novo)
 def gerar_senha_md5(senha):
-    """Gera hash MD5 da senha"""
+    """[DEPRECATED] Gera hash MD5 da senha - Use gerar_senha_hash() com bcrypt"""
     return hashlib.md5(senha.encode()).hexdigest()
 
 
 def verificar_senha_md5(senha, senha_md5):
-    """Verifica se senha bate com hash MD5"""
+    """[DEPRECATED] Verifica se senha bate com hash MD5 - Use verificar_senha()"""
     return gerar_senha_md5(senha) == senha_md5
 
 
@@ -264,9 +301,26 @@ def verificar_credenciais(email, password):
         if not user:
             return None
             
-        # Verificar se senha está correta
-        if not verificar_senha_md5(password, user['senha']):
+        # Verificar se senha está correta (suporta MD5 legado e bcrypt)
+        if not verificar_senha(password, user['senha']):
             return None
+        
+        # Migração automática: se senha ainda é MD5, atualizar para bcrypt
+        senha_hash = user['senha']
+        if len(senha_hash) == 32 and all(c in '0123456789abcdef' for c in senha_hash.lower()):
+            try:
+                current_app.logger.info(f"Migrando senha MD5 para bcrypt - Usuário: {user['nome_completo']}")
+                novo_hash = gerar_senha_hash(password)
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente 
+                    SET senha = %s 
+                    WHERE id_contato_cliente = %s
+                ''', (novo_hash, user['id_contato_cliente']))
+                conn.commit()
+                current_app.logger.info(f"Senha migrada com sucesso - Usuário: {user['nome_completo']}")
+            except Exception as e:
+                current_app.logger.error(f"Erro ao migrar senha: {e}")
+                conn.rollback()
             
         # Verificar se usuário está ativo
         if not user['status']:
@@ -624,7 +678,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
 def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1, user_type='client'):
     """Cria um novo contato"""
     conn = get_db()
-    senha_md5 = gerar_senha_md5(senha)
+    senha_hash = gerar_senha_hash(senha)
 
     try:
         if email_existe(email):
@@ -636,7 +690,7 @@ def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None,
                 (nome_completo, email, senha, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_contato_cliente
-            ''', (nome_completo, email.lower().strip(), senha_md5, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type))
+            ''', (nome_completo, email.lower().strip(), senha_hash, pk_id_tbl_cliente, telefone, id_centralx, status, pk_id_tbl_cargo, pk_id_tbl_setor, cohorts, user_type))
 
             novo_id = cursor.fetchone()['id_contato_cliente']
 
@@ -678,7 +732,7 @@ def atualizar_senha_contato(contato_id, nova_senha):
     """Atualiza a senha de um contato"""
     conn = get_db()
 
-    senha_md5 = gerar_senha_md5(nova_senha)
+    senha_hash = gerar_senha_hash(nova_senha)
 
     try:
         with conn.cursor() as cursor:
@@ -687,7 +741,7 @@ def atualizar_senha_contato(contato_id, nova_senha):
                 SET senha = %s, 
                     data_modificacao = CURRENT_TIMESTAMP
                 WHERE id_contato_cliente = %s
-            ''', (senha_md5, contato_id))
+            ''', (senha_hash, contato_id))
 
         conn.commit()
 
@@ -940,7 +994,7 @@ def validar_senha_atual(contato_id, senha_atual):
         if not contato:
             return False
         
-        return verificar_senha_md5(senha_atual, contato['senha'])
+        return verificar_senha(senha_atual, contato['senha'])
 
 
 def validar_email_formato(email):

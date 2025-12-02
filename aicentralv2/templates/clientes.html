@@ -270,6 +270,12 @@
               </select>
             </div>
           </div>
+
+          <!-- ID CentralX -->
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">ID CentralX</label>
+            <input id="input_id_centralx" name="id_centralx" class="input input-bordered input-sm w-full" placeholder="Digite o ID CentralX">
+          </div>
         </div>
       </div>
 
@@ -745,6 +751,9 @@ async function abrirModalEditar(clienteId) {
     
     document.querySelector('select[name="id_apresentacao_executivo"]').value = cliente.id_apresentacao_executivo || '';
     document.querySelector('select[name="id_fluxo_boas_vindas"]').value = cliente.id_fluxo_boas_vindas || '';
+    
+    // ID CentralX
+    document.getElementById('input_id_centralx').value = cliente.id_centralx || '';
     
     // Atualizar campos visíveis baseado no tipo de pessoa
     togglePessoaFieldsModal();

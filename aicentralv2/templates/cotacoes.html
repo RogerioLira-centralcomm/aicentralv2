@@ -1,0 +1,186 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Cotações - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <div class="mb-3">
+    <h1 class="text-lg font-semibold leading-tight">Cotações</h1>
+    <p class="text-sm text-base-content/70">Gerencie as cotações cadastradas no sistema.</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+    <!-- Filtros -->
+    <div class="p-4 border-b border-base-300">
+      <form method="GET" action="/cotacoes" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <!-- Filtro Vendedor -->
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Vendedor:</label>
+          <select name="vendedor" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="this.form.submit()">
+            <option value="">Todos os vendedores</option>
+            {% for vendedor in vendedores %}
+              <option value="{{ vendedor.id_contato_cliente }}" {% if filtro_vendedor == vendedor.id_contato_cliente %}selected{% endif %}>
+                {{ vendedor.nome_completo }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Filtro Cliente -->
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Cliente:</label>
+          <select name="cliente" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="this.form.submit()">
+            <option value="">Todos os clientes</option>
+            {% for cliente in clientes %}
+              <option value="{{ cliente.id_cliente }}" {% if filtro_cliente == cliente.id_cliente %}selected{% endif %}>
+                {{ cliente.nome_fantasia }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Filtro Status -->
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Status:</label>
+          <select name="status" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="this.form.submit()">
+            <option value="">Todos os status</option>
+            {% for status in status_list %}
+              <option value="{{ status.id }}" {% if filtro_status == status.id %}selected{% endif %}>
+                {{ status.descricao }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Filtro Campanha -->
+        <div class="form-control">
+          <label class="label font-semibold text-sm py-1">Campanha:</label>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              name="campanha" 
+              value="{{ filtro_campanha or '' }}" 
+              placeholder="Digite o nome da campanha" 
+              class="input input-bordered input-sm flex-1"
+            >
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="fas fa-search"></i>
+            </button>
+            {% if filtro_vendedor or filtro_cliente or filtro_status or filtro_campanha %}
+              <a href="/cotacoes" class="btn btn-ghost btn-sm" title="Limpar filtros">
+                <i class="fas fa-times"></i>
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tabela de Cotações -->
+    {% if cotacoes %}
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-primary text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Campanha</th>
+              <th class="text-left font-bold uppercase">Cliente</th>
+              <th class="text-left font-bold uppercase">Vendedor</th>
+              <th class="text-center font-bold uppercase">Período</th>
+              <th class="text-center font-bold uppercase">Praça</th>
+              <th class="text-center font-bold uppercase">Status</th>
+              <th class="text-center font-bold uppercase">Criado em</th>
+              <th class="text-center font-bold uppercase w-20">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cotacao in cotacoes %}
+            <tr class="hover">
+              <td>
+                <div class="font-semibold">{{ cotacao.nome_campanha }}</div>
+                <div class="text-xs text-base-content/60">{{ cotacao.objetivo }}</div>
+              </td>
+              <td>
+                <div>{{ cotacao.nome_fantasia }}</div>
+                {% if cotacao.contato_nome %}
+                  <div class="text-xs text-base-content/60">{{ cotacao.contato_nome }}</div>
+                {% endif %}
+              </td>
+              <td>{{ cotacao.vendedor_nome or 'Não atribuído' }}</td>
+              <td class="text-center">{{ cotacao.periodo_meses }} meses</td>
+              <td class="text-center">{{ cotacao.praca }}</td>
+              <td class="text-center">
+                <span class="badge badge-sm">{{ cotacao.status_descricao or 'Sem status' }}</span>
+              </td>
+              <td class="text-center text-xs">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</td>
+              <td class="text-center">
+                <div class="flex justify-center gap-1">
+                  <button onclick="window.location.href='/cotacoes/{{ cotacao.id }}/editar'" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button onclick="deletarCotacao({{ cotacao.id }})" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-4 border-t border-base-300">
+        <p class="text-sm text-base-content/70">
+          Total: <strong>{{ cotacoes|length }}</strong> cotações
+        </p>
+      </div>
+    {% else %}
+      <div class="p-8 text-center">
+        <i class="fas fa-file-invoice text-4xl text-base-content/30 mb-3"></i>
+        <p class="text-base-content/60">
+          {% if filtro_vendedor or filtro_cliente or filtro_status or filtro_campanha %}
+            Nenhuma cotação encontrada com os filtros aplicados.
+          {% else %}
+            Nenhuma cotação cadastrada ainda.
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+async function deletarCotacao(cotacaoId) {
+  if (!confirm('Tem certeza que deseja deletar esta cotação?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message || 'Cotação deletada com sucesso!');
+      window.location.reload();
+    } else {
+      alert(result.message || 'Erro ao deletar cotação!');
+    }
+  } catch (error) {
+    console.error('Erro ao deletar cotação:', error);
+    alert('Erro ao deletar cotação!');
+  }
+}
+</script>
+{% endblock %}

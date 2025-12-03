@@ -1372,6 +1372,45 @@ def init_routes(app):
 
     # ==================== FIM ROTAS DE INVITES ====================
 
+    @app.route('/cotacoes')
+    @login_required
+    def cotacoes():
+        """Lista de cotações com filtros"""
+        try:
+            # Obter filtros
+            vendedor_id = request.args.get('vendedor', type=int)
+            cliente_id = request.args.get('cliente', type=int)
+            status_id = request.args.get('status', type=int)
+            nome_campanha = request.args.get('campanha', '').strip()
+            
+            # Buscar cotações com filtros
+            cotacoes_list = db.obter_cotacoes_filtradas(
+                vendedor_id=vendedor_id,
+                cliente_id=cliente_id,
+                status_id=status_id,
+                nome_campanha=nome_campanha or None
+            )
+            
+            # Buscar dados para os dropdowns
+            vendedores = db.obter_vendedores_centralcomm()
+            clientes_list = db.obter_clientes_sistema()
+            status_list = db.obter_status_cotacoes()
+            
+            return render_template('cotacoes.html',
+                cotacoes=cotacoes_list,
+                vendedores=vendedores,
+                clientes=clientes_list,
+                status_list=status_list,
+                filtro_vendedor=vendedor_id,
+                filtro_cliente=cliente_id,
+                filtro_status=status_id,
+                filtro_campanha=nome_campanha
+            )
+        except Exception as e:
+            app.logger.error(f"Erro ao listar cotações: {e}")
+            flash('Erro ao carregar cotações!', 'error')
+            return render_template('cotacoes.html', cotacoes=[], vendedores=[], clientes=[], status_list=[])
+
     @app.route('/clientes')
     @login_required
     def clientes():

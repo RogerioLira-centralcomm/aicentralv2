@@ -262,6 +262,11 @@
                             </a>
                         </li>
                         <li>
+                            <a href="{{ url_for('cotacoes') }}" class="{% if request.endpoint == 'cotacoes' %}active{% endif %}">
+                                <span class="sidebar-text">Cotações</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
                                 <span class="sidebar-text">Interesses</span>
                             </a>

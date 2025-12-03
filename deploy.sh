@@ -20,6 +20,10 @@ sudo systemctl daemon-reload
 echo "Ativando ambiente virtual..."
 source venv/bin/activate || source venv_new/bin/activate
 
+# Atualizar pip
+echo "Atualizando pip..."
+pip install --upgrade pip --quiet
+
 # Instalar dependencias
 echo "Instalando dependencias..."
 pip install -r requirements.txt --upgrade --quiet

@@ -1393,7 +1393,10 @@ def init_routes(app):
             
             # Buscar dados para os dropdowns
             vendedores = db.obter_vendedores_centralcomm()
-            clientes_list = db.obter_clientes_sistema()
+            clientes_list = db.obter_clientes_sistema(
+                filtros={'status': True},
+                vendedor_id=vendedor_id
+            )
             status_list = db.obter_status_cotacoes()
             
             return render_template('cotacoes.html',

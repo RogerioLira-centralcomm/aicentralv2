@@ -2681,12 +2681,13 @@ def atualizar_user_type(user_id, novo_tipo):
         raise e
 
 
-def obter_clientes_sistema(filtros=None):
+def obter_clientes_sistema(filtros=None, vendedor_id=None):
     """
     Retorna todos os clientes do sistema
     
     Args:
         filtros (dict): Filtros opcionais (status, tipo_cliente, search)
+        vendedor_id (int): ID do vendedor para filtrar clientes
     
     Returns:
         list: Lista de clientes com contagem de usuários
@@ -2722,6 +2723,11 @@ def obter_clientes_sistema(filtros=None):
                 query += ' AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s OR cli.cnpj ILIKE %s)'
                 search_term = f"%{filtros['search']}%"
                 params.extend([search_term, search_term, search_term])
+        
+        # Filtrar por vendedor se especificado
+        if vendedor_id:
+            query += ' AND cli.vendas_central_comm = %s'
+            params.append(vendedor_id)
         
         query += '''
             GROUP BY cli.id_cliente, tc.display, e.descricao

@@ -147,6 +147,9 @@
       <a id="tab_contratos" class="tab" onclick="trocarAba('contratos')">
         <i class="fas fa-file-contract mr-2"></i>Contratos
       </a>
+      <a id="tab_invites" class="tab" onclick="trocarAba('invites')">
+        <i class="fas fa-envelope mr-2"></i>Invites
+      </a>
     </div>
     
     <!-- Conteúdo Editar -->
@@ -406,6 +409,49 @@
         <button type="button" onclick="criarPlanoBetaTesterAba()" class="btn btn-accent btn-sm">
           <i class="fas fa-gift mr-2"></i>Criar Plano Beta
         </button>
+      </div>
+    </div>
+    
+    <!-- Conteúdo Invites (dentro do mesmo modal) -->
+    <div id="invites_aba_content" class="space-y-4" style="display:none;">
+      <div class="flex justify-between items-center mb-4">
+        <h4 class="text-md font-semibold">Convites de Usuários</h4>
+      </div>
+      
+      <!-- Formulário de Novo Convite -->
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <h5 class="text-sm font-semibold mb-3">Enviar Novo Convite</h5>
+        <div class="flex gap-3">
+          <input 
+            type="email" 
+            id="invite_email" 
+            placeholder="Digite o email do convidado" 
+            class="input input-bordered input-sm flex-1"
+          >
+          <select id="invite_role" class="select select-bordered select-sm w-40 h-10 min-h-10">
+            <option value="member">Membro</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button 
+            type="button" 
+            onclick="enviarConvite()" 
+            class="btn btn-primary btn-sm">
+            <i class="fas fa-paper-plane mr-2"></i>Enviar
+          </button>
+        </div>
+      </div>
+      
+      <!-- Lista de Convites -->
+      <div class="bg-base-200/50 rounded-lg p-4">
+        <h5 class="text-sm font-semibold mb-3">Convites Enviados</h5>
+        <div id="lista_invites_aba">
+          <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Botões da aba Invites -->
+      <div class="modal-action mt-6">
+        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
       </div>
     </div>
   </div>
@@ -1287,22 +1333,26 @@ function trocarAba(aba) {
   const tabDetalhes = document.getElementById('tab_detalhes');
   const tabContatos = document.getElementById('tab_contatos');
   const tabContratos = document.getElementById('tab_contratos');
+  const tabInvites = document.getElementById('tab_invites');
   const formCliente = document.getElementById('form_cliente');
   const detalhesContent = document.getElementById('detalhes_aba_content');
   const contatosContent = document.getElementById('contatos_aba_content');
   const contratosContent = document.getElementById('contratos_aba_content');
+  const invitesContent = document.getElementById('invites_aba_content');
   
   // Remover active de todas as abas
   tabEditar.classList.remove('tab-active');
   tabDetalhes.classList.remove('tab-active');
   tabContatos.classList.remove('tab-active');
   tabContratos.classList.remove('tab-active');
+  tabInvites.classList.remove('tab-active');
   
   // Ocultar todos os conteúdos
   formCliente.style.display = 'none';
   detalhesContent.style.display = 'none';
   contatosContent.style.display = 'none';
   contratosContent.style.display = 'none';
+  invitesContent.style.display = 'none';
   
   // Mostrar aba selecionada
   if (aba === 'editar') {
@@ -1318,6 +1368,11 @@ function trocarAba(aba) {
     tabContratos.classList.add('tab-active');
     contratosContent.style.display = '';
     // Carregar contratos ao abrir a aba
+  } else if (aba === 'invites') {
+    tabInvites.classList.add('tab-active');
+    invitesContent.style.display = '';
+    // Carregar invites ao abrir a aba
+    carregarInvites();
     const clienteId = document.getElementById('cliente_id').value;
     if (clienteId) {
       carregarContratosCliente(clienteId);
@@ -1810,5 +1865,153 @@ document.addEventListener('DOMContentLoaded', function() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 });
+
+// ==================== FUNÇÕES DE INVITES ====================
+
+async function carregarInvites() {
+  const clienteId = document.getElementById('cliente_id').value;
+  if (!clienteId) return;
+  
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}/invites`);
+    const invites = await response.json();
+    
+    const container = document.getElementById('lista_invites_aba');
+    
+    if (!invites || invites.length === 0) {
+      container.innerHTML = '<p class="text-sm text-base-content/60 text-center py-4">Sem invites.</p>';
+      return;
+    }
+    
+    let html = '<div class="overflow-x-auto"><table class="table table-xs w-full"><thead><tr>';
+    html += '<th>Email</th><th>Role</th><th>Status</th><th>Enviado em</th><th>Expira em</th><th>Ações</th>';
+    html += '</tr></thead><tbody>';
+    
+    invites.forEach(invite => {
+      const statusBadge = invite.status === 'accepted' ? 'badge-success' : 
+                         invite.status === 'expired' ? 'badge-error' : 'badge-warning';
+      const statusText = invite.status === 'accepted' ? 'Aceito' : 
+                        invite.status === 'expired' ? 'Expirado' : 'Pendente';
+      
+      const createdAt = new Date(invite.created_at).toLocaleDateString('pt-BR');
+      const expiresAt = new Date(invite.expires_at).toLocaleDateString('pt-BR');
+      
+      html += `<tr>
+        <td>${invite.email}</td>
+        <td><span class="badge badge-sm">${invite.role}</span></td>
+        <td><span class="badge badge-sm ${statusBadge}">${statusText}</span></td>
+        <td>${createdAt}</td>
+        <td>${expiresAt}</td>
+        <td>`;
+      
+      if (invite.status === 'pending') {
+        html += `
+          <button onclick="reenviarConvite(${invite.id})" class="btn btn-xs btn-ghost" title="Reenviar">
+            <i class="fas fa-redo"></i>
+          </button>
+          <button onclick="cancelarConvite(${invite.id})" class="btn btn-xs btn-ghost text-error" title="Cancelar">
+            <i class="fas fa-times"></i>
+          </button>`;
+      }
+      
+      html += '</td></tr>';
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+    
+  } catch (error) {
+    console.error('Erro ao carregar invites:', error);
+    document.getElementById('lista_invites_aba').innerHTML = 
+      '<p class="text-sm text-base-content/60 text-center py-4">Sem invites.</p>';
+  }
+}
+
+async function enviarConvite() {
+  const clienteId = document.getElementById('cliente_id').value;
+  const email = document.getElementById('invite_email').value.trim();
+  const role = document.getElementById('invite_role').value;
+  
+  if (!email) {
+    alert('Por favor, digite um email válido.');
+    return;
+  }
+  
+  if (!validateEmail(email)) {
+    alert('Email inválido!');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message || 'Convite enviado com sucesso!');
+      document.getElementById('invite_email').value = '';
+      document.getElementById('invite_role').value = 'member';
+      carregarInvites();
+    } else {
+      alert(result.message || 'Erro ao enviar convite!');
+    }
+  } catch (error) {
+    console.error('Erro ao enviar convite:', error);
+    alert('Erro ao enviar convite!');
+  }
+}
+
+async function reenviarConvite(inviteId) {
+  if (!confirm('Deseja reenviar este convite?')) return;
+  
+  try {
+    const response = await fetch(`/api/invites/${inviteId}/resend`, {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message || 'Convite reenviado com sucesso!');
+      carregarInvites();
+    } else {
+      alert(result.message || 'Erro ao reenviar convite!');
+    }
+  } catch (error) {
+    console.error('Erro ao reenviar convite:', error);
+    alert('Erro ao reenviar convite!');
+  }
+}
+
+async function cancelarConvite(inviteId) {
+  if (!confirm('Deseja cancelar este convite?')) return;
+  
+  try {
+    const response = await fetch(`/api/invites/${inviteId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message || 'Convite cancelado com sucesso!');
+      carregarInvites();
+    } else {
+      alert(result.message || 'Erro ao cancelar convite!');
+    }
+  } catch (error) {
+    console.error('Erro ao cancelar convite:', error);
+    alert('Erro ao cancelar convite!');
+  }
+}
+
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 </script>
 {% endblock %}

@@ -149,7 +149,32 @@ def init_db(app):
 
             # Removido: pk_id_contato_vendas não faz parte do schema
 
-            
+            # Criar tabela cadu_user_invites
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cadu_user_invites (
+                    id SERIAL PRIMARY KEY,
+                    id_cliente INTEGER NOT NULL,
+                    invited_by INTEGER NOT NULL,
+                    email VARCHAR(255) NOT NULL,
+                    invite_token VARCHAR(255) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    role VARCHAR(50) DEFAULT 'member',
+                    expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                    accepted_at TIMESTAMP WITHOUT TIME ZONE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_invite_cliente FOREIGN KEY (id_cliente) 
+                        REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
+                    CONSTRAINT fk_invite_invited_by FOREIGN KEY (invited_by) 
+                        REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE CASCADE
+                )
+            ''')
+
+            # Criar índices para cadu_user_invites
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_email ON cadu_user_invites(email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_token ON cadu_user_invites(invite_token)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_status ON cadu_user_invites(status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_cliente ON cadu_user_invites(id_cliente)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_expires ON cadu_user_invites(expires_at)')
 
         conn.commit()
     app.logger.info("OK Banco de dados inicializado")
@@ -3776,3 +3801,118 @@ def obter_estatisticas_audit_log(dias=30):
     except Exception as e:
         raise e
 
+
+# ==================== INVITES ====================
+
+def obter_invites_cliente(id_cliente):
+    """Retorna todos os invites de um cliente"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                id,
+                id_cliente,
+                invited_by,
+                email,
+                invite_token,
+                status,
+                role,
+                expires_at,
+                accepted_at,
+                created_at
+            FROM cadu_user_invites
+            WHERE id_cliente = %s
+            ORDER BY created_at DESC
+        ''', (id_cliente,))
+        return cursor.fetchall()
+
+
+def criar_invite(id_cliente, invited_by, email, role='member'):
+    """Cria um novo convite"""
+    import secrets
+    from datetime import datetime, timedelta
+    
+    conn = get_db()
+    
+    try:
+        # Gerar token único
+        invite_token = secrets.token_urlsafe(32)
+        
+        # Convite expira em 7 dias
+        expires_at = datetime.now() + timedelta(days=7)
+        
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_user_invites (
+                    id_cliente,
+                    invited_by,
+                    email,
+                    invite_token,
+                    status,
+                    role,
+                    expires_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (id_cliente, invited_by, email.lower().strip(), invite_token, 'pending', role, expires_at))
+            
+            invite_id = cursor.fetchone()['id']
+        
+        conn.commit()
+        return invite_id
+        
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def reenviar_invite(invite_id):
+    """Atualiza a data de expiração de um convite pendente"""
+    from datetime import datetime, timedelta
+    
+    conn = get_db()
+    
+    try:
+        # Nova data de expiração: 7 dias a partir de agora
+        new_expires_at = datetime.now() + timedelta(days=7)
+        
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_user_invites
+                SET expires_at = %s,
+                    status = 'pending'
+                WHERE id = %s 
+                  AND status = 'pending'
+                RETURNING id
+            ''', (new_expires_at, invite_id))
+            
+            result = cursor.fetchone()
+        
+        conn.commit()
+        return result is not None
+        
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def cancelar_invite(invite_id):
+    """Cancela um convite (deleta do banco)"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_user_invites
+                WHERE id = %s AND status = 'pending'
+                RETURNING id
+            ''', (invite_id,))
+            
+            result = cursor.fetchone()
+        
+        conn.commit()
+        return result is not None
+        
+    except Exception as e:
+        conn.rollback()
+        raise e

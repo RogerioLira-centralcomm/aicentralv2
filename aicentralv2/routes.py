@@ -1266,6 +1266,112 @@ def init_routes(app):
             app.logger.error(f"Erro ao obter planos do cliente {cliente_id}: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    # ==================== ROTAS DE INVITES ====================
+    
+    @app.route('/api/cliente/<int:cliente_id>/invites', methods=['GET'])
+    @login_required
+    def api_obter_invites_cliente(cliente_id):
+        """API para obter convites de um cliente"""
+        try:
+            invites = db.obter_invites_cliente(cliente_id)
+            return jsonify(invites or [])
+        except Exception as e:
+            app.logger.error(f"Erro ao obter invites do cliente {cliente_id}: {e}")
+            return jsonify([]), 200
+
+    @app.route('/api/cliente/<int:cliente_id>/invites', methods=['POST'])
+    @login_required
+    def api_criar_invite(cliente_id):
+        """API para criar novo convite"""
+        try:
+            data = request.get_json()
+            email = data.get('email', '').strip()
+            role = data.get('role', 'member')
+            
+            if not email:
+                return jsonify({'success': False, 'message': 'Email é obrigatório!'}), 400
+            
+            # Validar se email já está cadastrado
+            if db.email_existe(email):
+                return jsonify({'success': False, 'message': 'Este email já está cadastrado no sistema!'}), 400
+            
+            # Pegar ID do usuário logado (garantido pelo @login_required)
+            invited_by = session.get('user_id')
+            
+            # Criar convite
+            invite_id = db.criar_invite(cliente_id, invited_by, email, role)
+            
+            if invite_id:
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='criar',
+                    modulo='invites',
+                    descricao=f'Convite enviado para {email} (role: {role})',
+                    registro_id=invite_id,
+                    registro_tipo='invite',
+                    dados_novos={'email': email, 'role': role, 'cliente_id': cliente_id}
+                )
+                
+                # TODO: Enviar email com link de convite
+                return jsonify({
+                    'success': True, 
+                    'message': f'Convite enviado para {email}!',
+                    'invite_id': invite_id
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Erro ao criar convite!'}), 500
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao criar invite: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/invites/<int:invite_id>/resend', methods=['POST'])
+    @login_required
+    def api_reenviar_invite(invite_id):
+        """API para reenviar convite"""
+        try:
+            if db.reenviar_invite(invite_id):
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='reenviar',
+                    modulo='invites',
+                    descricao=f'Convite reenviado (ID: {invite_id})',
+                    registro_id=invite_id,
+                    registro_tipo='invite'
+                )
+                
+                # TODO: Reenviar email
+                return jsonify({'success': True, 'message': 'Convite reenviado com sucesso!'})
+            else:
+                return jsonify({'success': False, 'message': 'Convite não encontrado ou já foi aceito!'}), 404
+        except Exception as e:
+            app.logger.error(f"Erro ao reenviar invite {invite_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/invites/<int:invite_id>', methods=['DELETE'])
+    @login_required
+    def api_cancelar_invite(invite_id):
+        """API para cancelar convite"""
+        try:
+            if db.cancelar_invite(invite_id):
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='cancelar',
+                    modulo='invites',
+                    descricao=f'Convite cancelado (ID: {invite_id})',
+                    registro_id=invite_id,
+                    registro_tipo='invite'
+                )
+                
+                return jsonify({'success': True, 'message': 'Convite cancelado com sucesso!'})
+            else:
+                return jsonify({'success': False, 'message': 'Convite não encontrado!'}), 404
+        except Exception as e:
+            app.logger.error(f"Erro ao cancelar invite {invite_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # ==================== FIM ROTAS DE INVITES ====================
+
     @app.route('/clientes')
     @login_required
     def clientes():

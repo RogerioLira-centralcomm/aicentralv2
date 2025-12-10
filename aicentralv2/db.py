@@ -1729,14 +1729,32 @@ def obter_fluxos_boas_vindas():
 # ==================== CATEGORIAS AUDIÊNCIA - CRUD ====================
 
 def obter_cadu_categorias():
-    """Retorna todas as categorias de audiência"""
+    """Retorna todas as categorias de audiência com contagem dinâmica"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT id, nome, slug, descricao, icone, cor_hex, ordem_exibicao, is_active, is_featured, total_audiencias, meta_titulo, meta_descricao, created_at, updated_at
-                FROM cadu_categorias
-                ORDER BY ordem_exibicao, nome
+                SELECT 
+                    c.id, 
+                    c.nome, 
+                    c.slug, 
+                    c.descricao, 
+                    c.icone, 
+                    c.cor_hex, 
+                    c.ordem_exibicao, 
+                    c.is_active, 
+                    c.is_featured, 
+                    COUNT(a.id) as total_audiencias,
+                    c.meta_titulo, 
+                    c.meta_descricao, 
+                    c.created_at, 
+                    c.updated_at
+                FROM cadu_categorias c
+                LEFT JOIN cadu_audiencias a ON c.id = a.categoria_id
+                GROUP BY c.id, c.nome, c.slug, c.descricao, c.icone, c.cor_hex, 
+                         c.ordem_exibicao, c.is_active, c.is_featured, c.meta_titulo, 
+                         c.meta_descricao, c.created_at, c.updated_at
+                ORDER BY c.ordem_exibicao, c.nome
             ''')
             return cursor.fetchall()
     except Exception as e:
@@ -1903,7 +1921,8 @@ def criar_cadu_subcategoria(dados):
                 dados.get('meta_titulo'),
                 dados.get('meta_descricao')
             ))
-            novo_id = cursor.fetchone()[0]
+            result = cursor.fetchone()
+            novo_id = result['id'] if result else None
             conn.commit()
             return novo_id
     except Exception as e:

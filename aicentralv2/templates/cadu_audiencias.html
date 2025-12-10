@@ -121,7 +121,10 @@
           </thead>
           <tbody>
             {% for audiencia in audiencias %}
-            <tr class="hover" data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}">
+            <tr class="hover" 
+                data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
+                data-categoria-id="{{ audiencia.categoria_id or '' }}"
+                data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
               <td>
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
                   <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
@@ -212,6 +215,11 @@
           </tbody>
         </table>
       </div>
+      <div class="p-4 border-t border-base-300 bg-base-100">
+        <p class="text-sm text-base-content/70">
+          Exibindo <strong id="contador-visiveis">{{ audiencias|length }}</strong> de <strong>{{ audiencias|length }}</strong> audiências
+        </p>
+      </div>
     {% else %}
       <div class="text-center py-8">
         <p class="text-base-content/60 text-sm">Nenhuma audiência cadastrada.</p>
@@ -223,7 +231,10 @@
   <div class="block md:hidden space-y-4">
     {% if audiencias %}
       {% for audiencia in audiencias %}
-      <div class="card bg-base-100 shadow-lg" data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}">
+      <div class="card bg-base-100 shadow-lg" 
+           data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
+           data-categoria-id="{{ audiencia.categoria_id or '' }}"
+           data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
         <div class="card-body p-4">
           <div class="flex items-start justify-between mb-3">
             <div class="flex-1">
@@ -397,11 +408,20 @@ async function carregarSubcategoriasModal(categoriaId, subcategoriaSelecionada =
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('✅ Script de audiências carregado');
+  
   let audienciaIdToDelete = null;
   const filtroCategoria = document.getElementById('filtro-categoria');
   const filtroSubcategoria = document.getElementById('filtro-subcategoria');
   const filtroStatus = document.getElementById('filtro-status');
   const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
+
+  console.log('Elementos encontrados:', {
+    filtroCategoria: !!filtroCategoria,
+    filtroSubcategoria: !!filtroSubcategoria,
+    filtroStatus: !!filtroStatus,
+    btnLimparFiltros: !!btnLimparFiltros
+  });
 
   // Event listeners do Modal de Audiência
   const formAudiencia = document.getElementById('form_audiencia');
@@ -437,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const audienciaId = document.getElementById('audiencia_id').value;
     const formData = new FormData(formAudiencia);
-    const url = audienciaId ? `/cadu/audiencias/${audienciaId}/editar` : '/cadu/audiencias/nova';
+    const url = audienciaId ? `/cadu-audiencias/editar/${audienciaId}` : '/cadu-audiencias/nova';
     
     try {
       const response = await fetch(url, {
@@ -460,6 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Carregar subcategorias ao trocar categoria nos filtros
   filtroCategoria.addEventListener('change', async function() {
+    console.log('🔍 Categoria mudou para:', this.value);
     const categoriaId = this.value;
     filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
     filtroSubcategoria.disabled = true;
@@ -501,33 +522,35 @@ document.addEventListener('DOMContentLoaded', function() {
     aplicarFiltros();
   });
 
+  // Inicializar contador na carga da página
+  atualizarMensagemVazia();
+
   // Função para aplicar filtros
   function aplicarFiltros() {
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
     const statusFiltro = filtroStatus.value;
 
+    console.log('Filtros aplicados:', { categoriaId, subcategoriaId, statusFiltro });
+
     // Filtrar linhas da tabela desktop
     const tableRows = document.querySelectorAll('table tbody tr');
+    let visibleCount = 0;
     tableRows.forEach(row => {
-      const categoriaText = row.cells[4].textContent.trim();
-      const subcategoriaText = row.cells[5].textContent.trim();
+      const rowCategoriaId = row.getAttribute('data-categoria-id');
+      const rowSubcategoriaId = row.getAttribute('data-subcategoria-id');
       const statusAttr = row.getAttribute('data-status');
       
       let showRow = true;
 
       if (categoriaId) {
-        const categoriaOption = filtroCategoria.querySelector(`option[value="${categoriaId}"]`);
-        const categoriaNome = categoriaOption ? categoriaOption.textContent : '';
-        if (categoriaText !== categoriaNome) {
+        if (String(rowCategoriaId) !== String(categoriaId)) {
           showRow = false;
         }
       }
 
       if (subcategoriaId && showRow) {
-        const subcategoriaOption = filtroSubcategoria.querySelector(`option[value="${subcategoriaId}"]`);
-        const subcategoriaNome = subcategoriaOption ? subcategoriaOption.textContent : '';
-        if (subcategoriaText !== subcategoriaNome) {
+        if (String(rowSubcategoriaId) !== String(subcategoriaId)) {
           showRow = false;
         }
       }
@@ -539,40 +562,28 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       row.style.display = showRow ? '' : 'none';
+      if (showRow) visibleCount++;
     });
+
+    console.log(`Linhas visíveis: ${visibleCount} de ${tableRows.length}`);
 
     // Filtrar cards mobile
     const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
     mobileCards.forEach(card => {
-      const categoriaElements = card.querySelectorAll('.space-y-2 > div');
-      let categoriaText = '';
-      let subcategoriaText = '';
+      const cardCategoriaId = card.getAttribute('data-categoria-id');
+      const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
       const statusAttr = card.getAttribute('data-status');
-
-      categoriaElements.forEach(div => {
-        const label = div.querySelector('.text-base-content\\/60');
-        if (label && label.textContent.includes('Categoria:')) {
-          categoriaText = div.querySelector('.font-medium').textContent.trim();
-        }
-        if (label && label.textContent.includes('Subcategoria:')) {
-          subcategoriaText = div.querySelector('.font-medium').textContent.trim();
-        }
-      });
 
       let showCard = true;
 
       if (categoriaId) {
-        const categoriaOption = filtroCategoria.querySelector(`option[value="${categoriaId}"]`);
-        const categoriaNome = categoriaOption ? categoriaOption.textContent : '';
-        if (categoriaText !== categoriaNome) {
+        if (String(cardCategoriaId) !== String(categoriaId)) {
           showCard = false;
         }
       }
 
       if (subcategoriaId && showCard) {
-        const subcategoriaOption = filtroSubcategoria.querySelector(`option[value="${subcategoriaId}"]`);
-        const subcategoriaNome = subcategoriaOption ? subcategoriaOption.textContent : '';
-        if (subcategoriaText !== subcategoriaNome) {
+        if (String(cardSubcategoriaId) !== String(subcategoriaId)) {
           showCard = false;
         }
       }
@@ -592,13 +603,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function atualizarMensagemVazia() {
     const tableRows = document.querySelectorAll('table tbody tr');
-    const visibleRows = Array.from(tableRows).filter(row => row.style.display !== 'none');
+    const visibleRows = Array.from(tableRows).filter(row => {
+      const display = row.style.display;
+      return display !== 'none';
+    });
     
     const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
-    const visibleCards = Array.from(mobileCards).filter(card => card.style.display !== 'none');
+    const visibleCards = Array.from(mobileCards).filter(card => {
+      const display = card.style.display;
+      return display !== 'none';
+    });
 
-    // Não implementar mensagem dinâmica para manter simplicidade
-    // Usuário verá a tabela/cards vazios com filtros ativos
+    // Atualizar contador
+    const contadorElement = document.getElementById('contador-visiveis');
+    if (contadorElement) {
+      contadorElement.textContent = visibleRows.length;
+    }
   }
 
   // Toggle Status

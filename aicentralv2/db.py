@@ -2304,6 +2304,19 @@ def atualizar_cadu_audiencia(id_audiencia, dados):
                     cpm_maximo = %s,
                     categoria_id = %s,
                     subcategoria_id = %s,
+                    publico_estimado = %s,
+                    publico_numero = %s,
+                    tamanho = %s,
+                    propensao_compra = %s,
+                    demografia_homens = %s,
+                    demografia_mulheres = %s,
+                    idade_18_24 = %s,
+                    idade_25_34 = %s,
+                    idade_35_44 = %s,
+                    idade_45_mais = %s,
+                    dispositivo_mobile = %s,
+                    dispositivo_desktop = %s,
+                    dispositivo_tablet = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             ''', (
@@ -2322,6 +2335,19 @@ def atualizar_cadu_audiencia(id_audiencia, dados):
                 dados.get('cpm_maximo'),
                 dados.get('categoria_id'),
                 dados.get('subcategoria_id'),
+                dados.get('publico_estimado'),
+                dados.get('publico_numero'),
+                dados.get('tamanho'),
+                dados.get('propensao_compra'),
+                dados.get('demografia_homens'),
+                dados.get('demografia_mulheres'),
+                dados.get('idade_18_24'),
+                dados.get('idade_25_34'),
+                dados.get('idade_35_44'),
+                dados.get('idade_45_mais'),
+                dados.get('dispositivo_mobile'),
+                dados.get('dispositivo_desktop'),
+                dados.get('dispositivo_tablet'),
                 id_audiencia
             ))
             conn.commit()

@@ -11,7 +11,15 @@
 
   <!-- Filtros -->
   <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">ID Audiência</span>
+        </label>
+        <input type="text" id="filtro-id" placeholder="Buscar por ID..." 
+               class="input input-bordered w-full h-10">
+      </div>
+
       <div class="form-control">
         <label class="label">
           <span class="label-text font-semibold">Categoria</span>
@@ -343,6 +351,9 @@ async function abrirModalEditarAudiencia(audienciaId) {
     const response = await fetch(`/api/cadu-audiencia/${audienciaId}`);
     const audiencia = await response.json();
     
+    console.log('📋 Dados da audiência:', audiencia);
+    console.log('🔍 propensao_compra:', audiencia.propensao_compra);
+    
     document.getElementById('modal_audiencia_title').textContent = 'Editar Audiência';
     document.getElementById('audiencia_id').value = audienciaId;
     document.getElementById('btn_submit_audiencia_text').textContent = 'Atualizar';
@@ -359,6 +370,22 @@ async function abrirModalEditarAudiencia(audienciaId) {
     document.getElementById('cpm_custo').value = audiencia.cpm_custo || '';
     document.getElementById('cpm_venda').value = audiencia.cpm_venda || '';
     document.getElementById('categoria_id_modal').value = audiencia.categoria_id || '';
+    
+    // Campos demográficos
+    document.getElementById('publico_estimado').value = audiencia.publico_estimado || '';
+    document.getElementById('publico_numero').value = audiencia.publico_numero || '';
+    document.getElementById('tamanho').value = audiencia.tamanho || '';
+    document.getElementById('propensao_compra').value = audiencia.propensao_compra || '';
+    console.log('✅ Propensão setada no select:', document.getElementById('propensao_compra').value);
+    document.getElementById('demografia_homens').value = audiencia.demografia_homens || '';
+    document.getElementById('demografia_mulheres').value = audiencia.demografia_mulheres || '';
+    document.getElementById('idade_18_24').value = audiencia.idade_18_24 || '';
+    document.getElementById('idade_25_34').value = audiencia.idade_25_34 || '';
+    document.getElementById('idade_35_44').value = audiencia.idade_35_44 || '';
+    document.getElementById('idade_45_mais').value = audiencia.idade_45_mais || '';
+    document.getElementById('dispositivo_mobile').value = audiencia.dispositivo_mobile || '';
+    document.getElementById('dispositivo_desktop').value = audiencia.dispositivo_desktop || '';
+    document.getElementById('dispositivo_tablet').value = audiencia.dispositivo_tablet || '';
     
     if (audiencia.categoria_id) {
       await carregarSubcategoriasModal(audiencia.categoria_id, audiencia.subcategoria_id);
@@ -411,17 +438,26 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('✅ Script de audiências carregado');
   
   let audienciaIdToDelete = null;
+  const filtroId = document.getElementById('filtro-id');
   const filtroCategoria = document.getElementById('filtro-categoria');
   const filtroSubcategoria = document.getElementById('filtro-subcategoria');
   const filtroStatus = document.getElementById('filtro-status');
   const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
 
   console.log('Elementos encontrados:', {
+    filtroId: !!filtroId,
     filtroCategoria: !!filtroCategoria,
     filtroSubcategoria: !!filtroSubcategoria,
     filtroStatus: !!filtroStatus,
     btnLimparFiltros: !!btnLimparFiltros
   });
+
+  // Verificar se deve abrir modal de edição
+  const urlParams = new URLSearchParams(window.location.search);
+  const editarId = urlParams.get('editar');
+  if (editarId) {
+    abrirModalEditarAudiencia(parseInt(editarId));
+  }
 
   // Event listeners do Modal de Audiência
   const formAudiencia = document.getElementById('form_audiencia');
@@ -513,8 +549,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Aplicar filtro ao trocar status
   filtroStatus.addEventListener('change', aplicarFiltros);
 
+  // Aplicar filtro ao digitar ID
+  filtroId.addEventListener('input', aplicarFiltros);
+
   // Limpar filtros
   btnLimparFiltros.addEventListener('click', function() {
+    filtroId.value = '';
     filtroCategoria.value = '';
     filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
     filtroSubcategoria.disabled = true;
@@ -527,11 +567,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Função para aplicar filtros
   function aplicarFiltros() {
+    const idFiltro = filtroId.value.trim().toLowerCase();
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
     const statusFiltro = filtroStatus.value;
 
-    console.log('Filtros aplicados:', { categoriaId, subcategoriaId, statusFiltro });
+    console.log('Filtros aplicados:', { idFiltro, categoriaId, subcategoriaId, statusFiltro });
 
     // Filtrar linhas da tabela desktop
     const tableRows = document.querySelectorAll('table tbody tr');
@@ -540,10 +581,17 @@ document.addEventListener('DOMContentLoaded', function() {
       const rowCategoriaId = row.getAttribute('data-categoria-id');
       const rowSubcategoriaId = row.getAttribute('data-subcategoria-id');
       const statusAttr = row.getAttribute('data-status');
+      const rowId = row.cells[0]?.textContent.trim().toLowerCase() || '';
       
       let showRow = true;
 
-      if (categoriaId) {
+      if (idFiltro) {
+        if (!rowId.includes(idFiltro)) {
+          showRow = false;
+        }
+      }
+
+      if (categoriaId && showRow) {
         if (String(rowCategoriaId) !== String(categoriaId)) {
           showRow = false;
         }
@@ -573,10 +621,18 @@ document.addEventListener('DOMContentLoaded', function() {
       const cardCategoriaId = card.getAttribute('data-categoria-id');
       const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
       const statusAttr = card.getAttribute('data-status');
+      const cardIdElement = card.querySelector('.badge-neutral');
+      const cardId = cardIdElement ? cardIdElement.textContent.replace('#', '').trim().toLowerCase() : '';
 
       let showCard = true;
 
-      if (categoriaId) {
+      if (idFiltro) {
+        if (!cardId.includes(idFiltro)) {
+          showCard = false;
+        }
+      }
+
+      if (categoriaId && showCard) {
         if (String(cardCategoriaId) !== String(categoriaId)) {
           showCard = false;
         }
@@ -1254,6 +1310,113 @@ document.addEventListener('DOMContentLoaded', function() {
               <option value="">Selecione uma subcategoria</option>
             </select>
             <span class="text-xs text-base-content/60 mt-1">Carregada dinamicamente</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção: Dados Demográficos -->
+      <div>
+        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
+          <i class="fas fa-users mr-2 text-primary"></i>Dados Demográficos
+        </h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Público Estimado</label>
+            <input type="text" name="publico_estimado" id="publico_estimado" 
+                   class="input input-bordered input-sm w-full" placeholder="Ex: 5 milhões">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Público (Número)</label>
+            <input type="number" name="publico_numero" id="publico_numero" 
+                   class="input input-bordered input-sm w-full" placeholder="0">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Tamanho</label>
+            <input type="text" name="tamanho" id="tamanho" 
+                   class="input input-bordered input-sm w-full" placeholder="Ex: Grande, Médio">
+          </div>
+
+          <div class="form-control">
+            <label class="label font-semibold text-sm py-1">Propensão de Compra</label>
+            <select name="propensao_compra" id="propensao_compra" 
+                    class="select select-bordered w-full h-10 min-h-10">
+              <option value="">Selecione</option>
+              <option value="Baixa">Baixa</option>
+              <option value="Média">Média</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label class="label font-semibold text-sm py-1 mb-2">Demografia por Gênero (%)</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="form-control">
+              <label class="label text-xs py-1">Homens</label>
+              <input type="number" step="0.01" name="demografia_homens" id="demografia_homens" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+
+            <div class="form-control">
+              <label class="label text-xs py-1">Mulheres</label>
+              <input type="number" step="0.01" name="demografia_mulheres" id="demografia_mulheres" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label class="label font-semibold text-sm py-1 mb-2">Distribuição por Idade (%)</label>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="form-control">
+              <label class="label text-xs py-1">18-24 anos</label>
+              <input type="number" step="0.01" name="idade_18_24" id="idade_18_24" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+
+            <div class="form-control">
+              <label class="label text-xs py-1">25-34 anos</label>
+              <input type="number" step="0.01" name="idade_25_34" id="idade_25_34" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+
+            <div class="form-control">
+              <label class="label text-xs py-1">35-44 anos</label>
+              <input type="number" step="0.01" name="idade_35_44" id="idade_35_44" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+
+            <div class="form-control">
+              <label class="label text-xs py-1">45+ anos</label>
+              <input type="number" step="0.01" name="idade_45_mais" id="idade_45_mais" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <label class="label font-semibold text-sm py-1 mb-2">Distribuição por Dispositivo (%)</label>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="form-control">
+              <label class="label text-xs py-1">Mobile</label>
+              <input type="number" step="0.01" name="dispositivo_mobile" id="dispositivo_mobile" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+
+            <div class="form-control">
+              <label class="label text-xs py-1">Desktop</label>
+              <input type="number" step="0.01" name="dispositivo_desktop" id="dispositivo_desktop" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
+
+            <div class="form-control">
+              <label class="label text-xs py-1">Tablet</label>
+              <input type="number" step="0.01" name="dispositivo_tablet" id="dispositivo_tablet" 
+                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
+            </div>
           </div>
         </div>
       </div>

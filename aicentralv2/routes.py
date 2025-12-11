@@ -2692,62 +2692,56 @@ def init_routes(app):
     @app.route('/cadu-audiencias/editar/<int:audiencia_id>', methods=['GET', 'POST'])
     @login_required
     def cadu_audiencia_editar(audiencia_id):
-        """Edita audiência existente - GET redireciona para lista onde o modal é usado"""
-        # GET: redireciona para a página de audiências
+        """Edita audiência existente"""
+        
+        # GET: redireciona para a lista com o modal aberto
         if request.method == 'GET':
-            return redirect(url_for('cadu_audiencias'))
+            return redirect(url_for('cadu_audiencias', editar=audiencia_id))
         
-        # POST: processa o formulário do modal
-        if request.method == 'POST':
-            try:
-                dados = {
-                    'id_audiencia_plataforma': request.form.get('id_audiencia_plataforma', '').strip(),
-                    'fonte': request.form.get('fonte', '').strip(),
-                    'nome': request.form.get('nome', '').strip(),
-                    'slug': request.form.get('slug', '').strip(),
-                    'perfil_socioeconomico': request.form.get('perfil_socioeconomico', '').strip(),
-                    'titulo_chamativo': request.form.get('titulo_chamativo', '').strip(),
-                    'descricao': request.form.get('descricao', '').strip(),
-                    'descricao_curta': request.form.get('descricao_curta', '').strip(),
-                    'descricao_comercial': request.form.get('descricao_comercial', '').strip(),
-                    'cpm_custo': float(request.form.get('cpm_custo')) if request.form.get('cpm_custo') else None,
-                    'cpm_venda': float(request.form.get('cpm_venda')) if request.form.get('cpm_venda') else None,
-                    'cpm_minimo': float(request.form.get('cpm_minimo')) if request.form.get('cpm_minimo') else None,
-                    'cpm_maximo': float(request.form.get('cpm_maximo')) if request.form.get('cpm_maximo') else None,
-                    'categoria_id': int(request.form.get('categoria_id')),
-                    'subcategoria_id': int(request.form.get('subcategoria_id')) if request.form.get('subcategoria_id') else None
-                    # is_active removido - usar toggle na listagem
-                }
-                
-                if db.atualizar_cadu_audiencia(audiencia_id, dados):
-                    flash(f'Audiência "{dados["nome"]}" atualizada com sucesso!', 'success')
-                    return redirect(url_for('cadu_audiencias'))
-                else:
-                    flash('Erro ao atualizar audiência.', 'error')
-                    
-            except Exception as e:
-                app.logger.error(f"Erro ao atualizar audiência: {str(e)}")
-                flash(f'Erro ao atualizar audiência: {str(e)}', 'error')
-        
-        # GET - Carregar formulário com dados
+        # POST: processa o formulário
         try:
-            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            dados = {
+                'id_audiencia_plataforma': request.form.get('id_audiencia_plataforma', '').strip(),
+                'fonte': request.form.get('fonte', '').strip(),
+                'nome': request.form.get('nome', '').strip(),
+                'slug': request.form.get('slug', '').strip(),
+                'perfil_socioeconomico': request.form.get('perfil_socioeconomico', '').strip(),
+                'titulo_chamativo': request.form.get('titulo_chamativo', '').strip(),
+                'descricao': request.form.get('descricao', '').strip(),
+                'descricao_curta': request.form.get('descricao_curta', '').strip(),
+                'descricao_comercial': request.form.get('descricao_comercial', '').strip(),
+                'cpm_custo': float(request.form.get('cpm_custo')) if request.form.get('cpm_custo') else None,
+                'cpm_venda': float(request.form.get('cpm_venda')) if request.form.get('cpm_venda') else None,
+                'cpm_minimo': float(request.form.get('cpm_minimo')) if request.form.get('cpm_minimo') else None,
+                'cpm_maximo': float(request.form.get('cpm_maximo')) if request.form.get('cpm_maximo') else None,
+                'categoria_id': int(request.form.get('categoria_id')),
+                'subcategoria_id': int(request.form.get('subcategoria_id')) if request.form.get('subcategoria_id') else None,
+                # Campos demográficos
+                'publico_estimado': request.form.get('publico_estimado', '').strip(),
+                'publico_numero': int(request.form.get('publico_numero')) if request.form.get('publico_numero') else None,
+                'tamanho': request.form.get('tamanho', '').strip(),
+                'propensao_compra': request.form.get('propensao_compra', '').strip() or None,
+                'demografia_homens': float(request.form.get('demografia_homens')) if request.form.get('demografia_homens') else None,
+                'demografia_mulheres': float(request.form.get('demografia_mulheres')) if request.form.get('demografia_mulheres') else None,
+                'idade_18_24': float(request.form.get('idade_18_24')) if request.form.get('idade_18_24') else None,
+                'idade_25_34': float(request.form.get('idade_25_34')) if request.form.get('idade_25_34') else None,
+                'idade_35_44': float(request.form.get('idade_35_44')) if request.form.get('idade_35_44') else None,
+                'idade_45_mais': float(request.form.get('idade_45_mais')) if request.form.get('idade_45_mais') else None,
+                'dispositivo_mobile': float(request.form.get('dispositivo_mobile')) if request.form.get('dispositivo_mobile') else None,
+                'dispositivo_desktop': float(request.form.get('dispositivo_desktop')) if request.form.get('dispositivo_desktop') else None,
+                'dispositivo_tablet': float(request.form.get('dispositivo_tablet')) if request.form.get('dispositivo_tablet') else None
+            }
             
-            if not audiencia:
-                flash('Audiência não encontrada!', 'error')
-                return redirect(url_for('cadu_audiencias'))
-            
-            categorias = db.obter_cadu_categorias()
-            subcategorias = db.obter_cadu_subcategorias()
-            
-            return render_template('cadu_audiencias_form.html',
-                                 audiencia=audiencia,
-                                 categorias=categorias,
-                                 subcategorias=subcategorias)
+            if db.atualizar_cadu_audiencia(audiencia_id, dados):
+                flash(f'Audiência "{dados["nome"]}" atualizada com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar audiência.', 'error')
+                
         except Exception as e:
-            app.logger.error(f"Erro ao carregar audiência: {str(e)}")
-            flash('Erro ao carregar audiência.', 'error')
-            return redirect(url_for('cadu_audiencias'))
+            app.logger.error(f"Erro ao atualizar audiência: {str(e)}")
+            flash(f'Erro ao atualizar audiência: {str(e)}', 'error')
+        
+        return redirect(url_for('cadu_audiencias'))
     
     @app.route('/cadu-audiencias/deletar/<int:audiencia_id>', methods=['POST'])
     @login_required

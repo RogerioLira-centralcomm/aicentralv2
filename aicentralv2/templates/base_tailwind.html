@@ -271,6 +271,11 @@
                                 <span class="sidebar-text">Interesses</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
+                                <span class="sidebar-text">Briefings</span>
+                            </a>
+                        </li>
 
                         <li class="my-2"><hr class="border-base-300"></li>
 

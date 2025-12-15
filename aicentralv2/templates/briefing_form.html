@@ -1,0 +1,194 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}{{ acao }} Briefing{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex items-center mb-6">
+        <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-sm mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+        </a>
+        <h1 class="text-3xl font-bold">{{ acao }} Briefing</h1>
+    </div>
+
+    <!-- Formulário -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <form method="post" action="{{ url_for('briefing_create') if not briefing else url_for('briefing_edit', briefing_id=briefing.id) }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Título -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-semibold">Título <span class="text-error">*</span></span>
+                        </label>
+                        <input type="text" name="titulo" 
+                               value="{{ briefing.titulo if briefing else '' }}" 
+                               class="input input-bordered" 
+                               required
+                               placeholder="Ex: Campanha Lançamento Produto X">
+                    </div>
+
+                    <!-- Cliente -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Cliente <span class="text-error">*</span></span>
+                        </label>
+                        <select name="cliente_id" class="select select-bordered" required>
+                            <option value="">Selecione um cliente</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.id_cliente }}" 
+                                    {% if briefing and briefing.cliente == cliente.id_cliente|string %}selected{% endif %}>
+                                {{ cliente.nome_fantasia }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Objetivo -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-semibold">Objetivo</span>
+                        </label>
+                        <textarea name="objetivo" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Descreva o objetivo principal da campanha">{{ briefing.objetivo if briefing else '' }}</textarea>
+                    </div>
+
+                    <!-- Público-Alvo -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-semibold">Público-Alvo</span>
+                        </label>
+                        <textarea name="publico_alvo" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Descreva o público-alvo (idade, perfil, comportamento, etc.)">{{ briefing.publico_alvo if briefing else '' }}</textarea>
+                    </div>
+
+                    <!-- Mensagem-Chave -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-semibold">Mensagem-Chave</span>
+                        </label>
+                        <textarea name="mensagem_chave" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Qual a mensagem principal que deve ser comunicada?">{{ briefing.mensagem_chave if briefing else '' }}</textarea>
+                    </div>
+
+                    <!-- Canais -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-semibold">Canais</span>
+                        </label>
+                        <input type="text" name="canais" 
+                               value="{{ briefing.canais if briefing else '' }}" 
+                               class="input input-bordered" 
+                               placeholder="Ex: Instagram, Facebook, Google Ads, Email Marketing">
+                        <label class="label">
+                            <span class="label-text-alt">Separe por vírgula os canais onde a campanha será veiculada</span>
+                        </label>
+                    </div>
+
+                    <!-- Budget -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Budget (R$)</span>
+                        </label>
+                        <input type="number" name="budget" 
+                               value="{{ briefing.budget if briefing else '' }}" 
+                               step="0.01" 
+                               class="input input-bordered" 
+                               placeholder="0.00">
+                    </div>
+
+                    <!-- Prazo -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Prazo de Entrega</span>
+                        </label>
+                        <input type="date" name="prazo" 
+                               value="{{ briefing.prazo.strftime('%Y-%m-%d') if briefing and briefing.prazo else '' }}" 
+                               class="input input-bordered">
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Status</span>
+                        </label>
+                        <select name="status" class="select select-bordered">
+                            <option value="rascunho" 
+                                    {% if not briefing or briefing.status == 'rascunho' %}selected{% endif %}>
+                                Rascunho
+                            </option>
+                            <option value="pendente" 
+                                    {% if briefing and briefing.status == 'pendente' %}selected{% endif %}>
+                                Pendente
+                            </option>
+                            <option value="em_andamento" 
+                                    {% if briefing and briefing.status == 'em_andamento' %}selected{% endif %}>
+                                Em Andamento
+                            </option>
+                            <option value="em_revisao" 
+                                    {% if briefing and briefing.status == 'em_revisao' %}selected{% endif %}>
+                                Em Revisão
+                            </option>
+                            <option value="completo" 
+                                    {% if briefing and briefing.status == 'completo' %}selected{% endif %}>
+                                Completo
+                            </option>
+                            <option value="arquivado" 
+                                    {% if briefing and briefing.status == 'arquivado' %}selected{% endif %}>
+                                Arquivado
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Observações -->
+                    <div class="form-control md:col-span-2">
+                        <label class="label">
+                            <span class="label-text font-semibold">Observações</span>
+                        </label>
+                        <textarea name="observacoes" 
+                                  class="textarea textarea-bordered h-32" 
+                                  placeholder="Informações adicionais, referências, restrições, etc.">{{ briefing.observacoes if briefing else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="card-actions justify-end mt-6">
+                    <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Informações de Auditoria -->
+    {% if briefing and briefing.created_at %}
+    <div class="card bg-base-200 shadow-xl mt-6">
+        <div class="card-body">
+            <h3 class="card-title text-sm">Informações de Auditoria</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                    <strong>Criado por:</strong> {{ briefing.created_by_nome or 'N/A' }}<br>
+                    <strong>Em:</strong> {{ briefing.created_at.strftime('%d/%m/%Y %H:%M') if briefing.created_at else 'N/A' }}
+                </div>
+                {% if briefing.updated_at %}
+                <div>
+                    <strong>Última atualização:</strong> {{ briefing.updated_at.strftime('%d/%m/%Y %H:%M') }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -3171,4 +3171,263 @@ def init_routes(app):
             app.logger.error(error_detail)
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    # ==================== GESTÃO DE BRIEFINGS ====================
+
+    @app.route('/briefings')
+    @login_required
+    def briefing_list():
+        """Lista todos os briefings"""
+        try:
+            # Obter filtros
+            status = request.args.get('status', '').strip()
+            cliente_id = request.args.get('cliente_id', '').strip()
+            busca = request.args.get('busca', '').strip()
+            
+            filtros = {}
+            if status:
+                filtros['status'] = status
+            if cliente_id:
+                filtros['cliente_id'] = int(cliente_id)
+            if busca:
+                filtros['busca'] = busca
+            
+            # Buscar briefings - com tratamento de erro
+            try:
+                briefings = db.obter_todos_briefings(filtros) or []
+            except Exception as db_error:
+                app.logger.error(f"Erro ao buscar briefings: {str(db_error)}")
+                briefings = []
+            
+            # Buscar clientes para filtro
+            try:
+                clientes = db.obter_clientes_simples() or []
+            except Exception as cli_error:
+                app.logger.error(f"Erro ao buscar clientes: {str(cli_error)}")
+                clientes = []
+            
+            # Estatísticas
+            stats = {
+                'total': len(briefings),
+                'rascunho': sum(1 for b in briefings if b.get('status') == 'rascunho'),
+                'pendente': sum(1 for b in briefings if b.get('status') == 'pendente'),
+                'em_andamento': sum(1 for b in briefings if b.get('status') == 'em_andamento'),
+                'em_revisao': sum(1 for b in briefings if b.get('status') == 'em_revisao'),
+                'completo': sum(1 for b in briefings if b.get('status') == 'completo'),
+                'arquivado': sum(1 for b in briefings if b.get('status') == 'arquivado')
+            }
+            
+            return render_template('briefing_list.html', 
+                                 briefings=briefings, 
+                                 clientes=clientes,
+                                 stats=stats,
+                                 filtros={'status': status, 'cliente_id': cliente_id, 'busca': busca})
+        except Exception as e:
+            import traceback
+            error_detail = traceback.format_exc()
+            app.logger.error(f"Erro geral ao listar briefings: {str(e)}")
+            app.logger.error(error_detail)
+            
+            # Se a tabela não existe ainda, mostrar mensagem específica
+            if 'relation "cadu_briefings" does not exist' in str(e):
+                flash('A tabela de briefings ainda não foi criada. Execute a migração: python migrations/create_cadu_briefings.py', 'warning')
+            else:
+                flash(f'Erro ao carregar lista de briefings: {str(e)}', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/briefings/novo', methods=['GET', 'POST'])
+    @login_required
+    def briefing_create():
+        """Cria novo briefing"""
+        if request.method == 'GET':
+            clientes = db.obter_clientes_simples()
+            return render_template('briefing_form.html', 
+                                 briefing=None, 
+                                 clientes=clientes,
+                                 acao='Novo')
+        
+        try:
+            # Obter dados do formulário
+            dados = {
+                'cliente_id': int(request.form.get('cliente_id')),
+                'titulo': request.form.get('titulo', '').strip(),
+                'objetivo': request.form.get('objetivo', '').strip(),
+                'publico_alvo': request.form.get('publico_alvo', '').strip(),
+                'mensagem_chave': request.form.get('mensagem_chave', '').strip(),
+                'canais': request.form.get('canais', '').strip(),
+                'budget': float(request.form.get('budget')) if request.form.get('budget') else None,
+                'prazo': request.form.get('prazo') if request.form.get('prazo') else None,
+                'observacoes': request.form.get('observacoes', '').strip(),
+                'status': request.form.get('status', 'rascunho')
+            }
+            
+            # Validações
+            if not dados['titulo'] or not dados['cliente_id']:
+                flash('Preencha todos os campos obrigatórios.', 'error')
+                clientes = db.obter_clientes_simples()
+                return render_template('briefing_form.html', 
+                                     briefing=dados, 
+                                     clientes=clientes,
+                                     acao='Novo')
+            
+            # Criar briefing
+            briefing_id = db.criar_briefing(dados)
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='criar',
+                modulo='briefings',
+                descricao=f'Criou briefing "{dados["titulo"]}"',
+                registro_id=briefing_id,
+                registro_tipo='cadu_briefings',
+                dados_novos=dados
+            )
+            
+            flash(f'Briefing "{dados["titulo"]}" criado com sucesso!', 'success')
+            return redirect(url_for('briefing_list'))
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao criar briefing: {str(e)}")
+            flash(f'Erro ao criar briefing: {str(e)}', 'error')
+            clientes = db.obter_clientes_simples()
+            return render_template('briefing_form.html', 
+                                 briefing=dados if 'dados' in locals() else None, 
+                                 clientes=clientes,
+                                 acao='Novo')
+
+    @app.route('/briefings/<int:briefing_id>/editar', methods=['GET', 'POST'])
+    @login_required
+    def briefing_edit(briefing_id):
+        """Edita briefing existente"""
+        if request.method == 'GET':
+            briefing = db.obter_briefing_por_id(briefing_id)
+            if not briefing:
+                flash('Briefing não encontrado.', 'error')
+                return redirect(url_for('briefing_list'))
+            
+            clientes = db.obter_clientes_simples()
+            return render_template('briefing_form.html', 
+                                 briefing=briefing, 
+                                 clientes=clientes,
+                                 acao='Editar')
+        
+        try:
+            # Buscar briefing anterior
+            briefing_anterior = db.obter_briefing_por_id(briefing_id)
+            if not briefing_anterior:
+                flash('Briefing não encontrado.', 'error')
+                return redirect(url_for('briefing_list'))
+            
+            # Obter dados do formulário
+            dados = {
+                'cliente_id': int(request.form.get('cliente_id')),
+                'titulo': request.form.get('titulo', '').strip(),
+                'objetivo': request.form.get('objetivo', '').strip(),
+                'publico_alvo': request.form.get('publico_alvo', '').strip(),
+                'mensagem_chave': request.form.get('mensagem_chave', '').strip(),
+                'canais': request.form.get('canais', '').strip(),
+                'budget': float(request.form.get('budget')) if request.form.get('budget') else None,
+                'prazo': request.form.get('prazo') if request.form.get('prazo') else None,
+                'observacoes': request.form.get('observacoes', '').strip(),
+                'status': request.form.get('status', 'rascunho')
+            }
+            
+            # Validações
+            if not dados['titulo'] or not dados['cliente_id']:
+                flash('Preencha todos os campos obrigatórios.', 'error')
+                clientes = db.obter_clientes_simples()
+                return render_template('briefing_form.html', 
+                                     briefing={**dados, 'id': briefing_id}, 
+                                     clientes=clientes,
+                                     acao='Editar')
+            
+            # Atualizar briefing
+            db.atualizar_briefing(briefing_id, dados)
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='atualizar',
+                modulo='briefings',
+                descricao=f'Atualizou briefing "{dados["titulo"]}"',
+                registro_id=briefing_id,
+                registro_tipo='cadu_briefings',
+                dados_anteriores=dict(briefing_anterior),
+                dados_novos=dados
+            )
+            
+            flash(f'Briefing "{dados["titulo"]}" atualizado com sucesso!', 'success')
+            return redirect(url_for('briefing_list'))
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar briefing: {str(e)}")
+            flash(f'Erro ao atualizar briefing: {str(e)}', 'error')
+            return redirect(url_for('briefing_list'))
+
+    @app.route('/briefings/<int:briefing_id>/excluir', methods=['POST'])
+    @login_required
+    def briefing_delete(briefing_id):
+        """Exclui briefing"""
+        try:
+            briefing = db.obter_briefing_por_id(briefing_id)
+            if not briefing:
+                flash('Briefing não encontrado.', 'error')
+                return redirect(url_for('briefing_list'))
+            
+            titulo = briefing['titulo']
+            db.excluir_briefing(briefing_id)
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='excluir',
+                modulo='briefings',
+                descricao=f'Excluiu briefing "{titulo}"',
+                registro_id=briefing_id,
+                registro_tipo='cadu_briefings',
+                dados_anteriores=dict(briefing)
+            )
+            
+            flash(f'Briefing "{titulo}" excluído com sucesso!', 'success')
+            return redirect(url_for('briefing_list'))
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir briefing: {str(e)}")
+            flash('Erro ao excluir briefing.', 'error')
+            return redirect(url_for('briefing_list'))
+
+    @app.route('/briefings/<int:briefing_id>/status', methods=['POST'])
+    @login_required
+    def briefing_update_status(briefing_id):
+        """Atualiza status do briefing"""
+        try:
+            novo_status = request.form.get('status')
+            if not novo_status:
+                flash('Status não informado.', 'error')
+                return redirect(url_for('briefing_list'))
+            
+            briefing = db.obter_briefing_por_id(briefing_id)
+            if not briefing:
+                flash('Briefing não encontrado.', 'error')
+                return redirect(url_for('briefing_list'))
+            
+            status_anterior = briefing['status']
+            db.atualizar_status_briefing(briefing_id, novo_status)
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='alterar_status',
+                modulo='briefings',
+                descricao=f'Alterou status do briefing "{briefing["titulo"]}" de {status_anterior} para {novo_status}',
+                registro_id=briefing_id,
+                registro_tipo='cadu_briefings',
+                dados_anteriores={'status': status_anterior},
+                dados_novos={'status': novo_status}
+            )
+            
+            flash('Status atualizado com sucesso!', 'success')
+            return redirect(url_for('briefing_list'))
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar status: {str(e)}")
+            flash('Erro ao atualizar status.', 'error')
+            return redirect(url_for('briefing_list'))
+
     # ==================== UP AUDIÊNCIA ====================

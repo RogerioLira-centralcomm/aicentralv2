@@ -1372,47 +1372,48 @@ def init_routes(app):
 
     # ==================== FIM ROTAS DE INVITES ====================
 
-    @app.route('/cotacoes')
-    @login_required
-    def cotacoes():
-        """Lista de cotações com filtros"""
-        try:
-            # Obter filtros
-            vendedor_id = request.args.get('vendedor', type=int)
-            cliente_id = request.args.get('cliente', type=int)
-            status_id = request.args.get('status', type=int)
-            nome_campanha = request.args.get('campanha', '').strip()
-            
-            # Buscar cotações com filtros
-            cotacoes_list = db.obter_cotacoes_filtradas(
-                vendedor_id=vendedor_id,
-                cliente_id=cliente_id,
-                status_id=status_id,
-                nome_campanha=nome_campanha or None
-            )
-            
-            # Buscar dados para os dropdowns
-            vendedores = db.obter_vendedores_centralcomm()
-            clientes_list = db.obter_clientes_sistema(
-                filtros={'status': True},
-                vendedor_id=vendedor_id
-            )
-            status_list = db.obter_status_cotacoes()
-            
-            return render_template('cotacoes.html',
-                cotacoes=cotacoes_list,
-                vendedores=vendedores,
-                clientes=clientes_list,
-                status_list=status_list,
-                filtro_vendedor=vendedor_id,
-                filtro_cliente=cliente_id,
-                filtro_status=status_id,
-                filtro_campanha=nome_campanha
-            )
-        except Exception as e:
-            app.logger.error(f"Erro ao listar cotações: {e}")
-            flash('Erro ao carregar cotações!', 'error')
-            return render_template('cotacoes.html', cotacoes=[], vendedores=[], clientes=[], status_list=[])
+    # ROTA ANTIGA - DESABILITADA - usar cotacoes_list() abaixo
+    # @app.route('/cotacoes')
+    # @login_required
+    # def cotacoes():
+    #     """Lista de cotações com filtros"""
+    #     try:
+    #         # Obter filtros
+    #         vendedor_id = request.args.get('vendedor', type=int)
+    #         cliente_id = request.args.get('cliente', type=int)
+    #         status_id = request.args.get('status', type=int)
+    #         nome_campanha = request.args.get('campanha', '').strip()
+    #         
+    #         # Buscar cotações com filtros
+    #         cotacoes_list = db.obter_cotacoes_filtradas(
+    #             vendedor_id=vendedor_id,
+    #             cliente_id=cliente_id,
+    #             status_id=status_id,
+    #             nome_campanha=nome_campanha or None
+    #         )
+    #         
+    #         # Buscar dados para os dropdowns
+    #         vendedores = db.obter_vendedores_centralcomm()
+    #         clientes_list = db.obter_clientes_sistema(
+    #             filtros={'status': True},
+    #             vendedor_id=vendedor_id
+    #         )
+    #         status_list = db.obter_status_cotacoes()
+    #         
+    #         return render_template('cadu_cotacoes.html',
+    #             cotacoes=cotacoes_list,
+    #             vendedores=vendedores,
+    #             clientes=clientes_list,
+    #             status_list=status_list,
+    #             filtro_vendedor=vendedor_id,
+    #             filtro_cliente=cliente_id,
+    #             filtro_status=status_id,
+    #             filtro_campanha=nome_campanha
+    #         )
+    #     except Exception as e:
+    #         app.logger.error(f"Erro ao listar cotações: {e}")
+    #         flash('Erro ao carregar cotações!', 'error')
+    #         return render_template('cadu_cotacoes.html', cotacoes=[], vendedores=[], clientes=[], status_list=[])
 
     @app.route('/clientes')
     @login_required
@@ -3429,5 +3430,297 @@ def init_routes(app):
             app.logger.error(f"Erro ao atualizar status: {str(e)}")
             flash('Erro ao atualizar status.', 'error')
             return redirect(url_for('briefing_list'))
+
+    # ==================== COTAÇÕES ====================
+
+    @app.route('/cotacoes')
+    @login_required
+    def cotacoes_list():
+        """Lista cotações, opcionalmente filtradas por cliente ou vendedor"""
+        try:
+            db.criar_tabela_cotacoes()
+            
+            # Verificar se há filtro de cliente ou vendedor
+            cliente_id = request.args.get('cliente_id', type=int)
+            vendas_central_comm = request.args.get('vendas_central_comm', type=int)
+            cliente_info = None
+            
+            app.logger.info(f"DEBUG cotacoes_list: cliente_id={cliente_id}, vendas_central_comm={vendas_central_comm}")
+            
+            # Se há cliente_id, buscar informações do cliente
+            if cliente_id:
+                conn = db.get_db()
+                with conn.cursor() as cursor:
+                    cursor.execute('SELECT id_cliente, nome_fantasia, razao_social FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
+                    cliente_info = cursor.fetchone()
+                    app.logger.info(f"DEBUG cotacoes_list: cliente_info={cliente_info}")
+            
+            # Debug: verificar se tem dados
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT COUNT(*) as total FROM cadu_cotacoes')
+                count_result = cursor.fetchone()
+                total = count_result['total'] if count_result else 0
+                app.logger.info(f"DEBUG: Total de cotações no BD: {total}")
+                
+                if cliente_id:
+                    cursor.execute('SELECT COUNT(*) as total FROM cadu_cotacoes WHERE id_cliente = %s', (cliente_id,))
+                    count_by_client = cursor.fetchone()
+                    app.logger.info(f"DEBUG: Cotações para cliente {cliente_id}: {count_by_client['total'] if count_by_client else 0}")
+            
+            # Obter cotações com filtro apropriado
+            if vendas_central_comm:
+                # Filtrar por vendedor
+                cotacoes = db.obter_cotacoes_por_vendedor(vendas_central_comm)
+            else:
+                # Filtrar por cliente se fornecido
+                cotacoes = db.obter_cotacoes(cliente_id=cliente_id)
+            
+            app.logger.info(f"DEBUG: Cotações obtidas: {len(cotacoes) if cotacoes else 0} registros")
+            if cotacoes:
+                app.logger.info(f"DEBUG: Primeira cotação: {cotacoes[0]}")
+            
+            vendedores = db.obter_vendedores()
+            return render_template('cadu_cotacoes.html', cotacoes=cotacoes or [], cliente_filtro=cliente_info, vendedores=vendedores)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar cotações: {str(e)}", exc_info=True)
+            flash('Erro ao carregar cotações.', 'error')
+            vendedores = db.obter_vendedores()
+            return render_template('cadu_cotacoes.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores)
+
+    @app.route('/cotacoes/nova', methods=['GET', 'POST'])
+    @login_required
+    def cotacao_nova():
+        """Criar nova cotação"""
+        if request.method == 'POST':
+            try:
+                cliente_id = request.form.get('cliente_id', type=int)
+                vendas_central_comm = request.form.get('vendas_central_comm', type=int)
+                titulo = request.form.get('titulo', '').strip()
+                descricao = request.form.get('descricao', '').strip()
+                # Tentar obter do campo hidden primeiro (formatado), depois do campo display (compatibilidade)
+                valor_str = request.form.get('valor_total_hidden') or request.form.get('valor_total', '0')
+                valor_total = float(valor_str) if valor_str else None
+                data_vencimento = request.form.get('data_vencimento')
+                observacoes = request.form.get('observacoes', '').strip()
+
+                app.logger.info(f"DEBUG cotacao_nova: cliente_id={cliente_id}, vendas_central_comm={vendas_central_comm}, titulo={titulo}, valor_total={valor_total}")
+
+                if not titulo or not valor_total:
+                    flash('Título e valor são obrigatórios.', 'error')
+                    clientes = db.obter_clientes_simples()
+                    vendedores = db.obter_vendedores()
+                    return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
+
+                resultado = db.criar_cotacao(
+                    cliente_id=cliente_id,
+                    titulo=titulo,
+                    descricao=descricao,
+                    valor_total=valor_total,
+                    data_vencimento=data_vencimento,
+                    observacoes=observacoes,
+                    vendas_central_comm=vendas_central_comm
+                )
+
+                registrar_auditoria(
+                    acao='INSERT',
+                    modulo='cotacoes',
+                    descricao=f'Cotação criada: {resultado["numero_cotacao"]}',
+                    registro_id=resultado['id'],
+                    registro_tipo='cadu_cotacoes',
+                    dados_novos={'titulo': titulo, 'valor_total': valor_total}
+                )
+
+                flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
+                return redirect(url_for('cotacoes_list'))
+
+            except Exception as e:
+                app.logger.error(f"Erro ao criar cotação: {str(e)}")
+                flash('Erro ao criar cotação.', 'error')
+
+        clientes = db.obter_clientes_simples()
+        vendedores = db.obter_vendedores()
+        cliente_selecionado = None
+        
+        # Se vier cliente_id da URL (vindo do modal de busca)
+        cliente_id_url = request.args.get('cliente_id', type=int)
+        if cliente_id_url:
+            cliente_selecionado = cliente_id_url
+            app.logger.info(f"DEBUG cotacao_nova GET: cliente_id pre-selecionado={cliente_id_url}")
+        
+        return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo', cliente_selecionado=cliente_selecionado)
+
+    @app.route('/cotacoes/<int:cotacao_id>/editar', methods=['GET', 'POST'])
+    @login_required
+    def cotacao_editar(cotacao_id):
+        """Editar cotação"""
+        try:
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                flash('Cotação não encontrada.', 'error')
+                return redirect(url_for('cotacoes_list'))
+
+            if request.method == 'POST':
+                titulo = request.form.get('titulo', '').strip()
+                descricao = request.form.get('descricao', '').strip()
+                # Tentar obter do campo hidden primeiro (formatado), depois do campo display (compatibilidade)
+                valor_str = request.form.get('valor_total_hidden') or request.form.get('valor_total', '0')
+                valor_total = float(valor_str) if valor_str else None
+                data_vencimento = request.form.get('data_vencimento')
+                status = request.form.get('status', '').strip()
+                observacoes = request.form.get('observacoes', '').strip()
+                vendas_central_comm = request.form.get('vendas_central_comm', type=int)
+
+                if not titulo or not valor_total:
+                    flash('Título e valor são obrigatórios.', 'error')
+                    clientes = db.obter_clientes_simples()
+                    vendedores = db.obter_vendedores()
+                    return render_template('cadu_cotacoes_form.html', 
+                                         cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
+
+                db.atualizar_cotacao(
+                    cotacao_id=cotacao_id,
+                    titulo=titulo,
+                    descricao=descricao,
+                    valor_total=valor_total,
+                    data_vencimento=data_vencimento,
+                    status=status,
+                    observacoes=observacoes,
+                    vendas_central_comm=vendas_central_comm
+                )
+
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='cotacoes',
+                    descricao=f'Cotação atualizada: {cotacao["numero_cotacao"]}',
+                    registro_id=cotacao_id,
+                    registro_tipo='cadu_cotacoes',
+                    dados_anteriores={'titulo': cotacao['titulo'], 'valor_total': cotacao['valor_total']},
+                    dados_novos={'titulo': titulo, 'valor_total': valor_total}
+                )
+
+                flash('Cotação atualizada com sucesso!', 'success')
+                return redirect(url_for('cotacoes_list'))
+
+            clientes = db.obter_clientes_simples()
+            vendedores = db.obter_vendedores()
+            return render_template('cadu_cotacoes_form.html', 
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao editar cotação: {str(e)}")
+            flash('Erro ao editar cotação.', 'error')
+            return redirect(url_for('cotacoes_list'))
+
+    @app.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])
+    @login_required
+    def deletar_cotacao(cotacao_id):
+        """API para deletar cotação"""
+        try:
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            db.deletar_cotacao(cotacao_id)
+
+            registrar_auditoria(
+                acao='DELETE',
+                modulo='cotacoes',
+                descricao=f'Cotação deletada: {cotacao["numero_cotacao"]}',
+                registro_id=cotacao_id,
+                registro_tipo='cadu_cotacoes',
+                dados_anteriores={'titulo': cotacao['titulo'], 'numero_cotacao': cotacao['numero_cotacao']}
+            )
+
+            flash('Cotação deletada com sucesso!', 'success')
+            return jsonify({'success': True})
+
+        except Exception as e:
+            app.logger.error(f"Erro ao deletar cotação: {str(e)}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # ==================== API BUSCA DE CLIENTES ====================
+    
+    @app.route('/api/clientes/buscar', methods=['POST'])
+    @login_required
+    def api_buscar_clientes():
+        """API para buscar clientes com filtros"""
+        try:
+            data = request.get_json()
+            app.logger.info(f"=== API BUSCAR CLIENTES ===")
+            app.logger.info(f"Data recebida: {data}")
+            
+            nome = data.get('nome') or ''
+            razao = data.get('razao') or ''
+            
+            # Limpar espaços
+            nome = nome.strip() if nome else ''
+            razao = razao.strip() if razao else ''
+            
+            app.logger.info(f"Filtros processados: nome='{nome}', razao='{razao}'")
+            
+            # Construir query com filtros - SÓ adicionar filtros que têm valor
+            query = 'SELECT id_cliente, nome_fantasia, razao_social, cnpj, pessoa FROM tbl_cliente WHERE status = true'
+            params = []
+            
+            # Apenas adicionar filtro NOME se nome não for vazio
+            if nome and len(nome) > 0:
+                query += ' AND nome_fantasia ILIKE %s'
+                params.append(f'%{nome}%')
+                app.logger.info(f"Adicionado filtro nome: %{nome}%")
+            
+            # Apenas adicionar filtro RAZAO se razao não for vazio
+            if razao and len(razao) > 0:
+                query += ' AND razao_social ILIKE %s'
+                params.append(f'%{razao}%')
+                app.logger.info(f"Adicionado filtro razao: %{razao}%")
+            
+            if not nome and not razao:
+                return jsonify({
+                    'success': False,
+                    'message': 'Preencha pelo menos um filtro'
+                })
+            
+            query += ' ORDER BY nome_fantasia ASC LIMIT 50'
+            
+            app.logger.info(f"Query final: {query}")
+            app.logger.info(f"Params: {params}")
+            
+            # Executar query
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                clientes = cursor.fetchall()
+            
+            app.logger.info(f"Resultados encontrados: {len(clientes) if clientes else 0}")
+            if clientes:
+                app.logger.info(f"Primeiro cliente: {dict(clientes[0]) if clientes else None}")
+            
+            # Converter para lista de dicts
+            resultado = []
+            if clientes:
+                for cliente in clientes:
+                    app.logger.info(f"Processando cliente: {cliente['nome_fantasia']}, id: {cliente['id_cliente']}")
+                    resultado.append({
+                        'pk_id_tbl_cliente': cliente['id_cliente'],
+                        'nome_fantasia': cliente['nome_fantasia'],
+                        'razao_social': cliente['razao_social'],
+                        'cnpj': cliente['cnpj'],
+                        'tipo_pessoa': cliente['pessoa']
+                    })
+            
+            app.logger.info(f"Resultado final: {resultado}")
+            return jsonify({
+                'success': True,
+                'clientes': resultado,
+                'total': len(resultado)
+            })
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar clientes: {str(e)}", exc_info=True)
+            return jsonify({
+                'success': False,
+                'message': str(e)
+            }), 500
 
     # ==================== UP AUDIÊNCIA ====================

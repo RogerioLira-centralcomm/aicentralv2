@@ -1,0 +1,243 @@
+<!-- Modal Busca de Cliente - Reutilizável -->
+<dialog id="modal_busca_cliente" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Buscar Cliente</h3>
+    
+    <!-- Filtros -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      <!-- Tipo de Pessoa -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold text-sm">Tipo de Pessoa</span>
+        </label>
+        <select id="filtro_pessoa" class="select select-bordered select-sm bg-base-100">
+          <option value="">Todos</option>
+          <option value="PJ">Pessoa Jurídica</option>
+          <option value="PF">Pessoa Física</option>
+        </select>
+      </div>
+
+      <!-- Nome Fantasia -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold text-sm">Nome Fantasia</span>
+        </label>
+        <input type="text" id="filtro_nome" placeholder="Buscar por nome..." class="input input-bordered input-sm" oninput="limparOutrosFiltrosEBuscar('nome')">
+      </div>
+    </div>
+
+    <!-- Razão Social -->
+    <div class="form-control mb-4">
+      <label class="label">
+        <span class="label-text font-semibold text-sm">Razão Social</span>
+      </label>
+      <input type="text" id="filtro_razao" placeholder="Buscar por razão social..." class="input input-bordered input-sm" oninput="limparOutrosFiltrosEBuscar('razao')">
+    </div>
+
+    <!-- Botão de Busca -->
+    <div class="flex justify-end gap-2 mb-4">
+      <button onclick="limparFiltrosBuscaCliente()" class="btn btn-ghost btn-sm">
+        <i class="fas fa-times mr-1"></i>Limpar
+      </button>
+      <button onclick="buscarClientes()" class="btn btn-primary btn-sm">
+        <i class="fas fa-search mr-1"></i>Buscar
+      </button>
+    </div>
+
+    <!-- Resultados -->
+    <div class="divider"></div>
+    <div id="resultados_clientes" class="max-h-96 overflow-y-auto">
+      <p class="text-center text-base-content/50 py-8">Digite os filtros e clique em buscar</p>
+    </div>
+
+    <!-- Ações do Modal -->
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+function abrirBuscaCliente() {
+  document.getElementById('modal_busca_cliente').showModal();
+}
+
+function limparFiltrosBuscaCliente() {
+  document.getElementById('filtro_pessoa').value = '';
+  document.getElementById('filtro_nome').value = '';
+  document.getElementById('filtro_cnpj').value = '';
+  document.getElementById('filtro_razao').value = '';
+  document.getElementById('resultados_clientes').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite os filtros e clique em buscar</p>';
+}
+
+async function buscarClientes(trigger = 'manual') {
+  const pessoa = document.getElementById('filtro_pessoa').value;
+  const nome = document.getElementById('filtro_nome').value;
+  const razao = document.getElementById('filtro_razao').value;
+
+  // Se nenhum filtro foi preenchido, não faz busca automática
+  if (trigger === 'auto' && !pessoa && !nome && !razao) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pessoa: pessoa || null,
+        nome: nome || null,
+        razao: razao || null
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      console.log('DEBUG resposta da API:', result);
+      console.log('DEBUG clientes retornados:', result.clientes);
+      exibirResultadosClientes(result.clientes);
+    } else {
+      alert(result.message || 'Erro ao buscar clientes');
+    }
+  } catch (error) {
+    console.error('Erro ao buscar clientes:', error);
+    alert('Erro ao buscar clientes!');
+  }
+}
+
+// Debounce para evitar muitas requisições em tempo real
+let timeoutBusca = null;
+function limparOutrosFiltrosEBuscar(campoAtivo) {
+  // Limpar os outros campos IMEDIATAMENTE (não no timeout)
+  if (campoAtivo !== 'nome') document.getElementById('filtro_nome').value = '';
+  if (campoAtivo !== 'cnpj') document.getElementById('filtro_cnpj').value = '';
+  if (campoAtivo !== 'razao') document.getElementById('filtro_razao').value = '';
+  
+  // Só depois fazer o debounce para buscar
+  clearTimeout(timeoutBusca);
+  timeoutBusca = setTimeout(() => {
+    buscarClientes('auto');
+  }, 300);
+}
+
+function buscarClientesAoDigitar() {
+  clearTimeout(timeoutBusca);
+  timeoutBusca = setTimeout(() => {
+    buscarClientes('auto');
+  }, 300); // Aguarda 300ms após o último dígito digitado
+}
+
+function exibirResultadosClientes(clientes) {
+  const resultados = document.getElementById('resultados_clientes');
+
+  if (!clientes || clientes.length === 0) {
+    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
+    return;
+  }
+
+  let html = '<div class="space-y-2">';
+  
+  clientes.forEach(cliente => {
+    console.log('Cliente:', cliente);
+    
+    const documento = cliente.cnpj || '-';
+    const pessoa = cliente.tipo_pessoa === 'PJ' ? 'PJ' : 'PF';
+    const clienteId = cliente.pk_id_tbl_cliente;
+    
+    console.log('Cliente ID:', clienteId);
+    
+    if (!clienteId) {
+      console.error('ERRO: Cliente sem ID:', cliente);
+      return;
+    }
+    
+    html += `
+      <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+           data-cliente-id="${clienteId}" 
+           data-cliente-nome="${cliente.nome_fantasia}"
+           onclick="selecionarClienteClick(this)">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-base-content/50">${pessoa} | ${documento}</p>
+          </div>
+          <span class="badge badge-sm">${pessoa}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  resultados.innerHTML = html;
+}
+
+function selecionarClienteClick(element) {
+  const clienteId = element.getAttribute('data-cliente-id');
+  const nomeFantasia = element.getAttribute('data-cliente-nome');
+  console.log('Clicado em cliente:', {clienteId, nomeFantasia});
+  selecionarCliente(clienteId, nomeFantasia);
+}
+
+function selecionarCliente(clienteId, nomeFantasia) {
+  console.log('=== selecionarCliente ===');
+  console.log('clienteId:', clienteId, 'tipo:', typeof clienteId);
+  console.log('nomeFantasia:', nomeFantasia);
+  
+  // Validação
+  if (!clienteId || clienteId === 'undefined' || clienteId === '' || clienteId === 'null') {
+    console.error('ERRO: clienteId inválido');
+    alert('Erro: Cliente inválido. Tente novamente.');
+    return;
+  }
+  
+  // Verificar se estamos em um formulário de cotação
+  const clienteInput = document.getElementById('cliente_id');
+  if (clienteInput) {
+    console.log('Modo: Preenchendo formulário');
+    clienteInput.value = clienteId;
+    const label = clienteInput.parentElement.querySelector('label');
+    if (label) {
+      label.textContent = `Cliente: ${nomeFantasia}`;
+    }
+    document.getElementById('modal_busca_cliente').close();
+  } else {
+    console.log('Modo: Redirecionando para cotações');
+    const redirectUrl = `/cotacoes?cliente_id=${clienteId}`;
+    console.log('Redirect URL:', redirectUrl);
+    window.location.href = redirectUrl;
+  }
+}
+
+// Aplicar máscaras ao digitar
+document.addEventListener('DOMContentLoaded', function() {
+  const cnpjInput = document.getElementById('filtro_cnpj');
+  if (cnpjInput) {
+    cnpjInput.addEventListener('input', function(e) {
+      e.target.value = aplicarMascaraCNPJCPF(e.target.value);
+    });
+  }
+});
+
+function aplicarMascaraCNPJCPF(valor) {
+  valor = valor.replace(/\D/g, '');
+  
+  if (valor.length <= 11) {
+    // CPF
+    valor = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  } else {
+    // CNPJ
+    valor = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  
+  return valor;
+}
+</script>

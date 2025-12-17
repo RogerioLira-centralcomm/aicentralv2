@@ -9,9 +9,14 @@
       <h1 class="text-lg font-semibold leading-tight">Clientes</h1>
       <p class="text-sm text-base-content/70">Gerencie os clientes cadastrados na plataforma.</p>
     </div>
-    <button onclick="abrirModalNovo()" class="btn btn-primary btn-sm">
-      <i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente
-    </button>
+    <div class="flex gap-2">
+      <button onclick="abrirBuscaCliente()" class="btn btn-outline btn-primary btn-sm" title="Buscar cliente">
+        <i class="fas fa-search mr-2 text-xs"></i>Buscar
+      </button>
+      <button onclick="abrirModalNovo()" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente
+      </button>
+    </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -2014,4 +2019,7 @@ function validateEmail(email) {
 }
 
 </script>
+
+<!-- Modal de Busca de Cliente -->
+{% include 'modal_busca_cliente.html' %}
 {% endblock %}

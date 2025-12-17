@@ -14,6 +14,7 @@ import bcrypt
 from datetime import datetime, timedelta
 from typing import List, Optional
 import re
+import secrets
 
 
 # ==================== CONFIGURAÇÃO ====================
@@ -175,48 +176,6 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_status ON cadu_user_invites(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_cliente ON cadu_user_invites(id_cliente)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_invites_expires ON cadu_user_invites(expires_at)')
-
-            # Criar tabela cadu_cotacoes_status
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS cadu_cotacoes_status (
-                    id INTEGER PRIMARY KEY,
-                    descricao VARCHAR
-                )
-            ''')
-
-            # Criar tabela cadu_cotacoes
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS cadu_cotacoes (
-                    id SERIAL PRIMARY KEY,
-                    cotacao_uuid UUID NOT NULL DEFAULT gen_random_uuid(),
-                    cliente_id INTEGER NOT NULL,
-                    contato_cliente_id INTEGER NOT NULL,
-                    nome_campanha VARCHAR(200) NOT NULL,
-                    periodo_meses INTEGER NOT NULL,
-                    praca VARCHAR(50) NOT NULL,
-                    objetivo VARCHAR(50) NOT NULL,
-                    observacoes TEXT,
-                    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    status INTEGER,
-                    vendas_central_comm INTEGER,
-                    CONSTRAINT fk_cotacao_cliente FOREIGN KEY (cliente_id) 
-                        REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
-                    CONSTRAINT fk_cotacao_contato FOREIGN KEY (contato_cliente_id) 
-                        REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE CASCADE,
-                    CONSTRAINT fk_cotacao_status FOREIGN KEY (status) 
-                        REFERENCES cadu_cotacoes_status(id),
-                    CONSTRAINT fk_cotacao_vendedor FOREIGN KEY (vendas_central_comm) 
-                        REFERENCES tbl_contato_cliente(id_contato_cliente)
-                )
-            ''')
-
-            # Criar índices para cadu_cotacoes
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_uuid ON cadu_cotacoes(cotacao_uuid)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_cliente ON cadu_cotacoes(cliente_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_contato ON cadu_cotacoes(contato_cliente_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_status ON cadu_cotacoes(status)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_vendedor ON cadu_cotacoes(vendas_central_comm)')
 
             # Criar tabela cadu_cotacao_audiencias
             cursor.execute('''
@@ -2806,6 +2765,31 @@ def obter_clientes_simples():
         raise e
 
 
+def obter_vendedores():
+    """Retorna lista de vendedores (contatos) do cliente CENTRALCOMM com setor Comercial e cargo Executivo Vendas"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    c.id_contato_cliente,
+                    c.nome_completo,
+                    c.email
+                FROM tbl_contato_cliente c
+                INNER JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                INNER JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+                INNER JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
+                WHERE c.status = true
+                AND cli.nome_fantasia = 'CENTRALCOMM'
+                AND s.display = 'Comercial'
+                AND car.descricao = 'Executivo Vendas'
+                ORDER BY c.nome_completo ASC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
 def obter_system_settings():
     """Retorna todas as configurações do sistema"""
     conn = get_db()
@@ -4086,28 +4070,6 @@ def obter_cotacao_por_id(cotacao_id):
         return cursor.fetchone()
 
 
-def obter_cotacao_por_uuid(cotacao_uuid):
-    """Retorna uma cotação pelo UUID"""
-    conn = get_db()
-    
-    with conn.cursor() as cursor:
-        cursor.execute('''
-            SELECT 
-                c.*,
-                cli.nome_fantasia,
-                cli.razao_social,
-                cont.nome_completo as contato_nome,
-                cont.email as contato_email,
-                vend.nome_completo as vendedor_nome,
-                st.descricao as status_descricao
-            FROM cadu_cotacoes c
-            LEFT JOIN tbl_cliente cli ON c.cliente_id = cli.id_cliente
-            LEFT JOIN tbl_contato_cliente cont ON c.contato_cliente_id = cont.id_contato_cliente
-            LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
-            LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
-            WHERE c.cotacao_uuid = %s
-        ''', (cotacao_uuid,))
-        return cursor.fetchone()
 
 
 def obter_cotacoes_cliente(cliente_id):
@@ -4599,6 +4561,317 @@ def atualizar_status_briefing(briefing_id, novo_status):
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             ''', (novo_status, briefing_id))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+# ==================== COTAÇÕES ====================
+
+def criar_tabela_cotacoes():
+    """Cria tabela de cotações se não existir"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Criar tabela se não existir
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cadu_cotacoes (
+                    id SERIAL PRIMARY KEY,
+                    numero_cotacao VARCHAR(50) UNIQUE NOT NULL,
+                    id_cliente INTEGER,
+                    vendas_central_comm INTEGER,
+                    titulo VARCHAR(255) NOT NULL,
+                    descricao TEXT,
+                    valor_total DECIMAL(15,2) NOT NULL,
+                    data_emissao DATE NOT NULL DEFAULT CURRENT_DATE,
+                    data_vencimento DATE,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pendente',
+                    observacoes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Criar índices (sem error se já existir)
+            try:
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_cadu_cotacoes_cliente ON cadu_cotacoes(id_cliente)')
+            except:
+                pass
+            
+            try:
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_cadu_cotacoes_vendedor ON cadu_cotacoes(vendas_central_comm)')
+            except:
+                pass
+            
+            try:
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_cadu_cotacoes_status ON cadu_cotacoes(status)')
+            except:
+                pass
+            
+            try:
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_cadu_cotacoes_numero ON cadu_cotacoes(numero_cotacao)')
+            except:
+                pass
+            
+            conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cotacoes(cliente_id=None, status=None):
+    """Obtém cotações com filtros opcionais"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    c.*,
+                    cli.nome_fantasia as cliente_nome,
+                    vend.nome_completo as vendedor_nome
+                FROM cadu_cotacoes c
+                LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
+                WHERE 1=1
+            '''
+            params = []
+            
+            if cliente_id:
+                query += ' AND c.id_cliente = %s'
+                params.append(cliente_id)
+            
+            if status:
+                query += ' AND c.status = %s'
+                params.append(status)
+            
+            query += ' ORDER BY c.data_emissao DESC'
+            
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_cotacoes_por_vendedor(vendedor_id):
+    """Obtém cotações filtradas por vendedor"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    c.*,
+                    cli.nome_fantasia as cliente_nome,
+                    vend.nome_completo as vendedor_nome
+                FROM cadu_cotacoes c
+                LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
+                WHERE c.vendas_central_comm = %s
+                ORDER BY c.data_emissao DESC
+            ''', (vendedor_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_cotacao_por_id(cotacao_id):
+    """Obtém uma cotação por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT * FROM cadu_cotacoes WHERE id = %s
+            ''', (cotacao_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def criar_cotacao(cliente_id, titulo, descricao, valor_total, data_vencimento=None, observacoes=None, vendas_central_comm=None):
+    """Cria uma nova cotação"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Gerar número de cotação único
+            numero_cotacao = f"COT-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+            
+            cursor.execute('''
+                INSERT INTO cadu_cotacoes 
+                (numero_cotacao, id_cliente, vendas_central_comm, titulo, descricao, valor_total, data_vencimento, observacoes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, numero_cotacao
+            ''', (numero_cotacao, cliente_id, vendas_central_comm, titulo, descricao, valor_total, data_vencimento, observacoes))
+            
+            resultado = cursor.fetchone()
+            conn.commit()
+            return resultado
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cotacao(cotacao_id, titulo=None, descricao=None, valor_total=None, 
+                     data_vencimento=None, status=None, observacoes=None, vendas_central_comm=None):
+    """Atualiza uma cotação existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            updates = ['updated_at = CURRENT_TIMESTAMP']
+            params = []
+            
+            if titulo is not None:
+                updates.append('titulo = %s')
+                params.append(titulo)
+            
+            if descricao is not None:
+                updates.append('descricao = %s')
+                params.append(descricao)
+            
+            if valor_total is not None:
+                updates.append('valor_total = %s')
+                params.append(valor_total)
+            
+            if data_vencimento is not None:
+                updates.append('data_vencimento = %s')
+                params.append(data_vencimento)
+            
+            if status is not None:
+                updates.append('status = %s')
+                params.append(status)
+            
+            if observacoes is not None:
+                updates.append('observacoes = %s')
+                params.append(observacoes)
+            
+            if vendas_central_comm is not None:
+                updates.append('vendas_central_comm = %s')
+                params.append(vendas_central_comm)
+            
+            params.append(cotacao_id)
+            
+            query = f"UPDATE cadu_cotacoes SET {', '.join(updates)} WHERE id = %s"
+            cursor.execute(query, params)
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def deletar_cotacao(cotacao_id):
+    """Deleta uma cotação"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_cotacoes WHERE id = %s', (cotacao_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== LINHAS DE COTAÇÕES ====================
+
+def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=None, plataforma=None,
+                        produto=None, detalhamento=None, formato=None, formato_compra=None, periodo=None,
+                        viewability_minimo=None, volume_contratado=None, valor_unitario=None, valor_total=None,
+                        ordem=0, is_subtotal=False, subtotal_label=None, is_header=False, dados_extras=None):
+    """Cria uma nova linha de cotação"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_cotacao_linhas (
+                    cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
+                    formato, formato_compra, periodo, viewability_minimo, volume_contratado,
+                    valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header, dados_extras
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
+                  formato, formato_compra, periodo, viewability_minimo, volume_contratado,
+                  valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header,
+                  dados_extras or '{}'))
+            linha_id = cursor.fetchone()['id']
+            conn.commit()
+            return linha_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_linhas_cotacao(cotacao_id):
+    """Obtém todas as linhas de uma cotação"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT * FROM cadu_cotacao_linhas
+                WHERE cotacao_id = %s AND is_deleted = false
+                ORDER BY ordem ASC
+            ''', (cotacao_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_linha_cotacao(linha_id):
+    """Obtém uma linha de cotação por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT * FROM cadu_cotacao_linhas WHERE id = %s AND is_deleted = false', (linha_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def atualizar_linha_cotacao(linha_id, **kwargs):
+    """Atualiza uma linha de cotação"""
+    conn = get_db()
+    try:
+        campos_permitidos = {
+            'pedido_sugestao', 'target', 'veiculo', 'plataforma', 'produto', 'detalhamento',
+            'formato', 'formato_compra', 'periodo', 'viewability_minimo', 'volume_contratado',
+            'valor_unitario', 'valor_total', 'ordem', 'is_subtotal', 'subtotal_label',
+            'is_header', 'dados_extras'
+        }
+        
+        campos_atualizacao = {k: v for k, v in kwargs.items() if k in campos_permitidos and v is not None}
+        
+        if not campos_atualizacao:
+            return False
+        
+        set_clause = ', '.join([f'{k} = %s' for k in campos_atualizacao.keys()])
+        valores = list(campos_atualizacao.values()) + [linha_id]
+        
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                UPDATE cadu_cotacao_linhas
+                SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND is_deleted = false
+            ''', valores)
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def deletar_linha_cotacao(linha_id, hard_delete=False):
+    """Deleta uma linha de cotação (soft delete por padrão)"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if hard_delete:
+                cursor.execute('DELETE FROM cadu_cotacao_linhas WHERE id = %s', (linha_id,))
+            else:
+                cursor.execute('''
+                    UPDATE cadu_cotacao_linhas
+                    SET is_deleted = true, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                ''', (linha_id,))
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:

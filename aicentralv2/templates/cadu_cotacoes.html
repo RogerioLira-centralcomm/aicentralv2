@@ -1,0 +1,381 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Cotações - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-lg font-semibold leading-tight">Cotações</h1>
+      <p class="text-sm text-base-content/70">Gerencie as cotações cadastradas no sistema.</p>
+      <!-- Mostrar filtro ativo se houver cliente selecionado -->
+      {% if cliente_filtro %}
+        <div class="mt-2 p-2 bg-primary/10 rounded border border-primary/20">
+          <p class="text-sm font-semibold text-primary">
+            <i class="fas fa-filter mr-2"></i>Filtro: {{ cliente_filtro.nome_fantasia }}
+            <a href="{{ url_for('cotacoes_list') }}" class="ml-2 text-primary/70 hover:text-primary underline text-xs">
+              (limpar filtro)
+            </a>
+          </p>
+        </div>
+      {% endif %}
+
+      <!-- Mostrar filtro ativo se houver vendedor selecionado -->
+      {% set vendas_central_comm = request.args.get('vendas_central_comm') %}
+      {% if vendas_central_comm %}
+        {% set vendedor_nome = vendedores | selectattr('id_contato_cliente', 'equalto', vendas_central_comm|int) | map(attribute='nome_completo') | first %}
+        {% if vendedor_nome %}
+          <div class="mt-2 p-2 bg-success/10 rounded border border-success/20">
+            <p class="text-sm font-semibold text-success">
+              <i class="fas fa-filter mr-2"></i>Filtro Vendedor: {{ vendedor_nome }}
+              <a href="{{ url_for('cotacoes_list') }}" class="ml-2 text-success/70 hover:text-success underline text-xs">
+                (limpar filtro)
+              </a>
+            </p>
+          </div>
+        {% endif %}
+      {% endif %}
+      
+      <!-- Dropdown de Filtro por Vendedor -->
+      <div class="mt-3 flex gap-2 items-center">
+        <label class="text-sm font-medium">Filtrar por Vendedor:</label>
+        <select id="filtro_vendedor" onchange="filtrarPorVendedor(this.value)" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; min-width: 250px; background-color: white; color: black; cursor: pointer;">
+          <option value="" style="color: black;">-- Selecione um vendedor --</option>
+          {% for vendedor in vendedores %}
+          <option value="{{ vendedor.id_contato_cliente }}" style="color: black;">{{ vendedor.nome_completo }}</option>
+          {% endfor %}
+        </select>
+        <button onclick="limparFiltroVendedor()" class="btn btn-ghost btn-sm" title="Limpar filtro de vendedor">
+          <i class="fas fa-times"></i>Limpar
+        </button>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-outline btn-primary" title="Buscar cliente para nova cotação">
+        <i class="fas fa-search mr-2"></i>Buscar Cliente
+      </button>
+      <a href="{{ url_for('cotacao_nova') }}" class="btn btn-primary">
+        <i class="fas fa-plus mr-2"></i>Nova Cotação
+      </a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+    <!-- Tabela de Cotações -->
+    {% if cotacoes %}
+      <div class="overflow-x-auto">
+        <table class="table table-xs w-full">
+          <thead class="bg-primary text-white">
+            <tr>
+              <th class="text-left font-bold uppercase">Nº Cotação</th>
+              <th class="text-left font-bold uppercase">Cliente</th>
+              <th class="text-left font-bold uppercase">Título</th>
+              <th class="text-left font-bold uppercase">Vendedor</th>
+              <th class="text-right font-bold uppercase">Valor</th>
+              <th class="text-center font-bold uppercase">Status</th>
+              <th class="text-center font-bold uppercase">Vencimento</th>
+              <th class="text-center font-bold uppercase w-20">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cotacao in cotacoes %}
+            <tr class="hover">
+              <td class="font-mono text-sm">{{ cotacao.numero_cotacao }}</td>
+              <td>{{ cotacao.cliente_nome or '-' }}</td>
+              <td>{{ cotacao.titulo }}</td>
+              <td>{{ cotacao.vendedor_nome or '-' }}</td>
+              <td class="text-right" data-valor="{{ cotacao.valor_total }}">R$ <span class="valor-formatado">{{ "%.2f"|format(cotacao.valor_total) }}</span></td>
+              <td class="text-center">
+                <span class="badge 
+                  {% if cotacao.status == 'pendente' %}badge-warning
+                  {% elif cotacao.status == 'aprovada' %}badge-success
+                  {% elif cotacao.status == 'rejeitada' %}badge-error
+                  {% elif cotacao.status == 'expirada' %}badge-ghost
+                  {% endif %}">
+                  {{ cotacao.status }}
+                </span>
+              </td>
+              <td class="text-center text-sm">{% if cotacao.data_vencimento %}{{ cotacao.data_vencimento.strftime('%d-%m-%Y') }}{% else %}-{% endif %}</td>
+              <td class="text-center">
+                <div class="flex justify-center gap-1">
+                  <a href="/cotacoes/{{ cotacao.id }}/editar" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <button onclick="deletarCotacao({{ cotacao.id }})" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-4 border-t border-base-300">
+        <p class="text-sm text-base-content/70">
+          Total: <strong>{{ cotacoes|length }}</strong> cotação(ões)
+        </p>
+      </div>
+    {% else %}
+      <div class="p-8 text-center">
+        <i class="fas fa-file-invoice text-4xl text-base-content/30 mb-3"></i>
+        <p class="text-base-content/60">Nenhuma cotação cadastrada ainda.</p>
+        <a href="{{ url_for('cotacao_nova') }}" class="btn btn-primary btn-sm mt-4">
+          <i class="fas fa-plus mr-2"></i>Criar Primeira Cotação
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+async function buscarClientesParaCotacao() {
+  const termo = document.getElementById('busca_cliente_input').value.trim();
+  const resultados = document.getElementById('resultados_busca_cliente');
+
+  if (termo.length < 2) {
+    resultados.classList.add('hidden');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        pessoa: null,
+        cnpj: termo,
+        razao: termo
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      exibirResultadosClientesParaCotacao(result.clientes);
+      resultados.classList.remove('hidden');
+    } else {
+      resultados.innerHTML = '<p class="text-center text-sm text-base-content/50 py-4">Nenhum cliente encontrado</p>';
+      resultados.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Erro ao buscar:', error);
+  }
+}
+
+function exibirResultadosClientesParaCotacao(clientes) {
+  const resultados = document.getElementById('resultados_busca_cliente').querySelector('.space-y-2');
+  let html = '';
+
+  clientes.forEach(cliente => {
+    const documento = cliente.cnpj || cliente.cpf || '-';
+    html += `
+      <a href="/cotacoes/nova?cliente_id=${cliente.id_cliente}" class="block border border-base-300 rounded p-2 hover:bg-base-200 transition cursor-pointer">
+        <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
+        <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
+        <p class="text-xs text-base-content/50">${documento}</p>
+      </a>
+    `;
+  });
+
+  resultados.innerHTML = html;
+}
+
+function limparBuscaCliente() {
+  document.getElementById('busca_cliente_input').value = '';
+  document.getElementById('resultados_busca_cliente').classList.add('hidden');
+}
+
+async function deletarCotacao(cotacaoId) {
+  if (!confirm('Tem certeza que deseja deletar esta cotação?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      alert(result.message || 'Cotação deletada com sucesso!');
+      window.location.reload();
+    } else {
+      alert(result.message || 'Erro ao deletar cotação!');
+    }
+  } catch (error) {
+    console.error('Erro ao deletar cotação:', error);
+    alert('Erro ao deletar cotação!');
+  }
+}
+
+// Função para redirecionar para nova cotação com cliente pré-selecionado
+function criarCotacaoComCliente(clienteId) {
+  // Redireciona para a página de criar cotação, mas como o modal seleciona, vamos fechar e deixar preenchido
+  document.getElementById('modal_busca_cliente').close();
+}
+
+// Função para filtrar cotações por vendedor
+function filtrarPorVendedor(vendedorId) {
+  if (!vendedorId) {
+    // Se nenhum vendedor foi selecionado, voltar à página sem filtro
+    window.location.href = '/cotacoes';
+  } else {
+    // Redirecionar para a página com filtro de vendedor
+    window.location.href = `/cotacoes?vendas_central_comm=${vendedorId}`;
+  }
+}
+</script>
+
+<!-- Modal Escolher Cliente para Nova Cotação -->
+<dialog id="modal_escolher_cliente" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Buscar Cliente para Nova Cotação</h3>
+    
+    <!-- Campo de Busca -->
+    <div class="flex gap-2 mb-4">
+      <input 
+        type="text" 
+        id="busca_cliente_modal" 
+        placeholder="Digite nome, CNPJ, razão social..." 
+        class="input input-bordered flex-1"
+        onkeyup="buscarClientesModal()"
+      >
+      <button onclick="limparBuscaModal()" class="btn btn-ghost">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Resultados -->
+    <div id="resultados_modal" class="max-h-96 overflow-y-auto mb-4">
+      <p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>
+    </div>
+
+    <!-- Ações -->
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+async function buscarClientesModal() {
+  const termo = document.getElementById('busca_cliente_modal').value.trim();
+  const resultados = document.getElementById('resultados_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo
+      })
+    });
+
+    const result = await response.json();
+    console.log('Resultado busca modal:', result);
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        console.log('Cliente encontrado:', {nome: cliente.nome_fantasia, id: clienteId});
+        html += `
+          <a href="/cotacoes?cliente_id=${clienteId}" class="block border border-base-300 rounded-lg p-3 hover:bg-base-200 transition cursor-pointer">
+            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-base-content/50">${documento}</p>
+          </a>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar clientes</p>';
+  }
+}
+
+function limparBuscaModal() {
+  document.getElementById('busca_cliente_modal').value = '';
+  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+}
+function filtrarPorVendedor(vendedorId) {
+  if (vendedorId) {
+    window.location.href = `/cotacoes?vendas_central_comm=${vendedorId}`;
+  } else {
+    window.location.href = '/cotacoes';
+  }
+}
+
+function limparFiltroVendedor() {
+  const selectVendedor = document.getElementById('filtro_vendedor');
+  selectVendedor.value = '';
+  window.location.href = '/cotacoes';
+}
+
+// Formatar valores na tabela de cotações e resetar dropdown
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('=== DOMContentLoaded INICIADO ===');
+  
+  // Resetar dropdown ao valor do filtro ativo (se houver)
+  const urlParams = new URLSearchParams(window.location.search);
+  const vendedorFiltrado = urlParams.get('vendas_central_comm');
+  console.log('Vendedor filtrado da URL:', vendedorFiltrado);
+  
+  const selectVendedor = document.getElementById('filtro_vendedor');
+  console.log('Select element:', selectVendedor);
+  
+  if (vendedorFiltrado && selectVendedor) {
+    console.log('Setando valor do select para:', vendedorFiltrado);
+    selectVendedor.value = vendedorFiltrado;
+    console.log('Valor atual do select após setar:', selectVendedor.value);
+  }
+
+  // Formatar valores monetários
+  document.querySelectorAll('td[data-valor]').forEach(cell => {
+    const valor = parseFloat(cell.getAttribute('data-valor'));
+    if (!isNaN(valor)) {
+      const valorFormatado = valor.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      const span = cell.querySelector('.valor-formatado');
+      if (span) {
+        span.textContent = valorFormatado;
+      }
+    }
+  });
+  
+  console.log('=== DOMContentLoaded FINALIZADO ===');
+});
+</script>
+{% endblock %}

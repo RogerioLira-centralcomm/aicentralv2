@@ -3,7 +3,7 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-5xl mx-auto">
   <div class="mb-3">
     <h1 class="text-lg font-semibold leading-tight">
       {% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}
@@ -27,161 +27,397 @@
 
   <div class="card bg-base-100 shadow-lg">
     <div class="card-body">
-      <form method="POST" class="space-y-4">
+      <form method="POST" class="space-y-6">
         
         <!-- Informações Básicas -->
-        <div class="divider">Informações Básicas</div>
-        
-        <!-- Número da Cotação (somente leitura em edição) -->
-        {% if modo == 'editar' and cotacao %}
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Número da Cotação</span>
-          </label>
-          <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered" disabled>
-        </div>
-        {% endif %}
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Informações Básicas</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Número da Cotação (somente leitura em edição) -->
+            {% if modo == 'editar' and cotacao %}
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Número da Cotação</span>
+              </label>
+              <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered" disabled>
+            </div>
+            {% endif %}
 
-        <!-- Cliente -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Cliente</span>
-          </label>
-          <div class="flex gap-2">
-            <select name="cliente_id" id="cliente_id" class="select select-bordered flex-1" {% if modo == 'editar' %}disabled{% else %}required{% endif %}>
-              <option value="">Selecione um cliente</option>
-              {% for cliente in clientes %}
-              <option value="{{ cliente.pk_id_tbl_cliente }}" {% if (modo == 'editar' and cotacao.id_cliente == cliente.pk_id_tbl_cliente) or (cliente_selecionado and cliente_selecionado == cliente.pk_id_tbl_cliente) %}selected{% endif %}>
-                {{ cliente.nome_fantasia }}
-              </option>
-              {% endfor %}
-            </select>
-            <button type="button" onclick="abrirBuscaCliente()" class="btn btn-outline btn-primary" title="Buscar cliente">
-              <i class="fas fa-search"></i>
-            </button>
+            <!-- Cliente -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Cliente *</span>
+              </label>
+              <div class="flex gap-2">
+                <select name="client_id" id="client_id" class="select select-bordered flex-1" {% if modo == 'editar' %}disabled{% else %}required{% endif %}>
+                  <option value="">Selecione um cliente</option>
+                  {% for cliente in clientes %}
+                  <option value="{{ cliente.pk_id_tbl_cliente }}" {% if (modo == 'editar' and cotacao.client_id == cliente.pk_id_tbl_cliente) or (cliente_selecionado and cliente_selecionado == cliente.pk_id_tbl_cliente) %}selected{% endif %}>
+                    {{ cliente.nome_fantasia }}
+                  </option>
+                  {% endfor %}
+                </select>
+                <button type="button" onclick="abrirBuscaCliente()" class="btn btn-outline btn-primary" title="Buscar cliente">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Nome da Campanha -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Nome da Campanha *</span>
+              </label>
+              <input 
+                type="text" 
+                name="nome_campanha" 
+                value="{{ cotacao.nome_campanha if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="Ex: Campanha Verão 2025"
+                required
+              >
+            </div>
+
+            <!-- Responsável Comercial -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Responsável Comercial</span>
+              </label>
+              <select name="responsavel_comercial" class="select select-bordered">
+                <option value="">Selecione um responsável</option>
+                {% for vendedor in vendedores %}
+                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>
+                  {{ vendedor.nome_completo }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Objetivo da Campanha -->
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text font-semibold">Objetivo da Campanha</span>
+            </label>
+            <textarea 
+              name="objetivo_campanha" 
+              class="textarea textarea-bordered" 
+              rows="2"
+              placeholder="Descreva o objetivo principal da campanha..."
+            >{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
           </div>
         </div>
 
-        <!-- Vendedor -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Vendedor CentralComm</span>
-          </label>
-          <select name="vendas_central_comm" class="select select-bordered">
-            <option value="">Selecione um vendedor</option>
-            {% for vendedor in vendedores %}
-            <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.vendas_central_comm == vendedor.id_contato_cliente %}selected{% endif %}>
-              {{ vendedor.nome_completo }}
-            </option>
-            {% endfor %}
-          </select>
+        <!-- Datas da Campanha -->
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Datas</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Período Início -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Data de Início *</span>
+              </label>
+              <input 
+                type="date" 
+                name="periodo_inicio" 
+                value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
+                class="input input-bordered"
+                required
+              >
+            </div>
+
+            <!-- Período Fim -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Data de Término</span>
+              </label>
+              <input 
+                type="date" 
+                name="periodo_fim" 
+                value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
+                class="input input-bordered"
+              >
+            </div>
+
+            <!-- Expires At (Expiração da Cotação) -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Expiração da Cotação</span>
+              </label>
+              <input 
+                type="datetime-local" 
+                name="expires_at" 
+                value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
+                class="input input-bordered"
+              >
+            </div>
+
+            <!-- Proposta Enviada Em (somente leitura) -->
+            {% if modo == 'editar' and cotacao and cotacao.proposta_enviada_em %}
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Proposta Enviada em</span>
+              </label>
+              <input type="text" value="{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') if cotacao.proposta_enviada_em.strftime else cotacao.proposta_enviada_em }}" class="input input-bordered" disabled>
+            </div>
+            {% endif %}
+          </div>
         </div>
 
-        <!-- Título -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Título da Cotação *</span>
-          </label>
-          <input 
-            type="text" 
-            name="titulo" 
-            value="{{ cotacao.titulo if cotacao else '' }}" 
-            class="input input-bordered" 
-            placeholder="Ex: Pacote de Publicidade - Janeiro/2025"
-            required
-          >
+        <!-- Detalhes da Peça -->
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Detalhes da Peça/Campanha</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Meio -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Meio</span>
+              </label>
+              <input 
+                type="text" 
+                name="meio" 
+                value="{{ cotacao.meio if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="Ex: Digital, TV, Rádio, Mídia Impressa"
+              >
+            </div>
+
+            <!-- Tipo de Peça -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Tipo de Peça</span>
+              </label>
+              <input 
+                type="text" 
+                name="tipo_peca" 
+                value="{{ cotacao.tipo_peca if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="Ex: Banner, Vídeo, Anúncio, Conteúdo"
+              >
+            </div>
+
+            <!-- Briefing ID -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Briefing (ID)</span>
+              </label>
+              <input 
+                type="number" 
+                name="briefing_id" 
+                value="{{ cotacao.briefing_id if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="ID do briefing associado"
+              >
+            </div>
+          </div>
         </div>
 
-        <!-- Descrição -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Descrição</span>
-          </label>
-          <textarea 
-            name="descricao" 
-            class="textarea textarea-bordered" 
-            rows="3"
-            placeholder="Detalhe sobre o que inclui a cotação..."
-          >{{ cotacao.descricao if cotacao else '' }}</textarea>
+        <!-- Valores da Cotação -->
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Valores</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Budget Estimado -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Budget Estimado (R$)</span>
+              </label>
+              <input 
+                type="text" 
+                id="budget_estimado" 
+                name="budget_estimado_display" 
+                value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" 
+                class="input input-bordered" 
+                placeholder="0,00"
+                oninput="formatarMoedaReal(this, 'budget_estimado_hidden')"
+              >
+              <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
+            </div>
+
+            <!-- Valor Total da Proposta -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Valor Total da Proposta (R$) *</span>
+              </label>
+              <input 
+                type="text" 
+                id="valor_total_proposta" 
+                name="valor_total_proposta_display" 
+                value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" 
+                class="input input-bordered" 
+                placeholder="0,00"
+                oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')"
+                required
+              >
+              <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
+            </div>
+          </div>
         </div>
 
-        <!-- Valores -->
-        <div class="divider">Valores</div>
+        <!-- Contatos -->
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Contatos</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Nome Contato -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Nome do Contato</span>
+              </label>
+              <input 
+                type="text" 
+                name="contato_nome" 
+                value="{{ cotacao.contato_nome if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="Nome completo"
+              >
+            </div>
 
-        <!-- Valor Total -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Valor Total (R$) *</span>
-          </label>
-          <input 
-            type="text" 
-            id="valor_total" 
-            name="valor_total_display" 
-            value="{{ "%.2f"|format(cotacao.valor_total) if cotacao else '' }}" 
-            class="input input-bordered" 
-            placeholder="0,00"
-            oninput="formatarMoedaReal(this)"
-            required
-          >
-          <input type="hidden" id="valor_total_hidden" name="valor_total">
+            <!-- Email Contato -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Email do Contato</span>
+              </label>
+              <input 
+                type="email" 
+                name="contato_email" 
+                value="{{ cotacao.contato_email if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="email@exemplo.com"
+              >
+            </div>
+
+            <!-- Telefone Contato -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Telefone do Contato</span>
+              </label>
+              <input 
+                type="tel" 
+                name="contato_telefone" 
+                value="{{ cotacao.contato_telefone if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="(XX) XXXXX-XXXX"
+              >
+            </div>
+
+            <!-- Empresa Contato -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Empresa do Contato</span>
+              </label>
+              <input 
+                type="text" 
+                name="contato_empresa" 
+                value="{{ cotacao.contato_empresa if cotacao else '' }}" 
+                class="input input-bordered" 
+                placeholder="Nome da empresa"
+              >
+            </div>
+          </div>
         </div>
 
-        <!-- Datas -->
-        <div class="divider">Datas</div>
-
-        <!-- Data de Emissão (somente leitura) -->
-        {% if modo == 'editar' and cotacao %}
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Data de Emissão</span>
-          </label>
-          <input type="date" value="{% if cotacao.data_emissao %}{{ cotacao.data_emissao.strftime('%Y-%m-%d') if cotacao.data_emissao.strftime else cotacao.data_emissao }}{% endif %}" class="input input-bordered" disabled>
-        </div>
-        {% endif %}
-
-        <!-- Data de Vencimento -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Data de Vencimento</span>
-          </label>
-          <input 
-            type="date" 
-            name="data_vencimento" 
-            value="{% if cotacao and cotacao.data_vencimento %}{{ cotacao.data_vencimento.strftime('%Y-%m-%d') if cotacao.data_vencimento.strftime else cotacao.data_vencimento }}{% endif %}"
-            class="input input-bordered"
-          >
-        </div>
-
-        <!-- Status -->
+        <!-- Status e Links Públicos -->
         {% if modo == 'editar' %}
-        <div class="divider">Status</div>
-        
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Status</span>
-          </label>
-          <select name="status" class="select select-bordered">
-            <option value="pendente" {% if cotacao.status == 'pendente' %}selected{% endif %}>Pendente</option>
-            <option value="aprovada" {% if cotacao.status == 'aprovada' %}selected{% endif %}>Aprovada</option>
-            <option value="rejeitada" {% if cotacao.status == 'rejeitada' %}selected{% endif %}>Rejeitada</option>
-            <option value="expirada" {% if cotacao.status == 'expirada' %}selected{% endif %}>Expirada</option>
-          </select>
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Status e Link Público</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Status -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Status</span>
+              </label>
+              <select name="status" class="select select-bordered">
+                <option value="pendente" {% if cotacao.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                <option value="aprovada" {% if cotacao.status == 'aprovada' %}selected{% endif %}>Aprovada</option>
+                <option value="rejeitada" {% if cotacao.status == 'rejeitada' %}selected{% endif %}>Rejeitada</option>
+                <option value="expirada" {% if cotacao.status == 'expirada' %}selected{% endif %}>Expirada</option>
+              </select>
+            </div>
+
+            <!-- Link Público Ativo -->
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text font-semibold">Habilitar Link Público</span>
+                <input type="checkbox" name="link_publico_ativo" class="checkbox" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
+              </label>
+            </div>
+
+            <!-- Aprovada Em (somente leitura) -->
+            {% if cotacao and cotacao.aprovada_em %}
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Aprovada em</span>
+              </label>
+              <input type="text" value="{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') if cotacao.aprovada_em.strftime else cotacao.aprovada_em }}" class="input input-bordered" disabled>
+            </div>
+            {% endif %}
+
+            <!-- Link Público Expira Em -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Link Expira em</span>
+              </label>
+              <input 
+                type="datetime-local" 
+                name="link_publico_expires_at" 
+                value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}"
+                class="input input-bordered"
+              >
+            </div>
+          </div>
         </div>
         {% endif %}
 
         <!-- Observações -->
-        <div class="divider">Observações</div>
+        <div>
+          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Observações</h2>
+          
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Observações</span>
+            </label>
+            <textarea 
+              name="observacoes" 
+              class="textarea textarea-bordered" 
+              rows="3"
+              placeholder="Notas gerais sobre a cotação..."
+            >{{ cotacao.observacoes if cotacao else '' }}</textarea>
+          </div>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Observações</span>
-          </label>
-          <textarea 
-            name="observacoes" 
-            class="textarea textarea-bordered" 
-            rows="3"
-            placeholder="Adicione notas ou observações importantes..."
-          >{{ cotacao.observacoes if cotacao else '' }}</textarea>
+          {% if modo == 'editar' %}
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text font-semibold">Observações Internas</span>
+            </label>
+            <textarea 
+              name="observacoes_internas" 
+              class="textarea textarea-bordered" 
+              rows="3"
+              placeholder="Notas internas (não visíveis ao cliente)..."
+            >{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Origem -->
+        <div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Origem</span>
+            </label>
+            <input 
+              type="text" 
+              name="origem" 
+              value="{{ cotacao.origem if cotacao else '' }}" 
+              class="input input-bordered" 
+              placeholder="Ex: Website, LinkedIn, Referência"
+            >
+          </div>
         </div>
 
         <!-- Ações -->
@@ -206,12 +442,12 @@
 
 <script>
 // Formatar moeda brasileira em tempo real
-function formatarMoedaReal(input) {
+function formatarMoedaReal(input, hiddenFieldId) {
   let value = input.value.replace(/\D/g, '');
   
   if (value === '') {
     input.value = '';
-    document.getElementById('valor_total_hidden').value = '';
+    document.getElementById(hiddenFieldId).value = '';
     return;
   }
   
@@ -225,24 +461,32 @@ function formatarMoedaReal(input) {
   
   // Armazenar valor numérico no campo hidden para enviar ao backend
   const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
-  document.getElementById('valor_total_hidden').value = valorNumerico;
+  document.getElementById(hiddenFieldId).value = valorNumerico;
 }
 
-// Ao submeter o formulário, garantir que o valor correto é enviado
-document.addEventListener('submit', function(e) {
-  const displayInput = document.getElementById('valor_total');
-  if (displayInput && !displayInput.value.includes(',') && displayInput.value) {
-    // Se não foi formatado ainda, formatar
-    formatarMoedaReal(displayInput);
-  }
+// Ao submeter o formulário, garantir que os valores corretos são enviados
+document.querySelector('form').addEventListener('submit', function(e) {
+  const campos = ['budget_estimado', 'valor_total_proposta'];
+  campos.forEach(campo => {
+    const displayInput = document.getElementById(campo);
+    const hiddenInput = document.getElementById(campo + '_hidden');
+    if (displayInput && displayInput.value) {
+      if (!displayInput.value.includes(',')) {
+        formatarMoedaReal(displayInput, campo + '_hidden');
+      }
+    }
+  });
 });
 
-// Ao carregar a página, formatar o valor se existir
+// Ao carregar a página, formatar os valores se existirem
 document.addEventListener('DOMContentLoaded', function() {
-  const displayInput = document.getElementById('valor_total');
-  if (displayInput && displayInput.value) {
-    formatarMoedaReal(displayInput);
-  }
+  const campos = ['budget_estimado', 'valor_total_proposta'];
+  campos.forEach(campo => {
+    const displayInput = document.getElementById(campo);
+    if (displayInput && displayInput.value) {
+      formatarMoedaReal(displayInput, campo + '_hidden');
+    }
+  });
 });
 </script>
 {% endblock %}

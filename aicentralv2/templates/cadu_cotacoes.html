@@ -21,9 +21,9 @@
       {% endif %}
 
       <!-- Mostrar filtro ativo se houver vendedor selecionado -->
-      {% set vendas_central_comm = request.args.get('vendas_central_comm') %}
-      {% if vendas_central_comm %}
-        {% set vendedor_nome = vendedores | selectattr('id_contato_cliente', 'equalto', vendas_central_comm|int) | map(attribute='nome_completo') | first %}
+      {% set responsavel_comercial = request.args.get('responsavel_comercial') %}
+      {% if responsavel_comercial %}
+        {% set vendedor_nome = vendedores | selectattr('id_contato_cliente', 'equalto', responsavel_comercial|int) | map(attribute='nome_completo') | first %}
         {% if vendedor_nome %}
           <div class="mt-2 p-2 bg-success/10 rounded border border-success/20">
             <p class="text-sm font-semibold text-success">
@@ -81,22 +81,22 @@
             <tr>
               <th class="text-left font-bold uppercase">Nº Cotação</th>
               <th class="text-left font-bold uppercase">Cliente</th>
-              <th class="text-left font-bold uppercase">Título</th>
-              <th class="text-left font-bold uppercase">Vendedor</th>
-              <th class="text-right font-bold uppercase">Valor</th>
+              <th class="text-left font-bold uppercase">Campanha</th>
               <th class="text-center font-bold uppercase">Status</th>
-              <th class="text-center font-bold uppercase">Vencimento</th>
-              <th class="text-center font-bold uppercase w-20">Ações</th>
+              <th class="text-right font-bold uppercase">Budget</th>
+              <th class="text-center font-bold uppercase">Período Início</th>
             </tr>
           </thead>
           <tbody>
             {% for cotacao in cotacoes %}
             <tr class="hover">
-              <td class="font-mono text-sm">{{ cotacao.numero_cotacao }}</td>
+              <td class="font-mono text-sm font-semibold">
+                <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="link link-primary">
+                  {{ cotacao.numero_cotacao }}
+                </a>
+              </td>
               <td>{{ cotacao.cliente_nome or '-' }}</td>
-              <td>{{ cotacao.titulo }}</td>
-              <td>{{ cotacao.vendedor_nome or '-' }}</td>
-              <td class="text-right" data-valor="{{ cotacao.valor_total }}">R$ <span class="valor-formatado">{{ "%.2f"|format(cotacao.valor_total) }}</span></td>
+              <td class="max-w-xs truncate">{{ cotacao.nome_campanha }}</td>
               <td class="text-center">
                 <span class="badge 
                   {% if cotacao.status == 'pendente' %}badge-warning
@@ -107,17 +107,8 @@
                   {{ cotacao.status }}
                 </span>
               </td>
-              <td class="text-center text-sm">{% if cotacao.data_vencimento %}{{ cotacao.data_vencimento.strftime('%d-%m-%Y') }}{% else %}-{% endif %}</td>
-              <td class="text-center">
-                <div class="flex justify-center gap-1">
-                  <a href="/cotacoes/{{ cotacao.id }}/editar" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
-                    <i class="fas fa-edit"></i>
-                  </a>
-                  <button onclick="deletarCotacao({{ cotacao.id }})" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-              </td>
+              <td class="text-right" data-valor="{{ cotacao.budget_estimado }}">R$ <span class="valor-formatado">{{ "%.2f"|format(cotacao.budget_estimado or 0) }}</span></td>
+              <td class="text-center text-sm">{% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% else %}-{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -330,7 +321,7 @@ function limparBuscaModal() {
 }
 function filtrarPorVendedor(vendedorId) {
   if (vendedorId) {
-    window.location.href = `/cotacoes?vendas_central_comm=${vendedorId}`;
+    window.location.href = `/cotacoes?responsavel_comercial=${vendedorId}`;
   } else {
     window.location.href = '/cotacoes';
   }
@@ -348,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Resetar dropdown ao valor do filtro ativo (se houver)
   const urlParams = new URLSearchParams(window.location.search);
-  const vendedorFiltrado = urlParams.get('vendas_central_comm');
+  const vendedorFiltrado = urlParams.get('responsavel_comercial');
   console.log('Vendedor filtrado da URL:', vendedorFiltrado);
   
   const selectVendedor = document.getElementById('filtro_vendedor');

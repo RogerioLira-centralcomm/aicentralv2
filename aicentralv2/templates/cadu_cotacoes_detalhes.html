@@ -1,0 +1,856 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Cotação {{ cotacao.numero_cotacao }} - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+  <div class="mb-6 flex justify-between items-start">
+    <div>
+      <h1 class="text-2xl font-bold">Cotação {{ cotacao.numero_cotacao }}</h1>
+      <p class="text-base-content/70">{{ cotacao.cliente_nome if cotacao.cliente_nome else 'Cliente não especificado' }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost">
+        <i class="fas fa-arrow-left"></i>Voltar
+      </a>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" class="btn btn-error btn-deletar">
+        <i class="fas fa-trash"></i>Deletar
+      </button>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Coluna Principal (2/3) -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <!-- Informações Básicas -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Informações Básicas</h2>
+            <button onclick="document.getElementById('modal_basico').showModal()" class="btn btn-sm btn-ghost">
+              <i class="fas fa-edit"></i>Editar
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-base-content/70">Cliente</p>
+              <p class="font-semibold">{{ cotacao.cliente_nome if cotacao.cliente_nome else '-' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Campanha</p>
+              <p class="font-semibold">{{ cotacao.nome_campanha if cotacao.nome_campanha else '-' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Responsável Comercial</p>
+              <p class="font-semibold">{{ cotacao.responsavel_nome if cotacao.responsavel_nome else '-' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Status</p>
+              <div class="badge" 
+                {% if cotacao.status == 'aprovada' %}
+                  badge-success
+                {% elif cotacao.status == 'rejeitada' %}
+                  badge-error
+                {% elif cotacao.status == 'expirada' %}
+                  badge-warning
+                {% else %}
+                  badge-info
+                {% endif %}>
+                {{ cotacao.status if cotacao.status else 'pendente' }}
+              </div>
+            </div>
+          </div>
+
+          {% if cotacao.objetivo_campanha %}
+          <div class="mt-4 pt-4 border-t">
+            <p class="text-sm text-base-content/70 mb-2">Objetivo da Campanha</p>
+            <p class="text-sm">{{ cotacao.objetivo_campanha }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Datas -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Datas</h2>
+            <button onclick="document.getElementById('modal_datas').showModal()" class="btn btn-sm btn-ghost">
+              <i class="fas fa-edit"></i>Editar
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-base-content/70">Início da Campanha</p>
+              <p class="font-semibold">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao.periodo_inicio else '-' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Término da Campanha</p>
+              <p class="font-semibold">{{ cotacao.periodo_fim.strftime('%d/%m/%Y') if cotacao.periodo_fim else '-' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Expiração da Cotação</p>
+              <p class="font-semibold">{{ cotacao.expires_at.strftime('%d/%m/%Y %H:%M') if cotacao.expires_at else '-' }}</p>
+            </div>
+            {% if cotacao.proposta_enviada_em %}
+            <div>
+              <p class="text-sm text-base-content/70">Proposta Enviada em</p>
+              <p class="font-semibold">{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Valores -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Valores</h2>
+            <button onclick="document.getElementById('modal_valores').showModal()" class="btn btn-sm btn-ghost">
+              <i class="fas fa-edit"></i>Editar
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-base-content/70">Budget Estimado</p>
+              <p class="font-semibold text-lg">R$ {{ "%.2f"|format(cotacao.budget_estimado) if cotacao.budget_estimado else '0,00' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Valor Total da Proposta</p>
+              <p class="font-semibold text-lg text-success">R$ {{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao.valor_total_proposta else '0,00' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalhes da Peça -->
+      {% if cotacao.meio or cotacao.tipo_peca or cotacao.briefing_id %}
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Detalhes da Peça</h2>
+            <button onclick="document.getElementById('modal_peca').showModal()" class="btn btn-sm btn-ghost">
+              <i class="fas fa-edit"></i>Editar
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-base-content/70">Meio</p>
+              <p class="font-semibold">{{ cotacao.meio if cotacao.meio else '-' }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-base-content/70">Tipo de Peça</p>
+              <p class="font-semibold">{{ cotacao.tipo_peca if cotacao.tipo_peca else '-' }}</p>
+            </div>
+            {% if cotacao.briefing_id %}
+            <div>
+              <p class="text-sm text-base-content/70">Briefing ID</p>
+              <p class="font-semibold">{{ cotacao.briefing_id }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Contatos -->
+      {% if cotacao.contato_nome or cotacao.contato_email or cotacao.contato_telefone %}
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Contatos</h2>
+            <button onclick="document.getElementById('modal_contatos').showModal()" class="btn btn-sm btn-ghost">
+              <i class="fas fa-edit"></i>Editar
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-1 gap-3">
+            {% if cotacao.contato_nome %}
+            <div class="flex items-center gap-3">
+              <i class="fas fa-user text-primary w-5"></i>
+              <div>
+                <p class="text-sm text-base-content/70">Nome</p>
+                <p class="font-semibold">{{ cotacao.contato_nome }}</p>
+              </div>
+            </div>
+            {% endif %}
+            
+            {% if cotacao.contato_email %}
+            <div class="flex items-center gap-3">
+              <i class="fas fa-envelope text-primary w-5"></i>
+              <div>
+                <p class="text-sm text-base-content/70">Email</p>
+                <p class="font-semibold"><a href="mailto:{{ cotacao.contato_email }}" class="link">{{ cotacao.contato_email }}</a></p>
+              </div>
+            </div>
+            {% endif %}
+            
+            {% if cotacao.contato_telefone %}
+            <div class="flex items-center gap-3">
+              <i class="fas fa-phone text-primary w-5"></i>
+              <div>
+                <p class="text-sm text-base-content/70">Telefone</p>
+                <p class="font-semibold"><a href="tel:{{ cotacao.contato_telefone }}" class="link">{{ formatarTelefone(cotacao.contato_telefone) }}</a></p>
+              </div>
+            </div>
+            {% endif %}
+            
+            {% if cotacao.contato_empresa %}
+            <div class="flex items-center gap-3">
+              <i class="fas fa-building text-primary w-5"></i>
+              <div>
+                <p class="text-sm text-base-content/70">Empresa</p>
+                <p class="font-semibold">{{ cotacao.contato_empresa }}</p>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Observações -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Observações</h2>
+            <button onclick="document.getElementById('modal_observacoes').showModal()" class="btn btn-sm btn-ghost">
+              <i class="fas fa-edit"></i>Editar
+            </button>
+          </div>
+          
+          {% if cotacao.observacoes %}
+          <div class="mb-4">
+            <p class="text-sm text-base-content/70 mb-1">Observações</p>
+            <p class="text-sm bg-base-200 p-3 rounded">{{ cotacao.observacoes }}</p>
+          </div>
+          {% else %}
+          <div class="mb-4">
+            <p class="text-sm text-base-content/70 mb-1">Observações</p>
+            <p class="text-sm text-base-content/50 italic">Sem observações</p>
+          </div>
+          {% endif %}
+          
+          {% if cotacao.observacoes_internas %}
+          <div>
+            <p class="text-sm text-base-content/70 mb-1">Observações Internas</p>
+            <p class="text-sm bg-base-200 p-3 rounded">{{ cotacao.observacoes_internas }}</p>
+          </div>
+          {% else %}
+          <div>
+            <p class="text-sm text-base-content/70 mb-1">Observações Internas</p>
+            <p class="text-sm text-base-content/50 italic">Sem observações internas</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar (1/3) -->
+    <div class="space-y-6">
+
+      <!-- Card de Status -->
+      <div class="card bg-primary text-primary-content">
+        <div class="card-body">
+          <h3 class="card-title text-lg mb-4">Resumo</h3>
+          
+          <div class="space-y-3">
+            <div class="flex justify-between">
+              <span>Status:</span>
+              <span class="font-semibold">{{ cotacao.status if cotacao.status else 'Pendente' }}</span>
+            </div>
+            
+            <div class="flex justify-between">
+              <span>Nº Cotação:</span>
+              <span class="font-mono font-semibold">{{ cotacao.numero_cotacao }}</span>
+            </div>
+            
+            {% if cotacao.origem %}
+            <div class="flex justify-between">
+              <span>Origem:</span>
+              <span class="font-semibold">{{ cotacao.origem }}</span>
+            </div>
+            {% endif %}
+            
+            {% if cotacao.link_publico_ativo %}
+            <div class="flex justify-between items-center">
+              <span>Link Público:</span>
+              <span class="badge badge-success">Ativo</span>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="flex gap-2">
+            {% if cotacao.status != 'aprovada' %}
+            <button type="button" data-cotacao-id="{{ cotacao.id }}" class="btn btn-success btn-sm flex-1 btn-aprovar">
+              <i class="fas fa-check"></i>Aprovar
+            </button>
+            {% endif %}
+            
+            {% if cotacao.status != 'rejeitada' %}
+            <button type="button" data-cotacao-id="{{ cotacao.id }}" class="btn btn-warning btn-sm flex-1 btn-rejeitar">
+              <i class="fas fa-times"></i>Rejeitar
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Card de Datas Importantes -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h3 class="font-bold mb-3">Datas Importantes</h3>
+          
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between">
+              <span class="text-base-content/70">Criada em:</span>
+              <span class="font-semibold">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</span>
+            </div>
+            
+            <div class="flex justify-between">
+              <span class="text-base-content/70">Atualizada em:</span>
+              <span class="font-semibold">{{ cotacao.updated_at.strftime('%d/%m/%Y') if cotacao.updated_at else '-' }}</span>
+            </div>
+            
+            {% if cotacao.proposta_enviada_em %}
+            <div class="flex justify-between">
+              <span class="text-base-content/70">Proposta Enviada:</span>
+              <span class="font-semibold">{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y') }}</span>
+            </div>
+            {% endif %}
+            
+            {% if cotacao.aprovada_em %}
+            <div class="flex justify-between">
+              <span class="text-base-content/70">Aprovada em:</span>
+              <span class="font-semibold text-success">{{ cotacao.aprovada_em.strftime('%d/%m/%Y') }}</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Card de Ações Rápidas -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <h3 class="font-bold mb-3">Ações Rápidas</h3>
+          
+          <div class="space-y-2">
+            <button onclick="document.getElementById('modal_basico').showModal()" class="btn btn-sm btn-outline w-full justify-start">
+              <i class="fas fa-edit"></i>Editar Básico
+            </button>
+            <button onclick="document.getElementById('modal_datas').showModal()" class="btn btn-sm btn-outline w-full justify-start">
+              <i class="fas fa-calendar"></i>Editar Datas
+            </button>
+            <button onclick="document.getElementById('modal_valores').showModal()" class="btn btn-sm btn-outline w-full justify-start">
+              <i class="fas fa-dollar-sign"></i>Editar Valores
+            </button>
+            <button onclick="document.getElementById('modal_contatos').showModal()" class="btn btn-sm btn-outline w-full justify-start">
+              <i class="fas fa-phone"></i>Editar Contatos
+            </button>
+            <button onclick="document.getElementById('modal_observacoes').showModal()" class="btn btn-sm btn-outline w-full justify-start">
+              <i class="fas fa-sticky-note"></i>Editar Observações
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAIS DE EDIÇÃO ==================== -->
+
+<!-- Modal Informações Básicas -->
+<dialog id="modal_basico" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Informações Básicas</h3>
+    
+    <form id="form_basico" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Nome da Campanha</span>
+        </label>
+        <input type="text" id="nome_campanha" class="input input-bordered" value="{{ cotacao.nome_campanha }}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Responsável Comercial</span>
+        </label>
+        <select id="responsavel_comercial" class="select select-bordered">
+          <option value="">Selecione um responsável</option>
+          {% for vendedor in vendedores %}
+          <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>
+            {{ vendedor.nome_completo }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Objetivo da Campanha</span>
+        </label>
+        <textarea id="objetivo_campanha" class="textarea textarea-bordered" rows="2">{{ cotacao.objetivo_campanha if cotacao.objetivo_campanha else '' }}</textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Status</span>
+        </label>
+        <select id="status" class="select select-bordered">
+          <option value="pendente" {% if cotacao.status == 'pendente' %}selected{% endif %}>Pendente</option>
+          <option value="aprovada" {% if cotacao.status == 'aprovada' %}selected{% endif %}>Aprovada</option>
+          <option value="rejeitada" {% if cotacao.status == 'rejeitada' %}selected{% endif %}>Rejeitada</option>
+          <option value="expirada" {% if cotacao.status == 'expirada' %}selected{% endif %}>Expirada</option>
+        </select>
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_basico').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="basico" class="btn btn-primary btn-salvar">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Datas -->
+<dialog id="modal_datas" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Datas</h3>
+    
+    <form id="form_datas" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Data de Início</span>
+        </label>
+        <input type="date" id="periodo_inicio" class="input input-bordered" value="{% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') }}{% endif %}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Data de Término</span>
+        </label>
+        <input type="date" id="periodo_fim" class="input input-bordered" value="{% if cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') }}{% endif %}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Expiração da Cotação</span>
+        </label>
+        <input type="datetime-local" id="expires_at" class="input input-bordered" value="{% if cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_datas').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="datas" class="btn btn-primary btn-salvar">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Valores -->
+<dialog id="modal_valores" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Valores</h3>
+    
+    <form id="form_valores" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Budget Estimado (R$)</span>
+        </label>
+        <input type="text" id="budget_estimado" class="input input-bordered" placeholder="0,00" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao.budget_estimado else '' }}" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+        <input type="hidden" id="budget_estimado_hidden">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Valor Total da Proposta (R$)</span>
+        </label>
+        <input type="text" id="valor_total_proposta" class="input input-bordered" placeholder="0,00" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao.valor_total_proposta else '' }}" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')">
+        <input type="hidden" id="valor_total_proposta_hidden">
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_valores').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="valores" class="btn btn-primary btn-salvar">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Peça -->
+<dialog id="modal_peca" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Detalhes da Peça</h3>
+    
+    <form id="form_peca" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Meio</span>
+        </label>
+        <input type="text" id="meio" class="input input-bordered" placeholder="Ex: Digital, TV, Rádio" value="{{ cotacao.meio if cotacao.meio else '' }}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Tipo de Peça</span>
+        </label>
+        <input type="text" id="tipo_peca" class="input input-bordered" placeholder="Ex: Banner, Vídeo, Anúncio" value="{{ cotacao.tipo_peca if cotacao.tipo_peca else '' }}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Briefing ID</span>
+        </label>
+        <input type="number" id="briefing_id" class="input input-bordered" value="{{ cotacao.briefing_id if cotacao.briefing_id else '' }}">
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_peca').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="peca" class="btn btn-primary btn-salvar">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Contatos -->
+<dialog id="modal_contatos" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Contatos</h3>
+    
+    <form id="form_contatos" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Nome</span>
+        </label>
+        <input type="text" id="contato_nome" class="input input-bordered" value="{{ cotacao.contato_nome if cotacao.contato_nome else '' }}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Email</span>
+        </label>
+        <input type="email" id="contato_email" class="input input-bordered" value="{{ cotacao.contato_email if cotacao.contato_email else '' }}">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Telefone</span>
+        </label>
+        <input type="tel" id="contato_telefone" class="input input-bordered" value="{{ cotacao.contato_telefone if cotacao.contato_telefone else '' }}" placeholder="(XX) XXXXX-XXXX" oninput="formatarTelefoneInput(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Empresa</span>
+        </label>
+        <input type="text" id="contato_empresa" class="input input-bordered" value="{{ cotacao.contato_empresa if cotacao.contato_empresa else '' }}">
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_contatos').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="contatos" class="btn btn-primary btn-salvar">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Observações -->
+<dialog id="modal_observacoes" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Observações</h3>
+    
+    <form id="form_observacoes" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Observações</span>
+        </label>
+        <textarea id="observacoes" class="textarea textarea-bordered" rows="3">{{ cotacao.observacoes if cotacao.observacoes else '' }}</textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Observações Internas</span>
+        </label>
+        <textarea id="observacoes_internas" class="textarea textarea-bordered" rows="3">{{ cotacao.observacoes_internas if cotacao.observacoes_internas else '' }}</textarea>
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_observacoes').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="observacoes" class="btn btn-primary btn-salvar">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<script>
+// Formatar telefone para display (máscara: (XX) XXXXX-XXXX)
+function formatarTelefone(telefone) {
+  if (!telefone) return '';
+  
+  const apenas_numeros = telefone.replace(/\D/g, '');
+  
+  if (apenas_numeros.length === 11) {
+    return `(${apenas_numeros.slice(0, 2)}) ${apenas_numeros.slice(2, 7)}-${apenas_numeros.slice(7)}`;
+  } else if (apenas_numeros.length === 10) {
+    return `(${apenas_numeros.slice(0, 2)}) ${apenas_numeros.slice(2, 6)}-${apenas_numeros.slice(6)}`;
+  }
+  
+  return telefone;
+}
+
+// Formatar telefone em tempo real no input
+function formatarTelefoneInput(input) {
+  let value = input.value.replace(/\D/g, '');
+  
+  if (value.length === 0) {
+    input.value = '';
+    return;
+  }
+  
+  if (value.length <= 2) {
+    input.value = value.length > 0 ? `(${value}` : '';
+  } else if (value.length <= 7) {
+    input.value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+  } else {
+    input.value = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7, 11)}`;
+  }
+}
+
+// Remover máscara antes de enviar ao servidor
+function limparMascaraTelefone(telefone) {
+  return telefone.replace(/\D/g, '');
+}
+
+// Formatar moeda brasileira
+function formatarMoedaReal(input, hiddenFieldId) {
+  let value = input.value.replace(/\D/g, '');
+  
+  if (value === '') {
+    input.value = '';
+    if (hiddenFieldId) document.getElementById(hiddenFieldId).value = '';
+    return;
+  }
+  
+  value = (parseInt(value, 10) / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  
+  input.value = value;
+  
+  if (hiddenFieldId) {
+    const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+    document.getElementById(hiddenFieldId).value = valorNumerico;
+  }
+}
+
+// Salvar edição via AJAX
+async function salvarEdicao(tipo, cotacao_id) {
+  const data = {};
+  
+  // Coletar dados conforme o tipo de edição
+  if (tipo === 'basico') {
+    data.nome_campanha = document.getElementById('nome_campanha').value;
+    data.responsavel_comercial = document.getElementById('responsavel_comercial').value;
+    data.objetivo_campanha = document.getElementById('objetivo_campanha').value;
+    data.status = document.getElementById('status').value;
+  } else if (tipo === 'datas') {
+    data.periodo_inicio = document.getElementById('periodo_inicio').value;
+    data.periodo_fim = document.getElementById('periodo_fim').value;
+    data.expires_at = document.getElementById('expires_at').value;
+  } else if (tipo === 'valores') {
+    const budget = document.getElementById('budget_estimado_hidden').value || document.getElementById('budget_estimado').value;
+    const valor = document.getElementById('valor_total_proposta_hidden').value || document.getElementById('valor_total_proposta').value;
+    data.budget_estimado = budget ? parseFloat(budget) : null;
+    data.valor_total_proposta = valor ? parseFloat(valor) : null;
+  } else if (tipo === 'peca') {
+    data.meio = document.getElementById('meio').value;
+    data.tipo_peca = document.getElementById('tipo_peca').value;
+    data.briefing_id = document.getElementById('briefing_id').value;
+  } else if (tipo === 'contatos') {
+    data.contato_nome = document.getElementById('contato_nome').value;
+    data.contato_email = document.getElementById('contato_email').value;
+    data.contato_telefone = limparMascaraTelefone(document.getElementById('contato_telefone').value);
+    data.contato_empresa = document.getElementById('contato_empresa').value;
+  } else if (tipo === 'observacoes') {
+    data.observacoes = document.getElementById('observacoes').value;
+    data.observacoes_internas = document.getElementById('observacoes_internas').value;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacao_id}/atualizar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+      alert('Alterações salvas com sucesso!');
+      location.reload();
+    } else {
+      const error = await response.json();
+      alert(`Erro ao salvar: ${error.message}`);
+    }
+  } catch (error) {
+    alert(`Erro: ${error.message}`);
+  }
+}
+
+// Aprovar cotação
+async function aprovarCotacao(cotacao_id) {
+  if (!confirm('Deseja aprovar esta cotação?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacao_id}/atualizar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'aprovada', aprovada_em: new Date().toISOString() })
+    });
+    
+    if (response.ok) {
+      alert('Cotação aprovada!');
+      location.reload();
+    } else {
+      alert('Erro ao aprovar cotação');
+    }
+  } catch (error) {
+    alert(`Erro: ${error.message}`);
+  }
+}
+
+// Rejeitar cotação
+async function rejeitarCotacao(cotacao_id) {
+  if (!confirm('Deseja rejeitar esta cotação?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacao_id}/atualizar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'rejeitada' })
+    });
+    
+    if (response.ok) {
+      alert('Cotação rejeitada!');
+      location.reload();
+    } else {
+      alert('Erro ao rejeitar cotação');
+    }
+  } catch (error) {
+    alert(`Erro: ${error.message}`);
+  }
+}
+
+// Confirmar deleção
+function confirmarDelecao(cotacao_id) {
+  if (confirm('Tem certeza que deseja deletar esta cotação? Esta ação não pode ser desfeita.')) {
+    deletarCotacao(cotacao_id);
+  }
+}
+
+// Deletar cotação
+async function deletarCotacao(cotacao_id) {
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacao_id}/deletar`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      alert('Cotação deletada com sucesso!');
+      window.location.href = '/cotacoes';
+    } else {
+      alert('Erro ao deletar cotação');
+    }
+  } catch (error) {
+    alert(`Erro: ${error.message}`);
+  }
+}
+
+// Ao carregar a página, formatar os valores
+document.addEventListener('DOMContentLoaded', function() {
+  const campos = ['budget_estimado', 'valor_total_proposta'];
+  campos.forEach(campo => {
+    const displayInput = document.getElementById(campo);
+    if (displayInput && displayInput.value) {
+      formatarMoedaReal(displayInput, campo + '_hidden');
+    }
+  });
+
+  // Event listeners para botões com data attributes
+  document.querySelectorAll('.btn-salvar').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const cotacaoId = this.dataset.cotacaoId;
+      const tipo = this.dataset.tipo;
+      salvarEdicao(tipo, cotacaoId);
+    });
+  });
+
+  document.querySelectorAll('.btn-deletar').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const cotacaoId = this.dataset.cotacaoId;
+      confirmarDelecao(cotacaoId);
+    });
+  });
+
+  document.querySelectorAll('.btn-aprovar').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const cotacaoId = this.dataset.cotacaoId;
+      aprovarCotacao(cotacaoId);
+    });
+  });
+
+  document.querySelectorAll('.btn-rejeitar').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const cotacaoId = this.dataset.cotacaoId;
+      rejeitarCotacao(cotacaoId);
+    });
+  });
+});
+</script>
+{% endblock %}

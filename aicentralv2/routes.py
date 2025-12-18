@@ -3440,12 +3440,12 @@ def init_routes(app):
         try:
             db.criar_tabela_cotacoes()
             
-            # Verificar se há filtro de cliente ou vendedor
+            # Verificar se há filtro de cliente ou vendedor responsável
             cliente_id = request.args.get('cliente_id', type=int)
-            vendas_central_comm = request.args.get('vendas_central_comm', type=int)
+            responsavel_id = request.args.get('responsavel_comercial', type=int)
             cliente_info = None
             
-            app.logger.info(f"DEBUG cotacoes_list: cliente_id={cliente_id}, vendas_central_comm={vendas_central_comm}")
+            app.logger.info(f"DEBUG cotacoes_list: cliente_id={cliente_id}, responsavel_id={responsavel_id}")
             
             # Se há cliente_id, buscar informações do cliente
             if cliente_id:
@@ -3455,30 +3455,15 @@ def init_routes(app):
                     cliente_info = cursor.fetchone()
                     app.logger.info(f"DEBUG cotacoes_list: cliente_info={cliente_info}")
             
-            # Debug: verificar se tem dados
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                cursor.execute('SELECT COUNT(*) as total FROM cadu_cotacoes')
-                count_result = cursor.fetchone()
-                total = count_result['total'] if count_result else 0
-                app.logger.info(f"DEBUG: Total de cotações no BD: {total}")
-                
-                if cliente_id:
-                    cursor.execute('SELECT COUNT(*) as total FROM cadu_cotacoes WHERE id_cliente = %s', (cliente_id,))
-                    count_by_client = cursor.fetchone()
-                    app.logger.info(f"DEBUG: Cotações para cliente {cliente_id}: {count_by_client['total'] if count_by_client else 0}")
-            
             # Obter cotações com filtro apropriado
-            if vendas_central_comm:
-                # Filtrar por vendedor
-                cotacoes = db.obter_cotacoes_por_vendedor(vendas_central_comm)
+            if responsavel_id:
+                # Filtrar por vendedor/responsável
+                cotacoes = db.obter_cotacoes_por_vendedor(responsavel_id)
             else:
                 # Filtrar por cliente se fornecido
                 cotacoes = db.obter_cotacoes(cliente_id=cliente_id)
             
             app.logger.info(f"DEBUG: Cotações obtidas: {len(cotacoes) if cotacoes else 0} registros")
-            if cotacoes:
-                app.logger.info(f"DEBUG: Primeira cotação: {cotacoes[0]}")
             
             vendedores = db.obter_vendedores()
             return render_template('cadu_cotacoes.html', cotacoes=cotacoes or [], cliente_filtro=cliente_info, vendedores=vendedores)
@@ -3494,32 +3479,49 @@ def init_routes(app):
         """Criar nova cotação"""
         if request.method == 'POST':
             try:
-                cliente_id = request.form.get('cliente_id', type=int)
-                vendas_central_comm = request.form.get('vendas_central_comm', type=int)
-                titulo = request.form.get('titulo', '').strip()
-                descricao = request.form.get('descricao', '').strip()
-                # Tentar obter do campo hidden primeiro (formatado), depois do campo display (compatibilidade)
-                valor_str = request.form.get('valor_total_hidden') or request.form.get('valor_total', '0')
-                valor_total = float(valor_str) if valor_str else None
-                data_vencimento = request.form.get('data_vencimento')
-                observacoes = request.form.get('observacoes', '').strip()
-
-                app.logger.info(f"DEBUG cotacao_nova: cliente_id={cliente_id}, vendas_central_comm={vendas_central_comm}, titulo={titulo}, valor_total={valor_total}")
-
-                if not titulo or not valor_total:
-                    flash('Título e valor são obrigatórios.', 'error')
+                # Campos obrigatórios
+                client_id = request.form.get('client_id', type=int)
+                nome_campanha = request.form.get('nome_campanha', '').strip()
+                periodo_inicio = request.form.get('periodo_inicio', '').strip()
+                valor_total_str = request.form.get('valor_total_proposta') or request.form.get('valor_total_proposta_display', '0')
+                
+                # Validação de campos obrigatórios
+                if not client_id or not nome_campanha or not periodo_inicio or not valor_total_str:
+                    flash('Cliente, nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
                     vendedores = db.obter_vendedores()
                     return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
 
+                # Converter valor para float
+                valor_total = float(valor_total_str) if valor_total_str else 0.0
+
+                # Coletar todos os campos opcionais
+                kwargs = {
+                    'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
+                    'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
+                    'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
+                    'meio': request.form.get('meio', '').strip(),
+                    'tipo_peca': request.form.get('tipo_peca', '').strip(),
+                    'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
+                    'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
+                    'contato_nome': request.form.get('contato_nome', '').strip(),
+                    'contato_email': request.form.get('contato_email', '').strip(),
+                    'contato_telefone': request.form.get('contato_telefone', '').strip(),
+                    'contato_empresa': request.form.get('contato_empresa', '').strip(),
+                    'observacoes': request.form.get('observacoes', '').strip(),
+                    'origem': request.form.get('origem', '').strip(),
+                    'expires_at': request.form.get('expires_at', '').strip() or None,
+                }
+
+                # Remover None values para evitar conflitos
+                kwargs = {k: v for k, v in kwargs.items() if v is not None and v != ''}
+
                 resultado = db.criar_cotacao(
-                    cliente_id=cliente_id,
-                    titulo=titulo,
-                    descricao=descricao,
-                    valor_total=valor_total,
-                    data_vencimento=data_vencimento,
-                    observacoes=observacoes,
-                    vendas_central_comm=vendas_central_comm
+                    client_id=client_id,
+                    nome_campanha=nome_campanha,
+                    periodo_inicio=periodo_inicio,
+                    valor_total_proposta=valor_total,
+                    **kwargs
                 )
 
                 registrar_auditoria(
@@ -3528,15 +3530,18 @@ def init_routes(app):
                     descricao=f'Cotação criada: {resultado["numero_cotacao"]}',
                     registro_id=resultado['id'],
                     registro_tipo='cadu_cotacoes',
-                    dados_novos={'titulo': titulo, 'valor_total': valor_total}
+                    dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total}
                 )
 
                 flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
                 return redirect(url_for('cotacoes_list'))
 
             except Exception as e:
-                app.logger.error(f"Erro ao criar cotação: {str(e)}")
-                flash('Erro ao criar cotação.', 'error')
+                app.logger.error(f"Erro ao criar cotação: {str(e)}", exc_info=True)
+                flash(f'Erro ao criar cotação: {str(e)}', 'error')
+                clientes = db.obter_clientes_simples()
+                vendedores = db.obter_vendedores()
+                return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
 
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores()
@@ -3561,33 +3566,50 @@ def init_routes(app):
                 return redirect(url_for('cotacoes_list'))
 
             if request.method == 'POST':
-                titulo = request.form.get('titulo', '').strip()
-                descricao = request.form.get('descricao', '').strip()
-                # Tentar obter do campo hidden primeiro (formatado), depois do campo display (compatibilidade)
-                valor_str = request.form.get('valor_total_hidden') or request.form.get('valor_total', '0')
-                valor_total = float(valor_str) if valor_str else None
-                data_vencimento = request.form.get('data_vencimento')
-                status = request.form.get('status', '').strip()
-                observacoes = request.form.get('observacoes', '').strip()
-                vendas_central_comm = request.form.get('vendas_central_comm', type=int)
-
-                if not titulo or not valor_total:
-                    flash('Título e valor são obrigatórios.', 'error')
+                # Campos obrigatórios
+                nome_campanha = request.form.get('nome_campanha', '').strip()
+                periodo_inicio = request.form.get('periodo_inicio', '').strip()
+                valor_total_str = request.form.get('valor_total_proposta') or request.form.get('valor_total_proposta_display', '0')
+                
+                if not nome_campanha or not periodo_inicio or not valor_total_str:
+                    flash('Nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
                     vendedores = db.obter_vendedores()
                     return render_template('cadu_cotacoes_form.html', 
                                          cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
 
-                db.atualizar_cotacao(
-                    cotacao_id=cotacao_id,
-                    titulo=titulo,
-                    descricao=descricao,
-                    valor_total=valor_total,
-                    data_vencimento=data_vencimento,
-                    status=status,
-                    observacoes=observacoes,
-                    vendas_central_comm=vendas_central_comm
-                )
+                # Converter valor para float
+                valor_total = float(valor_total_str) if valor_total_str else 0.0
+
+                # Coletar todos os campos opcionais
+                update_kwargs = {
+                    'nome_campanha': nome_campanha,
+                    'periodo_inicio': periodo_inicio,
+                    'valor_total_proposta': valor_total,
+                    'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
+                    'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
+                    'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
+                    'meio': request.form.get('meio', '').strip(),
+                    'tipo_peca': request.form.get('tipo_peca', '').strip(),
+                    'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
+                    'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
+                    'contato_nome': request.form.get('contato_nome', '').strip(),
+                    'contato_email': request.form.get('contato_email', '').strip(),
+                    'contato_telefone': request.form.get('contato_telefone', '').strip(),
+                    'contato_empresa': request.form.get('contato_empresa', '').strip(),
+                    'observacoes': request.form.get('observacoes', '').strip(),
+                    'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
+                    'origem': request.form.get('origem', '').strip(),
+                    'status': request.form.get('status', '').strip(),
+                    'expires_at': request.form.get('expires_at', '').strip() or None,
+                    'link_publico_ativo': 'link_publico_ativo' in request.form,
+                    'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
+                }
+
+                # Remover None values para evitar conflitos
+                update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None and v != ''}
+
+                db.atualizar_cotacao(cotacao_id=cotacao_id, **update_kwargs)
 
                 registrar_auditoria(
                     acao='UPDATE',
@@ -3595,8 +3617,8 @@ def init_routes(app):
                     descricao=f'Cotação atualizada: {cotacao["numero_cotacao"]}',
                     registro_id=cotacao_id,
                     registro_tipo='cadu_cotacoes',
-                    dados_anteriores={'titulo': cotacao['titulo'], 'valor_total': cotacao['valor_total']},
-                    dados_novos={'titulo': titulo, 'valor_total': valor_total}
+                    dados_anteriores={'nome_campanha': cotacao.get('nome_campanha'), 'valor_total_proposta': cotacao.get('valor_total_proposta')},
+                    dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total}
                 )
 
                 flash('Cotação atualizada com sucesso!', 'success')
@@ -3608,9 +3630,94 @@ def init_routes(app):
                                   cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
 
         except Exception as e:
-            app.logger.error(f"Erro ao editar cotação: {str(e)}")
-            flash('Erro ao editar cotação.', 'error')
+            app.logger.error(f"Erro ao editar cotação: {str(e)}", exc_info=True)
+            flash(f'Erro ao editar cotação: {str(e)}', 'error')
             return redirect(url_for('cotacoes_list'))
+
+    @app.route('/cotacoes/<int:cotacao_id>/detalhes')
+    @login_required
+    def cotacao_detalhes(cotacao_id):
+        """Página de detalhes da cotação"""
+        try:
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                flash('Cotação não encontrada.', 'error')
+                return redirect(url_for('cotacoes_list'))
+
+            clientes = db.obter_clientes_simples()
+            vendedores = db.obter_vendedores()
+            
+            return render_template('cadu_cotacoes_detalhes.html', 
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores)
+
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar detalhes da cotação: {str(e)}", exc_info=True)
+            flash('Erro ao carregar cotação.', 'error')
+            return redirect(url_for('cotacoes_list'))
+
+    @app.route('/api/cotacoes/<int:cotacao_id>/atualizar', methods=['PATCH'])
+    @login_required
+    def api_atualizar_cotacao(cotacao_id):
+        """API para atualizar campos específicos da cotação via AJAX"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({'success': False, 'message': 'Nenhum dado fornecido'}), 400
+
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            # Armazenar dados anteriores para auditoria
+            dados_anteriores = {}
+            dados_novos = {}
+
+            # Campos permitidos para atualização
+            campos_permitidos = [
+                'nome_campanha', 'objetivo_campanha', 'responsavel_comercial',
+                'periodo_inicio', 'periodo_fim', 'expires_at',
+                'budget_estimado', 'valor_total_proposta',
+                'meio', 'tipo_peca', 'briefing_id',
+                'contato_nome', 'contato_email', 'contato_telefone', 'contato_empresa',
+                'observacoes', 'observacoes_internas', 'origem',
+                'status', 'link_publico_ativo', 'link_publico_expires_at', 'aprovada_em'
+            ]
+
+            # Coletar dados para atualização
+            update_data = {}
+            for campo in campos_permitidos:
+                if campo in data:
+                    valor_novo = data[campo]
+                    valor_anterior = cotacao.get(campo)
+                    
+                    if valor_anterior != valor_novo:
+                        update_data[campo] = valor_novo
+                        dados_anteriores[campo] = valor_anterior
+                        dados_novos[campo] = valor_novo
+
+            if not update_data:
+                return jsonify({'success': True, 'message': 'Nenhuma alteração necessária'})
+
+            # Atualizar no banco
+            db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
+
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cotacoes',
+                descricao=f'Cotação atualizada: {cotacao["numero_cotacao"]}',
+                registro_id=cotacao_id,
+                registro_tipo='cadu_cotacoes',
+                dados_anteriores=dados_anteriores,
+                dados_novos=dados_novos
+            )
+
+            return jsonify({'success': True, 'message': 'Cotação atualizada com sucesso'})
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar cotação via API: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])
     @login_required

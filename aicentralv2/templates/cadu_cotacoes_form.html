@@ -46,19 +46,21 @@
 
             <!-- Cliente -->
             <div class="form-control">
-              <label class="label">
+              <label class="label" id="label_cliente">
                 <span class="label-text font-semibold">Cliente *</span>
               </label>
-              <div class="flex gap-2">
-                <select name="client_id" id="client_id" class="select select-bordered flex-1" {% if modo == 'editar' %}disabled{% else %}required{% endif %}>
-                  <option value="">Selecione um cliente</option>
-                  {% for cliente in clientes %}
-                  <option value="{{ cliente.pk_id_tbl_cliente }}" {% if (modo == 'editar' and cotacao.client_id == cliente.pk_id_tbl_cliente) or (cliente_selecionado and cliente_selecionado == cliente.pk_id_tbl_cliente) %}selected{% endif %}>
-                    {{ cliente.nome_fantasia }}
-                  </option>
-                  {% endfor %}
-                </select>
-                <button type="button" onclick="abrirBuscaCliente()" class="btn btn-outline btn-primary" title="Buscar cliente">
+              <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
+              <div class="flex gap-2 items-center">
+                <div class="flex-1 px-3 py-2 border border-base-300 rounded-lg bg-base-100">
+                  <span id="nome_cliente_selecionado" class="text-sm">
+                    {% if modo == 'editar' and cotacao %}
+                      {{ cotacao.cliente_nome }}
+                    {% else %}
+                      Nenhum cliente selecionado
+                    {% endif %}
+                  </span>
+                </div>
+                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-sm btn-outline btn-primary" title="Buscar cliente">
                   <i class="fas fa-search"></i>
                 </button>
               </div>
@@ -91,6 +93,23 @@
                   {{ vendedor.nome_completo }}
                 </option>
                 {% endfor %}
+              </select>
+            </div>
+
+            <!-- Contato do Cliente -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Contato do Cliente</span>
+              </label>
+              <select name="client_user_id" id="client_user_id" class="select select-bordered">
+                <option value="">Selecione um contato</option>
+                {% if cotacao and contatos_cliente %}
+                  {% for contato in contatos_cliente %}
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>
+                    {{ contato.nome_completo }}{% if contato.email %} - {{ contato.email }}{% endif %}
+                  </option>
+                  {% endfor %}
+                {% endif %}
               </select>
             </div>
           </div>
@@ -199,18 +218,23 @@
               >
             </div>
 
-            <!-- Briefing ID -->
+            <!-- Briefing -->
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Briefing (ID)</span>
+                <span class="label-text font-semibold">Briefing</span>
               </label>
-              <input 
-                type="number" 
+              <select 
                 name="briefing_id" 
-                value="{{ cotacao.briefing_id if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="ID do briefing associado"
+                id="briefing_id"
+                class="select select-bordered"
               >
+                <option value="">Selecione um briefing</option>
+                {% for briefing in briefings %}
+                <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>
+                  {{ briefing.titulo }}{% if briefing.status %} ({{ briefing.status }}){% endif %}
+                </option>
+                {% endfor %}
+              </select>
             </div>
           </div>
         </div>
@@ -257,69 +281,6 @@
           </div>
         </div>
 
-        <!-- Contatos -->
-        <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Contatos</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Nome Contato -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Nome do Contato</span>
-              </label>
-              <input 
-                type="text" 
-                name="contato_nome" 
-                value="{{ cotacao.contato_nome if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="Nome completo"
-              >
-            </div>
-
-            <!-- Email Contato -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Email do Contato</span>
-              </label>
-              <input 
-                type="email" 
-                name="contato_email" 
-                value="{{ cotacao.contato_email if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="email@exemplo.com"
-              >
-            </div>
-
-            <!-- Telefone Contato -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Telefone do Contato</span>
-              </label>
-              <input 
-                type="tel" 
-                name="contato_telefone" 
-                value="{{ cotacao.contato_telefone if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="(XX) XXXXX-XXXX"
-              >
-            </div>
-
-            <!-- Empresa Contato -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Empresa do Contato</span>
-              </label>
-              <input 
-                type="text" 
-                name="contato_empresa" 
-                value="{{ cotacao.contato_empresa if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="Nome da empresa"
-              >
-            </div>
-          </div>
-        </div>
-
         <!-- Status e Links Públicos -->
         {% if modo == 'editar' %}
         <div>
@@ -345,6 +306,20 @@
                 <span class="label-text font-semibold">Habilitar Link Público</span>
                 <input type="checkbox" name="link_publico_ativo" class="checkbox" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
               </label>
+            </div>
+
+            <!-- Token do Link Público -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Token do Link</span>
+              </label>
+              <input 
+                type="text" 
+                name="link_publico_token" 
+                value="{{ cotacao.link_publico_token if cotacao and cotacao.link_publico_token else '' }}" 
+                class="input input-bordered font-mono text-xs"
+                placeholder="Deixe em branco para gerar automaticamente"
+              >
             </div>
 
             <!-- Aprovada Em (somente leitura) -->
@@ -438,7 +413,105 @@
 </div>
 
 <!-- Modal de Busca de Cliente -->
-{% include 'modal_busca_cliente.html' %}
+<dialog id="modal_escolher_cliente" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Buscar Cliente</h3>
+    
+    <div class="flex gap-2 mb-4">
+      <input 
+        type="text" 
+        id="busca_cliente_modal" 
+        placeholder="Digite nome, CNPJ, razão social..." 
+        class="input input-bordered flex-1"
+        onkeyup="buscarClientesModal()"
+      >
+      <button onclick="limparBuscaModal()" class="btn btn-ghost">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div id="resultados_modal" class="max-h-96 overflow-y-auto mb-4">
+      <p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>
+    </div>
+
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+async function buscarClientesModal() {
+  const termo = document.getElementById('busca_cliente_modal').value.trim();
+  const resultados = document.getElementById('resultados_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        html += `
+          <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+               onclick="selecionarClienteForm('${clienteId}', '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
+            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-base-content/50">${documento}</p>
+          </div>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar clientes</p>';
+  }
+}
+
+function limparBuscaModal() {
+  document.getElementById('busca_cliente_modal').value = '';
+  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+}
+
+function selecionarClienteForm(clienteId, nomeFantasia) {
+  // Preencher campo hidden
+  document.getElementById('client_id').value = clienteId;
+  
+  // Atualizar texto exibido
+  document.getElementById('nome_cliente_selecionado').textContent = nomeFantasia;
+  
+  // Disparar evento change para carregar contatos e briefings
+  const event = new Event('change', { bubbles: true });
+  document.getElementById('client_id').dispatchEvent(event);
+  
+  // Fechar modal
+  document.getElementById('modal_escolher_cliente').close();
+}
+</script>
 
 <script>
 // Formatar moeda brasileira em tempo real
@@ -487,6 +560,50 @@ document.addEventListener('DOMContentLoaded', function() {
       formatarMoedaReal(displayInput, campo + '_hidden');
     }
   });
+  
+  // Atualizar briefings e contatos quando o cliente for alterado
+  const clienteSelect = document.getElementById('client_id');
+  if (clienteSelect) {
+    clienteSelect.addEventListener('change', async function() {
+      const clienteId = this.value;
+      const briefingSelect = document.getElementById('briefing_id');
+      const contatoSelect = document.getElementById('client_user_id');
+      
+      // Limpar opções atuais
+      briefingSelect.innerHTML = '<option value="">Selecione um briefing</option>';
+      contatoSelect.innerHTML = '<option value="">Selecione um contato</option>';
+      
+      if (clienteId) {
+        try {
+          // Buscar briefings
+          const responseBriefings = await fetch(`/api/briefings/cliente/${clienteId}`);
+          if (responseBriefings.ok) {
+            const briefings = await responseBriefings.json();
+            briefings.forEach(briefing => {
+              const option = document.createElement('option');
+              option.value = briefing.id;
+              option.textContent = briefing.titulo + (briefing.status ? ` (${briefing.status})` : '');
+              briefingSelect.appendChild(option);
+            });
+          }
+          
+          // Buscar contatos do cliente
+          const responseContatos = await fetch(`/api/clientes/${clienteId}/contatos`);
+          if (responseContatos.ok) {
+            const contatos = await responseContatos.json();
+            contatos.forEach(contato => {
+              const option = document.createElement('option');
+              option.value = contato.id_contato_cliente;
+              option.textContent = contato.nome_completo + (contato.email ? ` - ${contato.email}` : '');
+              contatoSelect.appendChild(option);
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao carregar dados do cliente:', error);
+        }
+      }
+    });
+  }
 });
 </script>
 {% endblock %}

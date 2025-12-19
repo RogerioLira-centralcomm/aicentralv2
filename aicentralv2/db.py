@@ -616,6 +616,25 @@ def obter_contatos_por_cliente(id_cliente):
         return cursor.fetchall()
 
 
+def obter_contatos_ativos_por_cliente(id_cliente):
+    """Retorna apenas os contatos ativos de um cliente específico"""
+    conn = get_db()
+
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                id_contato_cliente,
+                email,
+                nome_completo,
+                telefone,
+                data_cadastro
+            FROM tbl_contato_cliente
+            WHERE pk_id_tbl_cliente = %s AND status = TRUE
+            ORDER BY nome_completo
+        ''', (id_cliente,))
+        return cursor.fetchall()
+
+
 # ==================== CLIENTES - CRUD ====================
 
 def obter_cliente_por_id(id_cliente):
@@ -4046,32 +4065,6 @@ def cancelar_invite(invite_id):
 
 # ==================== COTAÇÕES ====================
 
-def obter_cotacao_por_id(cotacao_id):
-    """Retorna uma cotação específica"""
-    conn = get_db()
-    
-    with conn.cursor() as cursor:
-        cursor.execute('''
-            SELECT 
-                c.*,
-                cli.nome_fantasia,
-                cli.razao_social,
-                cont.nome_completo as contato_nome,
-                cont.email as contato_email,
-                vend.nome_completo as vendedor_nome,
-                st.descricao as status_descricao
-            FROM cadu_cotacoes c
-            LEFT JOIN tbl_cliente cli ON c.cliente_id = cli.id_cliente
-            LEFT JOIN tbl_contato_cliente cont ON c.contato_cliente_id = cont.id_contato_cliente
-            LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
-            LEFT JOIN cadu_cotacoes_status st ON c.status = st.id
-            WHERE c.id = %s
-        ''', (cotacao_id,))
-        return cursor.fetchone()
-
-
-
-
 def obter_cotacoes_cliente(cliente_id):
     """Retorna todas as cotações de um cliente"""
     conn = get_db()
@@ -4375,7 +4368,7 @@ def obter_todos_briefings(filtros=None):
                     b.*,
                     c.nome_fantasia as cliente_nome
                 FROM cadu_briefings b
-                LEFT JOIN tbl_cliente c ON b.cliente::integer = c.id_cliente
+                LEFT JOIN tbl_cliente c ON b.cliente = c.nome_fantasia
                 WHERE 1=1
             '''
             params = []
@@ -4420,10 +4413,58 @@ def obter_briefing_por_id(briefing_id):
                     b.*,
                     c.nome_fantasia as cliente_nome
                 FROM cadu_briefings b
-                LEFT JOIN tbl_cliente c ON b.cliente::integer = c.id_cliente
+                LEFT JOIN tbl_cliente c ON b.cliente = c.nome_fantasia
                 WHERE b.id = %s
             ''', (briefing_id,))
             return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def obter_briefings_por_cliente(cliente_id):
+    """
+    Retorna briefings de um cliente específico
+    
+    Args:
+        cliente_id (int): ID do cliente
+    
+    Returns:
+        list: Lista de briefings do cliente
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Primeiro: buscar o nome_fantasia do cliente pelo ID
+            cursor.execute('SELECT nome_fantasia FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
+            cliente_row = cursor.fetchone()
+            
+            if not cliente_row:
+                logger.warning(f"Cliente com id_cliente={cliente_id} não encontrado")
+                return []
+            
+            nome_fantasia = cliente_row['nome_fantasia']
+            logger.info(f"Buscando briefings para cliente_id={cliente_id}, nome_fantasia='{nome_fantasia}'")
+            
+            # Buscar briefings pelo nome_fantasia
+            cursor.execute('''
+                SELECT 
+                    id,
+                    titulo,
+                    objetivo,
+                    status,
+                    created_at
+                FROM cadu_briefings
+                WHERE cliente = %s
+                ORDER BY created_at DESC
+            ''', (nome_fantasia,))
+            
+            result = cursor.fetchall()
+            logger.info(f"Encontrados {len(result)} briefings para '{nome_fantasia}'")
+            
+            return result
     except Exception as e:
         raise e
 
@@ -4656,10 +4697,14 @@ def obter_cotacao_por_id(cotacao_id):
                 SELECT 
                     c.*,
                     cli.nome_fantasia as cliente_nome,
-                    resp.nome_completo as responsavel_nome
+                    resp.nome_completo as responsavel_nome,
+                    cont.nome_completo as contato_cliente_nome,
+                    cont.email as contato_cliente_email,
+                    cont.telefone as contato_cliente_telefone
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
+                LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
                 WHERE c.id = %s AND c.deleted_at IS NULL
             ''', (cotacao_id,))
             return cursor.fetchone()
@@ -4685,9 +4730,9 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
             campos_opcionais = [
                 'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id', 
                 'responsavel_comercial', 'briefing_id', 'meio', 'tipo_peca', 
-                'budget_estimado', 'valor_total_proposta', 'contato_nome', 
-                'contato_email', 'contato_telefone', 'contato_empresa', 
-                'observacoes', 'observacoes_internas', 'origem'
+                'budget_estimado', 'valor_total_proposta', 
+                'observacoes', 'observacoes_internas', 'origem',
+                'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at'
             ]
             
             for campo in campos_opcionais:
@@ -4721,9 +4766,8 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'nome_campanha', 'objetivo_campanha', 'periodo_inicio', 'periodo_fim',
                 'status', 'client_user_id', 'responsavel_comercial', 'briefing_id',
                 'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
-                'contato_nome', 'contato_email', 'contato_telefone', 'contato_empresa',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
-                'link_publico_ativo', 'link_publico_expires_at', 'proposta_enviada_em',
+                'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
                 'aprovada_em', 'expires_at'
             ]
             

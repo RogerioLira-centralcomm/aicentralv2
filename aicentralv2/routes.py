@@ -3504,13 +3504,12 @@ def init_routes(app):
                     'tipo_peca': request.form.get('tipo_peca', '').strip(),
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
-                    'contato_nome': request.form.get('contato_nome', '').strip(),
-                    'contato_email': request.form.get('contato_email', '').strip(),
-                    'contato_telefone': request.form.get('contato_telefone', '').strip(),
-                    'contato_empresa': request.form.get('contato_empresa', '').strip(),
                     'observacoes': request.form.get('observacoes', '').strip(),
                     'origem': request.form.get('origem', '').strip(),
                     'expires_at': request.form.get('expires_at', '').strip() or None,
+                    'link_publico_ativo': 'link_publico_ativo' in request.form,
+                    'link_publico_token': request.form.get('link_publico_token', '').strip(),
+                    'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
                 }
 
                 # Remover None values para evitar conflitos
@@ -3546,14 +3545,16 @@ def init_routes(app):
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores()
         cliente_selecionado = None
+        briefings = []
         
         # Se vier cliente_id da URL (vindo do modal de busca)
         cliente_id_url = request.args.get('cliente_id', type=int)
         if cliente_id_url:
             cliente_selecionado = cliente_id_url
+            briefings = db.obter_briefings_por_cliente(cliente_id_url)
             app.logger.info(f"DEBUG cotacao_nova GET: cliente_id pre-selecionado={cliente_id_url}")
         
-        return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo', cliente_selecionado=cliente_selecionado)
+        return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, briefings=briefings, modo='novo', cliente_selecionado=cliente_selecionado)
 
     @app.route('/cotacoes/<int:cotacao_id>/editar', methods=['GET', 'POST'])
     @login_required
@@ -3593,16 +3594,13 @@ def init_routes(app):
                     'tipo_peca': request.form.get('tipo_peca', '').strip(),
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
-                    'contato_nome': request.form.get('contato_nome', '').strip(),
-                    'contato_email': request.form.get('contato_email', '').strip(),
-                    'contato_telefone': request.form.get('contato_telefone', '').strip(),
-                    'contato_empresa': request.form.get('contato_empresa', '').strip(),
                     'observacoes': request.form.get('observacoes', '').strip(),
                     'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
                     'origem': request.form.get('origem', '').strip(),
                     'status': request.form.get('status', '').strip(),
                     'expires_at': request.form.get('expires_at', '').strip() or None,
                     'link_publico_ativo': 'link_publico_ativo' in request.form,
+                    'link_publico_token': request.form.get('link_publico_token', '').strip(),
                     'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
                 }
 
@@ -3626,8 +3624,11 @@ def init_routes(app):
 
             clientes = db.obter_clientes_simples()
             vendedores = db.obter_vendedores()
+            briefings = []
+            if cotacao.get('client_id'):
+                briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
             return render_template('cadu_cotacoes_form.html', 
-                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, modo='editar')
 
         except Exception as e:
             app.logger.error(f"Erro ao editar cotação: {str(e)}", exc_info=True)
@@ -3647,8 +3648,27 @@ def init_routes(app):
             clientes = db.obter_clientes_simples()
             vendedores = db.obter_vendedores()
             
+            # Buscar contatos ativos do cliente da cotação
+            contatos_cliente = []
+            briefings = []
+            briefing_atual = None
+            if cotacao.get('client_id'):
+                app.logger.info(f"DEBUG: Buscando briefings para client_id={cotacao['client_id']}")
+                contatos_cliente = db.obter_contatos_ativos_por_cliente(cotacao['client_id'])
+                briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
+                app.logger.info(f"DEBUG: Encontrados {len(briefings)} briefings")
+            
+            # Buscar briefing selecionado
+            if cotacao.get('briefing_id'):
+                briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
+            
             return render_template('cadu_cotacoes_detalhes.html', 
-                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores)
+                                  cotacao=cotacao, 
+                                  clientes=clientes, 
+                                  vendedores=vendedores,
+                                  contatos_cliente=contatos_cliente,
+                                  briefings=briefings,
+                                  briefing_atual=briefing_atual)
 
         except Exception as e:
             app.logger.error(f"Erro ao carregar detalhes da cotação: {str(e)}", exc_info=True)
@@ -3679,9 +3699,9 @@ def init_routes(app):
                 'periodo_inicio', 'periodo_fim', 'expires_at',
                 'budget_estimado', 'valor_total_proposta',
                 'meio', 'tipo_peca', 'briefing_id',
-                'contato_nome', 'contato_email', 'contato_telefone', 'contato_empresa',
+                'client_user_id',
                 'observacoes', 'observacoes_internas', 'origem',
-                'status', 'link_publico_ativo', 'link_publico_expires_at', 'aprovada_em'
+                'status', 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'aprovada_em'
             ]
 
             # Coletar dados para atualização
@@ -3718,6 +3738,28 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao atualizar cotação via API: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/briefings/cliente/<int:cliente_id>')
+    @login_required
+    def api_briefings_por_cliente(cliente_id):
+        """API para obter briefings de um cliente"""
+        try:
+            briefings = db.obter_briefings_por_cliente(cliente_id)
+            return jsonify(briefings)
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar briefings do cliente: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/clientes/<int:cliente_id>/contatos')
+    @login_required
+    def api_contatos_por_cliente(cliente_id):
+        """API para obter contatos ativos de um cliente"""
+        try:
+            contatos = db.obter_contatos_ativos_por_cliente(cliente_id)
+            return jsonify(contatos)
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar contatos do cliente: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])
     @login_required

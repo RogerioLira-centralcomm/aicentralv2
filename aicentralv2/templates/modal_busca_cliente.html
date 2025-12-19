@@ -200,14 +200,21 @@ function selecionarCliente(clienteId, nomeFantasia) {
   }
   
   // Verificar se estamos em um formulário de cotação
-  const clienteInput = document.getElementById('cliente_id');
+  const clienteInput = document.getElementById('client_id');
   if (clienteInput) {
-    console.log('Modo: Preenchendo formulário');
+    console.log('Modo: Preenchendo formulário de cotação');
     clienteInput.value = clienteId;
-    const label = clienteInput.parentElement.querySelector('label');
-    if (label) {
-      label.textContent = `Cliente: ${nomeFantasia}`;
+    
+    // Atualizar o texto do botão
+    const nomeClienteSpan = document.getElementById('nome_cliente_selecionado');
+    if (nomeClienteSpan) {
+      nomeClienteSpan.textContent = nomeFantasia;
     }
+    
+    // Disparar evento change para atualizar contatos e briefings
+    const event = new Event('change', { bubbles: true });
+    clienteInput.dispatchEvent(event);
+    
     document.getElementById('modal_busca_cliente').close();
   } else {
     console.log('Modo: Redirecionando para cotações');

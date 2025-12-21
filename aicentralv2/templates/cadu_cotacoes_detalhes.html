@@ -255,6 +255,97 @@
         </div>
       </div>
 
+      <!-- Linhas da Cotação -->
+      <div class="card bg-base-100">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold">Linhas da Cotação</h2>
+            <button onclick="document.getElementById('modal_nova_linha').showModal()" class="btn btn-sm btn-primary">
+              <i class="fas fa-plus mr-1"></i>Nova Linha
+            </button>
+          </div>
+
+          {% if linhas and linhas|length > 0 %}
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Pedido/Sugestão</th>
+                  <th>Target</th>
+                  <th>Veículo</th>
+                  <th>Plataforma</th>
+                  <th>Produto</th>
+                  <th>Formato</th>
+                  <th>Período</th>
+                  <th>Volume</th>
+                  <th>Valor Unit.</th>
+                  <th>Valor Total</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for linha in linhas %}
+                <tr class="{% if linha.is_header %}font-bold bg-base-200{% elif linha.is_subtotal %}font-semibold bg-base-300{% endif %}">
+                  <td>{{ linha.pedido_sugestao if linha.pedido_sugestao else '-' }}</td>
+                  <td>{{ linha.target if linha.target else '-' }}</td>
+                  <td>{{ linha.veiculo if linha.veiculo else '-' }}</td>
+                  <td>{{ linha.plataforma if linha.plataforma else '-' }}</td>
+                  <td>{{ linha.produto if linha.produto else '-' }}</td>
+                  <td>{{ linha.formato if linha.formato else '-' }}</td>
+                  <td>{{ linha.periodo if linha.periodo else '-' }}</td>
+                  <td>{{ linha.volume_contratado|int if linha.volume_contratado else '-' }}</td>
+                  <td>
+                    {% if linha.valor_unitario %}
+                      R$ {{ "%.2f"|format(linha.valor_unitario) }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if linha.valor_total %}
+                      R$ {{ "{:,.2f}".format(linha.valor_total) }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if not linha.is_header and not linha.is_subtotal %}
+                    <div class="flex gap-1">
+                      <button class="btn btn-xs btn-ghost" title="Editar">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button class="btn btn-xs btn-ghost text-error" title="Excluir">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr class="font-bold">
+                  <td colspan="9" class="text-right">Total Geral:</td>
+                  <td>
+                    {% set total = namespace(value=0) %}
+                    {% for linha in linhas %}
+                      {% if linha.valor_total %}
+                        {% set total.value = total.value + linha.valor_total %}
+                      {% endif %}
+                    {% endfor %}
+                    R$ {{ "{:,.2f}".format(total.value) }}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-center text-base-content/50 py-8">Nenhuma linha adicionada ainda</p>
+          {% endif %}
+        </div>
+      </div>
+
     </div>
 
     <!-- Sidebar (1/3) -->
@@ -839,4 +930,164 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<!-- Modal Nova Linha -->
+<dialog id="modal_nova_linha" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl">
+    <h3 class="font-bold text-lg mb-4">Nova Linha de Cotação</h3>
+    
+    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Pedido/Sugestão</span></label>
+        <input type="text" id="pedido_sugestao" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Target</span></label>
+        <input type="text" id="target" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Veículo</span></label>
+        <input type="text" id="veiculo" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
+        <input type="text" id="plataforma" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text font-semibold">Produto</span></label>
+        <textarea id="produto" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
+      </div>
+
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text font-semibold">Detalhamento</span></label>
+        <textarea id="detalhamento" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Formato</span></label>
+        <input type="text" id="formato" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Formato Compra</span></label>
+        <input type="text" id="formato_compra" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Período</span></label>
+        <input type="text" id="periodo" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
+        <input type="number" id="viewability_minimo" class="input input-bordered input-sm" step="0.01">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Volume Contratado</span></label>
+        <input type="number" id="volume_contratado" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Valor Unitário</span></label>
+        <input type="number" id="valor_unitario" class="input input-bordered input-sm" step="0.01">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Valor Total</span></label>
+        <input type="number" id="valor_total" class="input input-bordered input-sm" step="0.01">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Meio</span></label>
+        <input type="text" id="meio_linha" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Tipo de Peça</span></label>
+        <input type="text" id="tipo_peca_linha" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text font-semibold">É Cabeçalho?</span>
+          <input type="checkbox" id="is_header" class="checkbox">
+        </label>
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text font-semibold">É Subtotal?</span>
+          <input type="checkbox" id="is_subtotal" class="checkbox">
+        </label>
+      </div>
+
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text font-semibold">Label Subtotal</span></label>
+        <input type="text" id="subtotal_label" class="input input-bordered input-sm">
+      </div>
+
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarNovaLinha()" class="btn btn-primary">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<script>
+async function salvarNovaLinha() {
+  const data = {
+    cotacao_id: {{ cotacao.id }},
+    pedido_sugestao: document.getElementById('pedido_sugestao').value,
+    target: document.getElementById('target').value,
+    veiculo: document.getElementById('veiculo').value,
+    plataforma: document.getElementById('plataforma').value,
+    produto: document.getElementById('produto').value,
+    detalhamento: document.getElementById('detalhamento').value,
+    formato: document.getElementById('formato').value,
+    formato_compra: document.getElementById('formato_compra').value,
+    periodo: document.getElementById('periodo').value,
+    viewability_minimo: document.getElementById('viewability_minimo').value || null,
+    volume_contratado: document.getElementById('volume_contratado').value || null,
+    valor_unitario: document.getElementById('valor_unitario').value || null,
+    valor_total: document.getElementById('valor_total').value || null,
+    meio: document.getElementById('meio_linha').value,
+    tipo_peca: document.getElementById('tipo_peca_linha').value,
+    is_header: document.getElementById('is_header').checked,
+    is_subtotal: document.getElementById('is_subtotal').checked,
+    subtotal_label: document.getElementById('subtotal_label').value
+  };
+
+  try {
+    const response = await fetch('/api/cotacoes/linhas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Linha adicionada com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.error || 'Erro ao salvar linha'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao salvar linha');
+  }
+}
+</script>
+
 {% endblock %}

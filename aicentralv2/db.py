@@ -4808,7 +4808,8 @@ def deletar_cotacao(cotacao_id, soft_delete=True):
 def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=None, plataforma=None,
                         produto=None, detalhamento=None, formato=None, formato_compra=None, periodo=None,
                         viewability_minimo=None, volume_contratado=None, valor_unitario=None, valor_total=None,
-                        ordem=0, is_subtotal=False, subtotal_label=None, is_header=False, dados_extras=None):
+                        ordem=0, is_subtotal=False, subtotal_label=None, is_header=False, dados_extras=None,
+                        meio=None, tipo_peca=None):
     """Cria uma nova linha de cotação"""
     conn = get_db()
     try:
@@ -4817,14 +4818,15 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                 INSERT INTO cadu_cotacao_linhas (
                     cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
                     formato, formato_compra, periodo, viewability_minimo, volume_contratado,
-                    valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header, dados_extras
+                    valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header, dados_extras,
+                    meio, tipo_peca
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
                   formato, formato_compra, periodo, viewability_minimo, volume_contratado,
                   valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header,
-                  dados_extras or '{}'))
+                  dados_extras or '{}', meio, tipo_peca))
             linha_id = cursor.fetchone()['id']
             conn.commit()
             return linha_id

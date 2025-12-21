@@ -3662,13 +3662,17 @@ def init_routes(app):
             if cotacao.get('briefing_id'):
                 briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
             
+            # Buscar linhas da cotação
+            linhas = db.obter_linhas_cotacao(cotacao_id)
+            
             return render_template('cadu_cotacoes_detalhes.html', 
                                   cotacao=cotacao, 
                                   clientes=clientes, 
                                   vendedores=vendedores,
                                   contatos_cliente=contatos_cliente,
                                   briefings=briefings,
-                                  briefing_atual=briefing_atual)
+                                  briefing_atual=briefing_atual,
+                                  linhas=linhas)
 
         except Exception as e:
             app.logger.error(f"Erro ao carregar detalhes da cotação: {str(e)}", exc_info=True)
@@ -3759,6 +3763,45 @@ def init_routes(app):
             return jsonify(contatos)
         except Exception as e:
             app.logger.error(f"Erro ao buscar contatos do cliente: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cotacoes/linhas', methods=['POST'])
+    @login_required
+    def criar_linha_cotacao_api():
+        """API para criar nova linha de cotação"""
+        try:
+            data = request.get_json()
+            cotacao_id = data.get('cotacao_id')
+            
+            if not cotacao_id:
+                return jsonify({'error': 'cotacao_id é obrigatório'}), 400
+            
+            # Criar linha
+            linha_id = db.criar_linha_cotacao(
+                cotacao_id=cotacao_id,
+                pedido_sugestao=data.get('pedido_sugestao'),
+                target=data.get('target'),
+                veiculo=data.get('veiculo'),
+                plataforma=data.get('plataforma'),
+                produto=data.get('produto'),
+                detalhamento=data.get('detalhamento'),
+                formato=data.get('formato'),
+                formato_compra=data.get('formato_compra'),
+                periodo=data.get('periodo'),
+                viewability_minimo=data.get('viewability_minimo'),
+                volume_contratado=data.get('volume_contratado'),
+                valor_unitario=data.get('valor_unitario'),
+                valor_total=data.get('valor_total'),
+                is_header=data.get('is_header', False),
+                is_subtotal=data.get('is_subtotal', False),
+                subtotal_label=data.get('subtotal_label'),
+                meio=data.get('meio'),
+                tipo_peca=data.get('tipo_peca')
+            )
+            
+            return jsonify({'success': True, 'linha_id': linha_id}), 201
+        except Exception as e:
+            app.logger.error(f"Erro ao criar linha de cotação: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])

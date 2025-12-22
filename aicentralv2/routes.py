@@ -3665,6 +3665,12 @@ def init_routes(app):
             # Buscar linhas da cotação
             linhas = db.obter_linhas_cotacao(cotacao_id)
             
+            # Buscar audiências da cotação
+            audiencias = db.obter_audiencias_cotacao(cotacao_id)
+            
+            # Buscar comentários da cotação
+            comentarios = db.obter_comentarios_cotacao(cotacao_id)
+            
             return render_template('cadu_cotacoes_detalhes.html', 
                                   cotacao=cotacao, 
                                   clientes=clientes, 
@@ -3672,7 +3678,9 @@ def init_routes(app):
                                   contatos_cliente=contatos_cliente,
                                   briefings=briefings,
                                   briefing_atual=briefing_atual,
-                                  linhas=linhas)
+                                  linhas=linhas,
+                                  audiencias=audiencias,
+                                  comentarios=comentarios)
 
         except Exception as e:
             app.logger.error(f"Erro ao carregar detalhes da cotação: {str(e)}", exc_info=True)
@@ -3804,7 +3812,152 @@ def init_routes(app):
             app.logger.error(f"Erro ao criar linha de cotação: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
+
+    @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['GET'])
+    @login_required
+    def obter_linha_cotacao_api(linha_id):
+        """Obtém dados de uma linha específica"""
+        try:
+            linha = db.obter_linha_cotacao(linha_id)
+            if not linha:
+                return jsonify({'success': False, 'message': 'Linha não encontrada'}), 404
+            return jsonify({'success': True, 'linha': linha})
+        except Exception as e:
+            app.logger.error(f"Erro ao obter linha: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+
+    @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['PUT'])
+    @login_required
+    def atualizar_linha_cotacao_api(linha_id):
+        """Atualiza uma linha de cotação"""
+        try:
+            data = request.get_json()
+            
+            db.atualizar_linha_cotacao(
+                linha_id=linha_id,
+                pedido_sugestao=data.get('pedido_sugestao'),
+                target=data.get('target'),
+                veiculo=data.get('veiculo'),
+                plataforma=data.get('plataforma'),
+                produto=data.get('produto'),
+                formato=data.get('formato'),
+                periodo=data.get('periodo'),
+                volume_contratado=data.get('volume_contratado'),
+                valor_unitario=data.get('valor_unitario'),
+                valor_total=data.get('valor_total')
+            )
+            
+            return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar linha: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+
+    @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['DELETE'])
+    @login_required
+    def remover_linha_cotacao_api(linha_id):
+        """Remove uma linha de cotação"""
+        try:
+            db.deletar_linha_cotacao(linha_id)
+            return jsonify({'success': True, 'message': 'Linha removida com sucesso'})
+        except Exception as e:
+            app.logger.error(f"Erro ao remover linha: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/audiencias/buscar')
+    @login_required
+    def buscar_audiencias_api():
+        """API para buscar audiências por termo"""
+        try:
+            termo = request.args.get('q', '')
+            if not termo or len(termo) < 2:
+                return jsonify([])
+            
+            audiencias = db.buscar_audiencias(termo)
+            return jsonify(audiencias)
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar audiências: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/audiencias/<int:audiencia_id>')
+    @login_required
+    def obter_audiencia_completa_api(audiencia_id):
+        """API para obter dados completos de uma audiência"""
+        try:
+            audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+            if not audiencia:
+                return jsonify({'error': 'Audiência não encontrada'}), 404
+            return jsonify(audiencia)
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar audiência: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cotacoes/audiencias', methods=['POST'])
+    @login_required
+    def criar_audiencia_cotacao_api():
+        """API para adicionar audiência à cotação"""
+        try:
+            data = request.get_json()
+            cotacao_id = data.get('cotacao_id')
+            audiencia_nome = data.get('audiencia_nome')
+            
+            if not cotacao_id or not audiencia_nome:
+                return jsonify({'error': 'cotacao_id e audiencia_nome são obrigatórios'}), 400
+            
+            # Adicionar audiência
+            audiencia_id = db.adicionar_audiencia_cotacao(
+                cotacao_id=cotacao_id,
+                audiencia_id=data.get('audiencia_id'),
+                audiencia_nome=audiencia_nome,
+                audiencia_publico=data.get('audiencia_publico'),
+                audiencia_categoria=data.get('audiencia_categoria'),
+                audiencia_subcategoria=data.get('audiencia_subcategoria'),
+                cpm_estimado=data.get('cpm_estimado'),
+                investimento_sugerido=data.get('investimento_sugerido'),
+                impressoes_estimadas=data.get('impressoes_estimadas'),
+                incluido_proposta=data.get('incluido_proposta', True)
+            )
+            
+            return jsonify({'success': True, 'audiencia_id': audiencia_id}), 201
+        except Exception as e:
+            app.logger.error(f"Erro ao adicionar audiência: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['PUT'])
+    @login_required
+    def atualizar_audiencia_cotacao_api(audiencia_id):
+        """API para atualizar audiência da cotação"""
+        try:
+            data = request.get_json()
+            
+            # Atualizar audiência
+            db.atualizar_audiencia_cotacao(
+                audiencia_cotacao_id=audiencia_id,
+                cpm_estimado=data.get('cpm_estimado'),
+                investimento_sugerido=data.get('investimento_sugerido'),
+                impressoes_estimadas=data.get('impressoes_estimadas'),
+                incluido_proposta=data.get('incluido_proposta')
+            )
+            
+            return jsonify({'success': True}), 200
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar audiência: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['DELETE'])
+    @login_required
+    def remover_audiencia_cotacao_api(audiencia_id):
+        """API para remover audiência da cotação"""
+        try:
+            db.remover_audiencia_cotacao(audiencia_id)
+            return jsonify({'success': True}), 200
+        except Exception as e:
+            app.logger.error(f"Erro ao remover audiência: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])
+
     @login_required
     def deletar_cotacao(cotacao_id):
         """API para deletar cotação"""
@@ -3829,6 +3982,101 @@ def init_routes(app):
 
         except Exception as e:
             app.logger.error(f"Erro ao deletar cotação: {str(e)}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+
+    # ==================== COMENTÁRIOS DE COTAÇÃO ====================
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/comentarios', methods=['GET'])
+    @login_required
+    def obter_comentarios_cotacao(cotacao_id):
+        """Obtém todos os comentários de uma cotação"""
+        try:
+            comentarios = db.obter_comentarios_cotacao(cotacao_id)
+            return jsonify({'success': True, 'comentarios': comentarios})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter comentários: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/comentarios', methods=['POST'])
+    @login_required
+    def adicionar_comentario_cotacao(cotacao_id):
+        """Adiciona um comentário à cotação"""
+        try:
+            data = request.get_json()
+            comentario = data.get('comentario', '').strip()
+            
+            if not comentario:
+                return jsonify({'success': False, 'message': 'Comentário não pode estar vazio'}), 400
+            
+            # Determinar user_id e user_type
+            user_id = session.get('user_id')
+            user_type = 'admin' if session.get('is_admin') else 'client'
+            
+            result = db.adicionar_comentario_cotacao(cotacao_id, user_id, user_type, comentario)
+            
+            registrar_auditoria(
+                acao='INSERT',
+                modulo='cotacoes',
+                descricao=f'Comentário adicionado à cotação ID {cotacao_id}',
+                registro_id=result['id'],
+                registro_tipo='cadu_cotacao_comentarios'
+            )
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Comentário adicionado com sucesso',
+                'comentario_id': result['id'],
+                'created_at': result['created_at'].isoformat() if result['created_at'] else None
+            })
+            
+        except Exception as e:
+            current_app.logger.error(f"Erro ao adicionar comentário: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/cotacoes/comentarios/<int:comentario_id>', methods=['DELETE'])
+    @login_required
+    def remover_comentario_cotacao(comentario_id):
+        """Remove um comentário"""
+        try:
+            user_id = session.get('user_id')
+            user_type = 'admin' if session.get('is_admin') else 'client'
+            
+            sucesso = db.remover_comentario_cotacao(comentario_id, user_id, user_type)
+            
+            if sucesso:
+                registrar_auditoria(
+                    acao='DELETE',
+                    modulo='cotacoes',
+                    descricao=f'Comentário removido ID {comentario_id}',
+                    registro_id=comentario_id,
+                    registro_tipo='cadu_cotacao_comentarios'
+                )
+                return jsonify({'success': True, 'message': 'Comentário removido com sucesso'})
+            else:
+                return jsonify({'success': False, 'message': 'Comentário não encontrado ou sem permissão'}), 404
+                
+        except Exception as e:
+            current_app.logger.error(f"Erro ao remover comentário: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    
+    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>/dados', methods=['GET'])
+    @login_required
+    def obter_dados_audiencia_cotacao(audiencia_id):
+        """Obtém dados de uma audiência específica da cotação para edição"""
+        try:
+            audiencia = db.obter_audiencia_cotacao_por_id(audiencia_id)
+            
+            if not audiencia:
+                return jsonify({'success': False, 'message': 'Audiência não encontrada'}), 404
+            
+            return jsonify({'success': True, 'audiencia': audiencia})
+            
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter dados da audiência: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== API BUSCA DE CLIENTES ====================

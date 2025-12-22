@@ -2191,14 +2191,58 @@ def obter_cadu_audiencias():
                     a.created_at,
                     a.updated_at,
                     a.imagem_url,
-                    c.nome as categoria_nome,
-                    s.nome as subcategoria_nome
+                    a.fonte as categoria_nome,
+                    NULL as subcategoria_nome
                 FROM cadu_audiencias a
-                LEFT JOIN cadu_categorias c ON a.categoria_id = c.id
-                LEFT JOIN cadu_subcategorias s ON a.subcategoria_id = s.id
                 ORDER BY a.created_at DESC
             ''')
             return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+def buscar_audiencias(termo, limite=20):
+    """Busca audiências por nome"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    id,
+                    nome,
+                    perfil_socioeconomico,
+                    cpm_custo,
+                    cpm_venda
+                FROM cadu_audiencias
+                WHERE is_active = true
+                  AND LOWER(nome) LIKE LOWER(%s)
+                ORDER BY nome
+                LIMIT %s
+            ''', (f'%{termo}%', limite))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+def obter_audiencia_completa(audiencia_id):
+    """Retorna dados completos de uma audiência por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    a.id,
+                    a.nome,
+                    a.perfil_socioeconomico,
+                    a.cpm_custo,
+                    a.cpm_venda,
+                    a.categoria_id,
+                    a.subcategoria_id,
+                    cat.categoria,
+                    cat.subcategoria
+                FROM cadu_audiencias a
+                LEFT JOIN cadu_categorias_audiencia cat ON a.categoria_id = cat.id
+                WHERE a.id = %s
+            ''', (audiencia_id,))
+            return cursor.fetchone()
     except Exception as e:
         raise e
 
@@ -4243,8 +4287,35 @@ def obter_audiencias_cotacao(cotacao_id):
         return cursor.fetchall()
 
 
-def adicionar_audiencia_cotacao(cotacao_id, audiencia_id, audiencia_nome, audiencia_publico=None, 
-                                audiencia_categoria=None, audiencia_subcategoria=None, 
+def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
+    """Retorna uma audiência específica de uma cotação"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                id,
+                cotacao_id,
+                audiencia_id,
+                audiencia_nome,
+                audiencia_publico,
+                audiencia_categoria,
+                audiencia_subcategoria,
+                cpm_estimado,
+                investimento_sugerido,
+                impressoes_estimadas,
+                ordem_exibicao,
+                incluido_proposta,
+                motivo_exclusao,
+                added_at
+            FROM cadu_cotacao_audiencias
+            WHERE id = %s
+        ''', (audiencia_cotacao_id,))
+        return cursor.fetchone()
+
+
+def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, audiencia_publico=None,
+                                audiencia_categoria=None, audiencia_subcategoria=None,
                                 cpm_estimado=None, investimento_sugerido=None, impressoes_estimadas=None,
                                 ordem_exibicao=0, incluido_proposta=True):
     """Adiciona uma audiência à cotação"""
@@ -4255,13 +4326,15 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_id, audiencia_nome, audien
             cursor.execute('''
                 INSERT INTO cadu_cotacao_audiencias 
                 (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico, 
-                 audiencia_categoria, audiencia_subcategoria, cpm_estimado, 
-                 investimento_sugerido, impressoes_estimadas, ordem_exibicao, incluido_proposta)
+                 audiencia_categoria, audiencia_subcategoria,
+                 cpm_estimado, investimento_sugerido, impressoes_estimadas,
+                 ordem_exibicao, incluido_proposta)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
-                  audiencia_categoria, audiencia_subcategoria, cpm_estimado,
-                  investimento_sugerido, impressoes_estimadas, ordem_exibicao, incluido_proposta))
+                  audiencia_categoria, audiencia_subcategoria,
+                  cpm_estimado, investimento_sugerido, impressoes_estimadas,
+                  ordem_exibicao, incluido_proposta))
             
             result = cursor.fetchone()
         
@@ -4345,6 +4418,93 @@ def remover_audiencia_cotacao(audiencia_cotacao_id):
         
     except Exception as e:
         conn.rollback()
+        raise e
+
+
+# ==================== COMENTÁRIOS DE COTAÇÃO ====================
+
+def obter_comentarios_cotacao(cotacao_id):
+    """Obtém todos os comentários de uma cotação"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    c.id,
+                    c.cotacao_id,
+                    c.user_id,
+                    c.user_type,
+                    c.comentario,
+                    c.created_at,
+                    COALESCE(u.nome_completo, 'Usuário Desconhecido') as user_nome
+                FROM cadu_cotacao_comentarios c
+                LEFT JOIN tbl_contato_cliente u ON c.user_id = u.id_contato_cliente
+                WHERE c.cotacao_id = %s
+                ORDER BY c.created_at ASC
+            ''', (cotacao_id,))
+            
+            return cursor.fetchall()
+            
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter comentários da cotação {cotacao_id}: {e}")
+        raise e
+
+
+def adicionar_comentario_cotacao(cotacao_id, user_id, user_type, comentario):
+    """Adiciona um comentário à cotação"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_cotacao_comentarios 
+                (cotacao_id, user_id, user_type, comentario)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, created_at
+            ''', (cotacao_id, user_id, user_type, comentario))
+            
+            result = cursor.fetchone()
+        
+        conn.commit()
+        return result
+        
+    except Exception as e:
+        conn.rollback()
+        current_app.logger.error(f"Erro ao adicionar comentário: {e}")
+        raise e
+
+
+def remover_comentario_cotacao(comentario_id, user_id, user_type):
+    """Remove um comentário (apenas o próprio usuário ou admin pode remover)"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            # Verificar se o usuário pode remover este comentário
+            if user_type == 'admin':
+                # Admin pode remover qualquer comentário
+                cursor.execute('''
+                    DELETE FROM cadu_cotacao_comentarios
+                    WHERE id = %s
+                    RETURNING id
+                ''', (comentario_id,))
+            else:
+                # Cliente só pode remover seus próprios comentários
+                cursor.execute('''
+                    DELETE FROM cadu_cotacao_comentarios
+                    WHERE id = %s AND user_id = %s AND user_type = %s
+                    RETURNING id
+                ''', (comentario_id, user_id, user_type))
+            
+            result = cursor.fetchone()
+        
+        conn.commit()
+        return result is not None
+        
+    except Exception as e:
+        conn.rollback()
+        current_app.logger.error(f"Erro ao remover comentário: {e}")
         raise e
 
 

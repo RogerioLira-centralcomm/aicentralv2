@@ -219,133 +219,6 @@
         </div>
       </div>
 
-      <!-- Observações -->
-      <div class="card bg-base-100">
-        <div class="card-body">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-bold">Observações</h2>
-            <button onclick="document.getElementById('modal_observacoes').showModal()" class="btn btn-sm btn-ghost">
-              <i class="fas fa-edit"></i>Editar
-            </button>
-          </div>
-          
-          {% if cotacao.observacoes %}
-          <div class="mb-4">
-            <p class="text-sm text-base-content/70 mb-1">Observações</p>
-            <p class="text-sm bg-base-200 p-3 rounded">{{ cotacao.observacoes }}</p>
-          </div>
-          {% else %}
-          <div class="mb-4">
-            <p class="text-sm text-base-content/70 mb-1">Observações</p>
-            <p class="text-sm text-base-content/50 italic">Sem observações</p>
-          </div>
-          {% endif %}
-          
-          {% if cotacao.observacoes_internas %}
-          <div>
-            <p class="text-sm text-base-content/70 mb-1">Observações Internas</p>
-            <p class="text-sm bg-base-200 p-3 rounded">{{ cotacao.observacoes_internas }}</p>
-          </div>
-          {% else %}
-          <div>
-            <p class="text-sm text-base-content/70 mb-1">Observações Internas</p>
-            <p class="text-sm text-base-content/50 italic">Sem observações internas</p>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Linhas da Cotação -->
-      <div class="card bg-base-100">
-        <div class="card-body">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-bold">Linhas da Cotação</h2>
-            <button onclick="document.getElementById('modal_nova_linha').showModal()" class="btn btn-sm btn-primary">
-              <i class="fas fa-plus mr-1"></i>Nova Linha
-            </button>
-          </div>
-
-          {% if linhas and linhas|length > 0 %}
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>Pedido/Sugestão</th>
-                  <th>Target</th>
-                  <th>Veículo</th>
-                  <th>Plataforma</th>
-                  <th>Produto</th>
-                  <th>Formato</th>
-                  <th>Período</th>
-                  <th>Volume</th>
-                  <th>Valor Unit.</th>
-                  <th>Valor Total</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for linha in linhas %}
-                <tr class="{% if linha.is_header %}font-bold bg-base-200{% elif linha.is_subtotal %}font-semibold bg-base-300{% endif %}">
-                  <td>{{ linha.pedido_sugestao if linha.pedido_sugestao else '-' }}</td>
-                  <td>{{ linha.target if linha.target else '-' }}</td>
-                  <td>{{ linha.veiculo if linha.veiculo else '-' }}</td>
-                  <td>{{ linha.plataforma if linha.plataforma else '-' }}</td>
-                  <td>{{ linha.produto if linha.produto else '-' }}</td>
-                  <td>{{ linha.formato if linha.formato else '-' }}</td>
-                  <td>{{ linha.periodo if linha.periodo else '-' }}</td>
-                  <td>{{ linha.volume_contratado|int if linha.volume_contratado else '-' }}</td>
-                  <td>
-                    {% if linha.valor_unitario %}
-                      R$ {{ "%.2f"|format(linha.valor_unitario) }}
-                    {% else %}
-                      -
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if linha.valor_total %}
-                      R$ {{ "{:,.2f}".format(linha.valor_total) }}
-                    {% else %}
-                      -
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if not linha.is_header and not linha.is_subtotal %}
-                    <div class="flex gap-1">
-                      <button class="btn btn-xs btn-ghost" title="Editar">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                      <button class="btn btn-xs btn-ghost text-error" title="Excluir">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </div>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-              <tfoot>
-                <tr class="font-bold">
-                  <td colspan="9" class="text-right">Total Geral:</td>
-                  <td>
-                    {% set total = namespace(value=0) %}
-                    {% for linha in linhas %}
-                      {% if linha.valor_total %}
-                        {% set total.value = total.value + linha.valor_total %}
-                      {% endif %}
-                    {% endfor %}
-                    R$ {{ "{:,.2f}".format(total.value) }}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          {% else %}
-          <p class="text-center text-base-content/50 py-8">Nenhuma linha adicionada ainda</p>
-          {% endif %}
-        </div>
-      </div>
-
     </div>
 
     <!-- Sidebar (1/3) -->
@@ -456,6 +329,262 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- Observações (Largura Total) -->
+<div class="container mx-auto mt-6 px-4">
+  <div class="card bg-base-100">
+    <div class="card-body">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Observações</h2>
+        <button onclick="document.getElementById('modal_observacoes').showModal()" class="btn btn-sm btn-ghost">
+          <i class="fas fa-edit"></i>Editar
+        </button>
+      </div>
+      
+      {% if cotacao.observacoes %}
+      <div class="mb-4">
+        <p class="text-sm text-base-content/70 mb-1">Observações</p>
+        <p class="text-sm bg-base-200 p-3 rounded">{{ cotacao.observacoes }}</p>
+      </div>
+      {% else %}
+      <div class="mb-4">
+        <p class="text-sm text-base-content/70 mb-1">Observações</p>
+        <p class="text-sm text-base-content/50 italic">Sem observações</p>
+      </div>
+      {% endif %}
+      
+      {% if cotacao.observacoes_internas %}
+      <div>
+        <p class="text-sm text-base-content/70 mb-1">Observações Internas</p>
+        <p class="text-sm bg-base-200 p-3 rounded">{{ cotacao.observacoes_internas }}</p>
+      </div>
+      {% else %}
+      <div>
+        <p class="text-sm text-base-content/70 mb-1">Observações Internas</p>
+        <p class="text-sm text-base-content/50 italic">Sem observações internas</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Comentários da Cotação (Largura Total) -->
+<div class="container mx-auto mt-6 px-4">
+  <div class="card bg-base-100">
+    <div class="card-body">
+      <h2 class="text-lg font-bold mb-4">Comentários</h2>
+      
+      <!-- Lista de Comentários -->
+      <div id="comentarios-lista" class="mb-6 max-h-96 overflow-y-auto">
+        {% if comentarios and comentarios|length > 0 %}
+        <ul class="menu bg-base-200 rounded-box">
+          {% for c in comentarios %}
+          <li class="border-b border-base-300 last:border-b-0">
+            <div class="flex justify-between items-start p-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold text-sm">{{ c.user_nome }}</span>
+                  <span class="text-xs text-base-content/50">{{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '' }}</span>
+                </div>
+                <p class="text-sm whitespace-pre-wrap">{{ c.comentario }}</p>
+              </div>
+              {% if session.get('is_admin') %}
+              <button onclick="removerComentario({{ c.id }})" class="btn btn-ghost btn-xs text-error" title="Remover">
+                <i class="fas fa-trash"></i>
+              </button>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-center text-base-content/50 py-4">Nenhum comentário ainda</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Linhas da Cotação (Largura Total) -->
+<div class="container mx-auto mt-6 px-4">
+  <div class="card bg-base-100">
+    <div class="card-body">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Linhas da Cotação</h2>
+        <button onclick="document.getElementById('modal_nova_linha').showModal()" class="btn btn-sm btn-primary">
+          <i class="fas fa-plus mr-1"></i>Nova Linha
+        </button>
+      </div>
+
+      {% if linhas and linhas|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Pedido/Sugestão</th>
+              <th>Target</th>
+              <th>Veículo</th>
+              <th>Plataforma</th>
+              <th>Produto</th>
+              <th>Formato</th>
+              <th>Período</th>
+              <th>Volume</th>
+              <th>Valor Unit.</th>
+              <th>Valor Total</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for linha in linhas %}
+            <tr class="{% if linha.is_header %}font-bold bg-base-200{% elif linha.is_subtotal %}font-semibold bg-base-300{% endif %}">
+              <td>{{ linha.pedido_sugestao if linha.pedido_sugestao else '-' }}</td>
+              <td>{{ linha.target if linha.target else '-' }}</td>
+              <td>{{ linha.veiculo if linha.veiculo else '-' }}</td>
+              <td>{{ linha.plataforma if linha.plataforma else '-' }}</td>
+              <td>{{ linha.produto if linha.produto else '-' }}</td>
+              <td>{{ linha.formato if linha.formato else '-' }}</td>
+              <td>{{ linha.periodo if linha.periodo else '-' }}</td>
+              <td>{{ linha.volume_contratado|int if linha.volume_contratado else '-' }}</td>
+              <td>
+                {% if linha.valor_unitario %}
+                  R$ {{ "%.2f"|format(linha.valor_unitario) }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if linha.valor_total %}
+                  R$ {{ "{:,.2f}".format(linha.valor_total) }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if not linha.is_header and not linha.is_subtotal %}
+                <div class="flex gap-1">
+                  <button onclick="editarLinha({{ linha.id }})" class="btn btn-xs btn-ghost" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button onclick="removerLinha({{ linha.id }})" class="btn btn-xs btn-ghost text-error" title="Excluir">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="font-bold">
+              <td colspan="9" class="text-right">Total Geral:</td>
+              <td>
+                {% set total = namespace(value=0) %}
+                {% for linha in linhas %}
+                  {% if linha.valor_total %}
+                    {% set total.value = total.value + linha.valor_total %}
+                  {% endif %}
+                {% endfor %}
+                R$ {{ "{:,.2f}".format(total.value) }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-center text-base-content/50 py-8">Nenhuma linha adicionada ainda</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Audiências da Cotação (Largura Total) -->
+<div class="container mx-auto mt-6 px-4">
+  <div class="card bg-base-100">
+    <div class="card-body">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Audiências</h2>
+        <button onclick="document.getElementById('modal_adicionar_audiencia').showModal()" class="btn btn-sm btn-primary">
+          <i class="fas fa-plus mr-1"></i>Adicionar Audiência
+        </button>
+      </div>
+
+      {% if audiencias and audiencias|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Público</th>
+              <th>Categoria</th>
+              <th>CPM</th>
+              <th>Investimento</th>
+              <th>Impressões</th>
+              <th>Incluído</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for aud in audiencias %}
+            <tr class="{% if not aud.incluido_proposta %}opacity-50{% endif %}">
+              <td>{{ aud.audiencia_nome }}</td>
+              <td>{{ aud.audiencia_publico if aud.audiencia_publico else '-' }}</td>
+              <td>{{ aud.audiencia_categoria if aud.audiencia_categoria else '-' }}</td>
+              <td>
+                {% if aud.cpm_estimado %}
+                  R$ {{ "%.2f"|format(aud.cpm_estimado) }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if aud.investimento_sugerido %}
+                  R$ {{ "{:,.2f}".format(aud.investimento_sugerido) }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>{{ "{:,}".format(aud.impressoes_estimadas) if aud.impressoes_estimadas else '-' }}</td>
+              <td>
+                <input type="checkbox" class="toggle toggle-sm" {% if aud.incluido_proposta %}checked{% endif %} 
+                       onchange="toggleIncluirAudiencia({{ aud.id }}, this.checked)">
+              </td>
+              <td>
+                <div class="flex gap-1">
+                  <button onclick="editarAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost" title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button onclick="removerAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost text-error" title="Remover">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="font-bold">
+              <td colspan="4" class="text-right">Total Investimento:</td>
+              <td>
+                {% set total_inv = namespace(value=0) %}
+                {% for aud in audiencias %}
+                  {% if aud.incluido_proposta and aud.investimento_sugerido %}
+                    {% set total_inv.value = total_inv.value + aud.investimento_sugerido %}
+                  {% endif %}
+                {% endfor %}
+                R$ {{ "{:,.2f}".format(total_inv.value) }}
+              </td>
+              <td colspan="3"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-center text-base-content/50 py-8">Nenhuma audiência adicionada ainda</p>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -1044,7 +1173,381 @@ document.addEventListener('DOMContentLoaded', function() {
   </form>
 </dialog>
 
+<!-- Modal Editar Linha -->
+<dialog id="modal_editar_linha" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl">
+    <h3 class="font-bold text-lg mb-4">Editar Linha de Cotação</h3>
+    
+    <input type="hidden" id="edit_linha_id">
+    
+    <form id="form_editar_linha" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Pedido/Sugestão</span></label>
+        <input type="text" id="edit_pedido_sugestao" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Target</span></label>
+        <input type="text" id="edit_target" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Veículo</span></label>
+        <input type="text" id="edit_veiculo" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
+        <input type="text" id="edit_plataforma" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text font-semibold">Produto</span></label>
+        <textarea id="edit_produto" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Formato</span></label>
+        <input type="text" id="edit_formato" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Período</span></label>
+        <input type="text" id="edit_periodo" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Volume Contratado</span></label>
+        <input type="number" id="edit_volume_contratado" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Valor Unitário</span></label>
+        <input type="number" id="edit_valor_unitario" class="input input-bordered input-sm" step="0.01">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Valor Total</span></label>
+        <input type="number" id="edit_valor_total" class="input input-bordered input-sm" step="0.01">
+      </div>
+
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-primary">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Adicionar Audiência -->
+<dialog id="modal_adicionar_audiencia" class="modal">
+  <div class="modal-box max-w-3xl">
+    <h3 class="font-bold text-lg mb-4">Adicionar Audiência</h3>
+    
+    <form id="form_nova_audiencia" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text font-semibold">Nome da Audiência *</span></label>
+        <div class="relative">
+          <input type="hidden" id="audiencia_id_selecionada">
+          <input type="text" id="audiencia_nome" class="input input-bordered input-sm" 
+                 placeholder="Digite para buscar..." 
+                 autocomplete="off"
+                 oninput="buscarAudiencias(this.value)"
+                 onfocus="mostrarResultadosAudiencias()"
+                 required>
+          <div id="resultados_busca_audiencias" class="absolute z-[9999] w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Público</span></label>
+        <input type="text" id="audiencia_publico" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Categoria</span></label>
+        <input type="text" id="audiencia_categoria" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Subcategoria</span></label>
+        <input type="text" id="audiencia_subcategoria" class="input input-bordered input-sm">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">CPM Estimado (R$)</span></label>
+        <input type="number" id="cpm_estimado" class="input input-bordered input-sm" step="0.01">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Investimento Sugerido (R$)</span></label>
+        <input type="text" id="investimento_sugerido" class="input input-bordered input-sm" placeholder="0,00">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Impressões Estimadas</span></label>
+        <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm" placeholder="0">
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text font-semibold">Incluir na Proposta?</span>
+          <input type="checkbox" id="incluido_proposta" class="checkbox" checked>
+        </label>
+      </div>
+
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_adicionar_audiencia').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarNovaAudiencia()" class="btn btn-primary">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Editar Audiência -->
+<dialog id="modal_editar_audiencia" class="modal">
+  <div class="modal-box max-w-3xl">
+    <h3 class="font-bold text-lg mb-4">Editar Audiência</h3>
+    
+    <input type="hidden" id="edit_audiencia_id">
+    
+    <form id="form_editar_audiencia" class="grid grid-cols-1 gap-4">
+      
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Nome da Audiência</span></label>
+        <input type="text" id="edit_audiencia_nome" class="input input-bordered" disabled>
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">CPM Estimado (R$)</span></label>
+        <input type="text" id="edit_cpm_estimado" class="input input-bordered" oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Investimento Sugerido (R$)</span></label>
+        <input type="text" id="edit_investimento_sugerido" class="input input-bordered" oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Impressões Estimadas</span></label>
+        <input type="text" id="edit_impressoes_estimadas" class="input input-bordered" oninput="aplicarMascaraNumero(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text font-semibold">Incluir na Proposta?</span>
+          <input type="checkbox" id="edit_incluido_proposta" class="checkbox">
+        </label>
+      </div>
+
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_editar_audiencia').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarEdicaoAudiencia()" class="btn btn-primary">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
 <script>
+let timeoutBuscaAudiencias = null;
+let audienciasSugeridas = [];
+
+// Máscara de moeda brasileira
+function aplicarMascaraDinheiro(input) {
+  let valor = input.value.replace(/\D/g, '');
+  valor = (parseInt(valor) / 100).toFixed(2);
+  valor = valor.replace('.', ',');
+  valor = valor.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+  input.value = valor;
+}
+
+function removerMascaraDinheiro(valor) {
+  if (!valor) return null;
+  return parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+}
+
+// Máscara de número inteiro (com separador de milhar)
+function aplicarMascaraNumero(input) {
+  let valor = input.value.replace(/\D/g, '');
+  valor = valor.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+  input.value = valor;
+}
+
+function removerMascaraNumero(valor) {
+  if (!valor) return null;
+  return parseInt(valor.replace(/\./g, ''));
+}
+
+// Aplicar máscara ao campo investimento_sugerido
+document.addEventListener('DOMContentLoaded', function() {
+  const inputInvestimento = document.getElementById('investimento_sugerido');
+  if (inputInvestimento) {
+    inputInvestimento.addEventListener('input', function() {
+      aplicarMascaraDinheiro(this);
+    });
+  }
+  
+  const inputImpressoes = document.getElementById('impressoes_estimadas');
+  if (inputImpressoes) {
+    inputImpressoes.addEventListener('input', function() {
+      aplicarMascaraNumero(this);
+    });
+  }
+});
+
+async function buscarAudiencias(termo) {
+  clearTimeout(timeoutBuscaAudiencias);
+  
+  console.log('Buscando audiências para termo:', termo);
+  
+  if (termo.length < 2) {
+    document.getElementById('resultados_busca_audiencias').classList.add('hidden');
+    return;
+  }
+
+  timeoutBuscaAudiencias = setTimeout(async () => {
+    try {
+      console.log('Fazendo requisição para API...');
+      const response = await fetch(`/api/audiencias/buscar?q=${encodeURIComponent(termo)}`);
+      console.log('Response status:', response.status);
+      
+      audienciasSugeridas = await response.json();
+      console.log('Audiências encontradas:', audienciasSugeridas);
+      
+      const resultadosDiv = document.getElementById('resultados_busca_audiencias');
+      
+      if (!audienciasSugeridas || audienciasSugeridas.length === 0) {
+        resultadosDiv.innerHTML = '<div class="p-3 text-sm text-base-content/50">Nenhuma audiência encontrada</div>';
+        resultadosDiv.classList.remove('hidden');
+        console.log('Nenhuma audiência encontrada, mostrando mensagem');
+        return;
+      }
+      
+      resultadosDiv.innerHTML = audienciasSugeridas.map(aud => `
+        <div class="p-3 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0" 
+             onclick="selecionarAudiencia(${aud.id})">
+          <div class="font-semibold text-sm">${aud.nome}</div>
+          <div class="text-xs text-base-content/60 mt-1">
+            ${aud.perfil_socioeconomico ? aud.perfil_socioeconomico : ''}
+          </div>
+          ${aud.cpm_venda ? `<div class="text-xs text-primary mt-1">CPM: R$ ${parseFloat(aud.cpm_venda).toFixed(2)}</div>` : ''}
+        </div>
+      `).join('');
+      
+      resultadosDiv.classList.remove('hidden');
+      console.log('Resultados exibidos, div visível:', !resultadosDiv.classList.contains('hidden'));
+    } catch (error) {
+      console.error('Erro ao buscar audiências:', error);
+      const resultadosDiv = document.getElementById('resultados_busca_audiencias');
+      resultadosDiv.innerHTML = '<div class="p-3 text-sm text-error">Erro ao buscar audiências</div>';
+      resultadosDiv.classList.remove('hidden');
+    }
+  }, 300);
+}
+
+function mostrarResultadosAudiencias() {
+  const resultadosDiv = document.getElementById('resultados_busca_audiencias');
+  if (resultadosDiv.innerHTML && !resultadosDiv.classList.contains('hidden')) {
+    return;
+  }
+  const termo = document.getElementById('audiencia_nome').value;
+  if (termo.length >= 2) {
+    buscarAudiencias(termo);
+  }
+}
+
+async function selecionarAudiencia(audienciaId) {
+  try {
+    console.log('Buscando dados completos da audiência:', audienciaId);
+    
+    const response = await fetch(`/api/audiencias/${audienciaId}`);
+    if (!response.ok) {
+      throw new Error('Erro ao buscar audiência');
+    }
+    
+    const audiencia = await response.json();
+    console.log('Audiência completa:', audiencia);
+    
+    document.getElementById('audiencia_id_selecionada').value = audiencia.id;
+    document.getElementById('audiencia_nome').value = audiencia.nome;
+    document.getElementById('audiencia_publico').value = audiencia.publico_estimado || '';
+    document.getElementById('audiencia_categoria').value = audiencia.categoria_nome || '';
+    document.getElementById('audiencia_subcategoria').value = audiencia.subcategoria_nome || '';
+    document.getElementById('cpm_estimado').value = audiencia.cpm_venda || audiencia.cpm_custo || '';
+    
+    console.log('Campos preenchidos - Categoria:', audiencia.categoria_nome, 'Subcategoria:', audiencia.subcategoria_nome);
+    
+    document.getElementById('resultados_busca_audiencias').classList.add('hidden');
+  } catch (error) {
+    console.error('Erro ao selecionar audiência:', error);
+    alert('Erro ao carregar dados da audiência');
+  }
+}
+
+// Fechar resultados ao clicar fora
+document.addEventListener('click', function(e) {
+  const inputAud = document.getElementById('audiencia_nome');
+  const resultadosDiv = document.getElementById('resultados_busca_audiencias');
+  if (inputAud && resultadosDiv && !inputAud.contains(e.target) && !resultadosDiv.contains(e.target)) {
+    resultadosDiv.classList.add('hidden');
+  }
+});
+
+async function salvarNovaAudiencia() {
+  const nome = document.getElementById('audiencia_nome').value;
+  if (!nome) {
+    alert('Nome da audiência é obrigatório!');
+    return;
+  }
+
+  const data = {
+    cotacao_id: {{ cotacao.id }},
+    audiencia_id: document.getElementById('audiencia_id_selecionada').value || null,
+    audiencia_nome: nome,
+    audiencia_publico: document.getElementById('audiencia_publico').value || null,
+    audiencia_categoria: document.getElementById('audiencia_categoria').value || null,
+    audiencia_subcategoria: document.getElementById('audiencia_subcategoria').value || null,
+    cpm_estimado: document.getElementById('cpm_estimado').value || null,
+    investimento_sugerido: removerMascaraDinheiro(document.getElementById('investimento_sugerido').value),
+    impressoes_estimadas: removerMascaraNumero(document.getElementById('impressoes_estimadas').value),
+    incluido_proposta: document.getElementById('incluido_proposta').checked
+  };
+
+  try {
+    const response = await fetch('/api/cotacoes/audiencias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Audiência adicionada com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.error || 'Erro ao salvar audiência'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao salvar audiência');
+  }
+}
+
 async function salvarNovaLinha() {
   const data = {
     cotacao_id: {{ cotacao.id }},
@@ -1086,6 +1589,251 @@ async function salvarNovaLinha() {
   } catch (error) {
     console.error('Erro:', error);
     alert('Erro ao salvar linha');
+  }
+}
+
+// ==================== EDIÇÃO DE LINHAS ====================
+
+async function editarLinha(linhaId) {
+  try {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      const linha = data.linha;
+      
+      document.getElementById('edit_linha_id').value = linha.id;
+      document.getElementById('edit_pedido_sugestao').value = linha.pedido_sugestao || '';
+      document.getElementById('edit_target').value = linha.target || '';
+      document.getElementById('edit_veiculo').value = linha.veiculo || '';
+      document.getElementById('edit_plataforma').value = linha.plataforma || '';
+      document.getElementById('edit_produto').value = linha.produto || '';
+      document.getElementById('edit_formato').value = linha.formato || '';
+      document.getElementById('edit_periodo').value = linha.periodo || '';
+      document.getElementById('edit_volume_contratado').value = linha.volume_contratado || '';
+      document.getElementById('edit_valor_unitario').value = linha.valor_unitario || '';
+      document.getElementById('edit_valor_total').value = linha.valor_total || '';
+      
+      document.getElementById('modal_editar_linha').showModal();
+    } else {
+      alert('Erro ao carregar dados da linha');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao carregar linha');
+  }
+}
+
+async function salvarEdicaoLinha() {
+  const linhaId = document.getElementById('edit_linha_id').value;
+  
+  const dados = {
+    pedido_sugestao: document.getElementById('edit_pedido_sugestao').value,
+    target: document.getElementById('edit_target').value,
+    veiculo: document.getElementById('edit_veiculo').value,
+    plataforma: document.getElementById('edit_plataforma').value,
+    produto: document.getElementById('edit_produto').value,
+    formato: document.getElementById('edit_formato').value,
+    periodo: document.getElementById('edit_periodo').value,
+    volume_contratado: document.getElementById('edit_volume_contratado').value,
+    valor_unitario: document.getElementById('edit_valor_unitario').value,
+    valor_total: document.getElementById('edit_valor_total').value
+  };
+
+  try {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Linha atualizada com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.error || 'Erro ao atualizar linha'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao atualizar linha');
+  }
+}
+
+async function removerLinha(linhaId) {
+  if (!confirm('Deseja realmente remover esta linha?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Linha removida com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.error || 'Erro ao remover linha'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao remover linha');
+  }
+}
+
+// ==================== EDIÇÃO DE AUDIÊNCIAS ====================
+
+async function editarAudienciaCotacao(audienciaId) {
+  try {
+    // Buscar dados da audiência
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}/dados`);
+    const data = await response.json();
+    
+    if (data.success) {
+      const aud = data.audiencia;
+      
+      document.getElementById('edit_audiencia_id').value = aud.id;
+      document.getElementById('edit_audiencia_nome').value = aud.audiencia_nome;
+      
+      // Aplicar máscaras aos valores
+      const cpmInput = document.getElementById('edit_cpm_estimado');
+      cpmInput.value = aud.cpm_estimado ? formatarMoeda(aud.cpm_estimado) : '';
+      
+      const invInput = document.getElementById('edit_investimento_sugerido');
+      invInput.value = aud.investimento_sugerido ? formatarMoeda(aud.investimento_sugerido) : '';
+      
+      const impInput = document.getElementById('edit_impressoes_estimadas');
+      impInput.value = aud.impressoes_estimadas ? formatarNumero(aud.impressoes_estimadas) : '';
+      
+      document.getElementById('edit_incluido_proposta').checked = aud.incluido_proposta;
+      
+      document.getElementById('modal_editar_audiencia').showModal();
+    } else {
+      alert('Erro ao carregar dados da audiência');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao carregar audiência');
+  }
+}
+
+async function salvarEdicaoAudiencia() {
+  const audienciaId = document.getElementById('edit_audiencia_id').value;
+  
+  const cpmValor = removerMascaraDinheiro(document.getElementById('edit_cpm_estimado').value);
+  const invValor = removerMascaraDinheiro(document.getElementById('edit_investimento_sugerido').value);
+  const impValor = removerMascaraNumero(document.getElementById('edit_impressoes_estimadas').value);
+  
+  const dados = {
+    cpm_estimado: cpmValor,
+    investimento_sugerido: invValor,
+    impressoes_estimadas: impValor,
+    incluido_proposta: document.getElementById('edit_incluido_proposta').checked
+  };
+
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Audiência atualizada com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.message || 'Erro ao atualizar audiência'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao atualizar audiência');
+  }
+}
+
+function formatarMoeda(valor) {
+  if (!valor || valor === '' || valor === null || valor === undefined) return '';
+  const num = typeof valor === 'string' ? parseFloat(valor) : valor;
+  if (isNaN(num)) return '';
+  return num.toFixed(2).replace('.', ',').replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+}
+
+function formatarNumero(valor) {
+  if (!valor || valor === '' || valor === null || valor === undefined) return '';
+  const num = typeof valor === 'string' ? parseInt(valor) : valor;
+  if (isNaN(num)) return '';
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+async function toggleIncluirAudiencia(audienciaId, incluir) {
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incluido_proposta: incluir })
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.error || 'Erro ao atualizar audiência'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao atualizar audiência');
+  }
+}
+
+async function removerAudienciaCotacao(audienciaId) {
+  if (!confirm('Tem certeza que deseja remover esta audiência?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      alert('Audiência removida com sucesso!');
+      location.reload();
+    } else {
+      alert('Erro: ' + (result.error || 'Erro ao remover audiência'));
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao remover audiência');
+  }
+}
+
+// ==================== COMENTÁRIOS ====================
+
+// Remover comentário
+async function removerComentario(comentarioId) {
+  if (!confirm('Deseja realmente remover este comentário?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/comentarios/${comentarioId}`, {
+      method: 'DELETE'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Erro ao remover comentário: ' + data.message);
+    }
+  } catch (error) {
+    console.error('Erro ao remover comentário:', error);
+    alert('Erro ao remover comentário');
   }
 }
 </script>

@@ -5071,3 +5071,91 @@ def deletar_linha_cotacao(linha_id, hard_delete=False):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def gerar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
+    """Gera token único para compartilhamento público da cotação"""
+    import secrets
+    conn = get_db()
+    try:
+        # Gerar token aleatório de 64 caracteres hex
+        novo_token = secrets.token_hex(32)
+        
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_cotacoes 
+                SET 
+                    link_publico_token = %s,
+                    link_publico_ativo = TRUE,
+                    link_publico_expires_at = CURRENT_TIMESTAMP + INTERVAL '%s days',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE cotacao_uuid = %s 
+                AND deleted_at IS NULL
+            ''', (novo_token, dias_validade, cotacao_uuid))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                return novo_token
+            return None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def renovar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
+    """Renova a validade de um link público existente"""
+    from datetime import datetime, timedelta
+    conn = get_db()
+    try:
+        nova_expiracao = datetime.now() + timedelta(days=dias_validade)
+        
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_cotacoes 
+                SET 
+                    link_publico_ativo = TRUE,
+                    link_publico_expires_at = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE cotacao_uuid = %s 
+                AND deleted_at IS NULL
+            ''', (nova_expiracao, cotacao_uuid))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                return nova_expiracao
+            return None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def calcular_valor_total_cotacao(cotacao_id):
+    """Calcula e atualiza o valor total da cotação baseado nas linhas"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Calcular total das linhas (excluindo subtotais e headers)
+            cursor.execute('''
+                SELECT COALESCE(SUM(valor_total), 0)
+                FROM cadu_cotacao_linhas
+                WHERE cotacao_id = %s 
+                AND is_subtotal = FALSE 
+                AND is_header = FALSE
+                AND (is_deleted IS NULL OR is_deleted = FALSE)
+            ''', (cotacao_id,))
+            
+            total = cursor.fetchone()[0]
+            
+            # Atualizar o valor na cotação
+            cursor.execute('''
+                UPDATE cadu_cotacoes 
+                SET valor_total_proposta = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (total, cotacao_id))
+            
+            conn.commit()
+            return float(total) if total else 0.0
+    except Exception as e:
+        conn.rollback()
+        raise e

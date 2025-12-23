@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotação {{ cotacao.numero_cotacao }} - Central Comm</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-base-200">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center gap-4 mb-2">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Central Comm" class="h-12" onerror="this.style.display='none'">
+                <h1 class="text-3xl font-bold">Central Comm</h1>
+            </div>
+            <p class="text-base-content/70">Proposta Comercial</p>
+        </div>
+
+        <!-- Informações da Cotação -->
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-2">{{ cotacao.nome_campanha }}</h2>
+                        <div class="badge badge-lg badge-primary">{{ cotacao.numero_cotacao }}</div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-base-content/70">Status</p>
+                        <div class="badge badge-lg {% if cotacao.status == 'aprovada' %}badge-success{% elif cotacao.status == 'rejeitada' %}badge-error{% else %}badge-info{% endif %}">
+                            {{ cotacao.status|upper }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% if cliente %}
+                    <div>
+                        <p class="text-sm text-base-content/70">Cliente</p>
+                        <p class="font-semibold">{{ cliente.razao_social or cliente.nome_fantasia }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if cotacao.responsavel_comercial %}
+                    <div>
+                        <p class="text-sm text-base-content/70">Responsável</p>
+                        <p class="font-semibold">{{ cotacao.responsavel_comercial }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if cotacao.periodo_inicio and cotacao.periodo_fim %}
+                    <div>
+                        <p class="text-sm text-base-content/70">Período</p>
+                        <p class="font-semibold">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') }} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if cotacao.valor_total_proposta %}
+                    <div>
+                        <p class="text-sm text-base-content/70">Valor Total</p>
+                        <p class="font-semibold text-2xl text-primary">R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if cotacao.objetivo_campanha %}
+                <div class="mt-4 pt-4 border-t">
+                    <p class="text-sm text-base-content/70 mb-2">Objetivo da Campanha</p>
+                    <p class="whitespace-pre-wrap">{{ cotacao.objetivo_campanha }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Linhas da Cotação -->
+        {% if linhas and linhas|length > 0 %}
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h3 class="text-xl font-bold mb-4">Itens da Proposta</h3>
+                
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Plataforma</th>
+                                <th>Produto</th>
+                                <th>Volume</th>
+                                <th>Formato</th>
+                                <th>Valor Unit.</th>
+                                <th>Valor Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for linha in linhas %}
+                            <tr {% if linha.is_subtotal %}class="font-bold bg-base-200"{% endif %}>
+                                <td>
+                                    {% if linha.is_subtotal %}
+                                        <span class="font-bold">{{ linha.subtotal_label }}</span>
+                                    {% else %}
+                                        {{ linha.plataforma or '-' }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ linha.produto or '-' }}</td>
+                                <td>
+                                    {% if linha.volume_contratado %}
+                                        {{ "{:,}".format(linha.volume_contratado).replace(',', '.') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ linha.formato_compra or '-' }}</td>
+                                <td>
+                                    {% if linha.valor_unitario %}
+                                        R$ {{ "{:,.2f}".format(linha.valor_unitario).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="font-bold">
+                                    {% if linha.valor_total %}
+                                        R$ {{ "{:,.2f}".format(linha.valor_total).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Audiências -->
+        {% if audiencias and audiencias|length > 0 %}
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h3 class="text-xl font-bold mb-4">Audiências</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for audiencia in audiencias %}
+                    <div class="border rounded-lg p-4">
+                        <h4 class="font-bold mb-2">{{ audiencia.titulo }}</h4>
+                        {% if audiencia.descricao %}
+                        <p class="text-sm text-base-content/70 mb-2">{{ audiencia.descricao }}</p>
+                        {% endif %}
+                        {% if audiencia.impressoes %}
+                        <p class="text-sm">
+                            <span class="font-semibold">Impressões:</span> 
+                            {{ "{:,}".format(audiencia.impressoes).replace(',', '.') }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Footer -->
+        <div class="text-center text-sm text-base-content/70 mt-8">
+            <p>© 2025 Central Comm - Todos os direitos reservados</p>
+            <p class="mt-2">Esta é uma proposta comercial gerada automaticamente</p>
+        </div>
+
+    </div>
+</body>
+</html>

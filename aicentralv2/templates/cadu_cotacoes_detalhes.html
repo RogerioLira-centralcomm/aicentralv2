@@ -197,7 +197,19 @@
             
             {% if cotacao.link_publico_token %}
             <div>
-              <p class="text-sm text-base-content/70">Token do Link</p>
+              <p class="text-sm text-base-content/70">Link Público</p>
+              <div class="flex gap-2 items-center">
+                <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="link link-primary font-semibold text-sm break-all">
+                  {{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}
+                </a>
+                <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-xs btn-ghost" title="Copiar link">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+            </div>
+            
+            <div>
+              <p class="text-sm text-base-content/70">Token</p>
               <p class="font-semibold font-mono text-xs">{{ cotacao.link_publico_token }}</p>
             </div>
             {% endif %}
@@ -872,8 +884,34 @@ async function salvarEdicao(tipo, cotacao_id) {
     data.tipo_peca = document.getElementById('tipo_peca').value;
     data.briefing_id = document.getElementById('briefing_id').value;
   } else if (tipo === 'link_publico') {
-    data.link_publico_ativo = document.getElementById('link_publico_ativo').checked;
-    data.link_publico_token = document.getElementById('link_publico_token').value;
+    const linkAtivo = document.getElementById('link_publico_ativo').checked;
+    const token = document.getElementById('link_publico_token').value.trim();
+    
+    // Se ativou o link mas não tem token, gerar um novo
+    if (linkAtivo && !token) {
+      try {
+        const gerarResponse = await fetch(`/api/cotacoes/${cotacao_id}/link-publico/gerar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dias_validade: 30 })
+        });
+        
+        if (gerarResponse.ok) {
+          alert('Link público gerado com sucesso!');
+          location.reload();
+          return;
+        } else {
+          alert('Erro ao gerar link público');
+          return;
+        }
+      } catch (error) {
+        alert('Erro ao gerar link público: ' + error.message);
+        return;
+      }
+    }
+    
+    data.link_publico_ativo = linkAtivo;
+    data.link_publico_token = token;
     data.link_publico_expires_at = document.getElementById('link_publico_expires_at').value;
   } else if (tipo === 'observacoes') {
     data.observacoes = document.getElementById('observacoes').value;
@@ -959,6 +997,16 @@ function confirmarDelecao(cotacao_id) {
   if (confirm('Tem certeza que deseja deletar esta cotação? Esta ação não pode ser desfeita.')) {
     deletarCotacao(cotacao_id);
   }
+}
+
+// Copiar link público
+function copiarLinkPublico(link) {
+  navigator.clipboard.writeText(link).then(() => {
+    alert('Link copiado para a área de transferência!');
+  }).catch(err => {
+    console.error('Erro ao copiar:', err);
+    alert('Erro ao copiar link');
+  });
 }
 
 // Deletar cotação

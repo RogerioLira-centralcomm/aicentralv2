@@ -3683,6 +3683,75 @@ def init_routes(app):
             flash('Erro ao carregar cotação.', 'error')
             return redirect(url_for('cotacoes_list'))
 
+    @app.route('/teste-rota')
+    def teste_rota():
+        """Rota de teste"""
+        return "Rota de teste funcionando!"
+
+    @app.route('/cotacao/publico/<string:token>')
+    def cotacao_publica(token):
+        """Visualização pública da cotação via token compartilhável"""
+        try:
+            from datetime import datetime
+            
+            app.logger.info(f"Acessando cotação pública com token: {token[:10]}...")
+            
+            # Buscar cotação pelo token
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT * FROM cadu_cotacoes 
+                    WHERE link_publico_token = %s 
+                    AND link_publico_ativo = TRUE
+                    AND deleted_at IS NULL
+                ''', (token,))
+                cotacao = cursor.fetchone()
+            
+            app.logger.info(f"Cotação encontrada: {cotacao is not None}")
+            
+            if not cotacao:
+                return render_template('erro_publico.html', 
+                    mensagem='Link inválido ou expirado'), 404
+            
+            # Verificar se o link expirou
+            if cotacao.get('link_publico_expires_at'):
+                expires_at = cotacao['link_publico_expires_at']
+                if isinstance(expires_at, str):
+                    expires_at = datetime.fromisoformat(expires_at)
+                if expires_at < datetime.now():
+                    return render_template('erro_publico.html', 
+                        mensagem='Este link expirou'), 410
+            
+            cotacao_id = cotacao['id']
+            
+            # Buscar informações adicionais
+            cliente_info = None
+            if cotacao.get('client_id'):
+                cliente_info = db.obter_cliente_por_id(cotacao['client_id'])
+            
+            briefing_atual = None
+            if cotacao.get('briefing_id'):
+                briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
+            
+            # Buscar linhas da cotação
+            linhas = db.obter_linhas_cotacao(cotacao_id)
+            
+            # Buscar audiências da cotação
+            audiencias = db.obter_audiencias_cotacao(cotacao_id)
+            
+            # Renderizar template público (sem edição)
+            return render_template('cadu_cotacao_publica.html', 
+                                  cotacao=cotacao,
+                                  cliente=cliente_info,
+                                  briefing=briefing_atual,
+                                  linhas=linhas,
+                                  audiencias=audiencias)
+
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar cotação pública: {str(e)}", exc_info=True)
+            return render_template('erro_publico.html', 
+                mensagem='Erro ao carregar cotação'), 500
+
     @app.route('/api/cotacoes/<int:cotacao_id>/atualizar', methods=['PATCH'])
     @login_required
     def api_atualizar_cotacao(cotacao_id):
@@ -4080,6 +4149,121 @@ def init_routes(app):
             
         except Exception as e:
             current_app.logger.error(f"Erro ao obter dados da audiência: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico/gerar', methods=['POST'])
+    @login_required
+    def gerar_link_publico(cotacao_id):
+        """Gera um novo link público para a cotação"""
+        try:
+            data = request.get_json() or {}
+            dias_validade = data.get('dias_validade', 30)
+            
+            # Obter UUID da cotação
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            cotacao_uuid = cotacao.get('cotacao_uuid')
+            if not cotacao_uuid:
+                return jsonify({'success': False, 'message': 'UUID da cotação não encontrado'}), 400
+            
+            # Gerar token
+            token = db.gerar_link_publico_cotacao(cotacao_uuid, dias_validade)
+            
+            if token:
+                # Construir URL completa
+                base_url = request.host_url.rstrip('/')
+                link_publico = f"{base_url}/cotacao/publico/{token}"
+                
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='cotacoes',
+                    descricao=f'Link público gerado para cotação {cotacao_id}',
+                    registro_id=cotacao_id,
+                    registro_tipo='cadu_cotacoes'
+                )
+                
+                return jsonify({
+                    'success': True, 
+                    'token': token,
+                    'link_publico': link_publico,
+                    'message': 'Link público gerado com sucesso'
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Erro ao gerar link público'}), 500
+                
+        except Exception as e:
+            current_app.logger.error(f"Erro ao gerar link público: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico/renovar', methods=['POST'])
+    @login_required
+    def renovar_link_publico(cotacao_id):
+        """Renova a validade de um link público existente"""
+        try:
+            data = request.get_json() or {}
+            dias_validade = data.get('dias_validade', 30)
+            
+            # Obter UUID da cotação
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            cotacao_uuid = cotacao.get('cotacao_uuid')
+            if not cotacao_uuid:
+                return jsonify({'success': False, 'message': 'UUID da cotação não encontrado'}), 400
+            
+            # Renovar link
+            nova_expiracao = db.renovar_link_publico_cotacao(cotacao_uuid, dias_validade)
+            
+            if nova_expiracao:
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='cotacoes',
+                    descricao=f'Link público renovado para cotação {cotacao_id}',
+                    registro_id=cotacao_id,
+                    registro_tipo='cadu_cotacoes'
+                )
+                
+                return jsonify({
+                    'success': True, 
+                    'nova_expiracao': nova_expiracao.isoformat(),
+                    'message': 'Link público renovado com sucesso'
+                })
+            else:
+                return jsonify({'success': False, 'message': 'Erro ao renovar link público'}), 500
+                
+        except Exception as e:
+            current_app.logger.error(f"Erro ao renovar link público: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/calcular-total', methods=['POST'])
+    @login_required
+    def calcular_total_cotacao(cotacao_id):
+        """Calcula e atualiza o valor total da cotação"""
+        try:
+            total = db.calcular_valor_total_cotacao(cotacao_id)
+            
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cotacoes',
+                descricao=f'Valor total calculado para cotação {cotacao_id}: R$ {total:,.2f}',
+                registro_id=cotacao_id,
+                registro_tipo='cadu_cotacoes'
+            )
+            
+            return jsonify({
+                'success': True, 
+                'valor_total': total,
+                'message': 'Valor total calculado com sucesso'
+            })
+                
+        except Exception as e:
+            current_app.logger.error(f"Erro ao calcular total da cotação: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== API BUSCA DE CLIENTES ====================

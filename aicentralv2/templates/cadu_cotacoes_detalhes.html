@@ -161,28 +161,7 @@
         </div>
       </div>
 
-      <!-- Detalhes da Peça -->
-      <div class="card bg-base-100">
-        <div class="card-body">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-bold">Detalhes da Peça</h2>
-            <button onclick="document.getElementById('modal_peca').showModal()" class="btn btn-sm btn-ghost">
-              <i class="fas fa-edit"></i>Editar
-            </button>
-          </div>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-base-content/70">Meio</p>
-              <p class="font-semibold">{{ cotacao.meio if cotacao.meio else '-' }}</p>
-            </div>
-            <div>
-              <p class="text-sm text-base-content/70">Tipo de Peça</p>
-              <p class="font-semibold">{{ cotacao.tipo_peca if cotacao.tipo_peca else '-' }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Detalhes da Peça removido - campos estão em linhas -->
 
       <!-- Link Público -->
       <div class="card bg-base-100">
@@ -319,9 +298,6 @@
             <button onclick="document.getElementById('modal_valores').showModal()" class="btn btn-sm btn-outline w-full justify-start">
               <i class="fas fa-dollar-sign"></i>Editar Valores
             </button>
-            <button onclick="document.getElementById('modal_contatos').showModal()" class="btn btn-sm btn-outline w-full justify-start">
-              <i class="fas fa-phone"></i>Editar Contatos
-            </button>
             <button onclick="document.getElementById('modal_observacoes').showModal()" class="btn btn-sm btn-outline w-full justify-start">
               <i class="fas fa-sticky-note"></i>Editar Observações
             </button>
@@ -457,7 +433,7 @@
               </td>
               <td>
                 {% if linha.valor_total %}
-                  R$ {{ "{:,.2f}".format(linha.valor_total) }}
+                  R$ {{ "{:,.2f}".format(linha.valor_total).replace(',', 'X').replace('.', ',').replace('X', '.') }}
                 {% else %}
                   -
                 {% endif %}
@@ -487,7 +463,7 @@
                     {% set total.value = total.value + linha.valor_total %}
                   {% endif %}
                 {% endfor %}
-                R$ {{ "{:,.2f}".format(total.value) }}
+                R$ {{ "{:,.2f}".format(total.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
               </td>
               <td></td>
             </tr>
@@ -535,19 +511,19 @@
               <td>{{ aud.audiencia_categoria if aud.audiencia_categoria else '-' }}</td>
               <td>
                 {% if aud.cpm_estimado %}
-                  R$ {{ "%.2f"|format(aud.cpm_estimado) }}
+                  R$ {{ "%.2f"|format(aud.cpm_estimado)|replace('.', ',') }}
                 {% else %}
                   -
                 {% endif %}
               </td>
               <td>
                 {% if aud.investimento_sugerido %}
-                  R$ {{ "{:,.2f}".format(aud.investimento_sugerido) }}
+                  R$ {{ "{:,.2f}".format(aud.investimento_sugerido).replace(',', 'X').replace('.', ',').replace('X', '.') }}
                 {% else %}
                   -
                 {% endif %}
               </td>
-              <td>{{ "{:,}".format(aud.impressoes_estimadas) if aud.impressoes_estimadas else '-' }}</td>
+              <td>{{ "{:,}".format(aud.impressoes_estimadas).replace(',', '.') if aud.impressoes_estimadas else '-' }}</td>
               <td>
                 <input type="checkbox" class="toggle toggle-sm" {% if aud.incluido_proposta %}checked{% endif %} 
                        onchange="toggleIncluirAudiencia({{ aud.id }}, this.checked)">
@@ -575,7 +551,7 @@
                     {% set total_inv.value = total_inv.value + aud.investimento_sugerido %}
                   {% endif %}
                 {% endfor %}
-                R$ {{ "{:,.2f}".format(total_inv.value) }}
+                R$ {{ "{:,.2f}".format(total_inv.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
               </td>
               <td colspan="3"></td>
             </tr>
@@ -748,49 +724,7 @@
 </dialog>
 
 <!-- Modal Peça -->
-<dialog id="modal_peca" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Editar Detalhes da Peça</h3>
-    
-    <form id="form_peca" class="space-y-4">
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Meio</span>
-        </label>
-        <input type="text" id="meio" class="input input-bordered" placeholder="Ex: Digital, TV, Rádio" value="{{ cotacao.meio if cotacao.meio else '' }}">
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Tipo de Peça</span>
-        </label>
-        <input type="text" id="tipo_peca" class="input input-bordered" placeholder="Ex: Banner, Vídeo, Anúncio" value="{{ cotacao.tipo_peca if cotacao.tipo_peca else '' }}">
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Briefing</span>
-        </label>
-        <select id="briefing_id" class="select select-bordered">
-          <option value="">Selecione um briefing</option>
-          {% for briefing in briefings %}
-          <option value="{{ briefing.id }}" {% if cotacao.briefing_id == briefing.id %}selected{% endif %}>
-            {{ briefing.titulo }}{% if briefing.status %} ({{ briefing.status }}){% endif %}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-    </form>
-
-    <div class="modal-action">
-      <button type="button" onclick="document.getElementById('modal_peca').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="peca" class="btn btn-primary btn-salvar">Salvar</button>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>Fechar</button>
-  </form>
-</dialog>
+<!-- Modal Peca removido - campos estão em linhas -->
 
 <!-- Modal Observações -->
 <dialog id="modal_link_publico" class="modal">
@@ -1084,7 +1018,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
-        <input type="text" id="plataforma" class="input input-bordered input-sm">
+        <select id="plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="DV360">DV360</option>
+          <option value="Programática">Programática</option>
+          <option value="Amazon DSP">Amazon DSP</option>
+          <option value="Meta Ads">Meta Ads</option>
+          <option value="Google Ads">Google Ads</option>
+          <option value="TikTok Ads">TikTok Ads</option>
+          <option value="LinkedIn Ads">LinkedIn Ads</option>
+        </select>
       </div>
 
       <div class="form-control md:col-span-2">
@@ -1104,7 +1047,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Formato Compra</span></label>
-        <input type="text" id="formato_compra" class="input input-bordered input-sm">
+        <select id="formato_compra" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="CPM">CPM</option>
+          <option value="CPV">CPV</option>
+          <option value="CPC">CPC</option>
+          <option value="CPA">CPA</option>
+          <option value="CPL">CPL</option>
+          <option value="Fixo">Fixo</option>
+        </select>
       </div>
 
       <div class="form-control">
@@ -1114,32 +1065,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
-        <input type="number" id="viewability_minimo" class="input input-bordered input-sm" step="0.01">
+        <input type="text" id="viewability_minimo" class="input input-bordered input-sm" placeholder="70,00" oninput="aplicarMascaraDinheiro(this)">
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Volume Contratado</span></label>
-        <input type="number" id="volume_contratado" class="input input-bordered input-sm">
+        <input type="text" id="volume_contratado" class="input input-bordered input-sm" oninput="aplicarMascaraNumero(this)">
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Valor Unitário</span></label>
-        <input type="number" id="valor_unitario" class="input input-bordered input-sm" step="0.01">
+        <input type="text" id="valor_unitario" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Valor Total</span></label>
-        <input type="number" id="valor_total" class="input input-bordered input-sm" step="0.01">
+        <input type="text" id="valor_total" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Meio</span></label>
-        <input type="text" id="meio_linha" class="input input-bordered input-sm">
+        <select id="meio_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="INTERNET">INTERNET</option>
+          <option value="TV">TV</option>
+          <option value="RADIO">RADIO</option>
+          <option value="OOH">OOH</option>
+        </select>
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Tipo de Peça</span></label>
-        <input type="text" id="tipo_peca_linha" class="input input-bordered input-sm">
+        <select id="tipo_peca_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="BANNERS">BANNERS</option>
+          <option value="VIDEO">VIDEO</option>
+          <option value="AUDIO">AUDIO</option>
+          <option value="IMPRESSO">IMPRESSO</option>
+        </select>
       </div>
 
       <div class="form-control">
@@ -1199,7 +1162,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
-        <input type="text" id="edit_plataforma" class="input input-bordered input-sm">
+        <select id="edit_plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="DV360">DV360</option>
+          <option value="Programática">Programática</option>
+          <option value="Amazon DSP">Amazon DSP</option>
+          <option value="Meta Ads">Meta Ads</option>
+          <option value="Google Ads">Google Ads</option>
+          <option value="TikTok Ads">TikTok Ads</option>
+          <option value="LinkedIn Ads">LinkedIn Ads</option>
+        </select>
       </div>
 
       <div class="form-control md:col-span-2">
@@ -1213,23 +1185,63 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
 
       <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Formato Compra</span></label>
+        <select id="edit_formato_compra" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="CPM">CPM</option>
+          <option value="CPV">CPV</option>
+          <option value="CPC">CPC</option>
+          <option value="CPA">CPA</option>
+          <option value="CPL">CPL</option>
+          <option value="Fixo">Fixo</option>
+        </select>
+      </div>
+
+      <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Período</span></label>
         <input type="text" id="edit_periodo" class="input input-bordered input-sm">
       </div>
 
       <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
+        <input type="text" id="edit_viewability_minimo" class="input input-bordered input-sm" placeholder="70,00" oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Volume Contratado</span></label>
-        <input type="number" id="edit_volume_contratado" class="input input-bordered input-sm">
+        <input type="text" id="edit_volume_contratado" class="input input-bordered input-sm" oninput="aplicarMascaraNumero(this)">
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Valor Unitário</span></label>
-        <input type="number" id="edit_valor_unitario" class="input input-bordered input-sm" step="0.01">
+        <input type="text" id="edit_valor_unitario" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
       </div>
 
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Valor Total</span></label>
-        <input type="number" id="edit_valor_total" class="input input-bordered input-sm" step="0.01">
+        <input type="text" id="edit_valor_total" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Meio</span></label>
+        <select id="edit_meio_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="INTERNET">INTERNET</option>
+          <option value="TV">TV</option>
+          <option value="RADIO">RADIO</option>
+          <option value="OOH">OOH</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Tipo de Peça</span></label>
+        <select id="edit_tipo_peca_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="BANNERS">BANNERS</option>
+          <option value="VIDEO">VIDEO</option>
+          <option value="AUDIO">AUDIO</option>
+          <option value="IMPRESSO">IMPRESSO</option>
+        </select>
       </div>
 
     </form>
@@ -1560,10 +1572,10 @@ async function salvarNovaLinha() {
     formato: document.getElementById('formato').value,
     formato_compra: document.getElementById('formato_compra').value,
     periodo: document.getElementById('periodo').value,
-    viewability_minimo: document.getElementById('viewability_minimo').value || null,
-    volume_contratado: document.getElementById('volume_contratado').value || null,
-    valor_unitario: document.getElementById('valor_unitario').value || null,
-    valor_total: document.getElementById('valor_total').value || null,
+    viewability_minimo: removerMascaraDinheiro(document.getElementById('viewability_minimo').value),
+    volume_contratado: removerMascaraNumero(document.getElementById('volume_contratado').value),
+    valor_unitario: removerMascaraDinheiro(document.getElementById('valor_unitario').value),
+    valor_total: removerMascaraDinheiro(document.getElementById('valor_total').value),
     meio: document.getElementById('meio_linha').value,
     tipo_peca: document.getElementById('tipo_peca_linha').value,
     is_header: document.getElementById('is_header').checked,
@@ -1609,10 +1621,24 @@ async function editarLinha(linhaId) {
       document.getElementById('edit_plataforma').value = linha.plataforma || '';
       document.getElementById('edit_produto').value = linha.produto || '';
       document.getElementById('edit_formato').value = linha.formato || '';
+      document.getElementById('edit_formato_compra').value = linha.formato_compra || '';
       document.getElementById('edit_periodo').value = linha.periodo || '';
-      document.getElementById('edit_volume_contratado').value = linha.volume_contratado || '';
-      document.getElementById('edit_valor_unitario').value = linha.valor_unitario || '';
-      document.getElementById('edit_valor_total').value = linha.valor_total || '';
+      
+      // Aplicar máscaras aos valores numéricos
+      const viewabilityInput = document.getElementById('edit_viewability_minimo');
+      viewabilityInput.value = linha.viewability_minimo ? formatarMoeda(linha.viewability_minimo) : '';
+      
+      const volumeInput = document.getElementById('edit_volume_contratado');
+      volumeInput.value = linha.volume_contratado ? formatarNumero(linha.volume_contratado) : '';
+      
+      const valorUnitarioInput = document.getElementById('edit_valor_unitario');
+      valorUnitarioInput.value = linha.valor_unitario ? formatarMoeda(linha.valor_unitario) : '';
+      
+      const valorTotalInput = document.getElementById('edit_valor_total');
+      valorTotalInput.value = linha.valor_total ? formatarMoeda(linha.valor_total) : '';
+      
+      document.getElementById('edit_meio_linha').value = linha.meio || '';
+      document.getElementById('edit_tipo_peca_linha').value = linha.tipo_peca || '';
       
       document.getElementById('modal_editar_linha').showModal();
     } else {
@@ -1634,10 +1660,14 @@ async function salvarEdicaoLinha() {
     plataforma: document.getElementById('edit_plataforma').value,
     produto: document.getElementById('edit_produto').value,
     formato: document.getElementById('edit_formato').value,
+    formato_compra: document.getElementById('edit_formato_compra').value,
     periodo: document.getElementById('edit_periodo').value,
-    volume_contratado: document.getElementById('edit_volume_contratado').value,
-    valor_unitario: document.getElementById('edit_valor_unitario').value,
-    valor_total: document.getElementById('edit_valor_total').value
+    viewability_minimo: removerMascaraDinheiro(document.getElementById('edit_viewability_minimo').value),
+    volume_contratado: removerMascaraNumero(document.getElementById('edit_volume_contratado').value),
+    valor_unitario: removerMascaraDinheiro(document.getElementById('edit_valor_unitario').value),
+    valor_total: removerMascaraDinheiro(document.getElementById('edit_valor_total').value),
+    meio: document.getElementById('edit_meio_linha').value,
+    tipo_peca: document.getElementById('edit_tipo_peca_linha').value
   };
 
   try {

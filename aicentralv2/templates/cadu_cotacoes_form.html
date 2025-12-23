@@ -112,6 +112,27 @@
                 {% endif %}
               </select>
             </div>
+
+            <!-- Briefing (aparece quando cliente selecionado) -->
+            <div class="form-control" id="briefing_container">
+              <label class="label">
+                <span class="label-text font-semibold">Briefing</span>
+              </label>
+              <select 
+                name="briefing_id" 
+                id="briefing_id"
+                class="select select-bordered"
+              >
+                <option value="">Selecione um briefing</option>
+                {% if briefings %}
+                  {% for briefing in briefings %}
+                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>
+                    {{ briefing.titulo }}{% if briefing.status %} ({{ briefing.status }}){% endif %}
+                  </option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
           </div>
 
           <!-- Objetivo da Campanha -->
@@ -185,59 +206,7 @@
           </div>
         </div>
 
-        <!-- Detalhes da Peça -->
-        <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Detalhes da Peça/Campanha</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Meio -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Meio</span>
-              </label>
-              <input 
-                type="text" 
-                name="meio" 
-                value="{{ cotacao.meio if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="Ex: Digital, TV, Rádio, Mídia Impressa"
-              >
-            </div>
-
-            <!-- Tipo de Peça -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Tipo de Peça</span>
-              </label>
-              <input 
-                type="text" 
-                name="tipo_peca" 
-                value="{{ cotacao.tipo_peca if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="Ex: Banner, Vídeo, Anúncio, Conteúdo"
-              >
-            </div>
-
-            <!-- Briefing -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Briefing</span>
-              </label>
-              <select 
-                name="briefing_id" 
-                id="briefing_id"
-                class="select select-bordered"
-              >
-                <option value="">Selecione um briefing</option>
-                {% for briefing in briefings %}
-                <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>
-                  {{ briefing.titulo }}{% if briefing.status %} ({{ briefing.status }}){% endif %}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-        </div>
+        <!-- Detalhes da Peça/Campanha removido - campos estão em linhas -->
 
         <!-- Valores da Cotação -->
         <div>

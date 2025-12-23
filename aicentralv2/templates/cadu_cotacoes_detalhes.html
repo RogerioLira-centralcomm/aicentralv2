@@ -80,6 +80,20 @@
             </div>
             {% endif %}
             <div>
+              <p class="text-sm text-base-content/70">Origem</p>
+              <p class="font-semibold">
+                {% if cotacao.origem == 'CADU_WEB' %}
+                  CADU Web
+                {% elif cotacao.origem == 'API' %}
+                  API
+                {% elif cotacao.origem == 'ADMIN' %}
+                  Admin
+                {% else %}
+                  {{ cotacao.origem if cotacao.origem else '-' }}
+                {% endif %}
+              </p>
+            </div>
+            <div>
               <p class="text-sm text-base-content/70">Status</p>
               <div class="badge" 
                 {% if cotacao.status == 'aprovada' %}
@@ -631,6 +645,18 @@
 
       <div class="form-control">
         <label class="label">
+          <span class="label-text font-semibold">Origem</span>
+        </label>
+        <select id="origem" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione a origem</option>
+          <option value="CADU_WEB" {% if cotacao.origem == 'CADU_WEB' %}selected{% endif %}>CADU Web</option>
+          <option value="API" {% if cotacao.origem == 'API' %}selected{% endif %}>API</option>
+          <option value="ADMIN" {% if cotacao.origem == 'ADMIN' %}selected{% endif %}>Admin</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
           <span class="label-text font-semibold">Status</span>
         </label>
         <select id="status" class="select select-bordered">
@@ -830,6 +856,7 @@ async function salvarEdicao(tipo, cotacao_id) {
     data.client_user_id = document.getElementById('client_user_id').value;
     data.briefing_id = document.getElementById('briefing_id').value;
     data.objetivo_campanha = document.getElementById('objetivo_campanha').value;
+    data.origem = document.getElementById('origem').value;
     data.status = document.getElementById('status').value;
   } else if (tipo === 'datas') {
     data.periodo_inicio = document.getElementById('periodo_inicio').value;
@@ -1121,7 +1148,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <div class="form-control md:col-span-2">
         <label class="label"><span class="label-text font-semibold">Label Subtotal</span></label>
-        <input type="text" id="subtotal_label" class="input input-bordered input-sm">
+        <select id="subtotal_label" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="TOTAL PROGRAMÁTICA">TOTAL PROGRAMÁTICA</option>
+          <option value="TOTAL META ADS">TOTAL META ADS</option>
+          <option value="TOTAL GOOGLE ADS">TOTAL GOOGLE ADS</option>
+          <option value="TOTAL TIKTOK ADS">TOTAL TIKTOK ADS</option>
+          <option value="TOTAL LINKEDIN ADS">TOTAL LINKEDIN ADS</option>
+          <option value="TOTAL DV360">TOTAL DV360</option>
+          <option value="TOTAL AMAZON DSP">TOTAL AMAZON DSP</option>
+        </select>
       </div>
 
     </form>
@@ -1241,6 +1277,27 @@ document.addEventListener('DOMContentLoaded', function() {
           <option value="VIDEO">VIDEO</option>
           <option value="AUDIO">AUDIO</option>
           <option value="IMPRESSO">IMPRESSO</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-2">
+          <span class="label-text font-semibold">É Subtotal?</span>
+          <input type="checkbox" id="edit_is_subtotal" class="checkbox">
+        </label>
+      </div>
+
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text font-semibold">Label Subtotal</span></label>
+        <select id="edit_subtotal_label" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="TOTAL PROGRAMÁTICA">TOTAL PROGRAMÁTICA</option>
+          <option value="TOTAL META ADS">TOTAL META ADS</option>
+          <option value="TOTAL GOOGLE ADS">TOTAL GOOGLE ADS</option>
+          <option value="TOTAL TIKTOK ADS">TOTAL TIKTOK ADS</option>
+          <option value="TOTAL LINKEDIN ADS">TOTAL LINKEDIN ADS</option>
+          <option value="TOTAL DV360">TOTAL DV360</option>
+          <option value="TOTAL AMAZON DSP">TOTAL AMAZON DSP</option>
         </select>
       </div>
 
@@ -1639,6 +1696,8 @@ async function editarLinha(linhaId) {
       
       document.getElementById('edit_meio_linha').value = linha.meio || '';
       document.getElementById('edit_tipo_peca_linha').value = linha.tipo_peca || '';
+      document.getElementById('edit_is_subtotal').checked = linha.is_subtotal || false;
+      document.getElementById('edit_subtotal_label').value = linha.subtotal_label || '';
       
       document.getElementById('modal_editar_linha').showModal();
     } else {
@@ -1667,7 +1726,9 @@ async function salvarEdicaoLinha() {
     valor_unitario: removerMascaraDinheiro(document.getElementById('edit_valor_unitario').value),
     valor_total: removerMascaraDinheiro(document.getElementById('edit_valor_total').value),
     meio: document.getElementById('edit_meio_linha').value,
-    tipo_peca: document.getElementById('edit_tipo_peca_linha').value
+    tipo_peca: document.getElementById('edit_tipo_peca_linha').value,
+    is_subtotal: document.getElementById('edit_is_subtotal').checked,
+    subtotal_label: document.getElementById('edit_subtotal_label').value
   };
 
   try {

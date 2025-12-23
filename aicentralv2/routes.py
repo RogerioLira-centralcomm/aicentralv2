@@ -3837,11 +3837,18 @@ def init_routes(app):
                 veiculo=data.get('veiculo'),
                 plataforma=data.get('plataforma'),
                 produto=data.get('produto'),
+                detalhamento=data.get('detalhamento'),
                 formato=data.get('formato'),
+                formato_compra=data.get('formato_compra'),
                 periodo=data.get('periodo'),
+                viewability_minimo=data.get('viewability_minimo'),
                 volume_contratado=data.get('volume_contratado'),
                 valor_unitario=data.get('valor_unitario'),
-                valor_total=data.get('valor_total')
+                valor_total=data.get('valor_total'),
+                meio=data.get('meio'),
+                tipo_peca=data.get('tipo_peca'),
+                is_subtotal=data.get('is_subtotal'),
+                subtotal_label=data.get('subtotal_label')
             )
             
             return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})

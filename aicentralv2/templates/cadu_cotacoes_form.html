@@ -354,13 +354,15 @@
             <label class="label">
               <span class="label-text font-semibold">Origem</span>
             </label>
-            <input 
-              type="text" 
+            <select 
               name="origem" 
-              value="{{ cotacao.origem if cotacao else '' }}" 
-              class="input input-bordered" 
-              placeholder="Ex: Website, LinkedIn, Referência"
+              class="select select-bordered select-sm w-full h-10 min-h-10"
             >
+              <option value="">Selecione a origem</option>
+              <option value="CADU_WEB" {% if cotacao and cotacao.origem == 'CADU_WEB' %}selected{% endif %}>CADU Web</option>
+              <option value="API" {% if cotacao and cotacao.origem == 'API' %}selected{% endif %}>API</option>
+              <option value="ADMIN" {% if cotacao and cotacao.origem == 'ADMIN' %}selected{% endif %}>Admin</option>
+            </select>
           </div>
         </div>
 

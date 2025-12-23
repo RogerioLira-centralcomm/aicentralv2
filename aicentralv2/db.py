@@ -5029,7 +5029,7 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'pedido_sugestao', 'target', 'veiculo', 'plataforma', 'produto', 'detalhamento',
             'formato', 'formato_compra', 'periodo', 'viewability_minimo', 'volume_contratado',
             'valor_unitario', 'valor_total', 'ordem', 'is_subtotal', 'subtotal_label',
-            'is_header', 'dados_extras'
+            'is_header', 'dados_extras', 'meio', 'tipo_peca'
         }
         
         campos_atualizacao = {k: v for k, v in kwargs.items() if k in campos_permitidos and v is not None}

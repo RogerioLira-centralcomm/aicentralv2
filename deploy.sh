@@ -29,8 +29,8 @@ echo "Instalando dependencias..."
 pip install -r requirements.txt --upgrade --quiet
 
 # Criar diretorios
-mkdir -p aicentralv2/static/uploads/audiencias logs
-chmod 755 aicentralv2/static/uploads/audiencias logs
+mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes logs
+chmod 755 aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes logs
 
 # Limpar cache
 echo "Limpando cache..."

@@ -5159,3 +5159,106 @@ def calcular_valor_total_cotacao(cotacao_id):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+# =====================================================
+# FUNÇÕES PARA ANEXOS DE COTAÇÕES
+# =====================================================
+
+def obter_anexos_cotacao(cotacao_id):
+    """Retorna todos os anexos de uma cotação"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT * FROM cadu_cotacao_anexos
+                WHERE cotacao_id = %s 
+                AND (is_deleted IS NULL OR is_deleted = FALSE)
+                ORDER BY created_at DESC
+            ''', (cotacao_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def criar_anexo_cotacao(cotacao_id, nome_original, nome_arquivo, url_arquivo, 
+                        mime_type=None, tamanho_bytes=None, descricao=None, uploaded_by=None):
+    """Cria um novo anexo para a cotação"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_cotacao_anexos 
+                (cotacao_id, nome_original, nome_arquivo, url_arquivo, mime_type, 
+                 tamanho_bytes, descricao, uploaded_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                RETURNING id
+            ''', (cotacao_id, nome_original, nome_arquivo, url_arquivo, mime_type, 
+                  tamanho_bytes, descricao, uploaded_by))
+            anexo_id = cursor.fetchone()['id']
+            conn.commit()
+            return anexo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_anexo_por_id(anexo_id):
+    """Retorna um anexo específico pelo ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT * FROM cadu_cotacao_anexos
+                WHERE id = %s 
+                AND (is_deleted IS NULL OR is_deleted = FALSE)
+            ''', (anexo_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def atualizar_anexo_cotacao(anexo_id, **kwargs):
+    """Atualiza um anexo da cotação"""
+    conn = get_db()
+    try:
+        campos_permitidos = {'nome_original', 'descricao'}
+        campos_atualizacao = {k: v for k, v in kwargs.items() if k in campos_permitidos and v is not None}
+        
+        if not campos_atualizacao:
+            return False
+        
+        set_clause = ', '.join([f'{k} = %s' for k in campos_atualizacao.keys()])
+        valores = list(campos_atualizacao.values()) + [anexo_id]
+        
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                UPDATE cadu_cotacao_anexos
+                SET {set_clause}
+                WHERE id = %s AND (is_deleted IS NULL OR is_deleted = FALSE)
+            ''', valores)
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def deletar_anexo_cotacao(anexo_id, hard_delete=False):
+    """Deleta um anexo da cotação (soft delete por padrão)"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if hard_delete:
+                cursor.execute('DELETE FROM cadu_cotacao_anexos WHERE id = %s', (anexo_id,))
+            else:
+                cursor.execute('''
+                    UPDATE cadu_cotacao_anexos
+                    SET is_deleted = true
+                    WHERE id = %s
+                ''', (anexo_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e

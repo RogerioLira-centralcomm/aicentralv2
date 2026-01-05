@@ -4266,6 +4266,154 @@ def init_routes(app):
             current_app.logger.error(f"Erro ao calcular total da cotação: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+
+    # ==================== API ANEXOS DE COTAÇÕES ====================
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/anexos', methods=['GET'])
+    @login_required
+    def listar_anexos_cotacao(cotacao_id):
+        """Listar todos os anexos de uma cotação"""
+        try:
+            anexos = db.obter_anexos_cotacao(cotacao_id)
+            return jsonify({'success': True, 'anexos': anexos})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao listar anexos: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/anexos', methods=['POST'])
+    @login_required
+    def adicionar_anexo_cotacao(cotacao_id):
+        """Adicionar novo anexo à cotação"""
+        try:
+            # Verificar se arquivo foi enviado
+            if 'arquivo' not in request.files:
+                return jsonify({'success': False, 'message': 'Nenhum arquivo enviado'}), 400
+            
+            arquivo = request.files['arquivo']
+            if arquivo.filename == '':
+                return jsonify({'success': False, 'message': 'Arquivo sem nome'}), 400
+            
+            # Obter dados do formulário
+            descricao = request.form.get('descricao', '')
+            
+            # Gerar nome único para o arquivo
+            import os
+            import uuid
+            from werkzeug.utils import secure_filename
+            
+            nome_original = secure_filename(arquivo.filename)
+            extensao = os.path.splitext(nome_original)[1]
+            nome_arquivo = f"{uuid.uuid4().hex}{extensao}"
+            
+            # Criar diretório se não existir
+            upload_dir = os.path.join(current_app.static_folder, 'uploads', 'cotacoes')
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # Salvar arquivo
+            arquivo_path = os.path.join(upload_dir, nome_arquivo)
+            arquivo.save(arquivo_path)
+            
+            # URL relativa para acesso
+            url_arquivo = f"/static/uploads/cotacoes/{nome_arquivo}"
+            
+            # Salvar no banco
+            anexo_id = db.criar_anexo_cotacao(
+                cotacao_id=cotacao_id,
+                nome_original=nome_original,
+                nome_arquivo=nome_arquivo,
+                url_arquivo=url_arquivo,
+                mime_type=arquivo.content_type,
+                tamanho_bytes=os.path.getsize(arquivo_path),
+                descricao=descricao,
+                uploaded_by=session.get('user_id')
+            )
+            
+            registrar_auditoria(
+                acao='CREATE',
+                modulo='cotacoes_anexos',
+                descricao=f'Anexo adicionado à cotação {cotacao_id}: {nome_original}',
+                registro_id=anexo_id,
+                registro_tipo='cadu_cotacao_anexos'
+            )
+            
+            return jsonify({
+                'success': True,
+                'anexo_id': anexo_id,
+                'message': 'Anexo adicionado com sucesso'
+            })
+            
+        except Exception as e:
+            current_app.logger.error(f"Erro ao adicionar anexo: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['GET'])
+    @login_required
+    def obter_anexo_cotacao(cotacao_id, anexo_id):
+        """Obter dados de um anexo específico"""
+        try:
+            anexo = db.obter_anexo_por_id(anexo_id)
+            if not anexo:
+                return jsonify({'success': False, 'message': 'Anexo não encontrado'}), 404
+            return jsonify({'success': True, 'anexo': anexo})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter anexo: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['PUT'])
+    @login_required
+    def editar_anexo_cotacao(cotacao_id, anexo_id):
+        """Editar informações de um anexo"""
+        try:
+            data = request.json
+            sucesso = db.atualizar_anexo_cotacao(
+                anexo_id,
+                nome_original=data.get('nome_original'),
+                descricao=data.get('descricao')
+            )
+            
+            if sucesso:
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='cotacoes_anexos',
+                    descricao=f'Anexo {anexo_id} da cotação {cotacao_id} editado',
+                    registro_id=anexo_id,
+                    registro_tipo='cadu_cotacao_anexos'
+                )
+                return jsonify({'success': True, 'message': 'Anexo atualizado com sucesso'})
+            else:
+                return jsonify({'success': False, 'message': 'Nenhuma alteração realizada'}), 400
+                
+        except Exception as e:
+            current_app.logger.error(f"Erro ao editar anexo: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['DELETE'])
+    @login_required
+    def deletar_anexo_cotacao(cotacao_id, anexo_id):
+        """Deletar um anexo (soft delete)"""
+        try:
+            sucesso = db.deletar_anexo_cotacao(anexo_id, hard_delete=False)
+            
+            if sucesso:
+                registrar_auditoria(
+                    acao='DELETE',
+                    modulo='cotacoes_anexos',
+                    descricao=f'Anexo {anexo_id} da cotação {cotacao_id} removido',
+                    registro_id=anexo_id,
+                    registro_tipo='cadu_cotacao_anexos'
+                )
+                return jsonify({'success': True, 'message': 'Anexo removido com sucesso'})
+            else:
+                return jsonify({'success': False, 'message': 'Anexo não encontrado'}), 404
+                
+        except Exception as e:
+            current_app.logger.error(f"Erro ao deletar anexo: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     # ==================== API BUSCA DE CLIENTES ====================
     
     @app.route('/api/clientes/buscar', methods=['POST'])

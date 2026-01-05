@@ -591,6 +591,27 @@
   </div>
 </div>
 
+<!-- Anexos da Cotação (Largura Total) -->
+<div class="container mx-auto mt-6 px-4">
+  <div class="card bg-base-100">
+    <div class="card-body">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Anexos</h2>
+        <button onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="btn btn-sm btn-primary">
+          <i class="fas fa-plus mr-1"></i>Adicionar Anexo
+        </button>
+      </div>
+
+      <div id="lista_anexos">
+        <!-- Lista será carregada via JavaScript -->
+        <div class="flex justify-center items-center py-8">
+          <span class="loading loading-spinner loading-md"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== MODAIS DE EDIÇÃO ==================== -->
 
 <!-- Modal Informações Básicas -->
@@ -1479,6 +1500,67 @@ document.addEventListener('DOMContentLoaded', function() {
   </form>
 </dialog>
 
+<!-- Modal Adicionar Anexo -->
+<dialog id="modal_adicionar_anexo" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Adicionar Anexo</h3>
+    
+    <form id="form_novo_anexo" enctype="multipart/form-data">
+      
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text font-semibold">Arquivo *</span></label>
+        <input type="file" id="anexo_arquivo" class="file-input file-input-bordered file-input-sm w-full" required>
+        <label class="label"><span class="label-text-alt">Tamanho máximo: 10MB</span></label>
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text font-semibold">Descrição</span></label>
+        <textarea id="anexo_descricao" class="textarea textarea-bordered" rows="3" placeholder="Descrição do arquivo (opcional)"></textarea>
+      </div>
+
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_adicionar_anexo').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarNovoAnexo()" class="btn btn-primary">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Editar Anexo -->
+<dialog id="modal_editar_anexo" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Editar Anexo</h3>
+    
+    <input type="hidden" id="edit_anexo_id">
+    
+    <form id="form_editar_anexo">
+      
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text font-semibold">Nome do Arquivo</span></label>
+        <input type="text" id="edit_anexo_nome" class="input input-bordered input-sm" required>
+      </div>
+
+      <div class="form-control mb-4">
+        <label class="label"><span class="label-text font-semibold">Descrição</span></label>
+        <textarea id="edit_anexo_descricao" class="textarea textarea-bordered" rows="3"></textarea>
+      </div>
+
+    </form>
+
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_editar_anexo').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarEdicaoAnexo()" class="btn btn-primary">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
 <script>
 let timeoutBuscaAudiencias = null;
 let audienciasSugeridas = [];
@@ -1973,6 +2055,188 @@ async function removerComentario(comentarioId) {
   } catch (error) {
     console.error('Erro ao remover comentário:', error);
     alert('Erro ao remover comentário');
+  }
+}
+
+// ==================== ANEXOS ====================
+
+// Carregar anexos ao iniciar
+document.addEventListener('DOMContentLoaded', function() {
+  carregarAnexos();
+});
+
+async function carregarAnexos() {
+  try {
+    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos`);
+    const data = await response.json();
+    
+    if (data.success) {
+      renderizarAnexos(data.anexos);
+    } else {
+      document.getElementById('lista_anexos').innerHTML = '<p class="text-center text-base-content/50 py-8">Erro ao carregar anexos</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar anexos:', error);
+    document.getElementById('lista_anexos').innerHTML = '<p class="text-center text-error py-8">Erro ao carregar anexos</p>';
+  }
+}
+
+function renderizarAnexos(anexos) {
+  const container = document.getElementById('lista_anexos');
+  
+  if (!anexos || anexos.length === 0) {
+    container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum anexo adicionado ainda</p>';
+    return;
+  }
+  
+  let html = '<div class="overflow-x-auto"><table class="table table-sm">';
+  html += '<thead><tr><th>Arquivo</th><th>Descrição</th><th>Tamanho</th><th>Enviado em</th><th>Ações</th></tr></thead><tbody>';
+  
+  anexos.forEach(anexo => {
+    const tamanhoKB = anexo.tamanho_bytes ? (anexo.tamanho_bytes / 1024).toFixed(2) : '-';
+    const dataFormatada = anexo.created_at ? new Date(anexo.created_at).toLocaleString('pt-BR') : '-';
+    
+    html += `<tr>
+      <td>
+        <a href="${anexo.url_arquivo}" target="_blank" class="link link-primary">
+          <i class="fas fa-file mr-1"></i>${anexo.nome_original}
+        </a>
+      </td>
+      <td>${anexo.descricao || '-'}</td>
+      <td>${tamanhoKB} KB</td>
+      <td>${dataFormatada}</td>
+      <td>
+        <div class="flex gap-1">
+          <button onclick="editarAnexo(${anexo.id})" class="btn btn-xs btn-ghost" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button onclick="deletarAnexo(${anexo.id})" class="btn btn-xs btn-ghost text-error" title="Remover">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+async function salvarNovoAnexo() {
+  const arquivo = document.getElementById('anexo_arquivo').files[0];
+  const descricao = document.getElementById('anexo_descricao').value;
+  
+  if (!arquivo) {
+    alert('Selecione um arquivo');
+    return;
+  }
+  
+  // Validar tamanho (10MB)
+  if (arquivo.size > 10 * 1024 * 1024) {
+    alert('Arquivo muito grande. Tamanho máximo: 10MB');
+    return;
+  }
+  
+  const formData = new FormData();
+  formData.append('arquivo', arquivo);
+  formData.append('descricao', descricao);
+  
+  try {
+    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('modal_adicionar_anexo').close();
+      document.getElementById('form_novo_anexo').reset();
+      alert('Anexo adicionado com sucesso!');
+      carregarAnexos();
+    } else {
+      alert('Erro: ' + data.message);
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao adicionar anexo');
+  }
+}
+
+async function editarAnexo(anexoId) {
+  try {
+    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('edit_anexo_id').value = data.anexo.id;
+      document.getElementById('edit_anexo_nome').value = data.anexo.nome_original;
+      document.getElementById('edit_anexo_descricao').value = data.anexo.descricao || '';
+      
+      document.getElementById('modal_editar_anexo').showModal();
+    } else {
+      alert('Erro ao carregar anexo');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao carregar anexo');
+  }
+}
+
+async function salvarEdicaoAnexo() {
+  const anexoId = document.getElementById('edit_anexo_id').value;
+  const nomeOriginal = document.getElementById('edit_anexo_nome').value;
+  const descricao = document.getElementById('edit_anexo_descricao').value;
+  
+  if (!nomeOriginal.trim()) {
+    alert('Nome do arquivo é obrigatório');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome_original: nomeOriginal,
+        descricao: descricao
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('modal_editar_anexo').close();
+      alert('Anexo atualizado com sucesso!');
+      carregarAnexos();
+    } else {
+      alert('Erro: ' + data.message);
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao atualizar anexo');
+  }
+}
+
+async function deletarAnexo(anexoId) {
+  if (!confirm('Deseja realmente remover este anexo?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`, {
+      method: 'DELETE'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert('Anexo removido com sucesso!');
+      carregarAnexos();
+    } else {
+      alert('Erro: ' + data.message);
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    alert('Erro ao remover anexo');
   }
 }
 </script>

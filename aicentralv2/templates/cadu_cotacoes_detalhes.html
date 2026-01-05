@@ -165,11 +165,11 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p class="text-sm text-base-content/70">Budget Estimado</p>
-              <p class="font-semibold text-lg">R$ {{ "%.2f"|format(cotacao.budget_estimado) if cotacao.budget_estimado else '0,00' }}</p>
+              <p class="font-semibold text-lg">R$ {{ "{:,.2f}".format(cotacao.budget_estimado).replace(',', 'X').replace('.', ',').replace('X', '.') if cotacao.budget_estimado else '0,00' }}</p>
             </div>
             <div>
               <p class="text-sm text-base-content/70">Valor Total da Proposta</p>
-              <p class="font-semibold text-lg text-success">R$ {{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao.valor_total_proposta else '0,00' }}</p>
+              <p class="font-semibold text-lg text-success">R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta).replace(',', 'X').replace('.', ',').replace('X', '.') if cotacao.valor_total_proposta else '0,00' }}</p>
             </div>
           </div>
         </div>
@@ -449,7 +449,7 @@
               <td>{{ linha.produto if linha.produto else '-' }}</td>
               <td>{{ linha.formato if linha.formato else '-' }}</td>
               <td>{{ linha.periodo if linha.periodo else '-' }}</td>
-              <td>{{ linha.volume_contratado|int if linha.volume_contratado else '-' }}</td>
+              <td>{{ "{:,}".format(linha.volume_contratado|int).replace(',', '.') if linha.volume_contratado else '-' }}</td>
               <td>
                 {% if linha.valor_unitario %}
                   R$ {{ "%.2f"|format(linha.valor_unitario) }}
@@ -465,7 +465,6 @@
                 {% endif %}
               </td>
               <td>
-                {% if not linha.is_header and not linha.is_subtotal %}
                 <div class="flex gap-1">
                   <button onclick="editarLinha({{ linha.id }})" class="btn btn-xs btn-ghost" title="Editar">
                     <i class="fas fa-edit"></i>
@@ -474,7 +473,6 @@
                     <i class="fas fa-trash"></i>
                   </button>
                 </div>
-                {% endif %}
               </td>
             </tr>
             {% endfor %}

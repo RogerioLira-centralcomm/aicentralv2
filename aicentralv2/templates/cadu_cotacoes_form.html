@@ -188,6 +188,7 @@
               </label>
               <input 
                 type="datetime-local" 
+                id="expires_at"
                 name="expires_at" 
                 value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
                 class="input input-bordered"
@@ -348,23 +349,8 @@
           {% endif %}
         </div>
 
-        <!-- Origem -->
-        <div>
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Origem</span>
-            </label>
-            <select 
-              name="origem" 
-              class="select select-bordered select-sm w-full h-10 min-h-10"
-            >
-              <option value="">Selecione a origem</option>
-              <option value="CADU_WEB" {% if cotacao and cotacao.origem == 'CADU_WEB' %}selected{% endif %}>CADU Web</option>
-              <option value="API" {% if cotacao and cotacao.origem == 'API' %}selected{% endif %}>API</option>
-              <option value="ADMIN" {% if cotacao and cotacao.origem == 'ADMIN' %}selected{% endif %}>Admin</option>
-            </select>
-          </div>
-        </div>
+        <!-- Origem (hidden - sempre Admin ao criar) -->
+        <input type="hidden" name="origem" value="Admin">
 
         <!-- Ações -->
         <div class="divider"></div>
@@ -576,5 +562,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// Preencher data de expiração automaticamente ao carregar (somente em modo novo)
+{% if modo == 'novo' %}
+document.addEventListener('DOMContentLoaded', function() {
+  const expiresAtInput = document.getElementById('expires_at');
+  if (expiresAtInput && !expiresAtInput.value) {
+    // Data atual às 12:00 + 30 dias
+    const dataExpiracao = new Date();
+    dataExpiracao.setHours(12, 0, 0, 0); // Define 12:00
+    dataExpiracao.setDate(dataExpiracao.getDate() + 30); // Adiciona 30 dias
+    
+    // Formatar para datetime-local (YYYY-MM-DDTHH:MM)
+    const ano = dataExpiracao.getFullYear();
+    const mes = String(dataExpiracao.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataExpiracao.getDate()).padStart(2, '0');
+    const hora = String(dataExpiracao.getHours()).padStart(2, '0');
+    const minuto = String(dataExpiracao.getMinutes()).padStart(2, '0');
+    
+    expiresAtInput.value = `${ano}-${mes}-${dia}T${hora}:${minuto}`;
+  }
+});
+{% endif %}
 </script>
 {% endblock %}

@@ -347,11 +347,6 @@
                             <span><i class="fas fa-tools mr-1 text-xs"></i>Ferramentas</span>
                         </li>
                         <li>
-                            <a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">
-                                <span class="sidebar-text">Cotações</span>
-                            </a>
-                        </li>
-                        <li>
                             <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
                                 <span class="sidebar-text">Inteligência IA</span>
                             </a>

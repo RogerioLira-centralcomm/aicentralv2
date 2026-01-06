@@ -159,13 +159,19 @@
               <label class="label">
                 <span class="label-text font-semibold">Data de Início *</span>
               </label>
-              <input 
-                type="date" 
-                name="periodo_inicio" 
-                value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
-                class="input input-bordered"
-                required
-              >
+              <div class="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('periodo_inicio').showPicker()">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                <input 
+                  type="date" 
+                  id="periodo_inicio"
+                  name="periodo_inicio" 
+                  value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
+                  class="input input-bordered pl-10 w-full"
+                  required
+                >
+              </div>
             </div>
 
             <!-- Período Fim -->
@@ -173,12 +179,18 @@
               <label class="label">
                 <span class="label-text font-semibold">Data de Término</span>
               </label>
-              <input 
-                type="date" 
-                name="periodo_fim" 
-                value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
-                class="input input-bordered"
-              >
+              <div class="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('periodo_fim').showPicker()">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                <input 
+                  type="date" 
+                  id="periodo_fim"
+                  name="periodo_fim" 
+                  value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
+                  class="input input-bordered pl-10 w-full"
+                >
+              </div>
             </div>
 
             <!-- Expires At (Expiração da Cotação) -->
@@ -186,13 +198,18 @@
               <label class="label">
                 <span class="label-text font-semibold">Expiração da Cotação</span>
               </label>
-              <input 
-                type="datetime-local" 
-                id="expires_at"
-                name="expires_at" 
-                value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
-                class="input input-bordered"
-              >
+              <div class="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('expires_at').showPicker()">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                <input 
+                  type="datetime-local" 
+                  id="expires_at"
+                  name="expires_at" 
+                  value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
+                  class="input input-bordered pl-10 w-full"
+                >
+              </div>
             </div>
 
             <!-- Proposta Enviada Em (somente leitura) -->
@@ -307,12 +324,18 @@
               <label class="label">
                 <span class="label-text font-semibold">Link Expira em</span>
               </label>
-              <input 
-                type="datetime-local" 
-                name="link_publico_expires_at" 
-                value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}"
-                class="input input-bordered"
-              >
+              <div class="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('link_publico_expires_at').showPicker()">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                <input 
+                  type="datetime-local" 
+                  id="link_publico_expires_at"
+                  name="link_publico_expires_at" 
+                  value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}"
+                  class="input input-bordered pl-10 w-full"
+                >
+              </div>
             </div>
           </div>
         </div>
@@ -471,6 +494,25 @@ function selecionarClienteForm(clienteId, nomeFantasia) {
 </script>
 
 <script>
+// Auto-preencher datas ao carregar (somente para nova cotação)
+document.addEventListener('DOMContentLoaded', function() {
+    const periodoInicio = document.getElementById('periodo_inicio');
+    const periodoFim = document.getElementById('periodo_fim');
+    
+    // Só preencher se os campos estiverem vazios (nova cotação)
+    if (periodoInicio && !periodoInicio.value) {
+        const hoje = new Date();
+        periodoInicio.value = hoje.toISOString().split('T')[0];
+    }
+    
+    if (periodoFim && !periodoFim.value) {
+        const hoje = new Date();
+        const dataFim = new Date(hoje);
+        dataFim.setDate(dataFim.getDate() + 30);
+        periodoFim.value = dataFim.toISOString().split('T')[0];
+    }
+});
+
 // Formatar moeda brasileira em tempo real
 function formatarMoedaReal(input, hiddenFieldId) {
   let value = input.value.replace(/\D/g, '');

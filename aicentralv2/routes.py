@@ -5,7 +5,7 @@
 Rotas da Aplicação
 """
 
-from flask import session, redirect, url_for, flash, request, render_template, jsonify
+from flask import session, redirect, url_for, flash, request, render_template, jsonify, current_app
 from functools import wraps
 from datetime import datetime, timedelta
 import secrets
@@ -3206,6 +3206,17 @@ def init_routes(app):
                 app.logger.error(f"Erro ao buscar clientes: {str(cli_error)}")
                 clientes = []
             
+            # Buscar cliente selecionado se houver filtro
+            cliente_selecionado = None
+            if cliente_id:
+                try:
+                    conn = db.get_db()
+                    with conn.cursor() as cursor:
+                        cursor.execute('SELECT id_cliente, nome_fantasia FROM tbl_cliente WHERE id_cliente = %s', (int(cliente_id),))
+                        cliente_selecionado = cursor.fetchone()
+                except Exception as e:
+                    app.logger.error(f"Erro ao buscar cliente selecionado: {str(e)}")
+            
             # Estatísticas
             stats = {
                 'total': len(briefings),
@@ -3220,6 +3231,7 @@ def init_routes(app):
             return render_template('briefing_list.html', 
                                  briefings=briefings, 
                                  clientes=clientes,
+                                 cliente_selecionado=cliente_selecionado,
                                  stats=stats,
                                  filtros={'status': status, 'cliente_id': cliente_id, 'busca': busca})
         except Exception as e:
@@ -4317,6 +4329,9 @@ def init_routes(app):
             # URL relativa para acesso
             url_arquivo = f"/static/uploads/cotacoes/{nome_arquivo}"
             
+            # Obter tamanho do arquivo
+            tamanho_bytes = os.path.getsize(arquivo_path)
+            
             # Salvar no banco
             anexo_id = db.criar_anexo_cotacao(
                 cotacao_id=cotacao_id,
@@ -4324,7 +4339,7 @@ def init_routes(app):
                 nome_arquivo=nome_arquivo,
                 url_arquivo=url_arquivo,
                 mime_type=arquivo.content_type,
-                tamanho_bytes=os.path.getsize(arquivo_path),
+                tamanho_bytes=tamanho_bytes,
                 descricao=descricao,
                 uploaded_by=session.get('user_id')
             )
@@ -4344,8 +4359,10 @@ def init_routes(app):
             })
             
         except Exception as e:
-            current_app.logger.error(f"Erro ao adicionar anexo: {e}")
-            return jsonify({'success': False, 'message': str(e)}), 500
+            current_app.logger.error(f"Erro ao adicionar anexo: {e}", exc_info=True)
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'message': f'Erro ao adicionar anexo: {str(e)}'}), 500
     
     
     @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['GET'])

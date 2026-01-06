@@ -83,6 +83,13 @@
             background: rgba(156, 207, 49, 0.5);
         }
         
+        /* Ocultar ícone nativo de calendário */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            display: none;
+            -webkit-appearance: none;
+        }
+        
         /* Custom scrollbar para conteúdo principal */
         ::-webkit-scrollbar {
             width: 8px;

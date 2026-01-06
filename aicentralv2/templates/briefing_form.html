@@ -36,15 +36,21 @@
                         <label class="label">
                             <span class="label-text font-semibold">Cliente <span class="text-error">*</span></span>
                         </label>
-                        <select name="cliente_id" class="select select-bordered" required>
-                            <option value="">Selecione um cliente</option>
-                            {% for cliente in clientes %}
-                            <option value="{{ cliente.id_cliente }}" 
-                                    {% if briefing and briefing.cliente == cliente.id_cliente|string %}selected{% endif %}>
-                                {{ cliente.nome_fantasia }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <div class="relative">
+                            <input type="hidden" name="cliente_id" id="cliente_id" value="{{ briefing.cliente if briefing else '' }}" required>
+                            <input 
+                                type="text" 
+                                id="cliente_busca" 
+                                class="input input-bordered w-full" 
+                                placeholder="Digite para buscar cliente..."
+                                value="{% if briefing %}{{ briefing.cliente }}{% endif %}"
+                                autocomplete="off"
+                                oninput="buscarClientes(this.value)"
+                                onfocus="mostrarResultados()"
+                                required
+                            >
+                            <div id="resultados_clientes" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
+                        </div>
                     </div>
 
                     <!-- Objetivo -->
@@ -108,9 +114,14 @@
                         <label class="label">
                             <span class="label-text font-semibold">Prazo de Entrega</span>
                         </label>
-                        <input type="date" name="prazo" 
-                               value="{{ briefing.prazo.strftime('%Y-%m-%d') if briefing and briefing.prazo else '' }}" 
-                               class="input input-bordered">
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('prazo_input').showPicker()">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                            <input type="date" name="prazo" id="prazo_input"
+                                   value="{{ briefing.prazo.strftime('%Y-%m-%d') if briefing and briefing.prazo else '' }}" 
+                                   class="input input-bordered pl-10 w-full">
+                        </div>
                     </div>
 
                     <!-- Status -->
@@ -191,4 +202,126 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+let timeoutId = null;
+let currentIndex = -1;
+
+function buscarClientes(termo) {
+    clearTimeout(timeoutId);
+    
+    if (termo.length < 2) {
+        document.getElementById('resultados_clientes').style.display = 'none';
+        return;
+    }
+    
+    timeoutId = setTimeout(() => {
+        fetch('/api/clientes/buscar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nome: termo,
+                razao: termo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            renderizarResultados(data.clientes);
+        })
+        .catch(error => {
+            console.error('Erro ao buscar clientes:', error);
+        });
+    }, 300);
+}
+
+function renderizarResultados(clientes) {
+    const resultadosDiv = document.getElementById('resultados_clientes');
+    
+    if (clientes.length === 0) {
+        resultadosDiv.innerHTML = '<div class="p-2 text-sm text-gray-500">Nenhum cliente encontrado</div>';
+        resultadosDiv.style.display = 'block';
+        return;
+    }
+    
+    resultadosDiv.innerHTML = clientes.map((cliente, index) => `
+        <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0 cliente-resultado" 
+             data-index="${index}"
+             onclick="selecionarCliente(${cliente.id_cliente}, '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
+            <div class="font-medium">${cliente.nome_fantasia}</div>
+            <div class="text-sm text-gray-500">${cliente.razao_social || ''}</div>
+        </div>
+    `).join('');
+    
+    resultadosDiv.style.display = 'block';
+    currentIndex = -1;
+}
+
+function selecionarCliente(id, nome) {
+    document.getElementById('cliente_id').value = id;
+    document.getElementById('cliente_busca').value = nome;
+    document.getElementById('resultados_clientes').style.display = 'none';
+}
+
+function mostrarResultados() {
+    const resultadosDiv = document.getElementById('resultados_clientes');
+    if (resultadosDiv.innerHTML.trim() !== '') {
+        resultadosDiv.style.display = 'block';
+    }
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', function(event) {
+    const clienteBusca = document.getElementById('cliente_busca');
+    const resultadosDiv = document.getElementById('resultados_clientes');
+    
+    if (clienteBusca && resultadosDiv) {
+        if (!clienteBusca.contains(event.target) && !resultadosDiv.contains(event.target)) {
+            resultadosDiv.style.display = 'none';
+        }
+    }
+});
+
+// Navegar com teclado
+document.getElementById('cliente_busca').addEventListener('keydown', function(e) {
+    const resultadosDiv = document.getElementById('resultados_clientes');
+    const resultados = resultadosDiv.querySelectorAll('.cliente-resultado');
+    
+    if (resultados.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentIndex = (currentIndex + 1) % resultados.length;
+        atualizarSelecao(resultados);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentIndex = currentIndex <= 0 ? resultados.length - 1 : currentIndex - 1;
+        atualizarSelecao(resultados);
+    } else if (e.key === 'Enter' && currentIndex >= 0) {
+        e.preventDefault();
+        resultados[currentIndex].click();
+    } else if (e.key === 'Escape') {
+        resultadosDiv.style.display = 'none';
+        currentIndex = -1;
+    }
+});
+
+function atualizarSelecao(resultados) {
+    resultados.forEach((el, idx) => {
+        if (idx === currentIndex) {
+            el.classList.add('bg-base-200');
+            el.scrollIntoView({ block: 'nearest' });
+        } else {
+            el.classList.remove('bg-base-200');
+        }
+    });
+}
+
+// Limpar cliente_id quando o usuário altera o texto
+document.getElementById('cliente_busca').addEventListener('input', function() {
+    document.getElementById('cliente_id').value = '';
+});
+</script>
+
 {% endblock %}

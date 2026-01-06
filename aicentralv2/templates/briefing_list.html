@@ -6,7 +6,7 @@
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-        <h1 class="text-xl font-bold">Gestão de Briefings</h1>
+        <h1 class="text-2xl font-bold text-base-content">Gestão de Briefings</h1>
         <a href="{{ url_for('briefing_create') }}" class="btn btn-primary btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -87,14 +87,20 @@
                     <label class="label py-1">
                         <span class="label-text text-xs">Cliente</span>
                     </label>
-                    <select name="cliente_id" class="select select-bordered select-sm bg-white text-gray-900 font-medium focus:outline-primary h-8 min-h-8 py-1">
-                        <option value="">Todos</option>
-                        {% for cliente in clientes %}
-                        <option value="{{ cliente.id_cliente }}" {% if filtros.cliente_id == cliente.id_cliente|string %}selected{% endif %}>
-                            {{ cliente.nome_fantasia }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                    <div class="relative">
+                        <input type="hidden" name="cliente_id" id="cliente_id_filtro" value="{{ filtros.cliente_id }}">
+                        <input 
+                            type="text" 
+                            id="cliente_busca" 
+                            class="input input-bordered input-sm w-full h-8 min-h-8" 
+                            placeholder="Digite para buscar ou deixe vazio..."
+                            value="{% if filtros.cliente_id and cliente_selecionado %}{{ cliente_selecionado.nome_fantasia }}{% endif %}"
+                            autocomplete="off"
+                            oninput="aoDigitarClienteFiltro(this.value)"
+                            onfocus="mostrarResultadosFiltro()"
+                        >
+                        <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
+                    </div>
                 </div>
 
                 <!-- Busca -->
@@ -254,4 +260,91 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+let timeoutBuscaCliente = null;
+let clientesSugeridos = [];
+
+function aoDigitarClienteFiltro(termo) {
+  // Limpar o hidden se o campo de texto for modificado
+  if (termo.length === 0) {
+    document.getElementById('cliente_id_filtro').value = '';
+  }
+  
+  buscarClientesFiltro(termo);
+}
+
+async function buscarClientesFiltro(termo) {
+  clearTimeout(timeoutBuscaCliente);
+  
+  if (termo.length < 2) {
+    document.getElementById('resultados_clientes_filtro').classList.add('hidden');
+    return;
+  }
+  
+  timeoutBuscaCliente = setTimeout(async () => {
+    try {
+      const response = await fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: termo, razao: termo })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.clientes.length > 0) {
+        clientesSugeridos = data.clientes;
+        renderizarResultadosFiltro();
+      } else {
+        document.getElementById('resultados_clientes_filtro').innerHTML = '<div class="p-3 text-sm text-base-content/50">Nenhum cliente encontrado</div>';
+        document.getElementById('resultados_clientes_filtro').classList.remove('hidden');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar clientes:', error);
+    }
+  }, 300);
+}
+
+function renderizarResultadosFiltro() {
+  const container = document.getElementById('resultados_clientes_filtro');
+  let html = '';
+  
+  clientesSugeridos.forEach(cliente => {
+    const documento = cliente.cnpj || cliente.cpf || '-';
+    html += `
+      <div class="p-3 hover:bg-base-200 cursor-pointer border-b border-base-300" 
+           onclick="selecionarClienteFiltro(${cliente.pk_id_tbl_cliente}, '${cliente.nome_fantasia || cliente.razao_social}')">
+        <div class="font-semibold text-sm">${cliente.nome_fantasia || cliente.razao_social}</div>
+        <div class="text-xs text-base-content/60">${documento}</div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  container.classList.remove('hidden');
+}
+
+function selecionarClienteFiltro(clienteId, nomeCliente) {
+  document.getElementById('cliente_id_filtro').value = clienteId;
+  document.getElementById('cliente_busca').value = nomeCliente;
+  document.getElementById('resultados_clientes_filtro').classList.add('hidden');
+}
+
+function mostrarResultadosFiltro() {
+  if (clientesSugeridos.length > 0) {
+    document.getElementById('resultados_clientes_filtro').classList.remove('hidden');
+  }
+}
+
+// Fechar resultados ao clicar fora
+document.addEventListener('click', function(event) {
+  const busca = document.getElementById('cliente_busca');
+  const resultados = document.getElementById('resultados_clientes_filtro');
+  
+  if (busca && resultados && !busca.contains(event.target) && !resultados.contains(event.target)) {
+    resultados.classList.add('hidden');
+  }
+});
+</script>
+
 {% endblock %}

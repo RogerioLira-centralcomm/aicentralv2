@@ -4526,7 +4526,8 @@ def obter_todos_briefings(filtros=None):
             query = '''
                 SELECT 
                     b.*,
-                    c.nome_fantasia as cliente_nome
+                    c.nome_fantasia as cliente_nome,
+                    c.id_cliente as cliente_id
                 FROM cadu_briefings b
                 LEFT JOIN tbl_cliente c ON b.cliente = c.nome_fantasia
                 WHERE 1=1
@@ -4539,7 +4540,7 @@ def obter_todos_briefings(filtros=None):
                     params.append(filtros['status'])
                 
                 if 'cliente_id' in filtros and filtros['cliente_id']:
-                    query += ' AND b.cliente = %s'
+                    query += ' AND c.id_cliente = %s'
                     params.append(filtros['cliente_id'])
                 
                 if 'busca' in filtros and filtros['busca']:

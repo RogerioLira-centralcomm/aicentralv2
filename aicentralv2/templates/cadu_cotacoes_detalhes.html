@@ -719,21 +719,36 @@
         <label class="label">
           <span class="label-text font-semibold">Data de Início</span>
         </label>
-        <input type="date" id="periodo_inicio" class="input input-bordered" value="{% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') }}{% endif %}">
+        <div class="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('periodo_inicio').showPicker()">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <input type="date" id="periodo_inicio" class="input input-bordered pl-10 w-full" value="{% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') }}{% endif %}">
+        </div>
       </div>
 
       <div class="form-control">
         <label class="label">
           <span class="label-text font-semibold">Data de Término</span>
         </label>
-        <input type="date" id="periodo_fim" class="input input-bordered" value="{% if cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') }}{% endif %}">
+        <div class="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('periodo_fim').showPicker()">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <input type="date" id="periodo_fim" class="input input-bordered pl-10 w-full" value="{% if cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') }}{% endif %}">
+        </div>
       </div>
 
       <div class="form-control">
         <label class="label">
           <span class="label-text font-semibold">Expiração da Cotação</span>
         </label>
-        <input type="datetime-local" id="expires_at" class="input input-bordered" value="{% if cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+        <div class="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('expires_at').showPicker()">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <input type="datetime-local" id="expires_at" class="input input-bordered pl-10 w-full" value="{% if cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+        </div>
       </div>
     </form>
 
@@ -807,7 +822,12 @@
         <label class="label">
           <span class="label-text font-semibold">Link Expira em</span>
         </label>
-        <input type="datetime-local" id="link_publico_expires_at" class="input input-bordered" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}">
+        <div class="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('link_publico_expires_at').showPicker()">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <input type="datetime-local" id="link_publico_expires_at" class="input input-bordered pl-10 w-full" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}">
+        </div>
       </div>
     </form>
 
@@ -1508,7 +1528,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="form-control mb-4">
         <label class="label"><span class="label-text font-semibold">Arquivo *</span></label>
         <input type="file" id="anexo_arquivo" class="file-input file-input-bordered file-input-sm w-full" required>
-        <label class="label"><span class="label-text-alt">Tamanho máximo: 10MB</span></label>
+        <label class="label"><span class="label-text-alt">Tamanho máximo: 15MB</span></label>
       </div>
 
       <div class="form-control mb-4">
@@ -2129,9 +2149,9 @@ async function salvarNovoAnexo() {
     return;
   }
   
-  // Validar tamanho (10MB)
-  if (arquivo.size > 10 * 1024 * 1024) {
-    alert('Arquivo muito grande. Tamanho máximo: 10MB');
+  // Validar tamanho (15MB)
+  if (arquivo.size > 15 * 1024 * 1024) {
+    alert('Arquivo muito grande. Tamanho máximo: 15MB');
     return;
   }
   

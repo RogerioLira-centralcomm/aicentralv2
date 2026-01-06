@@ -18,6 +18,9 @@ class Config:
 	DEBUG = False
 	TESTING = False
 	
+	# Upload de arquivos
+	MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB máximo
+	
 	# URL base da aplicação (para acesso externo às imagens)
 	BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')
     

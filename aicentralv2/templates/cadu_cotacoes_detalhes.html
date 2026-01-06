@@ -13,6 +13,25 @@
       <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost">
         <i class="fas fa-arrow-left"></i>Voltar
       </a>
+      
+      <!-- Dropdown Ações Rápidas -->
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-primary">
+          <i class="fas fa-bolt mr-2"></i>Ações Rápidas
+          <i class="fas fa-chevron-down ml-2"></i>
+        </label>
+        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-64 mt-2">
+          <li><a onclick="document.getElementById('modal_link_publico').showModal()"><i class="fas fa-link mr-2"></i>Ver Link Público</a></li>
+          <li class="menu-title"><span>Emails</span></li>
+          <li><a onclick="abrirModalEmail('enviar_cotacao')"><i class="fas fa-paper-plane mr-2"></i>Enviar Cotação</a></li>
+          <li><a onclick="abrirModalEmail('email_aprovacao')"><i class="fas fa-check-circle mr-2 text-success"></i>Email de Aprovação</a></li>
+          <li><a onclick="abrirModalEmail('email_recusa')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
+          <li class="menu-title"><span>Outras ações</span></li>
+          <li><a onclick="duplicarCotacao()"><i class="fas fa-copy mr-2"></i>Duplicar Cotação</a></li>
+          <li><a onclick="exportarPDF()"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</a></li>
+        </ul>
+      </div>
+      
       <button type="button" data-cotacao-id="{{ cotacao.id }}" class="btn btn-error btn-deletar">
         <i class="fas fa-trash"></i>Deletar
       </button>
@@ -177,53 +196,6 @@
 
       <!-- Detalhes da Peça removido - campos estão em linhas -->
 
-      <!-- Link Público -->
-      <div class="card bg-base-100">
-        <div class="card-body">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-bold">Link Público</h2>
-            <button onclick="document.getElementById('modal_link_publico').showModal()" class="btn btn-sm btn-ghost">
-              <i class="fas fa-edit"></i>Editar
-            </button>
-          </div>
-          
-          <div class="grid grid-cols-1 gap-3">
-            <div>
-              <p class="text-sm text-base-content/70">Status do Link</p>
-              <div class="badge {% if cotacao.link_publico_ativo %}badge-success{% else %}badge-ghost{% endif %}">
-                {{ 'Ativo' if cotacao.link_publico_ativo else 'Inativo' }}
-              </div>
-            </div>
-            
-            {% if cotacao.link_publico_token %}
-            <div>
-              <p class="text-sm text-base-content/70">Link Público</p>
-              <div class="flex gap-2 items-center">
-                <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="link link-primary font-semibold text-sm break-all">
-                  {{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}
-                </a>
-                <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-xs btn-ghost" title="Copiar link">
-                  <i class="fas fa-copy"></i>
-                </button>
-              </div>
-            </div>
-            
-            <div>
-              <p class="text-sm text-base-content/70">Token</p>
-              <p class="font-semibold font-mono text-xs">{{ cotacao.link_publico_token }}</p>
-            </div>
-            {% endif %}
-            
-            {% if cotacao.link_publico_expires_at %}
-            <div>
-              <p class="text-sm text-base-content/70">Expira em</p>
-              <p class="font-semibold">{{ cotacao.link_publico_expires_at.strftime('%d/%m/%Y %H:%M') if cotacao.link_publico_expires_at else '-' }}</p>
-            </div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <!-- Sidebar (1/3) -->
@@ -336,7 +308,7 @@
 </div>
 
 <!-- Observações (Largura Total) -->
-<div class="container mx-auto mt-6 px-4">
+<div class="container mx-auto mt-6 px-4 max-w-7xl">
   <div class="card bg-base-100">
     <div class="card-body">
       <div class="flex justify-between items-center mb-4">
@@ -374,44 +346,50 @@
 </div>
 
 <!-- Comentários da Cotação (Largura Total) -->
-<div class="container mx-auto mt-6 px-4">
+<div class="container mx-auto mt-6 px-4 max-w-7xl">
   <div class="card bg-base-100">
-    <div class="card-body">
-      <h2 class="text-lg font-bold mb-4">Comentários</h2>
+    <div class="card-body py-4">
+      <!-- Header colapsável -->
+      <div class="flex justify-between items-center cursor-pointer" onclick="toggleComentarios()">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-base-content/70">Comentários</h2>
+          <span class="badge badge-sm badge-ghost">{{ comentarios|length if comentarios else 0 }}</span>
+        </div>
+        <i id="icon-comentarios" class="fas fa-chevron-down text-base-content/50 text-xs"></i>
+      </div>
       
-      <!-- Lista de Comentários -->
-      <div id="comentarios-lista" class="mb-6 max-h-96 overflow-y-auto">
-        {% if comentarios and comentarios|length > 0 %}
-        <ul class="menu bg-base-200 rounded-box">
-          {% for c in comentarios %}
-          <li class="border-b border-base-300 last:border-b-0">
-            <div class="flex justify-between items-start p-3">
+      <!-- Lista de Comentários (colapsável) -->
+      <div id="comentarios-container" class="mt-3 hidden">
+        <div id="comentarios-lista" class="mb-4 max-h-64 overflow-y-auto">
+          {% if comentarios and comentarios|length > 0 %}
+          <div class="space-y-2">
+            {% for c in comentarios %}
+            <div class="flex justify-between items-start p-2 bg-base-200/50 rounded text-xs">
               <div class="flex-1">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-semibold text-sm">{{ c.user_nome }}</span>
-                  <span class="text-xs text-base-content/50">{{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '' }}</span>
+                  <span class="font-medium text-base-content/80">{{ c.user_nome }}</span>
+                  <span class="text-base-content/40">{{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '' }}</span>
                 </div>
-                <p class="text-sm whitespace-pre-wrap">{{ c.comentario }}</p>
+                <p class="text-base-content/70 whitespace-pre-wrap">{{ c.comentario }}</p>
               </div>
               {% if session.get('is_admin') %}
-              <button onclick="removerComentario({{ c.id }})" class="btn btn-ghost btn-xs text-error" title="Remover">
-                <i class="fas fa-trash"></i>
+              <button onclick="removerComentario({{ c.id }})" class="btn btn-ghost btn-xs text-error opacity-50 hover:opacity-100" title="Remover">
+                <i class="fas fa-trash text-xs"></i>
               </button>
               {% endif %}
             </div>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-center text-base-content/50 py-4">Nenhum comentário ainda</p>
-        {% endif %}
-      </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-center text-base-content/40 py-3 text-xs">Nenhum comentário ainda</p>
+          {% endif %}
+        </div>
     </div>
   </div>
 </div>
 
 <!-- Linhas da Cotação (Largura Total) -->
-<div class="container mx-auto mt-6 px-4">
+<div class="container mx-auto mt-6 px-4 max-w-7xl">
   <div class="card bg-base-100">
     <div class="card-body">
       <div class="flex justify-between items-center mb-4">
@@ -426,31 +404,49 @@
         <table class="table table-sm">
           <thead>
             <tr>
-              <th>Pedido/Sugestão</th>
-              <th>Target</th>
-              <th>Veículo</th>
               <th>Plataforma</th>
               <th>Produto</th>
-              <th>Formato</th>
+              <th>Segmentação</th>
+              <th>Formatos</th>
+              <th>Canal</th>
+              <th>Objetivo/KPI</th>
               <th>Período</th>
               <th>Volume</th>
               <th>Valor Unit.</th>
-              <th>Valor Total</th>
+              <th>Investimento</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             {% for linha in linhas %}
-            <tr class="{% if linha.is_header %}font-bold bg-base-200{% elif linha.is_subtotal %}font-semibold bg-base-300{% endif %}">
-              <td>{{ linha.pedido_sugestao if linha.pedido_sugestao else '-' }}</td>
-              <td>{{ linha.target if linha.target else '-' }}</td>
-              <td>{{ linha.veiculo if linha.veiculo else '-' }}</td>
+            <tr>
               <td>{{ linha.plataforma if linha.plataforma else '-' }}</td>
               <td>{{ linha.produto if linha.produto else '-' }}</td>
-              <td>{{ linha.formato if linha.formato else '-' }}</td>
-              <td>{{ linha.periodo if linha.periodo else '-' }}</td>
-              <td>{{ "{:,}".format(linha.volume_contratado|int).replace(',', '.') if linha.volume_contratado else '-' }}</td>
               <td>
+                <div class="max-w-xs truncate" title="{{ linha.segmentacao if linha.segmentacao else '-' }}">
+                  {{ linha.segmentacao if linha.segmentacao else '-' }}
+                </div>
+              </td>
+              <td>
+                <div class="max-w-xs truncate" title="{{ linha.formatos if linha.formatos else '-' }}">
+                  {{ linha.formatos if linha.formatos else '-' }}
+                </div>
+              </td>
+              <td>{{ linha.canal if linha.canal else '-' }}</td>
+              <td>
+                <span class="badge badge-sm badge-{{ 'primary' if linha.objetivo_kpi == 'CPM' else 'neutral' }}">
+                  {{ linha.objetivo_kpi if linha.objetivo_kpi else '-' }}
+                </span>
+              </td>
+              <td class="text-xs">
+                {% if linha.data_inicio and linha.data_fim %}
+                  {{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '' }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>{{ "{:,}".format(linha.volume_contratado|int).replace(',', '.') if linha.volume_contratado else '-' }}</td>
+              <td class="text-xs">
                 {% if linha.valor_unitario %}
                   R$ {{ "%.2f"|format(linha.valor_unitario) }}
                 {% else %}
@@ -458,8 +454,8 @@
                 {% endif %}
               </td>
               <td>
-                {% if linha.valor_total %}
-                  R$ {{ "{:,.2f}".format(linha.valor_total).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                {% if linha.investimento_bruto %}
+                  R$ {{ "{:,.2f}".format(linha.investimento_bruto).replace(',', 'X').replace('.', ',').replace('X', '.') }}
                 {% else %}
                   -
                 {% endif %}
@@ -483,7 +479,9 @@
               <td>
                 {% set total = namespace(value=0) %}
                 {% for linha in linhas %}
-                  {% if linha.valor_total %}
+                  {% if linha.investimento_bruto %}
+                    {% set total.value = total.value + linha.investimento_bruto %}
+                  {% elif linha.valor_total %}
                     {% set total.value = total.value + linha.valor_total %}
                   {% endif %}
                 {% endfor %}
@@ -502,7 +500,7 @@
 </div>
 
 <!-- Audiências da Cotação (Largura Total) -->
-<div class="container mx-auto mt-6 px-4">
+<div class="container mx-auto mt-6 px-4 max-w-7xl">
   <div class="card bg-base-100">
     <div class="card-body">
       <div class="flex justify-between items-center mb-4">
@@ -590,7 +588,7 @@
 </div>
 
 <!-- Anexos da Cotação (Largura Total) -->
-<div class="container mx-auto mt-6 px-4">
+<div class="container mx-auto mt-6 px-4 max-w-7xl">
   <div class="card bg-base-100">
     <div class="card-body">
       <div class="flex justify-between items-center mb-4">
@@ -672,18 +670,6 @@
           <span class="label-text font-semibold">Objetivo da Campanha</span>
         </label>
         <textarea id="objetivo_campanha" class="textarea textarea-bordered" rows="2">{{ cotacao.objetivo_campanha if cotacao.objetivo_campanha else '' }}</textarea>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Origem</span>
-        </label>
-        <select id="origem" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione a origem</option>
-          <option value="CADU_WEB" {% if cotacao.origem == 'CADU_WEB' %}selected{% endif %}>CADU Web</option>
-          <option value="API" {% if cotacao.origem == 'API' %}selected{% endif %}>API</option>
-          <option value="ADMIN" {% if cotacao.origem == 'ADMIN' %}selected{% endif %}>Admin</option>
-        </select>
       </div>
 
       <div class="form-control">
@@ -800,27 +786,73 @@
 
 <!-- Modal Observações -->
 <dialog id="modal_link_publico" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Editar Link Público</h3>
+  <div class="modal-box w-11/12 max-w-3xl">
+    <h3 class="font-bold text-lg mb-4">
+      <i class="fas fa-link mr-2"></i>Gerenciar Link Público
+    </h3>
+    
+    <!-- Status atual -->
+    <div class="alert {% if cotacao.link_publico_ativo %}alert-success{% else %}alert-info{% endif %} mb-4">
+      <i class="fas {% if cotacao.link_publico_ativo %}fa-check-circle{% else %}fa-info-circle{% endif %}"></i>
+      <div>
+        <p class="font-semibold">Status: {% if cotacao.link_publico_ativo %}Ativo{% else %}Inativo{% endif %}</p>
+        <p class="text-sm">{% if cotacao.link_publico_ativo %}O link público está ativo e pode ser compartilhado{% else %}Ative o link para permitir visualização pública da cotação{% endif %}</p>
+      </div>
+    </div>
+    
+    {% if cotacao.link_publico_token %}
+    <!-- Link atual -->
+    <div class="bg-base-200 p-4 rounded-lg mb-4">
+      <p class="text-sm text-base-content/70 mb-2">Link Público Atual:</p>
+      <div class="flex gap-2 items-center">
+        <input type="text" readonly value="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm flex-1 font-mono text-xs" id="link_publico_url">
+        <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm btn-primary" title="Copiar link">
+          <i class="fas fa-copy mr-1"></i>Copiar
+        </button>
+        <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="btn btn-sm btn-ghost" title="Abrir em nova aba">
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+      </div>
+      
+      <div class="mt-3 flex items-center gap-4 text-xs text-base-content/60">
+        <div>
+          <i class="fas fa-fingerprint mr-1"></i>
+          Token: <span class="font-mono">{{ cotacao.link_publico_token }}</span>
+        </div>
+        {% if cotacao.link_publico_expires_at %}
+        <div>
+          <i class="fas fa-clock mr-1"></i>
+          Expira: {{ cotacao.link_publico_expires_at.strftime('%d/%m/%Y %H:%M') }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     
     <form id="form_link_publico" class="space-y-4">
       <div class="form-control">
         <label class="label cursor-pointer justify-start gap-3">
-          <input type="checkbox" id="link_publico_ativo" class="checkbox" {% if cotacao.link_publico_ativo %}checked{% endif %}>
+          <input type="checkbox" id="link_publico_ativo" class="checkbox checkbox-primary" {% if cotacao.link_publico_ativo %}checked{% endif %}>
           <span class="label-text font-semibold">Habilitar Link Público</span>
         </label>
-      </div>
-
-      <div class="form-control">
         <label class="label">
-          <span class="label-text font-semibold">Token do Link</span>
+          <span class="label-text-alt text-base-content/60">Permite que a cotação seja visualizada sem login através de um link compartilhável</span>
         </label>
-        <input type="text" id="link_publico_token" class="input input-bordered font-mono text-xs" value="{{ cotacao.link_publico_token if cotacao.link_publico_token else '' }}" placeholder="Será gerado automaticamente se deixar em branco">
       </div>
 
       <div class="form-control">
         <label class="label">
-          <span class="label-text font-semibold">Link Expira em</span>
+          <span class="label-text font-semibold">Token do Link (opcional)</span>
+        </label>
+        <input type="text" id="link_publico_token" class="input input-bordered font-mono text-xs" value="{{ cotacao.link_publico_token if cotacao.link_publico_token else '' }}" placeholder="Deixe em branco para gerar automaticamente">
+        <label class="label">
+          <span class="label-text-alt text-base-content/60">Token personalizado ou deixe vazio para gerar automaticamente</span>
+        </label>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Data de Expiração</span>
         </label>
         <div class="relative">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('link_publico_expires_at').showPicker()">
@@ -828,12 +860,17 @@
           </svg>
           <input type="datetime-local" id="link_publico_expires_at" class="input input-bordered pl-10 w-full" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}">
         </div>
+        <label class="label">
+          <span class="label-text-alt text-base-content/60">Deixe vazio para link sem expiração</span>
+        </label>
       </div>
     </form>
 
     <div class="modal-action">
-      <button type="button" onclick="document.getElementById('modal_link_publico').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="link_publico" class="btn btn-primary btn-salvar">Salvar</button>
+      <button type="button" onclick="document.getElementById('modal_link_publico').close()" class="btn btn-ghost">Fechar</button>
+      <button type="button" data-cotacao-id="{{ cotacao.id }}" data-tipo="link_publico" class="btn btn-primary btn-salvar">
+        <i class="fas fa-save mr-2"></i>Salvar Alterações
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -907,7 +944,6 @@ async function salvarEdicao(tipo, cotacao_id) {
     data.client_user_id = document.getElementById('client_user_id').value;
     data.briefing_id = document.getElementById('briefing_id').value;
     data.objetivo_campanha = document.getElementById('objetivo_campanha').value;
-    data.origem = document.getElementById('origem').value;
     data.status = document.getElementById('status').value;
   } else if (tipo === 'datas') {
     data.periodo_inicio = document.getElementById('periodo_inicio').value;
@@ -936,15 +972,15 @@ async function salvarEdicao(tipo, cotacao_id) {
         });
         
         if (gerarResponse.ok) {
-          alert('Link público gerado com sucesso!');
-          location.reload();
+          mostrarToast('Link público gerado com sucesso!', 'success');
+          setTimeout(() => location.reload(), 1000);
           return;
         } else {
-          alert('Erro ao gerar link público');
+          mostrarToast('Erro ao gerar link público', 'error');
           return;
         }
       } catch (error) {
-        alert('Erro ao gerar link público: ' + error.message);
+        mostrarToast('Erro ao gerar link público: ' + error.message, 'error');
         return;
       }
     }
@@ -967,103 +1003,118 @@ async function salvarEdicao(tipo, cotacao_id) {
     });
     
     if (response.ok) {
-      alert('Alterações salvas com sucesso!');
-      location.reload();
+      mostrarToast('Alterações salvas com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
       const error = await response.json();
-      alert(`Erro ao salvar: ${error.message}`);
+      mostrarToast(`Erro ao salvar: ${error.message}`, 'error');
     }
   } catch (error) {
-    alert(`Erro: ${error.message}`);
+    mostrarToast(`Erro: ${error.message}`, 'error');
   }
 }
 
 // Aprovar cotação
-async function aprovarCotacao(cotacao_id) {
-  if (!confirm('Deseja aprovar esta cotação?')) return;
+let cotacaoIdParaAprovar = null;
+
+function aprovarCotacao(cotacao_id) {
+  cotacaoIdParaAprovar = cotacao_id;
+  document.getElementById('modal_confirmar_aprovar').showModal();
+}
+
+async function confirmarAprovacao() {
+  if (!cotacaoIdParaAprovar) return;
+  
+  document.getElementById('modal_confirmar_aprovar').close();
   
   try {
-    const dataAtual = new Date().toISOString().split('T')[0]; // Formato: YYYY-MM-DD
-    const response = await fetch(`/api/cotacoes/${cotacao_id}/atualizar`, {
+    const dataAtual = new Date().toISOString().split('T')[0];
+    const response = await fetch(`/api/cotacoes/${cotacaoIdParaAprovar}/atualizar`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        status: 'aprovada', 
-        aprovada_em: dataAtual 
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'aprovada', aprovada_em: dataAtual })
     });
     
     if (response.ok) {
-      alert('Cotação aprovada com sucesso!');
-      location.reload();
+      mostrarToast('Cotação aprovada com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
       const data = await response.json();
-      alert(`Erro ao aprovar cotação: ${data.message || 'Erro desconhecido'}`);
+      mostrarToast(`Erro ao aprovar cotação: ${data.message || 'Erro desconhecido'}`, 'error');
     }
   } catch (error) {
-    alert(`Erro: ${error.message}`);
+    mostrarToast(`Erro: ${error.message}`, 'error');
   }
 }
 
 // Rejeitar cotação
-async function rejeitarCotacao(cotacao_id) {
-  if (!confirm('Deseja rejeitar esta cotação?')) return;
+let cotacaoIdParaRejeitar = null;
+
+function rejeitarCotacao(cotacao_id) {
+  cotacaoIdParaRejeitar = cotacao_id;
+  document.getElementById('modal_confirmar_rejeitar').showModal();
+}
+
+async function confirmarRejeicao() {
+  if (!cotacaoIdParaRejeitar) return;
+  
+  document.getElementById('modal_confirmar_rejeitar').close();
   
   try {
-    const response = await fetch(`/api/cotacoes/${cotacao_id}/atualizar`, {
+    const response = await fetch(`/api/cotacoes/${cotacaoIdParaRejeitar}/atualizar`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'rejeitada' })
     });
     
     if (response.ok) {
-      alert('Cotação rejeitada!');
-      location.reload();
+      mostrarToast('Cotação rejeitada!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro ao rejeitar cotação');
+      mostrarToast('Erro ao rejeitar cotação', 'error');
     }
   } catch (error) {
-    alert(`Erro: ${error.message}`);
+    mostrarToast(`Erro: ${error.message}`, 'error');
   }
 }
 
 // Confirmar deleção
+let cotacaoIdParaDeletar = null;
+
 function confirmarDelecao(cotacao_id) {
-  if (confirm('Tem certeza que deseja deletar esta cotação? Esta ação não pode ser desfeita.')) {
-    deletarCotacao(cotacao_id);
+  cotacaoIdParaDeletar = cotacao_id;
+  document.getElementById('modal_confirmar_deletar_cotacao').showModal();
+}
+
+async function confirmarDeletarCotacao() {
+  if (!cotacaoIdParaDeletar) return;
+  
+  document.getElementById('modal_confirmar_deletar_cotacao').close();
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoIdParaDeletar}/deletar`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      mostrarToast('Cotação deletada com sucesso!', 'success');
+      setTimeout(() => window.location.href = '/cotacoes', 1000);
+    } else {
+      mostrarToast('Erro ao deletar cotação', 'error');
+    }
+  } catch (error) {
+    mostrarToast(`Erro: ${error.message}`, 'error');
   }
 }
 
 // Copiar link público
 function copiarLinkPublico(link) {
   navigator.clipboard.writeText(link).then(() => {
-    alert('Link copiado para a área de transferência!');
+    mostrarToast('Link copiado para a área de transferência!', 'success');
   }).catch(err => {
     console.error('Erro ao copiar:', err);
-    alert('Erro ao copiar link');
+    mostrarToast('Erro ao copiar link', 'error');
   });
-}
-
-// Deletar cotação
-async function deletarCotacao(cotacao_id) {
-  try {
-    const response = await fetch(`/api/cotacoes/${cotacao_id}/deletar`, {
-      method: 'DELETE'
-    });
-    
-    if (response.ok) {
-      alert('Cotação deletada com sucesso!');
-      window.location.href = '/cotacoes';
-    } else {
-      alert('Erro ao deletar cotação');
-    }
-  } catch (error) {
-    alert(`Erro: ${error.message}`);
-  }
 }
 
 // Ao carregar a página, formatar os valores
@@ -1110,29 +1161,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Modal Nova Linha -->
 <dialog id="modal_nova_linha" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl">
+  <div class="modal-box w-11/12 max-w-6xl">
     <h3 class="font-bold text-lg mb-4">Nova Linha de Cotação</h3>
     
-    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form id="form_nova_linha" class="space-y-4">
       
+      <!-- Segmentação -->
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Pedido/Sugestão</span></label>
-        <input type="text" id="pedido_sugestao" class="input input-bordered input-sm">
+        <label class="label"><span class="label-text font-semibold">Segmentação *</span></label>
+        <textarea id="segmentacao" class="textarea textarea-bordered" rows="3" required minlength="10" placeholder="Descreva a segmentação da audiência..."></textarea>
+        <label class="label"><span class="label-text-alt text-error hidden" id="erro_segmentacao">Mínimo 10 caracteres</span></label>
       </div>
 
+      <!-- Formatos (múltipla escolha) -->
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Target</span></label>
-        <input type="text" id="target" class="input input-bordered input-sm">
+        <label class="label"><span class="label-text font-semibold">Formatos * <span class="text-xs text-base-content/60">(múltipla escolha)</span></span></label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-sm">
+            <span class="label-text">Carroussel</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="Video" class="checkbox checkbox-sm">
+            <span class="label-text">Video</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="Display" class="checkbox checkbox-sm">
+            <span class="label-text">Display</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="CTV" class="checkbox checkbox-sm">
+            <span class="label-text">CTV</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="Audio" class="checkbox checkbox-sm">
+            <span class="label-text">Audio</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="Interativos" class="checkbox checkbox-sm">
+            <span class="label-text">Interativos</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="formatos" value="Outros" class="checkbox checkbox-sm">
+            <span class="label-text">Outros</span>
+          </label>
+        </div>
+        <label class="label"><span class="label-text-alt text-error hidden" id="erro_formatos">Selecione ao menos 1 formato</span></label>
       </div>
 
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Veículo</span></label>
-        <input type="text" id="veiculo" class="input input-bordered input-sm">
-      </div>
-
+      <!-- Plataforma -->
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
-        <select id="plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+        <select id="plataforma" class="select select-bordered w-full">
           <option value="">Selecione...</option>
           <option value="DV360">DV360</option>
           <option value="Programática">Programática</option>
@@ -1144,114 +1224,108 @@ document.addEventListener('DOMContentLoaded', function() {
         </select>
       </div>
 
-      <div class="form-control md:col-span-2">
+      <!-- Canal (múltipla escolha) -->
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Canal <span class="text-xs text-base-content/60">(múltipla escolha)</span></span></label>
+        <div class="flex gap-4">
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="canal" value="FEED" class="checkbox checkbox-sm">
+            <span class="label-text">FEED</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="canal" value="STORY" class="checkbox checkbox-sm">
+            <span class="label-text">STORY</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="canal" value="Outros" class="checkbox checkbox-sm">
+            <span class="label-text">Outros</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Objetivo/KPI/Métrica -->
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Objetivo/KPI *</span></label>
+          <select id="objetivo_kpi" class="select select-bordered w-full" required onchange="atualizarLabelVolume()">
+            <option value="">Selecione...</option>
+            <option value="CPM">CPM (Custo por Mil)</option>
+            <option value="CPC">CPC (Custo por Clique)</option>
+            <option value="CPA">CPA (Custo por Aquisição)</option>
+            <option value="CPV">CPV (Custo por View)</option>
+            <option value="CPL">CPL (Custo por Lead)</option>
+            <option value="Fixo">Fixo</option>
+          </select>
+        </div>
+
+        <!-- Viewability Mínimo -->
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
+          <input type="text" id="viewability_minimo" class="input input-bordered" placeholder="70,00" oninput="aplicarMascaraDinheiro(this)">
+        </div>
+
+      </div>
+
+      <!-- Período -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Data Início *</span></label>
+          <div class="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('data_inicio').showPicker()">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            <input type="date" id="data_inicio" class="input input-bordered pl-10 w-full" required>
+          </div>
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Data Fim *</span></label>
+          <div class="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('data_fim').showPicker()">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            <input type="date" id="data_fim" class="input input-bordered pl-10 w-full" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Valores -->
+      <div class="divider">Valores</div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Investimento Bruto * <span class="text-xs text-base-content/60">(preencher 1º)</span></span></label>
+          <input type="text" id="investimento_bruto" class="input input-bordered" required oninput="aplicarMascaraDinheiro(this); calcularVolume()">
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Valor Unitário * <span class="text-xs text-base-content/60">(R$)</span></span></label>
+          <input type="text" id="valor_unitario" class="input input-bordered" required oninput="aplicarMascaraDinheiro(this); calcularVolume()">
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold" id="label_volume">Volume Contratado</span></label>
+          <input type="text" id="volume_contratado" class="input input-bordered bg-base-200" readonly>
+        </div>
+      </div>
+
+      <!-- Produto -->
+      <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Produto</span></label>
-        <textarea id="produto" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
+        <textarea id="produto" class="textarea textarea-bordered" rows="2"></textarea>
       </div>
 
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Detalhamento</span></label>
-        <textarea id="detalhamento" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
-      </div>
-
+      <!-- Especificações -->
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Formato</span></label>
-        <input type="text" id="formato" class="input input-bordered input-sm">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Formato Compra</span></label>
-        <select id="formato_compra" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPV">CPV</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPL">CPL</option>
-          <option value="Fixo">Fixo</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Período</span></label>
-        <input type="text" id="periodo" class="input input-bordered input-sm">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
-        <input type="text" id="viewability_minimo" class="input input-bordered input-sm" placeholder="70,00" oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Volume Contratado</span></label>
-        <input type="text" id="volume_contratado" class="input input-bordered input-sm" oninput="aplicarMascaraNumero(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Valor Unitário</span></label>
-        <input type="text" id="valor_unitario" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Valor Total</span></label>
-        <input type="text" id="valor_total" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Meio</span></label>
-        <select id="meio_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="INTERNET">INTERNET</option>
-          <option value="TV">TV</option>
-          <option value="RADIO">RADIO</option>
-          <option value="OOH">OOH</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Tipo de Peça</span></label>
-        <select id="tipo_peca_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="BANNERS">BANNERS</option>
-          <option value="VIDEO">VIDEO</option>
-          <option value="AUDIO">AUDIO</option>
-          <option value="IMPRESSO">IMPRESSO</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label cursor-pointer">
-          <span class="label-text font-semibold">É Cabeçalho?</span>
-          <input type="checkbox" id="is_header" class="checkbox">
-        </label>
-      </div>
-
-      <div class="form-control">
-        <label class="label cursor-pointer">
-          <span class="label-text font-semibold">É Subtotal?</span>
-          <input type="checkbox" id="is_subtotal" class="checkbox">
-        </label>
-      </div>
-
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Label Subtotal</span></label>
-        <select id="subtotal_label" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="TOTAL PROGRAMÁTICA">TOTAL PROGRAMÁTICA</option>
-          <option value="TOTAL META ADS">TOTAL META ADS</option>
-          <option value="TOTAL GOOGLE ADS">TOTAL GOOGLE ADS</option>
-          <option value="TOTAL TIKTOK ADS">TOTAL TIKTOK ADS</option>
-          <option value="TOTAL LINKEDIN ADS">TOTAL LINKEDIN ADS</option>
-          <option value="TOTAL DV360">TOTAL DV360</option>
-          <option value="TOTAL AMAZON DSP">TOTAL AMAZON DSP</option>
-        </select>
+        <label class="label"><span class="label-text font-semibold">Especificações</span></label>
+        <textarea id="especificacoes" class="textarea textarea-bordered" rows="3" placeholder="Detalhes técnicos, restrições, observações..."></textarea>
       </div>
 
     </form>
 
     <div class="modal-action">
       <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" onclick="salvarNovaLinha()" class="btn btn-primary">Salvar</button>
+      <button type="button" onclick="salvarNovaLinha()" class="btn btn-primary" id="btn_salvar_linha">Salvar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -1261,31 +1335,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Modal Editar Linha -->
 <dialog id="modal_editar_linha" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl">
+  <div class="modal-box w-11/12 max-w-6xl">
     <h3 class="font-bold text-lg mb-4">Editar Linha de Cotação</h3>
     
     <input type="hidden" id="edit_linha_id">
     
-    <form id="form_editar_linha" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form id="form_editar_linha" class="space-y-4">
       
+      <!-- Segmentação -->
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Pedido/Sugestão</span></label>
-        <input type="text" id="edit_pedido_sugestao" class="input input-bordered input-sm">
+        <label class="label"><span class="label-text font-semibold">Segmentação *</span></label>
+        <textarea id="edit_segmentacao" class="textarea textarea-bordered" rows="3" required minlength="10" placeholder="Descreva a segmentação da audiência..."></textarea>
+        <label class="label"><span class="label-text-alt text-error hidden" id="edit_erro_segmentacao">Mínimo 10 caracteres</span></label>
       </div>
 
+      <!-- Formatos (múltipla escolha) -->
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Target</span></label>
-        <input type="text" id="edit_target" class="input input-bordered input-sm">
+        <label class="label"><span class="label-text font-semibold">Formatos * <span class="text-xs text-base-content/60">(múltipla escolha)</span></span></label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-sm">
+            <span class="label-text">Carroussel</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="Video" class="checkbox checkbox-sm">
+            <span class="label-text">Video</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="Display" class="checkbox checkbox-sm">
+            <span class="label-text">Display</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="CTV" class="checkbox checkbox-sm">
+            <span class="label-text">CTV</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="Audio" class="checkbox checkbox-sm">
+            <span class="label-text">Audio</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="Interativos" class="checkbox checkbox-sm">
+            <span class="label-text">Interativos</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_formatos" value="Outros" class="checkbox checkbox-sm">
+            <span class="label-text">Outros</span>
+          </label>
+        </div>
+        <label class="label"><span class="label-text-alt text-error hidden" id="edit_erro_formatos">Selecione ao menos 1 formato</span></label>
       </div>
 
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Veículo</span></label>
-        <input type="text" id="edit_veiculo" class="input input-bordered input-sm">
-      </div>
-
+      <!-- Plataforma -->
       <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
-        <select id="edit_plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+        <select id="edit_plataforma" class="select select-bordered w-full">
           <option value="">Selecione...</option>
           <option value="DV360">DV360</option>
           <option value="Programática">Programática</option>
@@ -1297,102 +1400,267 @@ document.addEventListener('DOMContentLoaded', function() {
         </select>
       </div>
 
-      <div class="form-control md:col-span-2">
+      <!-- Canal (múltipla escolha) -->
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Canal <span class="text-xs text-base-content/60">(múltipla escolha)</span></span></label>
+        <div class="flex gap-4">
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_canal" value="FEED" class="checkbox checkbox-sm">
+            <span class="label-text">FEED</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_canal" value="STORY" class="checkbox checkbox-sm">
+            <span class="label-text">STORY</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2">
+            <input type="checkbox" name="edit_canal" value="Outros" class="checkbox checkbox-sm">
+            <span class="label-text">Outros</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Objetivo/KPI/Métrica -->
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Objetivo/KPI *</span></label>
+          <select id="edit_objetivo_kpi" class="select select-bordered w-full" required onchange="atualizarLabelVolumeEdit()">
+            <option value="">Selecione...</option>
+            <option value="CPM">CPM (Custo por Mil)</option>
+            <option value="CPC">CPC (Custo por Clique)</option>
+            <option value="CPA">CPA (Custo por Aquisição)</option>
+            <option value="CPV">CPV (Custo por View)</option>
+            <option value="CPL">CPL (Custo por Lead)</option>
+            <option value="Fixo">Fixo</option>
+          </select>
+        </div>
+
+        <!-- Viewability Mínimo -->
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
+          <input type="text" id="edit_viewability_minimo" class="input input-bordered" placeholder="70,00" oninput="aplicarMascaraDinheiro(this)">
+        </div>
+
+      </div>
+
+      <!-- Período -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Data Início *</span></label>
+          <div class="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('edit_data_inicio').showPicker()">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            <input type="date" id="edit_data_inicio" class="input input-bordered pl-10 w-full" required>
+          </div>
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Data Fim *</span></label>
+          <div class="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('edit_data_fim').showPicker()">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            <input type="date" id="edit_data_fim" class="input input-bordered pl-10 w-full" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- Valores -->
+      <div class="divider">Valores</div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Investimento Bruto * <span class="text-xs text-base-content/60">(preencher 1º)</span></span></label>
+          <input type="text" id="edit_investimento_bruto" class="input input-bordered" required oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit()">
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Valor Unitário * <span class="text-xs text-base-content/60">(R$)</span></span></label>
+          <input type="text" id="edit_valor_unitario" class="input input-bordered" required oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit()">
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold" id="edit_label_volume">Volume Contratado</span></label>
+          <input type="text" id="edit_volume_contratado" class="input input-bordered bg-base-200" readonly>
+        </div>
+      </div>
+
+      <!-- Produto -->
+      <div class="form-control">
         <label class="label"><span class="label-text font-semibold">Produto</span></label>
-        <textarea id="edit_produto" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
+        <textarea id="edit_produto" class="textarea textarea-bordered" rows="2"></textarea>
       </div>
 
+      <!-- Especificações -->
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Formato</span></label>
-        <input type="text" id="edit_formato" class="input input-bordered input-sm">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Formato Compra</span></label>
-        <select id="edit_formato_compra" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPV">CPV</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPL">CPL</option>
-          <option value="Fixo">Fixo</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Período</span></label>
-        <input type="text" id="edit_periodo" class="input input-bordered input-sm">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
-        <input type="text" id="edit_viewability_minimo" class="input input-bordered input-sm" placeholder="70,00" oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Volume Contratado</span></label>
-        <input type="text" id="edit_volume_contratado" class="input input-bordered input-sm" oninput="aplicarMascaraNumero(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Valor Unitário</span></label>
-        <input type="text" id="edit_valor_unitario" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Valor Total</span></label>
-        <input type="text" id="edit_valor_total" class="input input-bordered input-sm" oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Meio</span></label>
-        <select id="edit_meio_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="INTERNET">INTERNET</option>
-          <option value="TV">TV</option>
-          <option value="RADIO">RADIO</option>
-          <option value="OOH">OOH</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Tipo de Peça</span></label>
-        <select id="edit_tipo_peca_linha" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="BANNERS">BANNERS</option>
-          <option value="VIDEO">VIDEO</option>
-          <option value="AUDIO">AUDIO</option>
-          <option value="IMPRESSO">IMPRESSO</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label cursor-pointer justify-start gap-2">
-          <span class="label-text font-semibold">É Subtotal?</span>
-          <input type="checkbox" id="edit_is_subtotal" class="checkbox">
-        </label>
-      </div>
-
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Label Subtotal</span></label>
-        <select id="edit_subtotal_label" class="select select-bordered select-sm w-full h-10 min-h-10">
-          <option value="">Selecione...</option>
-          <option value="TOTAL PROGRAMÁTICA">TOTAL PROGRAMÁTICA</option>
-          <option value="TOTAL META ADS">TOTAL META ADS</option>
-          <option value="TOTAL GOOGLE ADS">TOTAL GOOGLE ADS</option>
-          <option value="TOTAL TIKTOK ADS">TOTAL TIKTOK ADS</option>
-          <option value="TOTAL LINKEDIN ADS">TOTAL LINKEDIN ADS</option>
-          <option value="TOTAL DV360">TOTAL DV360</option>
-          <option value="TOTAL AMAZON DSP">TOTAL AMAZON DSP</option>
-        </select>
+        <label class="label"><span class="label-text font-semibold">Especificações</span></label>
+        <textarea id="edit_especificacoes" class="textarea textarea-bordered" rows="3" placeholder="Detalhes técnicos, restrições, observações..."></textarea>
       </div>
 
     </form>
 
     <div class="modal-action">
       <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-primary">Salvar</button>
+      <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-primary" id="btn_salvar_edicao">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modais de Confirmação -->
+<dialog id="modal_confirmar_aprovar" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Aprovar Cotação</h3>
+    <p class="py-4">Deseja realmente aprovar esta cotação?</p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_aprovar').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarAprovacao()" class="btn btn-success">Aprovar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_rejeitar" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Rejeitar Cotação</h3>
+    <p class="py-4">Deseja realmente rejeitar esta cotação?</p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_rejeitar').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarRejeicao()" class="btn btn-error">Rejeitar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_deletar_cotacao" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4 text-error">Deletar Cotação</h3>
+    <p class="py-4">Tem certeza que deseja deletar esta cotação? <strong>Esta ação não pode ser desfeita.</strong></p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_deletar_cotacao').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarDeletarCotacao()" class="btn btn-error">Deletar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_remover_linha" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Remover Linha</h3>
+    <p class="py-4">Deseja realmente remover esta linha da cotação?</p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_remover_linha').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarRemoverLinha()" class="btn btn-error">Remover</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_remover_audiencia" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Remover Audiência</h3>
+    <p class="py-4">Tem certeza que deseja remover esta audiência?</p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_remover_audiencia').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarRemoverAudiencia()" class="btn btn-error">Remover</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_remover_comentario" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Remover Comentário</h3>
+    <p class="py-4">Deseja realmente remover este comentário?</p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_remover_comentario').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarRemoverComentario()" class="btn btn-error">Remover</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<dialog id="modal_confirmar_remover_anexo" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Remover Anexo</h3>
+    <p class="py-4">Deseja realmente remover este anexo?</p>
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_confirmar_remover_anexo').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="confirmarRemoverAnexo()" class="btn btn-error">Remover</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modais de Email -->
+<dialog id="modal_email" class="modal">
+  <div class="modal-box max-w-4xl">
+    <h3 class="font-bold text-lg mb-4" id="modal_email_titulo">Enviar Email</h3>
+    
+    <form id="form_email" class="space-y-4">
+      <input type="hidden" id="email_tipo">
+      
+      <!-- Destinatário -->
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Para *</span></label>
+        <input type="email" id="email_destinatario" class="input input-bordered" placeholder="cliente@empresa.com" required>
+      </div>
+      
+      <!-- CC (opcional) -->
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">CC (opcional)</span></label>
+        <input type="text" id="email_cc" class="input input-bordered" placeholder="contato1@empresa.com, contato2@empresa.com">
+        <label class="label"><span class="label-text-alt">Separe múltiplos emails com vírgula</span></label>
+      </div>
+      
+      <!-- Assunto -->
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Assunto *</span></label>
+        <input type="text" id="email_assunto" class="input input-bordered" required>
+      </div>
+      
+      <!-- Corpo do email -->
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Mensagem *</span></label>
+        <textarea id="email_mensagem" class="textarea textarea-bordered h-64" required></textarea>
+        <label class="label"><span class="label-text-alt">Você pode personalizar a mensagem antes de enviar</span></label>
+      </div>
+      
+      <!-- Preview das informações -->
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        <div>
+          <p class="font-semibold">Informações da cotação incluídas:</p>
+          <ul class="text-sm mt-1 ml-4 list-disc">
+            <li>Número: {{ cotacao.numero_cotacao }}</li>
+            <li>Cliente: {{ cotacao.cliente_nome if cotacao.cliente_nome else 'Não especificado' }}</li>
+            <li>Valor Total: R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta or 0).replace(',', 'X').replace('.', ',').replace('X', '.') }}</li>
+          </ul>
+        </div>
+      </div>
+    </form>
+    
+    <div class="modal-action">
+      <button type="button" onclick="document.getElementById('modal_email').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="enviarEmail()" class="btn btn-primary">
+        <i class="fas fa-paper-plane mr-2"></i>Enviar Email
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -1711,7 +1979,7 @@ async function selecionarAudiencia(audienciaId) {
     document.getElementById('resultados_busca_audiencias').classList.add('hidden');
   } catch (error) {
     console.error('Erro ao selecionar audiência:', error);
-    alert('Erro ao carregar dados da audiência');
+    mostrarToast('Erro ao carregar dados da audiência', 'error');
   }
 }
 
@@ -1727,7 +1995,7 @@ document.addEventListener('click', function(e) {
 async function salvarNovaAudiencia() {
   const nome = document.getElementById('audiencia_nome').value;
   if (!nome) {
-    alert('Nome da audiência é obrigatório!');
+    mostrarToast('Nome da audiência é obrigatório!', 'warning');
     return;
   }
 
@@ -1754,38 +2022,270 @@ async function salvarNovaAudiencia() {
     const result = await response.json();
     
     if (response.ok) {
-      alert('Audiência adicionada com sucesso!');
-      location.reload();
+      mostrarToast('Audiência adicionada com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro: ' + (result.error || 'Erro ao salvar audiência'));
+      mostrarToast('Erro: ' + (result.error || 'Erro ao salvar audiência'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao salvar audiência');
+    mostrarToast('Erro ao salvar audiência', 'error');
   }
 }
 
+// ==================== FUNÇÕES DE CÁLCULO E VALIDAÇÃO ====================
+
+// Atualizar label do volume conforme objetivo selecionado
+function atualizarLabelVolume() {
+  const objetivo = document.getElementById('objetivo_kpi').value;
+  const label = document.getElementById('label_volume');
+  
+  if (objetivo === 'CPM') {
+    label.textContent = 'Volume Contratado (Impressões)';
+  } else {
+    label.textContent = 'Volume Contratado (Unidades)';
+  }
+  
+  calcularVolume();
+}
+
+function atualizarLabelVolumeEdit() {
+  const objetivo = document.getElementById('edit_objetivo_kpi').value;
+  const label = document.getElementById('edit_label_volume');
+  
+  if (objetivo === 'CPM') {
+    label.textContent = 'Volume Contratado (Impressões)';
+  } else {
+    label.textContent = 'Volume Contratado (Unidades)';
+  }
+  
+  calcularVolumeEdit();
+}
+
+// Calcular volume automaticamente (Nova Linha)
+function calcularVolume() {
+  const investimentoInput = document.getElementById('investimento_bruto');
+  const valorUnitarioInput = document.getElementById('valor_unitario');
+  const volumeInput = document.getElementById('volume_contratado');
+  const objetivoSelect = document.getElementById('objetivo_kpi');
+  
+  const investimento = parseFloat(removerMascaraDinheiro(investimentoInput.value)) || 0;
+  const valorUnitario = parseFloat(removerMascaraDinheiro(valorUnitarioInput.value)) || 0;
+  const objetivo = objetivoSelect.value;
+  
+  if (investimento > 0 && valorUnitario > 0) {
+    let volume;
+    
+    if (objetivo === 'CPM') {
+      // CPM = custo por mil impressões
+      // Volume (impressões) = (Investimento / Valor Unitário) * 1000
+      volume = (investimento / valorUnitario) * 1000;
+    } else {
+      // CPC, CPA, CPV, CPL, Fixo = 1:1
+      // Volume (unidades) = Investimento / Valor Unitário
+      volume = investimento / valorUnitario;
+    }
+    
+    volumeInput.value = formatarNumero(Math.round(volume));
+  } else {
+    volumeInput.value = '';
+  }
+  
+  validarCamposObrigatorios();
+}
+
+// Calcular volume automaticamente (Editar Linha)
+function calcularVolumeEdit() {
+  const investimentoInput = document.getElementById('edit_investimento_bruto');
+  const valorUnitarioInput = document.getElementById('edit_valor_unitario');
+  const volumeInput = document.getElementById('edit_volume_contratado');
+  const objetivoSelect = document.getElementById('edit_objetivo_kpi');
+  
+  const investimento = parseFloat(removerMascaraDinheiro(investimentoInput.value)) || 0;
+  const valorUnitario = parseFloat(removerMascaraDinheiro(valorUnitarioInput.value)) || 0;
+  const objetivo = objetivoSelect.value;
+  
+  if (investimento > 0 && valorUnitario > 0) {
+    let volume;
+    
+    if (objetivo === 'CPM') {
+      volume = (investimento / valorUnitario) * 1000;
+    } else {
+      volume = investimento / valorUnitario;
+    }
+    
+    volumeInput.value = formatarNumero(Math.round(volume));
+  } else {
+    volumeInput.value = '';
+  }
+  
+  validarCamposObrigatoriosEdit();
+}
+
+// Validação inline (Nova Linha)
+function validarCamposObrigatorios() {
+  const segmentacao = document.getElementById('segmentacao').value;
+  const erroSegmentacao = document.getElementById('erro_segmentacao');
+  const formatos = document.querySelectorAll('input[name="formatos"]:checked');
+  const erroFormatos = document.getElementById('erro_formatos');
+  const btnSalvar = document.getElementById('btn_salvar_linha');
+  
+  let valido = true;
+  
+  // Validar segmentação
+  if (segmentacao.length > 0 && segmentacao.length < 10) {
+    erroSegmentacao.classList.remove('hidden');
+    valido = false;
+  } else {
+    erroSegmentacao.classList.add('hidden');
+  }
+  
+  // Validar formatos
+  if (formatos.length === 0 && document.getElementById('segmentacao').value.length > 0) {
+    erroFormatos.classList.remove('hidden');
+    valido = false;
+  } else {
+    erroFormatos.classList.add('hidden');
+  }
+  
+  // Habilitar/desabilitar botão salvar
+  const investimento = document.getElementById('investimento_bruto').value;
+  const valorUnitario = document.getElementById('valor_unitario').value;
+  const objetivo = document.getElementById('objetivo_kpi').value;
+  const dataInicio = document.getElementById('data_inicio').value;
+  const dataFim = document.getElementById('data_fim').value;
+  
+  const todosObrigatoriosPreenchidos = 
+    segmentacao.length >= 10 && 
+    formatos.length > 0 && 
+    objetivo && 
+    investimento && 
+    valorUnitario && 
+    dataInicio && 
+    dataFim;
+  
+  btnSalvar.disabled = !todosObrigatoriosPreenchidos || !valido;
+}
+
+// Validação inline (Editar Linha)
+function validarCamposObrigatoriosEdit() {
+  const segmentacao = document.getElementById('edit_segmentacao').value;
+  const erroSegmentacao = document.getElementById('edit_erro_segmentacao');
+  const formatos = document.querySelectorAll('input[name="edit_formatos"]:checked');
+  const erroFormatos = document.getElementById('edit_erro_formatos');
+  const btnSalvar = document.getElementById('btn_salvar_edicao');
+  
+  let valido = true;
+  
+  if (segmentacao.length > 0 && segmentacao.length < 10) {
+    erroSegmentacao.classList.remove('hidden');
+    valido = false;
+  } else {
+    erroSegmentacao.classList.add('hidden');
+  }
+  
+  if (formatos.length === 0 && segmentacao.length > 0) {
+    erroFormatos.classList.remove('hidden');
+    valido = false;
+  } else {
+    erroFormatos.classList.add('hidden');
+  }
+  
+  const investimento = document.getElementById('edit_investimento_bruto').value;
+  const valorUnitario = document.getElementById('edit_valor_unitario').value;
+  const objetivo = document.getElementById('edit_objetivo_kpi').value;
+  const dataInicio = document.getElementById('edit_data_inicio').value;
+  const dataFim = document.getElementById('edit_data_fim').value;
+  
+  const todosObrigatoriosPreenchidos = 
+    segmentacao.length >= 10 && 
+    formatos.length > 0 && 
+    objetivo && 
+    investimento && 
+    valorUnitario && 
+    dataInicio && 
+    dataFim;
+  
+  btnSalvar.disabled = !todosObrigatoriosPreenchidos || !valido;
+}
+
+// Preencher datas padrão ao abrir modal Nova Linha
+document.addEventListener('DOMContentLoaded', function() {
+  const btnNovaLinha = document.querySelector('[onclick*="modal_nova_linha"]');
+  if (btnNovaLinha) {
+    btnNovaLinha.addEventListener('click', function() {
+      setTimeout(() => {
+        // Data início = hoje
+        const hoje = new Date();
+        document.getElementById('data_inicio').value = hoje.toISOString().split('T')[0];
+        
+        // Data fim = último dia do mês atual
+        const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+        document.getElementById('data_fim').value = ultimoDia.toISOString().split('T')[0];
+        
+        // Desabilitar botão salvar inicialmente
+        document.getElementById('btn_salvar_linha').disabled = true;
+      }, 100);
+    });
+  }
+  
+  // Adicionar listeners de validação nos campos
+  const camposValidacao = ['segmentacao', 'investimento_bruto', 'valor_unitario', 'objetivo_kpi', 'data_inicio', 'data_fim'];
+  camposValidacao.forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) {
+      campo.addEventListener('input', validarCamposObrigatorios);
+      campo.addEventListener('change', validarCamposObrigatorios);
+    }
+  });
+  
+  // Listeners para checkboxes de formatos
+  document.querySelectorAll('input[name="formatos"]').forEach(checkbox => {
+    checkbox.addEventListener('change', validarCamposObrigatorios);
+  });
+  
+  // Mesmos listeners para modal de edição
+  const camposValidacaoEdit = ['edit_segmentacao', 'edit_investimento_bruto', 'edit_valor_unitario', 'edit_objetivo_kpi', 'edit_data_inicio', 'edit_data_fim'];
+  camposValidacaoEdit.forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) {
+      campo.addEventListener('input', validarCamposObrigatoriosEdit);
+      campo.addEventListener('change', validarCamposObrigatoriosEdit);
+    }
+  });
+  
+  document.querySelectorAll('input[name="edit_formatos"]').forEach(checkbox => {
+    checkbox.addEventListener('change', validarCamposObrigatoriosEdit);
+  });
+});
+
 async function salvarNovaLinha() {
+  // Coletar formatos selecionados
+  const formatosSelecionados = Array.from(document.querySelectorAll('input[name="formatos"]:checked'))
+    .map(cb => cb.value);
+  
+  // Coletar canais selecionados
+  const canaisSelecionados = Array.from(document.querySelectorAll('input[name="canal"]:checked'))
+    .map(cb => cb.value);
+  
   const data = {
     cotacao_id: {{ cotacao.id }},
-    pedido_sugestao: document.getElementById('pedido_sugestao').value,
-    target: document.getElementById('target').value,
-    veiculo: document.getElementById('veiculo').value,
+    segmentacao: document.getElementById('segmentacao').value,
+    formatos: formatosSelecionados.join(', '),
+    canal: canaisSelecionados.join(', '),
     plataforma: document.getElementById('plataforma').value,
-    produto: document.getElementById('produto').value,
-    detalhamento: document.getElementById('detalhamento').value,
-    formato: document.getElementById('formato').value,
-    formato_compra: document.getElementById('formato_compra').value,
-    periodo: document.getElementById('periodo').value,
+    objetivo_kpi: document.getElementById('objetivo_kpi').value,
     viewability_minimo: removerMascaraDinheiro(document.getElementById('viewability_minimo').value),
-    volume_contratado: removerMascaraNumero(document.getElementById('volume_contratado').value),
+    data_inicio: document.getElementById('data_inicio').value,
+    data_fim: document.getElementById('data_fim').value,
+    investimento_bruto: removerMascaraDinheiro(document.getElementById('investimento_bruto').value),
     valor_unitario: removerMascaraDinheiro(document.getElementById('valor_unitario').value),
-    valor_total: removerMascaraDinheiro(document.getElementById('valor_total').value),
-    meio: document.getElementById('meio_linha').value,
-    tipo_peca: document.getElementById('tipo_peca_linha').value,
-    is_header: document.getElementById('is_header').checked,
-    is_subtotal: document.getElementById('is_subtotal').checked,
-    subtotal_label: document.getElementById('subtotal_label').value
+    volume_contratado: removerMascaraNumero(document.getElementById('volume_contratado').value),
+    produto: document.getElementById('produto').value,
+    especificacoes: document.getElementById('especificacoes').value,
+    // Campos mantidos por compatibilidade (podem ficar vazios)
+    pedido_sugestao: document.getElementById('segmentacao').value.substring(0, 100), // usar início da segmentação
+    detalhamento: document.getElementById('especificacoes').value
   };
 
   try {
@@ -1798,14 +2298,16 @@ async function salvarNovaLinha() {
     const result = await response.json();
     
     if (response.ok) {
-      alert('Linha adicionada com sucesso!');
-      location.reload();
+      document.getElementById('modal_nova_linha').close();
+      // Usar toast ao invés de alert
+      mostrarToast('Linha adicionada com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro: ' + (result.error || 'Erro ao salvar linha'));
+      mostrarToast('Erro: ' + (result.error || 'Erro ao salvar linha'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao salvar linha');
+    mostrarToast('Erro ao salvar linha', 'error');
   }
 }
 
@@ -1820,18 +2322,34 @@ async function editarLinha(linhaId) {
       const linha = data.linha;
       
       document.getElementById('edit_linha_id').value = linha.id;
-      document.getElementById('edit_pedido_sugestao').value = linha.pedido_sugestao || '';
-      document.getElementById('edit_target').value = linha.target || '';
-      document.getElementById('edit_veiculo').value = linha.veiculo || '';
+      
+      // Novos campos
+      document.getElementById('edit_segmentacao').value = linha.segmentacao || linha.pedido_sugestao || '';
       document.getElementById('edit_plataforma').value = linha.plataforma || '';
       document.getElementById('edit_produto').value = linha.produto || '';
-      document.getElementById('edit_formato').value = linha.formato || '';
-      document.getElementById('edit_formato_compra').value = linha.formato_compra || '';
-      document.getElementById('edit_periodo').value = linha.periodo || '';
+      document.getElementById('edit_especificacoes').value = linha.especificacoes || linha.detalhamento || '';
+      document.getElementById('edit_objetivo_kpi').value = linha.objetivo_kpi || linha.formato_compra || '';
+      document.getElementById('edit_data_inicio').value = linha.data_inicio || '';
+      document.getElementById('edit_data_fim').value = linha.data_fim || '';
+      
+      // Formatos múltiplos
+      const formatos = linha.formatos ? linha.formatos.split(', ') : [];
+      document.querySelectorAll('input[name="edit_formatos"]').forEach(cb => {
+        cb.checked = formatos.includes(cb.value);
+      });
+      
+      // Canal múltiplo
+      const canais = linha.canal ? linha.canal.split(', ') : [];
+      document.querySelectorAll('input[name="edit_canal"]').forEach(cb => {
+        cb.checked = canais.includes(cb.value);
+      });
       
       // Aplicar máscaras aos valores numéricos
       const viewabilityInput = document.getElementById('edit_viewability_minimo');
       viewabilityInput.value = linha.viewability_minimo ? formatarMoeda(linha.viewability_minimo) : '';
+      
+      const investimentoInput = document.getElementById('edit_investimento_bruto');
+      investimentoInput.value = linha.investimento_bruto ? formatarMoeda(linha.investimento_bruto) : (linha.valor_total ? formatarMoeda(linha.valor_total) : '');
       
       const volumeInput = document.getElementById('edit_volume_contratado');
       volumeInput.value = linha.volume_contratado ? formatarNumero(linha.volume_contratado) : '';
@@ -1839,44 +2357,48 @@ async function editarLinha(linhaId) {
       const valorUnitarioInput = document.getElementById('edit_valor_unitario');
       valorUnitarioInput.value = linha.valor_unitario ? formatarMoeda(linha.valor_unitario) : '';
       
-      const valorTotalInput = document.getElementById('edit_valor_total');
-      valorTotalInput.value = linha.valor_total ? formatarMoeda(linha.valor_total) : '';
-      
-      document.getElementById('edit_meio_linha').value = linha.meio || '';
-      document.getElementById('edit_tipo_peca_linha').value = linha.tipo_peca || '';
-      document.getElementById('edit_is_subtotal').checked = linha.is_subtotal || false;
-      document.getElementById('edit_subtotal_label').value = linha.subtotal_label || '';
+      // Atualizar label e recalcular
+      atualizarLabelVolumeEdit();
+      validarCamposObrigatoriosEdit();
       
       document.getElementById('modal_editar_linha').showModal();
     } else {
-      alert('Erro ao carregar dados da linha');
+      mostrarToast('Erro ao carregar dados da linha', 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao carregar linha');
+    mostrarToast('Erro ao carregar linha', 'error');
   }
 }
 
 async function salvarEdicaoLinha() {
   const linhaId = document.getElementById('edit_linha_id').value;
   
+  // Coletar formatos selecionados
+  const formatosSelecionados = Array.from(document.querySelectorAll('input[name="edit_formatos"]:checked'))
+    .map(cb => cb.value);
+  
+  // Coletar canais selecionados
+  const canaisSelecionados = Array.from(document.querySelectorAll('input[name="edit_canal"]:checked'))
+    .map(cb => cb.value);
+  
   const dados = {
-    pedido_sugestao: document.getElementById('edit_pedido_sugestao').value,
-    target: document.getElementById('edit_target').value,
-    veiculo: document.getElementById('edit_veiculo').value,
+    segmentacao: document.getElementById('edit_segmentacao').value,
+    formatos: formatosSelecionados.join(', '),
+    canal: canaisSelecionados.join(', '),
     plataforma: document.getElementById('edit_plataforma').value,
-    produto: document.getElementById('edit_produto').value,
-    formato: document.getElementById('edit_formato').value,
-    formato_compra: document.getElementById('edit_formato_compra').value,
-    periodo: document.getElementById('edit_periodo').value,
+    objetivo_kpi: document.getElementById('edit_objetivo_kpi').value,
     viewability_minimo: removerMascaraDinheiro(document.getElementById('edit_viewability_minimo').value),
-    volume_contratado: removerMascaraNumero(document.getElementById('edit_volume_contratado').value),
+    data_inicio: document.getElementById('edit_data_inicio').value,
+    data_fim: document.getElementById('edit_data_fim').value,
+    investimento_bruto: removerMascaraDinheiro(document.getElementById('edit_investimento_bruto').value),
     valor_unitario: removerMascaraDinheiro(document.getElementById('edit_valor_unitario').value),
-    valor_total: removerMascaraDinheiro(document.getElementById('edit_valor_total').value),
-    meio: document.getElementById('edit_meio_linha').value,
-    tipo_peca: document.getElementById('edit_tipo_peca_linha').value,
-    is_subtotal: document.getElementById('edit_is_subtotal').checked,
-    subtotal_label: document.getElementById('edit_subtotal_label').value
+    volume_contratado: removerMascaraNumero(document.getElementById('edit_volume_contratado').value),
+    produto: document.getElementById('edit_produto').value,
+    especificacoes: document.getElementById('edit_especificacoes').value,
+    // Campos de compatibilidade
+    pedido_sugestao: document.getElementById('edit_segmentacao').value.substring(0, 100),
+    detalhamento: document.getElementById('edit_especificacoes').value
   };
 
   try {
@@ -1889,37 +2411,65 @@ async function salvarEdicaoLinha() {
     const result = await response.json();
     
     if (response.ok) {
-      alert('Linha atualizada com sucesso!');
-      location.reload();
+      document.getElementById('modal_editar_linha').close();
+      mostrarToast('Linha atualizada com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro: ' + (result.error || 'Erro ao atualizar linha'));
+      mostrarToast('Erro: ' + (result.error || 'Erro ao atualizar linha'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao atualizar linha');
+    mostrarToast('Erro ao atualizar linha', 'error');
   }
 }
 
-async function removerLinha(linhaId) {
-  if (!confirm('Deseja realmente remover esta linha?')) return;
+let linhaIdParaRemover = null;
+
+function removerLinha(linhaId) {
+  linhaIdParaRemover = linhaId;
+  document.getElementById('modal_confirmar_remover_linha').showModal();
+}
+
+async function confirmarRemoverLinha() {
+  if (!linhaIdParaRemover) return;
+  
+  document.getElementById('modal_confirmar_remover_linha').close();
   
   try {
-    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`, {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaIdParaRemover}`, {
       method: 'DELETE'
     });
 
     const result = await response.json();
     
     if (response.ok) {
-      alert('Linha removida com sucesso!');
-      location.reload();
+      mostrarToast('Linha removida com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro: ' + (result.error || 'Erro ao remover linha'));
+      mostrarToast('Erro: ' + (result.error || 'Erro ao remover linha'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao remover linha');
+    mostrarToast('Erro ao remover linha', 'error');
   }
+}
+
+// Função toast simples para feedback (substituir alerts)
+function mostrarToast(mensagem, tipo = 'info') {
+  // Criar elemento toast
+  const toast = document.createElement('div');
+  toast.className = `alert alert-${tipo === 'success' ? 'success' : tipo === 'error' ? 'error' : 'info'} fixed bottom-4 right-4 w-auto max-w-md shadow-lg z-50`;
+  toast.innerHTML = `
+    <span>${mensagem}</span>
+  `;
+  
+  document.body.appendChild(toast);
+  
+  // Remover após 3 segundos
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // ==================== EDIÇÃO DE AUDIÊNCIAS ====================
@@ -1950,11 +2500,11 @@ async function editarAudienciaCotacao(audienciaId) {
       
       document.getElementById('modal_editar_audiencia').showModal();
     } else {
-      alert('Erro ao carregar dados da audiência');
+      mostrarToast('Erro ao carregar dados da audiência', 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao carregar audiência');
+    mostrarToast('Erro ao carregar audiência', 'error');
   }
 }
 
@@ -1982,14 +2532,14 @@ async function salvarEdicaoAudiencia() {
     const result = await response.json();
     
     if (response.ok) {
-      alert('Audiência atualizada com sucesso!');
-      location.reload();
+      mostrarToast('Audiência atualizada com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro: ' + (result.message || 'Erro ao atualizar audiência'));
+      mostrarToast('Erro: ' + (result.message || 'Erro ao atualizar audiência'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao atualizar audiência');
+    mostrarToast('Erro ao atualizar audiência', 'error');
   }
 }
 
@@ -2018,61 +2568,83 @@ async function toggleIncluirAudiencia(audienciaId, incluir) {
     const result = await response.json();
     
     if (response.ok) {
-      location.reload();
+      mostrarToast('Audiência atualizada!', 'success');
+      setTimeout(() => location.reload(), 800);
     } else {
-      alert('Erro: ' + (result.error || 'Erro ao atualizar audiência'));
+      mostrarToast('Erro: ' + (result.error || 'Erro ao atualizar audiência'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao atualizar audiência');
+    mostrarToast('Erro ao atualizar audiência', 'error');
   }
 }
 
-async function removerAudienciaCotacao(audienciaId) {
-  if (!confirm('Tem certeza que deseja remover esta audiência?')) {
-    return;
-  }
+let audienciaIdParaRemover = null;
+
+function removerAudienciaCotacao(audienciaId) {
+  audienciaIdParaRemover = audienciaId;
+  document.getElementById('modal_confirmar_remover_audiencia').showModal();
+}
+
+async function confirmarRemoverAudiencia() {
+  if (!audienciaIdParaRemover) return;
+  
+  document.getElementById('modal_confirmar_remover_audiencia').close();
 
   try {
-    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`, {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaIdParaRemover}`, {
       method: 'DELETE'
     });
 
     const result = await response.json();
     
     if (response.ok) {
-      alert('Audiência removida com sucesso!');
-      location.reload();
+      mostrarToast('Audiência removida com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro: ' + (result.error || 'Erro ao remover audiência'));
+      mostrarToast('Erro: ' + (result.error || 'Erro ao remover audiência'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao remover audiência');
+    mostrarToast('Erro ao remover audiência', 'error');
+  } finally {
+    audienciaIdParaRemover = null;
   }
 }
 
 // ==================== COMENTÁRIOS ====================
 
 // Remover comentário
-async function removerComentario(comentarioId) {
-  if (!confirm('Deseja realmente remover este comentário?')) return;
+let comentarioIdParaRemover = null;
+
+function removerComentario(comentarioId) {
+  comentarioIdParaRemover = comentarioId;
+  document.getElementById('modal_confirmar_remover_comentario').showModal();
+}
+
+async function confirmarRemoverComentario() {
+  if (!comentarioIdParaRemover) return;
+  
+  document.getElementById('modal_confirmar_remover_comentario').close();
   
   try {
-    const response = await fetch(`/api/cotacoes/comentarios/${comentarioId}`, {
+    const response = await fetch(`/api/cotacoes/comentarios/${comentarioIdParaRemover}`, {
       method: 'DELETE'
     });
     
     const data = await response.json();
     
     if (data.success) {
-      location.reload();
+      mostrarToast('Comentário removido com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
     } else {
-      alert('Erro ao remover comentário: ' + data.message);
+      mostrarToast('Erro ao remover comentário: ' + data.message, 'error');
     }
   } catch (error) {
     console.error('Erro ao remover comentário:', error);
-    alert('Erro ao remover comentário');
+    mostrarToast('Erro ao remover comentário', 'error');
+  } finally {
+    comentarioIdParaRemover = null;
   }
 }
 
@@ -2145,13 +2717,13 @@ async function salvarNovoAnexo() {
   const descricao = document.getElementById('anexo_descricao').value;
   
   if (!arquivo) {
-    alert('Selecione um arquivo');
+    mostrarToast('Selecione um arquivo', 'warning');
     return;
   }
   
   // Validar tamanho (15MB)
   if (arquivo.size > 15 * 1024 * 1024) {
-    alert('Arquivo muito grande. Tamanho máximo: 15MB');
+    mostrarToast('Arquivo muito grande. Tamanho máximo: 15MB', 'error');
     return;
   }
   
@@ -2170,14 +2742,14 @@ async function salvarNovoAnexo() {
     if (data.success) {
       document.getElementById('modal_adicionar_anexo').close();
       document.getElementById('form_novo_anexo').reset();
-      alert('Anexo adicionado com sucesso!');
-      carregarAnexos();
+      mostrarToast('Anexo adicionado com sucesso!', 'success');
+      setTimeout(() => carregarAnexos(), 800);
     } else {
-      alert('Erro: ' + data.message);
+      mostrarToast('Erro: ' + data.message, 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao adicionar anexo');
+    mostrarToast('Erro ao adicionar anexo', 'error');
   }
 }
 
@@ -2193,11 +2765,11 @@ async function editarAnexo(anexoId) {
       
       document.getElementById('modal_editar_anexo').showModal();
     } else {
-      alert('Erro ao carregar anexo');
+      mostrarToast('Erro ao carregar anexo', 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao carregar anexo');
+    mostrarToast('Erro ao carregar anexo', 'error');
   }
 }
 
@@ -2207,7 +2779,7 @@ async function salvarEdicaoAnexo() {
   const descricao = document.getElementById('edit_anexo_descricao').value;
   
   if (!nomeOriginal.trim()) {
-    alert('Nome do arquivo é obrigatório');
+    mostrarToast('Nome do arquivo é obrigatório', 'warning');
     return;
   }
   
@@ -2225,38 +2797,167 @@ async function salvarEdicaoAnexo() {
     
     if (data.success) {
       document.getElementById('modal_editar_anexo').close();
-      alert('Anexo atualizado com sucesso!');
-      carregarAnexos();
+      mostrarToast('Anexo atualizado com sucesso!', 'success');
+      setTimeout(() => carregarAnexos(), 800);
     } else {
-      alert('Erro: ' + data.message);
+      mostrarToast('Erro: ' + data.message, 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao atualizar anexo');
+    mostrarToast('Erro ao atualizar anexo', 'error');
   }
 }
 
-async function deletarAnexo(anexoId) {
-  if (!confirm('Deseja realmente remover este anexo?')) return;
+let anexoIdParaRemover = null;
+
+function deletarAnexo(anexoId) {
+  anexoIdParaRemover = anexoId;
+  document.getElementById('modal_confirmar_remover_anexo').showModal();
+}
+
+async function confirmarRemoverAnexo() {
+  if (!anexoIdParaRemover) return;
+  
+  document.getElementById('modal_confirmar_remover_anexo').close();
   
   try {
-    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`, {
+    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoIdParaRemover}`, {
       method: 'DELETE'
     });
     
     const data = await response.json();
     
     if (data.success) {
-      alert('Anexo removido com sucesso!');
-      carregarAnexos();
+      mostrarToast('Anexo removido com sucesso!', 'success');
+      setTimeout(() => carregarAnexos(), 1000);
     } else {
-      alert('Erro: ' + data.message);
+      mostrarToast('Erro: ' + data.message, 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao remover anexo');
+    mostrarToast('Erro ao remover anexo', 'error');
+  } finally {
+    anexoIdParaRemover = null;
   }
 }
+
+// ==================== AÇÕES RÁPIDAS - EMAILS ====================
+
+function abrirModalEmail(tipo) {
+  const modal = document.getElementById('modal_email');
+  const titulo = document.getElementById('modal_email_titulo');
+  const assunto = document.getElementById('email_assunto');
+  const mensagem = document.getElementById('email_mensagem');
+  const tipoInput = document.getElementById('email_tipo');
+  
+  tipoInput.value = tipo;
+  
+  const numeroCotacao = '{{ cotacao.numero_cotacao }}';
+  const clienteNome = '{{ cotacao.cliente_nome if cotacao.cliente_nome else "Cliente" }}';
+  const valorTotal = 'R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}';
+  const linkPublico = '{{ url_for("cotacao_publica", token=cotacao.link_publico_token, _external=True) if cotacao.link_publico_token else "" }}';
+  
+  if (tipo === 'enviar_cotacao') {
+    titulo.textContent = 'Enviar Cotação ao Cliente';
+    assunto.value = `Cotação ${numeroCotacao} - ${clienteNome}`;
+    mensagem.value = `Olá,\n\nSegue em anexo a cotação ${numeroCotacao} para sua análise.\n\nValor Total: ${valorTotal}\n\n` + 
+      (linkPublico ? `Você pode visualizar a cotação online através do link:\n${linkPublico}\n\n` : '') +
+      `Aguardamos seu retorno.\n\nAtenciosamente,\nEquipe {{ current_user.nome if current_user else 'CentralComm' }}`;
+      
+  } else if (tipo === 'email_aprovacao') {
+    titulo.textContent = 'Email de Aprovação';
+    assunto.value = `✅ Cotação ${numeroCotacao} Aprovada`;
+    mensagem.value = `Olá,\n\nTemos o prazer de informar que a cotação ${numeroCotacao} foi aprovada!\n\nValor Total: ${valorTotal}\n\nEm breve entraremos em contato para os próximos passos da implementação.\n\nObrigado pela confiança!\n\nAtenciosamente,\nEquipe {{ current_user.nome if current_user else 'CentralComm' }}`;
+    
+  } else if (tipo === 'email_recusa') {
+    titulo.textContent = 'Email de Recusa';
+    assunto.value = `Cotação ${numeroCotacao} - Feedback`;
+    mensagem.value = `Olá,\n\nAgradeçemos pelo tempo dedicado à análise da cotação ${numeroCotacao}.\n\nGostaríamos de entender melhor os motivos que levaram à não aprovação desta proposta, para que possamos melhorar nossas futuras cotações.\n\nEstamos à disposição para discutir alternativas ou ajustes.\n\nAtenciosamente,\nEquipe {{ current_user.nome if current_user else 'CentralComm' }}`;
+  }
+  
+  // Preencher email do cliente se disponível
+  const emailCliente = '{{ cotacao.cliente_email if cotacao.cliente_email else "" }}';
+  if (emailCliente) {
+    document.getElementById('email_destinatario').value = emailCliente;
+  }
+  
+  modal.showModal();
+}
+
+async function enviarEmail() {
+  const tipo = document.getElementById('email_tipo').value;
+  const destinatario = document.getElementById('email_destinatario').value;
+  const cc = document.getElementById('email_cc').value;
+  const assunto = document.getElementById('email_assunto').value;
+  const mensagem = document.getElementById('email_mensagem').value;
+  
+  if (!destinatario || !assunto || !mensagem) {
+    mostrarToast('Preencha todos os campos obrigatórios', 'warning');
+    return;
+  }
+  
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(destinatario)) {
+    mostrarToast('Email do destinatário inválido', 'error');
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/cotacoes/{{ cotacao.id }}/enviar-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tipo: tipo,
+        destinatario: destinatario,
+        cc: cc,
+        assunto: assunto,
+        mensagem: mensagem
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('modal_email').close();
+      mostrarToast('Email enviado com sucesso!', 'success');
+      
+      // Limpar formulário
+      document.getElementById('form_email').reset();
+    } else {
+      mostrarToast('Erro ao enviar email: ' + (data.message || 'Erro desconhecido'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao enviar email', 'error');
+  }
+}
+
+function duplicarCotacao() {
+  mostrarToast('Funcionalidade de duplicar cotação em desenvolvimento', 'info');
+}
+
+function exportarPDF() {
+  mostrarToast('Funcionalidade de exportar PDF em desenvolvimento', 'info');
+}
+
+// ==================== TOGGLE COMENTÁRIOS ====================
+
+function toggleComentarios() {
+  const container = document.getElementById('comentarios-container');
+  const icon = document.getElementById('icon-comentarios');
+  
+  if (container.classList.contains('hidden')) {
+    container.classList.remove('hidden');
+    icon.classList.remove('fa-chevron-down');
+    icon.classList.add('fa-chevron-up');
+  } else {
+    container.classList.add('hidden');
+    icon.classList.remove('fa-chevron-up');
+    icon.classList.add('fa-chevron-down');
+  }
+}
+
 </script>
 
 {% endblock %}

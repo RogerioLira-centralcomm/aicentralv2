@@ -4970,7 +4970,9 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                         produto=None, detalhamento=None, formato=None, formato_compra=None, periodo=None,
                         viewability_minimo=None, volume_contratado=None, valor_unitario=None, valor_total=None,
                         ordem=0, is_subtotal=False, subtotal_label=None, is_header=False, dados_extras=None,
-                        meio=None, tipo_peca=None):
+                        meio=None, tipo_peca=None, segmentacao=None, formatos=None, canal=None,
+                        objetivo_kpi=None, data_inicio=None, data_fim=None, investimento_bruto=None,
+                        especificacoes=None):
     """Cria uma nova linha de cotação"""
     conn = get_db()
     try:
@@ -4980,14 +4982,16 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                     cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
                     formato, formato_compra, periodo, viewability_minimo, volume_contratado,
                     valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header, dados_extras,
-                    meio, tipo_peca
+                    meio, tipo_peca, segmentacao, formatos, canal, objetivo_kpi, data_inicio, data_fim,
+                    investimento_bruto, especificacoes
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
                   formato, formato_compra, periodo, viewability_minimo, volume_contratado,
                   valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header,
-                  dados_extras or '{}', meio, tipo_peca))
+                  dados_extras or '{}', meio, tipo_peca, segmentacao, formatos, canal,
+                  objetivo_kpi, data_inicio, data_fim, investimento_bruto, especificacoes))
             linha_id = cursor.fetchone()['id']
             conn.commit()
             return linha_id
@@ -5030,7 +5034,9 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'pedido_sugestao', 'target', 'veiculo', 'plataforma', 'produto', 'detalhamento',
             'formato', 'formato_compra', 'periodo', 'viewability_minimo', 'volume_contratado',
             'valor_unitario', 'valor_total', 'ordem', 'is_subtotal', 'subtotal_label',
-            'is_header', 'dados_extras', 'meio', 'tipo_peca'
+            'is_header', 'dados_extras', 'meio', 'tipo_peca', 'segmentacao', 'formatos',
+            'canal', 'objetivo_kpi', 'data_inicio', 'data_fim', 'investimento_bruto',
+            'especificacoes'
         }
         
         campos_atualizacao = {k: v for k, v in kwargs.items() if k in campos_permitidos and v is not None}

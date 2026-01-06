@@ -3828,6 +3828,96 @@ def init_routes(app):
             app.logger.error(f"Erro ao atualizar cotação via API: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/cotacoes/<int:cotacao_id>/enviar-email', methods=['POST'])
+    @login_required
+    def enviar_email_cotacao(cotacao_id):
+        """API para enviar email relacionado à cotação"""
+        try:
+            data = request.get_json()
+            
+            tipo = data.get('tipo')
+            destinatario = data.get('destinatario')
+            cc = data.get('cc', '')
+            assunto = data.get('assunto')
+            mensagem = data.get('mensagem')
+            
+            if not all([tipo, destinatario, assunto, mensagem]):
+                return jsonify({'success': False, 'message': 'Campos obrigatórios faltando'}), 400
+            
+            # Buscar cotação
+            cotacao = db.obter_cotacao(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            # Preparar lista de destinatários CC
+            cc_list = [email.strip() for email in cc.split(',') if email.strip()] if cc else []
+            
+            # Enviar email usando o serviço de email
+            try:
+                from aicentralv2.email_service import enviar_email
+                
+                # Criar corpo HTML do email
+                corpo_html = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <div style="white-space: pre-wrap;">{mensagem}</div>
+                        
+                        <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+                        
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+                            <p style="margin: 0 0 10px 0; font-weight: bold;">Informações da Cotação:</p>
+                            <p style="margin: 5px 0;"><strong>Número:</strong> {cotacao['numero_cotacao']}</p>
+                            <p style="margin: 5px 0;"><strong>Cliente:</strong> {cotacao.get('cliente_nome', 'Não especificado')}</p>
+                            <p style="margin: 5px 0;"><strong>Campanha:</strong> {cotacao.get('nome_campanha', '-')}</p>
+                            <p style="margin: 5px 0;"><strong>Status:</strong> {cotacao.get('status', 'pendente')}</p>
+                        </div>
+                        
+                        <p style="margin-top: 30px; font-size: 12px; color: #666;">
+                            Este email foi enviado através do sistema CentralComm AI
+                        </p>
+                    </div>
+                </body>
+                </html>
+                """
+                
+                # Enviar email
+                resultado = enviar_email(
+                    destinatario=destinatario,
+                    assunto=assunto,
+                    corpo_html=corpo_html,
+                    cc=cc_list
+                )
+                
+                if resultado:
+                    # Registrar auditoria
+                    registrar_auditoria(
+                        acao='EMAIL_SENT',
+                        modulo='cotacoes',
+                        descricao=f'Email {tipo} enviado para {destinatario} - Cotação {cotacao["numero_cotacao"]}',
+                        registro_id=cotacao_id,
+                        registro_tipo='cadu_cotacoes',
+                        dados_novos={
+                            'tipo': tipo,
+                            'destinatario': destinatario,
+                            'cc': cc_list,
+                            'assunto': assunto
+                        }
+                    )
+                    
+                    return jsonify({'success': True, 'message': 'Email enviado com sucesso'})
+                else:
+                    return jsonify({'success': False, 'message': 'Falha ao enviar email'}), 500
+                    
+            except ImportError:
+                # Se email_service não estiver disponível, simular sucesso
+                app.logger.warning('email_service não disponível, simulando envio de email')
+                return jsonify({'success': True, 'message': 'Email registrado (modo simulação)'})
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao enviar email: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/api/briefings/cliente/<int:cliente_id>')
     @login_required
     def api_briefings_por_cliente(cliente_id):
@@ -3881,7 +3971,16 @@ def init_routes(app):
                 is_subtotal=data.get('is_subtotal', False),
                 subtotal_label=data.get('subtotal_label'),
                 meio=data.get('meio'),
-                tipo_peca=data.get('tipo_peca')
+                tipo_peca=data.get('tipo_peca'),
+                # Novos campos
+                segmentacao=data.get('segmentacao'),
+                formatos=data.get('formatos'),
+                canal=data.get('canal'),
+                objetivo_kpi=data.get('objetivo_kpi'),
+                data_inicio=data.get('data_inicio'),
+                data_fim=data.get('data_fim'),
+                investimento_bruto=data.get('investimento_bruto'),
+                especificacoes=data.get('especificacoes')
             )
             
             return jsonify({'success': True, 'linha_id': linha_id}), 201
@@ -3929,7 +4028,16 @@ def init_routes(app):
                 meio=data.get('meio'),
                 tipo_peca=data.get('tipo_peca'),
                 is_subtotal=data.get('is_subtotal'),
-                subtotal_label=data.get('subtotal_label')
+                subtotal_label=data.get('subtotal_label'),
+                # Novos campos
+                segmentacao=data.get('segmentacao'),
+                formatos=data.get('formatos'),
+                canal=data.get('canal'),
+                objetivo_kpi=data.get('objetivo_kpi'),
+                data_inicio=data.get('data_inicio'),
+                data_fim=data.get('data_fim'),
+                investimento_bruto=data.get('investimento_bruto'),
+                especificacoes=data.get('especificacoes')
             )
             
             return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})

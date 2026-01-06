@@ -1582,8 +1582,14 @@ def init_routes(app):
                 cliente_id=cliente_id_param
             )
             
-            # Buscar lista de clientes ativos para o dropdown
+            # Buscar lista de clientes ativos (usado para pré-preencher o nome selecionado na busca)
             clientes_ativos = db.obter_clientes_sistema({'status': True})
+
+            cliente_nome_prefill = ''
+            if cliente_id_param and clientes_ativos:
+                cliente_encontrado = next((c for c in clientes_ativos if c.get('id_cliente') == cliente_id_param), None)
+                if cliente_encontrado:
+                    cliente_nome_prefill = cliente_encontrado.get('nome_fantasia') or cliente_encontrado.get('razao_social') or ''
             
             return render_template(
                 'interesse_produto.html',
@@ -1591,7 +1597,8 @@ def init_routes(app):
                 filtro_tipo=filtro_tipo,
                 filtro_notificado=filtro_notificado,
                 filtro_cliente_id=filtro_cliente_id,
-                clientes_ativos=clientes_ativos or []
+                clientes_ativos=clientes_ativos or [],
+                cliente_nome_prefill=cliente_nome_prefill
             )
         except Exception as e:
             import traceback

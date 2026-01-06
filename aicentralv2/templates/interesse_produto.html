@@ -55,15 +55,20 @@
         <label class="label">
           <span class="label-text">Cliente</span>
         </label>
-        <select name="cliente_id" class="select select-bordered w-full">
-          <option value="">Todos os clientes</option>
-          {% for cliente in clientes_ativos %}
-            <option value="{{ cliente.id_cliente }}" 
-                    {% if filtro_cliente_id and filtro_cliente_id == cliente.id_cliente|string %}selected{% endif %}>
-              {{ cliente.nome_fantasia or cliente.razao_social }}
-            </option>
-          {% endfor %}
-        </select>
+        <div class="relative">
+          <input type="hidden" name="cliente_id" id="cliente_id_interesse" value="{{ filtro_cliente_id }}">
+          <input
+            type="text"
+            id="cliente_busca_interesse"
+            class="input input-bordered w-full"
+            placeholder="Digite para buscar cliente..."
+            value="{{ cliente_nome_prefill or '' }}"
+            autocomplete="off"
+            oninput="buscarClientesInteresse(this.value)"
+            onfocus="mostrarResultadosInteresse()"
+          >
+          <div id="resultados_clientes_interesse" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
+        </div>
       </div>
 
       <div class="form-control flex flex-row gap-2 items-end">
@@ -174,4 +179,132 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Busca de clientes (mesma UX do briefing)
+let timeoutIdInteresse = null;
+let currentIndexInteresse = -1;
+
+function buscarClientesInteresse(termo) {
+  clearTimeout(timeoutIdInteresse);
+
+  if (!termo || termo.length < 2) {
+    document.getElementById('resultados_clientes_interesse').style.display = 'none';
+    document.getElementById('cliente_id_interesse').value = '';
+    return;
+  }
+
+  timeoutIdInteresse = setTimeout(() => {
+    fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: termo, razao: termo })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.success) {
+          renderizarResultadosInteresse(data.clientes || []);
+        } else {
+          renderizarResultadosInteresse([]);
+        }
+      })
+      .catch(error => {
+        console.error('Erro ao buscar clientes:', error);
+      });
+  }, 300);
+}
+
+function renderizarResultadosInteresse(clientes) {
+  const resultadosDiv = document.getElementById('resultados_clientes_interesse');
+
+  if (!clientes.length) {
+    resultadosDiv.innerHTML = '<div class="p-2 text-sm text-gray-500">Nenhum cliente encontrado</div>';
+    resultadosDiv.style.display = 'block';
+    return;
+  }
+
+  resultadosDiv.innerHTML = clientes.map((cliente, index) => {
+    const id = cliente.id_cliente || cliente.pk_id_tbl_cliente || '';
+    const nome = cliente.nome_fantasia || '';
+    const razao = cliente.razao_social || '';
+    return `
+    <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0 cliente-resultado-interesse"
+         data-index="${index}"
+         onclick="selecionarClienteInteresse('${id}', '${nome.replace(/'/g, "\\'")}')">
+      <div class="font-medium">${nome}</div>
+      <div class="text-sm text-gray-500">${razao}</div>
+    </div>
+  `;}).join('');
+
+  resultadosDiv.style.display = 'block';
+  currentIndexInteresse = -1;
+}
+
+function selecionarClienteInteresse(id, nome) {
+  document.getElementById('cliente_id_interesse').value = id;
+  document.getElementById('cliente_busca_interesse').value = nome;
+  document.getElementById('resultados_clientes_interesse').style.display = 'none';
+}
+
+function mostrarResultadosInteresse() {
+  const resultadosDiv = document.getElementById('resultados_clientes_interesse');
+  if (resultadosDiv.innerHTML.trim() !== '') {
+    resultadosDiv.style.display = 'block';
+  }
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', function(event) {
+  const campo = document.getElementById('cliente_busca_interesse');
+  const resultados = document.getElementById('resultados_clientes_interesse');
+
+  if (campo && resultados) {
+    if (!campo.contains(event.target) && !resultados.contains(event.target)) {
+      resultados.style.display = 'none';
+    }
+  }
+});
+
+// Navegar com teclado
+document.getElementById('cliente_busca_interesse').addEventListener('keydown', function(e) {
+  const resultadosDiv = document.getElementById('resultados_clientes_interesse');
+  const resultados = resultadosDiv.querySelectorAll('.cliente-resultado-interesse');
+
+  if (!resultados.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    currentIndexInteresse = (currentIndexInteresse + 1) % resultados.length;
+    atualizarSelecaoInteresse(resultados);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    currentIndexInteresse = currentIndexInteresse <= 0 ? resultados.length - 1 : currentIndexInteresse - 1;
+    atualizarSelecaoInteresse(resultados);
+  } else if (e.key === 'Enter' && currentIndexInteresse >= 0) {
+    e.preventDefault();
+    resultados[currentIndexInteresse].click();
+  } else if (e.key === 'Escape') {
+    resultadosDiv.style.display = 'none';
+    currentIndexInteresse = -1;
+  }
+});
+
+function atualizarSelecaoInteresse(resultados) {
+  resultados.forEach((el, idx) => {
+    if (idx === currentIndexInteresse) {
+      el.classList.add('bg-base-200');
+      el.scrollIntoView({ block: 'nearest' });
+    } else {
+      el.classList.remove('bg-base-200');
+    }
+  });
+}
+
+// Limpar cliente_id quando o usuário altera o texto
+document.getElementById('cliente_busca_interesse').addEventListener('input', function() {
+  document.getElementById('cliente_id_interesse').value = '';
+});
+</script>
 {% endblock %}

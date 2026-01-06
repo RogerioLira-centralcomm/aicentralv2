@@ -247,27 +247,31 @@
 
                         <li class="my-2"><hr class="border-base-300"></li>
 
-                        <!-- Clientes -->
+                        <!-- Comercial -->
                         <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-building mr-1 text-xs"></i>Clientes</span>
+                            <span><i class="fas fa-handshake mr-1 text-xs"></i>Comercial</span>
                         </li>
                         <li>
                             <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
-                                <span class="sidebar-text">Lista de Clientes</span>
+                                <i class="fas fa-users w-4"></i>
+                                <span class="sidebar-text">Clientes</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">
+                                <i class="fas fa-file-invoice-dollar w-4"></i>
                                 <span class="sidebar-text">Cotações</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
-                                <span class="sidebar-text">Interesses</span>
+                                <i class="fas fa-bullseye w-4"></i>
+                                <span class="sidebar-text">Leads &amp; Interesses</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
+                                <i class="fas fa-clipboard-list w-4"></i>
                                 <span class="sidebar-text">Briefings</span>
                             </a>
                         </li>
@@ -276,25 +280,29 @@
 
                         <!-- Audiências -->
                         <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-chart-bar mr-1 text-xs"></i>Audiências</span>
+                            <span><i class="fas fa-chart-line mr-1 text-xs"></i>Audiências</span>
                         </li>
                         <li>
                             <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                <span class="sidebar-text">Análise com IA</span>
+                                <i class="fas fa-plus-circle w-4"></i>
+                                <span class="sidebar-text">Nova Audiência</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
-                                <span class="sidebar-text">Base de Audiências</span>
+                                <i class="fas fa-database w-4"></i>
+                                <span class="sidebar-text">Audiências Cadastradas</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
+                                <i class="fas fa-tags w-4"></i>
                                 <span class="sidebar-text">Categorias</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
+                                <i class="fas fa-tag w-4"></i>
                                 <span class="sidebar-text">Subcategorias</span>
                             </a>
                         </li>
@@ -307,16 +315,19 @@
                         </li>
                         <li>
                             <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
+                                <i class="fas fa-building w-4"></i>
                                 <span class="sidebar-text">Tipos de Cliente</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                                <i class="fas fa-industry w-4"></i>
                                 <span class="sidebar-text">Setores</span>
                             </a>
                         </li>
                         <li>
                             <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
+                                <i class="fas fa-briefcase w-4"></i>
                                 <span class="sidebar-text">Cargos</span>
                             </a>
                         </li>
@@ -343,23 +354,27 @@
                         </li>
                         <li>
                             <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
-                                <span class="sidebar-text">Inteligência IA</span>
+                                <i class="fas fa-robot w-4"></i>
+                                <span class="sidebar-text">Assistente IA</span>
                             </a>
                         </li>
                         <li>
                             <details data-group="design" open>
-                                <summary>
+                                <summary class="flex items-center gap-2">
+                                    <i class="fas fa-palette w-4"></i>
                                     <span class="sidebar-text">Design System</span>
                                 </summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('components') }}" class="{% if request.endpoint == 'components' %}active{% endif %}">
+                                            <i class="fas fa-puzzle-piece w-4"></i>
                                             <span class="sidebar-text">Componentes</span>
                                         </a>
                                     </li>
                                     <li class="px-2 py-2">
                                         <div class="flex items-center gap-2 px-2 text-sm opacity-70">
-                                            <span class="sidebar-text">Tema</span>
+                                            <i class="fas fa-swatchbook w-4"></i>
+                                            <span class="sidebar-text">Seletor de Tema</span>
                                         </div>
                                         <div class="px-2 pt-1">
                                             <select id="themeSelector" class="select select-bordered select-sm w-full text-xs">

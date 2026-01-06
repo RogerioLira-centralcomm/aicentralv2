@@ -224,10 +224,9 @@
         <div class="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)] animate-fade-in">
             <!-- Seção do Logo -->
             <div class="p-6 sm:p-8 text-center bg-base-100 border-b border-gray-100">
-                <div class="flex items-center justify-center mb-4">
-                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center mr-3 shadow-md">
-                        <i class="fas fa-brain text-primary-dark text-lg"></i>
-                    </div>
+                <div class="flex items-center justify-center mb-4 gap-3">
+                    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-16 w-auto"
+                        />
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900">CentralX v2</h1>
                         <p class="text-xs text-gray-500 mt-0.5">AI Central</p>

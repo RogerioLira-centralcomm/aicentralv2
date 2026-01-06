@@ -204,7 +204,10 @@
             <!-- Mobile Navbar -->
             <div class="navbar bg-base-100 lg:hidden">
                 <div class="flex-1">
-                    <a class="btn btn-ghost normal-case text-xl">CentralX</a>
+                    <a class="btn btn-ghost normal-case text-xl flex items-center gap-2">
+                        <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX" class="h-8 w-auto" />
+                        <span>CentralX</span>
+                    </a>
                 </div>
             </div>
             
@@ -222,11 +225,7 @@
                 <div class="p-4 border-b border-base-200">
                     <div id="sidebarLogo" class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="avatar placeholder">
-                                <div class="w-10 rounded-xl bg-primary text-primary-content">
-                                    <i class="fas fa-layer-group"></i>
-                                </div>
-                            </div>
+                            <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX" class="h-12 w-auto" />
                             <div class="sidebar-text">
                                 <h1 class="text-lg font-bold">CentralX</h1>
                                 <p class="text-xs opacity-60">Media Platform</p>

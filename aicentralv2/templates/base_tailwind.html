@@ -144,6 +144,11 @@
         /* Drawer transitions */
         .drawer-side {
             transition: transform 0.3s ease-in-out;
+            z-index: 50 !important;
+        }
+        
+        .drawer-side > aside {
+            z-index: 50 !important;
         }
         
         .sidebar-text {
@@ -183,13 +188,6 @@
             visibility: visible;
         }
         
-        /* Responsividade Mobile */
-        @media (max-width: 1024px) {
-            .drawer-content {
-                margin-left: 0 !important;
-            }
-        }
-        
         /* Melhorias de densidade */
         @media (min-width: 1920px) {
             .menu li > a {
@@ -214,19 +212,10 @@
             <div class="flex-1 overflow-y-auto p-4">
                 {% block content %}{% endblock %}
             </div>
-            
-            <!-- Sidebar Direita (Opcional) -->
-            {% if self.sidebar() %}\
-            <aside class="w-full max-w-[450px] bg-base-100 border-l border-base-200 overflow-y-auto fixed right-0 top-0 h-full z-40">
-                <div class="p-6">
-                    {% block sidebar %}{% endblock %}
-                </div>
-            </aside>
-            {% endif %}
         </div>
         
         <!-- Drawer Sidebar -->
-        <div class="drawer-side z-50">
+        <div class="drawer-side">
             <label for="main-drawer" class="drawer-overlay"></label>
             <aside class="w-64 bg-base-100 flex flex-col h-full">
                 <!-- Logo & Brand -->

@@ -55,60 +55,65 @@
     </div>
 
     <!-- Tabela -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+    <div class="bg-base-100 rounded-xl overflow-hidden">
+        <table class="table table-xs w-full">
+            <thead class="bg-primary text-white">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         ID
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Display
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Status
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Data Cadastro
                     </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-center font-bold uppercase w-32">
                         Ações
                     </th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200" id="setoresTableBody">
+            <tbody id="setoresTableBody">
                 {% for setor in setores %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <tr class="hover">
+                    <td class="text-sm font-medium">
                         {{ setor.id_setor }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="text-sm">
                         {{ setor.display }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="{% if setor.status %}px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800{% else %}px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800{% endif %}">
+                    <td>
+                        <span class="badge badge-sm {% if setor.status %}badge-success{% else %}badge-error{% endif %}">
                             {{ "Ativo" if setor.status else "Inativo" }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="text-sm text-base-content/70">
                         {{ setor.data_cadastro.strftime('%d/%m/%Y %H:%M') if setor.data_cadastro else '' }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td>
+                        <div class="flex items-center justify-center gap-2">
+                        <div class="flex items-center justify-center gap-2">
                         <button 
                             data-id="{{ setor.id_setor }}"
                             data-display="{{ setor.display }}"
                             data-status="{{ 'true' if setor.status else 'false' }}"
                             onclick="openEditModalFromButton(this)"
-                            class="text-primary hover:text-primary-dark mr-3">
+                            class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                            title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button 
                             data-id="{{ setor.id_setor }}"
                             data-status="{{ 'true' if setor.status else 'false' }}"
                             onclick="toggleStatusFromButton(this)" 
-                            class="{% if setor.status %}text-red-600 hover:text-red-900{% else %}text-green-600 hover:text-green-900{% endif %}">
+                            class="p-2 {% if setor.status %}text-red-600 hover:text-red-800 hover:bg-red-50{% else %}text-green-600 hover:text-green-800 hover:bg-green-50{% endif %} rounded transition-colors duration-200"
+                            title="{% if setor.status %}Desativar{% else %}Ativar{% endif %}">
                             <i class="fas {% if setor.status %}fa-times-circle{% else %}fa-check-circle{% endif %}"></i>
                         </button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

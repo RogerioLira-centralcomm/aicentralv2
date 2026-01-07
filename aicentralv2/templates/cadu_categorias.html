@@ -28,11 +28,10 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-base-100 rounded-xl overflow-hidden">
-    {% if categorias %}
-      <!-- Filtros -->
-      <div class="p-4 border-b border-base-300">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+  <!-- Filtros -->
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <!-- Pesquisa por Descrição -->
           <div class="flex items-center gap-3">
             <label class="label font-semibold text-sm py-1">Pesquisar:</label>
@@ -59,7 +58,11 @@
           <span id="contador_filtro" class="text-sm text-base-content/70"></span>
         </div>
       </div>
-      
+    </div>
+  
+  <!-- Tabela de Categorias -->
+  <div class="bg-base-100 rounded-xl overflow-hidden">
+    {% if categorias %}
       <div class="overflow-x-auto">
         <table class="table table-xs w-full" id="tabela_categorias">
           <thead class="bg-primary text-white">

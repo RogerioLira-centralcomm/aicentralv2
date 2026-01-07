@@ -62,7 +62,7 @@
     </div>
 
     <!-- Filtros -->
-    <div class="card bg-base-100 shadow-xl mb-4">
+    <div class="card bg-base-100 border border-base-300 mb-4">
         <div class="card-body p-4">
             <h2 class="card-title text-sm mb-3">Filtros</h2>
             <form method="get" action="{{ url_for('briefing_list') }}" class="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -127,9 +127,9 @@
     </div>
 
     <!-- Lista de Briefings - Desktop -->
-    <div class="hidden lg:block">
+    <div class="bg-base-100 rounded-xl overflow-hidden hidden lg:block">
         <table class="table table-zebra w-full text-sm">
-            <thead>
+            <thead class="bg-primary text-white">
                 <tr class="text-xs">
                     <th class="w-1/3">Título</th>
                     <th class="w-1/6">Cliente</th>

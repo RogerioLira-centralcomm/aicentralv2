@@ -67,51 +67,53 @@
     </div>
 
     <!-- Tabela -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+    <div class="bg-base-100 rounded-xl overflow-hidden">
+        <table class="table table-xs w-full">
+            <thead class="bg-primary text-white">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         ID
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Descrição
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Setor
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Status
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-left font-bold uppercase">
                         Data Cadastro
                     </th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="text-center font-bold uppercase w-32">
                         Ações
                     </th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200" id="cargosTableBody">
+            <tbody id="cargosTableBody">
                 {% for cargo in cargos %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <tr class="hover">
+                    <td class="text-sm font-medium">
                         {{ cargo.id_cargo_contato }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="text-sm">
                         {{ cargo.descricao }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="text-sm text-base-content/70">
                         {{ cargo.setor_display or 'Nenhum' }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="status-badge {% if cargo.status %}status-active{% else %}status-inactive{% endif %}">
+                    <td>
+                        <span class="badge badge-sm {% if cargo.status %}badge-success{% else %}badge-error{% endif %}">
                             {{ "Ativo" if cargo.status else "Inativo" }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="text-sm text-base-content/70">
                         {{ cargo.data_cadastro.strftime('%d/%m/%Y %H:%M') }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td>
+                        <div class="flex items-center justify-center gap-2">
+                        <div class="flex items-center justify-center gap-2">
                         {% set cargo_json = {
                             'id_cargo_contato': cargo.id_cargo_contato,
                             'descricao': cargo.descricao,
@@ -120,13 +122,17 @@
                             'indice': cargo.indice,
                             'status': cargo.status
                         }|tojson|safe %}
-                        <button onclick='openEditModal({{ cargo_json }})' class="text-primary hover:text-primary-dark mr-3">
+                        <button onclick='openEditModal({{ cargo_json }})' 
+                            class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                            title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button onclick="toggleStatus({{ cargo.id_cargo_contato }}, {{ cargo.status|tojson }})" 
-                            class="{% if cargo.status %}text-red-600 hover:text-red-900{% else %}text-green-600 hover:text-green-900{% endif %}">
+                            class="p-2 {% if cargo.status %}text-red-600 hover:text-red-800 hover:bg-red-50{% else %}text-green-600 hover:text-green-800 hover:bg-green-50{% endif %} rounded transition-colors duration-200"
+                            title="{% if cargo.status %}Desativar{% else %}Ativar{% endif %}">
                             <i class="fas {% if cargo.status %}fa-times-circle{% else %}fa-check-circle{% endif %}"></i>
                         </button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

@@ -3797,7 +3797,7 @@ def init_routes(app):
             conn = db.get_db()
             with conn.cursor() as cursor:
                 cursor.execute('''
-                    SELECT caminho_arquivo, nome_arquivo 
+                    SELECT nome_arquivo, nome_original 
                     FROM cadu_cotacao_anexos 
                     WHERE id = %s
                 ''', (anexo_id,))
@@ -3807,7 +3807,7 @@ def init_routes(app):
                 return "Anexo não encontrado", 404
             
             # Construir caminho completo do arquivo
-            file_path = os.path.join(app.root_path, 'static', 'uploads', anexo['caminho_arquivo'])
+            file_path = os.path.join(app.root_path, 'static', 'uploads', anexo['nome_arquivo'])
             
             if not os.path.exists(file_path):
                 return "Arquivo não encontrado no servidor", 404
@@ -3815,7 +3815,7 @@ def init_routes(app):
             return send_file(
                 file_path,
                 as_attachment=True,
-                download_name=anexo['nome_arquivo'],
+                download_name=anexo['nome_original'],
                 mimetype='application/octet-stream'
             )
             

@@ -182,7 +182,7 @@
                         <div class="flex items-center gap-3">
                             <i class="fas fa-file-alt text-2xl text-primary"></i>
                             <div>
-                                <p class="font-semibold">{{ anexo['nome_arquivo'] if anexo.get('nome_arquivo') else anexo.get('filename', 'Arquivo') }}</p>
+                                <p class="font-semibold">{{ anexo['nome_original'] if anexo.get('nome_original') else 'Arquivo' }}</p>
                                 {% if anexo.get('descricao') %}
                                 <p class="text-sm text-base-content/70">{{ anexo['descricao'] }}</p>
                                 {% endif %}

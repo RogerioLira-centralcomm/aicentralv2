@@ -188,7 +188,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <a href="{{ url_for('static', filename='uploads/' + (anexo['caminho_arquivo'] if anexo.get('caminho_arquivo') else anexo.get('filename', ''))) }}" 
+                        <a href="{{ url_for('download_anexo', anexo_id=anexo['id']) }}" 
                            target="_blank" 
                            class="btn btn-sm btn-primary">
                             <i class="fas fa-download mr-2"></i>Download

@@ -3787,6 +3787,39 @@ def init_routes(app):
             return render_template('erro_publico.html', 
                 mensagem='Erro ao carregar cotação'), 500
 
+    @app.route('/download/anexo/<int:anexo_id>')
+    def download_anexo(anexo_id):
+        """Download de anexo - acessível publicamente"""
+        try:
+            from flask import send_from_directory
+            import os
+            
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT caminho_arquivo, nome_arquivo 
+                    FROM cadu_cotacao_anexos 
+                    WHERE id = %s
+                ''', (anexo_id,))
+                anexo = cursor.fetchone()
+            
+            if not anexo:
+                return "Anexo não encontrado", 404
+            
+            # Caminho completo do arquivo
+            upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+            
+            return send_from_directory(
+                upload_folder,
+                anexo['caminho_arquivo'],
+                as_attachment=True,
+                download_name=anexo['nome_arquivo']
+            )
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao fazer download do anexo {anexo_id}: {str(e)}", exc_info=True)
+            return "Erro ao baixar arquivo", 500
+
     @app.route('/api/cotacoes/<int:cotacao_id>/atualizar', methods=['PATCH'])
     @login_required
     def api_atualizar_cotacao(cotacao_id):

@@ -3791,7 +3791,7 @@ def init_routes(app):
     def download_anexo(anexo_id):
         """Download de anexo - acessível publicamente"""
         try:
-            from flask import send_from_directory
+            from flask import send_file
             import os
             
             conn = db.get_db()
@@ -3806,18 +3806,21 @@ def init_routes(app):
             if not anexo:
                 return "Anexo não encontrado", 404
             
-            # Caminho completo do arquivo
-            upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+            # Construir caminho completo do arquivo
+            file_path = os.path.join(app.root_path, 'static', 'uploads', anexo['caminho_arquivo'])
             
-            return send_from_directory(
-                upload_folder,
-                anexo['caminho_arquivo'],
+            if not os.path.exists(file_path):
+                return "Arquivo não encontrado no servidor", 404
+            
+            return send_file(
+                file_path,
                 as_attachment=True,
-                download_name=anexo['nome_arquivo']
+                download_name=anexo['nome_arquivo'],
+                mimetype='application/octet-stream'
             )
             
         except Exception as e:
-            app.logger.error(f"Erro ao fazer download do anexo {anexo_id}: {str(e)}", exc_info=True)
+            return f"Erro ao baixar arquivo: {str(e)}", 500
             return "Erro ao baixar arquivo", 500
 
     @app.route('/api/cotacoes/<int:cotacao_id>/atualizar', methods=['PATCH'])

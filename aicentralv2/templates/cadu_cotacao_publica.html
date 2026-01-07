@@ -170,6 +170,36 @@
         </div>
         {% endif %}
 
+        <!-- Anexos -->
+        {% if anexos and anexos|length > 0 %}
+        <div class="card bg-base-100 shadow-xl mb-6">
+            <div class="card-body">
+                <h3 class="text-xl font-bold mb-4">Anexos</h3>
+                
+                <div class="space-y-3">
+                    {% for anexo in anexos %}
+                    <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-file-alt text-2xl text-primary"></i>
+                            <div>
+                                <p class="font-semibold">{{ anexo['nome_arquivo'] if anexo.get('nome_arquivo') else anexo.get('filename', 'Arquivo') }}</p>
+                                {% if anexo.get('descricao') %}
+                                <p class="text-sm text-base-content/70">{{ anexo['descricao'] }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <a href="{{ url_for('static', filename='uploads/' + (anexo['caminho_arquivo'] if anexo.get('caminho_arquivo') else anexo.get('filename', ''))) }}" 
+                           target="_blank" 
+                           class="btn btn-sm btn-primary">
+                            <i class="fas fa-download mr-2"></i>Download
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Footer -->
         <div class="text-center text-sm text-base-content/70 mt-8">
             <p>© 2025 Central Comm - Todos os direitos reservados</p>

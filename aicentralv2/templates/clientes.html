@@ -3,6 +3,20 @@
 {% block title %}Clientes - CentralComm AI{% endblock %}
 
 {% block content %}
+<style>
+  /* Estilo customizado para abas ativas */
+  #tabs_container .tab.tab-active {
+    background-color: #72cd80 !important;
+    color: white !important;
+    border-color: #72cd80 !important;
+  }
+  
+  #tabs_container .tab:hover:not(.tab-active) {
+    background-color: rgba(114, 205, 128, 0.1) !important;
+    color: #72cd80 !important;
+  }
+</style>
+
 <div class="max-w-7xl mx-auto">
   <div class="flex items-center justify-between mb-3">
     <div>
@@ -137,25 +151,25 @@
       <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
     
-    <h3 class="font-bold text-lg mb-4">
+    <h3 class="font-bold text-lg mb-4" style="color: black;">
       <span id="modal_title">Novo Cliente</span>
     </h3>
     
     <!-- Abas (apenas visível em modo edição) -->
     <div id="tabs_container" class="tabs tabs-boxed mb-4" style="display:none;">
-      <a id="tab_editar" class="tab tab-active" onclick="trocarAba('editar')">
+      <a id="tab_editar" class="tab tab-active" onclick="trocarAba('editar')" style="--tab-color: #72cd80;">
         <i class="fas fa-edit mr-2"></i>Editar
       </a>
-      <a id="tab_detalhes" class="tab" onclick="trocarAba('detalhes')">
+      <a id="tab_detalhes" class="tab" onclick="trocarAba('detalhes')" style="--tab-color: #72cd80;">
         <i class="fas fa-info-circle mr-2"></i>Detalhes
       </a>
-      <a id="tab_contatos" class="tab" onclick="trocarAba('contatos')">
+      <a id="tab_contatos" class="tab" onclick="trocarAba('contatos')" style="--tab-color: #72cd80;">
         <i class="fas fa-address-book mr-2"></i>Contatos
       </a>
-      <a id="tab_contratos" class="tab" onclick="trocarAba('contratos')">
+      <a id="tab_contratos" class="tab" onclick="trocarAba('contratos')" style="--tab-color: #72cd80;">
         <i class="fas fa-file-contract mr-2"></i>Contratos
       </a>
-      <a id="tab_invites" class="tab" onclick="trocarAba('invites')">
+      <a id="tab_invites" class="tab" onclick="trocarAba('invites')" style="--tab-color: #72cd80;">
         <i class="fas fa-envelope mr-2"></i>Invites
       </a>
     </div>
@@ -168,12 +182,12 @@
       <div class="form-control">
         <label class="label font-semibold text-sm">Pessoa <span class="text-error">*</span></label>
         <div class="flex gap-3">
-          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg hover:border-primary transition-colors bg-base-100">
-            <input type="radio" name="pessoa" value="J" class="radio radio-primary radio-sm" required checked>
+          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg transition-colors bg-base-100" onmouseover="this.style.borderColor='#72cd80'" onmouseout="if(!this.querySelector('input').checked) this.style.borderColor=''">
+            <input type="radio" name="pessoa" value="J" class="radio radio-sm" style="--chkbg: #72cd80; --chkfg: white;" required checked>
             <span class="font-medium">Jurídica</span>
           </label>
-          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg hover:border-primary transition-colors bg-base-100">
-            <input type="radio" name="pessoa" value="F" class="radio radio-primary radio-sm" required>
+          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg transition-colors bg-base-100" onmouseover="this.style.borderColor='#72cd80'" onmouseout="if(!this.querySelector('input').checked) this.style.borderColor=''">
+            <input type="radio" name="pessoa" value="F" class="radio radio-sm" style="--chkbg: #72cd80; --chkfg: white;" required>
             <span class="font-medium">Física</span>
           </label>
         </div>
@@ -344,7 +358,7 @@
       <!-- Botões do Modal -->
       <div class="modal-action mt-6">
         <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm">
+        <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-2"></i><span id="btn_submit_text">Cadastrar</span>
         </button>
       </div>
@@ -382,7 +396,7 @@
     <div id="contatos_aba_content" class="space-y-4" style="display:none;">
       <div class="flex justify-between items-center mb-4">
         <h4 class="text-md font-semibold">Contatos Vinculados</h4>
-        <button type="button" onclick="abrirModalNovoContato()" class="btn btn-primary btn-sm">
+        <button type="button" onclick="abrirModalNovoContato()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-plus mr-2"></i>Novo Contato
         </button>
       </div>
@@ -414,7 +428,7 @@
       <!-- Botões da aba Contratos -->
       <div class="modal-action mt-6">
         <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
-        <button type="button" onclick="criarPlanoBetaTesterAba()" class="btn btn-accent btn-sm">
+        <button type="button" onclick="criarPlanoBetaTesterAba()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-gift mr-2"></i>Criar Plano Beta
         </button>
       </div>
@@ -443,7 +457,7 @@
           <button 
             type="button" 
             onclick="enviarConvite()" 
-            class="btn btn-primary btn-sm">
+            class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
             <i class="fas fa-paper-plane mr-2"></i>Enviar
           </button>
         </div>
@@ -513,7 +527,7 @@
 
     <div class="modal-action mt-6">
       <button type="button" onclick="modal_detalhes.close()" class="btn btn-ghost btn-sm">Fechar</button>
-      <button type="button" onclick="editarClienteDoModal()" class="btn btn-primary btn-sm">
+      <button type="button" onclick="editarClienteDoModal()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
         <i class="fas fa-edit mr-2"></i>Editar Cliente
       </button>
     </div>
@@ -599,7 +613,7 @@
 
       <div class="modal-action mt-6">
         <button type="button" onclick="modal_contato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm">
+        <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-2"></i><span id="contato_btn_text">Criar Contato</span>
         </button>
       </div>
@@ -857,10 +871,12 @@ function togglePessoaFieldsModal() {
   document.querySelectorAll('#form_cliente input[name="pessoa"]').forEach(radio => {
     const label = radio.closest('label');
     if (radio.checked) {
-      label.classList.add('border-primary', 'bg-primary/10');
+      label.style.borderColor = '#72cd80';
+      label.style.backgroundColor = 'rgba(114, 205, 128, 0.1)';
       label.classList.remove('border-base-300');
     } else {
-      label.classList.remove('border-primary', 'bg-primary/10');
+      label.style.borderColor = '';
+      label.style.backgroundColor = '';
       label.classList.add('border-base-300');
     }
   });
@@ -1561,14 +1577,14 @@ async function carregarContratosCliente(clienteId) {
       listaContratos.innerHTML = `
         <div class="overflow-x-auto">
           <table class="table table-xs w-full">
-            <thead class="bg-primary text-white">
+            <thead class="text-white rounded-lg" style="background-color: #72cd80;">
               <tr>
-                <th>Tipo</th>
+                <th class="rounded-tl-lg">Tipo</th>
                 <th>Status</th>
                 <th>Tokens</th>
                 <th>Imagens</th>
                 <th>Usuários</th>
-                <th>Validade</th>
+                <th class="rounded-tr-lg">Validade</th>
               </tr>
             </thead>
             <tbody>

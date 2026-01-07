@@ -3769,6 +3769,9 @@ def init_routes(app):
             # Buscar audiências da cotação
             audiencias = db.obter_audiencias_cotacao(cotacao_id)
             
+            # Buscar anexos da cotação
+            anexos = db.obter_anexos_cotacao(cotacao_id)
+            
             # Renderizar template público (sem edição)
             return render_template('cadu_cotacao_publica.html', 
                                   cotacao=cotacao,
@@ -3776,7 +3779,8 @@ def init_routes(app):
                                   responsavel=responsavel_info,
                                   briefing=briefing_atual,
                                   linhas=linhas,
-                                  audiencias=audiencias)
+                                  audiencias=audiencias,
+                                  anexos=anexos)
 
         except Exception as e:
             app.logger.error(f"Erro ao carregar cotação pública: {str(e)}", exc_info=True)

@@ -10,10 +10,10 @@
       <p class="text-sm text-base-content/70">Gerencie os clientes cadastrados na plataforma.</p>
     </div>
     <div class="flex gap-2">
-      <button onclick="abrirBuscaCliente()" class="btn btn-outline btn-primary btn-sm" title="Buscar cliente">
+      <button onclick="abrirBuscaCliente()" class="btn btn-outline btn-sm" style="color: #72cd80; border-color: #72cd80;" onmouseover="this.style.backgroundColor='#72cd80'; this.style.color='white';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#72cd80';" title="Buscar cliente">
         <i class="fas fa-search mr-2 text-xs"></i>Buscar
       </button>
-      <button onclick="abrirModalNovo()" class="btn btn-primary btn-sm">
+      <button onclick="abrirModalNovo()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
         <i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente
       </button>
     </div>
@@ -70,7 +70,7 @@
     {% if clientes %}
       <div class="overflow-x-auto">
         <table class="table table-xs w-full">
-          <thead class="bg-primary text-white">
+          <thead style="background-color: #72cd80;" class="text-white">
             <tr>
               <th class="text-left font-bold uppercase">Cliente</th>
               <th class="text-left font-bold uppercase">Executivo</th>

@@ -51,10 +51,10 @@
       </div>
     </div>
     <div class="flex gap-2">
-      <button onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-outline btn-primary" title="Buscar cliente para nova cotação">
+      <button onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-outline" style="color: #72cd80; border-color: #72cd80;" onmouseover="this.style.backgroundColor='#72cd80'; this.style.color='white';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#72cd80';" title="Buscar cliente para nova cotação">
         <i class="fas fa-search mr-2"></i>Buscar Cliente
       </button>
-      <a href="{{ url_for('cotacao_nova') }}" class="btn btn-primary">
+      <a href="{{ url_for('cotacao_nova') }}" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
         <i class="fas fa-plus mr-2"></i>Nova Cotação
       </a>
     </div>
@@ -77,7 +77,7 @@
     {% if cotacoes %}
       <div class="overflow-x-auto">
         <table class="table table-xs w-full">
-          <thead class="bg-primary text-white">
+          <thead style="background-color: #72cd80;" class="text-white">
             <tr>
               <th class="text-left font-bold uppercase">Nº Cotação</th>
               <th class="text-left font-bold uppercase">Cliente</th>

@@ -4282,6 +4282,7 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.added_at
             FROM cadu_cotacao_audiencias ca
             WHERE ca.cotacao_id = %s
+            AND ca.incluido_proposta = TRUE
             ORDER BY ca.ordem_exibicao, ca.added_at
         ''', (cotacao_id,))
         return cursor.fetchall()

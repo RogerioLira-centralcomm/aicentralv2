@@ -3743,6 +3743,17 @@ def init_routes(app):
             
             cotacao_id = cotacao['id']
             
+            # Buscar informações do responsável comercial
+            responsavel_info = None
+            if cotacao.get('responsavel_comercial'):
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        SELECT nome_completo, email 
+                        FROM tbl_contato_cliente 
+                        WHERE id_contato_cliente = %s AND status = TRUE
+                    ''', (cotacao['responsavel_comercial'],))
+                    responsavel_info = cursor.fetchone()
+            
             # Buscar informações adicionais
             cliente_info = None
             if cotacao.get('client_id'):
@@ -3762,6 +3773,7 @@ def init_routes(app):
             return render_template('cadu_cotacao_publica.html', 
                                   cotacao=cotacao,
                                   cliente=cliente_info,
+                                  responsavel=responsavel_info,
                                   briefing=briefing_atual,
                                   linhas=linhas,
                                   audiencias=audiencias)

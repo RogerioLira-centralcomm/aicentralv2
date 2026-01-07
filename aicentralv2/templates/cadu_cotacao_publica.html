@@ -44,10 +44,13 @@
                     </div>
                     {% endif %}
                     
-                    {% if cotacao.responsavel_comercial %}
+                    {% if responsavel %}
                     <div>
                         <p class="text-sm text-base-content/70">Responsável</p>
-                        <p class="font-semibold">{{ cotacao.responsavel_comercial }}</p>
+                        <p class="font-semibold">{{ responsavel.nome_completo }}</p>
+                        {% if responsavel.email %}
+                        <p class="text-sm text-base-content/70">{{ responsavel.email }}</p>
+                        {% endif %}
                     </div>
                     {% endif %}
                     
@@ -144,14 +147,20 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {% for audiencia in audiencias %}
                     <div class="border rounded-lg p-4">
-                        <h4 class="font-bold mb-2">{{ audiencia.titulo }}</h4>
-                        {% if audiencia.descricao %}
-                        <p class="text-sm text-base-content/70 mb-2">{{ audiencia.descricao }}</p>
+                        <h4 class="font-bold mb-2">{{ audiencia.audiencia_nome }}</h4>
+                        {% if audiencia.audiencia_publico %}
+                        <p class="text-sm text-base-content/70 mb-2">{{ audiencia.audiencia_publico }}</p>
                         {% endif %}
-                        {% if audiencia.impressoes %}
+                        {% if audiencia.impressoes_estimadas %}
                         <p class="text-sm">
-                            <span class="font-semibold">Impressões:</span> 
-                            {{ "{:,}".format(audiencia.impressoes).replace(',', '.') }}
+                            <span class="font-semibold">Impressões Estimadas:</span> 
+                            {{ "{:,}".format(audiencia.impressoes_estimadas).replace(',', '.') }}
+                        </p>
+                        {% endif %}
+                        {% if audiencia.investimento_sugerido %}
+                        <p class="text-sm">
+                            <span class="font-semibold">Investimento:</span> 
+                            R$ {{ "{:,.2f}".format(audiencia.investimento_sugerido).replace(',', '_').replace('.', ',').replace('_', '.') }}
                         </p>
                         {% endif %}
                     </div>

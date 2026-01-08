@@ -3683,11 +3683,42 @@ def init_routes(app):
             flash(f'Erro ao editar cotação: {str(e)}', 'error')
             return redirect(url_for('cotacoes_list'))
 
-    @app.route('/cotacoes/<int:cotacao_id>/detalhes')
+    @app.route('/cotacoes/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])
     @login_required
     def cotacao_detalhes(cotacao_id):
         """Página de detalhes da cotação"""
         try:
+            if request.method == 'POST':
+                # Atualizar cotação
+                try:
+                    dados = {
+                        'client_id': request.form.get('client_id'),
+                        'nome_campanha': request.form.get('nome_campanha'),
+                        'responsavel_comercial': request.form.get('responsavel_comercial'),
+                        'client_user_id': request.form.get('client_user_id'),
+                        'briefing_id': request.form.get('briefing_id') if request.form.get('briefing_id') else None,
+                        'objetivo_campanha': request.form.get('objetivo_campanha'),
+                        'periodo_inicio': request.form.get('periodo_inicio'),
+                        'periodo_fim': request.form.get('periodo_fim'),
+                        'expires_at': request.form.get('expires_at'),
+                        'budget_estimado': request.form.get('budget_estimado'),
+                        'valor_total_proposta': request.form.get('valor_total_proposta'),
+                        'status': request.form.get('status'),
+                        'link_publico_ativo': 1 if request.form.get('link_publico_ativo') else 0,
+                        'link_publico_token': request.form.get('link_publico_token'),
+                        'link_publico_expires_at': request.form.get('link_publico_expires_at'),
+                        'observacoes': request.form.get('observacoes'),
+                        'observacoes_internas': request.form.get('observacoes_internas')
+                    }
+                    
+                    db.atualizar_cotacao(cotacao_id, dados)
+                    flash('Cotação atualizada com sucesso!', 'success')
+                    return redirect(url_for('cotacao_detalhes', cotacao_id=cotacao_id))
+                    
+                except Exception as e:
+                    app.logger.error(f"Erro ao atualizar cotação: {str(e)}", exc_info=True)
+                    flash('Erro ao atualizar cotação.', 'error')
+            
             cotacao = db.obter_cotacao_por_id(cotacao_id)
             if not cotacao:
                 flash('Cotação não encontrada.', 'error')
@@ -3720,6 +3751,7 @@ def init_routes(app):
             comentarios = db.obter_comentarios_cotacao(cotacao_id)
             
             return render_template('cadu_cotacoes_detalhes.html', 
+                                  modo='editar',
                                   cotacao=cotacao, 
                                   clientes=clientes, 
                                   vendedores=vendedores,

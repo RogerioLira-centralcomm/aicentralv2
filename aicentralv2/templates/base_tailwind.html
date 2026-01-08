@@ -248,7 +248,7 @@
 
                         <!-- Comercial -->
                         <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-handshake mr-1 text-xs"></i>Comercial</span>
+                            <span>Comercial</span>
                         </li>
                         <li>
                             <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
@@ -275,7 +275,7 @@
 
                         <!-- Audiências -->
                         <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-chart-line mr-1 text-xs"></i>Audiências</span>
+                            <span>Audiências</span>
                         </li>
                         <li>
                             <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
@@ -301,23 +301,29 @@
                         <li class="my-2"><hr class="border-base-300"></li>
 
                         <!-- Configurações -->
-                        <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-cog mr-1 text-xs"></i>Configurações</span>
-                        </li>
                         <li>
-                            <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
-                                <span class="sidebar-text">Tipos de Cliente</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                                <span class="sidebar-text">Setores</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
-                                <span class="sidebar-text">Cargos</span>
-                            </a>
+                            <details data-group="config">
+                                <summary class="sidebar-text">
+                                    <span class="sidebar-text">Configurações</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
+                                            <span class="sidebar-text">Tipos de Cliente</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                                            <span class="sidebar-text">Setores</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
+                                            <span class="sidebar-text">Cargos</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                         
 
@@ -326,27 +332,36 @@
 
                         <!-- Administração (apenas para admin/superadmin) -->
                         {% if session.user_type in ['admin', 'superadmin'] %}
-                        <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-shield-alt mr-1 text-xs"></i>Administração</span>
-                        </li>
                         <li>
-                            <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
-                                <span class="sidebar-text">Logs de Auditoria</span>
-                            </a>
+                            <details data-group="admin">
+                                <summary class="sidebar-text">
+                                    <span class="sidebar-text">Administração</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
+                                            <span class="sidebar-text">Logs de Auditoria</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
                         </li>
                         {% endif %}
 
                         <!-- IA & Ferramentas -->
-                        <li class="menu-title sidebar-text">
-                            <span><i class="fas fa-tools mr-1 text-xs"></i>Ferramentas</span>
-                        </li>
                         <li>
-                            <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
-                                <span class="sidebar-text">Assistente IA</span>
-                            </a>
-                        </li>
-                        <li>
-                            <details data-group="design" open>
+                            <details data-group="tools">
+                                <summary class="sidebar-text">
+                                    <span class="sidebar-text">Ferramentas</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
+                                            <span class="sidebar-text">Assistente IA</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <details data-group="design">
                                 <summary>
                                     <span class="sidebar-text">Design System</span>
                                 </summary>

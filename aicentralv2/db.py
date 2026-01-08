@@ -2191,9 +2191,11 @@ def obter_cadu_audiencias():
                     a.created_at,
                     a.updated_at,
                     a.imagem_url,
-                    a.fonte as categoria_nome,
-                    NULL as subcategoria_nome
+                    cat.nome as categoria_nome,
+                    sub.nome as subcategoria_nome
                 FROM cadu_audiencias a
+                LEFT JOIN cadu_categorias cat ON a.categoria_id = cat.id
+                LEFT JOIN cadu_subcategorias sub ON a.subcategoria_id = sub.id
                 ORDER BY a.created_at DESC
             ''')
             return cursor.fetchall()

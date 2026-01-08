@@ -270,13 +270,9 @@
                             <i class="fas fa-clock text-base-content/50 mr-1"></i>
                             {{ log.data_acao.strftime('%d/%m %H:%M') }}
                         </td>
-                        <td><span class="badge badge-ghost badge-sm">{{ log.modulo }}</span></td>
+                        <td><span class="badge badge-sm" style="background-color: #72cd80; color: white; border-color: #72cd80;">{{ log.modulo }}</span></td>
                         <td>
-                            <span class="badge badge-sm 
-                                {% if log.acao == 'criar' %}badge-success
-                                {% elif log.acao == 'excluir' %}badge-error
-                                {% elif log.acao == 'editar' %}badge-warning
-                                {% else %}badge-info{% endif %}">
+                            <span class="badge badge-sm" style="background-color: #72cd80; color: white; border-color: #72cd80;">
                                 {{ log.acao }}
                             </span>
                         </td>

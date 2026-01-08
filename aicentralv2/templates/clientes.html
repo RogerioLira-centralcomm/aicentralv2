@@ -116,7 +116,8 @@
               <td class="text-center">
                 {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
                   <button type="button"
-                          class="badge badge-sm cursor-pointer transition-all hover:scale-105 {% if cliente.status %}badge-success{% else %}badge-error{% endif %}"
+                          class="badge badge-sm cursor-pointer transition-all hover:scale-105"
+                          style="{% if cliente.status %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #ef4444; color: white; border-color: #ef4444;{% endif %}"
                           onclick="toggleStatus({{ cliente.id_cliente }}, this, {{ 'true' if cliente.status else 'false' }})"
                           title="Clique para {% if cliente.status %}desativar{% else %}ativar{% endif %}">
                     {% if cliente.status %}Ativo{% else %}Inativo{% endif %}
@@ -689,7 +690,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="text-center">
                   ${cliente.nome_fantasia && cliente.nome_fantasia.toUpperCase() !== 'CENTRALCOMM' ? `
                     <button type="button"
-                            class="badge badge-sm cursor-pointer transition-all hover:scale-105 ${cliente.status ? 'badge-success' : 'badge-error'}"
+                            class="badge badge-sm cursor-pointer transition-all hover:scale-105"
+                            style="${cliente.status ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;'}"
                             onclick="toggleStatus(${cliente.id_cliente}, this, ${cliente.status})"
                             title="Clique para ${cliente.status ? 'desativar' : 'ativar'}">
                       ${cliente.status ? 'Ativo' : 'Inativo'}
@@ -1128,7 +1130,8 @@ async function toggleStatus(clienteId, badgeElement, statusAtual) {
     if (response.ok) {
       // Atualizar o badge
       badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
-      badgeElement.className = `badge badge-sm cursor-pointer transition-all hover:scale-105 ${novoStatus ? 'badge-success' : 'badge-error'}`;
+      badgeElement.className = 'badge badge-sm cursor-pointer transition-all hover:scale-105';
+      badgeElement.style = novoStatus ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;';
       badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
       badgeElement.setAttribute('onclick', `toggleStatus(${clienteId}, this, ${novoStatus})`);
     } else {
@@ -1447,14 +1450,14 @@ function preencherAbaDetalhes(cliente, contatos) {
     listaContatos.innerHTML = `
       <div class="overflow-x-auto">
         <table class="table table-xs w-full">
-          <thead class="bg-primary text-white">
+          <thead class="text-white rounded-lg" style="background-color: #72cd80;">
             <tr>
-              <th>Nome</th>
+              <th class="rounded-tl-lg">Nome</th>
               <th>Email</th>
               <th>Telefone</th>
               <th>Setor</th>
               <th>Status</th>
-              <th class="text-center">Ações</th>
+              <th class="text-center rounded-tr-lg">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -1464,14 +1467,19 @@ function preencherAbaDetalhes(cliente, contatos) {
                 <td>${c.email || '—'}</td>
                 <td>${c.telefone || '—'}</td>
                 <td>${c.setor || '—'}</td>
-                <td><span class="badge badge-xs ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
+                <td>
+                  <button type="button"
+                          class="badge badge-xs cursor-pointer transition-all hover:scale-105"
+                          style="${c.status ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;'}"
+                          onclick="toggleContatoStatus(${c.id_contato_cliente}, ${cliente.id_cliente}, this, ${c.status})"
+                          title="Clique para ${c.status ? 'desativar' : 'ativar'}">
+                    ${c.status ? 'Ativo' : 'Inativo'}
+                  </button>
+                </td>
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-1">
                     <button onclick="abrirModalEditarContato(${c.id_contato_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
                       <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="toggleContatoStatus(${c.id_contato_cliente}, ${cliente.id_cliente})" class="btn btn-xs btn-circle btn-outline btn-warning" title="Ativar/Desativar">
-                      <i class="fas fa-power-off"></i>
                     </button>
                     <button onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
                       <i class="fas fa-trash"></i>
@@ -1511,14 +1519,14 @@ async function carregarContatosAba(clienteId) {
       listaContatos.innerHTML = `
         <div class="overflow-x-auto">
           <table class="table table-xs w-full">
-            <thead class="bg-primary text-white">
+            <thead class="text-white rounded-lg" style="background-color: #72cd80;">
               <tr>
-                <th>Nome</th>
+                <th class="rounded-tl-lg">Nome</th>
                 <th>Email</th>
                 <th>Telefone</th>
                 <th>Setor</th>
                 <th>Status</th>
-                <th class="text-center">Ações</th>
+                <th class="text-center rounded-tr-lg">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -1528,14 +1536,19 @@ async function carregarContatosAba(clienteId) {
                   <td>${c.email || '—'}</td>
                   <td>${c.telefone || '—'}</td>
                   <td>${c.setor || '—'}</td>
-                  <td><span class="badge badge-xs ${c.status ? 'badge-success' : 'badge-error'}">${c.status ? 'Ativo' : 'Inativo'}</span></td>
+                  <td>
+                    <button type="button"
+                            class="badge badge-xs cursor-pointer transition-all hover:scale-105"
+                            style="${c.status ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;'}"
+                            onclick="toggleContatoStatus(${c.id_contato_cliente}, ${clienteId}, this, ${c.status})"
+                            title="Clique para ${c.status ? 'desativar' : 'ativar'}">
+                      ${c.status ? 'Ativo' : 'Inativo'}
+                    </button>
+                  </td>
                   <td class="text-center">
                     <div class="flex items-center justify-center gap-1">
                       <button onclick="abrirModalEditarContato(${c.id_contato_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
                         <i class="fas fa-edit"></i>
-                      </button>
-                      <button onclick="toggleContatoStatus(${c.id_contato_cliente}, ${clienteId})" class="btn btn-xs btn-circle btn-outline btn-warning" title="Ativar/Desativar">
-                        <i class="fas fa-power-off"></i>
                       </button>
                       <button onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
                         <i class="fas fa-trash"></i>
@@ -1592,9 +1605,13 @@ async function carregarContratosCliente(clienteId) {
                 <tr class="hover">
                   <td class="font-semibold">${p.plan_type || '—'}</td>
                   <td>
-                    <span class="badge badge-xs ${p.plan_status === 'active' ? 'badge-success' : p.plan_status === 'suspended' ? 'badge-warning' : 'badge-error'}">
+                    <button type="button"
+                            class="badge badge-xs cursor-pointer transition-all hover:scale-105"
+                            style="${p.plan_status === 'active' ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : p.plan_status === 'suspended' ? 'background-color: #fbbf24; color: white; border-color: #fbbf24;' : 'background-color: #ef4444; color: white; border-color: #ef4444;'}"
+                            onclick="togglePlanoStatus(${p.id}, this, '${p.plan_status}')"
+                            title="Clique para ${p.plan_status === 'active' ? 'cancelar' : 'ativar'}">
                       ${p.plan_status === 'active' ? 'Ativo' : p.plan_status === 'suspended' ? 'Suspenso' : 'Cancelado'}
-                    </span>
+                    </button>
                   </td>
                   <td>
                     <div class="text-xs">
@@ -1622,6 +1639,45 @@ async function carregarContratosCliente(clienteId) {
   } catch (error) {
     console.error('Erro ao carregar contratos:', error);
     listaContratos.innerHTML = '<p class="text-center text-error text-sm py-4">Erro ao carregar contratos</p>';
+  }
+}
+
+// Função para toggle de status de plano
+async function togglePlanoStatus(planoId, badgeElement, statusAtual) {
+  try {
+    const response = await fetch(`/api/plano/${planoId}/toggle-status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const novoStatus = data.novo_status;
+      
+      // Atualizar o badge
+      badgeElement.textContent = novoStatus === 'active' ? 'Ativo' : novoStatus === 'suspended' ? 'Suspenso' : 'Cancelado';
+      badgeElement.className = 'badge badge-xs cursor-pointer transition-all hover:scale-105';
+      
+      if (novoStatus === 'active') {
+        badgeElement.style = 'background-color: #72cd80; color: white; border-color: #72cd80;';
+        badgeElement.title = 'Clique para cancelar';
+      } else if (novoStatus === 'suspended') {
+        badgeElement.style = 'background-color: #fbbf24; color: white; border-color: #fbbf24;';
+        badgeElement.title = 'Clique para ativar';
+      } else {
+        badgeElement.style = 'background-color: #ef4444; color: white; border-color: #ef4444;';
+        badgeElement.title = 'Clique para ativar';
+      }
+      
+      badgeElement.setAttribute('onclick', `togglePlanoStatus(${planoId}, this, '${novoStatus}')`);
+    } else {
+      alert('Erro ao alterar status do plano.');
+    }
+  } catch (error) {
+    console.error('Erro ao alterar status do plano:', error);
+    alert('Erro ao alterar status do plano.');
   }
 }
 
@@ -1817,9 +1873,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Função para alternar status do contato
-async function toggleContatoStatus(contatoId, clienteId) {
-  if (!confirm('Deseja alterar o status deste contato?')) return;
-  
+async function toggleContatoStatus(contatoId, clienteId, badgeElement, statusAtual) {
   try {
     const response = await fetch(`/api/contato/${contatoId}/toggle-status`, {
       method: 'POST'
@@ -1828,9 +1882,14 @@ async function toggleContatoStatus(contatoId, clienteId) {
     const result = await response.json();
     
     if (result.success) {
-      alert(result.message);
-      // Recarregar lista de contatos
-      await carregarContatosAba(clienteId);
+      const novoStatus = !statusAtual;
+      
+      // Atualizar o badge
+      badgeElement.textContent = novoStatus ? 'Ativo' : 'Inativo';
+      badgeElement.className = 'badge badge-xs cursor-pointer transition-all hover:scale-105';
+      badgeElement.style = novoStatus ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;';
+      badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
+      badgeElement.setAttribute('onclick', `toggleContatoStatus(${contatoId}, ${clienteId}, this, ${novoStatus})`);
     } else {
       alert(result.message || 'Erro ao alterar status!');
     }
@@ -1907,15 +1966,24 @@ async function carregarInvites() {
       return;
     }
     
-    let html = '<div class="overflow-x-auto"><table class="table table-xs w-full"><thead><tr>';
-    html += '<th>Email</th><th>Role</th><th>Status</th><th>Enviado em</th><th>Expira em</th><th>Ações</th>';
+    let html = '<div class="overflow-x-auto"><table class="table table-xs w-full"><thead class="text-white rounded-lg" style="background-color: #72cd80;"><tr>';
+    html += '<th class="rounded-tl-lg">Email</th><th>Role</th><th>Status</th><th>Enviado em</th><th>Expira em</th><th class="rounded-tr-lg">Ações</th>';
     html += '</tr></thead><tbody>';
     
     invites.forEach(invite => {
-      const statusBadge = invite.status === 'accepted' ? 'badge-success' : 
-                         invite.status === 'expired' ? 'badge-error' : 'badge-warning';
-      const statusText = invite.status === 'accepted' ? 'Aceito' : 
-                        invite.status === 'expired' ? 'Expirado' : 'Pendente';
+      let statusStyle = '';
+      let statusText = '';
+      
+      if (invite.status === 'accepted') {
+        statusStyle = 'background-color: #72cd80; color: white; border-color: #72cd80;';
+        statusText = 'Aceito';
+      } else if (invite.status === 'expired') {
+        statusStyle = 'background-color: #ef4444; color: white; border-color: #ef4444;';
+        statusText = 'Expirado';
+      } else {
+        statusStyle = 'background-color: #fbbf24; color: white; border-color: #fbbf24;';
+        statusText = 'Pendente';
+      }
       
       const createdAt = new Date(invite.created_at).toLocaleDateString('pt-BR');
       const expiresAt = new Date(invite.expires_at).toLocaleDateString('pt-BR');
@@ -1923,7 +1991,7 @@ async function carregarInvites() {
       html += `<tr>
         <td>${invite.email}</td>
         <td><span class="badge badge-sm">${invite.role}</span></td>
-        <td><span class="badge badge-sm ${statusBadge}">${statusText}</span></td>
+        <td><span class="badge badge-sm" style="${statusStyle}">${statusText}</span></td>
         <td>${createdAt}</td>
         <td>${expiresAt}</td>
         <td>`;

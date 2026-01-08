@@ -1266,6 +1266,39 @@ def init_routes(app):
             app.logger.error(f"Erro ao obter planos do cliente {cliente_id}: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    @app.route('/api/plano/<int:plano_id>/toggle-status', methods=['POST'])
+    @login_required
+    def api_toggle_plano_status(plano_id):
+        """API para alternar o status de um plano entre active e cancelled"""
+        try:
+            conn = db.get_db()
+            cursor = conn.cursor()
+            
+            # Buscar status atual do plano
+            cursor.execute("SELECT plan_status FROM cadu_client_plans WHERE id = %s", (plano_id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({'success': False, 'error': 'Plano não encontrado'}), 404
+            
+            status_atual = result['plan_status']
+            
+            # Alternar status: active <-> cancelled
+            novo_status = 'cancelled' if status_atual == 'active' else 'active'
+            
+            # Atualizar no banco
+            cursor.execute(
+                "UPDATE cadu_client_plans SET plan_status = %s WHERE id = %s",
+                (novo_status, plano_id)
+            )
+            conn.commit()
+            
+            return jsonify({'success': True, 'novo_status': novo_status})
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao alterar status do plano {plano_id}: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     # ==================== ROTAS DE INVITES ====================
     
     @app.route('/api/cliente/<int:cliente_id>/invites', methods=['GET'])

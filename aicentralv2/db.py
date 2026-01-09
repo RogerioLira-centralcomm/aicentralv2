@@ -4882,7 +4882,7 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
     try:
         with conn.cursor() as cursor:
             # Gerar número de cotação único
-            numero_cotacao = f"COT-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+            numero_cotacao = f"COT-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(3).upper()}"
             
             # Preparar campos dinamicamente
             campos = ['numero_cotacao', 'client_id', 'nome_campanha', 'periodo_inicio', 'created_at', 'updated_at']
@@ -4977,6 +4977,56 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                         objetivo_kpi=None, data_inicio=None, data_fim=None, investimento_bruto=None,
                         especificacoes=None):
     """Cria uma nova linha de cotação"""
+    import json
+    
+    # Converter campos JSON/dict para string ANTES de passar para o cursor
+    def safe_value(valor):
+        """Converte qualquer dict/list/set para JSON string, mantém outros tipos"""
+        if valor is None:
+            return None
+        if isinstance(valor, (dict, list, set, tuple)):
+            return json.dumps(valor) if not isinstance(valor, tuple) else json.dumps(list(valor))
+        if isinstance(valor, (str, int, float, bool)):
+            return valor
+        # Para qualquer outro tipo de objeto, tentar converter para string
+        return str(valor)
+    
+    # Garantir que dados_extras não seja None (usar '{}' como default)
+    dados_extras_final = dados_extras if dados_extras is not None else '{}'
+    
+    # Preparar todos os valores de forma segura
+    valores = tuple([
+        cotacao_id,  # Não aplicar safe_value no ID (deve ser int)
+        safe_value(pedido_sugestao),
+        safe_value(target),
+        safe_value(veiculo),
+        safe_value(plataforma),
+        safe_value(produto),
+        safe_value(detalhamento),
+        safe_value(formato),
+        safe_value(formato_compra),
+        safe_value(periodo),
+        safe_value(viewability_minimo),
+        safe_value(volume_contratado),
+        safe_value(valor_unitario),
+        safe_value(valor_total),
+        ordem,
+        is_subtotal,
+        safe_value(subtotal_label),
+        is_header,
+        safe_value(dados_extras_final),
+        safe_value(meio),
+        safe_value(tipo_peca),
+        safe_value(segmentacao),
+        safe_value(formatos),
+        safe_value(canal),
+        safe_value(objetivo_kpi),
+        safe_value(data_inicio),
+        safe_value(data_fim),
+        safe_value(investimento_bruto),
+        safe_value(especificacoes)
+    ])
+    
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -4990,11 +5040,7 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            ''', (cotacao_id, pedido_sugestao, target, veiculo, plataforma, produto, detalhamento,
-                  formato, formato_compra, periodo, viewability_minimo, volume_contratado,
-                  valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header,
-                  dados_extras or '{}', meio, tipo_peca, segmentacao, formatos, canal,
-                  objetivo_kpi, data_inicio, data_fim, investimento_bruto, especificacoes))
+            ''', valores)
             linha_id = cursor.fetchone()['id']
             conn.commit()
             return linha_id
@@ -5031,6 +5077,21 @@ def obter_linha_cotacao(linha_id):
 
 def atualizar_linha_cotacao(linha_id, **kwargs):
     """Atualiza uma linha de cotação"""
+    import json
+    
+    # Converter campos JSON/dict para string
+    def to_json_string(valor):
+        if valor is None:
+            return None
+        if isinstance(valor, (dict, list)):
+            return json.dumps(valor)
+        if isinstance(valor, str):
+            return valor
+        return None
+    
+    # Campos que devem ser convertidos para JSON string
+    json_fields = {'produto', 'formatos', 'canal', 'dados_extras'}
+    
     conn = get_db()
     try:
         campos_permitidos = {
@@ -5042,7 +5103,14 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'especificacoes'
         }
         
-        campos_atualizacao = {k: v for k, v in kwargs.items() if k in campos_permitidos and v is not None}
+        campos_atualizacao = {}
+        for k, v in kwargs.items():
+            if k in campos_permitidos and v is not None:
+                # Converter campos JSON
+                if k in json_fields:
+                    campos_atualizacao[k] = to_json_string(v)
+                else:
+                    campos_atualizacao[k] = v
         
         if not campos_atualizacao:
             return False

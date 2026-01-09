@@ -4449,16 +4449,374 @@ def init_routes(app):
                     registro_tipo='cadu_cotacoes'
                 )
                 
-                return jsonify({
-                    'success': True, 
-                    'token': token,
-                    'link_publico': link_publico,
-                    'message': 'Link público gerado com sucesso'
-                })
+                return jsonify({'success': True, 'link': link_publico, 'token': token})
             else:
                 return jsonify({'success': False, 'message': 'Erro ao gerar link público'}), 500
                 
         except Exception as e:
+            app.logger.error(f"Erro ao gerar link público: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico', methods=['PUT'])
+    @login_required
+    def atualizar_link_publico(cotacao_id):
+        """Atualiza as configurações do link público da cotação"""
+        try:
+            data = request.get_json() or {}
+            
+            # Obter cotação
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            # Atualizar campos
+            updates = {}
+            
+            # Link público ativo
+            if 'link_publico_ativo' in data:
+                updates['link_publico_ativo'] = data['link_publico_ativo']
+            
+            # Token personalizado
+            if 'link_publico_token' in data:
+                token = data['link_publico_token']
+                if token:
+                    updates['link_publico_token'] = token
+                else:
+                    # Se não forneceu token, gerar um novo
+                    import secrets
+                    updates['link_publico_token'] = secrets.token_urlsafe(16)
+            elif updates.get('link_publico_ativo') and not cotacao.get('link_publico_token'):
+                # Se ativou o link mas não tem token, gerar um
+                import secrets
+                updates['link_publico_token'] = secrets.token_urlsafe(16)
+            
+            # Data de expiração
+            if 'link_publico_expires_at' in data:
+                updates['link_publico_expires_at'] = data['link_publico_expires_at']
+            
+            # Atualizar cotação
+            if updates:
+                success = db.atualizar_cotacao(cotacao_id, **updates)
+                
+                if success:
+                    registrar_auditoria(
+                        acao='UPDATE',
+                        modulo='cotacoes',
+                        descricao=f'Configurações do link público atualizadas para cotação {cotacao_id}',
+                        registro_id=cotacao_id,
+                        registro_tipo='cadu_cotacoes'
+                    )
+                    
+                    return jsonify({'success': True, 'message': 'Link público atualizado com sucesso'})
+                else:
+                    return jsonify({'success': False, 'message': 'Erro ao atualizar link público'}), 500
+            else:
+                return jsonify({'success': True, 'message': 'Nenhuma alteração realizada'})
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar link público: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/cotacoes/<int:cotacao_id>/pdf', methods=['GET'])
+    @login_required
+    def exportar_cotacao_pdf(cotacao_id):
+        """Exporta cotação para PDF"""
+        try:
+            from flask import make_response
+            from io import BytesIO
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            
+            # Obter dados da cotação
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                flash('Cotação não encontrada', 'error')
+                return redirect(url_for('cotacoes_list'))
+            
+            # Obter dados relacionados
+            cliente = db.obter_cliente_por_id(cotacao['client_id']) if cotacao.get('client_id') else None
+            linhas = db.obter_linhas_cotacao(cotacao_id)
+            audiencias = db.obter_audiencias_cotacao(cotacao_id)
+            
+            # Criar PDF em memória
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+            
+            # Estilos
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#1e3a8a'), spaceAfter=12, alignment=TA_CENTER)
+            heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1e3a8a'), spaceAfter=8, spaceBefore=12)
+            normal_style = styles['Normal']
+            
+            # Conteúdo do PDF
+            story = []
+            
+            # Título
+            story.append(Paragraph("PROPOSTA COMERCIAL", title_style))
+            story.append(Spacer(1, 10*mm))
+            
+            # Informações da Cotação
+            info_data = [
+                ['Número:', cotacao.get('numero_cotacao', 'N/A')],
+                ['Cliente:', cliente.get('nome_fantasia', 'N/A') if cliente else 'N/A'],
+                ['Campanha:', cotacao.get('nome_campanha', 'N/A')],
+                ['Data Criação:', cotacao.get('created_at').strftime('%d/%m/%Y') if cotacao.get('created_at') else 'N/A'],
+                ['Status:', cotacao.get('status', 'N/A')],
+                ['Responsável:', cotacao.get('responsavel_comercial', 'N/A')],
+            ]
+            
+            info_table = Table(info_data, colWidths=[40*mm, 130*mm])
+            info_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0e7ff')),
+                ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e3a8a')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            story.append(info_table)
+            story.append(Spacer(1, 8*mm))
+            
+            # Linhas de Cotação
+            if linhas:
+                story.append(Paragraph("Itens da Proposta", heading_style))
+                
+                linhas_data = [['Item', 'Descrição', 'Plataforma', 'Período', 'Volume', 'Valor Unit.', 'Total']]
+                
+                for idx, linha in enumerate(linhas, 1):
+                    # Montar descrição
+                    descricao_parts = []
+                    if linha.get('segmentacao'):
+                        descricao_parts.append(linha['segmentacao'])
+                    if linha.get('especificacoes'):
+                        descricao_parts.append(linha['especificacoes'])
+                    descricao = ' - '.join(descricao_parts) if descricao_parts else 'N/A'
+                    
+                    periodo = ''
+                    if linha.get('data_inicio') and linha.get('data_fim'):
+                        periodo = f"{linha['data_inicio'].strftime('%d/%m') if hasattr(linha['data_inicio'], 'strftime') else linha['data_inicio']} a {linha['data_fim'].strftime('%d/%m') if hasattr(linha['data_fim'], 'strftime') else linha['data_fim']}"
+                    
+                    linhas_data.append([
+                        str(idx),
+                        Paragraph(descricao[:80], normal_style) if len(descricao) > 80 else descricao,
+                        linha.get('plataforma', 'N/A'),
+                        periodo,
+                        f"{linha.get('volume_contratado', 0):,.0f}".replace(',', '.') if linha.get('volume_contratado') else '-',
+                        f"R$ {linha.get('valor_unitario', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('valor_unitario') else '-',
+                        f"R$ {linha.get('investimento_bruto', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('investimento_bruto') else '-'
+                    ])
+                
+                linhas_table = Table(linhas_data, colWidths=[12*mm, 48*mm, 25*mm, 22*mm, 20*mm, 22*mm, 22*mm])
+                linhas_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ]))
+                story.append(linhas_table)
+                story.append(Spacer(1, 6*mm))
+            
+            # Valores Totais
+            story.append(Paragraph("Resumo Financeiro", heading_style))
+            valores_data = []
+            
+            if cotacao.get('budget_estimado'):
+                valores_data.append(['Budget Estimado:', f"R$ {cotacao['budget_estimado']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')])
+            
+            if cotacao.get('valor_total_proposta'):
+                valores_data.append(['Valor Total da Proposta:', f"R$ {cotacao['valor_total_proposta']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')])
+            
+            if valores_data:
+                valores_table = Table(valores_data, colWidths=[60*mm, 110*mm])
+                valores_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0e7ff')),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                story.append(valores_table)
+            
+            # Gerar PDF
+            doc.build(story)
+            buffer.seek(0)
+            
+            # Criar resposta
+            response = make_response(buffer.getvalue())
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename=cotacao_{cotacao.get("numero_cotacao", cotacao_id)}.pdf'
+            
+            registrar_auditoria(
+                acao='EXPORT',
+                modulo='cotacoes',
+                descricao=f'Cotação {cotacao_id} exportada para PDF',
+                registro_id=cotacao_id,
+                registro_tipo='cadu_cotacoes'
+            )
+            
+            return response
+            
+        except ImportError as e:
+            app.logger.error(f"Erro ao importar reportlab: {str(e)}")
+            flash('Biblioteca reportlab não instalada. Execute: pip install reportlab', 'error')
+            return redirect(url_for('cotacao_detalhes', cotacao_id=cotacao_id))
+        except Exception as e:
+            app.logger.error(f"Erro ao exportar PDF: {str(e)}", exc_info=True)
+            flash(f'Erro ao exportar PDF: {str(e)}', 'error')
+            return redirect(url_for('cotacao_detalhes', cotacao_id=cotacao_id))
+
+    @app.route('/api/cotacoes/<int:cotacao_id>/duplicar', methods=['POST'])
+    @login_required
+    def duplicar_cotacao(cotacao_id):
+        """Duplica uma cotação existente"""
+        try:
+            # Obter cotação original
+            cotacao_original = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao_original:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            # Copiar dados da cotação (sem ID, timestamps, etc)
+            dados_nova_cotacao = {
+                'client_id': cotacao_original.get('client_id'),
+                'nome_campanha': f"{cotacao_original.get('nome_campanha', '')} (CÓPIA)",
+                'objetivo_campanha': cotacao_original.get('objetivo_campanha'),
+                'periodo_inicio': cotacao_original.get('periodo_inicio'),
+                'periodo_fim': cotacao_original.get('periodo_fim'),
+                'responsavel_comercial': cotacao_original.get('responsavel_comercial'),
+                'client_user_id': cotacao_original.get('client_user_id'),
+                'briefing_id': cotacao_original.get('briefing_id'),
+                'budget_estimado': cotacao_original.get('budget_estimado'),
+                'status': 'Rascunho',
+                'observacoes': cotacao_original.get('observacoes'),
+                'origem': cotacao_original.get('origem', 'Admin')
+            }
+            
+            # Criar nova cotação
+            resultado_nova_cotacao = db.criar_cotacao(**dados_nova_cotacao)
+            nova_cotacao_id = resultado_nova_cotacao['id'] if isinstance(resultado_nova_cotacao, dict) else resultado_nova_cotacao
+            
+            if nova_cotacao_id:
+                # Copiar linhas de cotação
+                import json
+                linhas_originais = db.obter_linhas_cotacao(cotacao_id)
+                for linha in linhas_originais:
+                    # Converter campos dict/array para JSON string
+                    def converter_json(valor):
+                        if valor is None:
+                            return None
+                        if isinstance(valor, (dict, list)):
+                            return json.dumps(valor)
+                        if isinstance(valor, str):
+                            return valor
+                        return None
+                    
+                    db.criar_linha_cotacao(
+                        cotacao_id=nova_cotacao_id,
+                        pedido_sugestao=linha.get('pedido_sugestao'),
+                        target=linha.get('target'),
+                        veiculo=linha.get('veiculo'),
+                        plataforma=linha.get('plataforma'),
+                        detalhamento=linha.get('detalhamento'),
+                        formato=linha.get('formato'),
+                        formato_compra=linha.get('formato_compra'),
+                        periodo=linha.get('periodo'),
+                        viewability_minimo=linha.get('viewability_minimo'),
+                        volume_contratado=linha.get('volume_contratado'),
+                        valor_unitario=linha.get('valor_unitario'),
+                        valor_total=linha.get('valor_total'),
+                        ordem=linha.get('ordem', 0),
+                        is_subtotal=linha.get('is_subtotal', False),
+                        subtotal_label=linha.get('subtotal_label'),
+                        is_header=linha.get('is_header', False),
+                        meio=linha.get('meio'),
+                        tipo_peca=linha.get('tipo_peca'),
+                        segmentacao=linha.get('segmentacao'),
+                        formatos=converter_json(linha.get('formatos')),
+                        canal=converter_json(linha.get('canal')),
+                        objetivo_kpi=linha.get('objetivo_kpi'),
+                        data_inicio=linha.get('data_inicio'),
+                        data_fim=linha.get('data_fim'),
+                        investimento_bruto=linha.get('investimento_bruto'),
+                        produto=converter_json(linha.get('produto')),
+                        especificacoes=linha.get('especificacoes'),
+                        dados_extras=converter_json(linha.get('dados_extras'))
+                    )
+                
+                # Copiar audiências
+                audiencias_originais = db.obter_audiencias_cotacao(cotacao_id)
+                for audiencia in audiencias_originais:
+                    db.adicionar_audiencia_cotacao(
+                        cotacao_id=nova_cotacao_id,
+                        audiencia_nome=audiencia.get('audiencia_nome'),
+                        audiencia_id=audiencia.get('audiencia_id'),
+                        audiencia_publico=audiencia.get('audiencia_publico'),
+                        audiencia_categoria=audiencia.get('audiencia_categoria'),
+                        audiencia_subcategoria=audiencia.get('audiencia_subcategoria'),
+                        cpm_estimado=audiencia.get('cpm_estimado'),
+                        investimento_sugerido=audiencia.get('investimento_sugerido'),
+                        impressoes_estimadas=audiencia.get('impressoes_estimadas'),
+                        incluido_proposta=audiencia.get('incluido_proposta', True)
+                    )
+                
+                # Copiar anexos
+                anexos_originais = db.obter_anexos_cotacao(cotacao_id)
+                for anexo in anexos_originais:
+                    db.criar_anexo_cotacao(
+                        cotacao_id=nova_cotacao_id,
+                        nome_original=anexo.get('nome_original'),
+                        nome_arquivo=anexo.get('nome_arquivo'),
+                        url_arquivo=anexo.get('url_arquivo'),
+                        mime_type=anexo.get('mime_type'),
+                        tamanho_bytes=anexo.get('tamanho_bytes'),
+                        descricao=anexo.get('descricao'),
+                        uploaded_by=anexo.get('uploaded_by')
+                    )
+                
+                registrar_auditoria(
+                    acao='CREATE',
+                    modulo='cotacoes',
+                    descricao=f'Cotação {nova_cotacao_id} criada como cópia da cotação {cotacao_id}',
+                    registro_id=nova_cotacao_id,
+                    registro_tipo='cadu_cotacoes'
+                )
+                
+                return jsonify({'success': True, 'nova_cotacao_id': nova_cotacao_id})
+            else:
+                return jsonify({'success': False, 'message': 'Erro ao criar cotação duplicada'}), 500
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao duplicar cotação: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # ==================== FIM DAS ROTAS ====================
             current_app.logger.error(f"Erro ao gerar link público: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 

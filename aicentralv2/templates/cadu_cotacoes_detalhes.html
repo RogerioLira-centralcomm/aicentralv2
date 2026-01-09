@@ -55,8 +55,8 @@
         <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-check-circle mr-2 text-success"></i>Email de Aprovação</a></li>
         <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
         <li class="menu-title"><span>Outras ações</span></li>
-        <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-copy mr-2"></i>Duplicar Cotação</a></li>
-        <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</a></li>
+        <li><a onclick="duplicarCotacao()"><i class="fas fa-copy mr-2"></i>Duplicar Cotação</a></li>
+        <li><a onclick="exportarPDF()"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</a></li>
       </ul>
     </div>
       {% endif %}
@@ -302,12 +302,14 @@
       <!-- Conteúdo Valores -->
       <div id="content_valores" class="aba-content">
         <form method="POST" id="form_valores" class="space-y-4">
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Valores</h2>
+          <div class="flex justify-between items-center mb-4 pb-2 border-b">
+            <h2 class="text-lg font-bold">Valores da Cotação</h2>
+          </div>
           
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Budget Estimado -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Budget Estimado (R$)</span>
               </label>
               <input 
@@ -324,7 +326,7 @@
 
             <!-- Valor Total da Proposta -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Valor Total da Proposta (R$) *</span>
               </label>
               <input 
@@ -339,75 +341,57 @@
               >
               <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
             </div>
-          </div>
 
-          <!-- Status e Links Públicos -->
-          {% if modo == 'editar' %}
-          <div class="mt-6">
-            <h3 class="text-md font-bold mb-4 pb-2 border-b">Status e Link Público</h3>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Status -->
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">Status</span>
-                </label>
-                <select name="status" class="select select-bordered w-full h-10 min-h-10">
-                  <option value="pendente" {% if cotacao.status == 'pendente' %}selected{% endif %}>Pendente</option>
-                  <option value="aprovada" {% if cotacao.status == 'aprovada' %}selected{% endif %}>Aprovada</option>
-                  <option value="rejeitada" {% if cotacao.status == 'rejeitada' %}selected{% endif %}>Rejeitada</option>
-                  <option value="expirada" {% if cotacao.status == 'expirada' %}selected{% endif %}>Expirada</option>
-                </select>
-              </div>
-
-              <!-- Link Público Ativo -->
-              <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-2">
-                  <input type="checkbox" name="link_publico_ativo" class="checkbox checkbox-sm" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
-                  <span class="label-text font-semibold">Habilitar Link Público</span>
-                </label>
-              </div>
-
-              <!-- Token do Link Público -->
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">Token do Link</span>
-                </label>
-                <input 
-                  type="text" 
-                  name="link_publico_token" 
-                  value="{{ cotacao.link_publico_token if cotacao and cotacao.link_publico_token else '' }}" 
-                  class="input input-bordered input-sm font-mono text-xs"
-                  placeholder="Deixe em branco para gerar automaticamente"
-                >
-              </div>
-
-              <!-- Aprovada Em -->
-              {% if cotacao and cotacao.aprovada_em %}
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">Aprovada em</span>
-                </label>
-                <input type="text" value="{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') if cotacao.aprovada_em.strftime else cotacao.aprovada_em }}" class="input input-bordered input-sm" disabled>
-              </div>
-              {% endif %}
-
-              <!-- Link Público Expira Em -->
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text font-semibold">Link Expira em</span>
-                </label>
-                <input 
-                  type="datetime-local" 
-                  id="link_publico_expires_at"
-                  name="link_publico_expires_at" 
-                  value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}"
-                  class="input input-bordered input-sm"
-                >
-              </div>
+            <!-- Status e Link Público -->
+            {% if modo == 'editar' %}
+            <!-- Status -->
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Status da Cotação</span>
+              </label>
+              <select name="status" class="select select-bordered select-sm w-full h-10 min-h-10">
+                <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+                <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+                <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+                <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+                <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+                <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
+              </select>
             </div>
+
+            <!-- Link Público Ativo -->
+            <div class="form-control flex justify-center">
+              <label class="label cursor-pointer justify-start gap-3 py-1">
+                <input type="checkbox" name="link_publico_ativo" class="checkbox" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
+                <span class="label-text font-semibold">Habilitar Link Público para Cliente</span>
+              </label>
+            </div>
+
+            <!-- Link Público Expira Em -->
+            <div class="form-control md:col-span-2">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Link Público Expira em</span>
+              </label>
+              <input 
+                type="datetime-local" 
+                id="link_publico_expires_at"
+                name="link_publico_expires_at" 
+                value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                class="input input-bordered input-sm"
+              >
+              <label class="label py-0">
+                <span class="label-text-alt text-base-content/60">Define quando o link público deixará de funcionar</span>
+              </label>
+            </div>
+            {% endif %}
           </div>
-          {% endif %}
+
+          <!-- Botão Salvar -->
+          <div class="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" onclick="salvarFormulario('form_valores')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+              <i class="fas fa-save mr-2"></i>Salvar Valores
+            </button>
+          </div>
         </form>
       </div>
 
@@ -869,6 +853,175 @@
   </form>
 </dialog>
 
+<!-- Modal Editar Linha -->
+<dialog id="modal_editar_linha" class="modal">
+  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold text-lg mb-3">Editar Linha de Cotação</h3>
+    
+    <form id="form_editar_linha" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <input type="hidden" id="edit_linha_id">
+      
+      <div class="form-control md:col-span-2">
+        <label class="label py-1"><span class="label-text font-semibold">Segmentação *</span></label>
+        <textarea id="edit_segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="1" required minlength="10" 
+                  placeholder="Descreva a segmentação da audiência..."></textarea>
+      </div>
+
+      <div class="form-control md:col-span-1">
+        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
+        <textarea id="edit_especificacoes" class="textarea textarea-bordered textarea-sm w-full" rows="1" placeholder="Especificações técnicas ou detalhes adicionais..."></textarea>
+      </div>
+
+      <div class="form-control md:col-span-3">
+        <label class="label py-1"><span class="label-text font-semibold">Formatos *</span></label>
+        <div class="flex flex-wrap gap-3">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-sm">
+            <span class="label-text">Carroussel</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="Video" class="checkbox checkbox-sm">
+            <span class="label-text">Video</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="Display" class="checkbox checkbox-sm">
+            <span class="label-text">Display</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="CTV" class="checkbox checkbox-sm">
+            <span class="label-text">CTV</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="Audio" class="checkbox checkbox-sm">
+            <span class="label-text">Audio</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="Interativos" class="checkbox checkbox-sm">
+            <span class="label-text">Interativos</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 py-1">
+            <input type="checkbox" name="edit_formatos" value="Outros" class="checkbox checkbox-sm">
+            <span class="label-text">Outros</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Plataforma</span></label>
+        <select id="edit_plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="DV360">DV360</option>
+          <option value="Programática">Programática</option>
+          <option value="Amazon DSP">Amazon DSP</option>
+          <option value="Meta Ads">Meta Ads</option>
+          <option value="Google Ads">Google Ads</option>
+          <option value="TikTok Ads">TikTok Ads</option>
+          <option value="LinkedIn Ads">LinkedIn Ads</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Objetivo / KPI</span></label>
+        <select id="edit_objetivo_kpi" class="select select-bordered select-sm w-full h-10 min-h-10">
+          <option value="">Selecione...</option>
+          <option value="CPM">CPM</option>
+          <option value="CPC">CPC</option>
+          <option value="CPA">CPA</option>
+          <option value="CPV">CPV</option>
+          <option value="CPL">CPL</option>
+          <option value="Fixo">Fixo</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
+        <input type="text" id="edit_viewability_minimo" class="input input-bordered input-sm" placeholder="0,00" 
+               oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <!-- Canal e Produto na mesma linha -->
+      <div class="form-control md:col-span-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label py-1"><span class="label-text font-semibold">Canal</span></label>
+            <div class="flex flex-wrap gap-3">
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_canal" value="FEED" class="checkbox checkbox-sm">
+                <span class="label-text">FEED</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_canal" value="STORY" class="checkbox checkbox-sm">
+                <span class="label-text">STORY</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_canal" value="Outros" class="checkbox checkbox-sm">
+                <span class="label-text">Outros</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
+            <div class="flex flex-wrap gap-3">
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-sm">
+                <span class="label-text">Midia</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_produto" value="Dados" class="checkbox checkbox-sm">
+                <span class="label-text">Dados</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_produto" value="Interativos" class="checkbox checkbox-sm">
+                <span class="label-text">Interativos</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="edit_produto" value="Outros" class="checkbox checkbox-sm">
+                <span class="label-text">Outros</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Data Início</span></label>
+        <input type="date" id="edit_data_inicio" class="input input-bordered input-sm w-full">
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Data Fim</span></label>
+        <input type="date" id="edit_data_fim" class="input input-bordered input-sm w-full">
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Investimento Bruto (R$)</span></label>
+        <input type="text" id="edit_investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
+               oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Valor Unitário (R$)</span></label>
+        <input type="text" id="edit_valor_unitario" class="input input-bordered input-sm" placeholder="0,00" 
+               oninput="aplicarMascaraDinheiro(this)">
+      </div>
+
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Volume Contratado</span></label>
+        <input type="text" id="edit_volume_contratado" class="input input-bordered input-sm" placeholder="0">
+      </div>
+
+      <div class="form-control flex flex-row justify-end items-end gap-2">
+        <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
+      </div>
+
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
 <!-- Modal Adicionar Audiência -->
 <dialog id="modal_adicionar_audiencia" class="modal">
   <div class="modal-box max-w-3xl">
@@ -1072,10 +1225,10 @@
           <span class="label-text font-semibold">Data de Expiração</span>
         </label>
         <div class="relative">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('link_publico_expires_at').showPicker()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('modal_link_publico_expires_at').showPicker()">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
           </svg>
-          <input type="datetime-local" id="link_publico_expires_at" class="input input-bordered pl-10 w-full" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}">
+          <input type="datetime-local" id="modal_link_publico_expires_at" class="input input-bordered pl-10 w-full" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
         </div>
         <label class="label">
           <span class="label-text-alt text-base-content/60">Deixe vazio para link sem expiração</span>
@@ -1112,6 +1265,45 @@ function trocarAbaCotacao(aba) {
   // Ativar aba clicada
   document.getElementById('tab_' + aba).classList.add('tab-active');
   document.getElementById('content_' + aba).classList.add('active');
+}
+
+// Função para duplicar cotação
+function duplicarCotacao() {
+  if (!confirm('Deseja duplicar esta cotação? Uma cópia será criada.')) {
+    return;
+  }
+  
+  const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
+  
+  fetch(`/api/cotacoes/${cotacaoId}/duplicar`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Cotação duplicada com sucesso!');
+      window.location.href = `/cotacoes/${data.nova_cotacao_id}/detalhes`;
+    } else {
+      alert('Erro ao duplicar cotação: ' + (data.message || 'Erro desconhecido'));
+    }
+  })
+  .catch(error => {
+    console.error('Erro:', error);
+    alert('Erro ao duplicar cotação');
+  });
+}
+
+// Função para exportar cotação em PDF
+function exportarPDF() {
+  const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
+  
+  if (!cotacaoId) {
+    alert('ID da cotação não encontrado');
+    return;
+  }
+  
+  // Abrir PDF em nova aba
+  window.open(`/cotacoes/${cotacaoId}/pdf`, '_blank');
 }
 
 // Função para calcular data de expiração automaticamente
@@ -1571,6 +1763,135 @@ async function salvarNovaLinha() {
   }
 }
 
+async function editarLinha(linhaId) {
+  try {
+    // Buscar dados da linha
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`);
+    const result = await response.json();
+    
+    if (!response.ok) {
+      mostrarToast('Erro ao carregar linha', 'error');
+      return;
+    }
+    
+    const linha = result.linha || result;
+    
+    // Preencher o formulário com os dados da linha
+    document.getElementById('edit_linha_id').value = linhaId;
+    document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
+    document.getElementById('edit_plataforma').value = linha.plataforma || '';
+    document.getElementById('edit_objetivo_kpi').value = linha.objetivo_kpi || '';
+    document.getElementById('edit_viewability_minimo').value = formatarMoeda(linha.viewability_minimo || 0);
+    document.getElementById('edit_data_inicio').value = linha.data_inicio || '';
+    document.getElementById('edit_data_fim').value = linha.data_fim || '';
+    document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
+    document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario || 0);
+    document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
+    document.getElementById('edit_especificacoes').value = linha.especificacoes || '';
+    
+    // Marcar checkboxes de formatos
+    const formatos = typeof linha.formatos === 'string' ? linha.formatos.split(',').map(s => s.trim()) : (Array.isArray(linha.formatos) ? linha.formatos : []);
+    document.querySelectorAll('input[name="edit_formatos"]').forEach(cb => {
+      cb.checked = formatos.includes(cb.value);
+    });
+    
+    // Marcar checkboxes de canal
+    const canais = typeof linha.canal === 'string' ? linha.canal.split(',').map(s => s.trim()) : (Array.isArray(linha.canal) ? linha.canal : []);
+    document.querySelectorAll('input[name="edit_canal"]').forEach(cb => {
+      cb.checked = canais.includes(cb.value);
+    });
+    
+    // Marcar checkboxes de produto
+    const produtos = typeof linha.produto === 'string' ? linha.produto.split(',').map(s => s.trim()) : (Array.isArray(linha.produto) ? linha.produto : []);
+    document.querySelectorAll('input[name="edit_produto"]').forEach(cb => {
+      cb.checked = produtos.includes(cb.value);
+    });
+    
+    // Abrir modal de edição
+    document.getElementById('modal_editar_linha').showModal();
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao carregar linha para edição', 'error');
+  }
+}
+
+async function salvarEdicaoLinha() {
+  const linhaId = document.getElementById('edit_linha_id').value;
+  
+  const formatosSelecionados = Array.from(document.querySelectorAll('input[name="edit_formatos"]:checked'))
+    .map(cb => cb.value);
+  
+  const canaisSelecionados = Array.from(document.querySelectorAll('input[name="edit_canal"]:checked'))
+    .map(cb => cb.value);
+  
+  const produtosSelecionados = Array.from(document.querySelectorAll('input[name="edit_produto"]:checked'))
+    .map(cb => cb.value);
+  
+  const data = {
+    segmentacao: document.getElementById('edit_segmentacao').value,
+    formatos: formatosSelecionados.join(', '),
+    canal: canaisSelecionados.join(', '),
+    plataforma: document.getElementById('edit_plataforma').value,
+    objetivo_kpi: document.getElementById('edit_objetivo_kpi').value,
+    viewability_minimo: removerMascaraDinheiro(document.getElementById('edit_viewability_minimo').value),
+    data_inicio: document.getElementById('edit_data_inicio').value,
+    data_fim: document.getElementById('edit_data_fim').value,
+    investimento_bruto: removerMascaraDinheiro(document.getElementById('edit_investimento_bruto').value),
+    valor_unitario: removerMascaraDinheiro(document.getElementById('edit_valor_unitario').value),
+    volume_contratado: removerMascaraNumero(document.getElementById('edit_volume_contratado').value),
+    produto: produtosSelecionados.join(', '),
+    especificacoes: document.getElementById('edit_especificacoes').value
+  };
+
+  try {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      document.getElementById('modal_editar_linha').close();
+      mostrarToast('Linha atualizada com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      mostrarToast('Erro: ' + (result.error || 'Erro ao atualizar linha'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao atualizar linha', 'error');
+  }
+}
+
+function removerLinha(linhaId) {
+  if (confirm('Tem certeza que deseja remover esta linha?')) {
+    confirmarRemoverLinha(linhaId);
+  }
+}
+
+async function confirmarRemoverLinha(linhaId) {
+  try {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}`, {
+      method: 'DELETE'
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      decrementarContador('linhas');
+      mostrarToast('Linha removida com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      mostrarToast('Erro: ' + (result.error || 'Erro ao remover linha'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao remover linha', 'error');
+  }
+}
+
 // ==================== FUNÇÕES DE AUDIÊNCIAS ====================
 
 let timeoutBuscaAudiencias;
@@ -1906,7 +2227,7 @@ async function salvarLinkPublico() {
   const cotacaoId = {{ cotacao.id }};
   const ativo = document.getElementById('link_publico_ativo').checked;
   const token = document.getElementById('link_publico_token').value.trim();
-  const expiresAt = document.getElementById('link_publico_expires_at').value;
+  const expiresAt = document.getElementById('modal_link_publico_expires_at').value;
   
   const data = {
     link_publico_ativo: ativo,

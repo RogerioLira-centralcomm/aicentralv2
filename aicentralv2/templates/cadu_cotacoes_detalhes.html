@@ -36,13 +36,18 @@
       </p>
     </div>
 
-    {% if modo == 'editar' %}
-    <!-- Dropdown Ações Rápidas -->
-    <div class="dropdown dropdown-end">
-      <label tabindex="0" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-bolt mr-2"></i>Ações Rápidas
-        <i class="fas fa-chevron-down ml-2"></i>
-      </label>
+    <div class="flex gap-2">
+      <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost">
+        Voltar
+      </a>
+      
+      {% if modo == 'editar' %}
+      <!-- Dropdown Ações Rápidas -->
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
+          Ações Rápidas
+          <i class="fas fa-chevron-down ml-2"></i>
+        </label>
       <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-64 mt-2">
         <li><a onclick="document.getElementById('modal_link_publico').showModal()"><i class="fas fa-link mr-2"></i>Ver Link Público</a></li>
         <li class="menu-title"><span>Emails</span></li>
@@ -54,7 +59,8 @@
         <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</a></li>
       </ul>
     </div>
-    {% endif %}
+      {% endif %}
+    </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -74,38 +80,38 @@
       <!-- Abas -->
       <div class="tabs tabs-boxed mb-4">
         <a id="tab_info_basicas" class="tab tab-active" onclick="trocarAbaCotacao('info_basicas')" style="--tab-color: #72cd80;">
-          <i class="fas fa-info-circle mr-2"></i>Informações Básicas
+          Informações Básicas
         </a>
         <a id="tab_datas" class="tab" onclick="trocarAbaCotacao('datas')" style="--tab-color: #72cd80;">
-          <i class="fas fa-calendar mr-2"></i>Datas
+          Datas
         </a>
         <a id="tab_valores" class="tab" onclick="trocarAbaCotacao('valores')" style="--tab-color: #72cd80;">
-          <i class="fas fa-dollar-sign mr-2"></i>Valores
+          Valores
         </a>
         <a id="tab_linhas" class="tab" onclick="trocarAbaCotacao('linhas')" style="--tab-color: #72cd80;">
-          <i class="fas fa-list mr-2"></i>Linhas da Cotação
+          Linhas da Cotação <span id="contador_linhas" class="badge badge-sm ml-1">{% if linhas %}{{ linhas|length }}{% else %}0{% endif %}</span>
         </a>
         <a id="tab_audiencias" class="tab" onclick="trocarAbaCotacao('audiencias')" style="--tab-color: #72cd80;">
-          <i class="fas fa-users mr-2"></i>Audiências
+          Audiências <span id="contador_audiencias" class="badge badge-sm ml-1">{% if audiencias %}{{ audiencias|length }}{% else %}0{% endif %}</span>
         </a>
         <a id="tab_anexos" class="tab" onclick="trocarAbaCotacao('anexos')" style="--tab-color: #72cd80;">
-          <i class="fas fa-paperclip mr-2"></i>Anexos
+          Anexos <span id="contador_anexos" class="badge badge-sm ml-1">0</span>
         </a>
         <a id="tab_observacoes" class="tab" onclick="trocarAbaCotacao('observacoes')" style="--tab-color: #72cd80;">
-          <i class="fas fa-comment mr-2"></i>Observações
+          Observações
         </a>
       </div>
 
       <!-- Conteúdo Informações Básicas -->
       <div id="content_info_basicas" class="aba-content active">
-        <form method="POST" id="form_info_basicas" class="space-y-4">
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Informações Básicas</h2>
+        <form method="POST" id="form_info_basicas" class="space-y-3">
+          <h2 class="text-lg font-bold mb-3 pb-2 border-b">Informações Básicas</h2>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <!-- Número da Cotação (somente leitura em edição) -->
             {% if modo == 'editar' and cotacao %}
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Número da Cotação</span>
               </label>
               <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered input-sm" disabled>
@@ -113,8 +119,8 @@
             {% endif %}
 
             <!-- Cliente -->
-            <div class="form-control">
-              <label class="label">
+            <div class="form-control {% if not (modo == 'editar' and cotacao) %}md:col-span-2{% endif %}">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Cliente *</span>
               </label>
               <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% endif %}" required>
@@ -135,8 +141,8 @@
             </div>
 
             <!-- Nome da Campanha -->
-            <div class="form-control">
-              <label class="label">
+            <div class="form-control {% if not (modo == 'editar' and cotacao) %}md:col-span-1{% endif %}">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Nome da Campanha *</span>
               </label>
               <input 
@@ -151,10 +157,10 @@
 
             <!-- Responsável Comercial -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Responsável Comercial</span>
               </label>
-              <select name="responsavel_comercial" class="select select-bordered w-full h-10 min-h-10">
+              <select name="responsavel_comercial" class="select select-bordered select-sm w-full h-10 min-h-10">
                 <option value="">Selecione um responsável</option>
                 {% for vendedor in vendedores %}
                 <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>
@@ -166,10 +172,10 @@
 
             <!-- Contato do Cliente -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Contato do Cliente</span>
               </label>
-              <select name="client_user_id" id="client_user_id" class="select select-bordered w-full h-10 min-h-10">
+              <select name="client_user_id" id="client_user_id" class="select select-bordered select-sm w-full h-10 min-h-10">
                 <option value="">Selecione um contato</option>
                 {% if cotacao and contatos_cliente %}
                   {% for contato in contatos_cliente %}
@@ -183,10 +189,10 @@
 
             <!-- Briefing -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Briefing</span>
               </label>
-              <select name="briefing_id" id="briefing_id" class="select select-bordered w-full h-10 min-h-10">
+              <select name="briefing_id" id="briefing_id" class="select select-bordered select-sm w-full h-10 min-h-10">
                 <option value="">Selecione um briefing</option>
                 {% if briefings %}
                   {% for briefing in briefings %}
@@ -197,19 +203,26 @@
                 {% endif %}
               </select>
             </div>
-          </div>
 
-          <!-- Objetivo da Campanha -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Objetivo da Campanha</span>
-            </label>
-            <textarea 
-              name="objetivo_campanha" 
-              class="textarea textarea-bordered textarea-sm" 
-              rows="2"
-              placeholder="Descreva o objetivo principal da campanha..."
-            >{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+            <!-- Objetivo da Campanha -->
+            <div class="form-control md:col-span-2">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Objetivo da Campanha</span>
+              </label>
+              <textarea 
+                name="objetivo_campanha" 
+                class="textarea textarea-bordered textarea-sm" 
+                rows="3"
+                placeholder="Descreva o objetivo principal da campanha..."
+              >{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+            </div>
+
+            <!-- Botão Salvar -->
+            <div class="form-control flex justify-end items-end">
+              <button type="button" onclick="salvarFormulario('form_info_basicas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+                Salvar
+              </button>
+            </div>
           </div>
 
           <input type="hidden" name="origem" value="Admin">
@@ -218,13 +231,13 @@
 
       <!-- Conteúdo Datas -->
       <div id="content_datas" class="aba-content">
-        <form method="POST" id="form_datas" class="space-y-4">
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Datas</h2>
+        <form method="POST" id="form_datas" class="space-y-3">
+          <h2 class="text-lg font-bold mb-3 pb-2 border-b">Datas</h2>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <!-- Período Início -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Data de Início *</span>
               </label>
               <input 
@@ -234,12 +247,13 @@
                 value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
                 class="input input-bordered input-sm"
                 required
+                onchange="calcularExpiracao()"
               >
             </div>
 
             <!-- Período Fim -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Data de Término</span>
               </label>
               <input 
@@ -253,7 +267,7 @@
 
             <!-- Expires At -->
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Expiração da Cotação</span>
               </label>
               <input 
@@ -268,12 +282,19 @@
             <!-- Proposta Enviada Em -->
             {% if modo == 'editar' and cotacao and cotacao.proposta_enviada_em %}
             <div class="form-control">
-              <label class="label">
+              <label class="label py-1">
                 <span class="label-text font-semibold">Proposta Enviada em</span>
               </label>
               <input type="text" value="{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') if cotacao.proposta_enviada_em.strftime else cotacao.proposta_enviada_em }}" class="input input-bordered input-sm" disabled>
             </div>
             {% endif %}
+
+            <!-- Botão Salvar -->
+            <div class="form-control {% if not (modo == 'editar' and cotacao and cotacao.proposta_enviada_em) %}md:col-start-3{% endif %} flex justify-end items-end">
+              <button type="button" onclick="salvarFormulario('form_datas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+                Salvar
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -628,6 +649,12 @@
             >{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
           </div>
           {% endif %}
+
+          <div class="flex justify-end gap-2 mt-4">
+            <button type="button" onclick="salvarFormulario('form_observacoes')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+              Salvar
+            </button>
+          </div>
         </form>
       </div>
 
@@ -670,60 +697,65 @@
 
 <!-- Modal Nova Linha -->
 <dialog id="modal_nova_linha" class="modal">
-  <div class="modal-box max-w-5xl">
-    <h3 class="font-bold text-lg mb-4">Nova Linha de Cotação</h3>
+  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold text-lg mb-3">Nova Linha de Cotação</h3>
     
-    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-3 gap-3">
       
       <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Segmentação *</span></label>
-        <textarea id="segmentacao" class="textarea textarea-bordered" rows="3" required minlength="10" 
+        <label class="label py-1"><span class="label-text font-semibold">Segmentação *</span></label>
+        <textarea id="segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="1" required minlength="10" 
                   placeholder="Descreva a segmentação da audiência..." oninput="validarCamposObrigatorios()"></textarea>
-        <label id="erro_segmentacao" class="label text-error text-xs hidden">
+        <label id="erro_segmentacao" class="label py-0 text-error text-xs hidden">
           <span>Mínimo de 10 caracteres</span>
         </label>
       </div>
 
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Formatos *</span></label>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <label class="label cursor-pointer justify-start gap-2">
+      <div class="form-control md:col-span-1">
+        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
+        <textarea id="especificacoes" class="textarea textarea-bordered textarea-sm w-full" rows="1" placeholder="Especificações técnicas ou detalhes adicionais..."></textarea>
+      </div>
+
+      <div class="form-control md:col-span-3">
+        <label class="label py-1"><span class="label-text font-semibold">Formatos *</span></label>
+        <div class="flex flex-wrap gap-3">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">Carroussel</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="Video" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">Video</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="Display" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">Display</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="CTV" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">CTV</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="Audio" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">Audio</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="Interativos" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">Interativos</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2">
+          <label class="label cursor-pointer justify-start gap-2 py-1">
             <input type="checkbox" name="formatos" value="Outros" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
             <span class="label-text">Outros</span>
           </label>
         </div>
-        <label id="erro_formatos" class="label text-error text-xs hidden">
+        <label id="erro_formatos" class="label py-0 text-error text-xs hidden">
           <span>Selecione pelo menos um formato</span>
         </label>
       </div>
 
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Plataforma</span></label>
-        <select id="plataforma" class="select select-bordered select-sm">
+        <label class="label py-1"><span class="label-text font-semibold">Plataforma</span></label>
+        <select id="plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
           <option value="">Selecione...</option>
           <option value="DV360">DV360</option>
           <option value="Programática">Programática</option>
@@ -736,8 +768,8 @@
       </div>
 
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Objetivo / KPI</span></label>
-        <select id="objetivo_kpi" class="select select-bordered select-sm" onchange="atualizarLabelVolume()">
+        <label class="label py-1"><span class="label-text font-semibold">Objetivo / KPI</span></label>
+        <select id="objetivo_kpi" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="atualizarLabelVolume()">
           <option value="">Selecione...</option>
           <option value="CPM">CPM</option>
           <option value="CPC">CPC</option>
@@ -748,73 +780,89 @@
         </select>
       </div>
 
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Canal</span></label>
-        <div class="flex gap-4">
-          <label class="label cursor-pointer justify-start gap-2">
-            <input type="checkbox" name="canal" value="FEED" class="checkbox checkbox-sm">
-            <span class="label-text">FEED</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-2">
-            <input type="checkbox" name="canal" value="STORY" class="checkbox checkbox-sm">
-            <span class="label-text">STORY</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-2">
-            <input type="checkbox" name="canal" value="Outros" class="checkbox checkbox-sm">
-            <span class="label-text">Outros</span>
-          </label>
-        </div>
-      </div>
-
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
+        <label class="label py-1"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
         <input type="text" id="viewability_minimo" class="input input-bordered input-sm" placeholder="0,00" 
                oninput="aplicarMascaraDinheiro(this)">
       </div>
 
+      <!-- Canal e Produto na mesma linha -->
+      <div class="form-control md:col-span-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label py-1"><span class="label-text font-semibold">Canal</span></label>
+            <div class="flex flex-wrap gap-3">
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="canal" value="FEED" class="checkbox checkbox-sm">
+                <span class="label-text">FEED</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="canal" value="STORY" class="checkbox checkbox-sm">
+                <span class="label-text">STORY</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="canal" value="Outros" class="checkbox checkbox-sm">
+                <span class="label-text">Outros</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
+            <div class="flex flex-wrap gap-3">
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-sm">
+                <span class="label-text">Midia</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="produto" value="Dados" class="checkbox checkbox-sm">
+                <span class="label-text">Dados</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="produto" value="Interativos" class="checkbox checkbox-sm">
+                <span class="label-text">Interativos</span>
+              </label>
+              <label class="label cursor-pointer justify-start gap-2 py-1">
+                <input type="checkbox" name="produto" value="Outros" class="checkbox checkbox-sm">
+                <span class="label-text">Outros</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Data Início</span></label>
+        <label class="label py-1"><span class="label-text font-semibold">Data Início</span></label>
         <input type="date" id="data_inicio" class="input input-bordered input-sm w-full">
       </div>
 
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Data Fim</span></label>
+        <label class="label py-1"><span class="label-text font-semibold">Data Fim</span></label>
         <input type="date" id="data_fim" class="input input-bordered input-sm w-full">
       </div>
 
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Investimento Bruto (R$)</span></label>
+        <label class="label py-1"><span class="label-text font-semibold">Investimento Bruto (R$)</span></label>
         <input type="text" id="investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
                oninput="aplicarMascaraDinheiro(this); calcularVolume()">
       </div>
 
       <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Valor Unitário (R$)</span></label>
+        <label class="label py-1"><span class="label-text font-semibold">Valor Unitário (R$)</span></label>
         <input type="text" id="valor_unitario" class="input input-bordered input-sm" placeholder="0,00" 
                oninput="aplicarMascaraDinheiro(this); calcularVolume()">
       </div>
 
       <div class="form-control">
-        <label class="label"><span id="label_volume" class="label-text font-semibold">Volume Contratado</span></label>
+        <label class="label py-1"><span id="label_volume" class="label-text font-semibold">Volume Contratado</span></label>
         <input type="text" id="volume_contratado" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
       </div>
 
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Produto</span></label>
-        <textarea id="produto" class="textarea textarea-bordered" rows="2" placeholder="Descrição do produto..."></textarea>
-      </div>
-
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Especificações</span></label>
-        <textarea id="especificacoes" class="textarea textarea-bordered" rows="3" placeholder="Especificações técnicas ou detalhes adicionais..."></textarea>
+      <div class="form-control flex flex-row justify-end items-end gap-2">
+        <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
       </div>
 
     </form>
-
-    <div class="modal-action">
-      <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost">Cancelar</button>
-      <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="btn btn-primary">Salvar</button>
-    </div>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>Fechar</button>
@@ -879,12 +927,12 @@
         </label>
       </div>
 
-    </form>
+      <div class="form-control flex flex-row justify-end items-end gap-2">
+        <button type="button" onclick="document.getElementById('modal_adicionar_audiencia').close()" class="btn btn-ghost btn-sm">Cancelar</button>
+        <button type="button" onclick="salvarNovaAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
+      </div>
 
-    <div class="modal-action">
-      <button type="button" onclick="document.getElementById('modal_adicionar_audiencia').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" onclick="salvarNovaAudiencia()" class="btn btn-primary">Salvar</button>
-    </div>
+    </form>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>Fechar</button>
@@ -913,7 +961,7 @@
 
     <div class="modal-action">
       <button type="button" onclick="document.getElementById('modal_adicionar_anexo').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" onclick="salvarNovoAnexo()" class="btn btn-primary">Salvar</button>
+      <button type="button" onclick="salvarNovoAnexo()" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -944,7 +992,7 @@
 
     <div class="modal-action">
       <button type="button" onclick="document.getElementById('modal_editar_anexo').close()" class="btn btn-ghost">Cancelar</button>
-      <button type="button" onclick="salvarEdicaoAnexo()" class="btn btn-primary">Salvar</button>
+      <button type="button" onclick="salvarEdicaoAnexo()" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -975,7 +1023,7 @@
       <p class="text-sm text-base-content/70 mb-2">Link Público Atual:</p>
       <div class="flex gap-2 items-center">
         <input type="text" readonly value="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm flex-1 font-mono text-xs" id="link_publico_url">
-        <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm btn-primary" title="Copiar link">
+        <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;" title="Copiar link">
           <i class="fas fa-copy mr-1"></i>Copiar
         </button>
         <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="btn btn-sm btn-ghost" title="Abrir em nova aba">
@@ -1064,6 +1112,70 @@ function trocarAbaCotacao(aba) {
   // Ativar aba clicada
   document.getElementById('tab_' + aba).classList.add('tab-active');
   document.getElementById('content_' + aba).classList.add('active');
+}
+
+// Função para calcular data de expiração automaticamente
+function calcularExpiracao() {
+  const dataInicio = document.getElementById('periodo_inicio').value;
+  const expiracaoInput = document.getElementById('expires_at');
+  
+  // Só calcula se data de início estiver preenchida e expiração estiver vazia
+  if (dataInicio && !expiracaoInput.value) {
+    const data = new Date(dataInicio + 'T00:00:00');
+    data.setDate(data.getDate() + 30);
+    data.setHours(12, 0, 0, 0);
+    
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const dia = String(data.getDate()).padStart(2, '0');
+    const hora = String(data.getHours()).padStart(2, '0');
+    const minuto = String(data.getMinutes()).padStart(2, '0');
+    
+    expiracaoInput.value = `${ano}-${mes}-${dia}T${hora}:${minuto}`;
+  }
+}
+
+// Função para salvar formulário individual
+function salvarFormulario(formId) {
+  const form = document.getElementById(formId);
+  if (!form) {
+    alert('Formulário não encontrado');
+    return;
+  }
+
+  // Validar campos obrigatórios
+  const camposObrigatorios = form.querySelectorAll('[required]');
+  let camposFaltando = [];
+  
+  camposObrigatorios.forEach(campo => {
+    if (!campo.value || campo.value.trim() === '') {
+      const label = campo.closest('.form-control')?.querySelector('.label-text');
+      const nomeCampo = label ? label.textContent.replace('*', '').trim() : campo.name;
+      camposFaltando.push(nomeCampo);
+    }
+  });
+
+  if (camposFaltando.length > 0) {
+    alert('Faltam informações obrigatórias:\n- ' + camposFaltando.join('\n- '));
+    return;
+  }
+
+  const formData = new FormData(form);
+  
+  // Enviar via POST
+  fetch(window.location.href, {
+    method: 'POST',
+    body: formData
+  }).then(response => {
+    if (response.ok) {
+      alert('Salvo com sucesso!');
+    } else {
+      alert('Erro ao salvar');
+    }
+  }).catch(error => {
+    console.error('Erro:', error);
+    alert('Erro ao salvar');
+  });
 }
 
 // Função para salvar cotação
@@ -1183,6 +1295,9 @@ document.addEventListener('DOMContentLoaded', function() {
   carregarAnexos();
   {% endif %}
   
+  // Calcular expiração se data de início existir e expiração estiver vazia
+  calcularExpiracao();
+  
   // Auto-preencher datas
   const periodoInicio = document.getElementById('periodo_inicio');
   const periodoFim = document.getElementById('periodo_fim');
@@ -1190,6 +1305,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (periodoInicio && !periodoInicio.value) {
     const hoje = new Date();
     periodoInicio.value = hoje.toISOString().split('T')[0];
+    calcularExpiracao();
   }
   
   if (periodoFim && !periodoFim.value) {
@@ -1374,6 +1490,33 @@ function validarCamposObrigatorios() {
   }
 }
 
+// ==================== FUNÇÕES DE CONTADOR ====================
+
+function atualizarContador(tipo, valor) {
+  const contador = document.getElementById(`contador_${tipo}`);
+  if (contador) {
+    contador.textContent = valor;
+  }
+}
+
+function incrementarContador(tipo) {
+  const contador = document.getElementById(`contador_${tipo}`);
+  if (contador) {
+    const valorAtual = parseInt(contador.textContent) || 0;
+    contador.textContent = valorAtual + 1;
+  }
+}
+
+function decrementarContador(tipo) {
+  const contador = document.getElementById(`contador_${tipo}`);
+  if (contador) {
+    const valorAtual = parseInt(contador.textContent) || 0;
+    if (valorAtual > 0) {
+      contador.textContent = valorAtual - 1;
+    }
+  }
+}
+
 // ==================== FUNÇÕES DE LINHAS ====================
 
 async function salvarNovaLinha() {
@@ -1381,6 +1524,9 @@ async function salvarNovaLinha() {
     .map(cb => cb.value);
   
   const canaisSelecionados = Array.from(document.querySelectorAll('input[name="canal"]:checked'))
+    .map(cb => cb.value);
+  
+  const produtosSelecionados = Array.from(document.querySelectorAll('input[name="produto"]:checked'))
     .map(cb => cb.value);
   
   const data = {
@@ -1396,7 +1542,7 @@ async function salvarNovaLinha() {
     investimento_bruto: removerMascaraDinheiro(document.getElementById('investimento_bruto').value),
     valor_unitario: removerMascaraDinheiro(document.getElementById('valor_unitario').value),
     volume_contratado: removerMascaraNumero(document.getElementById('volume_contratado').value),
-    produto: document.getElementById('produto').value,
+    produto: produtosSelecionados.join(', '),
     especificacoes: document.getElementById('especificacoes').value,
     pedido_sugestao: document.getElementById('segmentacao').value.substring(0, 100),
     detalhamento: document.getElementById('especificacoes').value
@@ -1413,6 +1559,7 @@ async function salvarNovaLinha() {
     
     if (response.ok) {
       document.getElementById('modal_nova_linha').close();
+      incrementarContador('linhas');
       mostrarToast('Linha adicionada com sucesso!', 'success');
       setTimeout(() => location.reload(), 1000);
     } else {
@@ -1535,6 +1682,7 @@ async function salvarNovaAudiencia() {
     const result = await response.json();
     
     if (response.ok) {
+      incrementarContador('audiencias');
       mostrarToast('Audiência adicionada com sucesso!', 'success');
       setTimeout(() => location.reload(), 1000);
     } else {
@@ -1577,6 +1725,12 @@ async function carregarAnexos() {
 
 function renderizarAnexos(anexos) {
   const container = document.getElementById('lista_anexos');
+  
+  // Atualizar contador
+  const contador = document.getElementById('contador_anexos');
+  if (contador) {
+    contador.textContent = anexos ? anexos.length : 0;
+  }
   
   if (!anexos || anexos.length === 0) {
     container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum anexo adicionado ainda</p>';

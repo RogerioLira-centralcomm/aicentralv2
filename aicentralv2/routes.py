@@ -3691,10 +3691,13 @@ def init_routes(app):
             if request.method == 'POST':
                 # Atualizar cotação
                 try:
+                    resp_comercial = request.form.get('responsavel_comercial')
+                    app.logger.info(f"DEBUG: Responsável comercial recebido: '{resp_comercial}' (tipo: {type(resp_comercial)})")
+                    
                     dados = {
                         'client_id': request.form.get('client_id'),
                         'nome_campanha': request.form.get('nome_campanha'),
-                        'responsavel_comercial': request.form.get('responsavel_comercial'),
+                        'responsavel_comercial': resp_comercial if resp_comercial and resp_comercial.strip() else None,
                         'client_user_id': request.form.get('client_user_id'),
                         'briefing_id': request.form.get('briefing_id') if request.form.get('briefing_id') else None,
                         'objetivo_campanha': request.form.get('objetivo_campanha'),
@@ -3704,14 +3707,14 @@ def init_routes(app):
                         'budget_estimado': request.form.get('budget_estimado'),
                         'valor_total_proposta': request.form.get('valor_total_proposta'),
                         'status': request.form.get('status'),
-                        'link_publico_ativo': 1 if request.form.get('link_publico_ativo') else 0,
+                        'link_publico_ativo': bool(request.form.get('link_publico_ativo')),
                         'link_publico_token': request.form.get('link_publico_token'),
                         'link_publico_expires_at': request.form.get('link_publico_expires_at'),
                         'observacoes': request.form.get('observacoes'),
                         'observacoes_internas': request.form.get('observacoes_internas')
                     }
                     
-                    db.atualizar_cotacao(cotacao_id, dados)
+                    db.atualizar_cotacao(cotacao_id, **dados)
                     flash('Cotação atualizada com sucesso!', 'success')
                     return redirect(url_for('cotacao_detalhes', cotacao_id=cotacao_id))
                     

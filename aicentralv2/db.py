@@ -4518,7 +4518,7 @@ def obter_todos_briefings(filtros=None):
     Retorna todos os briefings com filtros opcionais
     
     Args:
-        filtros (dict): {'status': str, 'cliente_id': int, 'busca': str}
+        filtros (dict): {'status': str, 'cliente_id': int, 'busca': str, 'projeto_id': int}
     
     Returns:
         list: Lista de briefings com dados relacionados
@@ -4530,10 +4530,14 @@ def obter_todos_briefings(filtros=None):
                 SELECT 
                     b.*,
                     c.nome_fantasia as cliente_nome,
-                    c.id_cliente as cliente_id
+                    cont.nome_completo as contato_nome,
+                    cont.email as contato_email,
+                    p.nome as projeto_nome
                 FROM cadu_briefings b
-                LEFT JOIN tbl_cliente c ON b.cliente = c.nome_fantasia
-                WHERE 1=1
+                LEFT JOIN tbl_cliente c ON b.id_cliente = c.id_cliente
+                LEFT JOIN tbl_contato_cliente cont ON b.id_contato_cliente = cont.id_contato_cliente
+                LEFT JOIN cadu_projetos p ON b.id_projeto = p.id
+                WHERE b.deleted_at IS NULL
             '''
             params = []
             
@@ -4543,13 +4547,21 @@ def obter_todos_briefings(filtros=None):
                     params.append(filtros['status'])
                 
                 if 'cliente_id' in filtros and filtros['cliente_id']:
-                    query += ' AND c.id_cliente = %s'
+                    query += ' AND b.id_cliente = %s'
                     params.append(filtros['cliente_id'])
                 
+                if 'projeto_id' in filtros and filtros['projeto_id']:
+                    query += ' AND b.id_projeto = %s'
+                    params.append(filtros['projeto_id'])
+                
+                if 'plataforma' in filtros and filtros['plataforma']:
+                    query += ' AND b.plataforma = %s'
+                    params.append(filtros['plataforma'])
+                
                 if 'busca' in filtros and filtros['busca']:
-                    query += ' AND (b.titulo ILIKE %s OR b.objetivo ILIKE %s)'
+                    query += ' AND (b.titulo ILIKE %s OR b.objetivo ILIKE %s OR b.briefing_original ILIKE %s)'
                     busca = f"%{filtros['busca']}%"
-                    params.extend([busca, busca])
+                    params.extend([busca, busca, busca])
             
             query += ' ORDER BY b.created_at DESC'
             
@@ -4575,11 +4587,48 @@ def obter_briefing_por_id(briefing_id):
             cursor.execute('''
                 SELECT 
                     b.*,
-                    c.nome_fantasia as cliente_nome
+                    c.nome_fantasia as cliente_nome,
+                    cont.nome_completo as contato_nome,
+                    cont.email as contato_email,
+                    cont.telefone as contato_telefone,
+                    p.nome as projeto_nome
                 FROM cadu_briefings b
-                LEFT JOIN tbl_cliente c ON b.cliente = c.nome_fantasia
-                WHERE b.id = %s
+                LEFT JOIN tbl_cliente c ON b.id_cliente = c.id_cliente
+                LEFT JOIN tbl_contato_cliente cont ON b.id_contato_cliente = cont.id_contato_cliente
+                LEFT JOIN cadu_projetos p ON b.id_projeto = p.id
+                WHERE b.id = %s AND b.deleted_at IS NULL
             ''', (briefing_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def obter_briefing_por_uuid(uuid):
+    """
+    Retorna um briefing específico por UUID
+    
+    Args:
+        uuid (str): UUID do briefing
+    
+    Returns:
+        dict: Dados completos do briefing
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    b.*,
+                    c.nome_fantasia as cliente_nome,
+                    cont.nome_completo as contato_nome,
+                    cont.email as contato_email,
+                    p.nome as projeto_nome
+                FROM cadu_briefings b
+                LEFT JOIN tbl_cliente c ON b.id_cliente = c.id_cliente
+                LEFT JOIN tbl_contato_cliente cont ON b.id_contato_cliente = cont.id_contato_cliente
+                LEFT JOIN cadu_projetos p ON b.id_projeto = p.id
+                WHERE b.uuid = %s AND b.deleted_at IS NULL
+            ''', (uuid,))
             return cursor.fetchone()
     except Exception as e:
         raise e
@@ -4598,37 +4647,50 @@ def obter_briefings_por_cliente(cliente_id):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            import logging
-            logger = logging.getLogger(__name__)
-            
-            # Primeiro: buscar o nome_fantasia do cliente pelo ID
-            cursor.execute('SELECT nome_fantasia FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
-            cliente_row = cursor.fetchone()
-            
-            if not cliente_row:
-                logger.warning(f"Cliente com id_cliente={cliente_id} não encontrado")
-                return []
-            
-            nome_fantasia = cliente_row['nome_fantasia']
-            logger.info(f"Buscando briefings para cliente_id={cliente_id}, nome_fantasia='{nome_fantasia}'")
-            
-            # Buscar briefings pelo nome_fantasia
             cursor.execute('''
                 SELECT 
-                    id,
-                    titulo,
-                    objetivo,
-                    status,
-                    created_at
-                FROM cadu_briefings
-                WHERE cliente = %s
-                ORDER BY created_at DESC
-            ''', (nome_fantasia,))
-            
-            result = cursor.fetchall()
-            logger.info(f"Encontrados {len(result)} briefings para '{nome_fantasia}'")
-            
-            return result
+                    b.id,
+                    b.uuid,
+                    b.titulo,
+                    b.objetivo,
+                    b.status,
+                    b.progresso,
+                    b.plataforma,
+                    b.created_at,
+                    p.nome as projeto_nome
+                FROM cadu_briefings b
+                LEFT JOIN cadu_projetos p ON b.id_projeto = p.id
+                WHERE b.id_cliente = %s AND b.deleted_at IS NULL
+                ORDER BY b.created_at DESC
+            ''', (cliente_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_briefings_por_projeto(projeto_id):
+    """
+    Retorna briefings de um projeto específico
+    
+    Args:
+        projeto_id (int): ID do projeto
+    
+    Returns:
+        list: Lista de briefings do projeto
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    b.*,
+                    c.nome_fantasia as cliente_nome
+                FROM cadu_briefings b
+                LEFT JOIN tbl_cliente c ON b.id_cliente = c.id_cliente
+                WHERE b.id_projeto = %s AND b.deleted_at IS NULL
+                ORDER BY b.created_at DESC
+            ''', (projeto_id,))
+            return cursor.fetchall()
     except Exception as e:
         raise e
 
@@ -4638,39 +4700,55 @@ def criar_briefing(dados):
     Cria um novo briefing
     
     Args:
-        dados (dict): Dados do briefing
+        dados (dict): Dados do briefing (incluindo novos campos: uuid, id_projeto, plataforma, etc.)
     
     Returns:
-        int: ID do briefing criado
+        dict: {'id': int, 'uuid': str}
     """
     conn = get_db()
     try:
+        import uuid
+        briefing_uuid = str(uuid.uuid4())
+        
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_briefings (
-                    cliente, titulo, objetivo, publico_alvo,
-                    mensagem_chave, canais, budget, prazo, observacoes,
-                    status
+                    uuid, id_cliente, id_contato_cliente, titulo, status,
+                    progresso, briefing_original, briefing_melhorado, analise_ia,
+                    objetivo, budget, prazo, responsavel, responsavel_centralcomm,
+                    link_publico_token, link_publico_ativo, enviado_para_centralcomm,
+                    data_envio, id_projeto, plataforma
                 ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
-                RETURNING id
+                RETURNING id, uuid
             ''', (
-                dados.get('cliente_id'),
+                briefing_uuid,
+                dados.get('id_cliente'),
+                dados.get('id_contato_cliente'),
                 dados.get('titulo'),
+                dados.get('status', 'rascunho'),
+                dados.get('progresso', 0),
+                dados.get('briefing_original'),
+                dados.get('briefing_melhorado'),
+                dados.get('analise_ia'),
                 dados.get('objetivo'),
-                dados.get('publico_alvo'),
-                dados.get('mensagem_chave'),
-                dados.get('canais'),
                 dados.get('budget'),
                 dados.get('prazo'),
-                dados.get('observacoes'),
-                dados.get('status', 'rascunho')
+                dados.get('responsavel'),
+                dados.get('responsavel_centralcomm'),
+                dados.get('link_publico_token'),
+                dados.get('link_publico_ativo', False),
+                dados.get('enviado_para_centralcomm', False),
+                dados.get('data_envio'),
+                dados.get('id_projeto'),
+                dados.get('plataforma')
             ))
             
-            novo_id = cursor.fetchone()['id']
+            result = cursor.fetchone()
             conn.commit()
-            return novo_id
+            return result
     except Exception as e:
         conn.rollback()
         raise e
@@ -4690,34 +4768,47 @@ def atualizar_briefing(briefing_id, dados):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
-                UPDATE cadu_briefings
-                SET cliente = %s,
-                    titulo = %s,
-                    objetivo = %s,
-                    publico_alvo = %s,
-                    mensagem_chave = %s,
-                    canais = %s,
-                    budget = %s,
-                    prazo = %s,
-                    observacoes = %s,
-                    status = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            ''', (
-                dados.get('cliente_id'),
-                dados.get('cliente_id'),
-                dados.get('titulo'),
-                dados.get('objetivo'),
-                dados.get('publico_alvo'),
-                dados.get('mensagem_chave'),
-                dados.get('canais'),
-                dados.get('budget'),
-                dados.get('prazo'),
-                dados.get('observacoes'),
-                dados.get('status'),
-                briefing_id
-            ))
+            # Construir query dinamicamente com campos presentes
+            campos = []
+            valores = []
+            
+            campos_mapeamento = {
+                'id_cliente': 'id_cliente',
+                'id_contato_cliente': 'id_contato_cliente',
+                'titulo': 'titulo',
+                'status': 'status',
+                'progresso': 'progresso',
+                'briefing_original': 'briefing_original',
+                'briefing_melhorado': 'briefing_melhorado',
+                'analise_ia': 'analise_ia',
+                'objetivo': 'objetivo',
+                'budget': 'budget',
+                'prazo': 'prazo',
+                'responsavel': 'responsavel',
+                'responsavel_centralcomm': 'responsavel_centralcomm',
+                'link_publico_token': 'link_publico_token',
+                'link_publico_ativo': 'link_publico_ativo',
+                'enviado_para_centralcomm': 'enviado_para_centralcomm',
+                'data_envio': 'data_envio',
+                'id_projeto': 'id_projeto',
+                'plataforma': 'plataforma'
+            }
+            
+            for key, db_field in campos_mapeamento.items():
+                if key in dados:
+                    campos.append(f'{db_field} = %s')
+                    valores.append(dados[key])
+            
+            if not campos:
+                return False
+            
+            # Sempre atualizar updated_at
+            campos.append('updated_at = CURRENT_TIMESTAMP')
+            valores.append(briefing_id)
+            
+            query = f"UPDATE cadu_briefings SET {', '.join(campos)} WHERE id = %s"
+            
+            cursor.execute(query, valores)
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -4725,12 +4816,13 @@ def atualizar_briefing(briefing_id, dados):
         raise e
 
 
-def excluir_briefing(briefing_id):
+def excluir_briefing(briefing_id, soft_delete=True):
     """
-    Exclui um briefing
+    Exclui um briefing (soft delete por padrão)
     
     Args:
         briefing_id (int): ID do briefing
+        soft_delete (bool): Se True, apenas marca como deletado
     
     Returns:
         bool: True se excluído com sucesso
@@ -4738,7 +4830,15 @@ def excluir_briefing(briefing_id):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('DELETE FROM cadu_briefings WHERE id = %s', (briefing_id,))
+            if soft_delete:
+                cursor.execute('''
+                    UPDATE cadu_briefings
+                    SET deleted_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                ''', (briefing_id,))
+            else:
+                cursor.execute('DELETE FROM cadu_briefings WHERE id = %s', (briefing_id,))
+            
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -4746,13 +4846,14 @@ def excluir_briefing(briefing_id):
         raise e
 
 
-def atualizar_status_briefing(briefing_id, novo_status):
+def atualizar_status_briefing(briefing_id, novo_status, progresso=None):
     """
-    Atualiza apenas o status de um briefing
+    Atualiza status e progresso de um briefing
     
     Args:
         briefing_id (int): ID do briefing
         novo_status (str): Novo status
+        progresso (int): Progresso opcional (0-100)
     
     Returns:
         bool: True se atualizado com sucesso
@@ -4760,12 +4861,22 @@ def atualizar_status_briefing(briefing_id, novo_status):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
-                UPDATE cadu_briefings
-                SET status = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            ''', (novo_status, briefing_id))
+            if progresso is not None:
+                cursor.execute('''
+                    UPDATE cadu_briefings
+                    SET status = %s,
+                        progresso = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                ''', (novo_status, progresso, briefing_id))
+            else:
+                cursor.execute('''
+                    UPDATE cadu_briefings
+                    SET status = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                ''', (novo_status, briefing_id))
+            
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
@@ -4932,7 +5043,7 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
-                'aprovada_em', 'expires_at'
+                'aprovada_em', 'expires_at', 'desconto_total', 'condicoes_comerciais'
             ]
             
             for campo in campos_permitidos:
@@ -4971,11 +5082,12 @@ def deletar_cotacao(cotacao_id, soft_delete=True):
 
 def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=None, plataforma=None,
                         produto=None, detalhamento=None, formato=None, formato_compra=None, periodo=None,
-                        viewability_minimo=None, volume_contratado=None, valor_unitario=None, valor_total=None,
+                        viewability_minimo=70, volume_contratado=None, valor_unitario=None, valor_total=None,
                         ordem=0, is_subtotal=False, subtotal_label=None, is_header=False, dados_extras=None,
                         meio=None, tipo_peca=None, segmentacao=None, formatos=None, canal=None,
                         objetivo_kpi=None, data_inicio=None, data_fim=None, investimento_bruto=None,
-                        especificacoes=None):
+                        especificacoes=None, praca=None, desconto_percentual=None, valor_unitario_tabela=None,
+                        valor_unitario_negociado=None, investimento_liquido=None):
     """Cria uma nova linha de cotação"""
     import json
     
@@ -5024,7 +5136,12 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
         safe_value(data_inicio),
         safe_value(data_fim),
         safe_value(investimento_bruto),
-        safe_value(especificacoes)
+        safe_value(especificacoes),
+        safe_value(praca),
+        safe_value(desconto_percentual),
+        safe_value(valor_unitario_tabela),
+        safe_value(valor_unitario_negociado),
+        safe_value(investimento_liquido)
     ])
     
     conn = get_db()
@@ -5036,9 +5153,10 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                     formato, formato_compra, periodo, viewability_minimo, volume_contratado,
                     valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header, dados_extras,
                     meio, tipo_peca, segmentacao, formatos, canal, objetivo_kpi, data_inicio, data_fim,
-                    investimento_bruto, especificacoes
+                    investimento_bruto, especificacoes, praca, desconto_percentual, valor_unitario_tabela,
+                    valor_unitario_negociado, investimento_liquido
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', valores)
             linha_id = cursor.fetchone()['id']
@@ -5100,7 +5218,8 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'valor_unitario', 'valor_total', 'ordem', 'is_subtotal', 'subtotal_label',
             'is_header', 'dados_extras', 'meio', 'tipo_peca', 'segmentacao', 'formatos',
             'canal', 'objetivo_kpi', 'data_inicio', 'data_fim', 'investimento_bruto',
-            'especificacoes'
+            'especificacoes', 'praca', 'desconto_percentual', 'valor_unitario_tabela',
+            'valor_unitario_negociado', 'investimento_liquido'
         }
         
         campos_atualizacao = {}
@@ -5339,4 +5458,123 @@ def deletar_anexo_cotacao(anexo_id, hard_delete=False):
             return cursor.rowcount > 0
     except Exception as e:
         conn.rollback()
+        raise e
+
+
+# ==================== PROJETOS ====================
+
+def obter_projetos_por_cliente(id_cliente):
+    """Obtém todos os projetos de um cliente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    id,
+                    uuid,
+                    id_cliente,
+                    nome,
+                    status,
+                    created_at,
+                    updated_at
+                FROM cadu_projetos
+                WHERE id_cliente = %s
+                ORDER BY created_at DESC
+            ''', (id_cliente,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_projeto_por_id(projeto_id):
+    """Obtém um projeto por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    p.id,
+                    p.uuid,
+                    p.id_cliente,
+                    p.nome,
+                    p.status,
+                    p.created_at,
+                    p.updated_at,
+                    c.nome_fantasia as cliente_nome
+                FROM cadu_projetos p
+                LEFT JOIN tbl_cliente c ON p.id_cliente = c.id_cliente
+                WHERE p.id = %s
+            ''', (projeto_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def obter_projeto_por_uuid(projeto_uuid):
+    """Obtém um projeto por UUID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    p.id,
+                    p.uuid,
+                    p.id_cliente,
+                    p.nome,
+                    p.status,
+                    p.created_at,
+                    p.updated_at,
+                    c.nome_fantasia as cliente_nome
+                FROM cadu_projetos p
+                LEFT JOIN tbl_cliente c ON p.id_cliente = c.id_cliente
+                WHERE p.uuid = %s
+            ''', (projeto_uuid,))
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def listar_projetos(filtros=None):
+    """Lista projetos com filtros opcionais"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    p.id,
+                    p.uuid,
+                    p.id_cliente,
+                    p.nome,
+                    p.status,
+                    p.created_at,
+                    p.updated_at,
+                    c.nome_fantasia as cliente_nome
+                FROM cadu_projetos p
+                LEFT JOIN tbl_cliente c ON p.id_cliente = c.id_cliente
+                WHERE 1=1
+            '''
+            params = []
+            
+            if filtros:
+                if filtros.get('status'):
+                    query += ' AND p.status = %s'
+                    params.append(filtros['status'])
+                
+                if filtros.get('id_cliente'):
+                    query += ' AND p.id_cliente = %s'
+                    params.append(filtros['id_cliente'])
+                
+                if filtros.get('busca'):
+                    query += ' AND p.nome ILIKE %s'
+                    params.append(f"%{filtros['busca']}%")
+            
+            query += ' ORDER BY p.created_at DESC'
+            
+            if filtros and filtros.get('limit'):
+                query += ' LIMIT %s'
+                params.append(filtros['limit'])
+            
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
         raise e

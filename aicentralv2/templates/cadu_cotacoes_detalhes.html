@@ -25,7 +25,209 @@
   }
 </style>
 
-<div class="max-w-5xl mx-auto">
+<script>
+// Função para trocar abas - definida no início para estar disponível imediatamente
+function trocarAbaCotacao(aba) {
+  // Remover active de todas as abas
+  document.querySelectorAll('.tabs .tab').forEach(function(tab) {
+    tab.classList.remove('tab-active');
+  });
+  
+  // Esconder todo o conteúdo
+  document.querySelectorAll('.aba-content').forEach(function(content) {
+    content.classList.remove('active');
+  });
+  
+  // Ativar aba clicada
+  var tabElement = document.getElementById('tab_' + aba);
+  var contentElement = document.getElementById('content_' + aba);
+  
+  if (tabElement) {
+    tabElement.classList.add('tab-active');
+  }
+  
+  if (contentElement) {
+    contentElement.classList.add('active');
+  }
+}
+
+// Funções de Drag & Drop para Anexos - definidas no início
+function handleDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.classList.add('border-primary', 'bg-primary/10');
+}
+
+function handleDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+  
+  var files = event.dataTransfer.files;
+  if (files.length > 0) {
+    uploadAnexos(files);
+  }
+}
+
+function handleFileSelect(event) {
+  var files = event.target.files;
+  if (files.length > 0) {
+    uploadAnexos(files);
+  }
+}
+
+// Função de Upload de Anexos - definida no início
+async function uploadAnexos(files) {
+  // Obter cotacaoId do data attribute no container
+  var container = document.querySelector('[data-cotacao-id]');
+  var cotacaoId = container ? container.dataset.cotacaoId : null;
+  if (!cotacaoId || cotacaoId === '' || cotacaoId === 'null') {
+    alert('Salve a cotação primeiro antes de adicionar anexos.');
+    return;
+  }
+  
+  var progressDiv = document.getElementById('upload_progress');
+  var progressBar = progressDiv.querySelector('progress');
+  progressDiv.classList.remove('hidden');
+  
+  var uploaded = 0;
+  var total = files.length;
+  
+  for (var i = 0; i < files.length; i++) {
+    var file = files[i];
+    // Verificar tamanho (15MB)
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Arquivo "' + file.name + '" excede o limite de 15MB.');
+      continue;
+    }
+    
+    var formData = new FormData();
+    formData.append('arquivo', file);
+    formData.append('descricao', '');
+    
+    try {
+      var response = await fetch('/api/cotacoes/' + cotacaoId + '/anexos', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (response.ok) {
+        uploaded++;
+        progressBar.value = (uploaded / total) * 100;
+      } else {
+        var data = await response.json();
+        alert('Erro ao enviar "' + file.name + '": ' + (data.message || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro no upload:', error);
+      alert('Erro ao enviar "' + file.name + '"');
+    }
+  }
+  
+  progressDiv.classList.add('hidden');
+  progressBar.value = 0;
+  
+  // Recarregar lista de anexos
+  if (typeof carregarAnexos === 'function') {
+    carregarAnexos();
+  }
+  
+  if (uploaded > 0) {
+    alert(uploaded + ' arquivo(s) enviado(s) com sucesso!');
+  }
+}
+
+// Helper para obter cotacaoId do data attribute
+function getCotacaoId() {
+  var container = document.querySelector('[data-cotacao-id]');
+  var id = container ? container.dataset.cotacaoId : null;
+  return (id && id !== '' && id !== 'null') ? id : null;
+}
+
+// Função para carregar anexos - definida no início
+async function carregarAnexos() {
+  var cotacaoId = getCotacaoId();
+  var listaEl = document.getElementById('lista_anexos');
+  
+  if (!listaEl) return;
+  
+  if (!cotacaoId) {
+    listaEl.innerHTML = '<p class="text-center text-base-content/50 py-8">Salve a cotação primeiro para adicionar anexos</p>';
+    return;
+  }
+  
+  try {
+    var response = await fetch('/api/cotacoes/' + cotacaoId + '/anexos');
+    var data = await response.json();
+    
+    if (data.success) {
+      renderizarAnexos(data.anexos);
+    } else {
+      listaEl.innerHTML = '<p class="text-center text-base-content/50 py-8">Erro ao carregar anexos</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar anexos:', error);
+    listaEl.innerHTML = '<p class="text-center text-error py-8">Erro ao carregar anexos</p>';
+  }
+}
+
+// Função para renderizar anexos - definida no início
+function renderizarAnexos(anexos) {
+  var container = document.getElementById('lista_anexos');
+  if (!container) return;
+  
+  // Atualizar contador
+  var contador = document.getElementById('contador_anexos');
+  if (contador) {
+    contador.textContent = anexos ? anexos.length : 0;
+  }
+  
+  if (!anexos || anexos.length === 0) {
+    container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum anexo adicionado ainda</p>';
+    return;
+  }
+  
+  var html = '<div class="overflow-x-auto"><table class="table table-sm">';
+  html += '<thead><tr><th>Arquivo</th><th>Descrição</th><th>Tamanho</th><th>Enviado em</th><th>Ações</th></tr></thead><tbody>';
+  
+  anexos.forEach(function(anexo) {
+    var tamanhoKB = anexo.tamanho_bytes ? (anexo.tamanho_bytes / 1024).toFixed(2) : '-';
+    var dataFormatada = anexo.created_at ? new Date(anexo.created_at).toLocaleString('pt-BR') : '-';
+    
+    html += '<tr>' +
+      '<td>' +
+        '<a href="' + anexo.url_arquivo + '" target="_blank" class="link link-primary">' +
+          '<i class="fas fa-file mr-1"></i>' + anexo.nome_original +
+        '</a>' +
+      '</td>' +
+      '<td>' + (anexo.descricao || '-') + '</td>' +
+      '<td>' + tamanhoKB + ' KB</td>' +
+      '<td>' + dataFormatada + '</td>' +
+      '<td>' +
+        '<div class="flex gap-1">' +
+          '<button onclick="editarAnexo(' + anexo.id + ')" class="btn btn-xs btn-ghost" title="Editar">' +
+            '<i class="fas fa-edit"></i>' +
+          '</button>' +
+          '<button onclick="deletarAnexo(' + anexo.id + ')" class="btn btn-xs btn-ghost text-error" title="Remover">' +
+            '<i class="fas fa-trash"></i>' +
+          '</button>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+</script>
+
+<div class="max-w-5xl mx-auto" data-cotacao-id="{{ cotacao.id if cotacao else '' }}">
   <div class="mb-3 flex justify-between items-start">
     <div>
       <h1 class="text-lg font-semibold leading-tight">
@@ -79,25 +281,25 @@
     <div class="card-body">
       <!-- Abas -->
       <div class="tabs tabs-boxed mb-4">
-        <a id="tab_info_basicas" class="tab tab-active" onclick="trocarAbaCotacao('info_basicas')" style="--tab-color: #72cd80;">
+        <a id="tab_info_basicas" href="javascript:void(0)" class="tab tab-active" onclick="trocarAbaCotacao('info_basicas'); return false;" style="--tab-color: #72cd80;">
           Informações Básicas
         </a>
-        <a id="tab_datas" class="tab" onclick="trocarAbaCotacao('datas')" style="--tab-color: #72cd80;">
+        <a id="tab_datas" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('datas'); return false;" style="--tab-color: #72cd80;">
           Datas
         </a>
-        <a id="tab_valores" class="tab" onclick="trocarAbaCotacao('valores')" style="--tab-color: #72cd80;">
+        <a id="tab_valores" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('valores'); return false;" style="--tab-color: #72cd80;">
           Valores
         </a>
-        <a id="tab_linhas" class="tab" onclick="trocarAbaCotacao('linhas')" style="--tab-color: #72cd80;">
+        <a id="tab_linhas" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('linhas'); return false;" style="--tab-color: #72cd80;">
           Linhas da Cotação <span id="contador_linhas" class="badge badge-sm ml-1">{% if linhas %}{{ linhas|length }}{% else %}0{% endif %}</span>
         </a>
-        <a id="tab_audiencias" class="tab" onclick="trocarAbaCotacao('audiencias')" style="--tab-color: #72cd80;">
+        <a id="tab_audiencias" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('audiencias'); return false;" style="--tab-color: #72cd80;">
           Audiências <span id="contador_audiencias" class="badge badge-sm ml-1">{% if audiencias %}{{ audiencias|length }}{% else %}0{% endif %}</span>
         </a>
-        <a id="tab_anexos" class="tab" onclick="trocarAbaCotacao('anexos')" style="--tab-color: #72cd80;">
+        <a id="tab_anexos" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('anexos'); return false;" style="--tab-color: #72cd80;">
           Anexos <span id="contador_anexos" class="badge badge-sm ml-1">0</span>
         </a>
-        <a id="tab_observacoes" class="tab" onclick="trocarAbaCotacao('observacoes')" style="--tab-color: #72cd80;">
+        <a id="tab_observacoes" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('observacoes'); return false;" style="--tab-color: #72cd80;">
           Observações
         </a>
       </div>
@@ -204,25 +406,82 @@
               </select>
             </div>
 
-            <!-- Objetivo da Campanha -->
-            <div class="form-control md:col-span-2">
+            <!-- Status (movido de Valores) -->
+            {% if modo == 'editar' %}
+            <div class="form-control">
               <label class="label py-1">
-                <span class="label-text font-semibold">Objetivo da Campanha</span>
+                <span class="label-text font-semibold">Status da Cotação</span>
+              </label>
+              <select name="status" class="select select-bordered select-sm w-full h-10 min-h-10">
+                <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+                <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+                <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+                <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+                <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+                <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
+              </select>
+            </div>
+            {% endif %}
+
+            <!-- Informações Adicionais (antigo Objetivo da Campanha) -->
+            <div class="form-control md:col-span-3">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Informações Adicionais</span>
               </label>
               <textarea 
                 name="objetivo_campanha" 
                 class="textarea textarea-bordered textarea-sm" 
                 rows="3"
-                placeholder="Descreva o objetivo principal da campanha..."
+                placeholder="Informações adicionais sobre a campanha..."
               >{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
             </div>
+          </div>
 
-            <!-- Botão Salvar -->
-            <div class="form-control flex justify-end items-end">
-              <button type="button" onclick="salvarFormulario('form_info_basicas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-                Salvar
-              </button>
+          <!-- Link Público (movido de Valores) -->
+          {% if modo == 'editar' %}
+          <div class="mt-4 p-3 bg-base-200 rounded-lg">
+            <h3 class="text-md font-semibold mb-3">Link Público</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3 py-1">
+                  <input type="checkbox" name="link_publico_ativo" class="checkbox checkbox-sm" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
+                  <span class="label-text">Habilitar Link Público</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label py-1">
+                  <span class="label-text font-semibold">Expiração do Link</span>
+                </label>
+                <input 
+                  type="datetime-local" 
+                  id="link_publico_expires_at"
+                  name="link_publico_expires_at" 
+                  value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                  class="input input-bordered input-sm"
+                >
+              </div>
+              {% if cotacao and cotacao.link_publico_token %}
+              <div class="form-control">
+                <label class="label py-1">
+                  <span class="label-text font-semibold">Link de Acesso</span>
+                </label>
+                <div class="flex gap-2">
+                  <input type="text" value="{{ request.host_url }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm flex-1" readonly>
+                  <button type="button" onclick="copiarLinkPublico()" class="btn btn-sm btn-outline" title="Copiar link">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+              {% endif %}
             </div>
+          </div>
+          {% endif %}
+
+          <!-- Botão Salvar -->
+          <div class="flex justify-end mt-4">
+            <button type="button" onclick="salvarFormulario('form_info_basicas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+              <i class="fas fa-save mr-2"></i>Salvar
+            </button>
           </div>
 
           <input type="hidden" name="origem" value="Admin">
@@ -232,9 +491,9 @@
       <!-- Conteúdo Datas -->
       <div id="content_datas" class="aba-content">
         <form method="POST" id="form_datas" class="space-y-3">
-          <h2 class="text-lg font-bold mb-3 pb-2 border-b">Datas</h2>
+          <h2 class="text-lg font-bold mb-3 pb-2 border-b">Datas da Campanha</h2>
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <!-- Período Início -->
             <div class="form-control">
               <label class="label py-1">
@@ -247,8 +506,11 @@
                 value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
                 class="input input-bordered input-sm"
                 required
-                onchange="calcularExpiracao()"
+                onchange="calcularDiasCampanha(); validarDataInicio(this)"
               >
+              <label id="erro_data_inicio" class="label py-0 text-error text-xs hidden">
+                <span>Data não pode ser anterior a hoje</span>
+              </label>
             </div>
 
             <!-- Período Fim -->
@@ -262,7 +524,25 @@
                 name="periodo_fim" 
                 value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
                 class="input input-bordered input-sm"
+                onchange="calcularDiasCampanha()"
               >
+            </div>
+
+            <!-- Quantidade de Dias -->
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Dias de Campanha</span>
+              </label>
+              <div class="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  id="dias_campanha"
+                  class="input input-bordered input-sm bg-base-200 text-center font-bold w-20" 
+                  readonly
+                  value="0"
+                >
+                <span class="text-sm text-base-content/60">dias</span>
+              </div>
             </div>
 
             <!-- Expires At -->
@@ -285,16 +565,26 @@
               <label class="label py-1">
                 <span class="label-text font-semibold">Proposta Enviada em</span>
               </label>
-              <input type="text" value="{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') if cotacao.proposta_enviada_em.strftime else cotacao.proposta_enviada_em }}" class="input input-bordered input-sm" disabled>
+              <input type="text" value="{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') if cotacao.proposta_enviada_em.strftime else cotacao.proposta_enviada_em }}" class="input input-bordered input-sm bg-base-200" disabled>
             </div>
             {% endif %}
 
-            <!-- Botão Salvar -->
-            <div class="form-control {% if not (modo == 'editar' and cotacao and cotacao.proposta_enviada_em) %}md:col-start-3{% endif %} flex justify-end items-end">
-              <button type="button" onclick="salvarFormulario('form_datas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-                Salvar
-              </button>
+            <!-- Aprovada Em -->
+            {% if modo == 'editar' and cotacao and cotacao.aprovada_em %}
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Aprovada em</span>
+              </label>
+              <input type="text" value="{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') if cotacao.aprovada_em.strftime else cotacao.aprovada_em }}" class="input input-bordered input-sm bg-base-200" disabled>
             </div>
+            {% endif %}
+          </div>
+
+          <!-- Botão Salvar -->
+          <div class="flex justify-end mt-4">
+            <button type="button" onclick="salvarFormulario('form_datas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+              <i class="fas fa-save mr-2"></i>Salvar
+            </button>
           </div>
         </form>
       </div>
@@ -303,10 +593,58 @@
       <div id="content_valores" class="aba-content">
         <form method="POST" id="form_valores" class="space-y-4">
           <div class="flex justify-between items-center mb-4 pb-2 border-b">
-            <h2 class="text-lg font-bold">Valores da Cotação</h2>
+            <h2 class="text-lg font-bold">Valores e Totais da Cotação</h2>
           </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Resumo Automático -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Total Linhas -->
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-title text-xs">Total Linhas</div>
+              <div class="stat-value text-lg text-primary" id="total_linhas_display">
+                R$ {% set total_linhas = namespace(value=0) %}
+                {% for linha in linhas %}
+                  {% if linha.investimento_bruto %}
+                    {% set total_linhas.value = total_linhas.value + linha.investimento_bruto %}
+                  {% endif %}
+                {% endfor %}
+                {{ "{:,.2f}".format(total_linhas.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+              </div>
+            </div>
+            
+            <!-- Total Audiências -->
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-title text-xs">Total Audiências</div>
+              <div class="stat-value text-lg text-secondary" id="total_audiencias_display">
+                R$ {% set total_aud = namespace(value=0) %}
+                {% for aud in audiencias %}
+                  {% if aud.incluido_proposta and aud.investimento_sugerido %}
+                    {% set total_aud.value = total_aud.value + aud.investimento_sugerido %}
+                  {% endif %}
+                {% endfor %}
+                {{ "{:,.2f}".format(total_aud.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+              </div>
+            </div>
+            
+            <!-- Desconto -->
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-title text-xs">Desconto Total</div>
+              <div class="stat-value text-lg text-warning" id="desconto_total_display">
+                R$ {{ "{:,.2f}".format(cotacao.desconto_total if cotacao and cotacao.desconto_total else 0).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+              </div>
+            </div>
+            
+            <!-- Total Geral -->
+            <div class="stat bg-primary/10 rounded-lg p-4 border-2 border-primary">
+              <div class="stat-title text-xs font-bold">TOTAL DA COTAÇÃO</div>
+              <div class="stat-value text-xl text-primary" id="total_geral_display">
+                R$ {% set total_geral = total_linhas.value + total_aud.value - (cotacao.desconto_total if cotacao and cotacao.desconto_total else 0) %}
+                {{ "{:,.2f}".format(total_geral).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Budget Estimado -->
             <div class="form-control">
               <label class="label py-1">
@@ -324,71 +662,47 @@
               <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
             </div>
 
-            <!-- Valor Total da Proposta -->
+            <!-- Desconto Total -->
             <div class="form-control">
               <label class="label py-1">
-                <span class="label-text font-semibold">Valor Total da Proposta (R$) *</span>
+                <span class="label-text font-semibold">Desconto no Total (R$)</span>
+              </label>
+              <input 
+                type="text" 
+                id="desconto_total" 
+                name="desconto_total_display" 
+                value="{{ "%.2f"|format(cotacao.desconto_total) if cotacao and cotacao.desconto_total else '' }}" 
+                class="input input-bordered input-sm" 
+                placeholder="0,00"
+                oninput="formatarMoedaReal(this, 'desconto_total_hidden'); recalcularTotais()"
+              >
+              <input type="hidden" id="desconto_total_hidden" name="desconto_total">
+            </div>
+
+            <!-- Valor Total da Proposta (Calculado) -->
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text font-semibold">Valor Total da Proposta (R$)</span>
               </label>
               <input 
                 type="text" 
                 id="valor_total_proposta" 
                 name="valor_total_proposta_display" 
                 value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" 
-                class="input input-bordered input-sm" 
-                placeholder="0,00"
-                oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')"
-                required
+                class="input input-bordered input-sm bg-base-200 font-bold" 
+                placeholder="Calculado automaticamente"
+                readonly
               >
               <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
-            </div>
-
-            <!-- Status e Link Público -->
-            {% if modo == 'editar' %}
-            <!-- Status -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Status da Cotação</span>
-              </label>
-              <select name="status" class="select select-bordered select-sm w-full h-10 min-h-10">
-                <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-                <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
-                <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
-                <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-                <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-                <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
-              </select>
-            </div>
-
-            <!-- Link Público Ativo -->
-            <div class="form-control flex justify-center">
-              <label class="label cursor-pointer justify-start gap-3 py-1">
-                <input type="checkbox" name="link_publico_ativo" class="checkbox" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
-                <span class="label-text font-semibold">Habilitar Link Público para Cliente</span>
-              </label>
-            </div>
-
-            <!-- Link Público Expira Em -->
-            <div class="form-control md:col-span-2">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Link Público Expira em</span>
-              </label>
-              <input 
-                type="datetime-local" 
-                id="link_publico_expires_at"
-                name="link_publico_expires_at" 
-                value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
-                class="input input-bordered input-sm"
-              >
               <label class="label py-0">
-                <span class="label-text-alt text-base-content/60">Define quando o link público deixará de funcionar</span>
+                <span class="label-text-alt text-base-content/60">Soma automática das linhas + audiências - desconto</span>
               </label>
             </div>
-            {% endif %}
           </div>
 
           <!-- Botão Salvar -->
           <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" onclick="salvarFormulario('form_valores')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+            <button type="button" onclick="recalcularTotais(); salvarFormulario('form_valores')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
               <i class="fas fa-save mr-2"></i>Salvar Valores
             </button>
           </div>
@@ -506,7 +820,7 @@
       <div id="content_audiencias" class="aba-content">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold">Audiências</h2>
-          <button onclick="document.getElementById('modal_adicionar_audiencia').showModal()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+          <button onclick="abrirModalAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Adicionar Audiência
           </button>
         </div>
@@ -590,11 +904,40 @@
       <div id="content_anexos" class="aba-content">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold">Anexos</h2>
-          <button onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-            <i class="fas fa-plus mr-1"></i>Adicionar Anexo
-          </button>
         </div>
 
+        <!-- Drag & Drop Zone -->
+        <div 
+          id="dropzone_anexos" 
+          class="border-2 border-dashed border-base-300 rounded-lg p-8 mb-4 text-center transition-all duration-200 cursor-pointer hover:border-primary hover:bg-primary/5"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleDrop(event)"
+          onclick="document.getElementById('input_anexo_files').click()"
+        >
+          <input 
+            type="file" 
+            id="input_anexo_files" 
+            multiple 
+            class="hidden"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar"
+            onchange="handleFileSelect(event)"
+          >
+          <div class="flex flex-col items-center gap-3">
+            <i class="fas fa-cloud-upload-alt text-4xl text-base-content/30"></i>
+            <div>
+              <p class="font-semibold text-base-content/70">Arraste arquivos aqui ou clique para selecionar</p>
+              <p class="text-xs text-base-content/50 mt-1">PDF, DOC, XLS, PPT, imagens ou arquivos compactados (máx. 15MB cada)</p>
+            </div>
+          </div>
+          <!-- Progress bar para upload -->
+          <div id="upload_progress" class="hidden mt-4">
+            <progress class="progress progress-primary w-full" value="0" max="100"></progress>
+            <p class="text-xs text-base-content/50 mt-1">Enviando arquivos...</p>
+          </div>
+        </div>
+
+        <!-- Lista de Anexos -->
         <div id="lista_anexos">
           <!-- Lista será carregada via JavaScript -->
           <div class="flex justify-center items-center py-8">
@@ -610,7 +953,7 @@
           
           <div class="form-control">
             <label class="label">
-              <span class="label-text font-semibold">Observações</span>
+              <span class="label-text font-semibold">Observações Gerais</span>
             </label>
             <textarea 
               name="observacoes" 
@@ -634,9 +977,28 @@
           </div>
           {% endif %}
 
+          <!-- Condições Comerciais -->
+          <div class="form-control">
+            <div class="flex justify-between items-center">
+              <label class="label">
+                <span class="label-text font-semibold">Condições Comerciais</span>
+              </label>
+              <button type="button" onclick="preencherCondicoesComerciais()" class="btn btn-xs btn-ghost text-primary">
+                <i class="fas fa-magic mr-1"></i>Preencher Padrão
+              </button>
+            </div>
+            <textarea 
+              name="condicoes_comerciais" 
+              id="condicoes_comerciais"
+              class="textarea textarea-bordered textarea-sm font-mono text-xs" 
+              rows="12"
+              placeholder="Condições comerciais da proposta..."
+            >{{ cotacao.condicoes_comerciais if cotacao and cotacao.condicoes_comerciais else '' }}</textarea>
+          </div>
+
           <div class="flex justify-end gap-2 mt-4">
             <button type="button" onclick="salvarFormulario('form_observacoes')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              Salvar
+              <i class="fas fa-save mr-2"></i>Salvar
             </button>
           </div>
         </form>
@@ -684,23 +1046,23 @@
   <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
     <h3 class="font-bold text-lg mb-3">Nova Linha de Cotação</h3>
     
-    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-4 gap-3">
       
       <div class="form-control md:col-span-2">
-        <label class="label py-1"><span class="label-text font-semibold">Segmentação *</span></label>
-        <textarea id="segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="1" required minlength="10" 
-                  placeholder="Descreva a segmentação da audiência..." oninput="validarCamposObrigatorios()"></textarea>
+        <label class="label py-1"><span class="label-text font-semibold">Segmentação (Target & Interesses) *</span></label>
+        <textarea id="segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="2" required minlength="10" 
+                  placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
         <label id="erro_segmentacao" class="label py-0 text-error text-xs hidden">
           <span>Mínimo de 10 caracteres</span>
         </label>
       </div>
 
-      <div class="form-control md:col-span-1">
-        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
-        <textarea id="especificacoes" class="textarea textarea-bordered textarea-sm w-full" rows="1" placeholder="Especificações técnicas ou detalhes adicionais..."></textarea>
+      <div class="form-control md:col-span-2">
+        <label class="label py-1"><span class="label-text font-semibold">Praça</span></label>
+        <input id="praca" type="text" class="input input-bordered input-sm w-full" placeholder="Ex: São Paulo, Nacional, Sudeste...">
       </div>
 
-      <div class="form-control md:col-span-3">
+      <div class="form-control md:col-span-4">
         <label class="label py-1"><span class="label-text font-semibold">Formatos *</span></label>
         <div class="flex flex-wrap gap-3">
           <label class="label cursor-pointer justify-start gap-2 py-1">
@@ -741,107 +1103,143 @@
         <label class="label py-1"><span class="label-text font-semibold">Plataforma</span></label>
         <select id="plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
           <option value="">Selecione...</option>
-          <option value="DV360">DV360</option>
-          <option value="Programática">Programática</option>
-          <option value="Amazon DSP">Amazon DSP</option>
-          <option value="Meta Ads">Meta Ads</option>
-          <option value="Google Ads">Google Ads</option>
-          <option value="TikTok Ads">TikTok Ads</option>
-          <option value="LinkedIn Ads">LinkedIn Ads</option>
+          <optgroup label="Mídia Programática">
+            <option value="DV360">DV360</option>
+            <option value="Programática">Programática</option>
+            <option value="Amazon DSP">Amazon DSP</option>
+          </optgroup>
+          <optgroup label="Social">
+            <option value="Meta Ads">Meta Ads</option>
+            <option value="TikTok Ads">TikTok Ads</option>
+            <option value="LinkedIn Ads">LinkedIn Ads</option>
+            <option value="Twitter/X Ads">Twitter/X Ads</option>
+            <option value="Pinterest Ads">Pinterest Ads</option>
+          </optgroup>
+          <optgroup label="Search & Display">
+            <option value="Google Ads">Google Ads</option>
+            <option value="Microsoft Ads">Microsoft Ads</option>
+          </optgroup>
+          <optgroup label="Streaming/CTV">
+            <option value="Netflix">Netflix</option>
+            <option value="Paramount+">Paramount+</option>
+            <option value="Disney+">Disney+</option>
+            <option value="HBO Max">HBO Max</option>
+            <option value="Globoplay">Globoplay</option>
+            <option value="YouTube">YouTube</option>
+            <option value="Spotify">Spotify</option>
+          </optgroup>
         </select>
       </div>
 
       <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Objetivo / KPI</span></label>
+        <label class="label py-1"><span class="label-text font-semibold">KPI (Tipo de Compra)</span></label>
         <select id="objetivo_kpi" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="atualizarLabelVolume()">
           <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPV">CPV</option>
-          <option value="CPL">CPL</option>
+          <option value="CPM">CPM (Custo por Mil)</option>
+          <option value="CPC">CPC (Custo por Clique)</option>
+          <option value="CPA">CPA (Custo por Aquisição)</option>
+          <option value="CPL">CPL (Custo por Lead)</option>
+          <option value="CPV">CPV (Custo por Visualização)</option>
+          <option value="CPCV">CPCV (Custo por Visualização Completa)</option>
+          <option value="CPE">CPE (Custo por Engajamento)</option>
+          <option value="CPO">CPO (Custo por Pedido)</option>
+          <option value="CPEV">CPEV (Custo por Visualização Engajada)</option>
+          <option value="CPS">CPS (Custo por Sessão)</option>
+          <option value="CPD">CPD (Custo por Download)</option>
           <option value="Fixo">Fixo</option>
         </select>
       </div>
 
       <div class="form-control">
         <label class="label py-1"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
-        <input type="text" id="viewability_minimo" class="input input-bordered input-sm" placeholder="0,00" 
-               oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <!-- Canal e Produto na mesma linha -->
-      <div class="form-control md:col-span-3">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="label py-1"><span class="label-text font-semibold">Canal</span></label>
-            <div class="flex flex-wrap gap-3">
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="canal" value="FEED" class="checkbox checkbox-sm">
-                <span class="label-text">FEED</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="canal" value="STORY" class="checkbox checkbox-sm">
-                <span class="label-text">STORY</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="canal" value="Outros" class="checkbox checkbox-sm">
-                <span class="label-text">Outros</span>
-              </label>
-            </div>
-          </div>
-          <div>
-            <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
-            <div class="flex flex-wrap gap-3">
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-sm">
-                <span class="label-text">Midia</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="produto" value="Dados" class="checkbox checkbox-sm">
-                <span class="label-text">Dados</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="produto" value="Interativos" class="checkbox checkbox-sm">
-                <span class="label-text">Interativos</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="produto" value="Outros" class="checkbox checkbox-sm">
-                <span class="label-text">Outros</span>
-              </label>
-            </div>
-          </div>
-        </div>
+        <input type="number" id="viewability_minimo" class="input input-bordered input-sm" placeholder="70" value="70" min="0" max="100">
       </div>
 
       <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
+        <div class="flex flex-wrap gap-2">
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Mídia</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="produto" value="Dados" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Dados</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="produto" value="Interativo" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Interativo</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="produto" value="Outros" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Outros</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Datas -->
+      <div class="form-control">
         <label class="label py-1"><span class="label-text font-semibold">Data Início</span></label>
-        <input type="date" id="data_inicio" class="input input-bordered input-sm w-full">
+        <input type="date" id="data_inicio" class="input input-bordered input-sm w-full" onchange="calcularDiasLinha()">
       </div>
 
       <div class="form-control">
         <label class="label py-1"><span class="label-text font-semibold">Data Fim</span></label>
-        <input type="date" id="data_fim" class="input input-bordered input-sm w-full">
+        <input type="date" id="data_fim" class="input input-bordered input-sm w-full" onchange="calcularDiasLinha()">
       </div>
 
       <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Investimento Bruto (R$)</span></label>
-        <input type="text" id="investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
-               oninput="aplicarMascaraDinheiro(this); calcularVolume()">
+        <label class="label py-1"><span class="label-text font-semibold">Dias</span></label>
+        <input type="text" id="dias_linha" class="input input-bordered input-sm bg-base-200 text-center" readonly value="0">
       </div>
 
       <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Valor Unitário (R$)</span></label>
-        <input type="text" id="valor_unitario" class="input input-bordered input-sm" placeholder="0,00" 
-               oninput="aplicarMascaraDinheiro(this); calcularVolume()">
+        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
+        <input id="especificacoes" type="text" class="input input-bordered input-sm w-full" placeholder="Detalhes adicionais...">
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span id="label_volume" class="label-text font-semibold">Volume Contratado</span></label>
-        <input type="text" id="volume_contratado" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+      <!-- Valores -->
+      <div class="md:col-span-4 border-t pt-3 mt-2">
+        <h4 class="font-semibold text-sm mb-2">Valores</h4>
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Valor Unit. Tabela (R$)</span></label>
+            <input type="text" id="valor_unitario_tabela" class="input input-bordered input-sm" placeholder="0,00" 
+                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociado()">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Desconto (%)</span></label>
+            <input type="number" id="desconto_percentual" class="input input-bordered input-sm" placeholder="0" min="0" max="100"
+                   oninput="calcularValorNegociado()">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Valor Unit. Negociado (R$)</span></label>
+            <input type="text" id="valor_unitario" class="input input-bordered input-sm bg-base-200" placeholder="0,00" 
+                   readonly>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Investimento Bruto (R$)</span></label>
+            <input type="text" id="investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
+                   oninput="aplicarMascaraDinheiro(this); calcularVolume()">
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"><span id="label_volume" class="label-text text-xs">Volume Contratado</span></label>
+            <input type="text" id="volume_contratado" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Invest. Líquido (R$)</span></label>
+            <input type="text" id="investimento_liquido" class="input input-bordered input-sm bg-base-200" placeholder="0,00" readonly>
+            <label class="label py-0"><span class="label-text-alt text-xs text-base-content/50">Baseado no % do cliente</span></label>
+          </div>
+        </div>
       </div>
 
-      <div class="form-control flex flex-row justify-end items-end gap-2">
+      <div class="form-control md:col-span-4 flex flex-row justify-end items-end gap-2 mt-3">
         <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost btn-sm">Cancelar</button>
         <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
       </div>
@@ -858,21 +1256,23 @@
   <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
     <h3 class="font-bold text-lg mb-3">Editar Linha de Cotação</h3>
     
-    <form id="form_editar_linha" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <form id="form_editar_linha" class="grid grid-cols-1 md:grid-cols-4 gap-3">
       <input type="hidden" id="edit_linha_id">
       
-      <div class="form-control md:col-span-2">
-        <label class="label py-1"><span class="label-text font-semibold">Segmentação *</span></label>
-        <textarea id="edit_segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="1" required minlength="10" 
+      <!-- Linha 1: Segmentação e Praça -->
+      <div class="form-control md:col-span-3">
+        <label class="label py-1"><span class="label-text font-semibold">Segmentação (Target & Interesses) *</span></label>
+        <textarea id="edit_segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="2" required minlength="10" 
                   placeholder="Descreva a segmentação da audiência..."></textarea>
       </div>
 
-      <div class="form-control md:col-span-1">
-        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
-        <textarea id="edit_especificacoes" class="textarea textarea-bordered textarea-sm w-full" rows="1" placeholder="Especificações técnicas ou detalhes adicionais..."></textarea>
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Praça</span></label>
+        <input type="text" id="edit_praca" class="input input-bordered input-sm w-full" placeholder="Ex: Nacional, SP, RJ...">
       </div>
 
-      <div class="form-control md:col-span-3">
+      <!-- Linha 2: Formatos -->
+      <div class="form-control md:col-span-4">
         <label class="label py-1"><span class="label-text font-semibold">Formatos *</span></label>
         <div class="flex flex-wrap gap-3">
           <label class="label cursor-pointer justify-start gap-2 py-1">
@@ -906,17 +1306,39 @@
         </div>
       </div>
 
+      <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
       <div class="form-control">
         <label class="label py-1"><span class="label-text font-semibold">Plataforma</span></label>
         <select id="edit_plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
           <option value="">Selecione...</option>
-          <option value="DV360">DV360</option>
-          <option value="Programática">Programática</option>
-          <option value="Amazon DSP">Amazon DSP</option>
-          <option value="Meta Ads">Meta Ads</option>
-          <option value="Google Ads">Google Ads</option>
-          <option value="TikTok Ads">TikTok Ads</option>
-          <option value="LinkedIn Ads">LinkedIn Ads</option>
+          <optgroup label="Mídia Programática">
+            <option value="DV360">DV360</option>
+            <option value="Programática">Programática</option>
+            <option value="Amazon DSP">Amazon DSP</option>
+            <option value="TTD">The Trade Desk</option>
+          </optgroup>
+          <optgroup label="Social">
+            <option value="Meta Ads">Meta Ads</option>
+            <option value="TikTok Ads">TikTok Ads</option>
+            <option value="LinkedIn Ads">LinkedIn Ads</option>
+            <option value="Pinterest Ads">Pinterest Ads</option>
+            <option value="X Ads">X Ads (Twitter)</option>
+            <option value="Spotify Ads">Spotify Ads</option>
+          </optgroup>
+          <optgroup label="Search & Display">
+            <option value="Google Ads">Google Ads</option>
+            <option value="Microsoft Ads">Microsoft Ads (Bing)</option>
+          </optgroup>
+          <optgroup label="Streaming / CTV">
+            <option value="Netflix">Netflix</option>
+            <option value="Prime Video">Prime Video</option>
+            <option value="Disney+">Disney+</option>
+            <option value="Paramount+">Paramount+</option>
+            <option value="HBO Max">HBO Max</option>
+            <option value="Globoplay">Globoplay</option>
+            <option value="Pluto TV">Pluto TV</option>
+            <option value="Samsung TV Plus">Samsung TV Plus</option>
+          </optgroup>
         </select>
       </div>
 
@@ -924,95 +1346,103 @@
         <label class="label py-1"><span class="label-text font-semibold">Objetivo / KPI</span></label>
         <select id="edit_objetivo_kpi" class="select select-bordered select-sm w-full h-10 min-h-10">
           <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPV">CPV</option>
-          <option value="CPL">CPL</option>
+          <option value="CPM">CPM - Custo por Mil</option>
+          <option value="CPC">CPC - Custo por Clique</option>
+          <option value="CPA">CPA - Custo por Aquisição</option>
+          <option value="CPL">CPL - Custo por Lead</option>
+          <option value="CPO">CPO - Custo por Pedido</option>
+          <option value="CPEV">CPEV - Custo por Eng. Video</option>
+          <option value="CPV">CPV - Custo por View</option>
+          <option value="CPCV">CPCV - Custo por View Completo</option>
+          <option value="CPE">CPE - Custo por Engajamento</option>
+          <option value="CPS">CPS - Custo por Sessão</option>
+          <option value="CPD">CPD - Custo por Download</option>
           <option value="Fixo">Fixo</option>
         </select>
       </div>
 
       <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
-        <input type="text" id="edit_viewability_minimo" class="input input-bordered input-sm" placeholder="0,00" 
-               oninput="aplicarMascaraDinheiro(this)">
-      </div>
-
-      <!-- Canal e Produto na mesma linha -->
-      <div class="form-control md:col-span-3">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="label py-1"><span class="label-text font-semibold">Canal</span></label>
-            <div class="flex flex-wrap gap-3">
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_canal" value="FEED" class="checkbox checkbox-sm">
-                <span class="label-text">FEED</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_canal" value="STORY" class="checkbox checkbox-sm">
-                <span class="label-text">STORY</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_canal" value="Outros" class="checkbox checkbox-sm">
-                <span class="label-text">Outros</span>
-              </label>
-            </div>
-          </div>
-          <div>
-            <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
-            <div class="flex flex-wrap gap-3">
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-sm">
-                <span class="label-text">Midia</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_produto" value="Dados" class="checkbox checkbox-sm">
-                <span class="label-text">Dados</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_produto" value="Interativos" class="checkbox checkbox-sm">
-                <span class="label-text">Interativos</span>
-              </label>
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input type="checkbox" name="edit_produto" value="Outros" class="checkbox checkbox-sm">
-                <span class="label-text">Outros</span>
-              </label>
-            </div>
-          </div>
-        </div>
+        <label class="label py-1"><span class="label-text font-semibold">Viewability (%)</span></label>
+        <input type="number" id="edit_viewability_minimo" class="input input-bordered input-sm" value="70" min="0" max="100">
       </div>
 
       <div class="form-control">
+        <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
+        <div class="flex flex-wrap gap-2 pt-1">
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-xs">
+            <span class="label-text text-sm">Midia</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_produto" value="Dados" class="checkbox checkbox-xs">
+            <span class="label-text text-sm">Dados</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_produto" value="Interativos" class="checkbox checkbox-xs">
+            <span class="label-text text-sm">Interativos</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Linha 4: Datas e dias -->
+      <div class="form-control">
         <label class="label py-1"><span class="label-text font-semibold">Data Início</span></label>
-        <input type="date" id="edit_data_inicio" class="input input-bordered input-sm w-full">
+        <input type="date" id="edit_data_inicio" class="input input-bordered input-sm w-full" onchange="calcularDiasLinhaEdit()">
       </div>
 
       <div class="form-control">
         <label class="label py-1"><span class="label-text font-semibold">Data Fim</span></label>
-        <input type="date" id="edit_data_fim" class="input input-bordered input-sm w-full">
+        <input type="date" id="edit_data_fim" class="input input-bordered input-sm w-full" onchange="calcularDiasLinhaEdit()">
       </div>
 
       <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Investimento Bruto (R$)</span></label>
-        <input type="text" id="edit_investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
-               oninput="aplicarMascaraDinheiro(this)">
+        <label class="label py-1"><span class="label-text font-semibold">Dias</span></label>
+        <input type="number" id="edit_dias_linha" class="input input-bordered input-sm w-full bg-base-200" readonly>
       </div>
 
       <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Valor Unitário (R$)</span></label>
-        <input type="text" id="edit_valor_unitario" class="input input-bordered input-sm" placeholder="0,00" 
-               oninput="aplicarMascaraDinheiro(this)">
+        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
+        <input type="text" id="edit_especificacoes" class="input input-bordered input-sm w-full" placeholder="Detalhes adicionais...">
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Volume Contratado</span></label>
-        <input type="text" id="edit_volume_contratado" class="input input-bordered input-sm" placeholder="0">
+      <!-- Linha 5: Valores -->
+      <div class="md:col-span-4 border-t pt-3 mt-2">
+        <h4 class="font-semibold text-sm mb-2">Valores</h4>
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Valor Tabela (R$)</span></label>
+            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-sm" placeholder="0,00" 
+                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociadoEdit()">
+          </div>
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Desconto (%)</span></label>
+            <input type="number" id="edit_desconto_percentual" class="input input-bordered input-sm" placeholder="0" min="0" max="100"
+                   onchange="calcularValorNegociadoEdit()">
+          </div>
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Valor Negociado (R$)</span></label>
+            <input type="text" id="edit_valor_unitario" class="input input-bordered input-sm bg-base-200" placeholder="0,00" readonly>
+          </div>
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Invest. Bruto (R$)</span></label>
+            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
+                   oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit(); calcularInvestLiquidoEdit()">
+          </div>
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Volume</span></label>
+            <input type="text" id="edit_volume_contratado" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+          </div>
+          <div class="form-control">
+            <label class="label py-1"><span class="label-text text-xs">Invest. Líquido (R$)</span></label>
+            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-sm bg-base-200" placeholder="0,00" readonly>
+          </div>
+        </div>
       </div>
 
-      <div class="form-control flex flex-row justify-end items-end gap-2">
+      <!-- Botões -->
+      <div class="md:col-span-4 flex justify-end gap-2 mt-3">
         <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
+        <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar Alterações</button>
       </div>
 
     </form>
@@ -1022,70 +1452,101 @@
   </form>
 </dialog>
 
-<!-- Modal Adicionar Audiência -->
+<!-- Modal Adicionar Audiência - 2 Etapas -->
 <dialog id="modal_adicionar_audiencia" class="modal">
-  <div class="modal-box max-w-3xl">
-    <h3 class="font-bold text-lg mb-4">Adicionar Audiência</h3>
+  <div class="modal-box max-w-4xl">
     
-    <form id="form_nova_audiencia" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Etapa 1: Busca -->
+    <div id="etapa_busca_audiencia">
+      <h3 class="font-bold text-lg mb-4">Buscar Audiência</h3>
       
-      <div class="form-control md:col-span-2">
-        <label class="label"><span class="label-text font-semibold">Nome da Audiência *</span></label>
-        <div class="relative">
-          <input type="hidden" id="audiencia_id_selecionada">
-          <input type="text" id="audiencia_nome" class="input input-bordered input-sm" 
-                 placeholder="Digite para buscar..." 
-                 autocomplete="off"
-                 oninput="buscarAudiencias(this.value)"
-                 onfocus="mostrarResultadosAudiencias()"
-                 required>
-          <div id="resultados_busca_audiencias" class="absolute z-[9999] w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Digite o nome da audiência</span></label>
+        <div class="join w-full">
+          <input type="text" id="busca_audiencia_termo" class="input input-bordered input-sm join-item flex-1" 
+                 placeholder="Ex: Interessados em viagens, Compradores de eletrônicos..."
+                 onkeyup="if(event.key==='Enter') executarBuscaAudiencias()">
+          <button type="button" onclick="executarBuscaAudiencias()" class="btn btn-sm join-item" style="background-color: #72cd80; color: white;">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Buscar
+          </button>
         </div>
       </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Público</span></label>
-        <input type="text" id="audiencia_publico" class="input input-bordered input-sm">
+      
+      <!-- Resultados da Busca -->
+      <div id="resultados_busca_container" class="mt-4 hidden">
+        <h4 class="font-semibold text-sm mb-2">Resultados encontrados:</h4>
+        <div id="resultados_busca_lista" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+          <!-- Resultados serão inseridos aqui -->
+        </div>
       </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Categoria</span></label>
-        <input type="text" id="audiencia_categoria" class="input input-bordered input-sm">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Subcategoria</span></label>
-        <input type="text" id="audiencia_subcategoria" class="input input-bordered input-sm">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">CPM Estimado (R$)</span></label>
-        <input type="number" id="cpm_estimado" class="input input-bordered input-sm" step="0.01">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Investimento Sugerido (R$)</span></label>
-        <input type="text" id="investimento_sugerido" class="input input-bordered input-sm" placeholder="0,00">
-      </div>
-
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Impressões Estimadas</span></label>
-        <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm" placeholder="0">
-      </div>
-
-      <div class="form-control">
-        <label class="label cursor-pointer">
-          <span class="label-text font-semibold">Incluir na Proposta?</span>
-          <input type="checkbox" id="incluido_proposta" class="checkbox" checked>
-        </label>
-      </div>
-
-      <div class="form-control flex flex-row justify-end items-end gap-2">
+      
+      <div class="modal-action">
         <button type="button" onclick="document.getElementById('modal_adicionar_audiencia').close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="button" onclick="salvarNovaAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
       </div>
+    </div>
+    
+    <!-- Etapa 2: Detalhes da Audiência Selecionada -->
+    <div id="etapa_detalhes_audiencia" class="hidden">
+      <div class="flex items-center gap-2 mb-4">
+        <button type="button" onclick="voltarBuscaAudiencia()" class="btn btn-ghost btn-sm btn-circle">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <h3 class="font-bold text-lg">Configurar Audiência</h3>
+      </div>
+      
+      <form id="form_nova_audiencia" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input type="hidden" id="audiencia_id_selecionada">
+        
+        <!-- Card da Audiência com Thumbnail -->
+        <div class="md:col-span-3 bg-base-200 rounded-lg p-4 flex gap-4">
+          <div id="audiencia_thumbnail" class="w-24 h-24 bg-base-300 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h4 id="audiencia_nome_display" class="font-bold text-lg"></h4>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
+              <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
+            </div>
+            <p id="audiencia_publico_display" class="text-sm text-base-content/70 mt-2"></p>
+          </div>
+        </div>
+        
+        <!-- Campos editáveis -->
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">CPM (R$) *</span></label>
+          <input type="text" id="cpm_estimado" class="input input-bordered input-sm" placeholder="0,00"
+                 oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
+        </div>
+        
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Investimento (R$)</span></label>
+          <input type="text" id="investimento_sugerido" class="input input-bordered input-sm" placeholder="0,00"
+                 oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
+        </div>
+        
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Impressões</span></label>
+          <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+        </div>
+        
+        <!-- Campos ocultos para envio -->
+        <input type="hidden" id="audiencia_nome">
+        <input type="hidden" id="audiencia_publico">
+        <input type="hidden" id="audiencia_categoria">
+        <input type="hidden" id="audiencia_subcategoria">
 
-    </form>
+      </form>
+      
+      <div class="modal-action">
+        <button type="button" onclick="voltarBuscaAudiencia()" class="btn btn-ghost btn-sm">Voltar</button>
+        <button type="button" onclick="salvarNovaAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Adicionar à Cotação</button>
+      </div>
+    </div>
+    
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>Fechar</button>
@@ -1250,23 +1711,6 @@
 </dialog>
 
 <script>
-// Função para trocar abas
-function trocarAbaCotacao(aba) {
-  // Remover active de todas as abas
-  document.querySelectorAll('.tabs .tab').forEach(tab => {
-    tab.classList.remove('tab-active');
-  });
-  
-  // Esconder todo o conteúdo
-  document.querySelectorAll('.aba-content').forEach(content => {
-    content.classList.remove('active');
-  });
-  
-  // Ativar aba clicada
-  document.getElementById('tab_' + aba).classList.add('tab-active');
-  document.getElementById('content_' + aba).classList.add('active');
-}
-
 // Função para duplicar cotação
 function duplicarCotacao() {
   if (!confirm('Deseja duplicar esta cotação? Uma cópia será criada.')) {
@@ -1306,6 +1750,9 @@ function exportarPDF() {
   window.open(`/cotacoes/${cotacaoId}/pdf`, '_blank');
 }
 
+// Percentual líquido do cliente (carregado do servidor)
+const percentualLiquidoCliente = {{ (cliente.percentual if cliente and cliente.percentual else 100)|default(100) }};
+
 // Função para calcular data de expiração automaticamente
 function calcularExpiracao() {
   const dataInicio = document.getElementById('periodo_inicio').value;
@@ -1325,6 +1772,119 @@ function calcularExpiracao() {
     
     expiracaoInput.value = `${ano}-${mes}-${dia}T${hora}:${minuto}`;
   }
+}
+
+// Função para calcular quantidade de dias da campanha
+function calcularDiasCampanha() {
+  const dataInicio = document.getElementById('periodo_inicio').value;
+  const dataFim = document.getElementById('periodo_fim').value;
+  const diasCampo = document.getElementById('dias_campanha');
+  
+  if (dataInicio && dataFim) {
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+    const diffTime = Math.abs(fim - inicio);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para incluir o dia inicial
+    diasCampo.value = diffDays;
+  } else {
+    diasCampo.value = '0';
+  }
+  
+  // Também calcular expiração se necessário
+  calcularExpiracao();
+}
+
+// Função para validar data de início (não pode ser anterior a hoje)
+function validarDataInicio(input) {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const dataEscolhida = new Date(input.value + 'T00:00:00');
+  const erroLabel = document.getElementById('erro_data_inicio');
+  
+  if (dataEscolhida < hoje) {
+    erroLabel.classList.remove('hidden');
+    input.classList.add('input-error');
+    // Não impede, apenas avisa
+  } else {
+    erroLabel.classList.add('hidden');
+    input.classList.remove('input-error');
+  }
+}
+
+// Função para calcular dias da linha de cotação (modal)
+function calcularDiasLinha() {
+  const dataInicio = document.getElementById('data_inicio').value;
+  const dataFim = document.getElementById('data_fim').value;
+  const diasCampo = document.getElementById('dias_linha');
+  
+  if (dataInicio && dataFim) {
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+    const diffTime = Math.abs(fim - inicio);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    diasCampo.value = diffDays;
+  } else {
+    diasCampo.value = '0';
+  }
+}
+
+// Função para calcular valor negociado (após desconto)
+function calcularValorNegociado() {
+  const valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
+  const desconto = parseFloat(document.getElementById('desconto_percentual').value) || 0;
+  
+  if (valorTabela > 0) {
+    const valorNegociado = valorTabela * (1 - desconto / 100);
+    document.getElementById('valor_unitario').value = formatarMoeda(valorNegociado);
+    calcularVolume();
+  }
+}
+
+// Função para calcular investimento líquido
+function calcularInvestimentoLiquido() {
+  const investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
+  
+  if (investBruto > 0 && percentualLiquidoCliente > 0) {
+    const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+    document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
+  } else {
+    document.getElementById('investimento_liquido').value = '0,00';
+  }
+}
+
+// Condições comerciais padrão
+const CONDICOES_COMERCIAIS_PADRAO = `* A APROVAÇÃO DE MATERIAIS DE 24 HORAS É DE CADA PLATAFORMA/ TECNOLOGIA, NÃO É DE RESPONSABILIDADE DA CENTRALCOMM.
+
+* Qualquer ajuste de entrega sobre a campanha, precisa de alteração de PI ou alguma documentação por e-mail.
+* Envio de PI de 24 horas antes do início da campanha e Material 48 horas para verificação.
+* Faturamento 15 DFM.
+
+
+Plataforma Programática
+Obs. 1: A campanha será trabalhada e otimizada para veicular as metas de entrega previstas. Serão esses nossos KPI's e são esses os resultados que buscaremos e apresentaremos ao final da campanha.
+Obs. 2: Relatórios semanais/ parciais com os dados de campanha, que o cliente desejar, somente sob prévia solicitação.
+Obs. 3: Relatórios de BI das campanhas, terão que ser avisados antes do inicio da campanha e entregues somente de uma semana a quinze dias, após o final da mesma.
+Obs. 4: Remarketing: Iniciaremos a campanha à partir da criação de uma base de dados criada. O ideal é que seja após 1 mês de campanha.`;
+
+// Função para preencher condições comerciais padrão
+function preencherCondicoesComerciais() {
+  const textarea = document.getElementById('condicoes_comerciais');
+  if (textarea) {
+    if (textarea.value.trim() !== '') {
+      if (!confirm('Já existe texto nas condições comerciais. Deseja substituir pelo texto padrão?')) {
+        return;
+      }
+    }
+    textarea.value = CONDICOES_COMERCIAIS_PADRAO;
+  }
+}
+
+// Função para recalcular totais da aba valores
+function recalcularTotais() {
+  // Esta função pode ser expandida para fazer cálculos via JavaScript
+  // Por enquanto os totais são calculados pelo servidor via Jinja2
+  const desconto = parseMoeda(document.getElementById('desconto_total').value) || 0;
+  document.getElementById('desconto_total_display').textContent = 'R$ ' + formatarMoeda(desconto);
 }
 
 // Função para salvar formulário individual
@@ -1596,6 +2156,13 @@ function removerMascaraDinheiro(valor) {
   return parseFloat(valor.replace(/\./g, '').replace(',', '.'));
 }
 
+// Alias para parseMoeda (mesmo que removerMascaraDinheiro)
+function parseMoeda(valor) {
+  if (!valor) return 0;
+  if (typeof valor === 'number') return valor;
+  return parseFloat(valor.toString().replace(/\./g, '').replace(',', '.')) || 0;
+}
+
 function formatarMoeda(valor) {
   return parseFloat(valor).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
@@ -1715,29 +2282,41 @@ async function salvarNovaLinha() {
   const formatosSelecionados = Array.from(document.querySelectorAll('input[name="formatos"]:checked'))
     .map(cb => cb.value);
   
-  const canaisSelecionados = Array.from(document.querySelectorAll('input[name="canal"]:checked'))
-    .map(cb => cb.value);
-  
   const produtosSelecionados = Array.from(document.querySelectorAll('input[name="produto"]:checked'))
     .map(cb => cb.value);
   
+  // Calcular investimento líquido
+  const investBruto = parseMoeda(document.getElementById('investimento_bruto').value) || 0;
+  const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    mostrarToast('Salve a cotação primeiro', 'warning');
+    return;
+  }
+  
   const data = {
-    cotacao_id: {{ cotacao.id }},
+    cotacao_id: parseInt(cotacaoId),
     segmentacao: document.getElementById('segmentacao').value,
     formatos: formatosSelecionados.join(', '),
-    canal: canaisSelecionados.join(', '),
     plataforma: document.getElementById('plataforma').value,
     objetivo_kpi: document.getElementById('objetivo_kpi').value,
-    viewability_minimo: removerMascaraDinheiro(document.getElementById('viewability_minimo').value),
+    viewability_minimo: parseFloat(document.getElementById('viewability_minimo').value) || 70,
     data_inicio: document.getElementById('data_inicio').value,
     data_fim: document.getElementById('data_fim').value,
-    investimento_bruto: removerMascaraDinheiro(document.getElementById('investimento_bruto').value),
-    valor_unitario: removerMascaraDinheiro(document.getElementById('valor_unitario').value),
-    volume_contratado: removerMascaraNumero(document.getElementById('volume_contratado').value),
+    investimento_bruto: investBruto,
+    valor_unitario: parseMoeda(document.getElementById('valor_unitario').value) || 0,
+    volume_contratado: parseInt(document.getElementById('volume_contratado').value.replace(/\D/g, '')) || 0,
     produto: produtosSelecionados.join(', '),
     especificacoes: document.getElementById('especificacoes').value,
     pedido_sugestao: document.getElementById('segmentacao').value.substring(0, 100),
-    detalhamento: document.getElementById('especificacoes').value
+    detalhamento: document.getElementById('especificacoes').value,
+    // Novos campos
+    praca: document.getElementById('praca').value,
+    valor_unitario_tabela: parseMoeda(document.getElementById('valor_unitario_tabela').value) || 0,
+    desconto_percentual: parseFloat(document.getElementById('desconto_percentual').value) || 0,
+    valor_unitario_negociado: parseMoeda(document.getElementById('valor_unitario').value) || 0,
+    investimento_liquido: investLiquido
   };
 
   try {
@@ -1779,15 +2358,21 @@ async function editarLinha(linhaId) {
     // Preencher o formulário com os dados da linha
     document.getElementById('edit_linha_id').value = linhaId;
     document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
+    document.getElementById('edit_praca').value = linha.praca || '';
     document.getElementById('edit_plataforma').value = linha.plataforma || '';
     document.getElementById('edit_objetivo_kpi').value = linha.objetivo_kpi || '';
-    document.getElementById('edit_viewability_minimo').value = formatarMoeda(linha.viewability_minimo || 0);
+    document.getElementById('edit_viewability_minimo').value = linha.viewability_minimo || 70;
     document.getElementById('edit_data_inicio').value = linha.data_inicio || '';
     document.getElementById('edit_data_fim').value = linha.data_fim || '';
-    document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
-    document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario || 0);
-    document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
     document.getElementById('edit_especificacoes').value = linha.especificacoes || '';
+    
+    // Novos campos de valores
+    document.getElementById('edit_valor_unitario_tabela').value = formatarMoeda(linha.valor_unitario_tabela || 0);
+    document.getElementById('edit_desconto_percentual').value = linha.desconto_percentual || 0;
+    document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario_negociado || linha.valor_unitario || 0);
+    document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
+    document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
+    document.getElementById('edit_investimento_liquido').value = formatarMoeda(linha.investimento_liquido || 0);
     
     // Marcar checkboxes de formatos
     const formatos = typeof linha.formatos === 'string' ? linha.formatos.split(',').map(s => s.trim()) : (Array.isArray(linha.formatos) ? linha.formatos : []);
@@ -1795,17 +2380,14 @@ async function editarLinha(linhaId) {
       cb.checked = formatos.includes(cb.value);
     });
     
-    // Marcar checkboxes de canal
-    const canais = typeof linha.canal === 'string' ? linha.canal.split(',').map(s => s.trim()) : (Array.isArray(linha.canal) ? linha.canal : []);
-    document.querySelectorAll('input[name="edit_canal"]').forEach(cb => {
-      cb.checked = canais.includes(cb.value);
-    });
-    
     // Marcar checkboxes de produto
     const produtos = typeof linha.produto === 'string' ? linha.produto.split(',').map(s => s.trim()) : (Array.isArray(linha.produto) ? linha.produto : []);
     document.querySelectorAll('input[name="edit_produto"]').forEach(cb => {
       cb.checked = produtos.includes(cb.value);
     });
+    
+    // Calcular dias da linha
+    calcularDiasLinhaEdit();
     
     // Abrir modal de edição
     document.getElementById('modal_editar_linha').showModal();
@@ -1815,32 +2397,73 @@ async function editarLinha(linhaId) {
   }
 }
 
+// Funções de cálculo para edição
+function calcularDiasLinhaEdit() {
+  const inicio = document.getElementById('edit_data_inicio').value;
+  const fim = document.getElementById('edit_data_fim').value;
+  if (inicio && fim) {
+    const dataInicio = new Date(inicio);
+    const dataFim = new Date(fim);
+    const diffTime = dataFim - dataInicio;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    document.getElementById('edit_dias_linha').value = diffDays > 0 ? diffDays : 0;
+  }
+}
+
+function calcularValorNegociadoEdit() {
+  const valorTabela = parseMoeda(document.getElementById('edit_valor_unitario_tabela').value) || 0;
+  const desconto = parseFloat(document.getElementById('edit_desconto_percentual').value) || 0;
+  const valorNegociado = valorTabela * (1 - desconto / 100);
+  document.getElementById('edit_valor_unitario').value = formatarMoeda(valorNegociado);
+  calcularVolumeEdit();
+}
+
+function calcularVolumeEdit() {
+  const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
+  const valorUnit = parseMoeda(document.getElementById('edit_valor_unitario').value) || 0;
+  if (valorUnit > 0) {
+    const volume = Math.floor(investBruto / valorUnit * 1000);
+    document.getElementById('edit_volume_contratado').value = formatarNumero(volume);
+  }
+}
+
+function calcularInvestLiquidoEdit() {
+  const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
+  const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
+}
+
 async function salvarEdicaoLinha() {
   const linhaId = document.getElementById('edit_linha_id').value;
   
   const formatosSelecionados = Array.from(document.querySelectorAll('input[name="edit_formatos"]:checked'))
     .map(cb => cb.value);
   
-  const canaisSelecionados = Array.from(document.querySelectorAll('input[name="edit_canal"]:checked'))
-    .map(cb => cb.value);
-  
   const produtosSelecionados = Array.from(document.querySelectorAll('input[name="edit_produto"]:checked'))
     .map(cb => cb.value);
   
+  // Calcular investimento líquido
+  const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
+  const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  
   const data = {
     segmentacao: document.getElementById('edit_segmentacao').value,
+    praca: document.getElementById('edit_praca').value,
     formatos: formatosSelecionados.join(', '),
-    canal: canaisSelecionados.join(', '),
     plataforma: document.getElementById('edit_plataforma').value,
     objetivo_kpi: document.getElementById('edit_objetivo_kpi').value,
-    viewability_minimo: removerMascaraDinheiro(document.getElementById('edit_viewability_minimo').value),
+    viewability_minimo: parseFloat(document.getElementById('edit_viewability_minimo').value) || 70,
     data_inicio: document.getElementById('edit_data_inicio').value,
     data_fim: document.getElementById('edit_data_fim').value,
-    investimento_bruto: removerMascaraDinheiro(document.getElementById('edit_investimento_bruto').value),
-    valor_unitario: removerMascaraDinheiro(document.getElementById('edit_valor_unitario').value),
-    volume_contratado: removerMascaraNumero(document.getElementById('edit_volume_contratado').value),
-    produto: produtosSelecionados.join(', '),
-    especificacoes: document.getElementById('edit_especificacoes').value
+    especificacoes: document.getElementById('edit_especificacoes').value,
+    valor_unitario_tabela: parseMoeda(document.getElementById('edit_valor_unitario_tabela').value) || 0,
+    desconto_percentual: parseFloat(document.getElementById('edit_desconto_percentual').value) || 0,
+    valor_unitario_negociado: parseMoeda(document.getElementById('edit_valor_unitario').value) || 0,
+    valor_unitario: parseMoeda(document.getElementById('edit_valor_unitario').value) || 0,
+    investimento_bruto: investBruto,
+    volume_contratado: parseInt(document.getElementById('edit_volume_contratado').value.replace(/\D/g, '')) || 0,
+    investimento_liquido: investLiquido,
+    produto: produtosSelecionados.join(', ')
   };
 
   try {
@@ -1892,65 +2515,75 @@ async function confirmarRemoverLinha(linhaId) {
   }
 }
 
-// ==================== FUNÇÕES DE AUDIÊNCIAS ====================
+// ==================== FUNÇÕES DE AUDIÊNCIAS (2 ETAPAS) ====================
 
-let timeoutBuscaAudiencias;
 let audienciasSugeridas = [];
 
-async function buscarAudiencias(termo) {
-  clearTimeout(timeoutBuscaAudiencias);
+// Abrir modal na etapa 1 (busca)
+function abrirModalAudiencia() {
+  // Resetar para etapa 1
+  document.getElementById('etapa_busca_audiencia').classList.remove('hidden');
+  document.getElementById('etapa_detalhes_audiencia').classList.add('hidden');
+  document.getElementById('busca_audiencia_termo').value = '';
+  document.getElementById('resultados_busca_container').classList.add('hidden');
+  document.getElementById('resultados_busca_lista').innerHTML = '';
+  
+  document.getElementById('modal_adicionar_audiencia').showModal();
+}
+
+// Executar busca de audiências
+async function executarBuscaAudiencias() {
+  const termo = document.getElementById('busca_audiencia_termo').value.trim();
   
   if (termo.length < 2) {
-    document.getElementById('resultados_busca_audiencias').classList.add('hidden');
+    mostrarToast('Digite pelo menos 2 caracteres para buscar', 'warning');
     return;
   }
-
-  timeoutBuscaAudiencias = setTimeout(async () => {
-    try {
-      const response = await fetch(`/api/audiencias/buscar?q=${encodeURIComponent(termo)}`);
-      audienciasSugeridas = await response.json();
-      
-      const resultadosDiv = document.getElementById('resultados_busca_audiencias');
-      
-      if (!audienciasSugeridas || audienciasSugeridas.length === 0) {
-        resultadosDiv.innerHTML = '<div class="p-3 text-sm text-base-content/50">Nenhuma audiência encontrada</div>';
-        resultadosDiv.classList.remove('hidden');
-        return;
-      }
-      
-      resultadosDiv.innerHTML = audienciasSugeridas.map(aud => `
-        <div class="p-3 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0" 
-             onclick="selecionarAudiencia(${aud.id})">
-          <div class="font-semibold text-sm">${aud.nome}</div>
-          <div class="text-xs text-base-content/60 mt-1">
-            ${aud.perfil_socioeconomico ? aud.perfil_socioeconomico : ''}
-          </div>
-          ${aud.cpm_venda ? `<div class="text-xs text-primary mt-1">CPM: R$ ${parseFloat(aud.cpm_venda).toFixed(2)}</div>` : ''}
-        </div>
-      `).join('');
-      
-      resultadosDiv.classList.remove('hidden');
-    } catch (error) {
-      console.error('Erro ao buscar audiências:', error);
-      const resultadosDiv = document.getElementById('resultados_busca_audiencias');
-      resultadosDiv.innerHTML = '<div class="p-3 text-sm text-error">Erro ao buscar audiências</div>';
-      resultadosDiv.classList.remove('hidden');
+  
+  const listaResultados = document.getElementById('resultados_busca_lista');
+  listaResultados.innerHTML = '<div class="col-span-2 text-center py-4"><span class="loading loading-spinner loading-md"></span></div>';
+  document.getElementById('resultados_busca_container').classList.remove('hidden');
+  
+  try {
+    const response = await fetch(`/api/audiencias/buscar?q=${encodeURIComponent(termo)}`);
+    audienciasSugeridas = await response.json();
+    
+    if (!audienciasSugeridas || audienciasSugeridas.length === 0) {
+      listaResultados.innerHTML = '<div class="col-span-2 text-center py-4 text-base-content/50">Nenhuma audiência encontrada</div>';
+      return;
     }
-  }, 300);
+    
+    listaResultados.innerHTML = audienciasSugeridas.map(aud => `
+      <div class="card bg-base-100 border border-base-300 hover:border-primary cursor-pointer transition-all" 
+           onclick="selecionarAudienciaCard(${aud.id})">
+        <div class="card-body p-3">
+          <div class="flex gap-3">
+            <div class="w-14 h-14 bg-base-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+              ${aud.imagem_url ? 
+                `<img src="${aud.imagem_url}" alt="" class="w-full h-full object-cover">` :
+                `<svg class="w-6 h-6 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>`
+              }
+            </div>
+            <div class="flex-1 min-w-0">
+              <h5 class="font-semibold text-sm truncate">${aud.nome}</h5>
+              <p class="text-xs text-base-content/60 truncate">${aud.perfil_socioeconomico || ''}</p>
+              ${aud.cpm_venda ? `<span class="badge badge-sm badge-primary mt-1">CPM: R$ ${parseFloat(aud.cpm_venda).toFixed(2)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Erro ao buscar audiências:', error);
+    listaResultados.innerHTML = '<div class="col-span-2 text-center py-4 text-error">Erro ao buscar audiências</div>';
+  }
 }
 
-function mostrarResultadosAudiencias() {
-  const resultadosDiv = document.getElementById('resultados_busca_audiencias');
-  if (resultadosDiv.innerHTML && !resultadosDiv.classList.contains('hidden')) {
-    return;
-  }
-  const termo = document.getElementById('audiencia_nome').value;
-  if (termo.length >= 2) {
-    buscarAudiencias(termo);
-  }
-}
-
-async function selecionarAudiencia(audienciaId) {
+// Selecionar audiência e ir para etapa 2
+async function selecionarAudienciaCard(audienciaId) {
   try {
     const response = await fetch(`/api/audiencias/${audienciaId}`);
     if (!response.ok) {
@@ -1959,38 +2592,88 @@ async function selecionarAudiencia(audienciaId) {
     
     const audiencia = await response.json();
     
+    // Preencher dados ocultos
     document.getElementById('audiencia_id_selecionada').value = audiencia.id;
     document.getElementById('audiencia_nome').value = audiencia.nome;
     document.getElementById('audiencia_publico').value = audiencia.publico_estimado || '';
     document.getElementById('audiencia_categoria').value = audiencia.categoria_nome || '';
     document.getElementById('audiencia_subcategoria').value = audiencia.subcategoria_nome || '';
-    document.getElementById('cpm_estimado').value = audiencia.cpm_venda || audiencia.cpm_custo || '';
     
-    document.getElementById('resultados_busca_audiencias').classList.add('hidden');
+    // Preencher card de exibição
+    document.getElementById('audiencia_nome_display').textContent = audiencia.nome;
+    document.getElementById('audiencia_publico_display').textContent = audiencia.perfil_socioeconomico || '';
+    document.getElementById('audiencia_categoria_badge').textContent = audiencia.categoria_nome || 'Sem categoria';
+    document.getElementById('audiencia_subcategoria_badge').textContent = audiencia.subcategoria_nome || '';
+    
+    // Thumbnail
+    const thumbDiv = document.getElementById('audiencia_thumbnail');
+    if (audiencia.imagem_url) {
+      thumbDiv.innerHTML = `<img src="${audiencia.imagem_url}" alt="" class="w-full h-full object-cover">`;
+    } else {
+      thumbDiv.innerHTML = `<svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+      </svg>`;
+    }
+    
+    // CPM
+    const cpm = audiencia.cpm_venda || audiencia.cpm_custo || 0;
+    document.getElementById('cpm_estimado').value = formatarMoeda(cpm);
+    document.getElementById('investimento_sugerido').value = '';
+    document.getElementById('impressoes_estimadas').value = '0';
+    
+    // Trocar para etapa 2
+    document.getElementById('etapa_busca_audiencia').classList.add('hidden');
+    document.getElementById('etapa_detalhes_audiencia').classList.remove('hidden');
+    
   } catch (error) {
     console.error('Erro ao selecionar audiência:', error);
     mostrarToast('Erro ao carregar dados da audiência', 'error');
   }
 }
 
+// Voltar para etapa 1
+function voltarBuscaAudiencia() {
+  document.getElementById('etapa_detalhes_audiencia').classList.add('hidden');
+  document.getElementById('etapa_busca_audiencia').classList.remove('hidden');
+}
+
+// Calcular impressões baseado em CPM e investimento
+function calcularImpressoesAudiencia() {
+  const cpm = parseMoeda(document.getElementById('cpm_estimado').value) || 0;
+  const investimento = parseMoeda(document.getElementById('investimento_sugerido').value) || 0;
+  
+  if (cpm > 0 && investimento > 0) {
+    const impressoes = Math.floor((investimento / cpm) * 1000);
+    document.getElementById('impressoes_estimadas').value = formatarNumero(impressoes);
+  } else {
+    document.getElementById('impressoes_estimadas').value = '0';
+  }
+}
+
 async function salvarNovaAudiencia() {
   const nome = document.getElementById('audiencia_nome').value;
   if (!nome) {
-    mostrarToast('Nome da audiência é obrigatório!', 'warning');
+    mostrarToast('Selecione uma audiência!', 'warning');
+    return;
+  }
+
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    mostrarToast('Salve a cotação primeiro', 'warning');
     return;
   }
 
   const data = {
-    cotacao_id: {{ cotacao.id }},
+    cotacao_id: parseInt(cotacaoId),
     audiencia_id: document.getElementById('audiencia_id_selecionada').value || null,
     audiencia_nome: nome,
     audiencia_publico: document.getElementById('audiencia_publico').value || null,
     audiencia_categoria: document.getElementById('audiencia_categoria').value || null,
     audiencia_subcategoria: document.getElementById('audiencia_subcategoria').value || null,
-    cpm_estimado: document.getElementById('cpm_estimado').value || null,
-    investimento_sugerido: removerMascaraDinheiro(document.getElementById('investimento_sugerido').value),
-    impressoes_estimadas: removerMascaraNumero(document.getElementById('impressoes_estimadas').value),
-    incluido_proposta: document.getElementById('incluido_proposta').checked
+    cpm_estimado: parseMoeda(document.getElementById('cpm_estimado').value) || null,
+    investimento_sugerido: parseMoeda(document.getElementById('investimento_sugerido').value),
+    impressoes_estimadas: parseInt(document.getElementById('impressoes_estimadas').value.replace(/\D/g, '')) || 0,
+    incluido_proposta: true
   };
 
   try {
@@ -2003,6 +2686,7 @@ async function salvarNovaAudiencia() {
     const result = await response.json();
     
     if (response.ok) {
+      document.getElementById('modal_adicionar_audiencia').close();
       incrementarContador('audiencias');
       mostrarToast('Audiência adicionada com sucesso!', 'success');
       setTimeout(() => location.reload(), 1000);
@@ -2015,81 +2699,89 @@ async function salvarNovaAudiencia() {
   }
 }
 
-// Fechar resultados ao clicar fora
-document.addEventListener('click', function(e) {
-  const inputAud = document.getElementById('audiencia_nome');
-  const resultadosDiv = document.getElementById('resultados_busca_audiencias');
-  if (inputAud && resultadosDiv && !inputAud.contains(e.target) && !resultadosDiv.contains(e.target)) {
-    resultadosDiv.classList.add('hidden');
+// Toggle incluir/excluir audiência da proposta
+async function toggleIncluirAudiencia(audienciaId, incluido) {
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ incluido_proposta: incluido })
+    });
+    
+    if (response.ok) {
+      mostrarToast(incluido ? 'Audiência incluída na proposta' : 'Audiência excluída da proposta', 'success');
+    } else {
+      mostrarToast('Erro ao atualizar audiência', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao atualizar audiência', 'error');
   }
-});
+}
+
+// Editar audiência - abre modal com dados preenchidos
+async function editarAudienciaCotacao(audienciaId) {
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`);
+    if (!response.ok) throw new Error('Erro ao buscar audiência');
+    
+    const aud = await response.json();
+    
+    // Preencher etapa 2 diretamente
+    document.getElementById('audiencia_id_selecionada').value = aud.audiencia_id || '';
+    document.getElementById('audiencia_nome').value = aud.audiencia_nome || '';
+    document.getElementById('audiencia_publico').value = aud.audiencia_publico || '';
+    document.getElementById('audiencia_categoria').value = aud.audiencia_categoria || '';
+    document.getElementById('audiencia_subcategoria').value = aud.audiencia_subcategoria || '';
+    
+    document.getElementById('audiencia_nome_display').textContent = aud.audiencia_nome || '';
+    document.getElementById('audiencia_publico_display').textContent = aud.audiencia_publico || '';
+    document.getElementById('audiencia_categoria_badge').textContent = aud.audiencia_categoria || 'Sem categoria';
+    document.getElementById('audiencia_subcategoria_badge').textContent = aud.audiencia_subcategoria || '';
+    
+    document.getElementById('cpm_estimado').value = aud.cpm_estimado ? formatarMoeda(aud.cpm_estimado) : '';
+    document.getElementById('investimento_sugerido').value = aud.investimento_sugerido ? formatarMoeda(aud.investimento_sugerido) : '';
+    document.getElementById('impressoes_estimadas').value = aud.impressoes_estimadas ? formatarNumero(aud.impressoes_estimadas) : '0';
+    
+    // Ir direto para etapa 2
+    document.getElementById('etapa_busca_audiencia').classList.add('hidden');
+    document.getElementById('etapa_detalhes_audiencia').classList.remove('hidden');
+    
+    // Armazenar ID para edição
+    document.getElementById('form_nova_audiencia').dataset.editandoId = audienciaId;
+    
+    document.getElementById('modal_adicionar_audiencia').showModal();
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao carregar audiência para edição', 'error');
+  }
+}
+
+// Remover audiência
+async function removerAudienciaCotacao(audienciaId) {
+  if (!confirm('Tem certeza que deseja remover esta audiência?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      decrementarContador('audiencias');
+      mostrarToast('Audiência removida com sucesso!', 'success');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      mostrarToast('Erro ao remover audiência', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    mostrarToast('Erro ao remover audiência', 'error');
+  }
+}
 
 // ==================== FUNÇÕES DE ANEXOS ====================
 
 let anexoIdParaRemover = null;
-
-async function carregarAnexos() {
-  try {
-    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos`);
-    const data = await response.json();
-    
-    if (data.success) {
-      renderizarAnexos(data.anexos);
-    } else {
-      document.getElementById('lista_anexos').innerHTML = '<p class="text-center text-base-content/50 py-8">Erro ao carregar anexos</p>';
-    }
-  } catch (error) {
-    console.error('Erro ao carregar anexos:', error);
-    document.getElementById('lista_anexos').innerHTML = '<p class="text-center text-error py-8">Erro ao carregar anexos</p>';
-  }
-}
-
-function renderizarAnexos(anexos) {
-  const container = document.getElementById('lista_anexos');
-  
-  // Atualizar contador
-  const contador = document.getElementById('contador_anexos');
-  if (contador) {
-    contador.textContent = anexos ? anexos.length : 0;
-  }
-  
-  if (!anexos || anexos.length === 0) {
-    container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum anexo adicionado ainda</p>';
-    return;
-  }
-  
-  let html = '<div class="overflow-x-auto"><table class="table table-sm">';
-  html += '<thead><tr><th>Arquivo</th><th>Descrição</th><th>Tamanho</th><th>Enviado em</th><th>Ações</th></tr></thead><tbody>';
-  
-  anexos.forEach(anexo => {
-    const tamanhoKB = anexo.tamanho_bytes ? (anexo.tamanho_bytes / 1024).toFixed(2) : '-';
-    const dataFormatada = anexo.created_at ? new Date(anexo.created_at).toLocaleString('pt-BR') : '-';
-    
-    html += `<tr>
-      <td>
-        <a href="${anexo.url_arquivo}" target="_blank" class="link link-primary">
-          <i class="fas fa-file mr-1"></i>${anexo.nome_original}
-        </a>
-      </td>
-      <td>${anexo.descricao || '-'}</td>
-      <td>${tamanhoKB} KB</td>
-      <td>${dataFormatada}</td>
-      <td>
-        <div class="flex gap-1">
-          <button onclick="editarAnexo(${anexo.id})" class="btn btn-xs btn-ghost" title="Editar">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button onclick="deletarAnexo(${anexo.id})" class="btn btn-xs btn-ghost text-error" title="Remover">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-      </td>
-    </tr>`;
-  });
-  
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
-}
 
 async function salvarNovoAnexo() {
   const arquivo = document.getElementById('anexo_arquivo').files[0];
@@ -2109,8 +2801,14 @@ async function salvarNovoAnexo() {
   formData.append('arquivo', arquivo);
   formData.append('descricao', descricao);
   
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    mostrarToast('Salve a cotação primeiro', 'warning');
+    return;
+  }
+  
   try {
-    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos`, {
+    const response = await fetch('/api/cotacoes/' + cotacaoId + '/anexos', {
       method: 'POST',
       body: formData
     });
@@ -2132,8 +2830,11 @@ async function salvarNovoAnexo() {
 }
 
 async function editarAnexo(anexoId) {
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
   try {
-    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`);
+    const response = await fetch('/api/cotacoes/' + cotacaoId + '/anexos/' + anexoId);
     const data = await response.json();
     
     if (data.success) {
@@ -2161,8 +2862,11 @@ async function salvarEdicaoAnexo() {
     return;
   }
   
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
   try {
-    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`, {
+    const response = await fetch('/api/cotacoes/' + cotacaoId + '/anexos/' + anexoId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2193,8 +2897,11 @@ function deletarAnexo(anexoId) {
 }
 
 async function confirmarRemoverAnexo(anexoId) {
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
   try {
-    const response = await fetch(`/api/cotacoes/{{ cotacao.id }}/anexos/${anexoId}`, {
+    const response = await fetch('/api/cotacoes/' + cotacaoId + '/anexos/' + anexoId, {
       method: 'DELETE'
     });
     
@@ -2224,7 +2931,11 @@ function copiarLinkPublico(link) {
 }
 
 async function salvarLinkPublico() {
-  const cotacaoId = {{ cotacao.id }};
+  var cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    mostrarToast('Salve a cotação primeiro', 'warning');
+    return;
+  }
   const ativo = document.getElementById('link_publico_ativo').checked;
   const token = document.getElementById('link_publico_token').value.trim();
   const expiresAt = document.getElementById('modal_link_publico_expires_at').value;

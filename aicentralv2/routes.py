@@ -3711,7 +3711,9 @@ def init_routes(app):
                         'link_publico_token': request.form.get('link_publico_token'),
                         'link_publico_expires_at': request.form.get('link_publico_expires_at'),
                         'observacoes': request.form.get('observacoes'),
-                        'observacoes_internas': request.form.get('observacoes_internas')
+                        'observacoes_internas': request.form.get('observacoes_internas'),
+                        'desconto_total': request.form.get('desconto_total'),
+                        'condicoes_comerciais': request.form.get('condicoes_comerciais')
                     }
                     
                     db.atualizar_cotacao(cotacao_id, **dados)
@@ -3729,6 +3731,11 @@ def init_routes(app):
 
             clientes = db.obter_clientes_simples()
             vendedores = db.obter_vendedores()
+            
+            # Buscar dados do cliente atual (para percentual líquido)
+            cliente = None
+            if cotacao.get('client_id'):
+                cliente = db.obter_cliente_por_id(cotacao['client_id'])
             
             # Buscar contatos ativos do cliente da cotação
             contatos_cliente = []
@@ -3756,6 +3763,7 @@ def init_routes(app):
             return render_template('cadu_cotacoes_detalhes.html', 
                                   modo='editar',
                                   cotacao=cotacao, 
+                                  cliente=cliente,
                                   clientes=clientes, 
                                   vendedores=vendedores,
                                   contatos_cliente=contatos_cliente,
@@ -4124,7 +4132,13 @@ def init_routes(app):
                 data_inicio=data.get('data_inicio'),
                 data_fim=data.get('data_fim'),
                 investimento_bruto=data.get('investimento_bruto'),
-                especificacoes=data.get('especificacoes')
+                especificacoes=data.get('especificacoes'),
+                # Campos adicionados para valores
+                praca=data.get('praca'),
+                valor_unitario_tabela=data.get('valor_unitario_tabela'),
+                desconto_percentual=data.get('desconto_percentual'),
+                valor_unitario_negociado=data.get('valor_unitario_negociado'),
+                investimento_liquido=data.get('investimento_liquido')
             )
             
             return jsonify({'success': True, 'linha_id': linha_id}), 201
@@ -4181,7 +4195,13 @@ def init_routes(app):
                 data_inicio=data.get('data_inicio'),
                 data_fim=data.get('data_fim'),
                 investimento_bruto=data.get('investimento_bruto'),
-                especificacoes=data.get('especificacoes')
+                especificacoes=data.get('especificacoes'),
+                # Campos adicionados para valores
+                praca=data.get('praca'),
+                valor_unitario_tabela=data.get('valor_unitario_tabela'),
+                desconto_percentual=data.get('desconto_percentual'),
+                valor_unitario_negociado=data.get('valor_unitario_negociado'),
+                investimento_liquido=data.get('investimento_liquido')
             )
             
             return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})
@@ -4279,6 +4299,19 @@ def init_routes(app):
             return jsonify({'success': True}), 200
         except Exception as e:
             app.logger.error(f"Erro ao atualizar audiência: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['GET'])
+    @login_required
+    def obter_audiencia_cotacao_api(audiencia_id):
+        """API para obter dados de uma audiência da cotação"""
+        try:
+            audiencia = db.obter_audiencia_cotacao_por_id(audiencia_id)
+            if not audiencia:
+                return jsonify({'error': 'Audiência não encontrada'}), 404
+            return jsonify(audiencia), 200
+        except Exception as e:
+            app.logger.error(f"Erro ao obter audiência: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['DELETE'])

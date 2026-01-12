@@ -235,8 +235,8 @@
                 </div>
             
                 <!-- Navegação Principal -->
-                <nav class="flex-1 overflow-y-auto py-4 custom-scrollbar">
-                    <ul class="menu menu-sm px-3">
+                <nav class="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
+                    <ul class="menu menu-sm px-3 py-4">
                         <!-- Dashboard -->
                         <li>
                             <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
@@ -244,7 +244,7 @@
                             </a>
                         </li>
 
-                        <li class="my-2"><hr class="border-base-300"></li>
+                        <li class="my-1"><hr class="border-base-300"></li>
 
                         <!-- Comercial -->
                         <li class="menu-title sidebar-text">
@@ -271,7 +271,7 @@
                             </a>
                         </li>
 
-                        <li class="my-2"><hr class="border-base-300"></li>
+                        <li class="my-1"><hr class="border-base-300"></li>
 
                         <!-- Audiências -->
                         <li class="menu-title sidebar-text">
@@ -298,7 +298,7 @@
                             </a>
                         </li>
 
-                        <li class="my-2"><hr class="border-base-300"></li>
+                        <li class="my-1"><hr class="border-base-300"></li>
 
                         <!-- Configurações -->
                         <li>
@@ -328,33 +328,23 @@
                         
 
 
-                        <li class="my-2"><hr class="border-base-300"></li>
+                        <li class="my-1"><hr class="border-base-300"></li>
 
-                        <!-- Administração (apenas para admin/superadmin) -->
-                        {% if session.user_type in ['admin', 'superadmin'] %}
+                        <!-- Administração & Ferramentas -->
+                        {% if session.user_type in ['admin', 'superadmin'] or true %}
                         <li>
                             <details data-group="admin">
                                 <summary class="sidebar-text">
                                     <span class="sidebar-text">Administração</span>
                                 </summary>
                                 <ul>
+                                    {% if session.user_type in ['admin', 'superadmin'] %}
                                     <li>
                                         <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
                                             <span class="sidebar-text">Logs de Auditoria</span>
                                         </a>
                                     </li>
-                                </ul>
-                            </details>
-                        </li>
-                        {% endif %}
-
-                        <!-- IA & Ferramentas -->
-                        <li>
-                            <details data-group="tools">
-                                <summary class="sidebar-text">
-                                    <span class="sidebar-text">Ferramentas</span>
-                                </summary>
-                                <ul>
+                                    {% endif %}
                                     <li>
                                         <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
                                             <span class="sidebar-text">Assistente IA</span>
@@ -387,6 +377,10 @@
                                 </ul>
                             </details>
                         </li>
+                    </ul>
+                            </details>
+                        </li>
+                        {% endif %}
                     </ul>
                 </nav>
             

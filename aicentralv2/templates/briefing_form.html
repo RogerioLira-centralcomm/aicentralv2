@@ -18,19 +18,20 @@
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <form method="post" action="{{ url_for('briefing_create') if not briefing else url_for('briefing_edit', briefing_id=briefing.id) }}">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Título -->
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                            <span class="label-text font-semibold">Título <span class="text-error">*</span></span>
-                        </label>
-                        <input type="text" name="titulo" 
-                               value="{{ briefing.titulo if briefing else '' }}" 
-                               class="input input-bordered" 
-                               required
-                               placeholder="Ex: Campanha Lançamento Produto X">
-                    </div>
+                <!-- Título em coluna cheia -->
+                <div class="form-control mb-6">
+                    <label class="label">
+                        <span class="label-text font-semibold">Título <span class="text-error">*</span></span>
+                    </label>
+                    <input type="text" name="titulo" 
+                           value="{{ briefing.titulo if briefing else '' }}" 
+                           class="input input-bordered" 
+                           required
+                           placeholder="Ex: Campanha Lançamento Produto X">
+                </div>
 
+                <!-- Grid 2 Colunas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <!-- Cliente -->
                     <div class="form-control">
                         <label class="label">
@@ -50,77 +51,6 @@
                                 required
                             >
                             <div id="resultados_clientes" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
-                        </div>
-                    </div>
-
-                    <!-- Objetivo -->
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                            <span class="label-text font-semibold">Objetivo</span>
-                        </label>
-                        <textarea name="objetivo" 
-                                  class="textarea textarea-bordered h-24" 
-                                  placeholder="Descreva o objetivo principal da campanha">{{ briefing.objetivo if briefing else '' }}</textarea>
-                    </div>
-
-                    <!-- Público-Alvo -->
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                            <span class="label-text font-semibold">Público-Alvo</span>
-                        </label>
-                        <textarea name="publico_alvo" 
-                                  class="textarea textarea-bordered h-24" 
-                                  placeholder="Descreva o público-alvo (idade, perfil, comportamento, etc.)">{{ briefing.publico_alvo if briefing else '' }}</textarea>
-                    </div>
-
-                    <!-- Mensagem-Chave -->
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                            <span class="label-text font-semibold">Mensagem-Chave</span>
-                        </label>
-                        <textarea name="mensagem_chave" 
-                                  class="textarea textarea-bordered h-24" 
-                                  placeholder="Qual a mensagem principal que deve ser comunicada?">{{ briefing.mensagem_chave if briefing else '' }}</textarea>
-                    </div>
-
-                    <!-- Canais -->
-                    <div class="form-control md:col-span-2">
-                        <label class="label">
-                            <span class="label-text font-semibold">Canais</span>
-                        </label>
-                        <input type="text" name="canais" 
-                               value="{{ briefing.canais if briefing else '' }}" 
-                               class="input input-bordered" 
-                               placeholder="Ex: Instagram, Facebook, Google Ads, Email Marketing">
-                        <label class="label">
-                            <span class="label-text-alt">Separe por vírgula os canais onde a campanha será veiculada</span>
-                        </label>
-                    </div>
-
-                    <!-- Budget -->
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-semibold">Budget (R$)</span>
-                        </label>
-                        <input type="number" name="budget" 
-                               value="{{ briefing.budget if briefing else '' }}" 
-                               step="0.01" 
-                               class="input input-bordered" 
-                               placeholder="0.00">
-                    </div>
-
-                    <!-- Prazo -->
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-semibold">Prazo de Entrega</span>
-                        </label>
-                        <div class="relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('prazo_input').showPicker()">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                            </svg>
-                            <input type="date" name="prazo" id="prazo_input"
-                                   value="{{ briefing.prazo.strftime('%Y-%m-%d') if briefing and briefing.prazo else '' }}" 
-                                   class="input input-bordered pl-10 w-full">
                         </div>
                     </div>
 
@@ -157,15 +87,85 @@
                         </select>
                     </div>
 
-                    <!-- Observações -->
-                    <div class="form-control md:col-span-2">
+                    <!-- Budget -->
+                    <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-semibold">Observações</span>
+                            <span class="label-text font-semibold">Budget (R$)</span>
                         </label>
-                        <textarea name="observacoes" 
-                                  class="textarea textarea-bordered h-32" 
-                                  placeholder="Informações adicionais, referências, restrições, etc.">{{ briefing.observacoes if briefing else '' }}</textarea>
+                        <input type="number" name="budget" 
+                               value="{{ briefing.budget if briefing else '' }}" 
+                               step="0.01" 
+                               class="input input-bordered" 
+                               placeholder="0.00">
                     </div>
+
+                    <!-- Prazo -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Prazo de Entrega</span>
+                        </label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('prazo_input').showPicker()">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                            <input type="date" name="prazo" id="prazo_input"
+                                   value="{{ briefing.prazo.strftime('%Y-%m-%d') if briefing and briefing.prazo else '' }}" 
+                                   class="input input-bordered pl-10 w-full">
+                        </div>
+                    </div>
+
+                    <!-- Objetivo -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Objetivo</span>
+                        </label>
+                        <textarea name="objetivo" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Descreva o objetivo principal da campanha">{{ briefing.objetivo if briefing else '' }}</textarea>
+                    </div>
+
+                    <!-- Mensagem-Chave -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Mensagem-Chave</span>
+                        </label>
+                        <textarea name="mensagem_chave" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Qual a mensagem principal que deve ser comunicada?">{{ briefing.mensagem_chave if briefing else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Público-Alvo e Canais -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Público-Alvo -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Público-Alvo</span>
+                        </label>
+                        <textarea name="publico_alvo" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Descreva o público-alvo (idade, perfil, comportamento, etc.)">{{ briefing.publico_alvo if briefing else '' }}</textarea>
+                    </div>
+
+                    <!-- Canais -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Canais</span>
+                        </label>
+                        <textarea name="canais" 
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Ex: Instagram, Facebook, Google Ads, Email Marketing">{{ briefing.canais if briefing else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Observações -->
+                <div class="form-control mb-6">
+                    <label class="label">
+                        <span class="label-text font-semibold">Observações</span>
+                    </label>
+                    <textarea name="observacoes" 
+                              class="textarea textarea-bordered h-20" 
+                              placeholder="Informações adicionais, referências, restrições, etc.">{{ briefing.observacoes if briefing else '' }}</textarea>
                 </div>
 
                 <!-- Botões -->
@@ -248,80 +248,64 @@ function renderizarResultados(clientes) {
     resultadosDiv.innerHTML = clientes.map((cliente, index) => `
         <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0 cliente-resultado" 
              data-index="${index}"
-             onclick="selecionarCliente(${cliente.id_cliente}, '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
-            <div class="font-medium">${cliente.nome_fantasia}</div>
-            <div class="text-sm text-gray-500">${cliente.razao_social || ''}</div>
+             data-id="${cliente.id_cliente}" 
+             data-nome="${cliente.nome_fantasia}">
+            <div class="font-semibold text-sm">${cliente.nome_fantasia}</div>
+            <div class="text-xs text-gray-500">${cliente.razao_social || ''}</div>
         </div>
     `).join('');
     
     resultadosDiv.style.display = 'block';
-    currentIndex = -1;
-}
-
-function selecionarCliente(id, nome) {
-    document.getElementById('cliente_id').value = id;
-    document.getElementById('cliente_busca').value = nome;
-    document.getElementById('resultados_clientes').style.display = 'none';
-}
-
-function mostrarResultados() {
-    const resultadosDiv = document.getElementById('resultados_clientes');
-    if (resultadosDiv.innerHTML.trim() !== '') {
-        resultadosDiv.style.display = 'block';
-    }
-}
-
-// Fechar dropdown ao clicar fora
-document.addEventListener('click', function(event) {
-    const clienteBusca = document.getElementById('cliente_busca');
-    const resultadosDiv = document.getElementById('resultados_clientes');
     
-    if (clienteBusca && resultadosDiv) {
-        if (!clienteBusca.contains(event.target) && !resultadosDiv.contains(event.target)) {
+    document.querySelectorAll('.cliente-resultado').forEach(elem => {
+        elem.addEventListener('click', function() {
+            const clienteId = this.getAttribute('data-id');
+            const clienteNome = this.getAttribute('data-nome');
+            
+            document.getElementById('cliente_id').value = clienteId;
+            document.getElementById('cliente_busca').value = clienteNome;
             resultadosDiv.style.display = 'none';
-        }
-    }
-});
-
-// Navegar com teclado
-document.getElementById('cliente_busca').addEventListener('keydown', function(e) {
-    const resultadosDiv = document.getElementById('resultados_clientes');
-    const resultados = resultadosDiv.querySelectorAll('.cliente-resultado');
-    
-    if (resultados.length === 0) return;
-    
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        currentIndex = (currentIndex + 1) % resultados.length;
-        atualizarSelecao(resultados);
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        currentIndex = currentIndex <= 0 ? resultados.length - 1 : currentIndex - 1;
-        atualizarSelecao(resultados);
-    } else if (e.key === 'Enter' && currentIndex >= 0) {
-        e.preventDefault();
-        resultados[currentIndex].click();
-    } else if (e.key === 'Escape') {
-        resultadosDiv.style.display = 'none';
-        currentIndex = -1;
-    }
-});
-
-function atualizarSelecao(resultados) {
-    resultados.forEach((el, idx) => {
-        if (idx === currentIndex) {
-            el.classList.add('bg-base-200');
-            el.scrollIntoView({ block: 'nearest' });
-        } else {
-            el.classList.remove('bg-base-200');
-        }
+        });
     });
 }
 
-// Limpar cliente_id quando o usuário altera o texto
-document.getElementById('cliente_busca').addEventListener('input', function() {
-    document.getElementById('cliente_id').value = '';
+function mostrarResultados() {
+    const termo = document.getElementById('cliente_busca').value;
+    if (termo.length >= 2) {
+        document.getElementById('resultados_clientes').style.display = 'block';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const clienteInput = document.getElementById('cliente_busca');
+    const resultados = document.getElementById('resultados_clientes');
+    
+    if (!clienteInput.contains(e.target) && !resultados.contains(e.target)) {
+        resultados.style.display = 'none';
+    }
+});
+
+document.getElementById('cliente_busca').addEventListener('keydown', function(e) {
+    const items = document.querySelectorAll('.cliente-resultado');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentIndex = Math.min(currentIndex + 1, items.length - 1);
+        if (items[currentIndex]) {
+            items[currentIndex].click();
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentIndex = Math.max(currentIndex - 1, -1);
+        if (currentIndex >= 0 && items[currentIndex]) {
+            items[currentIndex].click();
+        }
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentIndex >= 0 && items[currentIndex]) {
+            items[currentIndex].click();
+        }
+    }
 });
 </script>
-
 {% endblock %}

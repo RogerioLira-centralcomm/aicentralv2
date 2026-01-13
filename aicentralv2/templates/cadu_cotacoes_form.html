@@ -4,387 +4,192 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
-  <div class="mb-3">
-    <h1 class="text-lg font-semibold leading-tight">
-      {% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}
-    </h1>
-    <p class="text-sm text-base-content/70">
-      {% if modo == 'novo' %}Criar uma nova cotação{% else %}Atualizar dados da cotação{% endif %}
-    </p>
+  <div class="mb-2">
+    <h1 class="text-lg font-semibold">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
+    <p class="text-xs text-base-content/70">{% if modo == 'novo' %}Criar nova cotação{% else %}Atualizar dados da cotação{% endif %}</p>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-6 space-y-2">
+      <div class="mb-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span>{{ message }}</span>
+          <div class="alert alert-sm py-1 {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% else %}alert-info{% endif %}">
+            <span class="text-sm">{{ message }}</span>
           </div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <div class="card bg-base-100 shadow-lg">
-    <div class="card-body">
-      <form method="POST" class="space-y-6">
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4">
+      <form method="POST" class="space-y-3">
         
-        <!-- Informações Básicas -->
+        <!-- LINHA 1: Informações Básicas -->
         <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Informações Básicas</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Número da Cotação (somente leitura em edição) -->
+          <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Informações Básicas</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {% if modo == 'editar' and cotacao %}
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Número da Cotação</span>
-              </label>
-              <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered" disabled>
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Nº Cotação</span></label>
+              <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered input-sm" disabled>
             </div>
             {% endif %}
 
-            <!-- Cliente -->
             <div class="form-control">
-              <label class="label" id="label_cliente">
-                <span class="label-text font-semibold">Cliente *</span>
-              </label>
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Cliente *</span></label>
               <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
-              <div class="flex gap-2 items-center">
-                <div class="flex-1 px-3 py-2 border border-base-300 rounded-lg bg-base-100">
-                  <span id="nome_cliente_selecionado" class="text-sm">
-                    {% if modo == 'editar' and cotacao %}
-                      {{ cotacao.cliente_nome }}
-                    {% else %}
-                      Nenhum cliente selecionado
-                    {% endif %}
-                  </span>
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-2 py-1.5 border border-base-300 rounded bg-base-100 text-sm truncate h-8 flex items-center">
+                  <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
                 </div>
-                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-sm btn-outline" style="color: #72cd80; border-color: #72cd80;" onmouseover="this.style.backgroundColor='#72cd80'; this.style.color='white';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#72cd80';" title="Buscar cliente">
-                  <i class="fas fa-search"></i>
+                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-sm btn-square btn-outline" style="color:#72cd80;border-color:#72cd80;">
+                  <i class="fas fa-search text-xs"></i>
                 </button>
               </div>
             </div>
 
-            <!-- Nome da Campanha -->
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Nome da Campanha *</span>
-              </label>
-              <input 
-                type="text" 
-                name="nome_campanha" 
-                value="{{ cotacao.nome_campanha if cotacao else '' }}" 
-                class="input input-bordered" 
-                placeholder="Ex: Campanha Verão 2025"
-                required
-              >
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Nome da Campanha *</span></label>
+              <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="input input-bordered input-sm" placeholder="Ex: Campanha Verão 2025" required>
             </div>
 
-            <!-- Responsável Comercial -->
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Responsável Comercial</span>
-              </label>
-              <select name="responsavel_comercial" class="select select-bordered">
-                <option value="">Selecione um responsável</option>
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Responsável Comercial</span></label>
+              <select name="responsavel_comercial" class="select select-bordered h-9 min-h-0 text-sm">
+                <option value="">Selecione...</option>
                 {% for vendedor in vendedores %}
-                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>
-                  {{ vendedor.nome_completo }}
-                </option>
+                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
                 {% endfor %}
               </select>
             </div>
 
-            <!-- Contato do Cliente -->
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Contato do Cliente</span>
-              </label>
-              <select name="client_user_id" id="client_user_id" class="select select-bordered">
-                <option value="">Selecione um contato</option>
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Contato do Cliente</span></label>
+              <select name="client_user_id" id="client_user_id" class="select select-bordered h-9 min-h-0 text-sm">
+                <option value="">Selecione...</option>
                 {% if cotacao and contatos_cliente %}
                   {% for contato in contatos_cliente %}
-                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>
-                    {{ contato.nome_completo }}{% if contato.email %} - {{ contato.email }}{% endif %}
-                  </option>
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
             </div>
 
-            <!-- Briefing (aparece quando cliente selecionado) -->
-            <div class="form-control" id="briefing_container">
-              <label class="label">
-                <span class="label-text font-semibold">Briefing</span>
-              </label>
-              <select 
-                name="briefing_id" 
-                id="briefing_id"
-                class="select select-bordered"
-              >
-                <option value="">Selecione um briefing</option>
+            <div class="form-control">
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Briefing</span></label>
+              <select name="briefing_id" id="briefing_id" class="select select-bordered h-9 min-h-0 text-sm">
+                <option value="">Selecione...</option>
                 {% if briefings %}
                   {% for briefing in briefings %}
-                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>
-                    {{ briefing.titulo }}{% if briefing.status %} ({{ briefing.status }}){% endif %}
-                  </option>
+                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>{{ briefing.titulo }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
             </div>
           </div>
-
-          <!-- Objetivo da Campanha -->
-          <div class="form-control mt-4">
-            <label class="label">
-              <span class="label-text font-semibold">Objetivo da Campanha</span>
-            </label>
-            <textarea 
-              name="objetivo_campanha" 
-              class="textarea textarea-bordered" 
-              rows="2"
-              placeholder="Descreva o objetivo principal da campanha..."
-            >{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-          </div>
         </div>
 
-        <!-- Datas da Campanha -->
-        <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Datas</h2>
+        <!-- LINHA 2: Datas e Valores lado a lado -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Datas -->
+          <div>
+            <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Datas</h2>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="form-control">
+                <label class="label py-0.5"><span class="label-text text-xs font-medium">Início *</span></label>
+                <div class="join">
+                  <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()">
+                    <i class="fas fa-calendar-alt text-primary"></i>
+                  </button>
+                  <input type="date" id="periodo_inicio" name="periodo_inicio" value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}" class="input input-bordered input-sm join-item w-full" required>
+                </div>
+              </div>
+              <div class="form-control">
+                <label class="label py-0.5"><span class="label-text text-xs font-medium">Término</span></label>
+                <div class="join">
+                  <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()">
+                    <i class="fas fa-calendar-alt text-primary"></i>
+                  </button>
+                  <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="input input-bordered input-sm join-item w-full">
+                </div>
+              </div>
+              <div class="form-control">
+                <label class="label py-0.5"><span class="label-text text-xs font-medium">Expiração</span></label>
+                <div class="join">
+                  <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('expires_at').showPicker()">
+                    <i class="fas fa-clock text-primary"></i>
+                  </button>
+                  <input type="datetime-local" id="expires_at" name="expires_at" value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}" class="input input-bordered input-sm join-item w-full">
+                </div>
+              </div>
+            </div>
+          </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Período Início -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Data de Início *</span>
-              </label>
-              <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('periodo_inicio').showPicker()">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                </svg>
-                <input 
-                  type="date" 
-                  id="periodo_inicio"
-                  name="periodo_inicio" 
-                  value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
-                  class="input input-bordered pl-10 w-full"
-                  required
-                >
+          <!-- Valores -->
+          <div>
+            <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Valores</h2>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="form-control">
+                <label class="label py-0.5"><span class="label-text text-xs font-medium">Budget Estimado (R$)</span></label>
+                <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+                <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
               </div>
-            </div>
-
-            <!-- Período Fim -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Data de Término</span>
-              </label>
-              <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('periodo_fim').showPicker()">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                </svg>
-                <input 
-                  type="date" 
-                  id="periodo_fim"
-                  name="periodo_fim" 
-                  value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
-                  class="input input-bordered pl-10 w-full"
-                >
+              <div class="form-control">
+                <label class="label py-0.5"><span class="label-text text-xs font-medium">Valor Total (R$) *</span></label>
+                <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')" required>
+                <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
               </div>
-            </div>
-
-            <!-- Expires At (Expiração da Cotação) -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Expiração da Cotação</span>
-              </label>
-              <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('expires_at').showPicker()">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                </svg>
-                <input 
-                  type="datetime-local" 
-                  id="expires_at"
-                  name="expires_at" 
-                  value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
-                  class="input input-bordered pl-10 w-full"
-                >
-              </div>
-            </div>
-
-            <!-- Proposta Enviada Em (somente leitura) -->
-            {% if modo == 'editar' and cotacao and cotacao.proposta_enviada_em %}
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Proposta Enviada em</span>
-              </label>
-              <input type="text" value="{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') if cotacao.proposta_enviada_em.strftime else cotacao.proposta_enviada_em }}" class="input input-bordered" disabled>
-            </div>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Detalhes da Peça/Campanha removido - campos estão em linhas -->
-
-        <!-- Valores da Cotação -->
-        <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Valores</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Budget Estimado -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Budget Estimado (R$)</span>
-              </label>
-              <input 
-                type="text" 
-                id="budget_estimado" 
-                name="budget_estimado_display" 
-                value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" 
-                class="input input-bordered" 
-                placeholder="0,00"
-                oninput="formatarMoedaReal(this, 'budget_estimado_hidden')"
-              >
-              <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
-            </div>
-
-            <!-- Valor Total da Proposta -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Valor Total da Proposta (R$) *</span>
-              </label>
-              <input 
-                type="text" 
-                id="valor_total_proposta" 
-                name="valor_total_proposta_display" 
-                value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" 
-                class="input input-bordered" 
-                placeholder="0,00"
-                oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')"
-                required
-              >
-              <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
             </div>
           </div>
         </div>
 
-        <!-- Status e Links Públicos -->
         {% if modo == 'editar' %}
+        <!-- LINHA 3: Status (só em edição) -->
         <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Status e Link Público</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Status -->
+          <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Status</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Status</span>
-              </label>
-              <select name="status" class="select select-bordered">
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Status</span></label>
+              <select name="status" class="select select-bordered h-9 min-h-0 text-sm">
                 <option value="pendente" {% if cotacao.status == 'pendente' %}selected{% endif %}>Pendente</option>
                 <option value="aprovada" {% if cotacao.status == 'aprovada' %}selected{% endif %}>Aprovada</option>
                 <option value="rejeitada" {% if cotacao.status == 'rejeitada' %}selected{% endif %}>Rejeitada</option>
                 <option value="expirada" {% if cotacao.status == 'expirada' %}selected{% endif %}>Expirada</option>
               </select>
             </div>
-
-            <!-- Link Público Ativo -->
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <span class="label-text font-semibold">Habilitar Link Público</span>
-                <input type="checkbox" name="link_publico_ativo" class="checkbox" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
-              </label>
-            </div>
-
-            <!-- Token do Link Público -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Token do Link</span>
-              </label>
-              <input 
-                type="text" 
-                name="link_publico_token" 
-                value="{{ cotacao.link_publico_token if cotacao and cotacao.link_publico_token else '' }}" 
-                class="input input-bordered font-mono text-xs"
-                placeholder="Deixe em branco para gerar automaticamente"
-              >
-            </div>
-
-            <!-- Aprovada Em (somente leitura) -->
-            {% if cotacao and cotacao.aprovada_em %}
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Aprovada em</span>
-              </label>
-              <input type="text" value="{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') if cotacao.aprovada_em.strftime else cotacao.aprovada_em }}" class="input input-bordered" disabled>
-            </div>
-            {% endif %}
-
-            <!-- Link Público Expira Em -->
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Link Expira em</span>
-              </label>
-              <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('link_publico_expires_at').showPicker()">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                </svg>
-                <input 
-                  type="datetime-local" 
-                  id="link_publico_expires_at"
-                  name="link_publico_expires_at" 
-                  value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.link_publico_expires_at.strftime else cotacao.link_publico_expires_at }}{% endif %}"
-                  class="input input-bordered pl-10 w-full"
-                >
-              </div>
-            </div>
           </div>
         </div>
         {% endif %}
 
-        <!-- Observações -->
-        <div>
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Observações</h2>
-          
+        <!-- LINHA 4: Objetivo e Observações lado a lado -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Observações</span>
-            </label>
-            <textarea 
-              name="observacoes" 
-              class="textarea textarea-bordered" 
-              rows="3"
-              placeholder="Notas gerais sobre a cotação..."
-            >{{ cotacao.observacoes if cotacao else '' }}</textarea>
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Objetivo da Campanha</span></label>
+            <textarea name="objetivo_campanha" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Descreva o objetivo...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
           </div>
-
-          {% if modo == 'editar' %}
-          <div class="form-control mt-4">
-            <label class="label">
-              <span class="label-text font-semibold">Observações Internas</span>
-            </label>
-            <textarea 
-              name="observacoes_internas" 
-              class="textarea textarea-bordered" 
-              rows="3"
-              placeholder="Notas internas (não visíveis ao cliente)..."
-            >{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Observações</span></label>
+            <textarea name="observacoes" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Notas gerais...">{{ cotacao.observacoes if cotacao else '' }}</textarea>
           </div>
-          {% endif %}
         </div>
 
-        <!-- Origem (hidden - sempre Admin ao criar) -->
+        {% if modo == 'editar' %}
+        <div class="form-control">
+          <label class="label py-0.5"><span class="label-text text-xs font-medium">Observações Internas</span></label>
+          <textarea name="observacoes_internas" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Notas internas (não visíveis ao cliente)...">{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+        </div>
+        {% endif %}
+
         <input type="hidden" name="origem" value="Admin">
 
-        <!-- Ações -->
-        <div class="divider"></div>
-
-        <div class="flex justify-between gap-3">
-          <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost">
-            <i class="fas fa-arrow-left mr-2"></i>Voltar
+        <!-- Botões lado a lado à direita -->
+        <div class="flex justify-end gap-2 pt-2 border-t">
+          <a href="{{ url_for('cotacoes_list') }}" class="btn btn-sm btn-ghost">
+            <i class="fas fa-arrow-left mr-1"></i>Voltar
           </a>
-          <button type="submit" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-            <i class="fas fa-save mr-2"></i>
-            {% if modo == 'novo' %}Criar Cotação{% else %}Salvar Alterações{% endif %}
+          <button type="submit" class="btn btn-sm text-white" style="background-color:#72cd80;border-color:#72cd80;">
+            <i class="fas fa-save mr-1"></i>{% if modo == 'novo' %}Criar Cotação{% else %}Salvar{% endif %}
           </button>
         </div>
       </form>

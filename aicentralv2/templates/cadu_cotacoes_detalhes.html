@@ -3,6 +3,13 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
+<!-- Toast Container -->
+<div id="toast-container" class="toast toast-top toast-end z-50" style="display: none;">
+  <div id="toast-message" class="alert">
+    <span id="toast-text"></span>
+  </div>
+</div>
+
 <style>
   /* Estilo customizado para abas ativas */
   .tabs .tab.tab-active {
@@ -26,6 +33,35 @@
 </style>
 
 <script>
+// Função para mostrar toast
+function showToast(message, type = 'success', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  const toastMsg = document.getElementById('toast-message');
+  const toastText = document.getElementById('toast-text');
+  
+  // Limpar classes anteriores
+  toastMsg.className = 'alert';
+  
+  // Adicionar classe de tipo
+  if (type === 'success') {
+    toastMsg.classList.add('alert-success');
+  } else if (type === 'error') {
+    toastMsg.classList.add('alert-error');
+  } else if (type === 'warning') {
+    toastMsg.classList.add('alert-warning');
+  } else {
+    toastMsg.classList.add('alert-info');
+  }
+  
+  toastText.textContent = message;
+  container.style.display = 'flex';
+  
+  // Auto-hide
+  setTimeout(() => {
+    container.style.display = 'none';
+  }, duration);
+}
+
 // Função para trocar abas - definida no início para estar disponível imediatamente
 function trocarAbaCotacao(aba) {
   // Remover active de todas as abas
@@ -306,84 +342,57 @@ function renderizarAnexos(anexos) {
 
       <!-- Conteúdo Informações Básicas -->
       <div id="content_info_basicas" class="aba-content active">
-        <form method="POST" id="form_info_basicas" class="space-y-3">
-          <h2 class="text-lg font-bold mb-3 pb-2 border-b">Informações Básicas</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <form method="POST" id="form_info_basicas" class="space-y-2">
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
             <!-- Número da Cotação (somente leitura em edição) -->
             {% if modo == 'editar' and cotacao %}
             <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Número da Cotação</span>
-              </label>
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nº Cotação</span></label>
               <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered input-sm" disabled>
             </div>
             {% endif %}
 
             <!-- Cliente -->
-            <div class="form-control {% if not (modo == 'editar' and cotacao) %}md:col-span-2{% endif %}">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Cliente *</span>
-              </label>
+            <div class="form-control {% if modo == 'editar' and cotacao %}col-span-2{% else %}col-span-3{% endif %}">
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cliente *</span></label>
               <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% endif %}" required>
-              <div class="flex gap-2 items-center">
-                <div class="flex-1 px-3 py-2 border border-base-300 rounded-lg bg-base-100">
-                  <span id="nome_cliente_selecionado" class="text-sm">
-                    {% if modo == 'editar' and cotacao %}
-                      {{ cotacao.cliente_nome }}
-                    {% else %}
-                      Nenhum cliente selecionado
-                    {% endif %}
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-2 py-1.5 border border-base-300 rounded-lg bg-base-100">
+                  <span id="nome_cliente_selecionado" class="text-xs">
+                    {% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Nenhum cliente{% endif %}
                   </span>
                 </div>
-                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-sm btn-outline" style="color: #72cd80; border-color: #72cd80;" onmouseover="this.style.backgroundColor='#72cd80'; this.style.color='white';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#72cd80';" title="Buscar cliente">
+                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-xs btn-outline" style="color: #72cd80; border-color: #72cd80;" title="Buscar cliente">
                   <i class="fas fa-search"></i>
                 </button>
               </div>
             </div>
 
             <!-- Nome da Campanha -->
-            <div class="form-control {% if not (modo == 'editar' and cotacao) %}md:col-span-1{% endif %}">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Nome da Campanha *</span>
-              </label>
-              <input 
-                type="text" 
-                name="nome_campanha" 
-                value="{{ cotacao.nome_campanha if cotacao else '' }}" 
-                class="input input-bordered input-sm" 
-                placeholder="Ex: Campanha Verão 2025"
-                required
-              >
+            <div class="form-control col-span-2">
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nome da Campanha *</span></label>
+              <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="input input-bordered input-sm" placeholder="Ex: Campanha Verão 2025" required>
             </div>
 
             <!-- Responsável Comercial -->
             <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Responsável Comercial</span>
-              </label>
-              <select name="responsavel_comercial" class="select select-bordered select-sm w-full h-10 min-h-10">
-                <option value="">Selecione um responsável</option>
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Resp. Comercial</span></label>
+              <select name="responsavel_comercial" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+                <option value="">Selecione</option>
                 {% for vendedor in vendedores %}
-                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>
-                  {{ vendedor.nome_completo }}
-                </option>
+                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
                 {% endfor %}
               </select>
             </div>
 
             <!-- Contato do Cliente -->
             <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Contato do Cliente</span>
-              </label>
-              <select name="client_user_id" id="client_user_id" class="select select-bordered select-sm w-full h-10 min-h-10">
-                <option value="">Selecione um contato</option>
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Contato Cliente</span></label>
+              <select name="client_user_id" id="client_user_id" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+                <option value="">Selecione</option>
                 {% if cotacao and contatos_cliente %}
                   {% for contato in contatos_cliente %}
-                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>
-                    {{ contato.nome_completo }}{% if contato.email %} - {{ contato.email }}{% endif %}
-                  </option>
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
@@ -391,28 +400,22 @@ function renderizarAnexos(anexos) {
 
             <!-- Briefing -->
             <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Briefing</span>
-              </label>
-              <select name="briefing_id" id="briefing_id" class="select select-bordered select-sm w-full h-10 min-h-10">
-                <option value="">Selecione um briefing</option>
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Briefing</span></label>
+              <select name="briefing_id" id="briefing_id" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+                <option value="">Selecione</option>
                 {% if briefings %}
                   {% for briefing in briefings %}
-                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>
-                    {{ briefing.titulo }}{% if briefing.status %} ({{ briefing.status }}){% endif %}
-                  </option>
+                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>{{ briefing.titulo }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
             </div>
 
-            <!-- Status (movido de Valores) -->
+            <!-- Status -->
             {% if modo == 'editar' %}
             <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Status da Cotação</span>
-              </label>
-              <select name="status" class="select select-bordered select-sm w-full h-10 min-h-10">
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Status</span></label>
+              <select name="status" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
                 <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
                 <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
                 <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
@@ -423,62 +426,15 @@ function renderizarAnexos(anexos) {
             </div>
             {% endif %}
 
-            <!-- Informações Adicionais (antigo Objetivo da Campanha) -->
-            <div class="form-control md:col-span-3">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Informações Adicionais</span>
-              </label>
-              <textarea 
-                name="objetivo_campanha" 
-                class="textarea textarea-bordered textarea-sm" 
-                rows="3"
-                placeholder="Informações adicionais sobre a campanha..."
-              >{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+            <!-- Informações Adicionais -->
+            <div class="form-control col-span-2 md:col-span-4 lg:col-span-6">
+              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Informações Adicionais</span></label>
+              <textarea name="objetivo_campanha" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Informações adicionais...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
             </div>
           </div>
-
-          <!-- Link Público (movido de Valores) -->
-          {% if modo == 'editar' %}
-          <div class="mt-4 p-3 bg-base-200 rounded-lg">
-            <h3 class="text-md font-semibold mb-3">Link Público</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-3 py-1">
-                  <input type="checkbox" name="link_publico_ativo" class="checkbox checkbox-sm" {% if cotacao and cotacao.link_publico_ativo %}checked{% endif %}>
-                  <span class="label-text">Habilitar Link Público</span>
-                </label>
-              </div>
-              <div class="form-control">
-                <label class="label py-1">
-                  <span class="label-text font-semibold">Expiração do Link</span>
-                </label>
-                <input 
-                  type="datetime-local" 
-                  id="link_publico_expires_at"
-                  name="link_publico_expires_at" 
-                  value="{% if cotacao and cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
-                  class="input input-bordered input-sm"
-                >
-              </div>
-              {% if cotacao and cotacao.link_publico_token %}
-              <div class="form-control">
-                <label class="label py-1">
-                  <span class="label-text font-semibold">Link de Acesso</span>
-                </label>
-                <div class="flex gap-2">
-                  <input type="text" value="{{ request.host_url }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm flex-1" readonly>
-                  <button type="button" onclick="copiarLinkPublico()" class="btn btn-sm btn-outline" title="Copiar link">
-                    <i class="fas fa-copy"></i>
-                  </button>
-                </div>
-              </div>
-              {% endif %}
-            </div>
-          </div>
-          {% endif %}
 
           <!-- Botão Salvar -->
-          <div class="flex justify-end mt-4">
+          <div class="flex justify-end mt-2">
             <button type="button" onclick="salvarFormulario('form_info_basicas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
               <i class="fas fa-save mr-2"></i>Salvar
             </button>
@@ -499,15 +455,20 @@ function renderizarAnexos(anexos) {
               <label class="label py-1">
                 <span class="label-text font-semibold">Data de Início *</span>
               </label>
-              <input 
-                type="date" 
-                id="periodo_inicio"
-                name="periodo_inicio" 
-                value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
-                class="input input-bordered input-sm"
-                required
-                onchange="calcularDiasCampanha(); validarDataInicio(this)"
-              >
+              <div class="join">
+                <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()">
+                  <i class="fas fa-calendar-alt text-primary"></i>
+                </button>
+                <input 
+                  type="date" 
+                  id="periodo_inicio"
+                  name="periodo_inicio" 
+                  value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
+                  class="input input-bordered input-sm join-item w-full"
+                  required
+                  onchange="calcularDiasCampanha(); validarDataInicio(this)"
+                >
+              </div>
               <label id="erro_data_inicio" class="label py-0 text-error text-xs hidden">
                 <span>Data não pode ser anterior a hoje</span>
               </label>
@@ -518,14 +479,19 @@ function renderizarAnexos(anexos) {
               <label class="label py-1">
                 <span class="label-text font-semibold">Data de Término</span>
               </label>
-              <input 
-                type="date" 
-                id="periodo_fim"
-                name="periodo_fim" 
-                value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
-                class="input input-bordered input-sm"
-                onchange="calcularDiasCampanha()"
-              >
+              <div class="join">
+                <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()">
+                  <i class="fas fa-calendar-alt text-primary"></i>
+                </button>
+                <input 
+                  type="date" 
+                  id="periodo_fim"
+                  name="periodo_fim" 
+                  value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
+                  class="input input-bordered input-sm join-item w-full"
+                  onchange="calcularDiasCampanha()"
+                >
+              </div>
             </div>
 
             <!-- Quantidade de Dias -->
@@ -550,13 +516,18 @@ function renderizarAnexos(anexos) {
               <label class="label py-1">
                 <span class="label-text font-semibold">Expiração da Cotação</span>
               </label>
-              <input 
-                type="datetime-local" 
-                id="expires_at"
-                name="expires_at" 
-                value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
-                class="input input-bordered input-sm"
-              >
+              <div class="join">
+                <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('expires_at').showPicker()">
+                  <i class="fas fa-clock text-primary"></i>
+                </button>
+                <input 
+                  type="datetime-local" 
+                  id="expires_at"
+                  name="expires_at" 
+                  value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
+                  class="input input-bordered input-sm join-item w-full"
+                >
+              </div>
             </div>
 
             <!-- Proposta Enviada Em -->
@@ -843,7 +814,11 @@ function renderizarAnexos(anexos) {
             <tbody>
               {% for aud in audiencias %}
               <tr class="{% if not aud.incluido_proposta %}opacity-50{% endif %}">
-                <td>{{ aud.audiencia_nome }}</td>
+                <td>
+                  <span class="cursor-pointer hover:text-primary hover:underline" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
+                    {{ aud.audiencia_nome }}
+                  </span>
+                </td>
                 <td>{{ aud.audiencia_publico if aud.audiencia_publico else '-' }}</td>
                 <td>{{ aud.audiencia_categoria if aud.audiencia_categoria else '-' }}</td>
                 <td>
@@ -866,14 +841,9 @@ function renderizarAnexos(anexos) {
                          onchange="toggleIncluirAudiencia({{ aud.id }}, this.checked)">
                 </td>
                 <td>
-                  <div class="flex gap-1">
-                    <button onclick="editarAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost" title="Editar">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="removerAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost text-error" title="Remover">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </div>
+                  <button onclick="removerAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost text-error" title="Remover">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </td>
               </tr>
               {% endfor %}
@@ -948,58 +918,58 @@ function renderizarAnexos(anexos) {
 
       <!-- Conteúdo Observações -->
       <div id="content_observacoes" class="aba-content">
-        <form method="POST" id="form_observacoes" class="space-y-4">
-          <h2 class="text-lg font-bold mb-4 pb-2 border-b">Observações</h2>
+        <form method="POST" id="form_observacoes">
+          <div class="flex justify-between items-center mb-2 pb-1 border-b">
+            <h2 class="text-base font-bold">Observações</h2>
+            <button type="button" onclick="salvarFormulario('form_observacoes')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+              <i class="fas fa-save mr-1"></i>Salvar
+            </button>
+          </div>
           
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Observações Gerais</span>
-            </label>
-            <textarea 
-              name="observacoes" 
-              class="textarea textarea-bordered textarea-sm" 
-              rows="3"
-              placeholder="Notas gerais sobre a cotação..."
-            >{{ cotacao.observacoes if cotacao else '' }}</textarea>
-          </div>
+          <!-- Linha 1: Observações lado a lado -->
+          <div class="grid grid-cols-2 gap-3 mb-2">
+            <div class="form-control">
+              <label class="label py-0">
+                <span class="label-text font-semibold text-xs">Observações Gerais</span>
+              </label>
+              <textarea 
+                name="observacoes" 
+                class="textarea textarea-bordered textarea-xs text-xs py-1" 
+                rows="2"
+                placeholder="Notas gerais sobre a cotação..."
+              >{{ cotacao.observacoes if cotacao else '' }}</textarea>
+            </div>
 
-          {% if modo == 'editar' %}
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Observações Internas</span>
-            </label>
-            <textarea 
-              name="observacoes_internas" 
-              class="textarea textarea-bordered textarea-sm" 
-              rows="3"
-              placeholder="Notas internas (não visíveis ao cliente)..."
-            >{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+            <div class="form-control">
+              <label class="label py-0">
+                <span class="label-text font-semibold text-xs">Observações Internas</span>
+              </label>
+              <textarea 
+                name="observacoes_internas" 
+                class="textarea textarea-bordered textarea-xs text-xs py-1" 
+                rows="2"
+                placeholder="Notas internas (não visíveis ao cliente)..."
+              >{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+            </div>
           </div>
-          {% endif %}
 
           <!-- Condições Comerciais -->
           <div class="form-control">
             <div class="flex justify-between items-center">
-              <label class="label">
-                <span class="label-text font-semibold">Condições Comerciais</span>
+              <label class="label py-0">
+                <span class="label-text font-semibold text-xs">Condições Comerciais</span>
               </label>
-              <button type="button" onclick="preencherCondicoesComerciais()" class="btn btn-xs btn-ghost text-primary">
+              <button type="button" onclick="preencherCondicoesComerciais()" class="btn btn-xs btn-ghost text-primary py-0">
                 <i class="fas fa-magic mr-1"></i>Preencher Padrão
               </button>
             </div>
             <textarea 
               name="condicoes_comerciais" 
               id="condicoes_comerciais"
-              class="textarea textarea-bordered textarea-sm font-mono text-xs" 
-              rows="12"
+              class="textarea textarea-bordered textarea-xs font-mono text-xs py-1" 
+              rows="7"
               placeholder="Condições comerciais da proposta..."
             >{{ cotacao.condicoes_comerciais if cotacao and cotacao.condicoes_comerciais else '' }}</textarea>
-          </div>
-
-          <div class="flex justify-end gap-2 mt-4">
-            <button type="button" onclick="salvarFormulario('form_observacoes')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              <i class="fas fa-save mr-2"></i>Salvar
-            </button>
           </div>
         </form>
       </div>
@@ -1044,54 +1014,56 @@ function renderizarAnexos(anexos) {
 <!-- Modal Nova Linha -->
 <dialog id="modal_nova_linha" class="modal">
   <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
-    <h3 class="font-bold text-lg mb-3">Nova Linha de Cotação</h3>
+    <h3 class="font-bold text-lg mb-2">Nova Linha de Cotação</h3>
     
-    <form id="form_nova_linha" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+    <form id="form_nova_linha" class="grid grid-cols-12 gap-2">
       
-      <div class="form-control md:col-span-2">
-        <label class="label py-1"><span class="label-text font-semibold">Segmentação (Target & Interesses) *</span></label>
-        <textarea id="segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="2" required minlength="10" 
+      <!-- Linha 1: Segmentação e Praça -->
+      <div class="form-control col-span-8">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
+        <textarea id="segmentacao" class="textarea textarea-bordered textarea-xs w-full" rows="1" required minlength="10" 
                   placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
         <label id="erro_segmentacao" class="label py-0 text-error text-xs hidden">
           <span>Mínimo de 10 caracteres</span>
         </label>
       </div>
 
-      <div class="form-control md:col-span-2">
-        <label class="label py-1"><span class="label-text font-semibold">Praça</span></label>
-        <input id="praca" type="text" class="input input-bordered input-sm w-full" placeholder="Ex: São Paulo, Nacional, Sudeste...">
+      <div class="form-control col-span-4">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Praça</span></label>
+        <input id="praca" type="text" class="input input-bordered input-xs w-full" placeholder="Ex: São Paulo, Nacional...">
       </div>
 
-      <div class="form-control md:col-span-4">
-        <label class="label py-1"><span class="label-text font-semibold">Formatos *</span></label>
+      <!-- Linha 2: Formatos -->
+      <div class="form-control col-span-12">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Formatos *</span></label>
         <div class="flex flex-wrap gap-3">
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">Carroussel</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">Carroussel</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="Video" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">Video</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="Video" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">Video</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="Display" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">Display</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="Display" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">Display</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="CTV" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">CTV</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="CTV" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">CTV</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="Audio" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">Audio</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="Audio" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">Audio</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="Interativos" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">Interativos</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="Interativos" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">Interativos</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="formatos" value="Outros" class="checkbox checkbox-sm" onchange="validarCamposObrigatorios()">
-            <span class="label-text">Outros</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="formatos" value="Outros" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+            <span class="label-text text-xs">Outros</span>
           </label>
         </div>
         <label id="erro_formatos" class="label py-0 text-error text-xs hidden">
@@ -1099,9 +1071,10 @@ function renderizarAnexos(anexos) {
         </label>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Plataforma</span></label>
-        <select id="plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+      <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
+        <select id="plataforma" class="select select-bordered select-xs w-full">
           <option value="">Selecione...</option>
           <optgroup label="Mídia Programática">
             <option value="DV360">DV360</option>
@@ -1131,32 +1104,29 @@ function renderizarAnexos(anexos) {
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">KPI (Tipo de Compra)</span></label>
-        <select id="objetivo_kpi" class="select select-bordered select-sm w-full h-10 min-h-10" onchange="atualizarLabelVolume()">
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
+        <select id="objetivo_kpi" class="select select-bordered select-xs w-full" onchange="atualizarLabelVolume()">
           <option value="">Selecione...</option>
-          <option value="CPM">CPM (Custo por Mil)</option>
-          <option value="CPC">CPC (Custo por Clique)</option>
-          <option value="CPA">CPA (Custo por Aquisição)</option>
-          <option value="CPL">CPL (Custo por Lead)</option>
-          <option value="CPV">CPV (Custo por Visualização)</option>
-          <option value="CPCV">CPCV (Custo por Visualização Completa)</option>
-          <option value="CPE">CPE (Custo por Engajamento)</option>
-          <option value="CPO">CPO (Custo por Pedido)</option>
-          <option value="CPEV">CPEV (Custo por Visualização Engajada)</option>
-          <option value="CPS">CPS (Custo por Sessão)</option>
-          <option value="CPD">CPD (Custo por Download)</option>
+          <option value="CPM">CPM</option>
+          <option value="CPC">CPC</option>
+          <option value="CPA">CPA</option>
+          <option value="CPL">CPL</option>
+          <option value="CPV">CPV</option>
+          <option value="CPCV">CPCV</option>
+          <option value="CPE">CPE</option>
+          <option value="CPO">CPO</option>
           <option value="Fixo">Fixo</option>
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Viewability Mínimo (%)</span></label>
-        <input type="number" id="viewability_minimo" class="input input-bordered input-sm" placeholder="70" value="70" min="0" max="100">
+      <div class="form-control col-span-2">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Viewability (%)</span></label>
+        <input type="number" id="viewability_minimo" class="input input-bordered input-xs" placeholder="70" value="70" min="0" max="100">
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
+      <div class="form-control col-span-4">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Produto</span></label>
         <div class="flex flex-wrap gap-2">
           <label class="label cursor-pointer justify-start gap-1 py-0">
             <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-xs">
@@ -1177,71 +1147,80 @@ function renderizarAnexos(anexos) {
         </div>
       </div>
 
-      <!-- Datas -->
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Data Início</span></label>
-        <input type="date" id="data_inicio" class="input input-bordered input-sm w-full" onchange="calcularDiasLinha()">
+      <!-- Linha 4: Datas e Especificações -->
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
+        <div class="join w-full">
+          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
+            <i class="fas fa-calendar-alt text-primary"></i>
+          </button>
+          <input type="date" id="data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
+        </div>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Data Fim</span></label>
-        <input type="date" id="data_fim" class="input input-bordered input-sm w-full" onchange="calcularDiasLinha()">
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
+        <div class="join w-full">
+          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
+            <i class="fas fa-calendar-alt text-primary"></i>
+          </button>
+          <input type="date" id="data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
+        </div>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Dias</span></label>
-        <input type="text" id="dias_linha" class="input input-bordered input-sm bg-base-200 text-center" readonly value="0">
+      <div class="form-control col-span-1">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
+        <input type="text" id="dias_linha" class="input input-bordered input-sm bg-base-200 text-center min-h-8 h-8" readonly value="0">
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
-        <input id="especificacoes" type="text" class="input input-bordered input-sm w-full" placeholder="Detalhes adicionais...">
+      <div class="form-control col-span-5">
+        <label class="label py-0"><span class="label-text font-semibold text-xs">Especificações</span></label>
+        <input id="especificacoes" type="text" class="input input-bordered input-xs w-full" placeholder="Detalhes adicionais...">
       </div>
 
       <!-- Valores -->
-      <div class="md:col-span-4 border-t pt-3 mt-2">
-        <h4 class="font-semibold text-sm mb-2">Valores</h4>
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div class="col-span-12 border-t pt-2 mt-1">
+        <h4 class="font-semibold text-xs mb-1">Valores</h4>
+        <div class="grid grid-cols-6 gap-2">
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Valor Unit. Tabela (R$)</span></label>
-            <input type="text" id="valor_unitario_tabela" class="input input-bordered input-sm" placeholder="0,00" 
+            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Tabela</span></label>
+            <input type="text" id="valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00" 
                    oninput="aplicarMascaraDinheiro(this); calcularValorNegociado()">
           </div>
 
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="number" id="desconto_percentual" class="input input-bordered input-sm" placeholder="0" min="0" max="100"
+            <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
+            <input type="number" id="desconto_percentual" class="input input-bordered input-xs" placeholder="0" min="0" max="100"
                    oninput="calcularValorNegociado()">
           </div>
 
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Valor Unit. Negociado (R$)</span></label>
-            <input type="text" id="valor_unitario" class="input input-bordered input-sm bg-base-200" placeholder="0,00" 
+            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
+            <input type="text" id="valor_unitario" class="input input-bordered input-xs bg-base-200" placeholder="0,00" 
                    readonly>
           </div>
 
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Investimento Bruto (R$)</span></label>
-            <input type="text" id="investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
+            <label class="label py-0"><span class="label-text text-xs">Invest. Bruto</span></label>
+            <input type="text" id="investimento_bruto" class="input input-bordered input-xs" placeholder="0,00" 
                    oninput="aplicarMascaraDinheiro(this); calcularVolume()">
           </div>
 
           <div class="form-control">
-            <label class="label py-1"><span id="label_volume" class="label-text text-xs">Volume Contratado</span></label>
-            <input type="text" id="volume_contratado" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+            <label class="label py-0"><span id="label_volume" class="label-text text-xs">Volume</span></label>
+            <input type="text" id="volume_contratado" class="input input-bordered input-xs bg-base-200" placeholder="0" readonly>
           </div>
 
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Invest. Líquido (R$)</span></label>
-            <input type="text" id="investimento_liquido" class="input input-bordered input-sm bg-base-200" placeholder="0,00" readonly>
-            <label class="label py-0"><span class="label-text-alt text-xs text-base-content/50">Baseado no % do cliente</span></label>
+            <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
+            <input type="text" id="investimento_liquido" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
           </div>
         </div>
       </div>
 
-      <div class="form-control md:col-span-4 flex flex-row justify-end items-end gap-2 mt-3">
-        <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
+      <div class="form-control col-span-12 flex flex-row justify-end items-end gap-2 mt-2">
+        <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost btn-xs">Cancelar</button>
+        <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="btn btn-xs text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
       </div>
 
     </form>
@@ -1543,7 +1522,7 @@ function renderizarAnexos(anexos) {
       
       <div class="modal-action">
         <button type="button" onclick="voltarBuscaAudiencia()" class="btn btn-ghost btn-sm">Voltar</button>
-        <button type="button" onclick="salvarNovaAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Adicionar à Cotação</button>
+        <button type="button" id="btn_salvar_audiencia" onclick="salvarNovaAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Adicionar à Cotação</button>
       </div>
     </div>
     
@@ -1616,93 +1595,81 @@ function renderizarAnexos(anexos) {
 
 <!-- Modal Link Público -->
 <dialog id="modal_link_publico" class="modal">
-  <div class="modal-box w-11/12 max-w-3xl">
-    <h3 class="font-bold text-lg mb-4">
-      <i class="fas fa-link mr-2"></i>Gerenciar Link Público
-    </h3>
-    
-    {% if modo == 'editar' and cotacao %}
-    <!-- Status atual -->
-    <div class="alert {% if cotacao.link_publico_ativo %}alert-success{% else %}alert-info{% endif %} mb-4">
-      <i class="fas {% if cotacao.link_publico_ativo %}fa-check-circle{% else %}fa-info-circle{% endif %}"></i>
-      <div>
-        <p class="font-semibold">Status: {% if cotacao.link_publico_ativo %}Ativo{% else %}Inativo{% endif %}</p>
-        <p class="text-sm">{% if cotacao.link_publico_ativo %}O link público está ativo e pode ser compartilhado{% else %}Ative o link para permitir visualização pública da cotação{% endif %}</p>
-      </div>
-    </div>
-    
-    {% if cotacao.link_publico_token %}
-    <!-- Link atual -->
-    <div class="bg-base-200 p-4 rounded-lg mb-4">
-      <p class="text-sm text-base-content/70 mb-2">Link Público Atual:</p>
-      <div class="flex gap-2 items-center">
-        <input type="text" readonly value="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm flex-1 font-mono text-xs" id="link_publico_url">
-        <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;" title="Copiar link">
-          <i class="fas fa-copy mr-1"></i>Copiar
-        </button>
-        <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="btn btn-sm btn-ghost" title="Abrir em nova aba">
-          <i class="fas fa-external-link-alt"></i>
-        </a>
-      </div>
-      
-      <div class="mt-3 flex items-center gap-4 text-xs text-base-content/60">
-        <div>
-          <i class="fas fa-fingerprint mr-1"></i>
-          Token: <span class="font-mono">{{ cotacao.link_publico_token }}</span>
-        </div>
-        {% if cotacao.link_publico_expires_at %}
-        <div>
-          <i class="fas fa-clock mr-1"></i>
-          Expira: {{ cotacao.link_publico_expires_at.strftime('%d/%m/%Y %H:%M') }}
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-    
-    <form id="form_link_publico" class="space-y-4">
-      <div class="form-control">
-        <label class="label cursor-pointer justify-start gap-3">
-          <input type="checkbox" id="link_publico_ativo" class="checkbox checkbox-primary" {% if cotacao.link_publico_ativo %}checked{% endif %}>
-          <span class="label-text font-semibold">Habilitar Link Público</span>
-        </label>
-        <label class="label">
-          <span class="label-text-alt text-base-content/60">Permite que a cotação seja visualizada sem login através de um link compartilhável</span>
-        </label>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Token do Link (opcional)</span>
-        </label>
-        <input type="text" id="link_publico_token" class="input input-bordered font-mono text-xs" value="{{ cotacao.link_publico_token if cotacao.link_publico_token else '' }}" placeholder="Deixe em branco para gerar automaticamente">
-        <label class="label">
-          <span class="label-text-alt text-base-content/60">Token personalizado ou deixe vazio para gerar automaticamente</span>
-        </label>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Data de Expiração</span>
-        </label>
-        <div class="relative">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content/50" onclick="document.getElementById('modal_link_publico_expires_at').showPicker()">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-          </svg>
-          <input type="datetime-local" id="modal_link_publico_expires_at" class="input input-bordered pl-10 w-full" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
-        </div>
-        <label class="label">
-          <span class="label-text-alt text-base-content/60">Deixe vazio para link sem expiração</span>
-        </label>
-      </div>
-    </form>
-
-    <div class="modal-action">
-      <button type="button" onclick="document.getElementById('modal_link_publico').close()" class="btn btn-ghost">Fechar</button>
-      <button type="button" onclick="salvarLinkPublico()" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-save mr-2"></i>Salvar Alterações
+  <div class="modal-box w-11/12 max-w-2xl">
+    <div class="flex justify-between items-center mb-3 pb-2 border-b">
+      <h3 class="font-bold text-base">
+        <i class="fas fa-link mr-2"></i>Gerenciar Link Público
+      </h3>
+      <button type="button" onclick="salvarLinkPublico()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+        <i class="fas fa-save mr-1"></i>Salvar
       </button>
     </div>
+    
+    {% if modo == 'editar' and cotacao %}
+    <!-- Status e Link atual em linha -->
+    <div class="flex gap-3 mb-3">
+      <div class="alert {% if cotacao.link_publico_ativo %}alert-success{% else %}alert-info{% endif %} py-2 flex-1">
+        <i class="fas {% if cotacao.link_publico_ativo %}fa-check-circle{% else %}fa-info-circle{% endif %} text-sm"></i>
+        <div class="text-xs">
+          <p class="font-semibold">{% if cotacao.link_publico_ativo %}Ativo{% else %}Inativo{% endif %}</p>
+        </div>
+      </div>
+      
+      {% if cotacao.link_publico_token %}
+      <div class="flex-[3]">
+        <div class="join w-full">
+          <input type="text" readonly value="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm join-item flex-1 font-mono text-xs" id="link_publico_url">
+          <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm join-item text-white" style="background-color: #72cd80; border-color: #72cd80;" title="Copiar">
+            <i class="fas fa-copy"></i>
+          </button>
+          <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="btn btn-sm btn-ghost join-item" title="Abrir">
+            <i class="fas fa-external-link-alt"></i>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    
+    <form id="form_link_publico" class="grid grid-cols-12 gap-3">
+      <!-- Habilitar + Token + Expiração em uma linha -->
+      <div class="form-control col-span-3">
+        <label class="label py-0">
+          <span class="label-text font-semibold text-xs">Habilitar</span>
+        </label>
+        <label class="label cursor-pointer justify-start gap-2 py-1">
+          <input type="checkbox" id="link_publico_ativo" class="checkbox checkbox-sm checkbox-primary" {% if cotacao.link_publico_ativo %}checked{% endif %}>
+          <span class="label-text text-xs">Ativo</span>
+        </label>
+      </div>
+
+      <div class="form-control col-span-4">
+        <label class="label py-0">
+          <span class="label-text font-semibold text-xs">Token (opcional)</span>
+        </label>
+        <input type="text" id="link_publico_token" class="input input-bordered input-sm font-mono text-xs" value="{{ cotacao.link_publico_token if cotacao.link_publico_token else '' }}" placeholder="Auto">
+      </div>
+
+      <div class="form-control col-span-5">
+        <label class="label py-0">
+          <span class="label-text font-semibold text-xs">Expiração</span>
+        </label>
+        <div class="join w-full">
+          <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('modal_link_publico_expires_at').showPicker()">
+            <i class="fas fa-calendar-alt text-primary"></i>
+          </button>
+          <input type="datetime-local" id="modal_link_publico_expires_at" class="input input-bordered input-sm join-item flex-1" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+        </div>
+      </div>
+      
+      {% if cotacao.link_publico_token %}
+      <div class="col-span-12 text-xs text-base-content/60 flex gap-4">
+        <span><i class="fas fa-fingerprint mr-1"></i>Token: <span class="font-mono">{{ cotacao.link_publico_token }}</span></span>
+        {% if cotacao.link_publico_expires_at %}
+        <span><i class="fas fa-clock mr-1"></i>Expira: {{ cotacao.link_publico_expires_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </form>
     {% endif %}
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -1891,7 +1858,7 @@ function recalcularTotais() {
 function salvarFormulario(formId) {
   const form = document.getElementById(formId);
   if (!form) {
-    alert('Formulário não encontrado');
+    showToast('Formulário não encontrado', 'error');
     return;
   }
 
@@ -1908,7 +1875,7 @@ function salvarFormulario(formId) {
   });
 
   if (camposFaltando.length > 0) {
-    alert('Faltam informações obrigatórias:\n- ' + camposFaltando.join('\n- '));
+    showToast('Campos obrigatórios: ' + camposFaltando.join(', '), 'warning', 4000);
     return;
   }
 
@@ -1920,13 +1887,13 @@ function salvarFormulario(formId) {
     body: formData
   }).then(response => {
     if (response.ok) {
-      alert('Salvo com sucesso!');
+      showToast('Salvo com sucesso!', 'success');
     } else {
-      alert('Erro ao salvar');
+      showToast('Erro ao salvar', 'error');
     }
   }).catch(error => {
     console.error('Erro:', error);
-    alert('Erro ao salvar');
+    showToast('Erro ao salvar', 'error');
   });
 }
 
@@ -2042,6 +2009,17 @@ function formatarMoedaReal(input, hiddenFieldId) {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
+  // Verificar se tem parâmetro de aba na URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const abaParam = urlParams.get('aba');
+  if (abaParam) {
+    trocarAbaCotacao(abaParam);
+    // Limpar parâmetro da URL sem recarregar
+    const url = new URL(window.location);
+    url.searchParams.delete('aba');
+    window.history.replaceState({}, '', url);
+  }
+  
   // Carregar anexos se estiver em modo edição
   {% if modo == 'editar' %}
   carregarAnexos();
@@ -2066,6 +2044,9 @@ document.addEventListener('DOMContentLoaded', function() {
     dataFim.setDate(dataFim.getDate() + 30);
     periodoFim.value = dataFim.toISOString().split('T')[0];
   }
+  
+  // Calcular dias de campanha ao carregar
+  calcularDiasCampanha();
   
   // Formatar valores monetários
   const campos = ['budget_estimado', 'valor_total_proposta'];
@@ -2331,14 +2312,17 @@ async function salvarNovaLinha() {
     if (response.ok) {
       document.getElementById('modal_nova_linha').close();
       incrementarContador('linhas');
-      mostrarToast('Linha adicionada com sucesso!', 'success');
-      setTimeout(() => location.reload(), 1000);
+      showToast('Linha adicionada com sucesso!', 'success');
+      // Recarregar na aba de linhas
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=linhas';
+      }, 500);
     } else {
-      mostrarToast('Erro: ' + (result.error || 'Erro ao salvar linha'), 'error');
+      showToast('Erro: ' + (result.error || 'Erro ao salvar linha'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao salvar linha', 'error');
+    showToast('Erro ao salvar linha', 'error');
   }
 }
 
@@ -2477,14 +2461,17 @@ async function salvarEdicaoLinha() {
     
     if (response.ok) {
       document.getElementById('modal_editar_linha').close();
-      mostrarToast('Linha atualizada com sucesso!', 'success');
-      setTimeout(() => location.reload(), 1000);
+      showToast('Linha atualizada com sucesso!', 'success');
+      // Recarregar na aba de linhas
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=linhas';
+      }, 500);
     } else {
-      mostrarToast('Erro: ' + (result.error || 'Erro ao atualizar linha'), 'error');
+      showToast('Erro: ' + (result.error || 'Erro ao atualizar linha'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao atualizar linha', 'error');
+    showToast('Erro ao atualizar linha', 'error');
   }
 }
 
@@ -2504,14 +2491,17 @@ async function confirmarRemoverLinha(linhaId) {
     
     if (response.ok) {
       decrementarContador('linhas');
-      mostrarToast('Linha removida com sucesso!', 'success');
-      setTimeout(() => location.reload(), 1000);
+      showToast('Linha removida com sucesso!', 'success');
+      // Recarregar na aba de linhas
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=linhas';
+      }, 500);
     } else {
-      mostrarToast('Erro: ' + (result.error || 'Erro ao remover linha'), 'error');
+      showToast('Erro: ' + (result.error || 'Erro ao remover linha'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao remover linha', 'error');
+    showToast('Erro ao remover linha', 'error');
   }
 }
 
@@ -2527,6 +2517,10 @@ function abrirModalAudiencia() {
   document.getElementById('busca_audiencia_termo').value = '';
   document.getElementById('resultados_busca_container').classList.add('hidden');
   document.getElementById('resultados_busca_lista').innerHTML = '';
+  
+  // Limpar flag de edição e resetar label do botão
+  delete document.getElementById('form_nova_audiencia').dataset.editandoId;
+  document.getElementById('btn_salvar_audiencia').textContent = 'Adicionar à Cotação';
   
   document.getElementById('modal_adicionar_audiencia').showModal();
 }
@@ -2653,15 +2647,19 @@ function calcularImpressoesAudiencia() {
 async function salvarNovaAudiencia() {
   const nome = document.getElementById('audiencia_nome').value;
   if (!nome) {
-    mostrarToast('Selecione uma audiência!', 'warning');
+    showToast('Selecione uma audiência!', 'warning');
     return;
   }
 
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) {
-    mostrarToast('Salve a cotação primeiro', 'warning');
+    showToast('Salve a cotação primeiro', 'warning');
     return;
   }
+
+  // Verificar se está editando
+  const formAudiencia = document.getElementById('form_nova_audiencia');
+  const editandoId = formAudiencia.dataset.editandoId;
 
   const data = {
     cotacao_id: parseInt(cotacaoId),
@@ -2677,25 +2675,47 @@ async function salvarNovaAudiencia() {
   };
 
   try {
-    const response = await fetch('/api/cotacoes/audiencias', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
+    let response;
+    let mensagem;
+    
+    if (editandoId) {
+      // Modo edição - usar PUT
+      response = await fetch(`/api/cotacoes/audiencias/${editandoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      mensagem = 'Audiência atualizada com sucesso!';
+    } else {
+      // Modo adicionar - usar POST
+      response = await fetch('/api/cotacoes/audiencias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      mensagem = 'Audiência adicionada com sucesso!';
+    }
 
     const result = await response.json();
     
     if (response.ok) {
       document.getElementById('modal_adicionar_audiencia').close();
-      incrementarContador('audiencias');
-      mostrarToast('Audiência adicionada com sucesso!', 'success');
-      setTimeout(() => location.reload(), 1000);
+      if (!editandoId) {
+        incrementarContador('audiencias');
+      }
+      // Limpar flag de edição
+      delete formAudiencia.dataset.editandoId;
+      showToast(mensagem, 'success');
+      // Recarregar na aba de audiências
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=audiencias';
+      }, 500);
     } else {
-      mostrarToast('Erro: ' + (result.error || 'Erro ao salvar audiência'), 'error');
+      showToast('Erro: ' + (result.error || 'Erro ao salvar audiência'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao salvar audiência', 'error');
+    showToast('Erro ao salvar audiência', 'error');
   }
 }
 
@@ -2709,13 +2729,13 @@ async function toggleIncluirAudiencia(audienciaId, incluido) {
     });
     
     if (response.ok) {
-      mostrarToast(incluido ? 'Audiência incluída na proposta' : 'Audiência excluída da proposta', 'success');
+      showToast(incluido ? 'Audiência incluída na proposta' : 'Audiência excluída da proposta', 'success');
     } else {
-      mostrarToast('Erro ao atualizar audiência', 'error');
+      showToast('Erro ao atualizar audiência', 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao atualizar audiência', 'error');
+    showToast('Erro ao atualizar audiência', 'error');
   }
 }
 
@@ -2750,10 +2770,13 @@ async function editarAudienciaCotacao(audienciaId) {
     // Armazenar ID para edição
     document.getElementById('form_nova_audiencia').dataset.editandoId = audienciaId;
     
+    // Alterar label do botão para modo edição
+    document.getElementById('btn_salvar_audiencia').textContent = 'Alterar Audiência';
+    
     document.getElementById('modal_adicionar_audiencia').showModal();
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao carregar audiência para edição', 'error');
+    showToast('Erro ao carregar audiência para edição', 'error');
   }
 }
 
@@ -2768,14 +2791,17 @@ async function removerAudienciaCotacao(audienciaId) {
     
     if (response.ok) {
       decrementarContador('audiencias');
-      mostrarToast('Audiência removida com sucesso!', 'success');
-      setTimeout(() => location.reload(), 1000);
+      showToast('Audiência removida com sucesso!', 'success');
+      // Recarregar na aba de audiências
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=audiencias';
+      }, 500);
     } else {
-      mostrarToast('Erro ao remover audiência', 'error');
+      showToast('Erro ao remover audiência', 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao remover audiência', 'error');
+    showToast('Erro ao remover audiência', 'error');
   }
 }
 
@@ -2963,14 +2989,14 @@ async function salvarLinkPublico() {
     }
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao atualizar link público', 'error');
+    showToast('Erro ao atualizar link público', 'error');
   }
 }
 
 // ==================== FUNÇÃO DE TOAST ====================
 
 function mostrarToast(mensagem, tipo) {
-  alert(mensagem);
+  showToast(mensagem, tipo);
 }
 </script>
 {% endblock %}

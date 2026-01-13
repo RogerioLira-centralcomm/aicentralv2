@@ -914,10 +914,16 @@ def init_routes(app):
             email = data.get('email', '').strip().lower()
             senha = data.get('senha', '').strip()
             telefone = data.get('telefone', '').strip() or None
-            pk_id_aux_setor = data.get('pk_id_aux_setor', type=int)
-            pk_id_tbl_cargo = data.get('pk_id_tbl_cargo', type=int)
+            pk_id_aux_setor = data.get('pk_id_aux_setor')
+            pk_id_tbl_cargo = data.get('pk_id_tbl_cargo')
             cohorts = data.get('cohorts', 1)
             user_type = data.get('user_type', 'client')
+            
+            # Converter para int se necessário
+            if pk_id_aux_setor:
+                pk_id_aux_setor = int(pk_id_aux_setor)
+            if pk_id_tbl_cargo:
+                pk_id_tbl_cargo = int(pk_id_tbl_cargo)
             
             # Validação de campos obrigatórios
             if not all([nome_completo, email, senha, pk_id_aux_setor, pk_id_tbl_cargo]):
@@ -2187,6 +2193,16 @@ def init_routes(app):
                             flash('Percentual é obrigatório quando Agência = Sim.', 'error')
                             return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, fluxos=fluxos, percentuais=percentuais)
 
+                # Converter percentual para float se fornecido
+                percentual_valor = None
+                if percentual:
+                    try:
+                        # Substituir vírgula por ponto para conversão
+                        percentual_normalizado = percentual.replace(',', '.')
+                        percentual_valor = float(percentual_normalizado)
+                    except ValueError:
+                        percentual_valor = None
+
                 id_cliente = db.criar_cliente(
                     razao_social=razao_social,
                     nome_fantasia=nome_fantasia,
@@ -2195,7 +2211,6 @@ def init_routes(app):
                     cnpj=cnpj,
                     inscricao_estadual=inscricao_estadual,
                     inscricao_municipal=inscricao_municipal,
-                    pk_id_tbl_plano=pk_id_tbl_plano,
                     pk_id_aux_agencia=pk_id_tbl_agencia,
                     pk_id_aux_estado=pk_id_aux_estado,
                     vendas_central_comm=vendas_central_comm,
@@ -2208,7 +2223,7 @@ def init_routes(app):
                     complemento=complemento,
                     id_apresentacao_executivo=id_apresentacao_executivo,
                     id_fluxo_boas_vindas=id_fluxo_boas_vindas,
-                    id_percentual=int(percentual) if percentual else None
+                    percentual=percentual_valor
                 )
                 
                 # Registro de auditoria
@@ -3640,6 +3655,7 @@ def init_routes(app):
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                     'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
                     'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
+                    'client_user_id': request.form.get('client_user_id', type=int) if request.form.get('client_user_id') else None,
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
                     'observacoes': request.form.get('observacoes', '').strip(),
@@ -3673,10 +3689,12 @@ def init_routes(app):
             clientes = db.obter_clientes_simples()
             vendedores = db.obter_vendedores()
             briefings = []
+            contatos_cliente = []
             if cotacao.get('client_id'):
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_ativos_por_cliente(cotacao['client_id'])
             return render_template('cadu_cotacoes_form.html', 
-                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, modo='editar')
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, modo='editar')
 
         except Exception as e:
             app.logger.error(f"Erro ao editar cotação: {str(e)}", exc_info=True)
@@ -3694,22 +3712,30 @@ def init_routes(app):
                     resp_comercial = request.form.get('responsavel_comercial')
                     app.logger.info(f"DEBUG: Responsável comercial recebido: '{resp_comercial}' (tipo: {type(resp_comercial)})")
                     
+                    # Tratar client_user_id
+                    client_user_id_raw = request.form.get('client_user_id')
+                    client_user_id = int(client_user_id_raw) if client_user_id_raw and client_user_id_raw.strip() else None
+                    
+                    # Tratar campos datetime (string vazia = None)
+                    periodo_fim = request.form.get('periodo_fim')
+                    periodo_fim = periodo_fim if periodo_fim and periodo_fim.strip() else None
+                    
+                    expires_at = request.form.get('expires_at')
+                    expires_at = expires_at if expires_at and expires_at.strip() else None
+                    
                     dados = {
                         'client_id': request.form.get('client_id'),
                         'nome_campanha': request.form.get('nome_campanha'),
                         'responsavel_comercial': resp_comercial if resp_comercial and resp_comercial.strip() else None,
-                        'client_user_id': request.form.get('client_user_id'),
+                        'client_user_id': client_user_id,
                         'briefing_id': request.form.get('briefing_id') if request.form.get('briefing_id') else None,
                         'objetivo_campanha': request.form.get('objetivo_campanha'),
                         'periodo_inicio': request.form.get('periodo_inicio'),
-                        'periodo_fim': request.form.get('periodo_fim'),
-                        'expires_at': request.form.get('expires_at'),
+                        'periodo_fim': periodo_fim,
+                        'expires_at': expires_at,
                         'budget_estimado': request.form.get('budget_estimado'),
                         'valor_total_proposta': request.form.get('valor_total_proposta'),
                         'status': request.form.get('status'),
-                        'link_publico_ativo': bool(request.form.get('link_publico_ativo')),
-                        'link_publico_token': request.form.get('link_publico_token'),
-                        'link_publico_expires_at': request.form.get('link_publico_expires_at'),
                         'observacoes': request.form.get('observacoes'),
                         'observacoes_internas': request.form.get('observacoes_internas'),
                         'desconto_total': request.form.get('desconto_total'),
@@ -3856,12 +3882,209 @@ def init_routes(app):
                                   briefing=briefing_atual,
                                   linhas=linhas,
                                   audiencias=audiencias,
-                                  anexos=anexos)
+                                  anexos=anexos,
+                                  token=token)
 
         except Exception as e:
             app.logger.error(f"Erro ao carregar cotação pública: {str(e)}", exc_info=True)
             return render_template('erro_publico.html', 
                 mensagem='Erro ao carregar cotação'), 500
+
+    @app.route('/cotacao/publico/<string:token>/pdf')
+    def cotacao_publica_pdf(token):
+        """Exporta cotação pública para PDF via token"""
+        try:
+            from flask import make_response
+            from datetime import datetime
+            from io import BytesIO
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import mm
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            
+            # Buscar cotação pelo token
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT * FROM cadu_cotacoes 
+                    WHERE link_publico_token = %s 
+                    AND link_publico_ativo = TRUE
+                    AND deleted_at IS NULL
+                ''', (token,))
+                cotacao = cursor.fetchone()
+            
+            if not cotacao:
+                return "Link inválido ou expirado", 404
+            
+            # Verificar se o link expirou
+            if cotacao.get('link_publico_expires_at'):
+                expires_at = cotacao['link_publico_expires_at']
+                if isinstance(expires_at, str):
+                    expires_at = datetime.fromisoformat(expires_at)
+                if expires_at < datetime.now():
+                    return "Este link expirou", 410
+            
+            cotacao_id = cotacao['id']
+            
+            # Obter dados relacionados
+            cliente = db.obter_cliente_por_id(cotacao['client_id']) if cotacao.get('client_id') else None
+            linhas = db.obter_linhas_cotacao(cotacao_id)
+            audiencias = db.obter_audiencias_cotacao(cotacao_id)
+            
+            # Criar PDF em memória
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+            
+            # Estilos
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#1e3a8a'), spaceAfter=12, alignment=TA_CENTER)
+            heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1e3a8a'), spaceAfter=8, spaceBefore=12)
+            normal_style = styles['Normal']
+            
+            # Conteúdo do PDF
+            story = []
+            
+            # Título
+            story.append(Paragraph("PROPOSTA COMERCIAL", title_style))
+            story.append(Spacer(1, 10*mm))
+            
+            # Informações da Cotação
+            info_data = [
+                ['Número:', cotacao.get('numero_cotacao', 'N/A')],
+                ['Cliente:', cliente.get('nome_fantasia', 'N/A') if cliente else 'N/A'],
+                ['Campanha:', cotacao.get('nome_campanha', 'N/A')],
+                ['Data Criação:', cotacao.get('created_at').strftime('%d/%m/%Y') if cotacao.get('created_at') else 'N/A'],
+                ['Status:', cotacao.get('status', 'N/A')],
+            ]
+            
+            if cotacao.get('periodo_inicio') and cotacao.get('periodo_fim'):
+                periodo_inicio = cotacao['periodo_inicio'].strftime('%d/%m/%Y') if hasattr(cotacao['periodo_inicio'], 'strftime') else str(cotacao['periodo_inicio'])
+                periodo_fim = cotacao['periodo_fim'].strftime('%d/%m/%Y') if hasattr(cotacao['periodo_fim'], 'strftime') else str(cotacao['periodo_fim'])
+                info_data.append(['Período:', f"{periodo_inicio} a {periodo_fim}"])
+            
+            info_table = Table(info_data, colWidths=[40*mm, 130*mm])
+            info_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0e7ff')),
+                ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e3a8a')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            story.append(info_table)
+            story.append(Spacer(1, 8*mm))
+            
+            # Linhas de Cotação
+            if linhas:
+                story.append(Paragraph("Itens da Proposta", heading_style))
+                
+                linhas_data = [['Item', 'Descrição', 'Plataforma', 'Período', 'Volume', 'Valor Unit.', 'Total']]
+                
+                for idx, linha in enumerate(linhas, 1):
+                    descricao_parts = []
+                    if linha.get('segmentacao'):
+                        descricao_parts.append(linha['segmentacao'])
+                    if linha.get('especificacoes'):
+                        descricao_parts.append(linha['especificacoes'])
+                    descricao = ' - '.join(descricao_parts) if descricao_parts else 'N/A'
+                    
+                    periodo = ''
+                    if linha.get('data_inicio') and linha.get('data_fim'):
+                        periodo = f"{linha['data_inicio'].strftime('%d/%m') if hasattr(linha['data_inicio'], 'strftime') else linha['data_inicio']} a {linha['data_fim'].strftime('%d/%m') if hasattr(linha['data_fim'], 'strftime') else linha['data_fim']}"
+                    
+                    linhas_data.append([
+                        str(idx),
+                        Paragraph(descricao[:80], normal_style) if len(descricao) > 80 else descricao,
+                        linha.get('plataforma', 'N/A'),
+                        periodo,
+                        f"{linha.get('volume_contratado', 0):,.0f}".replace(',', '.') if linha.get('volume_contratado') else '-',
+                        f"R$ {linha.get('valor_unitario', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('valor_unitario') else '-',
+                        f"R$ {linha.get('investimento_bruto', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('investimento_bruto') else '-'
+                    ])
+                
+                linhas_table = Table(linhas_data, colWidths=[12*mm, 48*mm, 25*mm, 22*mm, 20*mm, 22*mm, 22*mm])
+                linhas_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ]))
+                story.append(linhas_table)
+                story.append(Spacer(1, 6*mm))
+            
+            # Audiências
+            if audiencias:
+                story.append(Paragraph("Audiências", heading_style))
+                
+                for aud in audiencias:
+                    if aud.get('incluido_proposta', True):
+                        aud_info = f"<b>{aud.get('audiencia_nome', 'N/A')}</b>"
+                        if aud.get('audiencia_publico'):
+                            aud_info += f" - {aud['audiencia_publico']}"
+                        if aud.get('investimento_sugerido'):
+                            valor = f"R$ {aud['investimento_sugerido']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                            aud_info += f" | Investimento: {valor}"
+                        story.append(Paragraph(aud_info, normal_style))
+                        story.append(Spacer(1, 2*mm))
+            
+            # Valores Totais
+            story.append(Spacer(1, 6*mm))
+            story.append(Paragraph("Resumo Financeiro", heading_style))
+            
+            total_linhas = sum(l.get('investimento_bruto', 0) or 0 for l in linhas) if linhas else 0
+            total_audiencias = sum(a.get('investimento_sugerido', 0) or 0 for a in audiencias if a.get('incluido_proposta', True)) if audiencias else 0
+            valor_total = cotacao.get('valor_total_proposta') or (total_linhas + total_audiencias)
+            
+            totais_data = [
+                ['Total Linhas:', f"R$ {total_linhas:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')],
+                ['Total Audiências:', f"R$ {total_audiencias:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')],
+                ['VALOR TOTAL:', f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')],
+            ]
+            
+            totais_table = Table(totais_data, colWidths=[60*mm, 60*mm])
+            totais_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('FONTSIZE', (0, -1), (-1, -1), 12),
+                ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#1e3a8a')),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            story.append(totais_table)
+            
+            # Gerar PDF
+            doc.build(story)
+            
+            # Preparar resposta
+            buffer.seek(0)
+            response = make_response(buffer.read())
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'inline; filename=cotacao_{cotacao.get("numero_cotacao", cotacao_id)}.pdf'
+            
+            return response
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao gerar PDF público: {str(e)}", exc_info=True)
+            return f"Erro ao gerar PDF: {str(e)}", 500
 
     @app.route('/download/anexo/<int:anexo_id>')
     def download_anexo(anexo_id):
@@ -5094,18 +5317,22 @@ def init_routes(app):
             
             app.logger.info(f"Filtros processados: nome='{nome}', razao='{razao}'")
             
-            # Construir query com filtros - SÓ adicionar filtros que têm valor
+            # Construir query com filtros - buscar em nome_fantasia OU razao_social
             query = 'SELECT id_cliente, nome_fantasia, razao_social, cnpj, pessoa FROM tbl_cliente WHERE status = true'
             params = []
             
-            # Apenas adicionar filtro NOME se nome não for vazio
-            if nome and len(nome) > 0:
+            # Usar OR para buscar em qualquer um dos campos
+            if nome and razao:
+                # Se ambos estão preenchidos (mesmo valor), buscar com OR
+                query += ' AND (nome_fantasia ILIKE %s OR razao_social ILIKE %s)'
+                params.append(f'%{nome}%')
+                params.append(f'%{razao}%')
+                app.logger.info(f"Adicionado filtro OR: nome=%{nome}% OU razao=%{razao}%")
+            elif nome:
                 query += ' AND nome_fantasia ILIKE %s'
                 params.append(f'%{nome}%')
                 app.logger.info(f"Adicionado filtro nome: %{nome}%")
-            
-            # Apenas adicionar filtro RAZAO se razao não for vazio
-            if razao and len(razao) > 0:
+            elif razao:
                 query += ' AND razao_social ILIKE %s'
                 params.append(f'%{razao}%')
                 app.logger.info(f"Adicionado filtro razao: %{razao}%")

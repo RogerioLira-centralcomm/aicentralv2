@@ -64,7 +64,7 @@
           <!-- Filtro por Executivo -->
           <div class="flex items-center gap-3">
             <label class="label font-semibold text-sm py-1">Executivo:</label>
-            <select id="filtro_executivo" onchange="filtrarClientes()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
+            <select id="filtro_executivo" onchange="filtrarClientes()" class="select select-bordered h-8 min-h-0 text-sm flex-1 h-10 min-h-10">
               <option value="">Todos os executivos</option>
               {% for vendedor in vendedores_cc %}
                 <option value="{{ vendedor.nome_completo }}">{{ vendedor.nome_completo }}</option>
@@ -176,188 +176,156 @@
     </div>
     
     <!-- Conteúdo Editar -->
-    <form id="form_cliente" method="post" class="space-y-4">
+    <form id="form_cliente" method="post" class="space-y-2">
       <input type="hidden" id="cliente_id" name="cliente_id" value="">
       
-      <!-- Tipo de Pessoa -->
-      <div class="form-control">
-        <label class="label font-semibold text-sm">Pessoa <span class="text-error">*</span></label>
-        <div class="flex gap-3">
-          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg transition-colors bg-base-100" onmouseover="this.style.borderColor='#72cd80'" onmouseout="if(!this.querySelector('input').checked) this.style.borderColor=''">
-            <input type="radio" name="pessoa" value="J" class="radio radio-sm" style="--chkbg: #72cd80; --chkfg: white;" required checked>
-            <span class="font-medium">Jurídica</span>
-          </label>
-          <label class="cursor-pointer flex items-center gap-2 px-4 py-2.5 border-2 border-base-300 rounded-lg transition-colors bg-base-100" onmouseover="this.style.borderColor='#72cd80'" onmouseout="if(!this.querySelector('input').checked) this.style.borderColor=''">
-            <input type="radio" name="pessoa" value="F" class="radio radio-sm" style="--chkbg: #72cd80; --chkfg: white;" required>
-            <span class="font-medium">Física</span>
-          </label>
+      <!-- Linha 1: Pessoa + CNPJ + Nome Fantasia + Razão Social -->
+      <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
+        <div class="form-control col-span-1 md:col-span-1">
+          <label class="label py-0 text-xs font-semibold">Pessoa*</label>
+          <div class="flex gap-1">
+            <label class="cursor-pointer flex items-center gap-0.5 px-1.5 py-1 border border-base-300 rounded text-xs bg-base-100">
+              <input type="radio" name="pessoa" value="J" class="radio radio-xs" style="--chkbg: #72cd80;" required checked>
+              <span>PJ</span>
+            </label>
+            <label class="cursor-pointer flex items-center gap-0.5 px-1.5 py-1 border border-base-300 rounded text-xs bg-base-100">
+              <input type="radio" name="pessoa" value="F" class="radio radio-xs" style="--chkbg: #72cd80;" required>
+              <span>PF</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-control col-span-1 md:col-span-2">
+          <label id="label_cnpj" class="label py-0 text-xs font-semibold">CNPJ*</label>
+          <input id="input_cnpj" name="cnpj" required class="input input-bordered input-sm w-full" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+          <span id="cnpjcpf_msg" class="text-error text-xs"></span>
+        </div>
+        <div class="form-control col-span-1 md:col-span-4">
+          <label id="label_nome_fantasia" class="label py-0 text-xs font-semibold">Nome Fantasia*</label>
+          <input id="input_nome_fantasia" name="nome_fantasia" required class="input input-bordered input-sm w-full" placeholder="Nome fantasia">
+        </div>
+        <div id="razao_social_fields" class="form-control col-span-1 md:col-span-5">
+          <label class="label py-0 text-xs font-semibold">Razão Social*</label>
+          <input id="input_razao_social" name="razao_social" required class="input input-bordered input-sm w-full" placeholder="Razão social">
         </div>
       </div>
 
-      <!-- Grid de 2 Colunas -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Coluna 1 -->
-        <div class="space-y-3">
-          <!-- CNPJ/CPF -->
-          <div class="form-control">
-            <label id="label_cnpj" class="label font-semibold text-sm py-1">CNPJ *</label>
-            <input id="input_cnpj" name="cnpj" required class="input input-bordered input-sm w-full" placeholder="Digite o CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
-            <span id="cnpjcpf_msg" class="text-error text-xs mt-1"></span>
-          </div>
-
-          <!-- Razão Social -->
-          <div id="razao_social_fields" class="form-control">
-            <label class="label font-semibold text-sm py-1">Razão Social *</label>
-            <input id="input_razao_social" name="razao_social" required class="input input-bordered input-sm w-full" placeholder="Digite a razão social">
-          </div>
-
-          <!-- Nome Fantasia -->
-          <div class="form-control">
-            <label id="label_nome_fantasia" class="label font-semibold text-sm py-1">Nome Fantasia *</label>
-            <input id="input_nome_fantasia" name="nome_fantasia" required class="input input-bordered input-sm w-full" placeholder="Digite o nome fantasia">
-          </div>
-
-          <!-- Inscrições (apenas PJ) -->
-          <div id="inscricoes_fields" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <!-- Linha 2: Inscrições + Tipo + Vendas + Agência + Percentual -->
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+        <div id="inscricoes_fields" class="form-control col-span-2 md:col-span-2">
+          <div class="grid grid-cols-2 gap-2">
             <div class="form-control">
-              <label class="label font-semibold text-sm py-1">Inscrição Estadual</label>
-              <input name="inscricao_estadual" class="input input-bordered input-sm w-full" placeholder="Digite a inscrição estadual">
+              <label class="label py-0 text-xs font-semibold">Insc. Estadual</label>
+              <input name="inscricao_estadual" class="input input-bordered input-sm w-full" placeholder="IE">
             </div>
-
             <div class="form-control">
-              <label class="label font-semibold text-sm py-1">Inscrição Municipal</label>
-              <input name="inscricao_municipal" class="input input-bordered input-sm w-full" placeholder="Digite a inscrição municipal">
+              <label class="label py-0 text-xs font-semibold">Insc. Municipal</label>
+              <input name="inscricao_municipal" class="input input-bordered input-sm w-full" placeholder="IM">
             </div>
           </div>
         </div>
-
-        <!-- Coluna 2 -->
-        <div class="space-y-3">
-          <!-- Tipo de Cliente -->
-          <div id="tipo_cliente_fields" class="form-control">
-            <label class="label font-semibold text-sm py-1">Tipo <span class="text-error">*</span></label>
-            <select id="select_tipo_cliente" name="id_tipo_cliente" class="select select-bordered w-full h-10 min-h-10" required>
-              <option value="">Selecione o tipo</option>
-              {% for tipo in tipos_cliente %}
-                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <!-- Vendas CentralComm -->
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Vendas CentralComm <span class="text-error">*</span></label>
-            <select name="vendas_central_comm" class="select select-bordered w-full h-10 min-h-10" required>
-              <option value="">Selecione o vendedor</option>
-              {% for vendedor in vendedores_cc %}
-                <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <!-- Agência (apenas PJ) -->
-          <div id="agencia_fields" class="form-control">
-            <label class="label font-semibold text-sm py-1">Agência <span class="text-error">*</span></label>
-            <select name="pk_id_tbl_agencia" class="select select-bordered w-full h-10 min-h-10" required>
-              <option value="">É agência?</option>
-              {% for agencia in agencias %}
-                <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <!-- Percentual (apenas PJ) -->
-          <div id="percentual_fields" class="form-control">
-            <label class="label font-semibold text-sm py-1">Percentual (%)</label>
-            <input name="percentual" type="text" maxlength="5" class="input input-bordered input-sm w-full" placeholder="00,00" oninput="mascaraPercentual(this)">
-          </div>
-
-          <!-- Apresentação e Fluxo em Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <!-- Apresentação Executivo -->
-            <div class="form-control">
-              <label class="label font-semibold text-sm py-1">Apresentação Executivo</label>
-              <select name="id_apresentacao_executivo" class="select select-bordered w-full h-10 min-h-10">
-                <option value="">Selecione a apresentação</option>
-                {% for apresentacao in apresentacoes %}
-                  <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}">{{ apresentacao.display }}</option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <!-- Fluxo de Boas-Vindas -->
-            <div class="form-control">
-              <label class="label font-semibold text-sm py-1">Fluxo de Boas-Vindas <span class="text-error">*</span></label>
-              <select name="id_fluxo_boas_vindas" class="select select-bordered w-full h-10 min-h-10" required>
-                <option value="">Selecione o fluxo</option>
-                {% for fluxo in fluxos %}
-                  <option value="{{ fluxo.id_fluxo_boas_vindas }}">{{ fluxo.display }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-
-          <!-- ID CentralX -->
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">ID CentralX</label>
-            <input id="input_id_centralx" name="id_centralx" class="input input-bordered input-sm w-full" placeholder="Digite o ID CentralX">
-          </div>
-        </div>
-      </div>
-
-      <!-- Divider Endereço -->
-      <div class="divider text-sm my-2">Endereço</div>
-
-      <!-- Endereço em Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="form-control">
-          <label class="label font-semibold text-sm py-1">CEP</label>
-          <input id="cep" name="cep" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="input input-bordered input-sm w-full" placeholder="Digite o CEP">
-        </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm py-1">Estado</label>
-          <select id="estado" name="pk_id_aux_estado" class="select select-bordered w-full h-10 min-h-10">
-            <option value="">Selecione o estado</option>
-            {% for estado in estados %}
-              <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }} - {{ estado.descricao }}</option>
+        <div id="tipo_cliente_fields" class="form-control">
+          <label class="label py-0 text-xs font-semibold">Tipo*</label>
+          <select id="select_tipo_cliente" name="id_tipo_cliente" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
+            <option value="">Selecione</option>
+            {% for tipo in tipos_cliente %}
+              <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
             {% endfor %}
           </select>
         </div>
-
         <div class="form-control">
-          <label class="label font-semibold text-sm py-1">Cidade</label>
-          <input id="cidade" name="cidade" class="input input-bordered input-sm w-full" placeholder="Digite a cidade">
+          <label class="label py-0 text-xs font-semibold">Vendas CC*</label>
+          <select name="vendas_central_comm" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
+            <option value="">Selecione</option>
+            {% for vendedor in vendedores_cc %}
+              <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
+            {% endfor %}
+          </select>
         </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm py-1">Bairro</label>
-          <input id="bairro" name="bairro" class="input input-bordered input-sm w-full" placeholder="Digite o bairro">
+        <div id="agencia_fields" class="form-control">
+          <label class="label py-0 text-xs font-semibold">Agência*</label>
+          <select name="pk_id_tbl_agencia" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
+            <option value="">Selecione</option>
+            {% for agencia in agencias %}
+              <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="percentual_fields" class="form-control">
+          <label class="label py-0 text-xs font-semibold">Percentual</label>
+          <input name="percentual" type="text" maxlength="5" class="input input-bordered input-sm w-full" placeholder="00,00" oninput="mascaraPercentual(this)">
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="form-control md:col-span-2">
-          <label class="label font-semibold text-sm py-1">Logradouro</label>
-          <input id="logradouro" name="logradouro" class="input input-bordered input-sm w-full" placeholder="Digite o logradouro">
-        </div>
-
+      <!-- Linha 3: Apresentação + Fluxo + ID CentralX -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div class="form-control">
-          <label class="label font-semibold text-sm py-1">Número</label>
-          <input id="numero" name="numero" class="input input-bordered input-sm w-full" placeholder="Número">
+          <label class="label py-0 text-xs font-semibold">Apresentação Executivo</label>
+          <select name="id_apresentacao_executivo" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
+            <option value="">Selecione</option>
+            {% for apresentacao in apresentacoes %}
+              <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}">{{ apresentacao.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Fluxo Boas-Vindas*</label>
+          <select name="id_fluxo_boas_vindas" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
+            <option value="">Selecione</option>
+            {% for fluxo in fluxos %}
+              <option value="{{ fluxo.id_fluxo_boas_vindas }}">{{ fluxo.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">ID CentralX</label>
+          <input id="input_id_centralx" name="id_centralx" class="input input-bordered input-sm w-full" placeholder="ID CentralX">
         </div>
       </div>
 
-      <div class="form-control">
-        <label class="label font-semibold text-sm py-1">Complemento</label>
-        <input id="complemento" name="complemento" class="input input-bordered input-sm w-full" placeholder="Digite o complemento">
+      <!-- Endereço Compacto -->
+      <div class="border-t pt-2 mt-1">
+        <div class="grid grid-cols-3 md:grid-cols-7 gap-2">
+          <div class="form-control">
+            <label class="label py-0 text-xs font-semibold">CEP</label>
+            <input id="cep" name="cep" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="input input-bordered input-sm w-full" placeholder="CEP">
+          </div>
+          <div class="form-control">
+            <label class="label py-0 text-xs font-semibold">UF</label>
+            <select id="estado" name="pk_id_aux_estado" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
+              <option value="">UF</option>
+              {% for estado in estados %}
+                <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control">
+            <label class="label py-0 text-xs font-semibold">Cidade</label>
+            <input id="cidade" name="cidade" class="input input-bordered input-sm w-full" placeholder="Cidade">
+          </div>
+          <div class="form-control">
+            <label class="label py-0 text-xs font-semibold">Bairro</label>
+            <input id="bairro" name="bairro" class="input input-bordered input-sm w-full" placeholder="Bairro">
+          </div>
+          <div class="form-control col-span-2">
+            <label class="label py-0 text-xs font-semibold">Logradouro</label>
+            <input id="logradouro" name="logradouro" class="input input-bordered input-sm w-full" placeholder="Logradouro">
+          </div>
+          <div class="form-control">
+            <label class="label py-0 text-xs font-semibold">Nº</label>
+            <input id="numero" name="numero" class="input input-bordered input-sm w-full" placeholder="Nº">
+          </div>
+        </div>
+        <div class="form-control mt-2">
+          <label class="label py-0 text-xs font-semibold">Complemento</label>
+          <input id="complemento" name="complemento" class="input input-bordered input-sm w-full" placeholder="Complemento">
+        </div>
       </div>
 
       <!-- Hidden field para pessoa física -->
       <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 
       <!-- Botões do Modal -->
-      <div class="modal-action mt-6">
+      <div class="modal-action mt-2 pt-2 border-t">
         <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Cancelar</button>
         <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-2"></i><span id="btn_submit_text">Cadastrar</span>
@@ -366,30 +334,25 @@
     </form>
     
     <!-- Conteúdo Detalhes (dentro do mesmo modal) -->
-    <div id="detalhes_aba_content" class="space-y-4" style="display:none;">
+    <div id="detalhes_aba_content" class="space-y-1" style="display:none;">
       <!-- Informações Principais -->
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <h4 class="text-md font-semibold mb-3 flex items-center">
-          <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
+      <div class="bg-base-200/50 rounded-lg p-2">
+        <h4 class="text-xs font-semibold mb-1 flex items-center text-primary">
+          <i class="fas fa-info-circle mr-1"></i>Informações Principais
         </h4>
-        <div id="info_principais_aba" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div id="info_principais_aba" class="grid grid-cols-2 md:grid-cols-4 gap-1 text-xs">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
 
       <!-- Endereço -->
-      <div id="endereco_section_aba" class="bg-base-200/50 rounded-lg p-4" style="display:none;">
-        <h4 class="text-md font-semibold mb-3 flex items-center">
-          <i class="fas fa-map-marker-alt mr-2 text-primary"></i>Endereço
+      <div id="endereco_section_aba" class="bg-base-200/50 rounded-lg p-2" style="display:none;">
+        <h4 class="text-xs font-semibold mb-1 flex items-center text-primary">
+          <i class="fas fa-map-marker-alt mr-1"></i>Endereço
         </h4>
-        <div id="info_endereco_aba" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div id="info_endereco_aba" class="grid grid-cols-2 md:grid-cols-4 gap-1 text-xs">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
-      </div>
-
-      <!-- Botões da aba Detalhes -->
-      <div class="modal-action mt-6">
-        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
       </div>
     </div>
     
@@ -407,11 +370,6 @@
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
-      
-      <!-- Botões da aba Contatos -->
-      <div class="modal-action mt-6">
-        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
-      </div>
     </div>
     
     <!-- Conteúdo Contratos (dentro do mesmo modal) -->
@@ -426,9 +384,8 @@
         </div>
       </div>
       
-      <!-- Botões da aba Contratos -->
-      <div class="modal-action mt-6">
-        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
+      <!-- Botão Criar Plano Beta -->
+      <div class="modal-action mt-4">
         <button type="button" onclick="criarPlanoBetaTesterAba()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-gift mr-2"></i>Criar Plano Beta
         </button>
@@ -451,7 +408,7 @@
             placeholder="Digite o email do convidado" 
             class="input input-bordered input-sm flex-1"
           >
-          <select id="invite_role" class="select select-bordered select-sm w-40 h-10 min-h-10">
+          <select id="invite_role" class="select select-bordered h-8 min-h-0 text-sm w-40 h-10 min-h-10">
             <option value="member">Membro</option>
             <option value="admin">Admin</option>
           </select>
@@ -470,11 +427,6 @@
         <div id="lista_invites_aba">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
-      </div>
-      
-      <!-- Botões da aba Invites -->
-      <div class="modal-action mt-6">
-        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Fechar</button>
       </div>
     </div>
   </div>
@@ -540,79 +492,72 @@
 
 <!-- Modal de Novo/Editar Contato -->
 <dialog id="modal_contato" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-2xl">
+  <div class="modal-box max-w-3xl">
     <form method="dialog">
       <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
     
-    <h3 class="font-bold text-lg mb-4" id="contato_modal_title">Novo Contato</h3>
+    <h3 class="font-bold text-lg mb-3" id="contato_modal_title">Novo Contato</h3>
     
-    <form id="form_contato" class="space-y-4">
+    <form id="form_contato" class="space-y-2">
       <input type="hidden" id="contato_id" name="contato_id" value="">
       <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
       
-      <div class="form-control">
-        <label class="label font-semibold text-sm">Nome Completo <span class="text-error">*</span></label>
-        <input type="text" id="contato_nome_completo" name="nome_completo" class="input input-bordered w-full" required placeholder="Digite o nome completo">
+      <!-- Linha 1: Nome, Email, Telefone -->
+      <div class="grid grid-cols-12 gap-2">
+        <div class="form-control col-span-4">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nome Completo <span class="text-error">*</span></span></label>
+          <input type="text" id="contato_nome_completo" name="nome_completo" class="input input-bordered input-sm w-full" required placeholder="Nome completo">
+        </div>
+        <div class="form-control col-span-4">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Email <span class="text-error">*</span></span></label>
+          <input type="email" id="contato_email" name="email" class="input input-bordered input-sm w-full" required placeholder="email@exemplo.com">
+        </div>
+        <div class="form-control col-span-4">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Telefone</span></label>
+          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-sm w-full" placeholder="(00) 00000-0000">
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Email <span class="text-error">*</span></label>
-          <input type="email" id="contato_email" name="email" class="input input-bordered w-full" required placeholder="email@exemplo.com">
-        </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Telefone</label>
-          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered w-full" placeholder="(00) 00000-0000">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Setor <span class="text-error">*</span></label>
-          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered w-full" required onchange="carregarCargosPorSetor(this.value)">
-            <option value="">Selecione o setor</option>
+      <!-- Linha 2: Setor, Cargo, Tipo Usuário, Cohorts -->
+      <div class="grid grid-cols-12 gap-2">
+        <div class="form-control col-span-3">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Setor <span class="text-error">*</span></span></label>
+          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required onchange="carregarCargosPorSetor(this.value)">
+            <option value="">Selecione</option>
             {% for setor in setores %}
             <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
             {% endfor %}
           </select>
         </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Cargo <span class="text-error">*</span></label>
-          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered w-full" required>
-            <option value="">Selecione primeiro o setor</option>
+        <div class="form-control col-span-3">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cargo <span class="text-error">*</span></span></label>
+          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required>
+            <option value="">Selecione setor</option>
           </select>
         </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="form-control">
-          <label class="label font-semibold text-sm">
-            <span id="senha_label">Senha <span class="text-error">*</span></span>
-          </label>
-          <input type="password" id="contato_senha" name="senha" class="input input-bordered w-full" placeholder="Digite a senha">
-          <label class="label">
-            <span class="label-text-alt text-base-content/60" id="senha_hint">Mínimo 6 caracteres</span>
-          </label>
-        </div>
-
-        <div class="form-control">
-          <label class="label font-semibold text-sm">Tipo de Usuário</label>
-          <select id="contato_user_type" name="user_type" class="select select-bordered w-full">
+        <div class="form-control col-span-3">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Tipo Usuário</span></label>
+          <select id="contato_user_type" name="user_type" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="client">Cliente</option>
             <option value="admin">Administrador</option>
           </select>
         </div>
+        <div class="form-control col-span-3">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cohorts</span></label>
+          <input type="number" id="contato_cohorts" name="cohorts" class="input input-bordered input-sm w-full" value="1" min="1">
+        </div>
       </div>
 
-      <div class="form-control">
-        <label class="label font-semibold text-sm">Cohorts</label>
-        <input type="number" id="contato_cohorts" name="cohorts" class="input input-bordered w-full" value="1" min="1">
+      <!-- Linha 3: Senha -->
+      <div class="grid grid-cols-12 gap-2">
+        <div class="form-control col-span-4">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold" id="senha_label">Senha <span class="text-error">*</span></span></label>
+          <input type="password" id="contato_senha" name="senha" class="input input-bordered input-sm w-full" placeholder="Mín. 6 caracteres">
+        </div>
       </div>
 
-      <div class="modal-action mt-6">
+      <div class="modal-action mt-3 pt-2 border-t">
         <button type="button" onclick="modal_contato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
         <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-2"></i><span id="contato_btn_text">Criar Contato</span>
@@ -887,7 +832,6 @@ function togglePessoaFieldsModal() {
   const tipoClienteField = document.getElementById('tipo_cliente_fields');
   const selectTipoCliente = document.getElementById('select_tipo_cliente');
   const agenciaFields = document.getElementById('agencia_fields');
-  const percentualFields = document.getElementById('percentual_fields');
   const inscricoesFields = document.getElementById('inscricoes_fields');
   const razaoSocialFields = document.getElementById('razao_social_fields');
   const inputRazaoSocial = document.getElementById('input_razao_social');
@@ -897,7 +841,6 @@ function togglePessoaFieldsModal() {
     tipoClienteField.style.display = 'none';
     selectTipoCliente.required = false;
     agenciaFields.style.display = 'none';
-    percentualFields.style.display = 'none';
     inscricoesFields.style.display = 'none';
     razaoSocialFields.style.display = 'none';
     inputRazaoSocial.required = false;
@@ -911,7 +854,6 @@ function togglePessoaFieldsModal() {
     tipoClienteField.style.display = '';
     selectTipoCliente.required = true;
     agenciaFields.style.display = '';
-    percentualFields.style.display = '';
     inscricoesFields.style.display = '';
     razaoSocialFields.style.display = '';
     inputRazaoSocial.required = true;
@@ -1412,19 +1354,14 @@ function preencherAbaDetalhes(cliente, contatos) {
   // Preencher informações principais
   const infoPrincipais = document.getElementById('info_principais_aba');
   infoPrincipais.innerHTML = `
-    <div class="flex"><span class="font-semibold text-base-content/70 w-40">ID:</span><span>#${cliente.id_cliente}</span></div>
-    <div class="flex"><span class="font-semibold text-base-content/70 w-40">Status:</span>
-      <span class="badge badge-sm ${cliente.status ? 'badge-success' : 'badge-error'}">${cliente.status ? 'Ativo' : 'Inativo'}</span>
-    </div>
-    ${cliente.pessoa !== 'F' ? `<div class="flex"><span class="font-semibold text-base-content/70 w-40">Razão Social:</span><span>${cliente.razao_social || '—'}</span></div>` : ''}
-    <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'Nome Completo' : 'Nome Fantasia'}:</span><span>${cliente.nome_fantasia || '—'}</span></div>
-    <div class="flex"><span class="font-semibold text-base-content/70 w-40">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || 'Não informado'}</span></div>
-    <div class="flex"><span class="font-semibold text-base-content/70 w-40">Tipo:</span><span>${cliente.tipo_cliente_display || 'Não informado'}</span></div>
-    <div class="flex"><span class="font-semibold text-base-content/70 w-40">Executivo:</span><span>${cliente.executivo_nome || 'Não atribuído'}</span></div>
-    ${cliente.pessoa !== 'F' ? `
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Estadual:</span><span>${cliente.inscricao_estadual || '—'}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Insc. Municipal:</span><span>${cliente.inscricao_municipal || '—'}</span></div>
-    ` : ''}
+    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">ID:</span><span>#${cliente.id_cliente}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Status:</span><span class="badge badge-xs ${cliente.status ? 'badge-success' : 'badge-error'}">${cliente.status ? 'Ativo' : 'Inativo'}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">${cliente.pessoa === 'F' ? 'CPF' : 'CNPJ'}:</span><span>${cliente.cnpj || '—'}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Tipo:</span><span>${cliente.tipo_cliente_display || '—'}</span></div>
+    ${cliente.pessoa !== 'F' ? `<div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">Razão:</span><span class="truncate">${cliente.razao_social || '—'}</span></div>` : ''}
+    <div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">${cliente.pessoa === 'F' ? 'Nome' : 'Fantasia'}:</span><span class="truncate">${cliente.nome_fantasia || '—'}</span></div>
+    <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Executivo:</span><span>${cliente.executivo_nome || '—'}</span></div>
+    ${cliente.pessoa !== 'F' ? `<div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Insc. Est.:</span><span>${cliente.inscricao_estadual || '—'}</span></div><div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Insc. Mun.:</span><span>${cliente.inscricao_municipal || '—'}</span></div>` : ''}
   `;
   
   // Preencher endereço se existir
@@ -1433,12 +1370,11 @@ function preencherAbaDetalhes(cliente, contatos) {
   if (cliente.cep || cliente.logradouro || cliente.cidade) {
     enderecoSection.style.display = '';
     infoEndereco.innerHTML = `
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">CEP:</span><span>${cliente.cep || '—'}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
-      <div class="flex"><span class="font-semibold text-base-content/70 w-40">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
-      <div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Logradouro:</span><span>${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}</span></div>
-      ${cliente.complemento ? `<div class="flex md:col-span-2"><span class="font-semibold text-base-content/70 w-40">Complemento:</span><span>${cliente.complemento}</span></div>` : ''}
+      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">CEP:</span><span>${cliente.cep || '—'}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Estado:</span><span>${cliente.estado_nome || '—'}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Cidade:</span><span>${cliente.cidade || '—'}</span></div>
+      <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Bairro:</span><span>${cliente.bairro || '—'}</span></div>
+      <div class="flex items-center md:col-span-4"><span class="font-semibold text-base-content/70 w-16">Endereço:</span><span class="truncate">${cliente.logradouro || '—'}${cliente.numero ? ', ' + cliente.numero : ''}${cliente.complemento ? ' - ' + cliente.complemento : ''}</span></div>
     `;
   } else {
     enderecoSection.style.display = 'none';
@@ -1455,18 +1391,18 @@ function preencherAbaDetalhes(cliente, contatos) {
               <th class="rounded-tl-lg">Nome</th>
               <th>Email</th>
               <th>Telefone</th>
-              <th>Setor</th>
+              <th>Setor/Cargo</th>
               <th>Status</th>
-              <th class="text-center rounded-tr-lg">Ações</th>
+              <th class="rounded-tr-lg"></th>
             </tr>
           </thead>
           <tbody>
             ${contatos.map(c => `
               <tr class="hover">
-                <td class="font-semibold">${c.nome_completo}</td>
+                <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
                 <td>${c.email || '—'}</td>
                 <td>${c.telefone || '—'}</td>
-                <td>${c.setor || '—'}</td>
+                <td>${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                 <td>
                   <button type="button"
                           class="badge badge-xs cursor-pointer transition-all hover:scale-105"
@@ -1476,15 +1412,8 @@ function preencherAbaDetalhes(cliente, contatos) {
                     ${c.status ? 'Ativo' : 'Inativo'}
                   </button>
                 </td>
-                <td class="text-center">
-                  <div class="flex items-center justify-center gap-1">
-                    <button onclick="abrirModalEditarContato(${c.id_contato_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </div>
+                <td>
+                  <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                 </td>
               </tr>
             `).join('')}
@@ -1524,18 +1453,18 @@ async function carregarContatosAba(clienteId) {
                 <th class="rounded-tl-lg">Nome</th>
                 <th>Email</th>
                 <th>Telefone</th>
-                <th>Setor</th>
+                <th>Setor/Cargo</th>
                 <th>Status</th>
-                <th class="text-center rounded-tr-lg">Ações</th>
+                <th class="rounded-tr-lg"></th>
               </tr>
             </thead>
             <tbody>
               ${contatos.map(c => `
                 <tr class="hover">
-                  <td class="font-semibold">${c.nome_completo}</td>
+                  <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
                   <td>${c.email || '—'}</td>
                   <td>${c.telefone || '—'}</td>
-                  <td>${c.setor || '—'}</td>
+                  <td>${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                   <td>
                     <button type="button"
                             class="badge badge-xs cursor-pointer transition-all hover:scale-105"
@@ -1545,15 +1474,8 @@ async function carregarContatosAba(clienteId) {
                       ${c.status ? 'Ativo' : 'Inativo'}
                     </button>
                   </td>
-                  <td class="text-center">
-                    <div class="flex items-center justify-center gap-1">
-                      <button onclick="abrirModalEditarContato(${c.id_contato_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                      <button onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" class="btn btn-xs btn-circle btn-outline btn-error" title="Deletar">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </div>
+                  <td>
+                    <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                   </td>
                 </tr>
               `).join('')}
@@ -1704,12 +1626,12 @@ function abrirModalNovoContato() {
     
     // Tornar senha obrigatória
     document.getElementById('contato_senha').required = true;
+    document.getElementById('contato_senha').placeholder = 'Mín. 6 caracteres';
     document.getElementById('senha_label').innerHTML = 'Senha <span class="text-error">*</span>';
-    document.getElementById('senha_hint').textContent = 'Mínimo 6 caracteres';
     
     // Limpar select de cargos
     const cargoSelect = document.getElementById('contato_cargo');
-    cargoSelect.innerHTML = '<option value="">Selecione primeiro o setor</option>';
+    cargoSelect.innerHTML = '<option value="">Selecione setor</option>';
     
     // Abrir modal
     modal_contato.showModal();
@@ -1752,8 +1674,8 @@ async function abrirModalEditarContato(contatoId) {
     // Tornar senha opcional na edição
     document.getElementById('contato_senha').required = false;
     document.getElementById('contato_senha').value = '';
-    document.getElementById('senha_label').innerHTML = 'Nova Senha (deixe em branco para manter)';
-    document.getElementById('senha_hint').textContent = 'Deixe em branco para manter a senha atual';
+    document.getElementById('contato_senha').placeholder = 'Deixe em branco para manter';
+    document.getElementById('senha_label').innerHTML = 'Nova Senha';
     
     // Abrir modal
     modal_contato.showModal();
@@ -1796,6 +1718,58 @@ async function carregarCargosPorSetor(setorId) {
 // Handler para submit do formulário de contato
 document.addEventListener('DOMContentLoaded', function() {
   const formContato = document.getElementById('form_contato');
+  
+  // Máscara de telefone para contato
+  const telefoneInput = document.getElementById('contato_telefone');
+  if (telefoneInput) {
+    telefoneInput.addEventListener('keydown', function(e) {
+      // Permitir backspace, delete, tab, escape, enter, setas
+      if ([8, 9, 27, 13, 46, 37, 38, 39, 40].includes(e.keyCode) ||
+          // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+          (e.keyCode === 65 && e.ctrlKey) ||
+          (e.keyCode === 67 && e.ctrlKey) ||
+          (e.keyCode === 86 && e.ctrlKey) ||
+          (e.keyCode === 88 && e.ctrlKey)) {
+        return;
+      }
+      // Bloquear se não for número
+      if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+        e.preventDefault();
+      }
+    });
+    
+    telefoneInput.addEventListener('input', function(e) {
+      let cursorPos = e.target.selectionStart;
+      let oldValue = e.target.value;
+      let value = oldValue.replace(/\D/g, '');
+      
+      if (value.length > 11) value = value.slice(0, 11);
+      
+      let formatted = '';
+      if (value.length > 0) {
+        formatted = '(' + value.substring(0, 2);
+      }
+      if (value.length >= 2) {
+        formatted += ') ' + value.substring(2, 7);
+      }
+      if (value.length >= 7) {
+        formatted += '-' + value.substring(7, 11);
+      }
+      
+      // Só atualiza se o valor mudou
+      if (e.target.value !== formatted) {
+        e.target.value = formatted;
+        
+        // Ajustar posição do cursor após formatação
+        let newCursorPos = cursorPos;
+        if (cursorPos === 1 && formatted.length > 0) newCursorPos = 1;
+        else if (cursorPos <= 3 && value.length >= 2) newCursorPos = Math.min(cursorPos + 1, formatted.length);
+        else if (cursorPos <= 10 && value.length >= 7) newCursorPos = Math.min(cursorPos, formatted.length);
+        
+        e.target.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    });
+  }
   
   if (formContato) {
     formContato.addEventListener('submit', async function(e) {

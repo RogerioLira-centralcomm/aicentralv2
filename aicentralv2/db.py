@@ -603,15 +603,21 @@ def obter_contatos_por_cliente(id_cliente):
     with conn.cursor() as cursor:
         cursor.execute('''
             SELECT 
-                id_contato_cliente,
-                email,
-                nome_completo,
-                telefone,
-                status,
-                data_cadastro
-            FROM tbl_contato_cliente
-            WHERE pk_id_tbl_cliente = %s
-            ORDER BY nome_completo
+                c.id_contato_cliente,
+                c.email,
+                c.nome_completo,
+                c.telefone,
+                c.status,
+                c.data_cadastro,
+                c.pk_id_tbl_setor,
+                c.pk_id_tbl_cargo,
+                s.display as setor,
+                cg.descricao as cargo
+            FROM tbl_contato_cliente c
+            LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+            LEFT JOIN tbl_cargo_contato cg ON c.pk_id_tbl_cargo = cg.id_cargo_contato
+            WHERE c.pk_id_tbl_cliente = %s
+            ORDER BY c.nome_completo
         ''', (id_cliente,))
         return cursor.fetchall()
 
@@ -5046,10 +5052,15 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'aprovada_em', 'expires_at', 'desconto_total', 'condicoes_comerciais'
             ]
             
+            # Campos que podem ser setados para NULL explicitamente
+            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'expires_at']
+            
             for campo in campos_permitidos:
-                if campo in kwargs and kwargs[campo] is not None:
-                    updates.append(f'{campo} = %s')
-                    params.append(kwargs[campo])
+                if campo in kwargs:
+                    # Para campos nullable, incluir mesmo se for None
+                    if kwargs[campo] is not None or campo in campos_nullable:
+                        updates.append(f'{campo} = %s')
+                        params.append(kwargs[campo])
             
             params.append(cotacao_id)
             

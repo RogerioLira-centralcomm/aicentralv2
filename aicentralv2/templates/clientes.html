@@ -553,7 +553,7 @@
       <div class="grid grid-cols-12 gap-2">
         <div class="form-control col-span-4">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold" id="senha_label">Senha <span class="text-error">*</span></span></label>
-          <input type="password" id="contato_senha" name="senha" class="input input-bordered input-sm w-full" placeholder="Mín. 6 caracteres">
+          <input type="password" id="contato_senha" name="senha" class="input input-bordered input-sm w-full" placeholder="Mín. 6 caracteres" autocomplete="new-password">
         </div>
       </div>
 
@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
           
           if (clienteId) {
             // EDIÇÃO: Recarregar página para garantir dados atualizados
-            alert('Cliente atualizado com sucesso!');
+            showToast('Cliente atualizado com sucesso!', 'success');
             window.location.reload();
           } else {
             // NOVO CLIENTE: Extrair ID do redirecionamento e buscar dados
@@ -672,11 +672,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           }
         } else {
-          alert('Erro ao salvar cliente.');
+          showToast('Erro ao salvar cliente.', 'error');
         }
       } catch (error) {
         console.error('Erro:', error);
-        alert('Erro ao salvar cliente.');
+        showToast('Erro ao salvar cliente.', 'error');
       }
     });
     
@@ -784,7 +784,7 @@ async function abrirModalEditar(clienteId) {
     modal_cliente.showModal();
   } catch (error) {
     console.error('Erro ao carregar cliente:', error);
-    alert('Erro ao carregar dados do cliente.');
+    showToast('Erro ao carregar dados do cliente.', 'error');
   }
 }
 
@@ -1077,11 +1077,11 @@ async function toggleStatus(clienteId, badgeElement, statusAtual) {
       badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
       badgeElement.setAttribute('onclick', `toggleStatus(${clienteId}, this, ${novoStatus})`);
     } else {
-      alert('Erro ao alterar status do cliente.');
+      showToast('Erro ao alterar status do cliente.', 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao alterar status do cliente.');
+    showToast('Erro ao alterar status do cliente.', 'error');
   } finally {
     badgeElement.disabled = false;
     badgeElement.classList.remove('opacity-50');
@@ -1176,7 +1176,7 @@ async function abrirModalDetalhes(clienteId) {
     modal_detalhes.showModal();
   } catch (error) {
     console.error('Erro ao carregar detalhes:', error);
-    alert('Erro ao carregar dados do cliente.');
+    showToast('Erro ao carregar dados do cliente.', 'error');
   }
 }
 
@@ -1208,7 +1208,7 @@ function criarPlanoBetaTester(clienteId) {
   })
   .then(data => {
     if (data.success) {
-      alert('Plano Beta Tester criado com sucesso!');
+      showToast('Plano Beta Tester criado com sucesso!', 'success');
       
       // Recarregar lista de contratos se estiver na aba de contratos
       if (document.getElementById('contratos_aba_content') && 
@@ -1226,16 +1226,16 @@ function criarPlanoBetaTester(clienteId) {
       modal_detalhes.close();
     } else {
       if (data.error && (data.error.includes('Sessão') || data.error.includes('login'))) {
-        alert(data.error + '\n\nVocê será redirecionado para a página de login.');
-        window.location.href = '/login';
+        showToast(data.error + ' Você será redirecionado para a página de login.', 'error');
+        setTimeout(() => { window.location.href = '/login'; }, 2000);
       } else {
-        alert('Erro ao criar plano: ' + (data.error || 'Erro desconhecido'));
+        showToast('Erro ao criar plano: ' + (data.error || 'Erro desconhecido'), 'error');
       }
     }
   })
   .catch(error => {
     console.error('Erro completo:', error);
-    alert('Erro na requisição: ' + error.message + '\n\nVerifique o console para mais detalhes.');
+    showToast('Erro na requisição: ' + error.message, 'error');
   });
 }
 
@@ -1595,11 +1595,11 @@ async function togglePlanoStatus(planoId, badgeElement, statusAtual) {
       
       badgeElement.setAttribute('onclick', `togglePlanoStatus(${planoId}, this, '${novoStatus}')`);
     } else {
-      alert('Erro ao alterar status do plano.');
+      showToast('Erro ao alterar status do plano.', 'error');
     }
   } catch (error) {
     console.error('Erro ao alterar status do plano:', error);
-    alert('Erro ao alterar status do plano.');
+    showToast('Erro ao alterar status do plano.', 'error');
   }
 }
 
@@ -1682,7 +1682,7 @@ async function abrirModalEditarContato(contatoId) {
     
   } catch (error) {
     console.error('Erro ao carregar contato:', error);
-    alert('Erro ao carregar dados do contato!');
+    showToast('Erro ao carregar dados do contato!', 'error');
   }
 }
 
@@ -1781,7 +1781,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Validar senha no modo criação
       const senha = document.getElementById('contato_senha').value;
       if (!contatoId && senha.length < 6) {
-        alert('A senha deve ter no mínimo 6 caracteres!');
+        showToast('A senha deve ter no mínimo 6 caracteres!', 'warning');
         return;
       }
       
@@ -1827,7 +1827,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const result = await response.json();
         
         if (result.success) {
-          alert(result.message);
+          showToast(result.message, 'success');
           modal_contato.close();
           
           // Recarregar lista de contatos se estiver na aba de contatos
@@ -1835,12 +1835,12 @@ document.addEventListener('DOMContentLoaded', function() {
             await carregarContatosAba(clienteId);
           }
         } else {
-          alert(result.message || 'Erro ao salvar contato!');
+          showToast(result.message || 'Erro ao salvar contato!', 'error');
         }
         
       } catch (error) {
         console.error('Erro ao salvar contato:', error);
-        alert('Erro ao salvar contato!');
+        showToast('Erro ao salvar contato!', 'error');
       }
     });
   }
@@ -1865,12 +1865,12 @@ async function toggleContatoStatus(contatoId, clienteId, badgeElement, statusAtu
       badgeElement.title = `Clique para ${novoStatus ? 'desativar' : 'ativar'}`;
       badgeElement.setAttribute('onclick', `toggleContatoStatus(${contatoId}, ${clienteId}, this, ${novoStatus})`);
     } else {
-      alert(result.message || 'Erro ao alterar status!');
+      showToast(result.message || 'Erro ao alterar status!', 'error');
     }
     
   } catch (error) {
     console.error('Erro ao alterar status:', error);
-    alert('Erro ao alterar status do contato!');
+    showToast('Erro ao alterar status do contato!', 'error');
   }
 }
 
@@ -1886,16 +1886,16 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
     const result = await response.json();
     
     if (result.success) {
-      alert(result.message);
+      showToast(result.message, 'success');
       // Recarregar lista de contatos
       await carregarContatosAba(clienteId);
     } else {
-      alert(result.message || 'Erro ao deletar contato!');
+      showToast(result.message || 'Erro ao deletar contato!', 'error');
     }
     
   } catch (error) {
     console.error('Erro ao deletar contato:', error);
-    alert('Erro ao deletar contato!');
+    showToast('Erro ao deletar contato!', 'error');
   }
 }
 
@@ -1998,13 +1998,18 @@ async function enviarConvite() {
   const email = document.getElementById('invite_email').value.trim();
   const role = document.getElementById('invite_role').value;
   
+  if (!clienteId) {
+    showToast('Erro: Cliente não identificado.', 'error');
+    return;
+  }
+  
   if (!email) {
-    alert('Por favor, digite um email válido.');
+    showToast('Por favor, digite um email válido.', 'warning');
     return;
   }
   
   if (!validateEmail(email)) {
-    alert('Email inválido!');
+    showToast('Email inválido!', 'warning');
     return;
   }
   
@@ -2018,16 +2023,16 @@ async function enviarConvite() {
     const result = await response.json();
     
     if (result.success) {
-      alert(result.message || 'Convite enviado com sucesso!');
+      showToast(result.message || 'Convite enviado com sucesso!', 'success');
       document.getElementById('invite_email').value = '';
       document.getElementById('invite_role').value = 'member';
       carregarInvites();
     } else {
-      alert(result.message || 'Erro ao enviar convite!');
+      showToast(result.message || 'Erro ao enviar convite!', 'error');
     }
   } catch (error) {
     console.error('Erro ao enviar convite:', error);
-    alert('Erro ao enviar convite!');
+    showToast('Erro ao enviar convite!', 'error');
   }
 }
 
@@ -2042,14 +2047,14 @@ async function reenviarConvite(inviteId) {
     const result = await response.json();
     
     if (result.success) {
-      alert(result.message || 'Convite reenviado com sucesso!');
+      showToast(result.message || 'Convite reenviado com sucesso!', 'success');
       carregarInvites();
     } else {
-      alert(result.message || 'Erro ao reenviar convite!');
+      showToast(result.message || 'Erro ao reenviar convite!', 'error');
     }
   } catch (error) {
     console.error('Erro ao reenviar convite:', error);
-    alert('Erro ao reenviar convite!');
+    showToast('Erro ao reenviar convite!', 'error');
   }
 }
 
@@ -2064,14 +2069,14 @@ async function cancelarConvite(inviteId) {
     const result = await response.json();
     
     if (result.success) {
-      alert(result.message || 'Convite cancelado com sucesso!');
+      showToast(result.message || 'Convite cancelado com sucesso!', 'success');
       carregarInvites();
     } else {
-      alert(result.message || 'Erro ao cancelar convite!');
+      showToast(result.message || 'Erro ao cancelar convite!', 'error');
     }
   } catch (error) {
     console.error('Erro ao cancelar convite:', error);
-    alert('Erro ao cancelar convite!');
+    showToast('Erro ao cancelar convite!', 'error');
   }
 }
 

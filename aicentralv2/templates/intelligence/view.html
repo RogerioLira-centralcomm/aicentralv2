@@ -223,7 +223,7 @@
 function copyPineconeIds() {
     const ids = {{ document.pinecone_ids|tojson }};
     navigator.clipboard.writeText(ids.join('\n')).then(() => {
-        alert('IDs copiados para a área de transferência!');
+        showToast('IDs copiados para a área de transferência!', 'success');
     });
 }
 
@@ -244,12 +244,12 @@ function deleteDocument() {
             if (data.success) {
                 window.location.href = "{{ url_for('intelligence.index') }}";
             } else {
-                alert('Erro ao excluir documento: ' + data.message);
+                showToast('Erro ao excluir documento: ' + data.message, 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Erro ao excluir documento');
+            showToast('Erro ao excluir documento', 'error');
         });
     }
 }

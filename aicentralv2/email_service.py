@@ -72,15 +72,20 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
         print("="*60 + "\n")
         return True
     
-    # Enviar de forma assíncrona
+    # Enviar email (síncrono para debug)
     try:
-        Thread(
-            target=send_async_email,
-            args=(app, msg)
-        ).start()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Tentando enviar email para {recipients}...")
+        mail.send(msg)
+        logger.info(f"Email enviado com sucesso para {recipients}")
         return True
     except Exception as e:
-        print(f"FALHA Erro ao enviar email: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"FALHA ao enviar email: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
 
 
@@ -212,6 +217,154 @@ Equipe {app_name}
     return send_email(
         subject=subject,
         recipients=user_email,
+        text_body=text_body,
+        html_body=html_body
+    )
+
+
+def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, expires_at):
+    """
+    Envia email de convite para novo usuário
+    
+    Args:
+        to_email: Email do convidado
+        invite_token: Token do convite
+        cliente_nome: Nome do cliente/empresa
+        invited_by_name: Nome de quem convidou
+        expires_at: Data de expiração do convite
+    
+    Returns:
+        bool: True se enviado com sucesso
+    """
+    app_name = current_app.config.get('MAIL_APP_NAME', 'CentralX')
+    base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
+    
+    # Link de aceite do convite
+    invite_link = f"{base_url}/aceitar-convite/{invite_token}"
+    
+    # Formatar data de expiração
+    expires_str = expires_at.strftime('%d/%m/%Y às %H:%M') if hasattr(expires_at, 'strftime') else str(expires_at)
+    
+    subject = f"Você foi convidado para o {app_name}"
+    
+    text_body = f"""
+Olá!
+
+{invited_by_name} convidou você para fazer parte da equipe de {cliente_nome} no {app_name}.
+
+Para aceitar o convite e criar sua conta, clique no link abaixo:
+{invite_link}
+
+ATENÇÃO: Este convite expira em {expires_str}.
+
+Se você não esperava este convite, pode ignorar este email.
+
+---
+Equipe {app_name}
+    """.strip()
+    
+    html_body = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convite - {app_name}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .email-container {{
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 30px;
+        }}
+        .header h1 {{
+            color: #72cd80;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }}
+        .content {{
+            margin-bottom: 30px;
+        }}
+        .btn {{
+            display: inline-block;
+            background-color: #72cd80;
+            color: white !important;
+            text-decoration: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+        }}
+        .btn:hover {{
+            background-color: #5fb96c;
+        }}
+        .warning {{
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>Você foi convidado!</h1>
+        </div>
+        
+        <div class="content">
+            <p>Olá!</p>
+            
+            <p><strong>{invited_by_name}</strong> convidou você para fazer parte da equipe de <strong>{cliente_nome}</strong> no <strong>{app_name}</strong>.</p>
+            
+            <p style="text-align: center;">
+                <a href="{invite_link}" class="btn">Aceitar Convite</a>
+            </p>
+            
+            <div class="warning">
+                <strong>⚠️ Atenção:</strong> Este convite expira em <strong>{expires_str}</strong>.
+            </div>
+            
+            <p style="font-size: 14px; color: #666;">
+                Se você não esperava este convite, pode ignorar este email.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>Equipe {app_name}</p>
+        </div>
+    </div>
+</body>
+</html>
+    """
+    
+    return send_email(
+        subject=subject,
+        recipients=to_email,
         text_body=text_body,
         html_body=html_body
     )

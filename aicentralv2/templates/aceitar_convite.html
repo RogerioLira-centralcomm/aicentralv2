@@ -1,0 +1,127 @@
+{% extends "base_auth.html" %}
+
+{% block title %}Aceitar Convite{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-base-200 p-4">
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+        <div class="card-body">
+            <!-- Logo -->
+            <div class="text-center mb-4">
+                <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="Logo" class="h-16 mx-auto mb-2">
+                <h1 class="text-2xl font-bold text-primary">Bem-vindo!</h1>
+            </div>
+
+            {% if error %}
+                <!-- Mensagem de erro -->
+                <div class="alert alert-error mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ error }}</span>
+                </div>
+                <div class="text-center">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">
+                        Ir para Login
+                    </a>
+                </div>
+            {% elif invite %}
+                <!-- Informações do convite -->
+                <div class="text-center mb-6">
+                    <p class="text-base-content/70">
+                        Você foi convidado para fazer parte de
+                    </p>
+                    <p class="text-lg font-semibold text-primary">{{ cliente_nome }}</p>
+                </div>
+
+                {% if errors %}
+                    <div class="alert alert-warning mb-4">
+                        <ul class="list-disc list-inside text-sm">
+                            {% for err in errors %}
+                                <li>{{ err }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <!-- Formulário -->
+                <form method="POST" action="{{ url_for('aceitar_convite_submit', token=token) }}">
+                    <!-- Email (readonly) -->
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Email</span>
+                        </label>
+                        <input type="email" value="{{ invite.email }}" 
+                               class="input input-bordered bg-base-200" readonly>
+                    </div>
+
+                    <!-- Nome completo -->
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Nome Completo *</span>
+                        </label>
+                        <input type="text" name="nome" value="{{ nome|default('', true) }}" 
+                               class="input input-bordered" 
+                               placeholder="Seu nome completo"
+                               required minlength="3"
+                               autocomplete="name">
+                    </div>
+
+                    <!-- Senha -->
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Criar Senha *</span>
+                        </label>
+                        <input type="password" name="senha" 
+                               class="input input-bordered" 
+                               placeholder="Mínimo 6 caracteres"
+                               required minlength="6"
+                               autocomplete="new-password">
+                    </div>
+
+                    <!-- Confirmar senha -->
+                    <div class="form-control mb-6">
+                        <label class="label">
+                            <span class="label-text">Confirmar Senha *</span>
+                        </label>
+                        <input type="password" name="confirmar_senha" 
+                               class="input input-bordered" 
+                               placeholder="Repita a senha"
+                               required minlength="6"
+                               autocomplete="new-password">
+                    </div>
+
+                    <!-- Botão submit -->
+                    <div class="form-control">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Criar Minha Conta
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Validade -->
+                {% if invite.expires_at %}
+                <div class="text-center mt-4">
+                    <p class="text-xs text-base-content/50">
+                        Este convite expira em {{ invite.expires_at.strftime('%d/%m/%Y às %H:%M') }}
+                    </p>
+                </div>
+                {% endif %}
+            {% else %}
+                <!-- Estado inválido -->
+                <div class="alert alert-warning">
+                    <span>Convite inválido ou não encontrado.</span>
+                </div>
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">
+                        Ir para Login
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

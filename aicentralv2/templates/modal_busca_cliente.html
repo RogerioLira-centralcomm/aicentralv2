@@ -105,11 +105,11 @@ async function buscarClientes(trigger = 'manual') {
       console.log('DEBUG clientes retornados:', result.clientes);
       exibirResultadosClientes(result.clientes);
     } else {
-      alert(result.message || 'Erro ao buscar clientes');
+      showToast(result.message || 'Erro ao buscar clientes', 'error');
     }
   } catch (error) {
     console.error('Erro ao buscar clientes:', error);
-    alert('Erro ao buscar clientes!');
+    showToast('Erro ao buscar clientes!', 'error');
   }
 }
 
@@ -195,7 +195,7 @@ function selecionarCliente(clienteId, nomeFantasia) {
   // Validação
   if (!clienteId || clienteId === 'undefined' || clienteId === '' || clienteId === 'null') {
     console.error('ERRO: clienteId inválido');
-    alert('Erro: Cliente inválido. Tente novamente.');
+    showToast('Erro: Cliente inválido. Tente novamente.', 'error');
     return;
   }
   

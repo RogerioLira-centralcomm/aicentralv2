@@ -249,7 +249,7 @@ function confirmarExclusao(id, nome) {
       }
     })
     .catch(error => {
-      alert('Erro ao excluir subcategoria: ' + error);
+      showToast('Erro ao excluir subcategoria: ' + error, 'error');
     });
   }
 }

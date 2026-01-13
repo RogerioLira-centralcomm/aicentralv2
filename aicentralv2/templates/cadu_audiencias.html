@@ -396,7 +396,7 @@ async function abrirModalEditarAudiencia(audienciaId) {
     modal_audiencia.showModal();
   } catch (error) {
     console.error('Erro ao carregar audiência:', error);
-    alert('Erro ao carregar dados da audiência.');
+    showToast('Erro ao carregar dados da audiência.', 'error');
   }
 }
 
@@ -505,14 +505,14 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (response.ok || response.redirected) {
         modal_audiencia.close();
-        alert(audienciaId ? 'Audiência atualizada com sucesso!' : 'Audiência cadastrada com sucesso!');
+        showToast(audienciaId ? 'Audiência atualizada com sucesso!' : 'Audiência cadastrada com sucesso!', 'success');
         window.location.reload();
       } else {
-        alert('Erro ao salvar audiência.');
+        showToast('Erro ao salvar audiência.', 'error');
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('Erro ao salvar audiência.');
+      showToast('Erro ao salvar audiência.', 'error');
     }
   });
 
@@ -701,11 +701,11 @@ document.addEventListener('DOMContentLoaded', function() {
           this.style = isActive ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;';
           this.title = `Clique para ${isActive ? 'desativar' : 'ativar'}`;
         } else {
-          alert('Erro ao alterar status: ' + (data.message || 'Erro desconhecido'));
+          showToast('Erro ao alterar status: ' + (data.message || 'Erro desconhecido'), 'error');
         }
       } catch (error) {
         console.error('Erro:', error);
-        alert('Erro ao alterar status da audiência');
+        showToast('Erro ao alterar status da audiência', 'error');
       }
     });
   });
@@ -737,11 +737,11 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.success) {
         window.location.reload();
       } else {
-        alert('Erro ao excluir: ' + (data.message || 'Erro desconhecido'));
+        showToast('Erro ao excluir: ' + (data.message || 'Erro desconhecido'), 'error');
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('Erro ao excluir audiência');
+      showToast('Erro ao excluir audiência', 'error');
     }
   });
 

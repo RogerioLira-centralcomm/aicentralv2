@@ -675,7 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
       segmentData = JSON.parse(button.getAttribute('data-segment'));
     } catch (error) {
       console.error('Erro ao parsear dados do segment:', error);
-      alert('Erro ao processar dados da audiência');
+      showToast('Erro ao processar dados da audiência', 'error');
       return;
     }
     
@@ -707,12 +707,11 @@ document.addEventListener('DOMContentLoaded', function() {
           const match = error.message.match(/position (\d+)/);
           if (match) {
             const pos = parseInt(match[1]);
-            errorMsg += `\n\nErro na posição ${pos}: "${customDataTextarea.value.substring(Math.max(0, pos-10), pos+10)}"`;
+            errorMsg += ` Erro na posição ${pos}.`;
           }
         }
-        errorMsg += '\n\n' + error.message;
         
-        alert(errorMsg);
+        showToast(errorMsg, 'error');
         return;
       }
     }

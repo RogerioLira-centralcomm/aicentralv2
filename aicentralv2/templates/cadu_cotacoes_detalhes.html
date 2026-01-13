@@ -3,13 +3,6 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
-<!-- Toast Container -->
-<div id="toast-container" class="toast toast-top toast-end z-50" style="display: none;">
-  <div id="toast-message" class="alert">
-    <span id="toast-text"></span>
-  </div>
-</div>
-
 <style>
   /* Estilo customizado para abas ativas */
   .tabs .tab.tab-active {
@@ -33,35 +26,6 @@
 </style>
 
 <script>
-// Função para mostrar toast
-function showToast(message, type = 'success', duration = 3000) {
-  const container = document.getElementById('toast-container');
-  const toastMsg = document.getElementById('toast-message');
-  const toastText = document.getElementById('toast-text');
-  
-  // Limpar classes anteriores
-  toastMsg.className = 'alert';
-  
-  // Adicionar classe de tipo
-  if (type === 'success') {
-    toastMsg.classList.add('alert-success');
-  } else if (type === 'error') {
-    toastMsg.classList.add('alert-error');
-  } else if (type === 'warning') {
-    toastMsg.classList.add('alert-warning');
-  } else {
-    toastMsg.classList.add('alert-info');
-  }
-  
-  toastText.textContent = message;
-  container.style.display = 'flex';
-  
-  // Auto-hide
-  setTimeout(() => {
-    container.style.display = 'none';
-  }, duration);
-}
-
 // Função para trocar abas - definida no início para estar disponível imediatamente
 function trocarAbaCotacao(aba) {
   // Remover active de todas as abas
@@ -124,7 +88,7 @@ async function uploadAnexos(files) {
   var container = document.querySelector('[data-cotacao-id]');
   var cotacaoId = container ? container.dataset.cotacaoId : null;
   if (!cotacaoId || cotacaoId === '' || cotacaoId === 'null') {
-    alert('Salve a cotação primeiro antes de adicionar anexos.');
+    showToast('Salve a cotação primeiro antes de adicionar anexos.', 'warning');
     return;
   }
   
@@ -139,7 +103,7 @@ async function uploadAnexos(files) {
     var file = files[i];
     // Verificar tamanho (15MB)
     if (file.size > 15 * 1024 * 1024) {
-      alert('Arquivo "' + file.name + '" excede o limite de 15MB.');
+      showToast('Arquivo "' + file.name + '" excede o limite de 15MB.', 'error');
       continue;
     }
     
@@ -158,11 +122,11 @@ async function uploadAnexos(files) {
         progressBar.value = (uploaded / total) * 100;
       } else {
         var data = await response.json();
-        alert('Erro ao enviar "' + file.name + '": ' + (data.message || 'Erro desconhecido'));
+        showToast('Erro ao enviar "' + file.name + '": ' + (data.message || 'Erro desconhecido'), 'error');
       }
     } catch (error) {
       console.error('Erro no upload:', error);
-      alert('Erro ao enviar "' + file.name + '"');
+      showToast('Erro ao enviar "' + file.name + '"', 'error');
     }
   }
   
@@ -175,7 +139,7 @@ async function uploadAnexos(files) {
   }
   
   if (uploaded > 0) {
-    alert(uploaded + ' arquivo(s) enviado(s) com sucesso!');
+    showToast(uploaded + ' arquivo(s) enviado(s) com sucesso!', 'success');
   }
 }
 
@@ -289,9 +253,9 @@ function renderizarAnexos(anexos) {
       <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-64 mt-2">
         <li><a onclick="document.getElementById('modal_link_publico').showModal()"><i class="fas fa-link mr-2"></i>Ver Link Público</a></li>
         <li class="menu-title"><span>Emails</span></li>
-        <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-paper-plane mr-2"></i>Enviar Cotação</a></li>
-        <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-check-circle mr-2 text-success"></i>Email de Aprovação</a></li>
-        <li><a onclick="alert('Em desenvolvimento')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
+        <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-paper-plane mr-2"></i>Enviar Cotação</a></li>
+        <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-check-circle mr-2 text-success"></i>Email de Aprovação</a></li>
+        <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
         <li class="menu-title"><span>Outras ações</span></li>
         <li><a onclick="duplicarCotacao()"><i class="fas fa-copy mr-2"></i>Duplicar Cotação</a></li>
         <li><a onclick="exportarPDF()"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</a></li>
@@ -380,7 +344,7 @@ function renderizarAnexos(anexos) {
               <select name="responsavel_comercial" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
                 <option value="">Selecione</option>
                 {% for vendedor in vendedores %}
-                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial|string == vendedor.id_contato_cliente|string %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -392,7 +356,7 @@ function renderizarAnexos(anexos) {
                 <option value="">Selecione</option>
                 {% if cotacao and contatos_cliente %}
                   {% for contato in contatos_cliente %}
-                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id|string == contato.id_contato_cliente|string %}selected{% endif %}>{{ contato.nome_completo }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
@@ -1692,15 +1656,15 @@ function duplicarCotacao() {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      alert('Cotação duplicada com sucesso!');
+      showToast('Cotação duplicada com sucesso!', 'success');
       window.location.href = `/cotacoes/${data.nova_cotacao_id}/detalhes`;
     } else {
-      alert('Erro ao duplicar cotação: ' + (data.message || 'Erro desconhecido'));
+      showToast('Erro ao duplicar cotação: ' + (data.message || 'Erro desconhecido'), 'error');
     }
   })
   .catch(error => {
     console.error('Erro:', error);
-    alert('Erro ao duplicar cotação');
+    showToast('Erro ao duplicar cotação', 'error');
   });
 }
 
@@ -1709,7 +1673,7 @@ function exportarPDF() {
   const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
   
   if (!cotacaoId) {
-    alert('ID da cotação não encontrado');
+    showToast('ID da cotação não encontrado', 'error');
     return;
   }
   
@@ -1921,11 +1885,11 @@ function salvarCotacao() {
     if (response.ok) {
       window.location.reload();
     } else {
-      alert('Erro ao salvar cotação');
+      showToast('Erro ao salvar cotação', 'error');
     }
   }).catch(error => {
     console.error('Erro:', error);
-    alert('Erro ao salvar cotação');
+    showToast('Erro ao salvar cotação', 'error');
   });
 }
 

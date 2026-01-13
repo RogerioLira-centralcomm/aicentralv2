@@ -4025,10 +4025,78 @@ def obter_invites_cliente(id_cliente):
         return cursor.fetchall()
 
 
+def obter_invite_por_id(invite_id):
+    """Retorna um invite por ID"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                id,
+                id_cliente,
+                invited_by,
+                email,
+                invite_token,
+                status,
+                role,
+                expires_at,
+                accepted_at,
+                created_at
+            FROM cadu_user_invites
+            WHERE id = %s
+        ''', (invite_id,))
+        return cursor.fetchone()
+
+
+def obter_invite_por_token(token):
+    """Retorna um invite por token"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT 
+                i.id,
+                i.id_cliente,
+                i.invited_by,
+                i.email,
+                i.invite_token,
+                i.status,
+                i.role,
+                i.expires_at,
+                i.accepted_at,
+                i.created_at,
+                c.nome_fantasia as cliente_nome,
+                c.razao_social as cliente_razao
+            FROM cadu_user_invites i
+            LEFT JOIN tbl_cliente c ON i.id_cliente = c.id_cliente
+            WHERE i.invite_token = %s
+        ''', (token,))
+        return cursor.fetchone()
+
+
+def aceitar_invite(invite_id, contato_id):
+    """Marca um invite como aceito"""
+    conn = get_db()
+    from datetime import datetime
+    
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            UPDATE cadu_user_invites 
+            SET status = 'accepted', accepted_at = %s
+            WHERE id = %s AND status = 'pending'
+        ''', (datetime.now(), invite_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
 def criar_invite(id_cliente, invited_by, email, role='member'):
     """Cria um novo convite"""
     import secrets
     from datetime import datetime, timedelta
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"criar_invite: id_cliente={id_cliente}, invited_by={invited_by}, email={email}, role={role}")
     
     conn = get_db()
     
@@ -4038,6 +4106,8 @@ def criar_invite(id_cliente, invited_by, email, role='member'):
         
         # Convite expira em 7 dias
         expires_at = datetime.now() + timedelta(days=7)
+        
+        logger.info(f"criar_invite: token gerado, expires_at={expires_at}")
         
         with conn.cursor() as cursor:
             cursor.execute('''
@@ -4054,11 +4124,13 @@ def criar_invite(id_cliente, invited_by, email, role='member'):
             ''', (id_cliente, invited_by, email.lower().strip(), invite_token, 'pending', role, expires_at))
             
             invite_id = cursor.fetchone()['id']
+            logger.info(f"criar_invite: invite_id={invite_id}")
         
         conn.commit()
         return invite_id
         
     except Exception as e:
+        logger.error(f"criar_invite ERROR: {e}")
         conn.rollback()
         raise e
 

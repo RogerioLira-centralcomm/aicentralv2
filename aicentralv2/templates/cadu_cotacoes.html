@@ -202,14 +202,14 @@ async function deletarCotacao(cotacaoId) {
     const result = await response.json();
     
     if (result.success) {
-      alert(result.message || 'Cotação deletada com sucesso!');
+      showToast(result.message || 'Cotação deletada com sucesso!', 'success');
       window.location.reload();
     } else {
-      alert(result.message || 'Erro ao deletar cotação!');
+      showToast(result.message || 'Erro ao deletar cotação!', 'error');
     }
   } catch (error) {
     console.error('Erro ao deletar cotação:', error);
-    alert('Erro ao deletar cotação!');
+    showToast('Erro ao deletar cotação!', 'error');
   }
 }
 

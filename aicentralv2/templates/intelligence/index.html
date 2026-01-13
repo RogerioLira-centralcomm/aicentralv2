@@ -286,12 +286,12 @@ function deleteDocument(id) {
             if (data.success) {
                 window.location.reload();
             } else {
-                alert('Erro ao excluir documento: ' + data.message);
+                showToast('Erro ao excluir documento: ' + data.message, 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Erro ao excluir documento');
+            showToast('Erro ao excluir documento', 'error');
         });
     }
 }
@@ -312,12 +312,12 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
             closeUploadModal();
             window.location.reload();
         } else {
-            alert('Erro ao processar documento: ' + data.message);
+            showToast('Erro ao processar documento: ' + data.message, 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Erro ao enviar documento');
+        showToast('Erro ao enviar documento', 'error');
     });
 });
 </script>

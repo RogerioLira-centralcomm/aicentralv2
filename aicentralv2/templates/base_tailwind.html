@@ -65,6 +65,38 @@
                 });
             });
         });
+
+        // Função global de Toast
+        function showToast(message, type = 'success', duration = 3000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const alertClass = {
+                'success': 'alert-success',
+                'error': 'alert-error',
+                'warning': 'alert-warning',
+                'info': 'alert-info'
+            }[type] || 'alert-info';
+            
+            const iconClass = {
+                'success': 'fa-check-circle',
+                'error': 'fa-times-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            }[type] || 'fa-info-circle';
+            
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg animate-slide-up`;
+            toast.innerHTML = `<i class="fas ${iconClass}"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
     </script>
 
     <style>
@@ -197,6 +229,9 @@
     </style>
 </head>
 <body class="bg-base-100 font-sans no-fouc">
+    <!-- Toast Container Global -->
+    <div id="toast-container" class="toast toast-top toast-end" style="z-index: 99999 !important;"></div>
+
     <!-- Mobile Drawer -->
     <div class="drawer lg:drawer-open">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" />

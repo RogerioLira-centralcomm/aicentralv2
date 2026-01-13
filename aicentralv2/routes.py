@@ -10,7 +10,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 import secrets
 from aicentralv2 import db, audit
-from aicentralv2.email_service import send_password_reset_email, send_password_changed_email
+from aicentralv2.email_service import send_password_reset_email, send_password_changed_email, send_invite_email
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 
 # Helper para serializar dados para JSON
@@ -1327,6 +1327,8 @@ def init_routes(app):
             email = data.get('email', '').strip()
             role = data.get('role', 'member')
             
+            app.logger.info(f"DEBUG criar_invite: cliente_id={cliente_id}, email={email}, role={role}")
+            
             if not email:
                 return jsonify({'success': False, 'message': 'Email é obrigatório!'}), 400
             
@@ -1336,9 +1338,14 @@ def init_routes(app):
             
             # Pegar ID do usuário logado (garantido pelo @login_required)
             invited_by = session.get('user_id')
+            app.logger.info(f"DEBUG criar_invite: invited_by={invited_by}")
+            
+            if not invited_by:
+                return jsonify({'success': False, 'message': 'Usuário não identificado. Faça login novamente.'}), 401
             
             # Criar convite
             invite_id = db.criar_invite(cliente_id, invited_by, email, role)
+            app.logger.info(f"DEBUG criar_invite: invite_id={invite_id}")
             
             if invite_id:
                 # Registro de auditoria
@@ -1351,7 +1358,31 @@ def init_routes(app):
                     dados_novos={'email': email, 'role': role, 'cliente_id': cliente_id}
                 )
                 
-                # TODO: Enviar email com link de convite
+                # Enviar email com link de convite
+                try:
+                    # Buscar dados para o email
+                    cliente = db.obter_cliente_por_id(cliente_id)
+                    convidante = db.obter_contato_por_id(invited_by)
+                    invite = db.obter_invite_por_id(invite_id)
+                    
+                    cliente_nome = cliente.get('nome_fantasia') or cliente.get('razao_social') if cliente else 'Cliente'
+                    convidante_nome = convidante.get('nome_completo') if convidante else 'Equipe'
+                    invite_token = invite.get('invite_token') if invite else None
+                    expires_at = invite.get('expires_at') if invite else None
+                    
+                    if invite_token:
+                        send_invite_email(
+                            to_email=email,
+                            invite_token=invite_token,
+                            cliente_nome=cliente_nome,
+                            invited_by_name=convidante_nome,
+                            expires_at=expires_at
+                        )
+                        app.logger.info(f"Email de convite enviado para {email}")
+                except Exception as email_error:
+                    app.logger.error(f"Erro ao enviar email de convite: {email_error}")
+                    # Não falha se o email não for enviado
+                
                 return jsonify({
                     'success': True, 
                     'message': f'Convite enviado para {email}!',
@@ -1379,7 +1410,26 @@ def init_routes(app):
                     registro_tipo='invite'
                 )
                 
-                # TODO: Reenviar email
+                # Enviar email
+                try:
+                    invite = db.obter_invite_por_id(invite_id)
+                    if invite:
+                        cliente = db.obter_cliente_por_id(invite['id_cliente'])
+                        convidante_nome = session.get('user_name', 'Administrador')
+                        cliente_nome = cliente.get('nome_fantasia') or cliente.get('razao_social') if cliente else 'Cliente'
+                        
+                        send_invite_email(
+                            to_email=invite['email'],
+                            invite_token=invite['invite_token'],
+                            cliente_nome=cliente_nome,
+                            invited_by_name=convidante_nome,
+                            expires_at=invite.get('expires_at')
+                        )
+                        app.logger.info(f"Email de convite reenviado para {invite['email']}")
+                except Exception as email_error:
+                    app.logger.error(f"Erro ao enviar email de convite: {email_error}")
+                    # Não falha a operação se o email não for enviado
+                
                 return jsonify({'success': True, 'message': 'Convite reenviado com sucesso!'})
             else:
                 return jsonify({'success': False, 'message': 'Convite não encontrado ou já foi aceito!'}), 404
@@ -1408,6 +1458,128 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao cancelar invite {invite_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/aceitar-convite/<token>')
+    def aceitar_convite_page(token):
+        """Página para aceitar convite"""
+        from datetime import datetime
+        
+        invite = db.obter_invite_por_token(token)
+        
+        if not invite:
+            return render_template('aceitar_convite.html', 
+                                   error='Convite não encontrado ou inválido.')
+        
+        # Verificar se já foi aceito
+        if invite['status'] == 'accepted':
+            return render_template('aceitar_convite.html', 
+                                   error='Este convite já foi utilizado.')
+        
+        # Verificar se expirou
+        if invite['expires_at'] and invite['expires_at'] < datetime.now():
+            return render_template('aceitar_convite.html', 
+                                   error='Este convite expirou. Solicite um novo convite.')
+        
+        # Convite válido
+        cliente_nome = invite.get('cliente_nome') or invite.get('cliente_razao') or 'Cliente'
+        
+        return render_template('aceitar_convite.html', 
+                               invite=invite, 
+                               cliente_nome=cliente_nome,
+                               token=token)
+
+    @app.route('/aceitar-convite/<token>', methods=['POST'])
+    def aceitar_convite_submit(token):
+        """Processa o formulário de aceitar convite"""
+        from datetime import datetime
+        import hashlib
+        
+        invite = db.obter_invite_por_token(token)
+        
+        if not invite:
+            return render_template('aceitar_convite.html', 
+                                   error='Convite não encontrado ou inválido.')
+        
+        if invite['status'] == 'accepted':
+            return render_template('aceitar_convite.html', 
+                                   error='Este convite já foi utilizado.')
+        
+        if invite['expires_at'] and invite['expires_at'] < datetime.now():
+            return render_template('aceitar_convite.html', 
+                                   error='Este convite expirou.')
+        
+        # Obter dados do formulário
+        nome = request.form.get('nome', '').strip()
+        senha = request.form.get('senha', '')
+        confirmar_senha = request.form.get('confirmar_senha', '')
+        
+        # Validações
+        errors = []
+        if not nome or len(nome) < 3:
+            errors.append('Nome deve ter pelo menos 3 caracteres.')
+        if not senha or len(senha) < 6:
+            errors.append('Senha deve ter pelo menos 6 caracteres.')
+        if senha != confirmar_senha:
+            errors.append('As senhas não conferem.')
+        
+        if errors:
+            cliente_nome = invite.get('cliente_nome') or invite.get('cliente_razao') or 'Cliente'
+            return render_template('aceitar_convite.html', 
+                                   invite=invite, 
+                                   cliente_nome=cliente_nome,
+                                   token=token,
+                                   errors=errors,
+                                   nome=nome)
+        
+        try:
+            # Criar o contato/usuário
+            senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+            
+            # Mapear role do invite para user_type válido (client, admin, superadmin, readonly)
+            role_mapping = {
+                'member': 'client',
+                'admin': 'admin',
+                'superadmin': 'superadmin',
+                'readonly': 'readonly',
+                'client': 'client'
+            }
+            user_type = role_mapping.get(invite['role'], 'client')
+            
+            contato_id = db.criar_contato(
+                nome_completo=nome,
+                email=invite['email'],
+                senha=senha_hash,
+                pk_id_tbl_cliente=invite['id_cliente'],
+                user_type=user_type
+            )
+            
+            if contato_id:
+                # Marcar convite como aceito
+                db.aceitar_invite(invite['id'], contato_id)
+                
+                # Fazer login automático
+                session['user_id'] = contato_id
+                session['user_name'] = nome
+                session['user_email'] = invite['email']
+                session['cliente_id'] = invite['id_cliente']
+                
+                flash('Conta criada com sucesso! Bem-vindo!', 'success')
+                return redirect(url_for('index'))
+            else:
+                return render_template('aceitar_convite.html', 
+                                       invite=invite,
+                                       cliente_nome=invite.get('cliente_nome') or 'Cliente',
+                                       token=token,
+                                       errors=['Erro ao criar conta. Tente novamente.'],
+                                       nome=nome)
+        except Exception as e:
+            app.logger.error(f"Erro ao aceitar convite: {e}")
+            return render_template('aceitar_convite.html', 
+                                   invite=invite,
+                                   cliente_nome=invite.get('cliente_nome') or 'Cliente',
+                                   token=token,
+                                   errors=[f'Erro ao criar conta: {str(e)}'],
+                                   nome=nome)
 
     # ==================== FIM ROTAS DE INVITES ====================
 

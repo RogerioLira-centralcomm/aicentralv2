@@ -38,6 +38,16 @@ class Config:
 	DB_NAME = os.getenv('DB_NAME', 'aicentralv2')
 	DB_USER = os.getenv('DB_USER', 'postgres')
 	DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+	
+	# Email (Flask-Mail)
+	MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+	MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
+	MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+	MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
+	MAIL_USERNAME = os.getenv('MAIL_USERNAME', '')
+	MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
+	MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', '')
+	MAIL_APP_NAME = os.getenv('MAIL_APP_NAME', 'AIcentral v2')
     
 	@property
 	def DATABASE_URI(self):

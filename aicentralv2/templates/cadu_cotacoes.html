@@ -75,45 +75,51 @@
   <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
     <!-- Tabela de Cotações -->
     {% if cotacoes %}
-      <div class="overflow-x-auto">
-        <table class="table table-xs w-full">
-          <thead style="background-color: #72cd80;" class="text-white">
-            <tr>
-              <th class="text-left font-bold uppercase">Nº Cotação</th>
-              <th class="text-left font-bold uppercase">Cliente</th>
-              <th class="text-left font-bold uppercase">Campanha</th>
-              <th class="text-center font-bold uppercase">Status</th>
-              <th class="text-right font-bold uppercase">Budget</th>
-              <th class="text-center font-bold uppercase">Período Início</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cotacao in cotacoes %}
-            <tr class="hover">
-              <td class="font-mono text-sm font-semibold">
-                <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="link link-primary">
-                  {{ cotacao.numero_cotacao }}
-                </a>
-              </td>
-              <td>{{ cotacao.cliente_nome or '-' }}</td>
-              <td class="max-w-xs truncate">{{ cotacao.nome_campanha }}</td>
-              <td class="text-center">
-                <span class="badge 
-                  {% if cotacao.status == 'pendente' %}badge-warning
-                  {% elif cotacao.status == 'aprovada' %}badge-success
-                  {% elif cotacao.status == 'rejeitada' %}badge-error
-                  {% elif cotacao.status == 'expirada' %}badge-ghost
-                  {% endif %}">
-                  {{ cotacao.status }}
-                </span>
-              </td>
-              <td class="text-right" data-valor="{{ cotacao.budget_estimado }}">R$ <span class="valor-formatado">{{ "%.2f"|format(cotacao.budget_estimado or 0) }}</span></td>
-              <td class="text-center text-sm">{% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% else %}-{% endif %}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      <table class="table table-xs w-full">
+        <thead style="background-color: #72cd80;" class="text-white">
+          <tr>
+            <th class="text-left font-bold uppercase">Nº Cotação</th>
+            <th class="text-left font-bold uppercase">Cliente</th>
+            <th class="text-left font-bold uppercase">Campanha</th>
+            <th class="text-center font-bold uppercase">Status</th>
+            <th class="text-center font-bold uppercase">Linhas</th>
+            <th class="text-center font-bold uppercase">Audiências</th>
+            <th class="text-center font-bold uppercase">Anexos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cotacao in cotacoes %}
+          <tr class="hover">
+            <td class="font-mono text-sm font-semibold">
+              <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="link link-primary">
+                {{ cotacao.numero_cotacao }}
+              </a>
+            </td>
+            <td>{{ cotacao.cliente_nome or '-' }}</td>
+            <td class="max-w-xs truncate">{{ cotacao.nome_campanha }}</td>
+            <td class="text-center">
+              <span class="badge badge-sm
+                {% if cotacao.status == 'pendente' %}badge-warning
+                {% elif cotacao.status == 'aprovada' %}badge-success
+                {% elif cotacao.status == 'rejeitada' %}badge-error
+                {% elif cotacao.status == 'expirada' %}badge-ghost
+                {% endif %}">
+                {{ cotacao.status }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge badge-sm badge-ghost">{{ cotacao.total_linhas or 0 }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge badge-sm badge-ghost">{{ cotacao.total_audiencias or 0 }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge badge-sm badge-ghost">{{ cotacao.total_anexos or 0 }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
 
       <div class="p-4 border-t border-base-300">
         <p class="text-sm text-base-content/70">

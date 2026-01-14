@@ -116,7 +116,6 @@
           <thead style="background-color: #72cd80;" class="text-white">
             <tr>
               <th class="text-left font-bold uppercase">ID Plataforma</th>
-              <th class="text-left font-bold uppercase">Fonte</th>
               <th class="text-left font-bold uppercase">Nome</th>
               <th class="text-left font-bold uppercase">Perfil</th>
               <th class="text-left font-bold uppercase">Categoria</th>
@@ -130,6 +129,7 @@
           <tbody>
             {% for audiencia in audiencias %}
             <tr class="hover" 
+                id="audiencia-{{ audiencia.id }}"
                 data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
                 data-categoria-id="{{ audiencia.categoria_id or '' }}"
                 data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
@@ -137,16 +137,11 @@
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
                   <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
                 </a>
-              </td>
-              <td>
-                <span class="badge badge-sm badge-outline">{{ audiencia.fonte }}</span>
+                <div class="text-xs text-base-content/60 mt-1">{{ audiencia.fonte }}</div>
               </td>
               <td>
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
                   <div class="font-semibold text-base-content">{{ audiencia.nome }}</div>
-                  {% if audiencia.slug %}
-                    <div class="text-xs text-base-content/60">{{ audiencia.slug }}</div>
-                  {% endif %}
                 </a>
               </td>
               <td>
@@ -195,13 +190,9 @@
               </td>
               <td>
                 <div class="flex items-center justify-center gap-2">
-                  <button onclick="abrirModalEditarAudiencia({{ audiencia.id }})" 
-                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200" 
-                     title="Editar">
-                    <i class="fas fa-edit"></i>
-                  </button>
                   <button type="button" 
-                          class="p-2 {% if audiencia.imagem_url %}text-green-600 hover:text-green-800 hover:bg-green-50{% else %}text-blue-600 hover:text-blue-800 hover:bg-blue-50{% endif %} rounded transition-colors duration-200 btn-gerar-imagem" 
+                          class="p-2 {% if audiencia.imagem_url %}text-green-600 hover:text-green-800 hover:bg-green-50{% else %}hover:bg-green-50{% endif %} rounded transition-colors duration-200 btn-gerar-imagem" 
+                          style="{% if not audiencia.imagem_url %}color: #72cd80;{% endif %}"
                           data-audiencia-id="{{ audiencia.id }}"
                           data-audiencia-nome="{{ audiencia.nome }}"
                           data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
@@ -295,12 +286,9 @@
           </div>
 
           <div class="flex gap-2 mt-4">
-            <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" 
-               class="btn btn-sm btn-outline btn-primary flex-1">
-              <i class="fas fa-edit mr-1"></i>Editar
-            </a>
             <button type="button" 
-                    class="btn btn-sm btn-outline {% if audiencia.imagem_url %}btn-success{% else %}btn-info{% endif %} btn-gerar-imagem"
+                    class="btn btn-sm btn-outline btn-gerar-imagem flex-1"
+                    style="{% if not audiencia.imagem_url %}color: #72cd80; border-color: #72cd80;{% else %}color: #22c55e; border-color: #22c55e;{% endif %}"
                     data-audiencia-id="{{ audiencia.id }}"
                     data-audiencia-nome="{{ audiencia.nome }}"
                     data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
@@ -460,6 +448,24 @@ document.addEventListener('DOMContentLoaded', function() {
   if (editarId) {
     abrirModalEditarAudiencia(parseInt(editarId));
   }
+  
+  // Destacar linha editada (scroll e highlight)
+  const destaqueId = urlParams.get('destaque');
+  if (destaqueId) {
+    const linhaDestaque = document.getElementById('audiencia-' + destaqueId);
+    if (linhaDestaque) {
+      // Scroll suave para a linha
+      setTimeout(() => {
+        linhaDestaque.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Destacar com animação
+        linhaDestaque.style.transition = 'background-color 0.3s';
+        linhaDestaque.style.backgroundColor = '#72cd8040';
+        setTimeout(() => {
+          linhaDestaque.style.backgroundColor = '';
+        }, 3000);
+      }, 300);
+    }
+  }
 
   // Event listeners do Modal de Audiência
   const formAudiencia = document.getElementById('form_audiencia');
@@ -500,13 +506,15 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        body: formData
+        body: formData,
+        redirect: 'follow'
       });
       
       if (response.ok || response.redirected) {
         modal_audiencia.close();
         showToast(audienciaId ? 'Audiência atualizada com sucesso!' : 'Audiência cadastrada com sucesso!', 'success');
-        window.location.reload();
+        // Seguir o redirect do servidor para ir para a linha correta
+        window.location.href = response.url;
       } else {
         showToast('Erro ao salvar audiência.', 'error');
       }
@@ -1115,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <button 
             onclick="gerarImagem()" 
             id="btn-gerar-imagem"
-            class="btn btn-sm btn-primary gap-2 flex-1">
+            class="btn btn-sm gap-2 flex-1 text-white" style="background-color: #72cd80; border-color: #72cd80;">
             <i class="fas fa-magic"></i>
             Gerar Imagem
           </button>
@@ -1179,258 +1187,176 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Modal de Audiência -->
 <dialog id="modal_audiencia" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
+  <div class="modal-box max-w-7xl w-[98vw] p-3">
     <form method="dialog">
       <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
     
-    <h3 class="font-bold text-lg mb-4">
+    <h3 class="font-bold text-base mb-2">
       <span id="modal_audiencia_title">Nova Audiência</span>
     </h3>
     
-    <form id="form_audiencia" method="post" class="space-y-4">
+    <form id="form_audiencia" method="post">
       <input type="hidden" id="audiencia_id" name="audiencia_id" value="">
       
-      <!-- Seção: Identificação -->
-      <div>
-        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
-          <i class="fas fa-id-card mr-2 text-primary"></i>Identificação
-        </h4>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">ID da Plataforma <span class="text-error">*</span></label>
-            <input type="text" name="id_audiencia_plataforma" id="id_audiencia_plataforma" required 
-                   class="input input-bordered input-sm w-full" placeholder="Ex: 1234567890">
-            <span class="text-xs text-base-content/60 mt-1">Identificador único da plataforma</span>
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Fonte</label>
-            <input type="text" name="fonte" id="fonte" class="input input-bordered input-sm w-full" 
-                   placeholder="Ex: Navegg, LiveRamp">
-            <span class="text-xs text-base-content/60 mt-1">Fonte dos dados</span>
-          </div>
+      <!-- LINHA 1: Identificação + Categorização + Preços -->
+      <div class="grid grid-cols-6 gap-2 mb-2">
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">ID Plataforma *</label>
+          <input type="text" name="id_audiencia_plataforma" id="id_audiencia_plataforma" required 
+                 class="input input-bordered input-xs w-full" placeholder="1234567890">
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Nome da Audiência <span class="text-error">*</span></label>
-            <input type="text" name="nome" id="nome_audiencia" required 
-                   class="input input-bordered input-sm w-full" placeholder="Ex: Interessados em Tecnologia">
-            <span class="text-xs text-base-content/60 mt-1">Nome descritivo da audiência</span>
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Slug <span class="text-error">*</span></label>
-            <input type="text" name="slug" id="slug_audiencia" required 
-                   class="input input-bordered input-sm w-full" placeholder="interessados-em-tecnologia">
-            <span class="text-xs text-base-content/60 mt-1">URL amigável (gerado automaticamente)</span>
-          </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Nome *</label>
+          <input type="text" name="nome" id="nome_audiencia" required 
+                 class="input input-bordered input-xs w-full" placeholder="Nome da audiência">
         </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Slug *</label>
+          <input type="text" name="slug" id="slug_audiencia" required 
+                 class="input input-bordered input-xs w-full" placeholder="slug-automatico">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Categoria *</label>
+          <select name="categoria_id" id="categoria_id_modal" class="select select-bordered select-xs w-full" required>
+            <option value="">Selecione</option>
+            {% for categoria in categorias %}
+              <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Subcategoria</label>
+          <select name="subcategoria_id" id="subcategoria_id_modal" class="select select-bordered select-xs w-full">
+            <option value="">Selecione</option>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Fonte</label>
+          <input type="text" name="fonte" id="fonte" class="input input-bordered input-xs w-full" placeholder="Navegg">
+        </div>
+      </div>
 
-        <div class="form-control mt-3">
-          <label class="label font-semibold text-sm py-1">Perfil Socioeconômico</label>
+      <!-- LINHA 2: Perfil + Público + Preços -->
+      <div class="grid grid-cols-7 gap-2 mb-2">
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Perfil Socioecon.</label>
           <input type="text" name="perfil_socioeconomico" id="perfil_socioeconomico" 
-                 class="input input-bordered input-sm w-full" placeholder="Ex: Classes A e B">
-          <span class="text-xs text-base-content/60 mt-1">Descrição do perfil socioeconômico</span>
+                 class="input input-bordered input-xs w-full" placeholder="A e B">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Público Est.</label>
+          <input type="text" name="publico_estimado" id="publico_estimado" 
+                 class="input input-bordered input-xs w-full" placeholder="5M">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Público Nº</label>
+          <input type="number" name="publico_numero" id="publico_numero" 
+                 class="input input-bordered input-xs w-full" placeholder="0">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Tamanho</label>
+          <input type="text" name="tamanho" id="tamanho" 
+                 class="input input-bordered input-xs w-full" placeholder="Grande">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Propensão</label>
+          <select name="propensao_compra" id="propensao_compra" class="select select-bordered select-xs w-full">
+            <option value="">-</option>
+            <option value="Baixa">Baixa</option>
+            <option value="Média">Média</option>
+            <option value="Alta">Alta</option>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">CPM Custo</label>
+          <input type="number" step="0.01" name="cpm_custo" id="cpm_custo" 
+                 class="input input-bordered input-xs w-full" placeholder="0.00">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">CPM Venda</label>
+          <input type="number" step="0.01" name="cpm_venda" id="cpm_venda" 
+                 class="input input-bordered input-xs w-full" placeholder="0.00">
         </div>
       </div>
 
-      <!-- Seção: Descrições -->
-      <div>
-        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
-          <i class="fas fa-align-left mr-2 text-primary"></i>Descrições
-        </h4>
-        
-        <div class="space-y-3">
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Título Chamativo</label>
-            <input type="text" name="titulo_chamativo" id="titulo_chamativo" 
-                   class="input input-bordered input-sm w-full" placeholder="Ex: Conquiste consumidores de tecnologia">
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Descrição Curta</label>
-            <textarea name="descricao_curta" id="descricao_curta" class="textarea textarea-bordered textarea-sm h-16"
-                      placeholder="Descrição resumida (1-2 linhas)"></textarea>
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Descrição</label>
-            <textarea name="descricao" id="descricao_audiencia" class="textarea textarea-bordered textarea-sm h-24"
-                      placeholder="Descrição detalhada da audiência"></textarea>
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Descrição Comercial</label>
-            <textarea name="descricao_comercial" id="descricao_comercial" class="textarea textarea-bordered textarea-sm h-20"
-                      placeholder="Pitch de vendas e benefícios"></textarea>
-          </div>
+      <!-- LINHA 3: Gênero + Idade + Dispositivos -->
+      <div class="grid grid-cols-9 gap-2 mb-2">
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Homens %</label>
+          <input type="number" step="0.01" name="demografia_homens" id="demografia_homens" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Mulheres %</label>
+          <input type="number" step="0.01" name="demografia_mulheres" id="demografia_mulheres" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">18-24 %</label>
+          <input type="number" step="0.01" name="idade_18_24" id="idade_18_24" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">25-34 %</label>
+          <input type="number" step="0.01" name="idade_25_34" id="idade_25_34" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">35-44 %</label>
+          <input type="number" step="0.01" name="idade_35_44" id="idade_35_44" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">45+ %</label>
+          <input type="number" step="0.01" name="idade_45_mais" id="idade_45_mais" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Mobile %</label>
+          <input type="number" step="0.01" name="dispositivo_mobile" id="dispositivo_mobile" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Desktop %</label>
+          <input type="number" step="0.01" name="dispositivo_desktop" id="dispositivo_desktop" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Tablet %</label>
+          <input type="number" step="0.01" name="dispositivo_tablet" id="dispositivo_tablet" 
+                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
         </div>
       </div>
 
-      <!-- Seção: Precificação -->
-      <div>
-        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
-          <i class="fas fa-dollar-sign mr-2 text-primary"></i>Precificação (CPM)
-        </h4>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">CPM Custo</label>
-            <input type="number" step="0.01" name="cpm_custo" id="cpm_custo" 
-                   class="input input-bordered input-sm w-full" placeholder="0.00">
-            <span class="text-xs text-base-content/60 mt-1">Custo por mil impressões (R$)</span>
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">CPM Venda</label>
-            <input type="number" step="0.01" name="cpm_venda" id="cpm_venda" 
-                   class="input input-bordered input-sm w-full" placeholder="0.00">
-            <span class="text-xs text-base-content/60 mt-1">Preço de venda por mil impressões (R$)</span>
-          </div>
+      <!-- LINHA 4: Descrições -->
+      <div class="grid grid-cols-4 gap-2 mb-2">
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Título Chamativo</label>
+          <input type="text" name="titulo_chamativo" id="titulo_chamativo" 
+                 class="input input-bordered input-xs w-full" placeholder="Título de impacto">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Descrição Curta</label>
+          <input type="text" name="descricao_curta" id="descricao_curta" 
+                 class="input input-bordered input-xs w-full" placeholder="Resumo">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Descrição Completa</label>
+          <input type="text" name="descricao" id="descricao_audiencia" 
+                 class="input input-bordered input-xs w-full" placeholder="Descrição detalhada">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold">Descrição Comercial</label>
+          <input type="text" name="descricao_comercial" id="descricao_comercial" 
+                 class="input input-bordered input-xs w-full" placeholder="Pitch de vendas">
         </div>
       </div>
 
-      <!-- Seção: Categorização -->
-      <div>
-        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
-          <i class="fas fa-tags mr-2 text-primary"></i>Categorização
-        </h4>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Categoria <span class="text-error">*</span></label>
-            <select name="categoria_id" id="categoria_id_modal" class="select select-bordered w-full h-10 min-h-10" required>
-              <option value="">Selecione uma categoria</option>
-              {% for categoria in categorias %}
-                <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Subcategoria</label>
-            <select name="subcategoria_id" id="subcategoria_id_modal" class="select select-bordered w-full h-10 min-h-10">
-              <option value="">Selecione uma subcategoria</option>
-            </select>
-            <span class="text-xs text-base-content/60 mt-1">Carregada dinamicamente</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Seção: Dados Demográficos -->
-      <div>
-        <h4 class="text-sm font-semibold mb-3 pb-2 border-b border-base-300">
-          <i class="fas fa-users mr-2 text-primary"></i>Dados Demográficos
-        </h4>
-        
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Público Estimado</label>
-            <input type="text" name="publico_estimado" id="publico_estimado" 
-                   class="input input-bordered input-sm w-full" placeholder="Ex: 5 milhões">
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Público (Número)</label>
-            <input type="number" name="publico_numero" id="publico_numero" 
-                   class="input input-bordered input-sm w-full" placeholder="0">
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Tamanho</label>
-            <input type="text" name="tamanho" id="tamanho" 
-                   class="input input-bordered input-sm w-full" placeholder="Ex: Grande, Médio">
-          </div>
-
-          <div class="form-control">
-            <label class="label font-semibold text-sm py-1">Propensão de Compra</label>
-            <select name="propensao_compra" id="propensao_compra" 
-                    class="select select-bordered w-full h-10 min-h-10">
-              <option value="">Selecione</option>
-              <option value="Baixa">Baixa</option>
-              <option value="Média">Média</option>
-              <option value="Alta">Alta</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="mt-3">
-          <label class="label font-semibold text-sm py-1 mb-2">Demografia por Gênero (%)</label>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="form-control">
-              <label class="label text-xs py-1">Homens</label>
-              <input type="number" step="0.01" name="demografia_homens" id="demografia_homens" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-
-            <div class="form-control">
-              <label class="label text-xs py-1">Mulheres</label>
-              <input type="number" step="0.01" name="demografia_mulheres" id="demografia_mulheres" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-3">
-          <label class="label font-semibold text-sm py-1 mb-2">Distribuição por Idade (%)</label>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="form-control">
-              <label class="label text-xs py-1">18-24 anos</label>
-              <input type="number" step="0.01" name="idade_18_24" id="idade_18_24" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-
-            <div class="form-control">
-              <label class="label text-xs py-1">25-34 anos</label>
-              <input type="number" step="0.01" name="idade_25_34" id="idade_25_34" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-
-            <div class="form-control">
-              <label class="label text-xs py-1">35-44 anos</label>
-              <input type="number" step="0.01" name="idade_35_44" id="idade_35_44" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-
-            <div class="form-control">
-              <label class="label text-xs py-1">45+ anos</label>
-              <input type="number" step="0.01" name="idade_45_mais" id="idade_45_mais" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-3">
-          <label class="label font-semibold text-sm py-1 mb-2">Distribuição por Dispositivo (%)</label>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div class="form-control">
-              <label class="label text-xs py-1">Mobile</label>
-              <input type="number" step="0.01" name="dispositivo_mobile" id="dispositivo_mobile" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-
-            <div class="form-control">
-              <label class="label text-xs py-1">Desktop</label>
-              <input type="number" step="0.01" name="dispositivo_desktop" id="dispositivo_desktop" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-
-            <div class="form-control">
-              <label class="label text-xs py-1">Tablet</label>
-              <input type="number" step="0.01" name="dispositivo_tablet" id="dispositivo_tablet" 
-                     class="input input-bordered input-sm w-full" placeholder="0.00" min="0" max="100">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Botões do Modal -->
-      <div class="modal-action mt-6">
+      <!-- Botões -->
+      <div class="modal-action mt-2 pt-2 border-t">
         <button type="button" onclick="modal_audiencia.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm">
+        <button type="submit" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
           <i class="fas fa-save mr-2"></i><span id="btn_submit_audiencia_text">Cadastrar</span>
         </button>
       </div>

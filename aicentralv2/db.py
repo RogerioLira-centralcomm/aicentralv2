@@ -4996,7 +4996,10 @@ def obter_cotacoes(cliente_id=None, status=None):
                 SELECT 
                     c.*,
                     cli.nome_fantasia as cliente_nome,
-                    resp.nome_completo as responsavel_nome
+                    resp.nome_completo as responsavel_nome,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id), 0) as total_linhas,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
@@ -5029,7 +5032,10 @@ def obter_cotacoes_por_vendedor(vendedor_id):
                 SELECT 
                     c.*,
                     cli.nome_fantasia as cliente_nome,
-                    resp.nome_completo as responsavel_nome
+                    resp.nome_completo as responsavel_nome,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id), 0) as total_linhas,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente

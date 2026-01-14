@@ -3108,7 +3108,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao atualizar audiência: {str(e)}")
             flash(f'Erro ao atualizar audiência: {str(e)}', 'error')
         
-        return redirect(url_for('cadu_audiencias'))
+        return redirect(url_for('cadu_audiencias', destaque=audiencia_id) + f'#audiencia-{audiencia_id}')
     
     @app.route('/cadu-audiencias/deletar/<int:audiencia_id>', methods=['POST'])
     @login_required

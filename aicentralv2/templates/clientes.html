@@ -360,9 +360,7 @@
     <div id="contatos_aba_content" class="space-y-4" style="display:none;">
       <div class="flex justify-between items-center mb-4">
         <h4 class="text-md font-semibold">Contatos Vinculados</h4>
-        <button type="button" onclick="abrirModalNovoContato()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-plus mr-2"></i>Novo Contato
-        </button>
+        <!-- Contatos são cadastrados via convite -->
       </div>
       
       <div class="bg-base-200/50 rounded-lg p-4">
@@ -402,12 +400,16 @@
       <div class="bg-base-200/50 rounded-lg p-4">
         <h5 class="text-sm font-semibold mb-3">Enviar Novo Convite</h5>
         <div class="flex gap-3">
-          <input 
-            type="email" 
-            id="invite_email" 
-            placeholder="Digite o email do convidado" 
-            class="input input-bordered input-sm flex-1"
-          >
+          <div class="flex-1 relative">
+            <input 
+              type="email" 
+              id="invite_email" 
+              placeholder="Digite o email do convidado" 
+              class="input input-bordered input-sm w-full"
+              onblur="verificarEmailInvite(this)"
+            >
+            <span id="invite_email_status" class="text-xs absolute -bottom-5 left-0"></span>
+          </div>
           <select id="invite_role" class="select select-bordered h-8 min-h-0 text-sm w-40 h-10 min-h-10">
             <option value="member">Membro</option>
             <option value="admin">Admin</option>
@@ -499,7 +501,7 @@
     
     <h3 class="font-bold text-lg mb-3" id="contato_modal_title">Novo Contato</h3>
     
-    <form id="form_contato" class="space-y-2">
+    <form id="form_contato" class="space-y-2" autocomplete="off">
       <input type="hidden" id="contato_id" name="contato_id" value="">
       <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
       
@@ -519,9 +521,9 @@
         </div>
       </div>
 
-      <!-- Linha 2: Setor, Cargo, Tipo Usuário, Cohorts -->
+      <!-- Linha 2: Setor, Cargo, Tipo Usuário -->
       <div class="grid grid-cols-12 gap-2">
-        <div class="form-control col-span-3">
+        <div class="form-control col-span-4">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold">Setor <span class="text-error">*</span></span></label>
           <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required onchange="carregarCargosPorSetor(this.value)">
             <option value="">Selecione</option>
@@ -530,23 +532,21 @@
             {% endfor %}
           </select>
         </div>
-        <div class="form-control col-span-3">
+        <div class="form-control col-span-4">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cargo <span class="text-error">*</span></span></label>
           <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required>
             <option value="">Selecione setor</option>
           </select>
         </div>
-        <div class="form-control col-span-3">
+        <div class="form-control col-span-4">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold">Tipo Usuário</span></label>
           <select id="contato_user_type" name="user_type" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="client">Cliente</option>
             <option value="admin">Administrador</option>
           </select>
         </div>
-        <div class="form-control col-span-3">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cohorts</span></label>
-          <input type="number" id="contato_cohorts" name="cohorts" class="input input-bordered input-sm w-full" value="1" min="1">
-        </div>
+        <!-- Cohorts fixo em 1 -->
+        <input type="hidden" id="contato_cohorts" name="cohorts" value="1">
       </div>
 
       <!-- Linha 3: Senha -->
@@ -883,21 +883,39 @@ function validarCPF(cpf) {
 
 async function buscarEmpresaPorCNPJ(cnpj) {
   cnpj = cnpj.replace(/\D/g, '');
-  if (cnpj.length !== 14) return;
+  if (cnpj.length !== 14) {
+    document.getElementById('cnpjcpf_msg').innerText = 'CNPJ deve ter 14 dígitos';
+    return;
+  }
   
   try {
-    const resp = await fetch('https://www.receitaws.com.br/v1/cnpj/' + cnpj);
-    const data = await resp.json();
-    if (data.status === 'OK') {
-      // Sempre atualizar razão social e nome fantasia
+    // Mostrar loading
+    document.getElementById('cnpjcpf_msg').innerText = 'Buscando dados do CNPJ...';
+    document.getElementById('cnpjcpf_msg').classList.remove('text-error');
+    document.getElementById('cnpjcpf_msg').classList.add('text-info');
+    
+    // Pegar cliente_id se estiver editando
+    const clienteId = document.getElementById('cliente_id').value;
+    let url = '/api/buscar_cnpj/' + cnpj;
+    if (clienteId) {
+      url += '?cliente_id=' + clienteId;
+    }
+    
+    const resp = await fetch(url);
+    const result = await resp.json();
+    
+    if (result.success) {
+      const data = result.data;
+      
+      // Atualizar razão social e nome fantasia
       const inputRazaoSocial = document.getElementById('input_razao_social');
       const inputNomeFantasia = document.getElementById('input_nome_fantasia');
       
-      if (inputRazaoSocial && data.nome) {
-        inputRazaoSocial.value = data.nome;
+      if (inputRazaoSocial && data.razao_social) {
+        inputRazaoSocial.value = data.razao_social;
       }
-      if (inputNomeFantasia && data.fantasia) {
-        inputNomeFantasia.value = data.fantasia;
+      if (inputNomeFantasia && data.nome_fantasia) {
+        inputNomeFantasia.value = data.nome_fantasia;
       }
       
       // Atualizar inscrições
@@ -909,11 +927,30 @@ async function buscarEmpresaPorCNPJ(cnpj) {
       if (inscMunicipal && data.inscricao_municipal) {
         inscMunicipal.value = data.inscricao_municipal;
       }
+      
+      // Limpar mensagem de sucesso
+      document.getElementById('cnpjcpf_msg').innerText = '';
+      document.getElementById('cnpjcpf_msg').classList.remove('text-info');
+      
+      showToast('Dados do CNPJ carregados com sucesso!', 'success');
     } else {
-      console.log('ReceitaWS retornou status diferente de OK:', data);
+      // Verificar se é CNPJ já cadastrado
+      if (result.ja_cadastrado) {
+        document.getElementById('cnpjcpf_msg').innerText = result.message;
+        document.getElementById('cnpjcpf_msg').classList.remove('text-info');
+        document.getElementById('cnpjcpf_msg').classList.add('text-error');
+        showToast(result.message, 'error');
+      } else {
+        document.getElementById('cnpjcpf_msg').innerText = result.message || 'CNPJ inválido!';
+        document.getElementById('cnpjcpf_msg').classList.remove('text-info');
+        document.getElementById('cnpjcpf_msg').classList.add('text-error');
+      }
     }
   } catch (e) {
     console.error('Erro ao buscar CNPJ:', e);
+    document.getElementById('cnpjcpf_msg').innerText = 'Erro ao consultar CNPJ';
+    document.getElementById('cnpjcpf_msg').classList.remove('text-info');
+    document.getElementById('cnpjcpf_msg').classList.add('text-error');
   }
 }
 
@@ -1793,7 +1830,7 @@ document.addEventListener('DOMContentLoaded', function() {
         telefone: formData.get('telefone'),
         pk_id_aux_setor: parseInt(formData.get('pk_id_aux_setor')),
         pk_id_tbl_cargo: parseInt(formData.get('pk_id_tbl_cargo')),
-        cohorts: parseInt(formData.get('cohorts')),
+        cohorts: 1,  // Valor fixo
         user_type: formData.get('user_type')
       };
       
@@ -1993,6 +2030,59 @@ async function carregarInvites() {
   }
 }
 
+// Variável para controlar se email é válido para invite
+let emailInviteValido = true;
+
+async function verificarEmailInvite(input) {
+  const email = input.value.trim().toLowerCase();
+  const statusSpan = document.getElementById('invite_email_status');
+  
+  if (!email) {
+    statusSpan.textContent = '';
+    input.classList.remove('input-error', 'input-success');
+    emailInviteValido = true;
+    return;
+  }
+  
+  if (!validateEmail(email)) {
+    statusSpan.textContent = 'Email inválido';
+    statusSpan.className = 'text-xs absolute -bottom-5 left-0 text-error';
+    input.classList.add('input-error');
+    input.classList.remove('input-success');
+    emailInviteValido = false;
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/verificar-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    
+    const result = await response.json();
+    
+    if (result.existe) {
+      statusSpan.textContent = 'Este email já está cadastrado no sistema';
+      statusSpan.className = 'text-xs absolute -bottom-5 left-0 text-error';
+      input.classList.add('input-error');
+      input.classList.remove('input-success');
+      emailInviteValido = false;
+    } else {
+      statusSpan.textContent = 'Email disponível';
+      statusSpan.className = 'text-xs absolute -bottom-5 left-0 text-success';
+      input.classList.add('input-success');
+      input.classList.remove('input-error');
+      emailInviteValido = true;
+    }
+  } catch (error) {
+    console.error('Erro ao verificar email:', error);
+    statusSpan.textContent = '';
+    input.classList.remove('input-error', 'input-success');
+    emailInviteValido = true;
+  }
+}
+
 async function enviarConvite() {
   const clienteId = document.getElementById('cliente_id').value;
   const email = document.getElementById('invite_email').value.trim();
@@ -2005,6 +2095,12 @@ async function enviarConvite() {
   
   if (!email) {
     showToast('Por favor, digite um email válido.', 'warning');
+    return;
+  }
+  
+  // Verificar se email é válido antes de enviar
+  if (!emailInviteValido) {
+    showToast('Este email já está cadastrado no sistema!', 'error');
     return;
   }
   

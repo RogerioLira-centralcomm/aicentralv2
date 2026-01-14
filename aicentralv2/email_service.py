@@ -236,11 +236,18 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
     Returns:
         bool: True se enviado com sucesso
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     app_name = current_app.config.get('MAIL_APP_NAME', 'CentralX')
     base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
     
+    logger.info(f"BASE_URL configurado: {base_url}")
+    
     # Link de aceite do convite
     invite_link = f"{base_url}/aceitar-convite/{invite_token}"
+    
+    logger.info(f"Link do convite gerado: {invite_link}")
     
     # Formatar data de expiração
     expires_str = expires_at.strftime('%d/%m/%Y às %H:%M') if hasattr(expires_at, 'strftime') else str(expires_at)

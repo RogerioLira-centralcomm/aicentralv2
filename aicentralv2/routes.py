@@ -452,6 +452,117 @@ def init_routes(app):
         categorias = db.obter_cadu_categorias()
         return render_template('cadu_subcategorias_form.html', subcategoria=subcategoria, categorias=categorias)
 
+    # --- API: Buscar dados do CNPJ na ReceitaWS ---
+    @app.route('/api/buscar_cnpj/<cnpj>')
+    @login_required
+    def buscar_cnpj(cnpj):
+        """Proxy para buscar dados do CNPJ na ReceitaWS"""
+        import requests
+        
+        # Pegar cliente_id se estiver editando (para ignorar ele mesmo na verificação)
+        cliente_id_editando = request.args.get('cliente_id', None)
+        
+        # Remover caracteres não numéricos
+        cnpj = ''.join(filter(str.isdigit, cnpj))
+        
+        if len(cnpj) != 14:
+            return jsonify({'success': False, 'message': 'CNPJ inválido - deve ter 14 dígitos'})
+        
+        # Validar dígitos verificadores do CNPJ
+        def validar_cnpj(cnpj):
+            if len(cnpj) != 14 or cnpj == cnpj[0] * 14:
+                return False
+            
+            # Cálculo do primeiro dígito verificador
+            multiplicadores1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+            soma = sum(int(cnpj[i]) * multiplicadores1[i] for i in range(12))
+            resto = soma % 11
+            digito1 = 0 if resto < 2 else 11 - resto
+            
+            if int(cnpj[12]) != digito1:
+                return False
+            
+            # Cálculo do segundo dígito verificador
+            multiplicadores2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+            soma = sum(int(cnpj[i]) * multiplicadores2[i] for i in range(13))
+            resto = soma % 11
+            digito2 = 0 if resto < 2 else 11 - resto
+            
+            return int(cnpj[13]) == digito2
+        
+        if not validar_cnpj(cnpj):
+            return jsonify({'success': False, 'message': 'CNPJ inválido - dígitos verificadores incorretos'})
+        
+        # Verificar se CNPJ já existe na base de dados
+        try:
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                if cliente_id_editando:
+                    # Se está editando, ignorar o próprio cliente
+                    cursor.execute("""
+                        SELECT id_cliente, nome_fantasia, razao_social 
+                        FROM tbl_cliente 
+                        WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '-', ''), '/', '') = %s
+                        AND id_cliente != %s
+                    """, (cnpj, cliente_id_editando))
+                else:
+                    cursor.execute("""
+                        SELECT id_cliente, nome_fantasia, razao_social 
+                        FROM tbl_cliente 
+                        WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '-', ''), '/', '') = %s
+                    """, (cnpj,))
+                
+                cliente_existente = cursor.fetchone()
+                
+                if cliente_existente:
+                    nome_cliente = cliente_existente['nome_fantasia'] or cliente_existente['razao_social'] or 'Cliente'
+                    return jsonify({
+                        'success': False, 
+                        'message': f'CNPJ já cadastrado para: {nome_cliente}',
+                        'ja_cadastrado': True,
+                        'cliente_id': cliente_existente['id_cliente']
+                    })
+        except Exception as e:
+            app.logger.error(f'Erro ao verificar CNPJ na base: {e}')
+        
+        try:
+            # Buscar na ReceitaWS
+            resp = requests.get(f'https://www.receitaws.com.br/v1/cnpj/{cnpj}', timeout=30)
+            data = resp.json()
+            
+            if data.get('status') == 'OK':
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'razao_social': data.get('nome', ''),
+                        'nome_fantasia': data.get('fantasia', ''),
+                        'inscricao_estadual': data.get('inscricao_estadual', ''),
+                        'inscricao_municipal': data.get('inscricao_municipal', ''),
+                        'logradouro': data.get('logradouro', ''),
+                        'numero': data.get('numero', ''),
+                        'complemento': data.get('complemento', ''),
+                        'bairro': data.get('bairro', ''),
+                        'municipio': data.get('municipio', ''),
+                        'uf': data.get('uf', ''),
+                        'cep': data.get('cep', '').replace('.', '').replace('-', ''),
+                        'telefone': data.get('telefone', ''),
+                        'email': data.get('email', ''),
+                        'situacao': data.get('situacao', ''),
+                        'atividade_principal': data.get('atividade_principal', [{}])[0].get('text', '') if data.get('atividade_principal') else ''
+                    }
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'message': data.get('message', 'CNPJ não encontrado na Receita Federal')
+                })
+                
+        except requests.exceptions.Timeout:
+            return jsonify({'success': False, 'message': 'Timeout ao consultar ReceitaWS'})
+        except Exception as e:
+            app.logger.error(f'Erro ao buscar CNPJ: {e}')
+            return jsonify({'success': False, 'message': f'Erro ao consultar CNPJ: {str(e)}'})
+
     # --- API: Verifica se CNPJ/CPF já existe na base ---
     @app.route('/api/verifica_documento')
     def verifica_documento():
@@ -1306,6 +1417,23 @@ def init_routes(app):
             return jsonify({'success': False, 'error': str(e)}), 500
 
     # ==================== ROTAS DE INVITES ====================
+    
+    @app.route('/api/verificar-email', methods=['POST'])
+    @login_required
+    def api_verificar_email():
+        """API para verificar se email já está cadastrado"""
+        try:
+            data = request.get_json()
+            email = data.get('email', '').strip().lower()
+            
+            if not email:
+                return jsonify({'existe': False})
+            
+            existe = db.email_existe(email)
+            return jsonify({'existe': existe})
+        except Exception as e:
+            app.logger.error(f"Erro ao verificar email: {e}")
+            return jsonify({'existe': False})
     
     @app.route('/api/cliente/<int:cliente_id>/invites', methods=['GET'])
     @login_required

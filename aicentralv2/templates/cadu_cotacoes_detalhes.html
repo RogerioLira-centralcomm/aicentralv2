@@ -258,7 +258,6 @@ function renderizarAnexos(anexos) {
         <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
         <li class="menu-title"><span>Outras ações</span></li>
         <li><a onclick="duplicarCotacao()"><i class="fas fa-copy mr-2"></i>Duplicar Cotação</a></li>
-        <li><a onclick="exportarPDF()"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</a></li>
       </ul>
     </div>
       {% endif %}
@@ -536,7 +535,7 @@ function renderizarAnexos(anexos) {
             <!-- Total Linhas -->
             <div class="stat bg-base-200 rounded-lg p-4">
               <div class="stat-title text-xs">Total Linhas</div>
-              <div class="stat-value text-lg text-primary" id="total_linhas_display">
+              <div class="stat-value text-lg text-black" id="total_linhas_display">
                 R$ {% set total_linhas = namespace(value=0) %}
                 {% for linha in linhas %}
                   {% if linha.investimento_bruto %}
@@ -550,7 +549,7 @@ function renderizarAnexos(anexos) {
             <!-- Total Audiências -->
             <div class="stat bg-base-200 rounded-lg p-4">
               <div class="stat-title text-xs">Total Audiências</div>
-              <div class="stat-value text-lg text-secondary" id="total_audiencias_display">
+              <div class="stat-value text-lg text-black" id="total_audiencias_display">
                 R$ {% set total_aud = namespace(value=0) %}
                 {% for aud in audiencias %}
                   {% if aud.incluido_proposta and aud.investimento_sugerido %}
@@ -564,7 +563,7 @@ function renderizarAnexos(anexos) {
             <!-- Desconto -->
             <div class="stat bg-base-200 rounded-lg p-4">
               <div class="stat-title text-xs">Desconto Total</div>
-              <div class="stat-value text-lg text-warning" id="desconto_total_display">
+              <div class="stat-value text-lg text-black" id="desconto_total_display">
                 R$ {{ "{:,.2f}".format(cotacao.desconto_total if cotacao and cotacao.desconto_total else 0).replace(',', 'X').replace('.', ',').replace('X', '.') }}
               </div>
             </div>
@@ -572,7 +571,7 @@ function renderizarAnexos(anexos) {
             <!-- Total Geral -->
             <div class="stat bg-primary/10 rounded-lg p-4 border-2 border-primary">
               <div class="stat-title text-xs font-bold">TOTAL DA COTAÇÃO</div>
-              <div class="stat-value text-xl text-primary" id="total_geral_display">
+              <div class="stat-value text-xl text-black" id="total_geral_display">
                 R$ {% set total_geral = total_linhas.value + total_aud.value - (cotacao.desconto_total if cotacao and cotacao.desconto_total else 0) %}
                 {{ "{:,.2f}".format(total_geral).replace(',', 'X').replace('.', ',').replace('X', '.') }}
               </div>

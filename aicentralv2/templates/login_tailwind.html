@@ -268,7 +268,7 @@
                             data-form-type="other"
                             data-lpignore="true"
                             data-1p-ignore
-                            value="{{ request.form.get('email', '') }}"
+                            value="{{ request.form.get('email') or '' }}"
                             class="input-with-icon w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                         >
                         <div class="input-icon">

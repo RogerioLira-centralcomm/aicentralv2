@@ -650,6 +650,17 @@ def init_routes(app):
                     flash('Usuário inativo. Entre em contato com o administrador.', 'error')
                     return render_template('login_tailwind.html')
                 
+                # VERIFICAR SE É USUÁRIO DO CLIENTE CENTRALCOMM
+                cliente_id = user.get('pk_id_tbl_cliente')
+                if cliente_id:
+                    cliente = db.obter_cliente_por_id(cliente_id)
+                    if not cliente or cliente.get('nome_fantasia', '').upper() != 'CENTRALCOMM':
+                        flash('Acesso restrito. Cliente não autorizado.', 'error')
+                        return render_template('login_tailwind.html')
+                else:
+                    flash('Acesso restrito. Cliente não autorizado.', 'error')
+                    return render_template('login_tailwind.html')
+                
                 session.clear()
                 session['user_id'] = user['id_contato_cliente']
                 session['user_name'] = user['nome_completo']

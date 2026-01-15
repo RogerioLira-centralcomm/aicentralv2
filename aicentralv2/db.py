@@ -2836,6 +2836,53 @@ def obter_clientes_simples():
         raise e
 
 
+def obter_contatos_comercial_operacoes():
+    """Retorna lista de contatos de clientes dos setores Comercial e Operações"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    c.id_contato_cliente,
+                    c.nome_completo,
+                    c.email,
+                    cli.nome_fantasia as cliente_nome,
+                    s.display as setor
+                FROM tbl_contato_cliente c
+                INNER JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+                WHERE c.status = true
+                AND s.display IN ('Comercial', 'Operações')
+                ORDER BY cli.nome_fantasia ASC, c.nome_completo ASC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_contatos_por_cliente(cliente_id):
+    """Retorna lista de contatos de um cliente específico dos setores Comercial e Operações"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    c.id_contato_cliente,
+                    c.nome_completo,
+                    c.email,
+                    s.display as setor
+                FROM tbl_contato_cliente c
+                LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+                WHERE c.status = true
+                AND c.pk_id_tbl_cliente = %s
+                AND s.display IN ('Comercial', 'Operações')
+                ORDER BY c.nome_completo ASC
+            ''', (cliente_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
 def obter_vendedores():
     """Retorna lista de vendedores (contatos) do cliente CENTRALCOMM com setor Comercial e cargo Executivo Vendas"""
     conn = get_db()
@@ -4596,7 +4643,7 @@ def obter_todos_briefings(filtros=None):
     Retorna todos os briefings com filtros opcionais
     
     Args:
-        filtros (dict): {'status': str, 'cliente_id': int, 'busca': str, 'projeto_id': int}
+        filtros (dict): {'status': str, 'cliente_id': int, 'busca': str, 'projeto_id': int, 'responsavel_id': int}
     
     Returns:
         list: Lista de briefings com dados relacionados
@@ -4610,11 +4657,13 @@ def obter_todos_briefings(filtros=None):
                     c.nome_fantasia as cliente_nome,
                     cont.nome_completo as contato_nome,
                     cont.email as contato_email,
-                    p.nome as projeto_nome
+                    p.nome as projeto_nome,
+                    resp.nome_completo as responsavel_nome
                 FROM cadu_briefings b
                 LEFT JOIN tbl_cliente c ON b.id_cliente = c.id_cliente
                 LEFT JOIN tbl_contato_cliente cont ON b.id_contato_cliente = cont.id_contato_cliente
                 LEFT JOIN cadu_projetos p ON b.id_projeto = p.id
+                LEFT JOIN tbl_contato_cliente resp ON b.responsavel_centralcomm::integer = resp.id_contato_cliente
                 WHERE b.deleted_at IS NULL
             '''
             params = []
@@ -4635,6 +4684,10 @@ def obter_todos_briefings(filtros=None):
                 if 'plataforma' in filtros and filtros['plataforma']:
                     query += ' AND b.plataforma = %s'
                     params.append(filtros['plataforma'])
+                
+                if 'responsavel_id' in filtros and filtros['responsavel_id']:
+                    query += ' AND b.responsavel_centralcomm = %s'
+                    params.append(str(filtros['responsavel_id']))
                 
                 if 'busca' in filtros and filtros['busca']:
                     query += ' AND (b.titulo ILIKE %s OR b.objetivo ILIKE %s OR b.briefing_original ILIKE %s)'
@@ -4795,15 +4848,17 @@ def criar_briefing(dados):
                     progresso, briefing_original, briefing_melhorado, analise_ia,
                     objetivo, budget, prazo, responsavel, responsavel_centralcomm,
                     link_publico_token, link_publico_ativo, enviado_para_centralcomm,
-                    data_envio, id_projeto, plataforma
+                    data_envio, id_projeto, plataforma,
+                    canais
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s
                 )
                 RETURNING id, uuid
             ''', (
                 briefing_uuid,
-                dados.get('id_cliente'),
+                dados.get('id_cliente') or dados.get('cliente_id'),
                 dados.get('id_contato_cliente'),
                 dados.get('titulo'),
                 dados.get('status', 'rascunho'),
@@ -4821,7 +4876,8 @@ def criar_briefing(dados):
                 dados.get('enviado_para_centralcomm', False),
                 dados.get('data_envio'),
                 dados.get('id_projeto'),
-                dados.get('plataforma')
+                dados.get('plataforma'),
+                dados.get('canais')
             ))
             
             result = cursor.fetchone()
@@ -4852,6 +4908,7 @@ def atualizar_briefing(briefing_id, dados):
             
             campos_mapeamento = {
                 'id_cliente': 'id_cliente',
+                'cliente_id': 'id_cliente',
                 'id_contato_cliente': 'id_contato_cliente',
                 'titulo': 'titulo',
                 'status': 'status',
@@ -4869,7 +4926,8 @@ def atualizar_briefing(briefing_id, dados):
                 'enviado_para_centralcomm': 'enviado_para_centralcomm',
                 'data_envio': 'data_envio',
                 'id_projeto': 'id_projeto',
-                'plataforma': 'plataforma'
+                'plataforma': 'plataforma',
+                'canais': 'canais'
             }
             
             for key, db_field in campos_mapeamento.items():

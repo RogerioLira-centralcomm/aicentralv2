@@ -65,7 +65,7 @@
     <div class="card bg-base-100 border border-base-300 mb-4">
         <div class="card-body p-4">
             <h2 class="card-title text-sm mb-3">Filtros</h2>
-            <form method="get" action="{{ url_for('briefing_list') }}" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <form method="get" action="{{ url_for('briefing_list') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3">
                 <!-- Status -->
                 <div class="form-control">
                     <label class="label py-1">
@@ -93,7 +93,7 @@
                             type="text" 
                             id="cliente_busca" 
                             class="input input-bordered input-sm w-full h-8 min-h-8" 
-                            placeholder="Digite para buscar ou deixe vazio..."
+                            placeholder="Digite para buscar..."
                             value="{% if filtros.cliente_id and cliente_selecionado %}{{ cliente_selecionado.nome_fantasia }}{% endif %}"
                             autocomplete="off"
                             oninput="aoDigitarClienteFiltro(this.value)"
@@ -101,6 +101,32 @@
                         >
                         <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
                     </div>
+                </div>
+
+                <!-- Projeto -->
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">Projeto</span>
+                    </label>
+                    <select name="projeto_id" id="projeto_id_filtro" class="select select-bordered select-sm bg-white text-gray-900 font-medium focus:outline-primary h-8 min-h-8 py-1">
+                        <option value="">{{ 'Selecione cliente...' if not filtros.cliente_id else 'Todos' }}</option>
+                        {% for projeto in projetos %}
+                            <option value="{{ projeto.id }}" {% if filtros.projeto_id == projeto.id|string %}selected{% endif %}>{{ projeto.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Responsável -->
+                <div class="form-control">
+                    <label class="label py-1">
+                        <span class="label-text text-xs">Responsável</span>
+                    </label>
+                    <select name="responsavel_id" class="select select-bordered select-sm bg-white text-gray-900 font-medium focus:outline-primary h-8 min-h-8 py-1">
+                        <option value="">Todos</option>
+                        {% for resp in responsaveis %}
+                            <option value="{{ resp.id_contato_cliente }}" {% if filtros.responsavel_id == resp.id_contato_cliente|string %}selected{% endif %}>{{ resp.nome_completo }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
 
                 <!-- Busca -->
@@ -131,12 +157,14 @@
         <table class="table table-zebra w-full text-sm">
             <thead style="background-color: #72cd80;" class="text-white">
                 <tr class="text-xs">
-                    <th class="w-1/3">Título</th>
+                    <th class="w-1/5">Título</th>
                     <th class="w-1/6">Cliente</th>
+                    <th class="w-1/6">Projeto</th>
+                    <th class="w-24">Responsável</th>
                     <th class="w-24">Prazo</th>
                     <th class="w-28">Budget</th>
-                    <th class="w-32">Status</th>
-                    <th class="w-24">Ações</th>
+                    <th class="w-28">Status</th>
+                    <th class="w-20">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -144,10 +172,14 @@
                     {% for briefing in briefings %}
                     <tr>
                         <td class="py-2">
-                            <div class="font-semibold text-sm">{{ briefing.titulo }}</div>
-                            <div class="text-xs opacity-60 truncate max-w-xs">{{ briefing.objetivo }}</div>
+                            <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" class="hover:text-primary">
+                                <div class="font-semibold text-sm">{{ briefing.titulo }}</div>
+                                <div class="text-xs opacity-60 truncate max-w-xs">{{ briefing.objetivo }}</div>
+                            </a>
                         </td>
                         <td class="py-2 text-xs">{{ briefing.cliente_nome or '-' }}</td>
+                        <td class="py-2 text-xs">{{ briefing.projeto_nome or '-' }}</td>
+                        <td class="py-2 text-xs">{{ briefing.responsavel_nome or '-' }}</td>
                         <td class="py-2 text-xs">{{ briefing.prazo.strftime('%d/%m/%Y') if briefing.prazo else '-' }}</td>
                         <td class="py-2 text-xs">
                             {% if briefing.budget %}
@@ -172,28 +204,20 @@
                             {% endif %}
                         </td>
                         <td class="py-2">
-                            <div class="flex gap-1">
-                                <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" 
-                                   class="btn btn-xs btn-ghost" title="Editar">
+                            <form method="post" action="{{ url_for('briefing_delete', briefing_id=briefing.id) }}" 
+                                  onsubmit="return confirm('Deseja realmente excluir este briefing?');" class="inline">
+                                <button type="submit" class="btn btn-xs btn-ghost text-error" title="Excluir">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                                     </svg>
-                                </a>
-                                <form method="post" action="{{ url_for('briefing_delete', briefing_id=briefing.id) }}" 
-                                      onsubmit="return confirm('Deseja realmente excluir este briefing?');" class="inline">
-                                    <button type="submit" class="btn btn-xs btn-ghost text-error" title="Excluir">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                        </svg>
-                                    </button>
-                                </form>
-                            </div>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="6" class="text-center py-8 text-gray-500">
+                        <td colspan="8" class="text-center py-8 text-gray-500">
                             Nenhum briefing encontrado.
                         </td>
                     </tr>
@@ -208,9 +232,12 @@
             {% for briefing in briefings %}
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body p-4">
-                    <h3 class="card-title text-base">{{ briefing.titulo }}</h3>
+                    <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" class="hover:text-primary">
+                        <h3 class="card-title text-base">{{ briefing.titulo }}</h3>
+                    </a>
                     <div class="space-y-1 text-xs">
                         <div><strong>Cliente:</strong> {{ briefing.cliente_nome or '-' }}</div>
+                        <div><strong>Responsável:</strong> {{ briefing.responsavel_nome or '-' }}</div>
                         <div><strong>Prazo:</strong> {{ briefing.prazo.strftime('%d/%m/%Y') if briefing.prazo else '-' }}</div>
                         <div><strong>Budget:</strong> 
                             {% if briefing.budget %}
@@ -238,10 +265,6 @@
                         </div>
                     </div>
                     <div class="card-actions justify-end mt-3">
-                        <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" 
-                           class="btn btn-xs btn-primary">
-                            Editar
-                        </a>
                         <form method="post" action="{{ url_for('briefing_delete', briefing_id=briefing.id) }}" 
                               onsubmit="return confirm('Deseja realmente excluir este briefing?');" class="inline">
                             <button type="submit" class="btn btn-xs btn-error">Excluir</button>
@@ -328,6 +351,36 @@ function selecionarClienteFiltro(clienteId, nomeCliente) {
   document.getElementById('cliente_id_filtro').value = clienteId;
   document.getElementById('cliente_busca').value = nomeCliente;
   document.getElementById('resultados_clientes_filtro').classList.add('hidden');
+  
+  // Carregar projetos do cliente selecionado
+  carregarProjetosFiltro(clienteId);
+}
+
+function carregarProjetosFiltro(clienteId) {
+  const selectProjeto = document.getElementById('projeto_id_filtro');
+  
+  if (!clienteId) {
+    selectProjeto.innerHTML = '<option value="">Selecione cliente...</option>';
+    return;
+  }
+  
+  selectProjeto.innerHTML = '<option value="">Carregando...</option>';
+  
+  fetch(`/api/clientes/${clienteId}/projetos`)
+    .then(response => response.json())
+    .then(projetos => {
+      if (projetos.length === 0) {
+        selectProjeto.innerHTML = '<option value="">Nenhum projeto</option>';
+        return;
+      }
+      
+      selectProjeto.innerHTML = '<option value="">Todos</option>' + 
+        projetos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+    })
+    .catch(error => {
+      console.error('Erro ao carregar projetos:', error);
+      selectProjeto.innerHTML = '<option value="">Erro ao carregar</option>';
+    });
 }
 
 function mostrarResultadosFiltro() {

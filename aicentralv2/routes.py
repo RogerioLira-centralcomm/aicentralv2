@@ -16,13 +16,14 @@ from aicentralv2.services.openrouter_image_extract import extract_fields_from_im
 # Helper para serializar dados para JSON
 def serializar_para_json(obj):
     """Converte objetos (incluindo datetime) para formato JSON serializável"""
+    from datetime import date
     if obj is None:
         return None
     if isinstance(obj, dict):
         return {k: serializar_para_json(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [serializar_para_json(item) for item in obj]
-    if isinstance(obj, (datetime, timedelta)):
+    if isinstance(obj, (datetime, date, timedelta)):
         return obj.isoformat()
     if hasattr(obj, '__dict__'):
         return serializar_para_json(obj.__dict__)
@@ -3548,15 +3549,21 @@ def init_routes(app):
             # Obter filtros
             status = request.args.get('status', '').strip()
             cliente_id = request.args.get('cliente_id', '').strip()
+            projeto_id = request.args.get('projeto_id', '').strip()
             busca = request.args.get('busca', '').strip()
+            responsavel_id = request.args.get('responsavel_id', '').strip()
             
             filtros = {}
             if status:
                 filtros['status'] = status
             if cliente_id:
                 filtros['cliente_id'] = int(cliente_id)
+            if projeto_id:
+                filtros['projeto_id'] = int(projeto_id)
             if busca:
                 filtros['busca'] = busca
+            if responsavel_id:
+                filtros['responsavel_id'] = int(responsavel_id)
             
             # Buscar briefings - com tratamento de erro
             try:
@@ -3572,6 +3579,21 @@ def init_routes(app):
                 app.logger.error(f"Erro ao buscar clientes: {str(cli_error)}")
                 clientes = []
             
+            # Buscar responsáveis (vendedores CentralComm) para filtro
+            try:
+                responsaveis = db.obter_vendedores_centralcomm() or []
+            except Exception as resp_error:
+                app.logger.error(f"Erro ao buscar responsáveis: {str(resp_error)}")
+                responsaveis = []
+            
+            # Buscar projetos para filtro (se cliente selecionado)
+            projetos = []
+            if cliente_id:
+                try:
+                    projetos = db.listar_projetos({'id_cliente': int(cliente_id)}) or []
+                except Exception as proj_error:
+                    app.logger.error(f"Erro ao buscar projetos: {str(proj_error)}")
+            
             # Buscar cliente selecionado se houver filtro
             cliente_selecionado = None
             if cliente_id:
@@ -3582,6 +3604,17 @@ def init_routes(app):
                         cliente_selecionado = cursor.fetchone()
                 except Exception as e:
                     app.logger.error(f"Erro ao buscar cliente selecionado: {str(e)}")
+            
+            # Buscar projeto selecionado se houver filtro
+            projeto_selecionado = None
+            if projeto_id:
+                try:
+                    conn = db.get_db()
+                    with conn.cursor() as cursor:
+                        cursor.execute('SELECT id, nome FROM cadu_projetos WHERE id = %s', (int(projeto_id),))
+                        projeto_selecionado = cursor.fetchone()
+                except Exception as e:
+                    app.logger.error(f"Erro ao buscar projeto selecionado: {str(e)}")
             
             # Estatísticas
             stats = {
@@ -3597,9 +3630,12 @@ def init_routes(app):
             return render_template('briefing_list.html', 
                                  briefings=briefings, 
                                  clientes=clientes,
+                                 responsaveis=responsaveis,
+                                 projetos=projetos,
                                  cliente_selecionado=cliente_selecionado,
+                                 projeto_selecionado=projeto_selecionado,
                                  stats=stats,
-                                 filtros={'status': status, 'cliente_id': cliente_id, 'busca': busca})
+                                 filtros={'status': status, 'cliente_id': cliente_id, 'projeto_id': projeto_id, 'busca': busca, 'responsavel_id': responsavel_id})
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
@@ -3619,9 +3655,15 @@ def init_routes(app):
         """Cria novo briefing"""
         if request.method == 'GET':
             clientes = db.obter_clientes_simples()
+            responsaveis = db.obter_vendedores_centralcomm() or []
+            projetos = db.listar_projetos() or []
+            contatos_cliente = db.obter_contatos_comercial_operacoes() or []
             return render_template('briefing_form.html', 
                                  briefing=None, 
                                  clientes=clientes,
+                                 responsaveis=responsaveis,
+                                 projetos=projetos,
+                                 contatos_cliente=contatos_cliente,
                                  acao='Novo')
         
         try:
@@ -3636,16 +3678,24 @@ def init_routes(app):
                 'budget': float(request.form.get('budget')) if request.form.get('budget') else None,
                 'prazo': request.form.get('prazo') if request.form.get('prazo') else None,
                 'observacoes': request.form.get('observacoes', '').strip(),
-                'status': request.form.get('status', 'rascunho')
+                'status': request.form.get('status', 'rascunho'),
+                'responsavel_centralcomm': request.form.get('responsavel_centralcomm', '').strip() or None,
+                'id_projeto': int(request.form.get('id_projeto')) if request.form.get('id_projeto') else None
             }
             
             # Validações
             if not dados['titulo'] or not dados['cliente_id']:
                 flash('Preencha todos os campos obrigatórios.', 'error')
                 clientes = db.obter_clientes_simples()
+                responsaveis = db.obter_vendedores_centralcomm() or []
+                projetos = db.listar_projetos() or []
+                contatos_cliente = db.obter_contatos_comercial_operacoes() or []
                 return render_template('briefing_form.html', 
                                      briefing=dados, 
                                      clientes=clientes,
+                                     responsaveis=responsaveis,
+                                     projetos=projetos,
+                                     contatos_cliente=contatos_cliente,
                                      acao='Novo')
             
             # Criar briefing
@@ -3668,9 +3718,15 @@ def init_routes(app):
             app.logger.error(f"Erro ao criar briefing: {str(e)}")
             flash(f'Erro ao criar briefing: {str(e)}', 'error')
             clientes = db.obter_clientes_simples()
+            responsaveis = db.obter_vendedores_centralcomm() or []
+            projetos = db.listar_projetos() or []
+            contatos_cliente = db.obter_contatos_comercial_operacoes() or []
             return render_template('briefing_form.html', 
                                  briefing=dados if 'dados' in locals() else None, 
                                  clientes=clientes,
+                                 responsaveis=responsaveis,
+                                 projetos=projetos,
+                                 contatos_cliente=contatos_cliente,
                                  acao='Novo')
 
     @app.route('/briefings/<int:briefing_id>/editar', methods=['GET', 'POST'])
@@ -3684,9 +3740,15 @@ def init_routes(app):
                 return redirect(url_for('briefing_list'))
             
             clientes = db.obter_clientes_simples()
+            responsaveis = db.obter_vendedores_centralcomm() or []
+            projetos = db.listar_projetos() or []
+            contatos_cliente = db.obter_contatos_comercial_operacoes() or []
             return render_template('briefing_form.html', 
                                  briefing=briefing, 
                                  clientes=clientes,
+                                 responsaveis=responsaveis,
+                                 projetos=projetos,
+                                 contatos_cliente=contatos_cliente,
                                  acao='Editar')
         
         try:
@@ -3699,24 +3761,32 @@ def init_routes(app):
             # Obter dados do formulário
             dados = {
                 'cliente_id': int(request.form.get('cliente_id')),
+                'id_contato_cliente': int(request.form.get('id_contato_cliente')) if request.form.get('id_contato_cliente') else None,
                 'titulo': request.form.get('titulo', '').strip(),
                 'objetivo': request.form.get('objetivo', '').strip(),
-                'publico_alvo': request.form.get('publico_alvo', '').strip(),
-                'mensagem_chave': request.form.get('mensagem_chave', '').strip(),
+                'briefing_original': request.form.get('briefing_original', '').strip(),
+                'briefing_melhorado': request.form.get('briefing_melhorado', '').strip(),
                 'canais': request.form.get('canais', '').strip(),
                 'budget': float(request.form.get('budget')) if request.form.get('budget') else None,
                 'prazo': request.form.get('prazo') if request.form.get('prazo') else None,
-                'observacoes': request.form.get('observacoes', '').strip(),
-                'status': request.form.get('status', 'rascunho')
+                'status': request.form.get('status', 'rascunho'),
+                'responsavel_centralcomm': request.form.get('responsavel_centralcomm', '').strip() or None,
+                'id_projeto': int(request.form.get('id_projeto')) if request.form.get('id_projeto') else None
             }
             
             # Validações
             if not dados['titulo'] or not dados['cliente_id']:
                 flash('Preencha todos os campos obrigatórios.', 'error')
                 clientes = db.obter_clientes_simples()
+                responsaveis = db.obter_vendedores_centralcomm() or []
+                projetos = db.listar_projetos() or []
+                contatos_cliente = db.obter_contatos_comercial_operacoes() or []
                 return render_template('briefing_form.html', 
                                      briefing={**dados, 'id': briefing_id}, 
                                      clientes=clientes,
+                                     responsaveis=responsaveis,
+                                     projetos=projetos,
+                                     contatos_cliente=contatos_cliente,
                                      acao='Editar')
             
             # Atualizar briefing
@@ -4624,6 +4694,28 @@ def init_routes(app):
             return jsonify(contatos)
         except Exception as e:
             app.logger.error(f"Erro ao buscar contatos do cliente: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/clientes/<int:cliente_id>/contatos-briefing')
+    @login_required
+    def api_contatos_briefing_por_cliente(cliente_id):
+        """API para obter contatos de um cliente (setores Comercial e Operações) para briefings"""
+        try:
+            contatos = db.obter_contatos_por_cliente(cliente_id)
+            return jsonify([dict(c) for c in contatos] if contatos else [])
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar contatos do cliente para briefing: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/clientes/<int:cliente_id>/projetos')
+    @login_required
+    def api_projetos_por_cliente(cliente_id):
+        """API para obter projetos de um cliente"""
+        try:
+            projetos = db.listar_projetos({'id_cliente': cliente_id})
+            return jsonify([dict(p) for p in projetos] if projetos else [])
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar projetos do cliente: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/cotacoes/linhas', methods=['POST'])

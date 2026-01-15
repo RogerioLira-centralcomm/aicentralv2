@@ -3197,6 +3197,7 @@ def init_routes(app):
                 return jsonify({
                     'success': True, 
                     'is_active': novo_status,
+                    'new_status': 'ativa' if novo_status else 'inativa',
                     'message': f'Status alterado para {"Ativa" if novo_status else "Inativa"}'
                 })
             else:
@@ -4073,7 +4074,7 @@ def init_routes(app):
             contatos_cliente = []
             if cotacao.get('client_id'):
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
-                contatos_cliente = db.obter_contatos_ativos_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_por_cliente(cotacao['client_id'])
             return render_template('cadu_cotacoes_form.html', 
                                   cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, modo='editar')
 
@@ -4150,7 +4151,7 @@ def init_routes(app):
             briefing_atual = None
             if cotacao.get('client_id'):
                 app.logger.info(f"DEBUG: Buscando briefings para client_id={cotacao['client_id']}")
-                contatos_cliente = db.obter_contatos_ativos_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_por_cliente(cotacao['client_id'])
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
                 app.logger.info(f"DEBUG: Encontrados {len(briefings)} briefings")
             

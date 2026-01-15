@@ -2044,7 +2044,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
           }
           
-          const responseContatos = await fetch(`/api/clientes/${clienteId}/contatos`);
+          // Buscar contatos do cliente (setores Comercial e Operações)
+          const responseContatos = await fetch(`/api/clientes/${clienteId}/contatos-briefing`);
           if (responseContatos.ok) {
             const contatos = await responseContatos.json();
             contatos.forEach(contato => {

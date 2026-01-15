@@ -689,8 +689,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Toggle Status
   document.querySelectorAll('.btn-toggle-status').forEach(btn => {
-    btn.addEventListener('click', async function() {
+    btn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
       const audienciaId = this.dataset.audienciaId;
+      const button = this;
+      
+      console.log('Toggle status para audiencia:', audienciaId);
       
       try {
         const response = await fetch(`/api/cadu-audiencias/toggle-status/${audienciaId}`, {
@@ -700,20 +706,33 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         });
 
+        console.log('Response status:', response.status);
         const data = await response.json();
+        console.log('Response data:', data);
 
         if (data.success) {
           // Atualizar visualmente sem reload
           const isActive = data.new_status === 'ativa';
-          this.textContent = isActive ? 'Ativa' : 'Inativa';
-          this.style = isActive ? 'background-color: #72cd80; color: white; border-color: #72cd80;' : 'background-color: #ef4444; color: white; border-color: #ef4444;';
-          this.title = `Clique para ${isActive ? 'desativar' : 'ativar'}`;
+          button.textContent = isActive ? 'Ativa' : 'Inativa';
+          button.style.backgroundColor = isActive ? '#72cd80' : '#ef4444';
+          button.style.color = 'white';
+          button.style.borderColor = isActive ? '#72cd80' : '#ef4444';
+          button.title = `Clique para ${isActive ? 'desativar' : 'ativar'}`;
+          
+          // Atualizar data-status da linha para os filtros funcionarem
+          const row = button.closest('tr');
+          if (row) {
+            row.dataset.status = isActive ? 'ativa' : 'inativa';
+          }
+          
+          // Toast de sucesso
+          mostrarToast(data.message || 'Status alterado com sucesso!', 'success');
         } else {
-          showToast('Erro ao alterar status: ' + (data.message || 'Erro desconhecido'), 'error');
+          mostrarToast('Erro ao alterar status: ' + (data.message || 'Erro desconhecido'), 'error');
         }
       } catch (error) {
         console.error('Erro:', error);
-        showToast('Erro ao alterar status da audiência', 'error');
+        mostrarToast('Erro ao alterar status da audiência', 'error');
       }
     });
   });
@@ -1058,56 +1077,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Modal Gerar Imagem -->
 <dialog id="modal-gerar-imagem" class="modal">
-  <div class="modal-box max-w-6xl w-full">
+  <div class="modal-box max-w-5xl w-full p-4">
     
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-3">
       <div>
-        <h3 class="font-bold text-xl" id="modal-titulo">Gerar Imagem</h3>
-        <p class="text-sm text-base-content/60 mt-1">
-          <span class="badge badge-sm" id="modal-categoria">Categoria</span>
+        <h3 class="font-bold text-base" id="modal-titulo">Gerar Imagem</h3>
+        <p class="text-xs text-base-content/60">
+          <span class="badge badge-xs" id="modal-categoria">Categoria</span>
         </p>
       </div>
-      <button onclick="fecharModalImagem()" class="btn btn-sm btn-circle btn-ghost">
+      <button onclick="fecharModalImagem()" class="btn btn-xs btn-circle btn-ghost">
         <i class="fas fa-times"></i>
       </button>
     </div>
     
     <!-- Grid 2 Colunas -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       
       <!-- COLUNA 1: Prompt Editor -->
-      <div class="space-y-4">
+      <div class="space-y-2">
         
         <!-- Seletor de Modelo -->
         <div>
-          <label class="label">
-            <span class="label-text font-semibold">Modelo de Geração</span>
-            <span class="label-text-alt text-xs text-base-content/60">Escolha o modelo AI</span>
+          <label class="label py-0">
+            <span class="label-text text-xs font-semibold">Modelo de Geração</span>
           </label>
-          <select id="modelo-imagem" class="select select-bordered w-full">
+          <select id="modelo-imagem" class="select select-bordered select-sm w-full">
             <option value="google/gemini-2.5-flash-image">Gemini 2.5 Flash Image (Base64)</option>
             <option value="google/gemini-exp-1206:free">Gemini Experimental 1206 (Gratuito)</option>
             <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Gratuito)</option>
             <option value="openai/gpt-4o">GPT-4o (Multimodal)</option>
             <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Multimodal)</option>
           </select>
-          <div class="label">
-            <span class="label-text-alt text-xs">⚠️ Nem todos modelos geram imagens. Use Gemini 2.5 Flash Image para garantir.</span>
-          </div>
         </div>
         
         <div>
-          <label class="label">
-            <span class="label-text font-semibold">Prompt para Geração</span>
-            <span class="label-text-alt text-xs text-base-content/60">Editável</span>
+          <label class="label py-0">
+            <span class="label-text text-xs font-semibold">Prompt para Geração</span>
+            <span class="label-text-alt text-[10px] text-base-content/60">Editável</span>
           </label>
           <textarea 
             id="prompt-textarea" 
-            class="textarea textarea-bordered w-full h-64 font-mono text-sm"
+            class="textarea textarea-bordered w-full h-40 font-mono text-xs"
             placeholder="Carregando prompt..."></textarea>
-          <div class="label">
-            <span class="label-text-alt text-xs">150-500 caracteres, em inglês, formato 16:9</span>
+          <div class="label py-0">
+            <span class="label-text-alt text-[10px]">150-500 caracteres, em inglês, formato 16:9</span>
           </div>
         </div>
         
@@ -1116,14 +1131,14 @@ document.addEventListener('DOMContentLoaded', function() {
           <button 
             onclick="regenerarPrompt()" 
             id="btn-regenerar-prompt"
-            class="btn btn-sm btn-outline gap-2 flex-1">
+            class="btn btn-xs btn-outline gap-1 flex-1">
             <i class="fas fa-sync-alt"></i>
-            Gerar Novo Prompt
+            Novo Prompt
           </button>
           <button 
             onclick="gerarImagem()" 
             id="btn-gerar-imagem"
-            class="btn btn-sm gap-2 flex-1 text-white" style="background-color: #72cd80; border-color: #72cd80;">
+            class="btn btn-xs gap-1 flex-1 text-white" style="background-color: #72cd80; border-color: #72cd80;">
             <i class="fas fa-magic"></i>
             Gerar Imagem
           </button>
@@ -1131,27 +1146,27 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       
       <!-- COLUNA 2: Preview da Imagem -->
-      <div class="space-y-4">
+      <div class="space-y-2">
         <div>
-          <label class="label">
-            <span class="label-text font-semibold">Preview da Imagem</span>
-            <span class="label-text-alt text-xs text-base-content/60" id="status-geracao"></span>
+          <label class="label py-0">
+            <span class="label-text text-xs font-semibold">Preview da Imagem</span>
+            <span class="label-text-alt text-[10px] text-base-content/60" id="status-geracao"></span>
           </label>
           
-          <!-- Container com aspect ratio 16:9 -->
-          <div class="w-full bg-base-200 rounded-lg border-2 border-base-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 300px;">
+          <!-- Container com aspect ratio 16:9 - REDUZIDO -->
+          <div class="w-full bg-base-200 rounded-lg border-2 border-base-300 flex items-center justify-center overflow-hidden relative" id="preview-container" style="aspect-ratio: 16/9; min-height: 180px; max-height: 220px;">
             
             <!-- Estado Inicial -->
-            <div id="preview-vazio" class="text-center p-6 absolute inset-0 flex flex-col items-center justify-center">
-              <i class="fas fa-image text-4xl text-base-content/40 mb-2 block"></i>
-              <p class="text-sm text-base-content/60">Clique em "Gerar Imagem" para criar</p>
+            <div id="preview-vazio" class="text-center p-4 absolute inset-0 flex flex-col items-center justify-center">
+              <i class="fas fa-image text-2xl text-base-content/40 mb-1 block"></i>
+              <p class="text-xs text-base-content/60">Clique em "Gerar Imagem" para criar</p>
             </div>
             
             <!-- Loading State (oculto por padrão) -->
-            <div id="preview-loading" class="absolute inset-0 flex flex-col items-center justify-center p-6" style="display: none;">
-              <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
-              <p class="text-sm font-semibold mb-1">Gerando imagem...</p>
-              <p class="text-xs text-base-content/60">Isso pode levar 20-40 segundos</p>
+            <div id="preview-loading" class="absolute inset-0 flex flex-col items-center justify-center p-4" style="display: none;">
+              <span class="loading loading-spinner loading-md text-primary mb-2"></span>
+              <p class="text-xs font-semibold mb-1">Gerando imagem...</p>
+              <p class="text-[10px] text-base-content/60">Isso pode levar 20-40 segundos</p>
             </div>
             
             <!-- Imagem Gerada (oculto por padrão) -->
@@ -1164,7 +1179,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div id="acoes-imagem" class="hidden">
           <button 
             onclick="confirmarImagem()" 
-            class="btn btn-success w-full gap-2">
+            class="btn btn-success btn-sm w-full gap-2">
             <i class="fas fa-check-circle"></i>
             Confirmar e Salvar Imagem
           </button>
@@ -1187,38 +1202,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Modal de Audiência -->
 <dialog id="modal_audiencia" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-7xl w-[98vw] p-3">
-    <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-    </form>
+  <div class="modal-box max-w-5xl w-[90vw] p-4 max-h-none overflow-visible">
     
-    <h3 class="font-bold text-base mb-2">
+    <h3 class="font-bold text-base mb-3">
       <span id="modal_audiencia_title">Nova Audiência</span>
     </h3>
     
     <form id="form_audiencia" method="post">
       <input type="hidden" id="audiencia_id" name="audiencia_id" value="">
       
-      <!-- LINHA 1: Identificação + Categorização + Preços -->
+      <!-- LINHA 1: ID + Nome + Slug + Categoria + Subcategoria + Fonte -->
       <div class="grid grid-cols-6 gap-2 mb-2">
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">ID Plataforma *</label>
           <input type="text" name="id_audiencia_plataforma" id="id_audiencia_plataforma" required 
-                 class="input input-bordered input-xs w-full" placeholder="1234567890">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="1234567890">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Nome *</label>
           <input type="text" name="nome" id="nome_audiencia" required 
-                 class="input input-bordered input-xs w-full" placeholder="Nome da audiência">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Nome da audiência">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Slug *</label>
           <input type="text" name="slug" id="slug_audiencia" required 
-                 class="input input-bordered input-xs w-full" placeholder="slug-automatico">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="slug-automatico">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Categoria *</label>
-          <select name="categoria_id" id="categoria_id_modal" class="select select-bordered select-xs w-full" required>
+          <select name="categoria_id" id="categoria_id_modal" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required>
             <option value="">Selecione</option>
             {% for categoria in categorias %}
               <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
@@ -1227,41 +1239,41 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Subcategoria</label>
-          <select name="subcategoria_id" id="subcategoria_id_modal" class="select select-bordered select-xs w-full">
+          <select name="subcategoria_id" id="subcategoria_id_modal" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="">Selecione</option>
           </select>
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Fonte</label>
-          <input type="text" name="fonte" id="fonte" class="input input-bordered input-xs w-full" placeholder="Navegg">
+          <input type="text" name="fonte" id="fonte" class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Navegg">
         </div>
       </div>
 
-      <!-- LINHA 2: Perfil + Público + Preços -->
+      <!-- LINHA 2: Perfil + Público + Tamanho + Propensão + CPMs -->
       <div class="grid grid-cols-7 gap-2 mb-2">
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Perfil Socioecon.</label>
           <input type="text" name="perfil_socioeconomico" id="perfil_socioeconomico" 
-                 class="input input-bordered input-xs w-full" placeholder="A e B">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="A e B">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Público Est.</label>
           <input type="text" name="publico_estimado" id="publico_estimado" 
-                 class="input input-bordered input-xs w-full" placeholder="5M">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="5M">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Público Nº</label>
           <input type="number" name="publico_numero" id="publico_numero" 
-                 class="input input-bordered input-xs w-full" placeholder="0">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Tamanho</label>
           <input type="text" name="tamanho" id="tamanho" 
-                 class="input input-bordered input-xs w-full" placeholder="Grande">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Grande">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Propensão</label>
-          <select name="propensao_compra" id="propensao_compra" class="select select-bordered select-xs w-full">
+          <select name="propensao_compra" id="propensao_compra" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="">-</option>
             <option value="Baixa">Baixa</option>
             <option value="Média">Média</option>
@@ -1271,93 +1283,93 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">CPM Custo</label>
           <input type="number" step="0.01" name="cpm_custo" id="cpm_custo" 
-                 class="input input-bordered input-xs w-full" placeholder="0.00">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0.00">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">CPM Venda</label>
           <input type="number" step="0.01" name="cpm_venda" id="cpm_venda" 
-                 class="input input-bordered input-xs w-full" placeholder="0.00">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0.00">
         </div>
       </div>
 
-      <!-- LINHA 3: Gênero + Idade + Dispositivos -->
+      <!-- LINHA 3: Demografia + Idade + Dispositivos -->
       <div class="grid grid-cols-9 gap-2 mb-2">
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Homens %</label>
           <input type="number" step="0.01" name="demografia_homens" id="demografia_homens" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Mulheres %</label>
           <input type="number" step="0.01" name="demografia_mulheres" id="demografia_mulheres" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">18-24 %</label>
           <input type="number" step="0.01" name="idade_18_24" id="idade_18_24" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">25-34 %</label>
           <input type="number" step="0.01" name="idade_25_34" id="idade_25_34" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">35-44 %</label>
           <input type="number" step="0.01" name="idade_35_44" id="idade_35_44" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">45+ %</label>
           <input type="number" step="0.01" name="idade_45_mais" id="idade_45_mais" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Mobile %</label>
           <input type="number" step="0.01" name="dispositivo_mobile" id="dispositivo_mobile" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Desktop %</label>
           <input type="number" step="0.01" name="dispositivo_desktop" id="dispositivo_desktop" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Tablet %</label>
           <input type="number" step="0.01" name="dispositivo_tablet" id="dispositivo_tablet" 
-                 class="input input-bordered input-xs w-full" placeholder="0" min="0" max="100">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="0" min="0" max="100">
         </div>
       </div>
 
-      <!-- LINHA 4: Descrições -->
+      <!-- LINHA 4: Título + Descrições -->
       <div class="grid grid-cols-4 gap-2 mb-2">
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Título Chamativo</label>
           <input type="text" name="titulo_chamativo" id="titulo_chamativo" 
-                 class="input input-bordered input-xs w-full" placeholder="Título de impacto">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Título de impacto">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Descrição Curta</label>
           <input type="text" name="descricao_curta" id="descricao_curta" 
-                 class="input input-bordered input-xs w-full" placeholder="Resumo">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Resumo">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Descrição Completa</label>
           <input type="text" name="descricao" id="descricao_audiencia" 
-                 class="input input-bordered input-xs w-full" placeholder="Descrição detalhada">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Descrição detalhada">
         </div>
         <div class="form-control">
           <label class="label py-0 text-xs font-semibold">Descrição Comercial</label>
           <input type="text" name="descricao_comercial" id="descricao_comercial" 
-                 class="input input-bordered input-xs w-full" placeholder="Pitch de vendas">
+                 class="input input-bordered h-8 min-h-[2rem] text-sm w-full" placeholder="Pitch de vendas">
         </div>
       </div>
 
       <!-- Botões -->
-      <div class="modal-action mt-2 pt-2 border-t">
+      <div class="modal-action mt-3 pt-3 border-t">
         <button type="button" onclick="modal_audiencia.close()" class="btn btn-ghost btn-sm">Cancelar</button>
         <button type="submit" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-save mr-2"></i><span id="btn_submit_audiencia_text">Cadastrar</span>
+          <i class="fas fa-save mr-1"></i><span id="btn_submit_audiencia_text">Cadastrar</span>
         </button>
       </div>
     </form>

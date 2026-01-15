@@ -3,16 +3,17 @@
 {% block title %}Detalhes da Audiência - CentralComm AI{% endblock %}
 
 {% block content %}
-<!-- DEBUG: {{ audiencia.propensao_compra }} -->
-<div class="max-w-5xl mx-auto p-4">
+<div class="max-w-6xl mx-auto p-3">
   <!-- Header -->
   <div class="flex items-center justify-between mb-3">
-    <div>
-      <h1 class="text-lg font-semibold leading-tight">Detalhes da Audiência</h1>
-      <p class="text-sm text-base-content/70">{{ audiencia.nome }}</p>
+    <div class="flex items-center gap-3">
+      <h1 class="text-lg font-bold">{{ audiencia.nome }}</h1>
+      <span class="badge {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %}">
+        {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
+      </span>
     </div>
     <div class="flex gap-2">
-      <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+      <a href="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" class="btn btn-sm text-white" style="background-color: #72cd80;">
         <i class="fas fa-edit mr-1"></i>Editar
       </a>
       <a href="{{ url_for('cadu_audiencias') }}" class="btn btn-ghost btn-sm">
@@ -21,310 +22,183 @@
     </div>
   </div>
 
-  <!-- Informações Principais -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
-    </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">ID da Audiência:</span>
-        <span class="text-base-content">#{{ audiencia.id }}</span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Status:</span>
-        <span class="badge badge-sm {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %}">
-          {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
-        </span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">ID Plataforma:</span>
-        <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Fonte:</span>
-        <span class="badge badge-sm badge-outline">{{ audiencia.fonte }}</span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Nome:</span>
-        <span class="text-base-content font-semibold">{{ audiencia.nome }}</span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Slug:</span>
-        <span class="text-base-content">{{ audiencia.slug }}</span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Categoria:</span>
-        <span class="text-base-content">{{ audiencia.categoria_nome or 'Não informado' }}</span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Subcategoria:</span>
-        <span class="text-base-content">{{ audiencia.subcategoria_nome or 'Não informado' }}</span>
-      </div>
-      <div class="flex md:col-span-2">
-        <span class="font-semibold text-base-content/70 w-40">Perfil Socioeconômico:</span>
-        <span class="text-base-content">{{ audiencia.perfil_socioeconomico or 'Não informado' }}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Títulos e Descrições -->
-  {% if audiencia.titulo_chamativo or audiencia.descricao or audiencia.descricao_curta or audiencia.descricao_comercial %}
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-align-left mr-2 text-primary"></i>Conteúdo e Descrições
-    </h2>
-    <div class="space-y-3 text-sm">
-      {% if audiencia.titulo_chamativo %}
-      <div>
-        <span class="font-semibold text-base-content/70 block mb-1">Título Chamativo:</span>
-        <p class="text-base-content bg-base-200 p-2 rounded">{{ audiencia.titulo_chamativo }}</p>
-      </div>
-      {% endif %}
-      {% if audiencia.descricao %}
-      <div>
-        <span class="font-semibold text-base-content/70 block mb-1">Descrição:</span>
-        <p class="text-base-content bg-base-200 p-2 rounded whitespace-pre-wrap">{{ audiencia.descricao }}</p>
-      </div>
-      {% endif %}
-      {% if audiencia.descricao_curta %}
-      <div>
-        <span class="font-semibold text-base-content/70 block mb-1">Descrição Curta:</span>
-        <p class="text-base-content bg-base-200 p-2 rounded">{{ audiencia.descricao_curta }}</p>
-      </div>
-      {% endif %}
-      {% if audiencia.descricao_comercial %}
-      <div>
-        <span class="font-semibold text-base-content/70 block mb-1">Descrição Comercial:</span>
-        <p class="text-base-content bg-base-200 p-2 rounded whitespace-pre-wrap">{{ audiencia.descricao_comercial }}</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Precificação -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-dollar-sign mr-2 text-primary"></i>Precificação
-    </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">CPMC (Custo):</span>
-        <span class="font-mono text-base-content">
-          {% if audiencia.cpm_custo %}
-            R$ {{ "%.2f"|format(audiencia.cpm_custo) }}
-          {% else %}
-            <span class="text-base-content/40 italic">Não informado</span>
-          {% endif %}
-        </span>
-      </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">CPMV (Venda):</span>
-        <span class="font-mono text-base-content">
-          {% if audiencia.cpm_venda %}
-            R$ {{ "%.2f"|format(audiencia.cpm_venda) }}
-          {% else %}
-            <span class="text-base-content/40 italic">Não informado</span>
-          {% endif %}
-        </span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Dados Demográficos -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-users mr-2 text-primary"></i>Dados Demográficos
-    </h2>
+  <!-- Grid 2 colunas -->
+  <div class="grid grid-cols-2 gap-3">
     
-    <!-- Público -->
-    <div class="mb-4">
-      <h3 class="text-sm font-semibold mb-2 text-base-content/80">Público</h3>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-        <div class="flex">
-          <span class="font-semibold text-base-content/70 w-32">Estimado:</span>
-          <span class="text-base-content">{{ audiencia.publico_estimado or 'Não informado' }}</span>
-        </div>
-        <div class="flex">
-          <span class="font-semibold text-base-content/70 w-32">Número:</span>
-          <span class="font-mono text-base-content">
-            {% if audiencia.publico_numero %}
-              {{ "{:,}".format(audiencia.publico_numero).replace(',', '.') }}
-            {% else %}
-              <span class="text-base-content/40 italic">Não informado</span>
-            {% endif %}
-          </span>
-        </div>
-        <div class="flex">
-          <span class="font-semibold text-base-content/70 w-32">Tamanho:</span>
-          <span class="text-base-content">{{ audiencia.tamanho or 'Não informado' }}</span>
-        </div>
-        <div class="flex">
-          <span class="font-semibold text-base-content/70 w-32">Propensão:</span>
-          <span class="badge badge-sm {% if audiencia.propensao_compra == 'Alta' %}badge-success{% elif audiencia.propensao_compra == 'Média' %}badge-warning{% elif audiencia.propensao_compra == 'Baixa' %}badge-error{% else %}badge-ghost{% endif %}">
-            {{ audiencia.propensao_compra if audiencia.propensao_compra else 'Não informado' }}
-          </span>
+    <!-- COLUNA ESQUERDA -->
+    <div class="space-y-3">
+      
+      <!-- Identificação -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-fingerprint mr-2 text-primary"></i>Identificação</h2>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          <div><span class="text-base-content/60">ID Sistema:</span> <strong>#{{ audiencia.id }}</strong></div>
+          <div><span class="text-base-content/60">ID Plataforma:</span> <code class="bg-base-200 px-1 rounded text-xs">{{ audiencia.id_audiencia_plataforma }}</code></div>
+          <div><span class="text-base-content/60">Slug:</span> {{ audiencia.slug }}</div>
+          <div><span class="text-base-content/60">Fonte:</span> <span class="badge badge-sm badge-outline">{{ audiencia.fonte or '-' }}</span></div>
+          <div><span class="text-base-content/60">Categoria:</span> {{ audiencia.categoria_nome or '-' }}</div>
+          <div><span class="text-base-content/60">Subcategoria:</span> {{ audiencia.subcategoria_nome or '-' }}</div>
         </div>
       </div>
+
+      <!-- Público e Comercial -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-users mr-2 text-primary"></i>Público & Comercial</h2>
+        <div class="grid grid-cols-3 gap-2 text-sm mb-2">
+          <div class="bg-base-200 rounded p-2 text-center">
+            <span class="text-base-content/60 text-xs block">Estimado</span>
+            <strong>{{ audiencia.publico_estimado or '-' }}</strong>
+          </div>
+          <div class="bg-base-200 rounded p-2 text-center">
+            <span class="text-base-content/60 text-xs block">Número</span>
+            <strong>{% if audiencia.publico_numero %}{{ "{:,}".format(audiencia.publico_numero).replace(',', '.') }}{% else %}-{% endif %}</strong>
+          </div>
+          <div class="bg-base-200 rounded p-2 text-center">
+            <span class="text-base-content/60 text-xs block">Tamanho</span>
+            <strong>{{ audiencia.tamanho or '-' }}</strong>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <div class="bg-base-200 rounded p-2 text-center">
+            <span class="text-base-content/60 text-xs block">CPM Custo</span>
+            <strong class="font-mono">{% if audiencia.cpm_custo %}R$ {{ "%.2f"|format(audiencia.cpm_custo) }}{% else %}-{% endif %}</strong>
+          </div>
+          <div class="bg-base-200 rounded p-2 text-center">
+            <span class="text-base-content/60 text-xs block">CPM Venda</span>
+            <strong class="font-mono">{% if audiencia.cpm_venda %}R$ {{ "%.2f"|format(audiencia.cpm_venda) }}{% else %}-{% endif %}</strong>
+          </div>
+          <div class="bg-base-200 rounded p-2 text-center">
+            <span class="text-base-content/60 text-xs block">Propensão</span>
+            <span class="badge badge-sm {% if audiencia.propensao_compra == 'Alta' %}badge-success{% elif audiencia.propensao_compra == 'Média' %}badge-warning{% elif audiencia.propensao_compra == 'Baixa' %}badge-error{% else %}badge-ghost{% endif %}">
+              {{ audiencia.propensao_compra or '-' }}
+            </span>
+          </div>
+        </div>
+        {% if audiencia.perfil_socioeconomico %}
+        <div class="mt-2 text-sm">
+          <span class="text-base-content/60">Perfil Socioeconômico:</span> {{ audiencia.perfil_socioeconomico }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Descrições -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-align-left mr-2 text-primary"></i>Descrições</h2>
+        <div class="space-y-2 text-sm">
+          {% if audiencia.titulo_chamativo %}
+          <div>
+            <span class="text-base-content/60 text-xs">Título Chamativo:</span>
+            <p class="font-medium">{{ audiencia.titulo_chamativo }}</p>
+          </div>
+          {% endif %}
+          {% if audiencia.descricao_curta %}
+          <div>
+            <span class="text-base-content/60 text-xs">Descrição Curta:</span>
+            <p>{{ audiencia.descricao_curta }}</p>
+          </div>
+          {% endif %}
+          {% if audiencia.descricao %}
+          <div>
+            <span class="text-base-content/60 text-xs">Descrição:</span>
+            <p class="whitespace-pre-wrap">{{ audiencia.descricao }}</p>
+          </div>
+          {% endif %}
+          {% if audiencia.descricao_comercial %}
+          <div>
+            <span class="text-base-content/60 text-xs">Descrição Comercial:</span>
+            <p class="whitespace-pre-wrap">{{ audiencia.descricao_comercial }}</p>
+          </div>
+          {% endif %}
+          {% if not audiencia.titulo_chamativo and not audiencia.descricao_curta and not audiencia.descricao and not audiencia.descricao_comercial %}
+          <p class="text-base-content/40 italic">Nenhuma descrição cadastrada</p>
+          {% endif %}
+        </div>
+      </div>
+
     </div>
 
-    <!-- Demografia por Gênero -->
-    <div class="mb-4">
-      <h3 class="text-sm font-semibold mb-2 text-base-content/80">Demografia por Gênero</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-        <div class="flex items-center">
-          <span class="font-semibold text-base-content/70 w-24">Homens:</span>
-          {% if audiencia.demografia_homens %}
-            <div class="flex items-center gap-2 flex-1">
-              <div class="flex-1 bg-base-200 rounded-full h-4">
-                <div class="bg-blue-500 h-4 rounded-full" style="width: {{ audiencia.demografia_homens }}%"></div>
+    <!-- COLUNA DIREITA -->
+    <div class="space-y-3">
+
+      <!-- Demografia Gênero -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-venus-mars mr-2 text-primary"></i>Gênero</h2>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <span class="w-20 text-sm">Homens</span>
+            <div class="flex-1 bg-base-200 rounded-full h-5">
+              <div class="bg-blue-500 h-5 rounded-full flex items-center justify-end pr-2" style="width: {{ audiencia.demografia_homens or 0 }}%">
+                {% if audiencia.demografia_homens and audiencia.demografia_homens > 15 %}<span class="text-white text-xs font-bold">{{ "%.0f"|format(audiencia.demografia_homens) }}%</span>{% endif %}
               </div>
-              <span class="font-mono text-xs">{{ "%.1f"|format(audiencia.demografia_homens) }}%</span>
             </div>
-          {% else %}
-            <span class="text-base-content/40 italic">Não informado</span>
-          {% endif %}
-        </div>
-        <div class="flex items-center">
-          <span class="font-semibold text-base-content/70 w-24">Mulheres:</span>
-          {% if audiencia.demografia_mulheres %}
-            <div class="flex items-center gap-2 flex-1">
-              <div class="flex-1 bg-base-200 rounded-full h-4">
-                <div class="bg-pink-500 h-4 rounded-full" style="width: {{ audiencia.demografia_mulheres }}%"></div>
+            {% if not audiencia.demografia_homens or audiencia.demografia_homens <= 15 %}<span class="text-sm font-mono">{{ "%.0f"|format(audiencia.demografia_homens or 0) }}%</span>{% endif %}
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="w-20 text-sm">Mulheres</span>
+            <div class="flex-1 bg-base-200 rounded-full h-5">
+              <div class="bg-pink-500 h-5 rounded-full flex items-center justify-end pr-2" style="width: {{ audiencia.demografia_mulheres or 0 }}%">
+                {% if audiencia.demografia_mulheres and audiencia.demografia_mulheres > 15 %}<span class="text-white text-xs font-bold">{{ "%.0f"|format(audiencia.demografia_mulheres) }}%</span>{% endif %}
               </div>
-              <span class="font-mono text-xs">{{ "%.1f"|format(audiencia.demografia_mulheres) }}%</span>
             </div>
-          {% else %}
-            <span class="text-base-content/40 italic">Não informado</span>
-          {% endif %}
+            {% if not audiencia.demografia_mulheres or audiencia.demografia_mulheres <= 15 %}<span class="text-sm font-mono">{{ "%.0f"|format(audiencia.demografia_mulheres or 0) }}%</span>{% endif %}
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Distribuição por Idade -->
-    <div class="mb-4">
-      <h3 class="text-sm font-semibold mb-2 text-base-content/80">Distribuição por Idade</h3>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <div>
-          <span class="block font-semibold text-base-content/70 mb-1">18-24 anos</span>
-          {% if audiencia.idade_18_24 %}
-            <div class="bg-base-200 rounded p-2 text-center">
-              <span class="font-mono text-lg">{{ "%.1f"|format(audiencia.idade_18_24) }}%</span>
-            </div>
-          {% else %}
-            <span class="text-base-content/40 italic text-xs">Não informado</span>
-          {% endif %}
-        </div>
-        <div>
-          <span class="block font-semibold text-base-content/70 mb-1">25-34 anos</span>
-          {% if audiencia.idade_25_34 %}
-            <div class="bg-base-200 rounded p-2 text-center">
-              <span class="font-mono text-lg">{{ "%.1f"|format(audiencia.idade_25_34) }}%</span>
-            </div>
-          {% else %}
-            <span class="text-base-content/40 italic text-xs">Não informado</span>
-          {% endif %}
-        </div>
-        <div>
-          <span class="block font-semibold text-base-content/70 mb-1">35-44 anos</span>
-          {% if audiencia.idade_35_44 %}
-            <div class="bg-base-200 rounded p-2 text-center">
-              <span class="font-mono text-lg">{{ "%.1f"|format(audiencia.idade_35_44) }}%</span>
-            </div>
-          {% else %}
-            <span class="text-base-content/40 italic text-xs">Não informado</span>
-          {% endif %}
-        </div>
-        <div>
-          <span class="block font-semibold text-base-content/70 mb-1">45+ anos</span>
-          {% if audiencia.idade_45_mais %}
-            <div class="bg-base-200 rounded p-2 text-center">
-              <span class="font-mono text-lg">{{ "%.1f"|format(audiencia.idade_45_mais) }}%</span>
-            </div>
-          {% else %}
-            <span class="text-base-content/40 italic text-xs">Não informado</span>
-          {% endif %}
+      <!-- Idade -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-birthday-cake mr-2 text-primary"></i>Faixa Etária</h2>
+        <div class="grid grid-cols-4 gap-2">
+          <div class="bg-gradient-to-b from-primary/20 to-primary/5 rounded p-2 text-center">
+            <span class="text-xs text-base-content/60 block">18-24</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.idade_18_24 or 0) }}%</span>
+          </div>
+          <div class="bg-gradient-to-b from-primary/20 to-primary/5 rounded p-2 text-center">
+            <span class="text-xs text-base-content/60 block">25-34</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.idade_25_34 or 0) }}%</span>
+          </div>
+          <div class="bg-gradient-to-b from-primary/20 to-primary/5 rounded p-2 text-center">
+            <span class="text-xs text-base-content/60 block">35-44</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.idade_35_44 or 0) }}%</span>
+          </div>
+          <div class="bg-gradient-to-b from-primary/20 to-primary/5 rounded p-2 text-center">
+            <span class="text-xs text-base-content/60 block">45+</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.idade_45_mais or 0) }}%</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Distribuição por Dispositivo -->
-    <div>
-      <h3 class="text-sm font-semibold mb-2 text-base-content/80">Distribuição por Dispositivo</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-        <div class="flex items-center">
-          <i class="fas fa-mobile-alt mr-2 text-primary"></i>
-          <span class="font-semibold text-base-content/70 w-20">Mobile:</span>
-          {% if audiencia.dispositivo_mobile %}
-            <span class="font-mono ml-auto">{{ "%.1f"|format(audiencia.dispositivo_mobile) }}%</span>
-          {% else %}
-            <span class="text-base-content/40 italic ml-auto text-xs">N/A</span>
-          {% endif %}
-        </div>
-        <div class="flex items-center">
-          <i class="fas fa-desktop mr-2 text-primary"></i>
-          <span class="font-semibold text-base-content/70 w-20">Desktop:</span>
-          {% if audiencia.dispositivo_desktop %}
-            <span class="font-mono ml-auto">{{ "%.1f"|format(audiencia.dispositivo_desktop) }}%</span>
-          {% else %}
-            <span class="text-base-content/40 italic ml-auto text-xs">N/A</span>
-          {% endif %}
-        </div>
-        <div class="flex items-center">
-          <i class="fas fa-tablet-alt mr-2 text-primary"></i>
-          <span class="font-semibold text-base-content/70 w-20">Tablet:</span>
-          {% if audiencia.dispositivo_tablet %}
-            <span class="font-mono ml-auto">{{ "%.1f"|format(audiencia.dispositivo_tablet) }}%</span>
-          {% else %}
-            <span class="text-base-content/40 italic ml-auto text-xs">N/A</span>
-          {% endif %}
+      <!-- Dispositivos -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-laptop mr-2 text-primary"></i>Dispositivos</h2>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-base-200 rounded p-3 text-center">
+            <i class="fas fa-mobile-alt text-2xl text-primary mb-1"></i>
+            <span class="block text-xs text-base-content/60">Mobile</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.dispositivo_mobile or 0) }}%</span>
+          </div>
+          <div class="bg-base-200 rounded p-3 text-center">
+            <i class="fas fa-desktop text-2xl text-primary mb-1"></i>
+            <span class="block text-xs text-base-content/60">Desktop</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.dispositivo_desktop or 0) }}%</span>
+          </div>
+          <div class="bg-base-200 rounded p-3 text-center">
+            <i class="fas fa-tablet-alt text-2xl text-primary mb-1"></i>
+            <span class="block text-xs text-base-content/60">Tablet</span>
+            <span class="text-lg font-bold">{{ "%.0f"|format(audiencia.dispositivo_tablet or 0) }}%</span>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Metadados do Sistema -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-clock mr-2 text-primary"></i>Metadados do Sistema
-    </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Criado em:</span>
-        <span class="text-base-content">
-          {% if audiencia.created_at %}
-            {{ audiencia.created_at.strftime('%d/%m/%Y às %H:%M') }}
-          {% else %}
-            Não informado
-          {% endif %}
-        </span>
+      <!-- Metadados -->
+      <div class="bg-base-100 rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-clock mr-2 text-primary"></i>Sistema</h2>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div><span class="text-base-content/60">Criado:</span> {% if audiencia.created_at %}{{ audiencia.created_at.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}</div>
+          <div><span class="text-base-content/60">Atualizado:</span> {% if audiencia.updated_at %}{{ audiencia.updated_at.strftime('%d/%m/%Y %H:%M') }}{% else %}-{% endif %}</div>
+        </div>
       </div>
-      <div class="flex">
-        <span class="font-semibold text-base-content/70 w-40">Atualizado em:</span>
-        <span class="text-base-content">
-          {% if audiencia.updated_at %}
-            {{ audiencia.updated_at.strftime('%d/%m/%Y às %H:%M') }}
-          {% else %}
-            Não informado
-          {% endif %}
-        </span>
-      </div>
-    </div>
-  </div>
 
-  <!-- Ações -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4">
-    <h2 class="text-md font-semibold mb-3 flex items-center">
-      <i class="fas fa-cog mr-2 text-primary"></i>Ações
-    </h2>
-    <div class="flex gap-2">
-      <form method="POST" action="{{ url_for('cadu_audiencia_toggle_status', audiencia_id=audiencia.id) }}">
-        <button type="submit" class="btn btn-sm {% if audiencia.is_active %}btn-error{% else %}btn-success{% endif %}">
-          <i class="fas {% if audiencia.is_active %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>
-          {{ 'Desativar' if audiencia.is_active else 'Ativar' }} Audiência
-        </button>
-      </form>
     </div>
   </div>
 </div>

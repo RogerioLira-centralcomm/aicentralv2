@@ -3,36 +3,22 @@
 {% block title %}Analisador de Audiência - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6 space-y-6">
+<div class="max-w-7xl mx-auto p-4">
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between mb-3">
     <div>
-      <h1 class="text-2xl font-bold text-base-content">Analisador de Audiência IA</h1>
-      <p class="text-sm text-base-content/70 mt-1">Extração inteligente de dados de imagens de audiências</p>
-    </div>
-    
-    <!-- Steps -->
-    <div class="hidden lg:flex items-center gap-2">
-      <div class="flex items-center gap-2">
-        <div class="badge badge-primary badge-lg">1</div>
-        <span class="text-sm font-medium">Upload</span>
-      </div>
-      <i class="fas fa-chevron-right text-xs text-base-content/30"></i>
-      <div class="flex items-center gap-2">
-        <div class="badge badge-ghost badge-lg">2</div>
-        <span class="text-sm text-base-content/70">Análise</span>
-      </div>
+      <h1 class="text-lg font-bold text-base-content">Analisador de Audiência IA</h1>
+      <p class="text-xs text-base-content/70">Extração inteligente de dados de imagens</p>
     </div>
   </div>
 
   <!-- Flash Messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="space-y-2">
+      <div class="mb-3">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
-            <span>{{ message }}</span>
+          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% else %}alert-info{% endif %} py-2">
+            <span class="text-sm">{{ message }}</span>
           </div>
         {% endfor %}
       </div>
@@ -40,67 +26,88 @@
   {% endwith %}
 
   <!-- Layout em Grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     
     <!-- CARD 1: Upload & Configuração -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">
-          <i class="fas fa-upload text-primary"></i>
-          Upload da Audiência
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body p-4">
+        <h2 class="text-sm font-bold flex items-center gap-2 mb-2">
+          <i class="fas fa-upload text-primary"></i>Upload da Audiência
         </h2>
-        <div class="divider my-1"></div>
         
-        <form id="upAudienciaForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <form id="upAudienciaForm" method="POST" enctype="multipart/form-data">
           
-          <!-- Plataforma -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Plataforma</span>
-            </label>
-            <select id="platform" name="platform" class="select select-bordered w-full">
-              <option value="google-dv360">Google DV360</option>
-              <option value="meta-ads">Meta Ads Manager</option>
-              <option value="google-ads">Google Ads</option>
-              <option value="linkedin-ads">LinkedIn Ads</option>
-              <option value="tiktok-ads">TikTok Ads</option>
-            </select>
+          <!-- Linha 1: Plataforma + Modelo -->
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold">Plataforma</label>
+              <select id="platform" name="platform" class="select select-bordered h-8 min-h-8 text-xs w-full">
+                <option value="google-dv360">Google DV360</option>
+                <option value="meta-ads">Meta Ads Manager</option>
+                <option value="google-ads">Google Ads</option>
+                <option value="linkedin-ads">LinkedIn Ads</option>
+                <option value="tiktok-ads">TikTok Ads</option>
+              </select>
+            </div>
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold">Modelo IA</label>
+              <select id="model" name="model" class="select select-bordered h-8 min-h-8 text-xs w-full">
+                {% set sel_model = selected_model_id or '' %}
+                {% for m in models or [] %}
+                  <option value="{{ m.id }}" {% if m.id == sel_model %}selected{% endif %}>{{ m.label or m.id }}</option>
+                {% endfor %}
+              </select>
+            </div>
           </div>
 
-          <!-- Drag & Drop Zone -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Imagem da Audiência</span>
-            </label>
-            <div id="dropZone" class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-base-200/50 transition-all">
+          <!-- Linha 2: Categoria + Subcategoria -->
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold">Categoria</label>
+              <select id="categoria_id" name="categoria_id" class="select select-bordered h-8 min-h-8 text-xs w-full">
+                <option value="">Selecione</option>
+                {% for cat in categorias or [] %}
+                  <option value="{{ cat.id }}">{{ cat.nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold">Subcategoria</label>
+              <select id="subcategoria_id" name="subcategoria_id" class="select select-bordered h-8 min-h-8 text-xs w-full" disabled>
+                <option value="">Selecione categoria primeiro</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Drag & Drop Zone - Compacto -->
+          <div class="form-control mb-2">
+            <label class="label py-0 text-xs font-semibold">Imagem</label>
+            <div id="dropZone" class="border-2 border-dashed border-base-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary transition-all">
               <input id="upimagem" type="file" name="upimagem" accept="image/*" class="hidden" required />
               <div id="dropZoneContent">
-                <i class="fas fa-cloud-upload-alt text-5xl text-base-content/30 mb-3"></i>
-                <p class="font-medium text-base-content mb-1">Arraste a imagem aqui</p>
-                <p class="text-sm text-base-content/60 mb-3">ou clique para selecionar</p>
-                <button type="button" id="chooseFileBtn" class="btn btn-sm btn-outline">
-                  <i class="fas fa-folder-open mr-2"></i>
-                  Escolher Arquivo
+                <i class="fas fa-cloud-upload-alt text-2xl text-base-content/30 mb-1"></i>
+                <p class="text-xs text-base-content/60 mb-1">Arraste ou clique</p>
+                <button type="button" id="chooseFileBtn" class="btn btn-xs btn-outline">
+                  <i class="fas fa-folder-open mr-1"></i>Escolher
                 </button>
               </div>
               <div id="imagePreview" class="hidden">
-                <img id="previewImg" src="" alt="Preview" class="max-h-48 mx-auto rounded-lg shadow-md mb-3" />
-                <p id="fileName" class="font-medium text-base-content mb-2"></p>
-                <button type="button" onclick="clearImage()" class="btn btn-sm btn-error btn-outline">
-                  <i class="fas fa-times mr-2"></i>Remover
+                <img id="previewImg" src="" alt="Preview" class="max-h-24 mx-auto rounded mb-2" />
+                <p id="fileName" class="text-xs mb-1"></p>
+                <button type="button" onclick="clearImage()" class="btn btn-xs btn-error btn-outline">
+                  <i class="fas fa-times mr-1"></i>Remover
                 </button>
               </div>
             </div>
           </div>
 
           <!-- Prompt (Collapsible) -->
-          <div class="form-control">
-            <details class="collapse collapse-arrow bg-base-200">
-              <summary class="collapse-title text-sm font-semibold cursor-pointer">
-                <i class="fas fa-magic mr-2"></i>Prompt de Extração (Avançado)
-              </summary>
-              <div class="collapse-content">
-                <textarea id="prompt" name="prompt" rows="12" class="textarea textarea-bordered w-full text-sm font-mono" placeholder="Digite seu prompt personalizado...">Você é um assistente especialista em análise de dados de publicidade digital. Sua tarefa é analisar uma imagem de uma plataforma de anúncios, extrair informações de audiência e estruturá-las em um formato JSON específico, seguindo rigorosamente as regras abaixo.
+          <details class="collapse collapse-arrow bg-base-200 mb-2">
+            <summary class="collapse-title text-xs font-semibold py-2 min-h-0">
+              <i class="fas fa-magic mr-1"></i>Prompt (Avançado)
+            </summary>
+            <div class="collapse-content px-2 pb-2">
+              <textarea id="prompt" name="prompt" rows="8" class="textarea textarea-bordered w-full text-xs font-mono" placeholder="Prompt...">Você é um assistente especialista em análise de dados de publicidade digital. Sua tarefa é analisar uma imagem de uma plataforma de anúncios, extrair informações de audiência e estruturá-las em um formato JSON específico, seguindo rigorosamente as regras abaixo.
 
 *REGRAS DE EXTRAÇÃO E PROCESSAMENTO:*
 
@@ -122,213 +129,74 @@
 
 Sua resposta deve ser *APENAS o objeto JSON*, sem nenhum texto ou explicação adicional. Preencha todos os campos possíveis e use null para informações não encontradas. A resposta deve ser um JSON válido.
 Retorne apenas o JSON limpo e estruturado.</textarea>
-                <p class="label-text-alt mt-2 text-base-content/60">Personalize o prompt para extrações específicas</p>
-              </div>
-            </details>
-          </div>
-
-          <!-- Modelo LLM -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Modelo IA</span>
-            </label>
-            <select id="model" name="model" class="select select-bordered w-full">
-              {% set sel_model = selected_model_id or '' %}
-              {% for m in models or [] %}
-                <option value="{{ m.id }}" {% if m.id == sel_model %}selected{% endif %}>{{ m.label or m.id }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <!-- Categoria -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Categoria</span>
-            </label>
-            <select id="categoria_id" name="categoria_id" class="select select-bordered w-full">
-              <option value="">Selecione uma categoria</option>
-              {% for cat in categorias or [] %}
-                <option value="{{ cat.id }}">{{ cat.nome }}</option>
-              {% endfor %}
-            </select>
-            <label class="label">
-              <span class="label-text-alt text-base-content/60">Categoria para classificar as audiências extraídas</span>
-            </label>
-          </div>
-
-          <!-- Subcategoria Dropdown -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">
-                <i class="fas fa-tag text-secondary mr-2"></i>Subcategoria
-              </span>
-            </label>
-            <select id="subcategoria_id" name="subcategoria_id" class="select select-bordered w-full" disabled>
-              <option value="">Selecione uma categoria primeiro</option>
-            </select>
-            <label class="label">
-              <span class="label-text-alt text-base-content/60">Subcategoria específica (opcional)</span>
-            </label>
-          </div>
+            </div>
+          </details>
 
           <!-- Submit Button -->
-          <div class="card-actions justify-end pt-4">
-            <button id="submitBtn" type="submit" class="btn btn-primary w-full" disabled>
-              <i class="fas fa-magic mr-2"></i>
-              Analisar Imagem
-            </button>
-          </div>
+          <button id="submitBtn" type="submit" class="btn btn-sm w-full text-white" style="background-color: #72cd80;" disabled>
+            <i class="fas fa-magic mr-1"></i>Analisar Imagem
+          </button>
         </form>
       </div>
     </div>
 
     <!-- CARD 2: Análise & Resultados -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">
-          <i class="fas fa-chart-line text-success"></i>
-          Análise & Resultados
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body p-4">
+        <h2 class="text-sm font-bold flex items-center gap-2 mb-2">
+          <i class="fas fa-chart-line text-success"></i>Resultados
         </h2>
-        <div class="divider my-1"></div>
         
         {% if result %}
           <!-- Status Success -->
-          <div class="alert alert-success">
-            <i class="fas fa-check-circle text-xl"></i>
-            <div>
-              <h3 class="font-semibold">Análise Concluída!</h3>
-              <p class="text-sm">Dados extraídos com sucesso</p>
-            </div>
+          <div class="alert alert-success py-2 mb-2">
+            <i class="fas fa-check-circle"></i>
+            <span class="text-sm">Análise concluída!</span>
           </div>
 
           <!-- Metrics -->
           {% if result.usage or result.cost_usd is not none %}
-          <div class="stats stats-vertical lg:stats-horizontal shadow w-full bg-base-100">
-            <div class="stat py-3">
-              <div class="stat-figure text-primary">
-                <i class="fas fa-coins text-lg"></i>
-              </div>
-              <div class="stat-title text-[10px] font-semibold uppercase tracking-wide">Tokens</div>
-              <div class="stat-value text-lg font-bold text-primary">
-                {{ result.usage.total_tokens if result.usage else '—' }}
-              </div>
-              <div class="stat-desc text-[9px]">
-                {% if result.usage %}
-                <span class="text-success">↗︎ {{ result.usage.prompt_tokens or 0 }}</span> · 
-                <span class="text-info">↙︎ {{ result.usage.completion_tokens or 0 }}</span>
-                {% endif %}
-              </div>
+          <div class="flex gap-2 mb-2">
+            <div class="bg-base-200 rounded p-2 flex-1 text-center">
+              <p class="text-[10px] text-base-content/60">Tokens</p>
+              <p class="text-sm font-bold text-primary">{{ result.usage.total_tokens if result.usage else '—' }}</p>
             </div>
-            <div class="stat py-3">
-              <div class="stat-figure text-success">
-                <i class="fas fa-dollar-sign text-lg"></i>
-              </div>
-              <div class="stat-title text-[10px] font-semibold uppercase tracking-wide">Custo (USD)</div>
-              <div class="stat-value text-lg font-bold font-mono text-success">
-                {% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}
-              </div>
-              <div class="stat-desc text-[9px]">
-                {% if result.cost_brl %}
-                ≈ R$ {{ '%.2f'|format(result.cost_brl) }}
-                {% endif %}
-              </div>
+            <div class="bg-base-200 rounded p-2 flex-1 text-center">
+              <p class="text-[10px] text-base-content/60">Custo</p>
+              <p class="text-sm font-bold text-success font-mono">{% if result.cost_usd is not none %}${{ '%.3f'|format(result.cost_usd) }}{% else %}—{% endif %}</p>
             </div>
           </div>
           {% endif %}
 
-          <!-- DEBUG: Mostrar estrutura do result -->
-          <details class="collapse collapse-arrow bg-warning/10 border border-warning/30">
-            <summary class="collapse-title text-xs font-mono cursor-pointer">
-              🔍 DEBUG: Estrutura de dados (clique para expandir)
-            </summary>
-            <div class="collapse-content">
-              <div class="text-xs font-mono bg-base-100 p-3 rounded space-y-2">
-                <p><strong>result.raw type:</strong> {{ result.raw.__class__.__name__ if result.raw else 'None' }}</p>
-                <p><strong>result.raw keys:</strong> {{ result.raw.keys()|list if result.raw is mapping else 'N/A' }}</p>
-                <p><strong>result.fields type:</strong> {{ result.fields.__class__.__name__ if result.fields else 'None' }}</p>
-                <p><strong>result.fields keys:</strong> {{ result.fields.keys()|list if result.fields is mapping else 'N/A' }}</p>
-                <p><strong>Has segments in raw?</strong> {{ 'segments' in result.raw if result.raw is mapping else 'N/A' }}</p>
-                <p><strong>Has segments in fields?</strong> {{ 'segments' in result.fields if result.fields is mapping else 'N/A' }}</p>
-                {% if result.raw is mapping and 'content' in result.raw %}
-                <p><strong>result.raw.content type:</strong> {{ result.raw.content.__class__.__name__ }}</p>
-                {% endif %}
-                {% if result.raw is mapping and '_parse_error' in result.raw %}
-                <p class="text-error"><strong>⚠️ Parse Error:</strong> {{ result.raw._parse_error }}</p>
-                {% endif %}
-                {% if result.raw is mapping and '_content_parse_attempt_error' in result.raw %}
-                <p class="text-warning"><strong>⚠️ Content Parse Attempt Error:</strong> {{ result.raw._content_parse_attempt_error }}</p>
-                {% endif %}
-                
-                {# Check if response was truncated #}
-                {% set raw_response = result.raw._raw if result.raw is mapping and '_raw' in result.raw else {} %}
-                {% set choices = raw_response.choices if raw_response and 'choices' in raw_response else [] %}
-                {% set finish_reason = choices[0].finish_reason if choices and choices|length > 0 else none %}
-                {% if finish_reason == 'length' %}
-                <div class="alert alert-error mt-2">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  <div>
-                    <strong>⚠️ RESPOSTA TRUNCADA!</strong>
-                    <p class="text-xs">O modelo atingiu o limite de tokens (max_tokens) antes de completar o JSON. A resposta foi cortada e está incompleta. Tente novamente - o código já foi corrigido para permitir respostas maiores.</p>
-                  </div>
-                </div>
-                {% endif %}
-                
-                <div class="divider my-2"></div>
-                <p class="font-bold text-warning">🔍 VERIFICANDO LOCALIZAÇÕES DE SEGMENTS:</p>
-                
-                {% set test_segments_1 = result.fields.segments if result.fields is mapping else none %}
-                <p><strong>result.fields.segments:</strong> {{ test_segments_1|length if test_segments_1 else 'None/Empty' }} - Type: {{ test_segments_1.__class__.__name__ if test_segments_1 else 'N/A' }}</p>
-                
-                {% set test_segments_2 = result.fields.audienceSegments if result.fields is mapping else none %}
-                <p><strong>result.fields.audienceSegments:</strong> {{ test_segments_2|length if test_segments_2 else 'None/Empty' }} - Type: {{ test_segments_2.__class__.__name__ if test_segments_2 else 'N/A' }}</p>
-                
-                {% set test_segments_3 = result.raw.segments if result.raw is mapping else none %}
-                <p><strong>result.raw.segments:</strong> {{ test_segments_3|length if test_segments_3 else 'None/Empty' }} - Type: {{ test_segments_3.__class__.__name__ if test_segments_3 else 'N/A' }}</p>
-                
-                {% set test_segments_4 = result.raw.audienceSegments if result.raw is mapping else none %}
-                <p><strong>result.raw.audienceSegments:</strong> {{ test_segments_4|length if test_segments_4 else 'None/Empty' }} - Type: {{ test_segments_4.__class__.__name__ if test_segments_4 else 'N/A' }}</p>
-                
-                <div class="divider my-2"></div>
-                <p class="font-bold text-info">📄 AMOSTRA DE result.fields (primeiras 500 chars):</p>
-                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] break-words whitespace-pre-wrap">{{ result.fields|string|truncate(500) }}</pre>
-                
-                <div class="divider my-2"></div>
-                <p class="font-bold text-info">📄 AMOSTRA DE result.raw (primeiras 500 chars):</p>
-                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] break-words whitespace-pre-wrap">{{ result.raw|string|truncate(500) }}</pre>
-                
-                {% if result.raw is mapping and 'content' in result.raw %}
-                <div class="divider my-2"></div>
-                <p class="font-bold text-error">📝 CONTEÚDO COMPLETO DE result.raw.content:</p>
-                <pre class="bg-base-200 p-2 rounded overflow-x-auto text-[10px] max-h-96 break-words whitespace-pre-wrap">{{ result.raw.content }}</pre>
-                {% endif %}
-              </div>
+          <!-- DEBUG Collapse -->
+          <details class="collapse collapse-arrow bg-warning/10 border border-warning/30 mb-2">
+            <summary class="collapse-title text-[10px] font-mono py-1 min-h-0">🔍 DEBUG</summary>
+            <div class="collapse-content text-[10px] font-mono">
+              <p><strong>fields.segments:</strong> {{ (result.fields.segments|length) if result.fields.segments else 'None' }}</p>
+              <p><strong>raw.segments:</strong> {{ (result.raw.segments|length) if result.raw.segments else 'None' }}</p>
             </div>
           </details>
 
           <!-- JSON Viewer -->
-          <div class="card bg-base-200 shadow-sm">
-            <div class="card-body p-4">
-              <h4 class="font-semibold text-sm mb-2">Dados Extraídos (JSON)</h4>
-              <div class="max-h-96 overflow-y-auto overflow-x-auto">
-                <pre id="json_output" class="text-xs font-mono bg-base-100 p-3 rounded break-words whitespace-pre-wrap">{{ result.json_text | safe }}</pre>
-              </div>
+          <div class="bg-base-200 rounded p-2 mb-2">
+            <p class="text-xs font-semibold mb-1">JSON Extraído</p>
+            <div class="max-h-40 overflow-y-auto">
+              <pre class="text-[10px] font-mono bg-base-100 p-2 rounded">{{ result.json_text | safe }}</pre>
             </div>
           </div>
 
-          <!-- Novo Textarea para Dados Customizados -->
-          <div class="card bg-base-200 shadow-sm">
-            <div class="card-body p-4">
-              <h4 class="font-semibold text-sm mb-2">Dados Customizados (JSON)</h4>
-              <textarea id="customData" class="textarea textarea-bordered w-full text-sm font-mono" rows="12" placeholder='{"audienceSummary": {"overallReach": 1370000}, "demographics": {"gender": {"male": 0.59, "female": 0.41}}}'>{% if result %}{% set custom_obj = {} %}{% if result.fields.audienceSummary %}{% set _ = custom_obj.update({"audienceSummary": result.fields.audienceSummary}) %}{% endif %}{% if result.fields.demographics %}{% set _ = custom_obj.update({"demographics": result.fields.demographics}) %}{% endif %}{% if custom_obj %}{{ custom_obj|tojson(indent=2) }}{% endif %}{% endif %}</textarea>
-            </div>
+          <!-- Dados Customizados -->
+          <div class="bg-base-200 rounded p-2">
+            <p class="text-xs font-semibold mb-1">Dados Customizados</p>
+            <textarea id="customData" class="textarea textarea-bordered w-full text-[10px] font-mono h-20" placeholder='{"audienceSummary": {...}}'>{% if result %}{% set custom_obj = {} %}{% if result.fields.audienceSummary %}{% set _ = custom_obj.update({"audienceSummary": result.fields.audienceSummary}) %}{% endif %}{% if result.fields.demographics %}{% set _ = custom_obj.update({"demographics": result.fields.demographics}) %}{% endif %}{% if custom_obj %}{{ custom_obj|tojson(indent=2) }}{% endif %}{% endif %}</textarea>
           </div>
 
         {% else %}
           <!-- Empty State -->
-          <div class="flex flex-col items-center justify-center py-12 text-center">
-            <i class="fas fa-robot text-6xl text-base-content/20 mb-4"></i>
-            <p class="font-medium text-base-content/70">Aguardando análise...</p>
-            <p class="text-sm text-base-content/50 mt-1">Faça upload de uma imagem para começar</p>
+          <div class="flex flex-col items-center justify-center py-8 text-center">
+            <i class="fas fa-robot text-4xl text-base-content/20 mb-2"></i>
+            <p class="text-sm text-base-content/70">Aguardando análise...</p>
+            <p class="text-xs text-base-content/50">Faça upload de uma imagem</p>
           </div>
         {% endif %}
       </div>
@@ -340,145 +208,53 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
   {% if result %}
     {% set segments = result.fields.segments or result.fields.audienceSegments or result.raw.segments or result.raw.audienceSegments or [] %}
     {% if segments and segments|length > 0 %}
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body p-4">
-        <div class="flex items-center justify-between mb-3">
+    <div class="card bg-base-100 shadow-lg mt-4">
+      <div class="card-body p-3">
+        <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
-            <i class="fas fa-table text-primary"></i>
+            <i class="fas fa-table text-primary text-sm"></i>
             <div>
-              <h4 class="font-semibold">Audiências Encontradas</h4>
-              <p class="text-xs text-base-content/60">
-                <span class="badge badge-success badge-sm">{{ segments|length }}</span> 
-                audiências extraídas com sucesso
+              <h4 class="text-sm font-semibold">Audiências Encontradas</h4>
+              <p class="text-[10px] text-base-content/60">
+                <span class="badge badge-success badge-xs">{{ segments|length }}</span> extraídas
               </p>
             </div>
           </div>
         </div>
         
-        <!-- Layout responsivo: Cards em mobile, Tabela em desktop -->
-        <div class="hidden lg:block w-full">
+        <!-- Tabela compacta -->
+        <div class="overflow-x-auto">
           <table class="table table-xs w-full">
             <thead>
-              <tr class="bg-primary text-primary-content">
-                <th class="w-20">ID</th>
-                <th class="min-w-[200px]">Nome</th>
-                <th class="w-24">Parceiro</th>
-                <th class="text-right w-20">CPM</th>
-                <th class="text-center w-20">Ações</th>
+              <tr style="background-color: #72cd80;" class="text-white">
+                <th class="text-xs">ID</th>
+                <th class="text-xs">Nome</th>
+                <th class="text-xs">Parceiro</th>
+                <th class="text-xs text-right">CPM</th>
+                <th class="text-xs text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {% for segment in segments %}
               <tr class="hover">
-                <td class="font-mono text-xs">{{ segment.id or '—' }}</td>
-                <td class="max-w-md">
-                  <div class="space-y-1">
-                    <p class="font-medium text-xs truncate" title="{{ segment.name_ptbr_normalized }}">
-                      {{ segment.name_ptbr_normalized or '—' }}
-                    </p>
-                    {% if segment.name_original %}
-                    <p class="text-[10px] text-base-content/60 truncate italic" title="{{ segment.name_original }}">
-                      {{ segment.name_original }}
-                    </p>
-                    {% endif %}
-                  </div>
-                </td>
-                <td>
-                  <span class="badge badge-sm badge-outline text-xs">{{ segment.source or '—' }}</span>
-                </td>
-                <td class="text-right font-mono text-xs">
-                  {% if segment.cpm is mapping %}
-                    {% if segment.cpm.value is number %}
-                      {{ '%.2f'|format(segment.cpm.value) }}
-                    {% else %}
-                      {{ segment.cpm.value or '—' }}
-                    {% endif %}
-                  {% elif segment.cpm is number %}
-                    {{ '%.2f'|format(segment.cpm) }}
-                  {% elif segment.cpm %}
-                    {{ segment.cpm }}
-                  {% else %}
-                    —
+                <td class="font-mono text-[10px]">{{ segment.id or '—' }}</td>
+                <td class="max-w-xs">
+                  <p class="text-[10px] truncate" title="{{ segment.name_ptbr_normalized }}">{{ segment.name_ptbr_normalized or '—' }}</p>
+                  {% if segment.name_original %}
+                  <p class="text-[9px] text-base-content/50 truncate italic">{{ segment.name_original }}</p>
                   {% endif %}
                 </td>
+                <td><span class="badge badge-xs badge-outline">{{ segment.source or '—' }}</span></td>
+                <td class="text-right font-mono text-[10px]">
+                  {% if segment.cpm is mapping %}{{ '%.2f'|format(segment.cpm.value) if segment.cpm.value is number else (segment.cpm.value or '—') }}{% elif segment.cpm is number %}{{ '%.2f'|format(segment.cpm) }}{% elif segment.cpm %}{{ segment.cpm }}{% else %}—{% endif %}
+                </td>
                 <td class="text-center">
-                  <div class="flex items-center justify-center gap-1">
-                    <button type="button" 
-                            class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" 
-                            title="Enriquecer audiência"
-                            data-segment='{{ segment|tojson }}'>
-                      <i class="fas fa-plus"></i>
-                    </button>
-                    <button type="button" 
-                            class="btn btn-xs btn-ghost btn-reenviar-webhook hidden" 
-                            title="Reenviar enriquecimento"
-                            data-segment='{{ segment|tojson }}'>
-                      <i class="fas fa-redo"></i>
-                    </button>
-                  </div>
+                  <button type="button" class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" data-segment='{{ segment|tojson }}'><i class="fas fa-plus"></i></button>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
-
-        <!-- Cards para mobile/tablet -->
-        <div class="lg:hidden space-y-3">
-          {% for segment in segments %}
-          <div class="card bg-base-200 shadow-sm">
-            <div class="card-body p-3 space-y-2">
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-semibold truncate" title="{{ segment.name_ptbr_normalized }}">
-                    {{ segment.name_ptbr_normalized or '—' }}
-                  </p>
-                  {% if segment.name_original %}
-                  <p class="text-[10px] text-base-content/60 truncate italic mt-0.5" title="{{ segment.name_original }}">
-                    {{ segment.name_original }}
-                  </p>
-                  {% endif %}
-                  <div class="flex items-center gap-2 mt-1">
-                    <span class="badge badge-xs badge-outline">{{ segment.source or '—' }}</span>
-                    <span class="text-xs font-mono">ID: {{ segment.id or '—' }}</span>
-                  </div>
-                </div>
-                <div class="flex flex-col gap-1 flex-shrink-0">
-                  <button type="button" 
-                          class="btn btn-xs btn-primary btn-outline btn-enviar-webhook" 
-                          title="Enriquecer"
-                          data-segment='{{ segment|tojson }}'>
-                    <i class="fas fa-plus"></i>
-                  </button>
-                  <button type="button" 
-                          class="btn btn-xs btn-ghost btn-reenviar-webhook hidden" 
-                          title="Reenviar"
-                          data-segment='{{ segment|tojson }}'>
-                    <i class="fas fa-redo"></i>
-                  </button>
-                </div>
-              </div>
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-base-content/60">CPM:</span>
-                <span class="font-mono font-semibold">
-                  {% if segment.cpm is mapping %}
-                    {% if segment.cpm.value is number %}
-                      {{ '%.2f'|format(segment.cpm.value) }}
-                    {% else %}
-                      {{ segment.cpm.value or '—' }}
-                    {% endif %}
-                  {% elif segment.cpm is number %}
-                    {{ '%.2f'|format(segment.cpm) }}
-                  {% elif segment.cpm %}
-                    {{ segment.cpm }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </span>
-              </div>
-            </div>
-          </div>
-          {% endfor %}
         </div>
       </div>
     </div>
@@ -488,12 +264,9 @@ Retorne apenas o JSON limpo e estruturado.</textarea>
 
 <!-- Loading Overlay -->
 <div class="fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center z-50 hidden" id="loadingOverlay">
-  <div class="card bg-base-100 shadow-xl max-w-xs">
-    <div class="card-body items-center text-center">
-      <span class="loading loading-spinner loading-lg text-primary"></span>
-      <p class="font-medium mt-4">Processando imagem...</p>
-      <p class="text-sm text-base-content/60">Aguarde enquanto a IA analisa</p>
-    </div>
+  <div class="card bg-base-100 shadow-lg p-4 text-center">
+    <span class="loading loading-spinner loading-md text-primary"></span>
+    <p class="text-sm mt-2">Processando...</p>
   </div>
 </div>
 {% endblock %}

@@ -90,57 +90,49 @@
           </div>
         </div>
 
-        <!-- LINHA 2: Datas e Valores lado a lado -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <!-- Datas -->
-          <div>
-            <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Datas</h2>
-            <div class="grid grid-cols-3 gap-2">
-              <div class="form-control">
-                <label class="label py-0.5"><span class="label-text text-xs font-medium">Início *</span></label>
-                <div class="join">
-                  <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()">
-                    <i class="fas fa-calendar-alt text-primary"></i>
-                  </button>
-                  <input type="date" id="periodo_inicio" name="periodo_inicio" value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}" class="input input-bordered input-sm join-item w-full" required>
-                </div>
-              </div>
-              <div class="form-control">
-                <label class="label py-0.5"><span class="label-text text-xs font-medium">Término</span></label>
-                <div class="join">
-                  <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()">
-                    <i class="fas fa-calendar-alt text-primary"></i>
-                  </button>
-                  <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="input input-bordered input-sm join-item w-full">
-                </div>
-              </div>
-              <div class="form-control">
-                <label class="label py-0.5"><span class="label-text text-xs font-medium">Expiração</span></label>
-                <div class="join">
-                  <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('expires_at').showPicker()">
-                    <i class="fas fa-clock text-primary"></i>
-                  </button>
-                  <input type="datetime-local" id="expires_at" name="expires_at" value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}" class="input input-bordered input-sm join-item w-full">
-                </div>
-              </div>
+        <!-- LINHA 2: Datas e Valores -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <!-- Início -->
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Início *</span></label>
+            <div class="join">
+              <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-primary"></i>
+              </button>
+              <input type="date" id="periodo_inicio" name="periodo_inicio" value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}" class="input input-bordered input-sm join-item w-full" required>
             </div>
           </div>
-          
-          <!-- Valores -->
-          <div>
-            <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Valores</h2>
-            <div class="grid grid-cols-2 gap-2">
-              <div class="form-control">
-                <label class="label py-0.5"><span class="label-text text-xs font-medium">Budget Estimado (R$)</span></label>
-                <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
-                <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
-              </div>
-              <div class="form-control">
-                <label class="label py-0.5"><span class="label-text text-xs font-medium">Valor Total (R$) *</span></label>
-                <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')" required>
-                <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
-              </div>
+          <!-- Término -->
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Término</span></label>
+            <div class="join">
+              <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-primary"></i>
+              </button>
+              <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="input input-bordered input-sm join-item w-full">
             </div>
+          </div>
+          <!-- Expiração (ocupa 2 colunas) -->
+          <div class="form-control lg:col-span-2">
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Expiração da Proposta</span></label>
+            <div class="join">
+              <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('expires_at').showPicker()">
+                <i class="fas fa-clock text-primary"></i>
+              </button>
+              <input type="datetime-local" id="expires_at" name="expires_at" value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}" class="input input-bordered input-sm join-item w-full">
+            </div>
+          </div>
+          <!-- Budget Estimado -->
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Budget Est. (R$)</span></label>
+            <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+            <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
+          </div>
+          <!-- Valor Total -->
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text text-xs font-medium">Valor Total (R$) *</span></label>
+            <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')" required>
+            <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
           </div>
         </div>
 

@@ -3,10 +3,10 @@
 {% block title %}Gestão de Briefings{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-2">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-        <h1 class="text-2xl font-bold text-base-content">Gestão de Briefings</h1>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+        <h1 class="text-xl font-bold text-base-content">Gestão de Briefings</h1>
         <a href="{{ url_for('briefing_create') }}" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -16,62 +16,59 @@
     </div>
 
     <!-- Estatísticas -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
+    <div class="grid grid-cols-4 lg:grid-cols-7 gap-1 mb-2">
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
+            <div class="stat py-1 px-2">
                 <div class="stat-title text-xs">Total</div>
-                <div class="stat-value text-2xl text-black">{{ stats.total }}</div>
+                <div class="stat-value text-lg text-black">{{ stats.total }}</div>
             </div>
         </div>
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
+            <div class="stat py-1 px-2">
                 <div class="stat-title text-xs">Rascunho</div>
-                <div class="stat-value text-2xl text-black">{{ stats.rascunho }}</div>
+                <div class="stat-value text-lg text-black">{{ stats.rascunho }}</div>
             </div>
         </div>
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
+            <div class="stat py-1 px-2">
                 <div class="stat-title text-xs">Pendente</div>
-                <div class="stat-value text-2xl text-black">{{ stats.pendente }}</div>
+                <div class="stat-value text-lg text-black">{{ stats.pendente }}</div>
             </div>
         </div>
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
-                <div class="stat-title text-xs">Em Andamento</div>
-                <div class="stat-value text-2xl text-black">{{ stats.em_andamento }}</div>
+            <div class="stat py-1 px-2">
+                <div class="stat-title text-xs">Andamento</div>
+                <div class="stat-value text-lg text-black">{{ stats.em_andamento }}</div>
             </div>
         </div>
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
-                <div class="stat-title text-xs">Em Revisão</div>
-                <div class="stat-value text-2xl text-black">{{ stats.em_revisao }}</div>
+            <div class="stat py-1 px-2">
+                <div class="stat-title text-xs">Revisão</div>
+                <div class="stat-value text-lg text-black">{{ stats.em_revisao }}</div>
             </div>
         </div>
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
+            <div class="stat py-1 px-2">
                 <div class="stat-title text-xs">Completo</div>
-                <div class="stat-value text-2xl text-black">{{ stats.completo }}</div>
+                <div class="stat-value text-lg text-black">{{ stats.completo }}</div>
             </div>
         </div>
         <div class="stats shadow bg-base-100">
-            <div class="stat py-2 px-3">
+            <div class="stat py-1 px-2">
                 <div class="stat-title text-xs">Arquivado</div>
-                <div class="stat-value text-2xl text-black">{{ stats.arquivado }}</div>
+                <div class="stat-value text-lg text-black">{{ stats.arquivado }}</div>
             </div>
         </div>
     </div>
 
     <!-- Filtros -->
-    <div class="card bg-base-100 border border-base-300 mb-4">
-        <div class="card-body p-4">
-            <h2 class="card-title text-sm mb-3">Filtros</h2>
-            <form method="get" action="{{ url_for('briefing_list') }}" class="grid grid-cols-1 md:grid-cols-6 gap-3">
+    <div class="card bg-base-100 border border-base-300 mb-2">
+        <div class="card-body p-2">
+            <form method="get" action="{{ url_for('briefing_list') }}" class="grid grid-cols-2 md:grid-cols-6 gap-2">
                 <!-- Status -->
                 <div class="form-control">
-                    <label class="label py-1">
-                        <span class="label-text text-xs">Status</span>
-                    </label>
-                    <select name="status" class="select select-bordered select-sm bg-white text-gray-900 font-medium focus:outline-primary h-8 min-h-8 py-1">
+                    <label class="label py-0"><span class="label-text text-xs">Status</span></label>
+                    <select name="status" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
                         <option value="">Todos</option>
                         <option value="rascunho" {% if filtros.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
                         <option value="pendente" {% if filtros.status == 'pendente' %}selected{% endif %}>Pendente</option>
@@ -84,16 +81,12 @@
 
                 <!-- Cliente -->
                 <div class="form-control">
-                    <label class="label py-1">
-                        <span class="label-text text-xs">Cliente</span>
-                    </label>
+                    <label class="label py-0"><span class="label-text text-xs">Cliente</span></label>
                     <div class="relative">
                         <input type="hidden" name="cliente_id" id="cliente_id_filtro" value="{{ filtros.cliente_id }}">
-                        <input 
-                            type="text" 
-                            id="cliente_busca" 
+                        <input type="text" id="cliente_busca" 
                             class="input input-bordered input-sm w-full h-8 min-h-8" 
-                            placeholder="Digite para buscar..."
+                            placeholder="Buscar..."
                             value="{% if filtros.cliente_id and cliente_selecionado %}{{ cliente_selecionado.nome_fantasia }}{% endif %}"
                             autocomplete="off"
                             oninput="aoDigitarClienteFiltro(this.value)"
@@ -105,10 +98,8 @@
 
                 <!-- Projeto -->
                 <div class="form-control">
-                    <label class="label py-1">
-                        <span class="label-text text-xs">Projeto</span>
-                    </label>
-                    <select name="projeto_id" id="projeto_id_filtro" class="select select-bordered select-sm bg-white text-gray-900 font-medium focus:outline-primary h-8 min-h-8 py-1">
+                    <label class="label py-0"><span class="label-text text-xs">Projeto</span></label>
+                    <select name="projeto_id" id="projeto_id_filtro" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
                         <option value="">{{ 'Selecione cliente...' if not filtros.cliente_id else 'Todos' }}</option>
                         {% for projeto in projetos %}
                             <option value="{{ projeto.id }}" {% if filtros.projeto_id == projeto.id|string %}selected{% endif %}>{{ projeto.nome }}</option>
@@ -118,10 +109,8 @@
 
                 <!-- Responsável -->
                 <div class="form-control">
-                    <label class="label py-1">
-                        <span class="label-text text-xs">Responsável</span>
-                    </label>
-                    <select name="responsavel_id" class="select select-bordered select-sm bg-white text-gray-900 font-medium focus:outline-primary h-8 min-h-8 py-1">
+                    <label class="label py-0"><span class="label-text text-xs">Responsável</span></label>
+                    <select name="responsavel_id" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
                         <option value="">Todos</option>
                         {% for resp in responsaveis %}
                             <option value="{{ resp.id_contato_cliente }}" {% if filtros.responsavel_id == resp.id_contato_cliente|string %}selected{% endif %}>{{ resp.nome_completo }}</option>
@@ -131,21 +120,16 @@
 
                 <!-- Busca -->
                 <div class="form-control">
-                    <label class="label py-1">
-                        <span class="label-text text-xs">Buscar</span>
-                    </label>
+                    <label class="label py-0"><span class="label-text text-xs">Buscar</span></label>
                     <input type="text" name="busca" value="{{ filtros.busca }}" 
-                           placeholder="Título, objetivo..." class="input input-bordered input-sm">
+                           placeholder="Título..." class="input input-bordered input-sm h-8">
                 </div>
 
                 <!-- Botões -->
-                <div class="form-control items-end">
-                    <label class="label py-1">
-                        <span class="label-text text-xs">&nbsp;</span>
-                    </label>
-                    <div class="flex gap-2">
-                        <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">Filtrar</button>
-                        <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-sm">Limpar</a>
+                <div class="form-control justify-end">
+                    <div class="flex gap-1 mt-4">
+                        <button type="submit" class="btn text-white btn-xs" style="background-color: #72cd80; border-color: #72cd80;">Filtrar</button>
+                        <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-xs">Limpar</a>
                     </div>
                 </div>
             </form>
@@ -157,62 +141,44 @@
         <table class="table table-zebra w-full text-sm">
             <thead style="background-color: #72cd80;" class="text-white">
                 <tr class="text-xs">
-                    <th class="w-1/5">Título</th>
-                    <th class="w-1/6">Cliente</th>
-                    <th class="w-1/6">Projeto</th>
-                    <th class="w-24">Responsável</th>
-                    <th class="w-24">Prazo</th>
-                    <th class="w-28">Budget</th>
-                    <th class="w-28">Status</th>
-                    <th class="w-20">Ações</th>
+                    <th>Título</th>
+                    <th class="w-20">Status</th>
+                    <th>Cliente</th>
+                    <th>Projeto</th>
+                    <th>Resp.</th>
+                    <th>Plataforma</th>
+                    <th class="w-20">Prazo</th>
+                    <th class="w-20">Budget</th>
                 </tr>
             </thead>
             <tbody>
                 {% if briefings %}
                     {% for briefing in briefings %}
                     <tr>
-                        <td class="py-2">
-                            <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" class="hover:text-primary">
-                                <div class="font-semibold text-sm">{{ briefing.titulo }}</div>
-                                <div class="text-xs opacity-60 truncate max-w-xs">{{ briefing.objetivo }}</div>
-                            </a>
+                        <td class="py-1">
+                            <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" class="hover:text-primary font-semibold text-sm">{{ briefing.titulo }}</a>
                         </td>
-                        <td class="py-2 text-xs">{{ briefing.cliente_nome or '-' }}</td>
-                        <td class="py-2 text-xs">{{ briefing.projeto_nome or '-' }}</td>
-                        <td class="py-2 text-xs">{{ briefing.responsavel_nome or '-' }}</td>
-                        <td class="py-2 text-xs">{{ briefing.prazo.strftime('%d/%m/%Y') if briefing.prazo else '-' }}</td>
-                        <td class="py-2 text-xs">
-                            {% if briefing.budget %}
-                                R$ {{ "%.2f"|format(briefing.budget|float) }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td class="py-2">
+                        <td class="py-1">
                             {% if briefing.status == 'rascunho' %}
-                                <span class="badge badge-sm bg-slate-200 text-slate-700 border-0">Rascunho</span>
+                                <span class="badge badge-xs bg-slate-200 text-slate-700 border-0">Rascunho</span>
                             {% elif briefing.status == 'pendente' %}
-                                <span class="badge badge-sm bg-amber-100 text-amber-700 border-0">Pendente</span>
+                                <span class="badge badge-xs bg-amber-100 text-amber-700 border-0">Pendente</span>
                             {% elif briefing.status == 'em_andamento' %}
-                                <span class="badge badge-sm bg-blue-100 text-blue-700 border-0">Em Andamento</span>
+                                <span class="badge badge-xs bg-blue-100 text-blue-700 border-0">Andamento</span>
                             {% elif briefing.status == 'em_revisao' %}
-                                <span class="badge badge-sm bg-purple-100 text-purple-700 border-0">Em Revisão</span>
+                                <span class="badge badge-xs bg-purple-100 text-purple-700 border-0">Revisão</span>
                             {% elif briefing.status == 'completo' %}
-                                <span class="badge badge-sm bg-green-100 text-green-700 border-0">Completo</span>
+                                <span class="badge badge-xs bg-green-100 text-green-700 border-0">Completo</span>
                             {% elif briefing.status == 'arquivado' %}
-                                <span class="badge badge-sm bg-gray-100 text-gray-500 border-0">Arquivado</span>
+                                <span class="badge badge-xs bg-gray-100 text-gray-500 border-0">Arquivado</span>
                             {% endif %}
                         </td>
-                        <td class="py-2">
-                            <form method="post" action="{{ url_for('briefing_delete', briefing_id=briefing.id) }}" 
-                                  onsubmit="return confirm('Deseja realmente excluir este briefing?');" class="inline">
-                                <button type="submit" class="btn btn-xs btn-ghost text-error" title="Excluir">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-                            </form>
-                        </td>
+                        <td class="py-1 text-xs">{{ briefing.cliente_nome or '-' }}</td>
+                        <td class="py-1 text-xs">{{ briefing.projeto_nome or '-' }}</td>
+                        <td class="py-1 text-xs">{{ briefing.responsavel_nome or '-' }}</td>
+                        <td class="py-1 text-xs">{{ briefing.plataforma or '-' }}</td>
+                        <td class="py-1 text-xs">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
+                        <td class="py-1 text-xs">{% if briefing.budget %}R$ {{ "%.0f"|format(briefing.budget|float) }}{% else %}-{% endif %}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -238,6 +204,7 @@
                     <div class="space-y-1 text-xs">
                         <div><strong>Cliente:</strong> {{ briefing.cliente_nome or '-' }}</div>
                         <div><strong>Responsável:</strong> {{ briefing.responsavel_nome or '-' }}</div>
+                        <div><strong>Plataforma:</strong> {{ briefing.plataforma or '-' }}</div>
                         <div><strong>Prazo:</strong> {{ briefing.prazo.strftime('%d/%m/%Y') if briefing.prazo else '-' }}</div>
                         <div><strong>Budget:</strong> 
                             {% if briefing.budget %}

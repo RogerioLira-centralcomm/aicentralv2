@@ -4848,12 +4848,10 @@ def criar_briefing(dados):
                     progresso, briefing_original, briefing_melhorado, analise_ia,
                     objetivo, budget, prazo, responsavel, responsavel_centralcomm,
                     link_publico_token, link_publico_ativo, enviado_para_centralcomm,
-                    data_envio, id_projeto, plataforma,
-                    canais
+                    data_envio, id_projeto, plataforma
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 RETURNING id, uuid
             ''', (
@@ -4876,8 +4874,7 @@ def criar_briefing(dados):
                 dados.get('enviado_para_centralcomm', False),
                 dados.get('data_envio'),
                 dados.get('id_projeto'),
-                dados.get('plataforma'),
-                dados.get('canais')
+                dados.get('plataforma')
             ))
             
             result = cursor.fetchone()
@@ -4926,8 +4923,7 @@ def atualizar_briefing(briefing_id, dados):
                 'enviado_para_centralcomm': 'enviado_para_centralcomm',
                 'data_envio': 'data_envio',
                 'id_projeto': 'id_projeto',
-                'plataforma': 'plataforma',
-                'canais': 'canais'
+                'plataforma': 'plataforma'
             }
             
             for key, db_field in campos_mapeamento.items():

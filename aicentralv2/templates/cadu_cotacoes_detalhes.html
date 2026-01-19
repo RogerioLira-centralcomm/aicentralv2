@@ -474,25 +474,6 @@ function renderizarAnexos(anexos) {
               </div>
             </div>
 
-            <!-- Expires At -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Expiração da Cotação</span>
-              </label>
-              <div class="join">
-                <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('expires_at').showPicker()">
-                  <i class="fas fa-clock text-primary"></i>
-                </button>
-                <input 
-                  type="datetime-local" 
-                  id="expires_at"
-                  name="expires_at" 
-                  value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}"
-                  class="input input-bordered input-sm join-item w-full"
-                >
-              </div>
-            </div>
-
             <!-- Proposta Enviada Em -->
             {% if modo == 'editar' and cotacao and cotacao.proposta_enviada_em %}
             <div class="form-control">
@@ -647,7 +628,7 @@ function renderizarAnexos(anexos) {
       <div id="content_linhas" class="aba-content">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold">Linhas da Cotação</h2>
-          <button onclick="document.getElementById('modal_nova_linha').showModal()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+          <button onclick="abrirModalNovaLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Nova Linha
           </button>
         </div>
@@ -1170,7 +1151,7 @@ function renderizarAnexos(anexos) {
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span id="label_volume" class="label-text text-xs">Volume</span></label>
+            <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
             <input type="text" id="volume_contratado" class="input input-bordered input-xs bg-base-200" placeholder="0" readonly>
           </div>
 
@@ -1683,27 +1664,6 @@ function exportarPDF() {
 // Percentual líquido do cliente (carregado do servidor)
 const percentualLiquidoCliente = {{ (cliente.percentual if cliente and cliente.percentual else 100)|default(100) }};
 
-// Função para calcular data de expiração automaticamente
-function calcularExpiracao() {
-  const dataInicio = document.getElementById('periodo_inicio').value;
-  const expiracaoInput = document.getElementById('expires_at');
-  
-  // Só calcula se data de início estiver preenchida e expiração estiver vazia
-  if (dataInicio && !expiracaoInput.value) {
-    const data = new Date(dataInicio + 'T00:00:00');
-    data.setDate(data.getDate() + 30);
-    data.setHours(12, 0, 0, 0);
-    
-    const ano = data.getFullYear();
-    const mes = String(data.getMonth() + 1).padStart(2, '0');
-    const dia = String(data.getDate()).padStart(2, '0');
-    const hora = String(data.getHours()).padStart(2, '0');
-    const minuto = String(data.getMinutes()).padStart(2, '0');
-    
-    expiracaoInput.value = `${ano}-${mes}-${dia}T${hora}:${minuto}`;
-  }
-}
-
 // Função para calcular quantidade de dias da campanha
 function calcularDiasCampanha() {
   const dataInicio = document.getElementById('periodo_inicio').value;
@@ -1739,6 +1699,21 @@ function validarDataInicio(input) {
     erroLabel.classList.add('hidden');
     input.classList.remove('input-error');
   }
+}
+
+// Função para abrir modal Nova Linha com datas pré-preenchidas
+function abrirModalNovaLinha() {
+  const hoje = new Date();
+  const dataInicio = new Date(hoje);
+  dataInicio.setDate(hoje.getDate() + 7);
+  const dataFim = new Date(hoje);
+  dataFim.setDate(hoje.getDate() + 37);
+  
+  document.getElementById('data_inicio').value = dataInicio.toISOString().split('T')[0];
+  document.getElementById('data_fim').value = dataFim.toISOString().split('T')[0];
+  
+  calcularDiasLinha();
+  document.getElementById('modal_nova_linha').showModal();
 }
 
 // Função para calcular dias da linha de cotação (modal)
@@ -1988,28 +1963,23 @@ document.addEventListener('DOMContentLoaded', function() {
   carregarAnexos();
   {% endif %}
   
-  // Calcular expiração se data de início existir e expiração estiver vazia
-  calcularExpiracao();
-  
-  // Auto-preencher datas
+  // Auto-preencher datas (apenas em modo novo)
+  {% if modo == 'novo' %}
   const periodoInicio = document.getElementById('periodo_inicio');
   const periodoFim = document.getElementById('periodo_fim');
   
-  if (periodoInicio && !periodoInicio.value) {
-    const hoje = new Date();
-    periodoInicio.value = hoje.toISOString().split('T')[0];
-    calcularExpiracao();
-  }
+  const hoje = new Date();
+  const dataInicio = new Date(hoje);
+  dataInicio.setDate(dataInicio.getDate() + 7); // +7 dias
+  periodoInicio.value = dataInicio.toISOString().split('T')[0];
   
-  if (periodoFim && !periodoFim.value) {
-    const hoje = new Date();
-    const dataFim = new Date(hoje);
-    dataFim.setDate(dataFim.getDate() + 30);
-    periodoFim.value = dataFim.toISOString().split('T')[0];
-  }
+  const dataFim = new Date(hoje);
+  dataFim.setDate(dataFim.getDate() + 37); // +37 dias
+  periodoFim.value = dataFim.toISOString().split('T')[0];
   
   // Calcular dias de campanha ao carregar
   calcularDiasCampanha();
+  {% endif %}
   
   // Formatar valores monetários
   const campos = ['budget_estimado', 'valor_total_proposta'];
@@ -2061,24 +2031,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
-  
-  // Preencher data de expiração (modo novo)
-  {% if modo == 'novo' %}
-  const expiresAtInput = document.getElementById('expires_at');
-  if (expiresAtInput && !expiresAtInput.value) {
-    const dataExpiracao = new Date();
-    dataExpiracao.setHours(12, 0, 0, 0);
-    dataExpiracao.setDate(dataExpiracao.getDate() + 30);
-    
-    const ano = dataExpiracao.getFullYear();
-    const mes = String(dataExpiracao.getMonth() + 1).padStart(2, '0');
-    const dia = String(dataExpiracao.getDate()).padStart(2, '0');
-    const hora = String(dataExpiracao.getHours()).padStart(2, '0');
-    const minuto = String(dataExpiracao.getMinutes()).padStart(2, '0');
-    
-    expiresAtInput.value = `${ano}-${mes}-${dia}T${hora}:${minuto}`;
-  }
-  {% endif %}
 });
 
 // ==================== FUNÇÕES DE MÁSCARA E FORMATAÇÃO ====================
@@ -2162,6 +2114,9 @@ function calcularVolume() {
   } else {
     volumeInput.value = '';
   }
+  
+  // Calcular investimento líquido
+  calcularInvestimentoLiquido();
   
   validarCamposObrigatorios();
 }

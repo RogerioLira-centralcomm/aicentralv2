@@ -91,7 +91,7 @@
         </div>
 
         <!-- LINHA 2: Datas e Valores -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <!-- Início -->
           <div class="form-control">
             <label class="label py-0.5"><span class="label-text text-xs font-medium">Início *</span></label>
@@ -110,16 +110,6 @@
                 <i class="fas fa-calendar-alt text-primary"></i>
               </button>
               <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="input input-bordered input-sm join-item w-full">
-            </div>
-          </div>
-          <!-- Expiração (ocupa 2 colunas) -->
-          <div class="form-control lg:col-span-2">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Expiração da Proposta</span></label>
-            <div class="join">
-              <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('expires_at').showPicker()">
-                <i class="fas fa-clock text-primary"></i>
-              </button>
-              <input type="datetime-local" id="expires_at" name="expires_at" value="{% if cotacao and cotacao.expires_at %}{{ cotacao.expires_at.strftime('%Y-%m-%dT%H:%M') if cotacao.expires_at.strftime else cotacao.expires_at }}{% endif %}" class="input input-bordered input-sm join-item w-full">
             </div>
           </div>
           <!-- Budget Estimado -->
@@ -299,13 +289,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Só preencher se os campos estiverem vazios (nova cotação)
     if (periodoInicio && !periodoInicio.value) {
         const hoje = new Date();
-        periodoInicio.value = hoje.toISOString().split('T')[0];
+        const dataInicio = new Date(hoje);
+        dataInicio.setDate(dataInicio.getDate() + 7); // +7 dias
+        periodoInicio.value = dataInicio.toISOString().split('T')[0];
     }
     
     if (periodoFim && !periodoFim.value) {
         const hoje = new Date();
         const dataFim = new Date(hoje);
-        dataFim.setDate(dataFim.getDate() + 30);
+        dataFim.setDate(dataFim.getDate() + 37); // +37 dias
         periodoFim.value = dataFim.toISOString().split('T')[0];
     }
 });
@@ -402,26 +394,5 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Preencher data de expiração automaticamente ao carregar (somente em modo novo)
-{% if modo == 'novo' %}
-document.addEventListener('DOMContentLoaded', function() {
-  const expiresAtInput = document.getElementById('expires_at');
-  if (expiresAtInput && !expiresAtInput.value) {
-    // Data atual às 12:00 + 30 dias
-    const dataExpiracao = new Date();
-    dataExpiracao.setHours(12, 0, 0, 0); // Define 12:00
-    dataExpiracao.setDate(dataExpiracao.getDate() + 30); // Adiciona 30 dias
-    
-    // Formatar para datetime-local (YYYY-MM-DDTHH:MM)
-    const ano = dataExpiracao.getFullYear();
-    const mes = String(dataExpiracao.getMonth() + 1).padStart(2, '0');
-    const dia = String(dataExpiracao.getDate()).padStart(2, '0');
-    const hora = String(dataExpiracao.getHours()).padStart(2, '0');
-    const minuto = String(dataExpiracao.getMinutes()).padStart(2, '0');
-    
-    expiresAtInput.value = `${ano}-${mes}-${dia}T${hora}:${minuto}`;
-  }
-});
-{% endif %}
 </script>
 {% endblock %}

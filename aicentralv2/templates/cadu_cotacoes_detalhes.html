@@ -634,83 +634,70 @@ function renderizarAnexos(anexos) {
         </div>
 
         {% if linhas and linhas|length > 0 %}
-        <div class="overflow-x-auto">
-          <table class="table table-sm">
+        <div>
+          <table class="table table-sm table-compact w-full">
             <thead>
-              <tr>
+              <tr class="text-xs">
                 <th>Plataforma</th>
                 <th>Produto</th>
-                <th>Segmentação</th>
-                <th>Formatos</th>
-                <th>Canal</th>
-                <th>Objetivo/KPI</th>
+                <th class="hidden lg:table-cell">Segmentação</th>
+                <th class="hidden md:table-cell">Formatos</th>
+                <th>KPI</th>
                 <th>Período</th>
-                <th>Volume</th>
-                <th>Valor Unit.</th>
-                <th>Investimento</th>
-                <th>Ações</th>
+                <th class="text-right">Volume</th>
+                <th class="text-right">Val.Unit.</th>
+                <th class="text-right">Invest.</th>
               </tr>
             </thead>
             <tbody>
               {% for linha in linhas %}
-              <tr>
-                <td>{{ linha.plataforma if linha.plataforma else '-' }}</td>
-                <td>{{ linha.produto if linha.produto else '-' }}</td>
-                <td>
-                  <div class="max-w-xs truncate" title="{{ linha.segmentacao if linha.segmentacao else '-' }}">
+              <tr class="hover cursor-pointer" onclick="editarLinha({{ linha.id }})" title="Clique para editar">
+                <td class="text-xs">{{ linha.plataforma if linha.plataforma else '-' }}</td>
+                <td class="text-xs">{{ linha.produto if linha.produto else '-' }}</td>
+                <td class="hidden lg:table-cell text-xs">
+                  <div class="max-w-[120px] truncate" title="{{ linha.segmentacao if linha.segmentacao else '-' }}">
                     {{ linha.segmentacao if linha.segmentacao else '-' }}
                   </div>
                 </td>
-                <td>
-                  <div class="max-w-xs truncate" title="{{ linha.formatos if linha.formatos else '-' }}">
+                <td class="hidden md:table-cell text-xs">
+                  <div class="max-w-[100px] truncate" title="{{ linha.formatos if linha.formatos else '-' }}">
                     {{ linha.formatos if linha.formatos else '-' }}
                   </div>
                 </td>
-                <td>{{ linha.canal if linha.canal else '-' }}</td>
                 <td>
-                  <span class="badge badge-sm badge-{{ 'primary' if linha.objetivo_kpi == 'CPM' else 'neutral' }}">
+                  <span class="badge badge-xs badge-{{ 'primary' if linha.objetivo_kpi == 'CPM' else 'neutral' }}">
                     {{ linha.objetivo_kpi if linha.objetivo_kpi else '-' }}
                   </span>
                 </td>
-                <td class="text-xs">
+                <td class="text-xs whitespace-nowrap">
                   {% if linha.data_inicio and linha.data_fim %}
-                    {{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '' }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}
+                    {{ linha.data_inicio.strftime('%d/%m') }}-{{ linha.data_fim.strftime('%d/%m') }}
                   {% else %}
                     -
                   {% endif %}
                 </td>
-                <td>{{ "{:,}".format(linha.volume_contratado|int).replace(',', '.') if linha.volume_contratado else '-' }}</td>
-                <td class="text-xs">
+                <td class="text-xs text-right">{{ "{:,}".format(linha.volume_contratado|int).replace(',', '.') if linha.volume_contratado else '-' }}</td>
+                <td class="text-xs text-right whitespace-nowrap">
                   {% if linha.valor_unitario %}
                     R$ {{ "%.2f"|format(linha.valor_unitario) }}
                   {% else %}
                     -
                   {% endif %}
                 </td>
-                <td>
+                <td class="text-xs text-right whitespace-nowrap">
                   {% if linha.investimento_bruto %}
-                    R$ {{ "{:,.2f}".format(linha.investimento_bruto).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                    R$ {{ "{:,.0f}".format(linha.investimento_bruto).replace(',', '.') }}
                   {% else %}
                     -
                   {% endif %}
-                </td>
-                <td>
-                  <div class="flex gap-1">
-                    <button onclick="editarLinha({{ linha.id }})" class="btn btn-xs btn-ghost" title="Editar">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="removerLinha({{ linha.id }})" class="btn btn-xs btn-ghost text-error" title="Excluir">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </div>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
             <tfoot>
-              <tr class="font-bold">
-                <td colspan="9" class="text-right">Total Geral:</td>
-                <td>
+              <tr class="font-bold text-xs">
+                <td colspan="8" class="text-right">Total:</td>
+                <td class="text-right">
                   {% set total = namespace(value=0) %}
                   {% for linha in linhas %}
                     {% if linha.investimento_bruto %}
@@ -719,9 +706,8 @@ function renderizarAnexos(anexos) {
                       {% set total.value = total.value + linha.valor_total %}
                     {% endif %}
                   {% endfor %}
-                  R$ {{ "{:,.2f}".format(total.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                  R$ {{ "{:,.0f}".format(total.value).replace(',', '.') }}
                 </td>
-                <td></td>
               </tr>
             </tfoot>
           </table>
@@ -1176,196 +1162,208 @@ function renderizarAnexos(anexos) {
 
 <!-- Modal Editar Linha -->
 <dialog id="modal_editar_linha" class="modal">
-  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
-    <h3 class="font-bold text-lg mb-3">Editar Linha de Cotação</h3>
+  <div class="modal-box max-w-6xl">
+    <h3 class="font-bold text-lg mb-2">Editar Linha de Cotação</h3>
     
-    <form id="form_editar_linha" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+    <form id="form_editar_linha" class="grid grid-cols-12 gap-2">
       <input type="hidden" id="edit_linha_id">
       
       <!-- Linha 1: Segmentação e Praça -->
-      <div class="form-control md:col-span-3">
-        <label class="label py-1"><span class="label-text font-semibold">Segmentação (Target & Interesses) *</span></label>
-        <textarea id="edit_segmentacao" class="textarea textarea-bordered textarea-sm w-full" rows="2" required minlength="10" 
+      <div class="form-control col-span-8">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Segmentação (Target & Interesses) *</span></label>
+        <textarea id="edit_segmentacao" class="textarea textarea-bordered textarea-xs w-full" rows="1" required minlength="10" 
                   placeholder="Descreva a segmentação da audiência..."></textarea>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Praça</span></label>
-        <input type="text" id="edit_praca" class="input input-bordered input-sm w-full" placeholder="Ex: Nacional, SP, RJ...">
+      <div class="form-control col-span-4">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Praça</span></label>
+        <input type="text" id="edit_praca" class="input input-bordered input-xs w-full" placeholder="Ex: Nacional, SP, RJ...">
       </div>
 
       <!-- Linha 2: Formatos -->
-      <div class="form-control md:col-span-4">
-        <label class="label py-1"><span class="label-text font-semibold">Formatos *</span></label>
+      <div class="form-control col-span-12">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Formatos *</span></label>
         <div class="flex flex-wrap gap-3">
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-sm">
-            <span class="label-text">Carroussel</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Carroussel</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="Video" class="checkbox checkbox-sm">
-            <span class="label-text">Video</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="Video" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Video</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="Display" class="checkbox checkbox-sm">
-            <span class="label-text">Display</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="Display" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Display</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="CTV" class="checkbox checkbox-sm">
-            <span class="label-text">CTV</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="CTV" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">CTV</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="Audio" class="checkbox checkbox-sm">
-            <span class="label-text">Audio</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="Audio" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Audio</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="Interativos" class="checkbox checkbox-sm">
-            <span class="label-text">Interativos</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="Interativos" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Interativos</span>
           </label>
-          <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="edit_formatos" value="Outros" class="checkbox checkbox-sm">
-            <span class="label-text">Outros</span>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_formatos" value="Outros" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Outros</span>
           </label>
         </div>
       </div>
 
       <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Plataforma</span></label>
-        <select id="edit_plataforma" class="select select-bordered select-sm w-full h-10 min-h-10">
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
+        <select id="edit_plataforma" class="select select-bordered select-xs w-full">
           <option value="">Selecione...</option>
           <optgroup label="Mídia Programática">
             <option value="DV360">DV360</option>
             <option value="Programática">Programática</option>
             <option value="Amazon DSP">Amazon DSP</option>
-            <option value="TTD">The Trade Desk</option>
           </optgroup>
           <optgroup label="Social">
             <option value="Meta Ads">Meta Ads</option>
             <option value="TikTok Ads">TikTok Ads</option>
             <option value="LinkedIn Ads">LinkedIn Ads</option>
+            <option value="Twitter/X Ads">Twitter/X Ads</option>
             <option value="Pinterest Ads">Pinterest Ads</option>
-            <option value="X Ads">X Ads (Twitter)</option>
-            <option value="Spotify Ads">Spotify Ads</option>
           </optgroup>
           <optgroup label="Search & Display">
             <option value="Google Ads">Google Ads</option>
-            <option value="Microsoft Ads">Microsoft Ads (Bing)</option>
+            <option value="Microsoft Ads">Microsoft Ads</option>
           </optgroup>
-          <optgroup label="Streaming / CTV">
+          <optgroup label="Streaming/CTV">
             <option value="Netflix">Netflix</option>
-            <option value="Prime Video">Prime Video</option>
-            <option value="Disney+">Disney+</option>
             <option value="Paramount+">Paramount+</option>
+            <option value="Disney+">Disney+</option>
             <option value="HBO Max">HBO Max</option>
             <option value="Globoplay">Globoplay</option>
-            <option value="Pluto TV">Pluto TV</option>
-            <option value="Samsung TV Plus">Samsung TV Plus</option>
+            <option value="YouTube">YouTube</option>
+            <option value="Spotify">Spotify</option>
           </optgroup>
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Objetivo / KPI</span></label>
-        <select id="edit_objetivo_kpi" class="select select-bordered select-sm w-full h-10 min-h-10">
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
+        <select id="edit_objetivo_kpi" class="select select-bordered select-xs w-full">
           <option value="">Selecione...</option>
-          <option value="CPM">CPM - Custo por Mil</option>
-          <option value="CPC">CPC - Custo por Clique</option>
-          <option value="CPA">CPA - Custo por Aquisição</option>
-          <option value="CPL">CPL - Custo por Lead</option>
-          <option value="CPO">CPO - Custo por Pedido</option>
-          <option value="CPEV">CPEV - Custo por Eng. Video</option>
-          <option value="CPV">CPV - Custo por View</option>
-          <option value="CPCV">CPCV - Custo por View Completo</option>
-          <option value="CPE">CPE - Custo por Engajamento</option>
-          <option value="CPS">CPS - Custo por Sessão</option>
-          <option value="CPD">CPD - Custo por Download</option>
+          <option value="CPM">CPM</option>
+          <option value="CPC">CPC</option>
+          <option value="CPA">CPA</option>
+          <option value="CPL">CPL</option>
+          <option value="CPV">CPV</option>
+          <option value="CPCV">CPCV</option>
+          <option value="CPE">CPE</option>
+          <option value="CPO">CPO</option>
           <option value="Fixo">Fixo</option>
         </select>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Viewability (%)</span></label>
-        <input type="number" id="edit_viewability_minimo" class="input input-bordered input-sm" value="70" min="0" max="100">
+      <div class="form-control col-span-2">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Viewability (%)</span></label>
+        <input type="number" id="edit_viewability_minimo" class="input input-bordered input-xs" placeholder="70" value="70" min="0" max="100">
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Produto</span></label>
-        <div class="flex flex-wrap gap-2 pt-1">
+      <div class="form-control col-span-4">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Produto</span></label>
+        <div class="flex flex-wrap gap-2">
           <label class="label cursor-pointer justify-start gap-1 py-0">
             <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-xs">
-            <span class="label-text text-sm">Midia</span>
+            <span class="label-text text-xs">Mídia</span>
           </label>
           <label class="label cursor-pointer justify-start gap-1 py-0">
             <input type="checkbox" name="edit_produto" value="Dados" class="checkbox checkbox-xs">
-            <span class="label-text text-sm">Dados</span>
+            <span class="label-text text-xs">Dados</span>
           </label>
           <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_produto" value="Interativos" class="checkbox checkbox-xs">
-            <span class="label-text text-sm">Interativos</span>
+            <input type="checkbox" name="edit_produto" value="Interativo" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Interativo</span>
+          </label>
+          <label class="label cursor-pointer justify-start gap-1 py-0">
+            <input type="checkbox" name="edit_produto" value="Outros" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Outros</span>
           </label>
         </div>
       </div>
 
-      <!-- Linha 4: Datas e dias -->
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Data Início</span></label>
-        <input type="date" id="edit_data_inicio" class="input input-bordered input-sm w-full" onchange="calcularDiasLinhaEdit()">
+      <!-- Linha 4: Datas e Especificações -->
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
+        <div class="join w-full">
+          <button type="button" class="join-item btn btn-xs bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
+            <i class="fas fa-calendar-alt text-primary"></i>
+          </button>
+          <input type="date" id="edit_data_inicio" class="input input-bordered input-xs join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinhaEdit()">
+        </div>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Data Fim</span></label>
-        <input type="date" id="edit_data_fim" class="input input-bordered input-sm w-full" onchange="calcularDiasLinhaEdit()">
+      <div class="form-control col-span-3">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
+        <div class="join w-full">
+          <button type="button" class="join-item btn btn-xs bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
+            <i class="fas fa-calendar-alt text-primary"></i>
+          </button>
+          <input type="date" id="edit_data_fim" class="input input-bordered input-xs join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinhaEdit()">
+        </div>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Dias</span></label>
-        <input type="number" id="edit_dias_linha" class="input input-bordered input-sm w-full bg-base-200" readonly>
+      <div class="form-control col-span-2">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Dias</span></label>
+        <input type="number" id="edit_dias_linha" class="input input-bordered input-xs bg-base-200" readonly>
       </div>
 
-      <div class="form-control">
-        <label class="label py-1"><span class="label-text font-semibold">Especificações</span></label>
-        <input type="text" id="edit_especificacoes" class="input input-bordered input-sm w-full" placeholder="Detalhes adicionais...">
+      <div class="form-control col-span-4">
+        <label class="label py-0"><span class="label-text text-xs font-semibold">Especificações</span></label>
+        <input type="text" id="edit_especificacoes" class="input input-bordered input-xs w-full" placeholder="Detalhes adicionais...">
       </div>
 
       <!-- Linha 5: Valores -->
-      <div class="md:col-span-4 border-t pt-3 mt-2">
-        <h4 class="font-semibold text-sm mb-2">Valores</h4>
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div class="col-span-12 border-t pt-2 mt-1">
+        <div class="grid grid-cols-6 gap-2">
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Valor Tabela (R$)</span></label>
-            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-sm" placeholder="0,00" 
+            <label class="label py-0"><span class="label-text text-xs">Valor Tabela (R$)</span></label>
+            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00" 
                    oninput="aplicarMascaraDinheiro(this); calcularValorNegociadoEdit()">
           </div>
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="number" id="edit_desconto_percentual" class="input input-bordered input-sm" placeholder="0" min="0" max="100"
+            <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
+            <input type="number" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0" min="0" max="100"
                    onchange="calcularValorNegociadoEdit()">
           </div>
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Valor Negociado (R$)</span></label>
-            <input type="text" id="edit_valor_unitario" class="input input-bordered input-sm bg-base-200" placeholder="0,00" readonly>
+            <label class="label py-0"><span class="label-text text-xs">Valor Negociado (R$)</span></label>
+            <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
           </div>
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Invest. Bruto (R$)</span></label>
-            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-sm" placeholder="0,00" 
+            <label class="label py-0"><span class="label-text text-xs">Invest. Bruto (R$)</span></label>
+            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00" 
                    oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit(); calcularInvestLiquidoEdit()">
           </div>
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Volume</span></label>
-            <input type="text" id="edit_volume_contratado" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+            <label class="label py-0"><span class="label-text text-xs">Volume</span></label>
+            <input type="text" id="edit_volume_contratado" class="input input-bordered input-xs bg-base-200" placeholder="0" readonly>
           </div>
           <div class="form-control">
-            <label class="label py-1"><span class="label-text text-xs">Invest. Líquido (R$)</span></label>
-            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-sm bg-base-200" placeholder="0,00" readonly>
+            <label class="label py-0"><span class="label-text text-xs">Invest. Líquido (R$)</span></label>
+            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
           </div>
         </div>
       </div>
 
       <!-- Botões -->
-      <div class="md:col-span-4 flex justify-end gap-2 mt-3">
-        <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar Alterações</button>
+      <div class="col-span-12 flex justify-between mt-2 pt-2 border-t">
+        <button type="button" onclick="excluirLinhaDoModal()" class="btn btn-error btn-xs btn-outline">
+          <i class="fas fa-trash mr-1"></i>Excluir
+        </button>
+        <div class="flex gap-2">
+          <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost btn-xs">Cancelar</button>
+          <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-xs text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
+        </div>
       </div>
 
     </form>
@@ -1961,6 +1959,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Carregar anexos se estiver em modo edição
   {% if modo == 'editar' %}
   carregarAnexos();
+  // Calcular dias de campanha ao carregar em modo edição
+  calcularDiasCampanha();
   {% endif %}
   
   // Auto-preencher datas (apenas em modo novo)
@@ -2258,6 +2258,29 @@ async function editarLinha(linhaId) {
     
     const linha = result.linha || result;
     
+    // Função auxiliar para formatar data para input type="date" (YYYY-MM-DD)
+    function formatarDataInput(dataStr) {
+      if (!dataStr) return '';
+      
+      // Se for string no formato HTTP Date "Fri, 16 Jan 2026 00:00:00 GMT"
+      // Usar Date.parse diretamente
+      const dt = new Date(dataStr);
+      if (!isNaN(dt.getTime())) {
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Se já está no formato YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return dataStr;
+      
+      // Se está no formato YYYY-MM-DDTHH:mm:ss
+      if (dataStr.includes && dataStr.includes('T')) return dataStr.split('T')[0];
+      
+      return '';
+    }
+    
     // Preencher o formulário com os dados da linha
     document.getElementById('edit_linha_id').value = linhaId;
     document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
@@ -2265,9 +2288,12 @@ async function editarLinha(linhaId) {
     document.getElementById('edit_plataforma').value = linha.plataforma || '';
     document.getElementById('edit_objetivo_kpi').value = linha.objetivo_kpi || '';
     document.getElementById('edit_viewability_minimo').value = linha.viewability_minimo || 70;
-    document.getElementById('edit_data_inicio').value = linha.data_inicio || '';
-    document.getElementById('edit_data_fim').value = linha.data_fim || '';
+    document.getElementById('edit_data_inicio').value = formatarDataInput(linha.data_inicio);
+    document.getElementById('edit_data_fim').value = formatarDataInput(linha.data_fim);
     document.getElementById('edit_especificacoes').value = linha.especificacoes || '';
+    
+    // Calcular dias após preencher as datas
+    calcularDiasLinhaEdit();
     
     // Novos campos de valores
     document.getElementById('edit_valor_unitario_tabela').value = formatarMoeda(linha.valor_unitario_tabela || 0);
@@ -2289,8 +2315,10 @@ async function editarLinha(linhaId) {
       cb.checked = produtos.includes(cb.value);
     });
     
-    // Calcular dias da linha
-    calcularDiasLinhaEdit();
+    // Calcular dias da linha após um pequeno delay para garantir que os valores estão setados
+    setTimeout(() => {
+      calcularDiasLinhaEdit();
+    }, 50);
     
     // Abrir modal de edição
     document.getElementById('modal_editar_linha').showModal();
@@ -2391,6 +2419,15 @@ async function salvarEdicaoLinha() {
   } catch (error) {
     console.error('Erro:', error);
     showToast('Erro ao atualizar linha', 'error');
+  }
+}
+
+// Função para excluir linha a partir do modal de edição
+function excluirLinhaDoModal() {
+  const linhaId = document.getElementById('edit_linha_id').value;
+  if (linhaId && confirm('Tem certeza que deseja excluir esta linha?')) {
+    document.getElementById('modal_editar_linha').close();
+    confirmarRemoverLinha(linhaId);
   }
 }
 

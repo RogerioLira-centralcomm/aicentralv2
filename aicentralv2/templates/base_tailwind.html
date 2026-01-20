@@ -353,13 +353,16 @@
                                     <span class="sidebar-text">Administração</span>
                                 </summary>
                                 <ul>
-                                    {% if session.user_type in ['admin', 'superadmin'] %}
+                                    <li>
+                                        <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
+                                            <span class="sidebar-text">Métricas</span>
+                                        </a>
+                                    </li>
                                     <li>
                                         <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
                                             <span class="sidebar-text">Logs de Auditoria</span>
                                         </a>
                                     </li>
-                                    {% endif %}
                                     <li>
                                         <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
                                             <span class="sidebar-text">Assistente IA</span>

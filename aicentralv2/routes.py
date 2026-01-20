@@ -5813,10 +5813,6 @@ def init_routes(app):
     def api_admin_metrics_overview():
         """API para métricas overview do dashboard admin"""
         try:
-            # Verificar se é admin
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             overview = db.get_analytics_overview()
             return jsonify({'success': True, 'data': overview})
         except Exception as e:
@@ -5829,9 +5825,6 @@ def init_routes(app):
     def api_admin_metrics_sessions_daily():
         """API para sessões diárias"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             days = request.args.get('days', 30, type=int)
             sessions = db.get_analytics_sessions_daily(days)
             
@@ -5859,9 +5852,6 @@ def init_routes(app):
     def api_admin_metrics_top_audiencias():
         """API para top audiências"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             limit = request.args.get('limit', 20, type=int)
             audiencias = db.get_analytics_top_audiencias(limit)
             
@@ -5887,9 +5877,6 @@ def init_routes(app):
     def api_admin_metrics_top_pages():
         """API para top páginas"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             limit = request.args.get('limit', 20, type=int)
             pages = db.get_analytics_top_pages(limit)
             
@@ -5914,9 +5901,6 @@ def init_routes(app):
     def api_admin_metrics_active_users():
         """API para usuários mais ativos"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             limit = request.args.get('limit', 50, type=int)
             users = db.get_analytics_user_engagement(limit)
             
@@ -5946,9 +5930,6 @@ def init_routes(app):
     def api_admin_metrics_briefings():
         """API para métricas de briefings"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             days = request.args.get('days', 30, type=int)
             briefings = db.get_analytics_briefings_metrics(days)
             
@@ -5973,9 +5954,6 @@ def init_routes(app):
     def api_admin_metrics_cotacoes():
         """API para métricas de cotações"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             days = request.args.get('days', 30, type=int)
             cotacoes = db.get_analytics_cotacoes_metrics(days)
             
@@ -6000,9 +5978,6 @@ def init_routes(app):
     def api_admin_metrics_briefing_platforms():
         """API para briefings por plataforma"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             platforms = db.get_analytics_briefing_platforms()
             
             data = []
@@ -6025,9 +6000,6 @@ def init_routes(app):
     def api_admin_metrics_audiencias_funnel():
         """API para funil de audiências"""
         try:
-            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
-            
             days = request.args.get('days', 30, type=int)
             funnel = db.get_analytics_audiencias_funnel(days)
             
@@ -6041,11 +6013,6 @@ def init_routes(app):
     @login_required
     def admin_metrics_dashboard():
         """Página do Dashboard de Métricas Admin"""
-        # Verificar se é admin
-        if session.get('user_type') not in ['admin', 'super_admin', 'master']:
-            flash('Acesso não autorizado', 'error')
-            return redirect(url_for('index'))
-        
         return render_template('admin_metrics_dashboard.html')
 
     # ==================== UP AUDIÊNCIA ====================

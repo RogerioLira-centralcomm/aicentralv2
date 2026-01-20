@@ -3,132 +3,101 @@
 
 {% block content %}
 <div class="max-w-full mx-auto px-2">
-  <!-- Header com Filtros (fixo) -->
-  <div class="bg-base-100 shadow-sm rounded-lg p-4 mb-4 sticky top-0 z-40">
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <!-- Título -->
-      <div class="flex items-center gap-3">
-        <h1 class="text-xl font-bold text-primary">
-          <i class="fa-solid fa-chart-bar mr-2"></i>Pipeline CRM
-        </h1>
-        <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost btn-sm">
-          <i class="fa-solid fa-list mr-1"></i>Lista
+  <!-- Header Compacto (max 66px) -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título + Link -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Pipeline</h1>
+        <a href="{{ url_for('cotacoes_list') }}" class="text-xs text-gray-500 hover:text-gray-700">
+          <i class="fa-solid fa-table-list mr-1"></i>Tabela
         </a>
       </div>
       
-      <!-- Filtros -->
-      <form id="filtros_form" method="GET" action="{{ url_for('crm_pipeline') }}" class="flex flex-wrap items-end gap-2">
-        <!-- Executivo (Obrigatório) -->
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Executivo*</label>
-          <select name="executivo_id" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; min-width: 200px;">
-            <option value="">Todos os executivos</option>
-            {% for vendedor in vendedores %}
-              <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
-                {{ vendedor.nome_completo }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
+      <!-- Filtros Inline -->
+      <form id="filtros_form" class="flex items-center gap-3">
+        <!-- Executivo -->
+        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todos executivos</option>
+          {% for vendedor in vendedores %}
+            <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+              {{ vendedor.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
         
-        <!-- Período -->
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold" style="color: #374151;">De</label>
-          <div class="join" style="border: 2px solid #333; border-radius: 4px;">
-            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()" style="border: none;">
-              <i class="fa-solid fa-calendar" style="color: #374151;"></i>
-            </button>
-            <input type="date" id="periodo_inicio" name="periodo_inicio" value="{{ filtros.get('periodo_inicio', '') }}"
-                   class="join-item" style="padding: 8px 12px; border: none; font-size: 14px; background-color: white; color: black; outline: none;">
-          </div>
-        </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Até</label>
-          <div class="join" style="border: 2px solid #333; border-radius: 4px;">
-            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()" style="border: none;">
-              <i class="fa-solid fa-calendar" style="color: #374151;"></i>
-            </button>
-            <input type="date" id="periodo_fim" name="periodo_fim" value="{{ filtros.get('periodo_fim', '') }}"
-                   class="join-item" style="padding: 8px 12px; border: none; font-size: 14px; background-color: white; color: black; outline: none;">
-          </div>
-        </div>
+        <!-- Mês -->
+        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
+          <option value="">Todos meses</option>
+          <option value="01" {% if filtros.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
+          <option value="02" {% if filtros.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
+          <option value="03" {% if filtros.get('mes') == '03' %}selected{% endif %}>Março</option>
+          <option value="04" {% if filtros.get('mes') == '04' %}selected{% endif %}>Abril</option>
+          <option value="05" {% if filtros.get('mes') == '05' %}selected{% endif %}>Maio</option>
+          <option value="06" {% if filtros.get('mes') == '06' %}selected{% endif %}>Junho</option>
+          <option value="07" {% if filtros.get('mes') == '07' %}selected{% endif %}>Julho</option>
+          <option value="08" {% if filtros.get('mes') == '08' %}selected{% endif %}>Agosto</option>
+          <option value="09" {% if filtros.get('mes') == '09' %}selected{% endif %}>Setembro</option>
+          <option value="10" {% if filtros.get('mes') == '10' %}selected{% endif %}>Outubro</option>
+          <option value="11" {% if filtros.get('mes') == '11' %}selected{% endif %}>Novembro</option>
+          <option value="12" {% if filtros.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
+        </select>
         
-        <!-- Valor -->
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Valor mín</label>
-          <input type="text" id="valor_min_display" placeholder="0,00" oninput="formatarMoedaFiltro(this, 'valor_min')"
-                 value="{{ "%.2f"|format(filtros.get('valor_min', 0))|replace('.', ',')|replace(',00', '') if filtros.get('valor_min') else '' }}"
-                 style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; width: 120px;">
-          <input type="hidden" id="valor_min" name="valor_min" value="{{ filtros.get('valor_min', '') }}">
-        </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Valor máx</label>
-          <input type="text" id="valor_max_display" placeholder="∞" oninput="formatarMoedaFiltro(this, 'valor_max')"
-                 value="{{ "%.2f"|format(filtros.get('valor_max', 0))|replace('.', ',')|replace(',00', '') if filtros.get('valor_max') else '' }}"
-                 style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; width: 120px;">
-          <input type="hidden" id="valor_max" name="valor_max" value="{{ filtros.get('valor_max', '') }}">
-        </div>
-        
-        <!-- Botões -->
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold" style="color: transparent;">&nbsp;</label>
-          <div class="flex gap-1">
-            <button type="submit" class="btn btn-sm text-white" style="background-color: #72cd80; height: 38px;">
-              <i class="fa-solid fa-filter mr-1"></i>Filtrar
-            </button>
-            <a href="{{ url_for('crm_pipeline') }}" class="btn btn-ghost btn-sm" style="height: 38px;">
-              <i class="fa-solid fa-times"></i>
-            </a>
-          </div>
+        <!-- Status Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          {% set status_icons = [
+            ('Rascunho', 'fa-file-pen', filtros.get('status') == 'Rascunho'),
+            ('Em Análise', 'fa-magnifying-glass', filtros.get('status') == 'Em Análise'),
+            ('Enviada', 'fa-paper-plane', filtros.get('status') == 'Enviada'),
+            ('Negociação', 'fa-handshake', filtros.get('status') == 'Negociação'),
+            ('Aprovada', 'fa-circle-check', filtros.get('status') == 'Aprovada'),
+            ('Rejeitada', 'fa-circle-xmark', filtros.get('status') == 'Rejeitada')
+          ] %}
+          {% for status, icon, active in status_icons %}
+          <button type="button" onclick="filtrarPorStatus('{{ status }}')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if active %}bg-gray-200{% endif %}" 
+                  title="{{ status }}">
+            <i class="fa-solid {{ icon }} text-sm text-gray-{% if active %}800{% else %}400{% endif %}"></i>
+          </button>
+          {% endfor %}
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Aviso se não houver executivo selecionado -->
-  {% if not filtros.get('executivo_id') %}
-  <div class="alert alert-info mb-4">
-    <i class="fa-solid fa-info-circle"></i>
-    <span>Selecione um executivo para visualizar o pipeline personalizado.</span>
-  </div>
-  {% endif %}
-
   <!-- Kanban Board -->
-  <div class="flex gap-3 overflow-x-auto pb-4" style="min-height: calc(100vh - 250px);">
-    {% set status_config = {
-      'Rascunho': {'icon': 'fa-file-pen', 'color': 'badge-ghost', 'bg': 'bg-base-200'},
-      'Em Análise': {'icon': 'fa-magnifying-glass', 'color': 'badge-info', 'bg': 'bg-info/10'},
-      'Enviada': {'icon': 'fa-paper-plane', 'color': 'badge-primary', 'bg': 'bg-primary/10'},
-      'Negociação': {'icon': 'fa-handshake', 'color': 'badge-warning', 'bg': 'bg-warning/10'},
-      'Aprovada': {'icon': 'fa-circle-check', 'color': 'badge-success', 'bg': 'bg-success/10'},
-      'Rejeitada': {'icon': 'fa-circle-xmark', 'color': 'badge-error', 'bg': 'bg-error/10'}
-    } %}
+  <div class="flex gap-2 overflow-x-auto pb-4" style="min-height: calc(100vh - 120px);">
+    {% set status_list = ['Rascunho', 'Em Análise', 'Enviada', 'Negociação', 'Aprovada', 'Rejeitada'] %}
     
-    {% for status, cotacoes in colunas.items() %}
-    <div class="kanban-column flex flex-col min-w-[280px] max-w-[320px] {{ status_config[status].bg }} rounded-lg"
+    {% for status in status_list %}
+    {% set cotacoes = colunas.get(status, []) %}
+    <div class="kanban-column flex flex-col bg-gray-50 rounded border border-gray-200"
+         style="min-width: 220px; max-width: 250px; flex: 1;"
          data-status="{{ status }}"
          ondragover="handleColumnDragOver(event)"
          ondragleave="handleColumnDragLeave(event)"
          ondrop="handleColumnDrop(event)">
       
       <!-- Header da Coluna -->
-      <div class="flex items-center justify-between p-3 border-b border-base-300 sticky top-0 {{ status_config[status].bg }} rounded-t-lg z-10">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gray-100 rounded-t">
+        <span class="font-medium text-sm text-gray-700">{{ status }}</span>
         <div class="flex items-center gap-2">
-          <i class="fa-solid {{ status_config[status].icon }} text-sm"></i>
-          <h3 class="font-semibold text-sm">{{ status }}</h3>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="badge {{ status_config[status].color }} badge-sm">{{ cotacoes|length }}</span>
+          <span class="text-xs font-medium text-gray-500 bg-white px-1.5 py-0.5 rounded">{{ cotacoes|length }}</span>
           {% if totais[status].valor > 0 %}
-          <span class="text-xs text-base-content/60">R$ {{ "%.0f"|format(totais[status].valor / 1000) }}k</span>
+          <span class="text-xs text-gray-400">{{ "%.0f"|format(totais[status].valor / 1000) }}k</span>
           {% endif %}
         </div>
       </div>
       
       <!-- Cards Container -->
-      <div class="flex-1 p-2 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 320px);">
+      <div class="flex-1 p-2 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 180px);">
         {% for cotacao in cotacoes %}
-        <div class="kanban-card bg-base-100 rounded-lg p-3 shadow-sm cursor-grab hover:shadow-md transition-shadow border border-base-300"
+        {% set dias_criacao = ((now() - cotacao.created_at).days if cotacao.created_at else 0) %}
+        {% set alerta_urgente = (status in ['Em Análise', 'Enviada']) and cotacao.periodo_inicio and ((cotacao.periodo_inicio - now().date()).days <= 7 if cotacao.periodo_inicio > now().date() else true) %}
+        
+        <div class="kanban-card bg-white rounded border {% if alerta_urgente %}border-amber-400{% else %}border-gray-200{% endif %} p-2.5 cursor-grab hover:shadow transition-shadow"
              draggable="true"
              data-cotacao-id="{{ cotacao.id }}"
              data-status="{{ status }}"
@@ -136,55 +105,50 @@
              ondragstart="handleCardDragStart(event)"
              ondragend="handleCardDragEnd(event)">
           
-          <!-- Número + Badge dias -->
+          <!-- Row 1: Número + Dias -->
           <div class="flex items-center justify-between mb-1">
-            <span class="font-mono text-xs text-primary font-semibold">{{ cotacao.numero_cotacao }}</span>
-            {% if cotacao.dias_na_fase > 3 %}
-            <span class="badge badge-warning badge-xs">{{ cotacao.dias_na_fase }}d</span>
-            {% elif cotacao.dias_na_fase > 0 %}
-            <span class="badge badge-ghost badge-xs">{{ cotacao.dias_na_fase }}d</span>
-            {% endif %}
+            <span class="font-mono text-xs text-gray-500">{{ cotacao.numero_cotacao }}</span>
+            <span class="text-xs text-gray-400" title="Criada há {{ dias_criacao }} dias">{{ dias_criacao }}d</span>
           </div>
           
           <!-- Cliente -->
-          <p class="font-semibold text-sm truncate" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
+          <p class="font-medium text-sm text-gray-800 truncate" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
             {{ cotacao.cliente_nome or 'Sem cliente' }}
           </p>
           
           <!-- Campanha -->
-          <p class="text-xs text-base-content/70 truncate" title="{{ cotacao.nome_campanha }}">
+          <p class="text-xs text-gray-500 truncate mb-2" title="{{ cotacao.nome_campanha }}">
             {{ cotacao.nome_campanha }}
           </p>
           
-          <!-- Footer: Executivo + Valor + Briefing -->
-          <div class="flex items-center justify-between mt-2 pt-2 border-t border-base-200">
-            <div class="flex items-center gap-1">
-              <!-- Avatar executivo -->
-              <div class="avatar placeholder">
-                <div class="bg-neutral text-neutral-content rounded-full w-5 h-5">
-                  <span class="text-xs">{{ (cotacao.executivo_nome or 'N')[0] }}</span>
-                </div>
-              </div>
-              <span class="text-xs text-base-content/60 truncate max-w-[80px]" title="{{ cotacao.executivo_nome }}">
-                {{ cotacao.executivo_nome|default('N/A') }}
-              </span>
-            </div>
-            
-            <div class="flex items-center gap-2">
-              {% if cotacao.tem_briefing %}
-              <i class="fa-solid fa-file-lines text-xs text-info" title="Tem briefing"></i>
-              {% endif %}
-              <span class="text-sm font-semibold text-success">
-                R$ {{ "%.0f"|format(cotacao.valor_total_proposta or 0) }}
-              </span>
-            </div>
+          <!-- Alerta de urgência -->
+          {% if alerta_urgente %}
+          <div class="flex items-center gap-1 text-xs text-amber-600 mb-2">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Início {% if cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%d/%m') }}{% endif %}</span>
           </div>
-        </div>
-        {% else %}
-        <!-- Coluna vazia -->
-        <div class="text-center py-8 text-base-content/40">
-          <i class="fa-solid fa-inbox text-2xl mb-2"></i>
-          <p class="text-xs">Nenhuma cotação</p>
+          {% endif %}
+          
+          <!-- Footer: Executivo + Valor -->
+          <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+            {% if cotacao.executivo_nome %}
+            <div class="flex items-center gap-1.5">
+              <div class="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                <span class="text-xs text-gray-600">{{ cotacao.executivo_nome[0] }}</span>
+              </div>
+              <span class="text-xs text-gray-500 truncate" style="max-width: 70px;">{{ cotacao.executivo_nome.split()[0] }}</span>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-1 text-xs text-red-400">
+              <i class="fa-solid fa-user-slash"></i>
+              <span>Sem resp.</span>
+            </div>
+            {% endif %}
+            
+            <span class="text-sm font-semibold text-gray-700">
+              {{ "%.0f"|format(cotacao.valor_total_proposta or 0) }}
+            </span>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -195,143 +159,194 @@
 
 <!-- Modal Detalhes Cotação -->
 <dialog id="modal_cotacao" class="modal">
-  <div class="modal-box w-11/12 max-w-4xl">
-    <!-- Header do Modal -->
-    <div class="flex items-center justify-between border-b pb-3 mb-4">
-      <div>
-        <h3 class="font-bold text-lg" id="modal_titulo">Carregando...</h3>
-        <p class="text-sm text-base-content/60" id="modal_subtitulo"></p>
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div class="flex items-center gap-4">
+        <div>
+          <h3 class="font-semibold text-lg text-gray-800" id="modal_titulo">-</h3>
+          <p class="text-sm text-gray-500" id="modal_subtitulo">-</p>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <span class="badge badge-lg" id="modal_status_badge">-</span>
-        <span class="text-xl font-bold text-success" id="modal_valor">R$ 0</span>
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <p class="text-2xl font-bold text-gray-800" id="modal_valor">R$ 0</p>
+          <span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600" id="modal_status_badge">-</span>
+        </div>
+        <button onclick="document.getElementById('modal_cotacao').close()" class="p-2 hover:bg-gray-200 rounded">
+          <i class="fa-solid fa-xmark text-gray-500"></i>
+        </button>
       </div>
     </div>
     
     <!-- Tabs -->
-    <div class="tabs tabs-boxed mb-4" id="modal_tabs">
-      <a class="tab tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">
-        <i class="fa-solid fa-info-circle mr-1"></i>Resumo
-      </a>
-      <a class="tab" data-tab="itens" onclick="trocarAbaModal('itens')">
-        <i class="fa-solid fa-list-check mr-1"></i>Itens
-      </a>
-      <a class="tab" data-tab="briefing" onclick="trocarAbaModal('briefing')">
-        <i class="fa-solid fa-file-lines mr-1"></i>Briefing
-      </a>
-      <a class="tab" data-tab="historico" onclick="trocarAbaModal('historico')">
-        <i class="fa-solid fa-clock-rotate-left mr-1"></i>Histórico
-      </a>
-      <a class="tab" data-tab="arquivos" onclick="trocarAbaModal('arquivos')">
-        <i class="fa-solid fa-paperclip mr-1"></i>Arquivos
-      </a>
+    <div class="flex border-b border-gray-200 px-6 bg-gray-50" id="modal_tabs">
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">Resumo</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="itens" onclick="trocarAbaModal('itens')">Itens</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="valores" onclick="trocarAbaModal('valores')">Valores</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="audiencias" onclick="trocarAbaModal('audiencias')">Audiências</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="briefing" onclick="trocarAbaModal('briefing')">Briefing</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="comunicacao" onclick="trocarAbaModal('comunicacao')">Comunicação</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="historico" onclick="trocarAbaModal('historico')">Histórico</button>
     </div>
     
     <!-- Conteúdo das Abas -->
-    <div id="modal_content" class="min-h-[300px]">
+    <div id="modal_content" class="p-6" style="min-height: 400px; max-height: 60vh; overflow-y: auto;">
       <!-- Aba Resumo -->
       <div id="tab_resumo" class="modal-tab-content">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="space-y-3">
+        <div class="grid grid-cols-3 gap-6">
+          <!-- Coluna 1: Cliente e Campanha -->
+          <div class="space-y-4">
             <div>
-              <label class="text-xs font-semibold text-base-content/60">Cliente</label>
-              <p class="font-semibold" id="resumo_cliente">-</p>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Cliente</label>
+              <p class="text-sm font-medium text-gray-800 mt-1" id="resumo_cliente">-</p>
             </div>
             <div>
-              <label class="text-xs font-semibold text-base-content/60">Campanha</label>
-              <p id="resumo_campanha">-</p>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Campanha</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_campanha">-</p>
             </div>
             <div>
-              <label class="text-xs font-semibold text-base-content/60">Objetivo</label>
-              <p class="text-sm" id="resumo_objetivo">-</p>
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-base-content/60">Período</label>
-              <p id="resumo_periodo">-</p>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Objetivo</label>
+              <p class="text-sm text-gray-600 mt-1" id="resumo_objetivo">-</p>
             </div>
           </div>
-          <div class="space-y-3">
+          
+          <!-- Coluna 2: Datas e Período -->
+          <div class="space-y-4">
             <div>
-              <label class="text-xs font-semibold text-base-content/60">Executivo</label>
-              <p id="resumo_executivo">-</p>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Período da Campanha</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_periodo">-</p>
             </div>
             <div>
-              <label class="text-xs font-semibold text-base-content/60">Contato</label>
-              <p id="resumo_contato">-</p>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Criada em</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_criada_em">-</p>
             </div>
             <div>
-              <label class="text-xs font-semibold text-base-content/60">Observações</label>
-              <p class="text-sm" id="resumo_observacoes">-</p>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Validade</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_validade">-</p>
+            </div>
+          </div>
+          
+          <!-- Coluna 3: Responsáveis -->
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Executivo</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_executivo">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Contato do Cliente</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_contato">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Email</label>
+              <p class="text-sm text-gray-700 mt-1" id="resumo_email">-</p>
             </div>
           </div>
         </div>
         
-        <!-- Timeline -->
-        <div class="mt-6 pt-4 border-t">
-          <h4 class="font-semibold mb-3"><i class="fa-solid fa-timeline mr-2"></i>Timeline</h4>
-          <ul class="timeline timeline-vertical timeline-compact" id="resumo_timeline">
-            <li class="text-sm text-base-content/60">Carregando...</li>
-          </ul>
+        <!-- Observações -->
+        <div class="mt-6 pt-4 border-t border-gray-100">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Observações</label>
+          <p class="text-sm text-gray-600 mt-2" id="resumo_observacoes">-</p>
         </div>
       </div>
       
       <!-- Aba Itens -->
       <div id="tab_itens" class="modal-tab-content hidden">
-        <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>Produto/Serviço</th>
-                <th class="text-right">Qtd</th>
-                <th class="text-right">Valor Unit.</th>
-                <th class="text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody id="itens_tbody">
-              <tr><td colspan="4" class="text-center">Carregando...</td></tr>
-            </tbody>
-          </table>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-2 text-xs font-medium text-gray-500 uppercase">Plataforma</th>
+              <th class="text-left py-2 text-xs font-medium text-gray-500 uppercase">Produto</th>
+              <th class="text-left py-2 text-xs font-medium text-gray-500 uppercase">Segmentação</th>
+              <th class="text-right py-2 text-xs font-medium text-gray-500 uppercase">Qtd</th>
+              <th class="text-right py-2 text-xs font-medium text-gray-500 uppercase">Valor</th>
+            </tr>
+          </thead>
+          <tbody id="itens_tbody" class="divide-y divide-gray-100">
+            <tr><td colspan="5" class="py-8 text-center text-gray-400">Carregando...</td></tr>
+          </tbody>
+          <tfoot id="itens_tfoot" class="border-t-2 border-gray-300">
+          </tfoot>
+        </table>
+      </div>
+      
+      <!-- Aba Valores -->
+      <div id="tab_valores" class="modal-tab-content hidden">
+        <div class="grid grid-cols-2 gap-6">
+          <div class="space-y-3">
+            <div class="flex justify-between py-2 border-b border-gray-100">
+              <span class="text-sm text-gray-600">Subtotal</span>
+              <span class="text-sm font-medium text-gray-800" id="valores_subtotal">R$ 0,00</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+              <span class="text-sm text-gray-600">Desconto</span>
+              <span class="text-sm font-medium text-red-600" id="valores_desconto">- R$ 0,00</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+              <span class="text-sm text-gray-600">Impostos</span>
+              <span class="text-sm font-medium text-gray-800" id="valores_impostos">R$ 0,00</span>
+            </div>
+            <div class="flex justify-between py-3 bg-gray-50 rounded px-2">
+              <span class="text-base font-semibold text-gray-800">Total</span>
+              <span class="text-base font-bold text-gray-900" id="valores_total">R$ 0,00</span>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-medium text-gray-400 uppercase">Moeda</label>
+              <p class="text-sm text-gray-700 mt-1" id="valores_moeda">BRL</p>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-400 uppercase">Condições Comerciais</label>
+              <p class="text-sm text-gray-600 mt-1 whitespace-pre-line" id="valores_condicoes">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Aba Audiências -->
+      <div id="tab_audiencias" class="modal-tab-content hidden">
+        <div id="audiencias_content" class="space-y-3">
+          <p class="py-8 text-center text-gray-400">Carregando...</p>
         </div>
       </div>
       
       <!-- Aba Briefing -->
       <div id="tab_briefing" class="modal-tab-content hidden">
         <div id="briefing_content">
-          <p class="text-center text-base-content/60 py-8">Nenhum briefing vinculado</p>
+          <p class="py-8 text-center text-gray-400">Nenhum briefing vinculado</p>
         </div>
       </div>
       
-      <!-- Aba Histórico -->
-      <div id="tab_historico" class="modal-tab-content hidden">
-        <div id="historico_content">
-          <p class="text-center text-base-content/60 py-8">Histórico será implementado em breve</p>
+      <!-- Aba Comunicação -->
+      <div id="tab_comunicacao" class="modal-tab-content hidden">
+        <div id="comunicacao_content" class="space-y-3 mb-4" style="max-height: 250px; overflow-y: auto;">
+          <p class="py-4 text-center text-gray-400">Nenhum comentário</p>
         </div>
-        
-        <!-- Adicionar Comentário -->
-        <div class="mt-4 pt-4 border-t">
-          <label class="text-sm font-semibold">Adicionar comentário</label>
-          <div class="flex gap-2 mt-2">
-            <textarea id="novo_comentario" class="textarea textarea-bordered flex-1" rows="2" placeholder="Digite seu comentário..."></textarea>
-            <button class="btn btn-primary btn-sm self-end" onclick="adicionarComentario()">
-              <i class="fa-solid fa-paper-plane"></i>
+        <div class="border-t border-gray-200 pt-4">
+          <div class="flex gap-2">
+            <input type="text" id="novo_comentario" class="flex-1 border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-400" placeholder="Adicionar comentário...">
+            <button onclick="adicionarComentario()" class="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">
+              Enviar
             </button>
           </div>
         </div>
       </div>
       
-      <!-- Aba Arquivos -->
-      <div id="tab_arquivos" class="modal-tab-content hidden">
-        <div id="arquivos_content">
-          <p class="text-center text-base-content/60 py-8">Nenhum arquivo anexado</p>
+      <!-- Aba Histórico -->
+      <div id="tab_historico" class="modal-tab-content hidden">
+        <div id="historico_content" class="space-y-2">
+          <p class="py-8 text-center text-gray-400">Carregando histórico...</p>
         </div>
       </div>
     </div>
     
     <!-- Footer do Modal -->
-    <div class="modal-action border-t pt-4">
-      <div class="flex items-center gap-2 flex-1">
-        <!-- Mover Fase -->
-        <select id="modal_mover_status" class="select select-bordered select-sm" onchange="moverCotacaoStatus(this.value)">
+    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+      <div class="flex items-center gap-3">
+        <select id="modal_mover_status" onchange="moverCotacaoStatus(this.value)" 
+                class="text-sm border border-gray-300 rounded px-3 py-1.5 bg-white text-gray-700">
           <option value="">Mover para...</option>
           <option value="Rascunho">Rascunho</option>
           <option value="Em Análise">Em Análise</option>
@@ -341,45 +356,73 @@
           <option value="Rejeitada">✗ Rejeitada</option>
         </select>
         
-        <a id="modal_link_editar" href="#" class="btn btn-ghost btn-sm">
-          <i class="fa-solid fa-pen mr-1"></i>Editar
+        <a id="modal_link_editar" href="#" class="text-sm text-gray-600 hover:text-gray-800">
+          <i class="fa-solid fa-pen mr-1"></i>Editar completo
         </a>
       </div>
       
-      <form method="dialog">
-        <button class="btn btn-ghost">Fechar</button>
-      </form>
+      <div class="flex items-center gap-2">
+        <button onclick="aprovarCotacao()" class="px-4 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700" id="btn_aprovar">
+          <i class="fa-solid fa-check mr-1"></i>Aprovar
+        </button>
+        <button onclick="rejeitarCotacao()" class="px-4 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700" id="btn_rejeitar">
+          <i class="fa-solid fa-xmark mr-1"></i>Rejeitar
+        </button>
+      </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal Confirmar Ação -->
+<dialog id="modal_confirmar" class="modal">
+  <div class="modal-box max-w-md bg-white p-6 rounded-lg">
+    <h3 class="font-semibold text-lg text-gray-800 mb-2" id="confirmar_titulo">Confirmar</h3>
+    <p class="text-sm text-gray-600 mb-4" id="confirmar_mensagem">Deseja continuar?</p>
+    <div class="mb-4">
+      <label class="text-xs font-medium text-gray-500">Observação (opcional)</label>
+      <textarea id="confirmar_motivo" class="w-full border border-gray-200 rounded px-3 py-2 text-sm mt-1 focus:outline-none focus:border-gray-400" rows="2" placeholder="Adicione uma observação..."></textarea>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button onclick="document.getElementById('modal_confirmar').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</button>
+      <button id="confirmar_btn" class="px-4 py-2 text-sm text-white rounded" onclick="executarAcaoConfirmada()">Confirmar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/30">
     <button>close</button>
   </form>
 </dialog>
 
 <style>
-/* Kanban styles */
-.kanban-card.dragging {
-  opacity: 0.5;
-  transform: rotate(2deg);
-}
-
-.kanban-column.drag-over {
-  background-color: rgba(114, 205, 128, 0.1) !important;
-  border: 2px dashed #72cd80;
-}
-
-.modal-tab-content.hidden {
-  display: none;
-}
-
-/* Timeline compact */
-.timeline-compact .timeline-start,
-.timeline-compact .timeline-end {
-  padding: 0.25rem;
-}
+.kanban-card.dragging { opacity: 0.5; transform: rotate(1deg); }
+.kanban-column.drag-over { background-color: #f0f0f0 !important; border-style: dashed; }
+.modal-tab-content.hidden { display: none; }
+.tab-btn.tab-active { color: #1f2937; border-bottom-color: #374151; }
 </style>
 
 <script>
+// ==================== FILTROS ====================
+function aplicarFiltros() {
+  const executivo = document.getElementById('filtro_executivo').value;
+  const mes = document.getElementById('filtro_mes').value;
+  const params = new URLSearchParams();
+  if (executivo) params.set('executivo_id', executivo);
+  if (mes) params.set('mes', mes);
+  window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
+}
+
+function filtrarPorStatus(status) {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('status') === status) {
+    params.delete('status');
+  } else {
+    params.set('status', status);
+  }
+  window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
+}
+
 // ==================== DRAG & DROP ====================
 let draggedCard = null;
 let draggedCotacaoId = null;
@@ -392,7 +435,6 @@ function handleCardDragStart(event) {
   originalStatus = event.target.dataset.status;
   event.target.classList.add('dragging');
   event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/plain', draggedCotacaoId);
 }
 
 function handleCardDragEnd(event) {
@@ -412,46 +454,28 @@ function handleColumnDragLeave(event) {
 function handleColumnDrop(event) {
   event.preventDefault();
   event.currentTarget.classList.remove('drag-over');
-  
   if (!draggedCard || !draggedCotacaoId) return;
   
   const novoStatus = event.currentTarget.dataset.status;
-  
-  // Se for o mesmo status, não fazer nada
   if (novoStatus === originalStatus) return;
   
-  // Optimistic update - mover card visualmente
   const container = event.currentTarget.querySelector('.space-y-2');
   container.appendChild(draggedCard);
   draggedCard.dataset.status = novoStatus;
-  
-  // Atualizar contadores
   atualizarContadores();
-  
-  // Chamar API
-  atualizarStatusCotacao(draggedCotacaoId, novoStatus, originalStatus);
+  atualizarStatusCotacao(draggedCotacaoId, novoStatus);
 }
 
-async function atualizarStatusCotacao(cotacaoId, novoStatus, statusAnterior) {
+async function atualizarStatusCotacao(cotacaoId, novoStatus) {
   try {
     const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: novoStatus })
     });
-    
     const result = await response.json();
-    
-    if (result.success) {
-      showToast('Status atualizado!', 'success');
-    } else {
-      showToast(result.message || 'Erro ao atualizar!', 'error');
-      // Rollback - recarregar página
-      location.reload();
-    }
+    if (!result.success) location.reload();
   } catch (error) {
-    console.error('Erro:', error);
-    showToast('Erro ao atualizar status!', 'error');
     location.reload();
   }
 }
@@ -459,153 +483,199 @@ async function atualizarStatusCotacao(cotacaoId, novoStatus, statusAnterior) {
 function atualizarContadores() {
   document.querySelectorAll('.kanban-column').forEach(col => {
     const cards = col.querySelectorAll('.kanban-card').length;
-    const badge = col.querySelector('.badge');
+    const badge = col.querySelector('.bg-white.px-1\\.5');
     if (badge) badge.textContent = cards;
   });
 }
 
 // ==================== MODAL ====================
 let cotacaoAtualId = null;
+let cotacaoAtualData = null;
+let acaoPendente = null;
 
 async function abrirModalCotacao(cotacaoId) {
   cotacaoAtualId = cotacaoId;
   const modal = document.getElementById('modal_cotacao');
-  
-  // Mostrar modal com loading
   document.getElementById('modal_titulo').textContent = 'Carregando...';
-  document.getElementById('modal_subtitulo').textContent = '';
   modal.showModal();
   
   try {
     const response = await fetch(`/api/crm/pipeline/cotacao/${cotacaoId}`);
     const result = await response.json();
-    
     if (result.success) {
+      cotacaoAtualData = result.cotacao;
       preencherModal(result.cotacao);
     } else {
-      showToast(result.message || 'Erro ao carregar cotação', 'error');
+      showToast(result.message || 'Erro ao carregar', 'error');
       modal.close();
     }
   } catch (error) {
-    console.error('Erro:', error);
     showToast('Erro ao carregar cotação', 'error');
     modal.close();
   }
 }
 
-function preencherModal(cotacao) {
-  // Header
-  document.getElementById('modal_titulo').textContent = cotacao.numero_cotacao;
-  document.getElementById('modal_subtitulo').textContent = cotacao.cliente_nome || 'Sem cliente';
-  document.getElementById('modal_valor').textContent = `R$ ${formatarMoeda(cotacao.valor_total_proposta)}`;
+function preencherModal(c) {
+  document.getElementById('modal_titulo').textContent = c.numero_cotacao;
+  document.getElementById('modal_subtitulo').textContent = c.cliente_nome || 'Sem cliente';
+  document.getElementById('modal_valor').textContent = `R$ ${formatarMoeda(c.valor_total_proposta)}`;
+  document.getElementById('modal_status_badge').textContent = c.status;
   
-  // Status badge
-  const statusBadge = document.getElementById('modal_status_badge');
-  statusBadge.textContent = cotacao.status;
-  statusBadge.className = 'badge badge-lg ' + getStatusBadgeClass(cotacao.status);
+  // Resumo
+  document.getElementById('resumo_cliente').textContent = c.cliente_nome || '-';
+  document.getElementById('resumo_campanha').textContent = c.nome_campanha || '-';
+  document.getElementById('resumo_objetivo').textContent = c.objetivo_campanha || '-';
+  document.getElementById('resumo_executivo').textContent = c.executivo_nome || '-';
+  document.getElementById('resumo_contato').textContent = c.contato_nome || '-';
+  document.getElementById('resumo_email').textContent = c.contato_email || '-';
+  document.getElementById('resumo_observacoes').textContent = c.observacoes || '-';
+  document.getElementById('resumo_criada_em').textContent = formatarDataHora(c.created_at);
+  document.getElementById('resumo_validade').textContent = c.validade_proposta ? formatarData(c.validade_proposta) : '-';
   
-  // Aba Resumo
-  document.getElementById('resumo_cliente').textContent = cotacao.cliente_nome || '-';
-  document.getElementById('resumo_campanha').textContent = cotacao.nome_campanha || '-';
-  document.getElementById('resumo_objetivo').textContent = cotacao.objetivo_campanha || '-';
-  document.getElementById('resumo_executivo').textContent = cotacao.executivo_nome || '-';
-  document.getElementById('resumo_contato').textContent = cotacao.contato_nome ? 
-    `${cotacao.contato_nome} (${cotacao.contato_email || ''})` : '-';
-  document.getElementById('resumo_observacoes').textContent = cotacao.observacoes || '-';
-  
-  // Período
   let periodo = '-';
-  if (cotacao.periodo_inicio) {
-    periodo = formatarData(cotacao.periodo_inicio);
-    if (cotacao.periodo_fim) {
-      periodo += ' a ' + formatarData(cotacao.periodo_fim);
-    }
+  if (c.periodo_inicio) {
+    periodo = formatarData(c.periodo_inicio);
+    if (c.periodo_fim) periodo += ' a ' + formatarData(c.periodo_fim);
   }
   document.getElementById('resumo_periodo').textContent = periodo;
   
-  // Timeline
-  const timeline = document.getElementById('resumo_timeline');
-  let timelineHtml = '';
-  if (cotacao.created_at) {
-    timelineHtml += `<li><span class="text-sm">Criada em ${formatarDataHora(cotacao.created_at)}</span></li>`;
-  }
-  if (cotacao.proposta_enviada_em) {
-    timelineHtml += `<li><span class="text-sm text-primary">Proposta enviada em ${formatarDataHora(cotacao.proposta_enviada_em)}</span></li>`;
-  }
-  if (cotacao.aprovada_em) {
-    timelineHtml += `<li><span class="text-sm text-success">Aprovada em ${formatarDataHora(cotacao.aprovada_em)}</span></li>`;
-  }
-  timeline.innerHTML = timelineHtml || '<li class="text-sm text-base-content/60">Sem eventos</li>';
-  
-  // Aba Itens
+  // Itens
   const tbody = document.getElementById('itens_tbody');
-  if (cotacao.itens && cotacao.itens.length > 0) {
-    tbody.innerHTML = cotacao.itens.map(item => `
+  const tfoot = document.getElementById('itens_tfoot');
+  if (c.itens && c.itens.length > 0) {
+    tbody.innerHTML = c.itens.map(item => `
       <tr>
-        <td>${item.descricao || item.produto || '-'}</td>
-        <td class="text-right">${item.quantidade || 1}</td>
-        <td class="text-right">R$ ${formatarMoeda(item.valor_unitario || 0)}</td>
-        <td class="text-right font-semibold">R$ ${formatarMoeda(item.valor_total || 0)}</td>
+        <td class="py-2 text-gray-700">${item.plataforma || '-'}</td>
+        <td class="py-2 text-gray-700">${item.produto || item.descricao || '-'}</td>
+        <td class="py-2 text-gray-600">${item.segmentacao || '-'}</td>
+        <td class="py-2 text-right text-gray-700">${item.quantidade || 1}</td>
+        <td class="py-2 text-right font-medium text-gray-800">R$ ${formatarMoeda(item.valor_total || 0)}</td>
       </tr>
     `).join('');
+    tfoot.innerHTML = `<tr><td colspan="4" class="py-3 text-right font-semibold text-gray-800">Total</td><td class="py-3 text-right font-bold text-gray-900">R$ ${formatarMoeda(c.valor_total_proposta)}</td></tr>`;
   } else {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-base-content/60">Nenhum item</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-400">Nenhum item</td></tr>';
+    tfoot.innerHTML = '';
   }
   
-  // Aba Briefing
-  const briefingContent = document.getElementById('briefing_content');
-  if (cotacao.briefing) {
-    briefingContent.innerHTML = `
-      <div class="card bg-base-200">
-        <div class="card-body">
-          <h4 class="font-semibold">${cotacao.briefing.nome}</h4>
-          <p class="text-sm">Status: <span class="badge badge-sm">${cotacao.briefing.status}</span></p>
-          <a href="/briefings/${cotacao.briefing.id}" class="btn btn-primary btn-sm mt-2" target="_blank">
-            <i class="fa-solid fa-external-link mr-1"></i>Ver Briefing
-          </a>
+  // Valores
+  document.getElementById('valores_subtotal').textContent = `R$ ${formatarMoeda(c.valor_bruto || c.valor_total_proposta || 0)}`;
+  document.getElementById('valores_desconto').textContent = `- R$ ${formatarMoeda(c.valor_desconto || 0)}`;
+  document.getElementById('valores_impostos').textContent = `R$ ${formatarMoeda(c.valor_impostos || 0)}`;
+  document.getElementById('valores_total').textContent = `R$ ${formatarMoeda(c.valor_total_proposta || 0)}`;
+  document.getElementById('valores_moeda').textContent = c.moeda || 'BRL';
+  document.getElementById('valores_condicoes').textContent = c.condicoes_comerciais || '-';
+  
+  // Audiências
+  const audienciasContent = document.getElementById('audiencias_content');
+  if (c.audiencias && c.audiencias.length > 0) {
+    audienciasContent.innerHTML = c.audiencias.map(a => `
+      <div class="p-3 bg-gray-50 rounded border border-gray-200">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="font-medium text-sm text-gray-800">${a.nome || 'Audiência'}</p>
+            <p class="text-xs text-gray-500 mt-1">${a.categoria || ''}${a.subcategoria ? ' > ' + a.subcategoria : ''}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm font-semibold text-gray-700">R$ ${formatarMoeda(a.investimento_sugerido || 0)}</p>
+            <p class="text-xs text-gray-400">${a.publico || ''}</p>
+          </div>
         </div>
+      </div>
+    `).join('');
+  } else {
+    audienciasContent.innerHTML = '<p class="py-8 text-center text-gray-400">Nenhuma audiência</p>';
+  }
+  
+  // Briefing
+  const briefingContent = document.getElementById('briefing_content');
+  if (c.briefing) {
+    briefingContent.innerHTML = `
+      <div class="p-4 bg-gray-50 rounded border border-gray-200">
+        <p class="font-medium text-gray-800">${c.briefing.titulo || c.briefing.nome || 'Briefing'}</p>
+        <p class="text-xs text-gray-500 mt-1">Status: ${c.briefing.status || '-'}</p>
+        <a href="/briefings/${c.briefing.id}" target="_blank" class="inline-block mt-3 text-sm text-gray-600 hover:text-gray-800">
+          <i class="fa-solid fa-external-link mr-1"></i>Abrir briefing
+        </a>
       </div>
     `;
   } else {
-    briefingContent.innerHTML = '<p class="text-center text-base-content/60 py-8">Nenhum briefing vinculado</p>';
+    briefingContent.innerHTML = '<p class="py-8 text-center text-gray-400">Nenhum briefing vinculado</p>';
   }
   
-  // Aba Arquivos
-  const arquivosContent = document.getElementById('arquivos_content');
-  if (cotacao.anexos && cotacao.anexos.length > 0) {
-    arquivosContent.innerHTML = `
-      <ul class="space-y-2">
-        ${cotacao.anexos.map(a => `
-          <li class="flex items-center justify-between p-2 bg-base-200 rounded">
-            <span><i class="fa-solid fa-file mr-2"></i>${a.nome_arquivo || a.filename}</span>
-            <a href="/cotacoes/anexos/${a.id}/download" class="btn btn-ghost btn-xs">
-              <i class="fa-solid fa-download"></i>
-            </a>
-          </li>
-        `).join('')}
-      </ul>
-    `;
-  } else {
-    arquivosContent.innerHTML = '<p class="text-center text-base-content/60 py-8">Nenhum arquivo anexado</p>';
-  }
+  // Comunicação
+  carregarComentarios(c.id);
   
-  // Link editar
-  document.getElementById('modal_link_editar').href = `/cotacoes/${cotacao.id}/editar`;
+  // Histórico
+  carregarHistorico(c.id);
   
-  // Select status
+  document.getElementById('modal_link_editar').href = `/cotacoes/${c.id}/detalhes`;
   document.getElementById('modal_mover_status').value = '';
   
-  // Resetar para aba resumo
+  // Botões de ação
+  const btnAprovar = document.getElementById('btn_aprovar');
+  const btnRejeitar = document.getElementById('btn_rejeitar');
+  if (c.status === 'Aprovada' || c.status === 'Rejeitada') {
+    btnAprovar.style.display = 'none';
+    btnRejeitar.style.display = 'none';
+  } else {
+    btnAprovar.style.display = 'inline-flex';
+    btnRejeitar.style.display = 'inline-flex';
+  }
+  
   trocarAbaModal('resumo');
 }
 
+async function carregarComentarios(cotacaoId) {
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/comentarios`);
+    const result = await response.json();
+    const container = document.getElementById('comunicacao_content');
+    if (result.success && result.comentarios && result.comentarios.length > 0) {
+      container.innerHTML = result.comentarios.map(c => `
+        <div class="p-3 bg-gray-50 rounded">
+          <div class="flex justify-between items-start">
+            <span class="text-sm font-medium text-gray-700">${c.user_nome || 'Usuário'}</span>
+            <span class="text-xs text-gray-400">${formatarDataHora(c.created_at)}</span>
+          </div>
+          <p class="text-sm text-gray-600 mt-1">${c.comentario}</p>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p class="py-4 text-center text-gray-400">Nenhum comentário</p>';
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+  }
+}
+
+async function carregarHistorico(cotacaoId) {
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/historico`);
+    const result = await response.json();
+    const container = document.getElementById('historico_content');
+    if (result.success && result.historico && result.historico.length > 0) {
+      container.innerHTML = result.historico.map(h => `
+        <div class="flex items-start gap-3 py-2 border-b border-gray-100">
+          <span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">${h.acao}</span>
+          <div class="flex-1">
+            <p class="text-sm text-gray-700">${h.descricao}</p>
+            <p class="text-xs text-gray-400 mt-0.5">${formatarDataHora(h.created_at)} - ${h.usuario_nome || 'Sistema'}</p>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p class="py-8 text-center text-gray-400">Nenhum registro</p>';
+    }
+  } catch (error) {
+    container.innerHTML = '<p class="py-8 text-center text-gray-400">Erro ao carregar</p>';
+  }
+}
+
 function trocarAbaModal(tab) {
-  // Atualizar tabs
-  document.querySelectorAll('#modal_tabs .tab').forEach(t => {
+  document.querySelectorAll('#modal_tabs .tab-btn').forEach(t => {
     t.classList.toggle('tab-active', t.dataset.tab === tab);
   });
-  
-  // Atualizar conteúdo
   document.querySelectorAll('.modal-tab-content').forEach(c => {
     c.classList.toggle('hidden', c.id !== `tab_${tab}`);
   });
@@ -613,6 +683,48 @@ function trocarAbaModal(tab) {
 
 async function moverCotacaoStatus(novoStatus) {
   if (!novoStatus || !cotacaoAtualId) return;
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus })
+    });
+    const result = await response.json();
+    if (result.success) {
+      showToast('Status atualizado', 'success');
+      document.getElementById('modal_cotacao').close();
+      location.reload();
+    } else {
+      showToast(result.message || 'Erro', 'error');
+    }
+  } catch (error) {
+    showToast('Erro ao atualizar', 'error');
+  }
+}
+
+function aprovarCotacao() {
+  acaoPendente = 'aprovar';
+  document.getElementById('confirmar_titulo').textContent = 'Aprovar Cotação';
+  document.getElementById('confirmar_mensagem').textContent = `Confirma a aprovação da cotação ${cotacaoAtualData?.numero_cotacao}?`;
+  document.getElementById('confirmar_btn').className = 'px-4 py-2 text-sm text-white rounded bg-green-600 hover:bg-green-700';
+  document.getElementById('confirmar_btn').textContent = 'Aprovar';
+  document.getElementById('confirmar_motivo').value = '';
+  document.getElementById('modal_confirmar').showModal();
+}
+
+function rejeitarCotacao() {
+  acaoPendente = 'rejeitar';
+  document.getElementById('confirmar_titulo').textContent = 'Rejeitar Cotação';
+  document.getElementById('confirmar_mensagem').textContent = `Confirma a rejeição da cotação ${cotacaoAtualData?.numero_cotacao}?`;
+  document.getElementById('confirmar_btn').className = 'px-4 py-2 text-sm text-white rounded bg-red-600 hover:bg-red-700';
+  document.getElementById('confirmar_btn').textContent = 'Rejeitar';
+  document.getElementById('confirmar_motivo').value = '';
+  document.getElementById('modal_confirmar').showModal();
+}
+
+async function executarAcaoConfirmada() {
+  const motivo = document.getElementById('confirmar_motivo').value.trim();
+  const novoStatus = acaoPendente === 'aprovar' ? 'Aprovada' : 'Rejeitada';
   
   try {
     const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
@@ -620,57 +732,51 @@ async function moverCotacaoStatus(novoStatus) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: novoStatus })
     });
-    
     const result = await response.json();
     
     if (result.success) {
-      showToast('Status atualizado!', 'success');
+      if (motivo) {
+        await fetch(`/api/cotacoes/${cotacaoAtualId}/comentarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comentario: `[${novoStatus.toUpperCase()}] ${motivo}` })
+        });
+      }
+      showToast(`Cotação ${novoStatus.toLowerCase()}`, 'success');
+      document.getElementById('modal_confirmar').close();
       document.getElementById('modal_cotacao').close();
       location.reload();
     } else {
-      showToast(result.message || 'Erro!', 'error');
+      showToast(result.message || 'Erro', 'error');
     }
   } catch (error) {
-    console.error('Erro:', error);
-    showToast('Erro ao atualizar!', 'error');
+    showToast('Erro ao processar', 'error');
   }
 }
 
-function adicionarComentario() {
+async function adicionarComentario() {
   const texto = document.getElementById('novo_comentario').value.trim();
-  if (!texto) {
-    showToast('Digite um comentário', 'warning');
-    return;
+  if (!texto) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/comentarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comentario: texto })
+    });
+    const result = await response.json();
+    if (result.success) {
+      document.getElementById('novo_comentario').value = '';
+      carregarComentarios(cotacaoAtualId);
+    }
+  } catch (error) {
+    showToast('Erro ao adicionar comentário', 'error');
   }
-  // TODO: Implementar API de comentários
-  showToast('Funcionalidade em desenvolvimento', 'info');
 }
 
 // ==================== UTILS ====================
 function formatarMoeda(valor) {
   return (valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatarMoedaFiltro(input, hiddenFieldId) {
-  let value = input.value.replace(/\D/g, '');
-  
-  if (value === '') {
-    input.value = '';
-    document.getElementById(hiddenFieldId).value = '';
-    return;
-  }
-  
-  // Converter para número com 2 casas decimais
-  value = (parseInt(value, 10) / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  
-  input.value = value;
-  
-  // Armazenar valor numérico no campo hidden para enviar ao backend
-  const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
-  document.getElementById(hiddenFieldId).value = valorNumerico;
 }
 
 function formatarData(dataStr) {
@@ -685,22 +791,9 @@ function formatarDataHora(dataStr) {
   return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function getStatusBadgeClass(status) {
-  const classes = {
-    'Rascunho': 'badge-ghost',
-    'Em Análise': 'badge-info',
-    'Enviada': 'badge-primary',
-    'Negociação': 'badge-warning',
-    'Aprovada': 'badge-success',
-    'Rejeitada': 'badge-error'
-  };
-  return classes[status] || 'badge-ghost';
-}
-
-// ==================== ATALHOS DE TECLADO ====================
 document.addEventListener('keydown', function(e) {
-  // ESC fecha modal
   if (e.key === 'Escape') {
+    document.getElementById('modal_confirmar').close();
     document.getElementById('modal_cotacao').close();
   }
 });

@@ -6322,6 +6322,8 @@ def obter_cotacoes_pipeline(filtros=None):
             - periodo_fim: Data fim
             - valor_min: Valor mínimo
             - valor_max: Valor máximo
+            - mes: Mês de criação (01-12)
+            - status: Status específico
     
     Returns:
         dict: Cotações agrupadas por status (colunas do Kanban)
@@ -6346,6 +6348,8 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.updated_at,
                     cot.proposta_enviada_em,
                     cot.aprovada_em,
+                    cot.periodo_inicio,
+                    cot.periodo_fim,
                     -- Calcular dias na fase atual
                     EXTRACT(DAY FROM (NOW() - COALESCE(cot.updated_at, cot.created_at)))::INTEGER as dias_na_fase,
                     -- Dados do cliente
@@ -6387,6 +6391,14 @@ def obter_cotacoes_pipeline(filtros=None):
             if filtros.get('valor_max'):
                 sql += ' AND COALESCE(cot.valor_total_proposta, 0) <= %s'
                 params.append(float(filtros['valor_max']))
+            
+            if filtros.get('mes'):
+                sql += ' AND EXTRACT(MONTH FROM cot.created_at) = %s'
+                params.append(int(filtros['mes']))
+            
+            if filtros.get('status'):
+                sql += ' AND cot.status = %s'
+                params.append(filtros['status'])
             
             # Ordenar por data de atualização (mais recentes primeiro)
             sql += ' ORDER BY cot.updated_at DESC NULLS LAST'
@@ -6489,6 +6501,26 @@ def obter_cotacao_detalhes_pipeline(cotacao_id):
                 ORDER BY created_at DESC
             ''', (cotacao_id,))
             cotacao['anexos'] = cursor.fetchall()
+            
+            # Audiências vinculadas
+            cursor.execute('''
+                SELECT 
+                    ca.id,
+                    ca.cotacao_id,
+                    ca.audiencia_id,
+                    ca.audiencia_nome as nome,
+                    ca.audiencia_publico as publico,
+                    ca.audiencia_categoria as categoria,
+                    ca.audiencia_subcategoria as subcategoria,
+                    ca.cpm_estimado,
+                    ca.investimento_sugerido,
+                    ca.impressoes_estimadas,
+                    ca.incluido_proposta
+                FROM cadu_cotacao_audiencias ca
+                WHERE ca.cotacao_id = %s AND ca.incluido_proposta = true
+                ORDER BY ca.ordem_exibicao, ca.id
+            ''', (cotacao_id,))
+            cotacao['audiencias'] = cursor.fetchall()
             
             return cotacao
             

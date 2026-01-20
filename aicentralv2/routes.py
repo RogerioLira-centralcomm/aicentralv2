@@ -3931,7 +3931,9 @@ def init_routes(app):
                 'periodo_inicio': request.args.get('periodo_inicio'),
                 'periodo_fim': request.args.get('periodo_fim'),
                 'valor_min': request.args.get('valor_min', type=float),
-                'valor_max': request.args.get('valor_max', type=float)
+                'valor_max': request.args.get('valor_max', type=float),
+                'mes': request.args.get('mes'),
+                'status': request.args.get('status')
             }
             
             # Remover filtros vazios
@@ -3958,7 +3960,8 @@ def init_routes(app):
                                  totais=totais,
                                  vendedores=vendedores,
                                  clientes=clientes,
-                                 filtros=filtros)
+                                 filtros=filtros,
+                                 now=datetime.now)
         except Exception as e:
             app.logger.error(f"Erro ao carregar pipeline: {str(e)}", exc_info=True)
             flash('Erro ao carregar pipeline.', 'error')
@@ -3987,6 +3990,11 @@ def init_routes(app):
                 'nome_campanha': cotacao['nome_campanha'],
                 'status': cotacao['status'],
                 'valor_total_proposta': float(cotacao.get('valor_total_proposta') or 0),
+                'valor_bruto': float(cotacao.get('valor_bruto') or cotacao.get('valor_total_proposta') or 0),
+                'valor_desconto': float(cotacao.get('valor_desconto') or 0),
+                'valor_impostos': float(cotacao.get('valor_impostos') or 0),
+                'moeda': cotacao.get('moeda') or 'BRL',
+                'condicoes_comerciais': cotacao.get('condicoes_comerciais'),
                 'cliente_nome': cotacao.get('cliente_nome'),
                 'executivo_nome': cotacao.get('executivo_nome'),
                 'contato_nome': cotacao.get('contato_nome'),
@@ -3996,13 +4004,15 @@ def init_routes(app):
                 'observacoes_internas': cotacao.get('observacoes_internas'),
                 'periodo_inicio': serialize_date(cotacao.get('periodo_inicio')),
                 'periodo_fim': serialize_date(cotacao.get('periodo_fim')),
+                'validade_proposta': serialize_date(cotacao.get('validade_proposta')),
                 'created_at': serialize_date(cotacao.get('created_at')),
                 'updated_at': serialize_date(cotacao.get('updated_at')),
                 'proposta_enviada_em': serialize_date(cotacao.get('proposta_enviada_em')),
                 'aprovada_em': serialize_date(cotacao.get('aprovada_em')),
                 'itens': cotacao.get('itens', []),
                 'briefing': cotacao.get('briefing'),
-                'anexos': cotacao.get('anexos', [])
+                'anexos': cotacao.get('anexos', []),
+                'audiencias': cotacao.get('audiencias', [])
             }
             
             return jsonify({'success': True, 'cotacao': dados})

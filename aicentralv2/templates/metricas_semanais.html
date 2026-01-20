@@ -1,0 +1,708 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Métricas Semanais - Comercial{% endblock %}
+
+{% block styles %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .chart-container {
+        position: relative;
+        height: 280px;
+    }
+    .kpi-value {
+        font-variant-numeric: tabular-nums;
+    }
+    .variacao-positiva { color: #22c55e; }
+    .variacao-negativa { color: #ef4444; }
+    .variacao-neutra { color: #6b7280; }
+    
+    /* Status colors */
+    .status-rascunho { background-color: #e5e7eb; color: #374151; }
+    .status-analise { background-color: #dbeafe; color: #1d4ed8; }
+    .status-enviada { background-color: #fef3c7; color: #b45309; }
+    .status-negociacao { background-color: #e0e7ff; color: #4338ca; }
+    .status-aprovada { background-color: #dcfce7; color: #166534; }
+    .status-rejeitada { background-color: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-base-content flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Métricas Semanais
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">Acompanhamento semanal da performance comercial</p>
+        </div>
+        
+        <!-- Filtros -->
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Seletor de Semana -->
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">Semana</label>
+                <input type="week" id="filtroSemana" class="input input-bordered input-sm w-40" />
+            </div>
+            
+            <!-- Executivo -->
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">Executivo</label>
+                <select id="filtroExecutivo" class="select select-bordered select-sm w-44">
+                    <option value="">Todos</option>
+                    {% for exec in executivos %}
+                    <option value="{{ exec.id }}">{{ exec.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Cliente -->
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">Cliente</label>
+                <select id="filtroCliente" class="select select-bordered select-sm w-44">
+                    <option value="">Todos</option>
+                    {% for cli in clientes %}
+                    <option value="{{ cli.id_cliente }}">{{ cli.nome_fantasia or cli.razao_social }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Botão Atualizar -->
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">&nbsp;</label>
+                <button id="btnAtualizar" class="btn btn-primary btn-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Atualizar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Período selecionado -->
+    <div class="text-sm text-base-content/60 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span id="periodoLabel">Carregando...</span>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- Cotações Criadas -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Cotações Criadas</span>
+            </div>
+            <div class="text-3xl font-bold text-primary kpi-value" id="kpi-cotacoes">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1" id="kpi-cotacoes-var">--</div>
+        </div>
+
+        <!-- Valor Total -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Valor Total Cotado</span>
+            </div>
+            <div class="text-2xl font-bold text-success kpi-value" id="kpi-valor">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1" id="kpi-valor-var">--</div>
+        </div>
+
+        <!-- Taxa de Conversão -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Taxa de Conversão</span>
+            </div>
+            <div class="text-3xl font-bold text-info kpi-value" id="kpi-conversao">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1" id="kpi-conversao-detalhe">Aprovadas / Finalizadas</div>
+        </div>
+
+        <!-- Ticket Médio -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span>Ticket Médio</span>
+            </div>
+            <div class="text-2xl font-bold text-warning kpi-value" id="kpi-ticket">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1">Valor médio aprovadas</div>
+        </div>
+
+        <!-- Ciclo Médio -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Ciclo Médio</span>
+            </div>
+            <div class="text-3xl font-bold text-secondary kpi-value" id="kpi-ciclo">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1">Dias até aprovação</div>
+        </div>
+    </div>
+
+    <!-- Gráficos Row 1 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Cotações por Executivo (Barras) -->
+        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Cotações por Executivo
+            </h3>
+            <div class="chart-container">
+                <canvas id="chartExecutivos"></canvas>
+            </div>
+        </div>
+
+        <!-- Evolução Diária (Linha) -->
+        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+                Evolução Diária da Semana
+            </h3>
+            <div class="chart-container">
+                <canvas id="chartEvolucao"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos Row 2 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Distribuição por Status (Pizza) -->
+        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                </svg>
+                Distribuição por Status
+            </h3>
+            <div class="chart-container">
+                <canvas id="chartStatus"></canvas>
+            </div>
+        </div>
+
+        <!-- Comparativo Semanal -->
+        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Comparativo: Semana Atual vs Anterior
+            </h3>
+            <div class="chart-container">
+                <canvas id="chartComparativo"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela Detalhada -->
+    <div class="bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+            <h3 class="text-sm font-semibold text-base-content flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Cotações da Semana
+            </h3>
+            <span class="badge badge-ghost" id="totalCotacoesTabela">0 cotações</span>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="table table-sm w-full">
+                <thead style="background-color: #72cd80;">
+                    <tr class="text-white text-xs">
+                        <th class="font-semibold">Número</th>
+                        <th class="font-semibold">Cliente</th>
+                        <th class="font-semibold">Campanha</th>
+                        <th class="font-semibold text-right">Valor</th>
+                        <th class="font-semibold text-center">Status</th>
+                        <th class="font-semibold">Executivo</th>
+                        <th class="font-semibold text-center">Dias</th>
+                        <th class="font-semibold">Criada em</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaCotacoes">
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-base-content/50">
+                            <span class="loading loading-spinner loading-md"></span>
+                            <p class="mt-2">Carregando cotações...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ==================== VARIÁVEIS GLOBAIS ====================
+let chartExecutivos = null;
+let chartEvolucao = null;
+let chartStatus = null;
+let chartComparativo = null;
+
+const STATUS_COLORS = {
+    'Rascunho': '#9ca3af',
+    'Em Análise': '#3b82f6',
+    'Enviada': '#f59e0b',
+    'Negociação': '#8b5cf6',
+    'Aprovada': '#22c55e',
+    'Rejeitada': '#ef4444'
+};
+
+// ==================== FUNÇÕES UTILITÁRIAS ====================
+function formatCurrency(value) {
+    if (value === null || value === undefined) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
+}
+
+function formatNumber(num) {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num?.toLocaleString('pt-BR') || '0';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '--';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '--';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function getWeekDayName(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { weekday: 'short' });
+}
+
+function getStatusClass(status) {
+    const classes = {
+        'Rascunho': 'badge-ghost',
+        'Em Análise': 'badge-info',
+        'Enviada': 'badge-warning',
+        'Negociação': 'badge-secondary',
+        'Aprovada': 'badge-success',
+        'Rejeitada': 'badge-error'
+    };
+    return classes[status] || 'badge-ghost';
+}
+
+function getVariacaoHTML(valor) {
+    if (valor === null || valor === undefined) return '<span class="variacao-neutra">--</span>';
+    const icon = valor > 0 ? '↑' : valor < 0 ? '↓' : '→';
+    const cls = valor > 0 ? 'variacao-positiva' : valor < 0 ? 'variacao-negativa' : 'variacao-neutra';
+    return `<span class="${cls}">${icon} ${Math.abs(valor).toFixed(1)}%</span>`;
+}
+
+function getFilters() {
+    const semana = document.getElementById('filtroSemana').value;
+    const executivo = document.getElementById('filtroExecutivo').value;
+    const cliente = document.getElementById('filtroCliente').value;
+    
+    const params = new URLSearchParams();
+    if (semana) params.append('semana', semana);
+    if (executivo) params.append('executivo_id', executivo);
+    if (cliente) params.append('cliente_id', cliente);
+    
+    return params.toString();
+}
+
+// ==================== CARREGAR KPIs ====================
+async function carregarKPIs() {
+    try {
+        const response = await fetch(`/api/metricas/semanais/kpis?${getFilters()}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const data = result.data;
+            
+            // Atualizar KPIs
+            document.getElementById('kpi-cotacoes').textContent = data.cotacoes_criadas || 0;
+            document.getElementById('kpi-valor').textContent = formatCurrency(data.valor_total);
+            document.getElementById('kpi-conversao').textContent = (data.taxa_conversao || 0) + '%';
+            document.getElementById('kpi-ticket').textContent = formatCurrency(data.ticket_medio);
+            document.getElementById('kpi-ciclo').textContent = (data.ciclo_medio_dias || 0) + ' dias';
+            
+            // Atualizar período
+            if (result.periodo) {
+                const inicio = formatDate(result.periodo.inicio);
+                const fim = formatDate(result.periodo.fim);
+                document.getElementById('periodoLabel').textContent = `${inicio} a ${fim}`;
+            }
+            
+            // Detalhes extras
+            document.getElementById('kpi-conversao-detalhe').textContent = 
+                `${data.aprovadas || 0} aprovadas / ${(data.aprovadas || 0) + (data.rejeitadas || 0)} finalizadas`;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar KPIs:', error);
+    }
+}
+
+// ==================== CARREGAR GRÁFICO EXECUTIVOS ====================
+async function carregarGraficoExecutivos() {
+    try {
+        const response = await fetch(`/api/metricas/semanais/por-executivo?${getFilters()}`);
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+            const ctx = document.getElementById('chartExecutivos').getContext('2d');
+            
+            if (chartExecutivos) chartExecutivos.destroy();
+            
+            chartExecutivos = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: result.data.map(d => d.executivo_nome?.split(' ')[0] || 'N/A'),
+                    datasets: [
+                        {
+                            label: 'Total',
+                            data: result.data.map(d => d.total_cotacoes),
+                            backgroundColor: 'rgba(114, 205, 128, 0.7)',
+                            borderColor: '#72cd80',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Aprovadas',
+                            data: result.data.map(d => d.aprovadas),
+                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                            borderColor: '#22c55e',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico executivos:', error);
+    }
+}
+
+// ==================== CARREGAR GRÁFICO EVOLUÇÃO ====================
+async function carregarGraficoEvolucao() {
+    try {
+        const response = await fetch(`/api/metricas/semanais/evolucao-diaria?${getFilters()}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const ctx = document.getElementById('chartEvolucao').getContext('2d');
+            
+            if (chartEvolucao) chartEvolucao.destroy();
+            
+            // Preencher dias faltantes da semana
+            const diasSemana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+            const dadosPorDia = {};
+            result.data.forEach(d => {
+                const dia = getWeekDayName(d.data);
+                dadosPorDia[dia] = d;
+            });
+            
+            chartEvolucao = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: result.data.map(d => formatDate(d.data) + '\n' + getWeekDayName(d.data)),
+                    datasets: [
+                        {
+                            label: 'Cotações',
+                            data: result.data.map(d => d.total_cotacoes),
+                            borderColor: '#72cd80',
+                            backgroundColor: 'rgba(114, 205, 128, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Valor (R$ mil)',
+                            data: result.data.map(d => (d.valor_total || 0) / 1000),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, position: 'left', ticks: { stepSize: 1 } },
+                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico evolução:', error);
+    }
+}
+
+// ==================== CARREGAR GRÁFICO STATUS ====================
+async function carregarGraficoStatus() {
+    try {
+        const response = await fetch(`/api/metricas/semanais/distribuicao-status?${getFilters()}`);
+        const result = await response.json();
+        
+        if (result.success && result.data.length > 0) {
+            const ctx = document.getElementById('chartStatus').getContext('2d');
+            
+            if (chartStatus) chartStatus.destroy();
+            
+            chartStatus = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: result.data.map(d => d.status),
+                    datasets: [{
+                        data: result.data.map(d => d.total),
+                        backgroundColor: result.data.map(d => STATUS_COLORS[d.status] || '#9ca3af'),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'right',
+                            labels: { boxWidth: 12, font: { size: 11 }, padding: 15 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const item = result.data[context.dataIndex];
+                                    return `${item.status}: ${item.total} (${formatCurrency(item.valor)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico status:', error);
+    }
+}
+
+// ==================== CARREGAR GRÁFICO COMPARATIVO ====================
+async function carregarGraficoComparativo() {
+    try {
+        const response = await fetch(`/api/metricas/semanais/comparativo?${getFilters()}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const ctx = document.getElementById('chartComparativo').getContext('2d');
+            
+            if (chartComparativo) chartComparativo.destroy();
+            
+            const atual = result.data.atual || {};
+            const anterior = result.data.anterior || {};
+            const variacao = result.data.variacao || {};
+            
+            chartComparativo = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Cotações', 'Valor (R$ mil)', 'Aprovadas'],
+                    datasets: [
+                        {
+                            label: 'Semana Anterior',
+                            data: [
+                                anterior.total || 0,
+                                (anterior.valor || 0) / 1000,
+                                anterior.aprovadas || 0
+                            ],
+                            backgroundColor: 'rgba(156, 163, 175, 0.5)',
+                            borderColor: '#9ca3af',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Semana Atual',
+                            data: [
+                                atual.total || 0,
+                                (atual.valor || 0) / 1000,
+                                atual.aprovadas || 0
+                            ],
+                            backgroundColor: 'rgba(114, 205, 128, 0.7)',
+                            borderColor: '#72cd80',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    if (context.datasetIndex === 1) {
+                                        const keys = ['total', 'valor', 'aprovadas'];
+                                        const var_val = variacao[keys[context.dataIndex]];
+                                        if (var_val !== undefined) {
+                                            const sinal = var_val >= 0 ? '+' : '';
+                                            return `Variação: ${sinal}${var_val.toFixed(1)}%`;
+                                        }
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            
+            // Atualizar variações nos KPIs
+            document.getElementById('kpi-cotacoes-var').innerHTML = getVariacaoHTML(variacao.total) + ' vs anterior';
+            document.getElementById('kpi-valor-var').innerHTML = getVariacaoHTML(variacao.valor) + ' vs anterior';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico comparativo:', error);
+    }
+}
+
+// ==================== CARREGAR TABELA ====================
+async function carregarTabela() {
+    try {
+        const response = await fetch(`/api/metricas/semanais/cotacoes?${getFilters()}`);
+        const result = await response.json();
+        
+        const tbody = document.getElementById('tabelaCotacoes');
+        const badge = document.getElementById('totalCotacoesTabela');
+        
+        if (result.success && result.data.length > 0) {
+            badge.textContent = `${result.data.length} cotações`;
+            
+            tbody.innerHTML = result.data.map(cot => `
+                <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}'">
+                    <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
+                    <td class="font-medium">${cot.cliente_nome || '--'}</td>
+                    <td class="max-w-[200px] truncate" title="${cot.nome_campanha || ''}">${cot.nome_campanha || '--'}</td>
+                    <td class="text-right font-medium">${formatCurrency(cot.valor_total_proposta)}</td>
+                    <td class="text-center">
+                        <span class="badge badge-sm ${getStatusClass(cot.status)}">${cot.status || 'Rascunho'}</span>
+                    </td>
+                    <td>${cot.executivo_nome || '--'}</td>
+                    <td class="text-center">
+                        <span class="${cot.dias_aberto > 7 ? 'text-warning font-semibold' : ''}">${cot.dias_aberto || 0}</span>
+                    </td>
+                    <td class="text-xs text-base-content/60">${formatDateTime(cot.created_at)}</td>
+                </tr>
+            `).join('');
+        } else {
+            badge.textContent = '0 cotações';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-8 text-base-content/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p>Nenhuma cotação encontrada nesta semana</p>
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar tabela:', error);
+    }
+}
+
+// ==================== CARREGAR TODOS OS DADOS ====================
+async function carregarDados() {
+    // Mostrar loading
+    document.getElementById('btnAtualizar').classList.add('loading');
+    
+    await Promise.all([
+        carregarKPIs(),
+        carregarGraficoExecutivos(),
+        carregarGraficoEvolucao(),
+        carregarGraficoStatus(),
+        carregarGraficoComparativo(),
+        carregarTabela()
+    ]);
+    
+    // Remover loading
+    document.getElementById('btnAtualizar').classList.remove('loading');
+}
+
+// ==================== INICIALIZAÇÃO ====================
+document.addEventListener('DOMContentLoaded', function() {
+    // Definir semana atual no seletor
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const primeiroDiaAno = new Date(ano, 0, 1);
+    const diasPassados = Math.floor((hoje - primeiroDiaAno) / (24 * 60 * 60 * 1000));
+    const semanaNum = Math.ceil((diasPassados + primeiroDiaAno.getDay() + 1) / 7);
+    const semanaFormatada = `${ano}-W${String(semanaNum).padStart(2, '0')}`;
+    document.getElementById('filtroSemana').value = semanaFormatada;
+    
+    // Carregar dados
+    carregarDados();
+    
+    // Event listeners
+    document.getElementById('btnAtualizar').addEventListener('click', carregarDados);
+    document.getElementById('filtroSemana').addEventListener('change', carregarDados);
+    document.getElementById('filtroExecutivo').addEventListener('change', carregarDados);
+    document.getElementById('filtroCliente').addEventListener('change', carregarDados);
+});
+</script>
+{% endblock %}

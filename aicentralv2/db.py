@@ -6553,3 +6553,358 @@ def obter_clientes_para_filtro():
         return []
 
 
+# ==================== MÉTRICAS SEMANAIS ====================
+
+def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+    """
+    Retorna KPIs agregados para uma semana específica.
+    
+    Args:
+        semana_inicio: Data início da semana (segunda-feira)
+        semana_fim: Data fim da semana (domingo)
+        executivo_id: Filtro opcional por executivo
+        cliente_id: Filtro opcional por cliente
+    
+    Returns:
+        dict: KPIs da semana {cotacoes_criadas, valor_total, aprovadas, taxa_conversao, ticket_medio, ciclo_medio}
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [semana_inicio, semana_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND client_id = %s'
+                params.append(int(cliente_id))
+            
+            cursor.execute(f'''
+                SELECT 
+                    COUNT(*) as cotacoes_criadas,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor_total,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
+                    COUNT(*) FILTER (WHERE status = 'Rejeitada') as rejeitadas,
+                    COUNT(*) FILTER (WHERE status = 'Enviada') as enviadas,
+                    COUNT(*) FILTER (WHERE status = 'Negociação') as negociacao,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL / 
+                        NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada')), 0) * 100, 
+                        1
+                    ) as taxa_conversao,
+                    ROUND(
+                        COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada'), 0) / 
+                        NULLIF(COUNT(*) FILTER (WHERE status = 'Aprovada'), 0),
+                        2
+                    ) as ticket_medio,
+                    ROUND(
+                        AVG(EXTRACT(DAY FROM (aprovada_em - created_at))) FILTER (WHERE status = 'Aprovada' AND aprovada_em IS NOT NULL),
+                        1
+                    ) as ciclo_medio_dias
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= %s
+                  AND created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+            ''', params)
+            
+            result = cursor.fetchone()
+            return dict(result) if result else {
+                'cotacoes_criadas': 0, 'valor_total': 0, 'aprovadas': 0,
+                'rejeitadas': 0, 'enviadas': 0, 'negociacao': 0,
+                'taxa_conversao': 0, 'ticket_medio': 0, 'ciclo_medio_dias': 0
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter KPIs semanais: {e}")
+        return {}
+
+
+def obter_cotacoes_por_executivo_semana(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+    """
+    Retorna cotações agrupadas por executivo para uma semana.
+    
+    Returns:
+        list: Lista de dicts com executivo_id, executivo_nome, total, valor, aprovadas
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [semana_inicio, semana_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND c.responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND c.client_id = %s'
+                params.append(int(cliente_id))
+            
+            cursor.execute(f'''
+                SELECT 
+                    c.responsavel_comercial as executivo_id,
+                    COALESCE(e.nome_completo, 'Não atribuído') as executivo_nome,
+                    COUNT(*) as total_cotacoes,
+                    COALESCE(SUM(c.valor_total_proposta), 0) as valor_total,
+                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') as aprovadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Rejeitada') as rejeitadas,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE c.status = 'Aprovada')::DECIMAL / 
+                        NULLIF(COUNT(*), 0) * 100, 
+                        1
+                    ) as taxa_conversao
+                FROM cadu_cotacoes c
+                LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = c.responsavel_comercial
+                WHERE c.deleted_at IS NULL
+                  AND c.created_at >= %s
+                  AND c.created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+                GROUP BY c.responsavel_comercial, e.nome_completo
+                ORDER BY total_cotacoes DESC
+            ''', params)
+            
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter cotações por executivo: {e}")
+        return []
+
+
+def obter_evolucao_diaria_semana(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+    """
+    Retorna evolução diária de cotações na semana.
+    
+    Returns:
+        list: Lista de dicts com data, total, valor, aprovadas
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [semana_inicio, semana_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND client_id = %s'
+                params.append(int(cliente_id))
+            
+            cursor.execute(f'''
+                SELECT 
+                    DATE(created_at) as data,
+                    COUNT(*) as total_cotacoes,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor_total,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
+                    COUNT(*) FILTER (WHERE status = 'Enviada' OR status = 'Negociação') as em_andamento
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= %s
+                  AND created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+                GROUP BY DATE(created_at)
+                ORDER BY DATE(created_at)
+            ''', params)
+            
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter evolução diária: {e}")
+        return []
+
+
+def obter_distribuicao_status_semana(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+    """
+    Retorna distribuição de cotações por status na semana.
+    
+    Returns:
+        list: Lista de dicts com status, total, valor
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [semana_inicio, semana_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND client_id = %s'
+                params.append(int(cliente_id))
+            
+            cursor.execute(f'''
+                SELECT 
+                    COALESCE(status, 'Rascunho') as status,
+                    COUNT(*) as total,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= %s
+                  AND created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+                GROUP BY status
+                ORDER BY total DESC
+            ''', params)
+            
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter distribuição por status: {e}")
+        return []
+
+
+def obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+    """
+    Compara métricas da semana atual com a semana anterior.
+    
+    Returns:
+        dict: {atual: {...}, anterior: {...}, variacao: {...}}
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # Calcula semana anterior
+            from datetime import timedelta
+            semana_ant_inicio = semana_inicio - timedelta(days=7)
+            semana_ant_fim = semana_fim - timedelta(days=7)
+            
+            params_atual = [semana_inicio, semana_fim]
+            params_anterior = [semana_ant_inicio, semana_ant_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND responsavel_comercial = %s'
+                params_atual.append(int(executivo_id))
+                params_anterior.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND client_id = %s'
+                params_atual.append(int(cliente_id))
+                params_anterior.append(int(cliente_id))
+            
+            # Semana atual
+            cursor.execute(f'''
+                SELECT 
+                    COUNT(*) as total,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= %s
+                  AND created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+            ''', params_atual)
+            atual = cursor.fetchone()
+            
+            # Semana anterior
+            cursor.execute(f'''
+                SELECT 
+                    COUNT(*) as total,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= %s
+                  AND created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+            ''', params_anterior)
+            anterior = cursor.fetchone()
+            
+            # Calcular variações
+            def calc_var(atual_val, anterior_val):
+                if not anterior_val or anterior_val == 0:
+                    return 100 if atual_val else 0
+                return round(((atual_val - anterior_val) / anterior_val) * 100, 1)
+            
+            variacao = {
+                'total': calc_var(atual['total'], anterior['total']),
+                'valor': calc_var(float(atual['valor'] or 0), float(anterior['valor'] or 0)),
+                'aprovadas': calc_var(atual['aprovadas'], anterior['aprovadas'])
+            }
+            
+            return {
+                'atual': dict(atual),
+                'anterior': dict(anterior),
+                'variacao': variacao
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter comparativo semanal: {e}")
+        return {'atual': {}, 'anterior': {}, 'variacao': {}}
+
+
+def obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+    """
+    Retorna lista detalhada de cotações da semana para a tabela.
+    
+    Returns:
+        list: Lista de cotações com todos os campos necessários
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [semana_inicio, semana_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND c.responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND c.client_id = %s'
+                params.append(int(cliente_id))
+            
+            cursor.execute(f'''
+                SELECT 
+                    c.id,
+                    c.numero_cotacao,
+                    c.nome_campanha,
+                    c.status,
+                    c.valor_total_proposta,
+                    c.created_at,
+                    c.updated_at,
+                    c.aprovada_em,
+                    EXTRACT(DAY FROM (NOW() - c.created_at))::INTEGER as dias_aberto,
+                    cli.nome_fantasia as cliente_nome,
+                    COALESCE(e.nome_completo, 'Não atribuído') as executivo_nome
+                FROM cadu_cotacoes c
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.client_id
+                LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = c.responsavel_comercial
+                WHERE c.deleted_at IS NULL
+                  AND c.created_at >= %s
+                  AND c.created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+                ORDER BY c.created_at DESC
+            ''', params)
+            
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter cotações detalhadas: {e}")
+        return []
+
+
+def obter_executivos_ativos():
+    """
+    Retorna lista de executivos que têm cotações.
+    
+    Returns:
+        list: Lista de dicts com id e nome dos executivos
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT DISTINCT
+                    e.id_contato_cliente as id,
+                    e.nome_completo as nome
+                FROM tbl_contato_cliente e
+                INNER JOIN cadu_cotacoes c ON c.responsavel_comercial = e.id_contato_cliente
+                WHERE c.deleted_at IS NULL
+                ORDER BY e.nome_completo
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter executivos ativos: {e}")
+        return []

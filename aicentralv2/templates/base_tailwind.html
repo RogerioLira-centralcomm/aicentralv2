@@ -382,8 +382,13 @@
                                 </summary>
                                 <ul>
                                     <li>
+                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
+                                            <span class="sidebar-text">Métricas Semanais</span>
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
-                                            <span class="sidebar-text">Métricas</span>
+                                            <span class="sidebar-text">Métricas Plataforma</span>
                                         </a>
                                     </li>
                                 </ul>

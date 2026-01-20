@@ -3948,7 +3948,7 @@ def init_routes(app):
                 kwargs = {
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                     'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
-                    'status': request.form.get('status', 'Pendente').strip(),
+                    'status': request.form.get('status', 'Rascunho').strip(),
                     'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
@@ -5805,5 +5805,247 @@ def init_routes(app):
                 'success': False,
                 'message': str(e)
             }), 500
+
+    # ==================== ADMIN ANALYTICS DASHBOARD ====================
+    
+    @app.route('/api/admin/metrics/overview', methods=['GET'])
+    @login_required
+    def api_admin_metrics_overview():
+        """API para métricas overview do dashboard admin"""
+        try:
+            # Verificar se é admin
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            overview = db.get_analytics_overview()
+            return jsonify({'success': True, 'data': overview})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter overview: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/sessions/daily', methods=['GET'])
+    @login_required
+    def api_admin_metrics_sessions_daily():
+        """API para sessões diárias"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            days = request.args.get('days', 30, type=int)
+            sessions = db.get_analytics_sessions_daily(days)
+            
+            # Converter para formato serializable
+            data = []
+            for s in sessions:
+                data.append({
+                    'date': s['date'].isoformat() if s.get('date') else None,
+                    'total_sessions': s.get('total_sessions', 0),
+                    'unique_users': s.get('unique_users', 0),
+                    'avg_duration': float(s.get('avg_duration', 0)) if s.get('avg_duration') else 0,
+                    'total_pageviews': s.get('total_pageviews', 0),
+                    'mobile_sessions': s.get('mobile_sessions', 0),
+                    'desktop_sessions': s.get('desktop_sessions', 0)
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter sessões diárias: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/audiencias/top', methods=['GET'])
+    @login_required
+    def api_admin_metrics_top_audiencias():
+        """API para top audiências"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            limit = request.args.get('limit', 20, type=int)
+            audiencias = db.get_analytics_top_audiencias(limit)
+            
+            data = []
+            for a in audiencias:
+                data.append({
+                    'audiencia_id': a.get('audiencia_id'),
+                    'audiencia_nome': a.get('audiencia_nome'),
+                    'categoria': a.get('categoria'),
+                    'total_views': a.get('total_views', 0),
+                    'unique_users': a.get('unique_users', 0),
+                    'unique_clients': a.get('unique_clients', 0)
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter top audiências: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/pages/top', methods=['GET'])
+    @login_required
+    def api_admin_metrics_top_pages():
+        """API para top páginas"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            limit = request.args.get('limit', 20, type=int)
+            pages = db.get_analytics_top_pages(limit)
+            
+            data = []
+            for p in pages:
+                data.append({
+                    'page_path': p.get('page_path'),
+                    'page_type': p.get('page_type'),
+                    'total_views': p.get('total_views', 0),
+                    'unique_users': p.get('unique_users', 0),
+                    'avg_time_on_page': float(p.get('avg_time_on_page', 0)) if p.get('avg_time_on_page') else 0
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter top páginas: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/users/active', methods=['GET'])
+    @login_required
+    def api_admin_metrics_active_users():
+        """API para usuários mais ativos"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            limit = request.args.get('limit', 50, type=int)
+            users = db.get_analytics_user_engagement(limit)
+            
+            data = []
+            for u in users:
+                data.append({
+                    'user_id': u.get('user_id'),
+                    'user_name': u.get('user_name'),
+                    'user_email': u.get('user_email'),
+                    'client_name': u.get('client_name'),
+                    'total_sessions': u.get('total_sessions', 0),
+                    'total_time_seconds': u.get('total_time_seconds', 0),
+                    'avg_session_duration': float(u.get('avg_session_duration', 0)) if u.get('avg_session_duration') else 0,
+                    'total_pageviews': u.get('total_pageviews', 0),
+                    'active_days': u.get('active_days', 0),
+                    'last_session': u.get('last_session').isoformat() if u.get('last_session') else None
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter usuários ativos: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/briefings', methods=['GET'])
+    @login_required
+    def api_admin_metrics_briefings():
+        """API para métricas de briefings"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            days = request.args.get('days', 30, type=int)
+            briefings = db.get_analytics_briefings_metrics(days)
+            
+            data = []
+            for b in briefings:
+                data.append({
+                    'date': b['date'].isoformat() if b.get('date') else None,
+                    'briefings_created': b.get('briefings_created', 0),
+                    'briefings_submitted': b.get('briefings_submitted', 0),
+                    'briefings_viewed': b.get('briefings_viewed', 0),
+                    'conversion_rate': float(b.get('conversion_rate', 0)) if b.get('conversion_rate') else 0
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter métricas de briefings: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/cotacoes', methods=['GET'])
+    @login_required
+    def api_admin_metrics_cotacoes():
+        """API para métricas de cotações"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            days = request.args.get('days', 30, type=int)
+            cotacoes = db.get_analytics_cotacoes_metrics(days)
+            
+            data = []
+            for c in cotacoes:
+                data.append({
+                    'date': c['date'].isoformat() if c.get('date') else None,
+                    'cotacoes_created': c.get('cotacoes_created', 0),
+                    'cotacoes_sent': c.get('cotacoes_sent', 0),
+                    'total_value': float(c.get('total_value', 0)) if c.get('total_value') else 0,
+                    'avg_value': float(c.get('avg_value', 0)) if c.get('avg_value') else 0
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter métricas de cotações: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/briefings/platforms', methods=['GET'])
+    @login_required
+    def api_admin_metrics_briefing_platforms():
+        """API para briefings por plataforma"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            platforms = db.get_analytics_briefing_platforms()
+            
+            data = []
+            for p in platforms:
+                data.append({
+                    'plataforma': p.get('plataforma'),
+                    'total': p.get('total', 0),
+                    'unique_users': p.get('unique_users', 0),
+                    'unique_clients': p.get('unique_clients', 0)
+                })
+            
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter plataformas de briefings: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/api/admin/metrics/audiencias/funnel', methods=['GET'])
+    @login_required
+    def api_admin_metrics_audiencias_funnel():
+        """API para funil de audiências"""
+        try:
+            if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+                return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            
+            days = request.args.get('days', 30, type=int)
+            funnel = db.get_analytics_audiencias_funnel(days)
+            
+            return jsonify({'success': True, 'data': funnel})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter funil de audiências: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    
+    @app.route('/admin/metrics/dashboard')
+    @login_required
+    def admin_metrics_dashboard():
+        """Página do Dashboard de Métricas Admin"""
+        # Verificar se é admin
+        if session.get('user_type') not in ['admin', 'super_admin', 'master']:
+            flash('Acesso não autorizado', 'error')
+            return redirect(url_for('index'))
+        
+        return render_template('admin_metrics_dashboard.html')
 
     # ==================== UP AUDIÊNCIA ====================

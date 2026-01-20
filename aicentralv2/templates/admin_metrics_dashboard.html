@@ -1,0 +1,697 @@
+{% extends "base_tailwind.html" %}
+
+{% block title %}Dashboard de Métricas - Admin{% endblock %}
+
+{% block styles %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .mini-chart {
+        height: 200px;
+    }
+    .skeleton-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .5; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-4 md:p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-base-content">
+                <i class="fas fa-chart-line text-primary mr-2"></i>
+                Dashboard de Métricas
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">Visão geral de uso e performance da plataforma</p>
+        </div>
+        
+        <!-- Filtro de período -->
+        <div class="flex items-center gap-2">
+            <label class="text-sm text-base-content/70">Período:</label>
+            <select id="periodoSelect" class="select select-bordered select-sm">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30" selected>Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+            </select>
+            <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Atualizar">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row 1 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <!-- DAU -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+                <i class="fas fa-users"></i>
+                <span>DAU (Hoje)</span>
+            </div>
+            <div class="text-2xl font-bold text-primary" id="kpi-dau">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs mt-1">
+                <span id="kpi-dau-change" class="badge badge-sm badge-ghost">--</span>
+            </div>
+        </div>
+
+        <!-- WAU -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+                <i class="fas fa-calendar-week"></i>
+                <span>WAU</span>
+            </div>
+            <div class="text-2xl font-bold text-secondary" id="kpi-wau">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+
+        <!-- MAU -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+                <i class="fas fa-calendar-alt"></i>
+                <span>MAU</span>
+            </div>
+            <div class="text-2xl font-bold text-accent" id="kpi-mau">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+
+        <!-- Sessões Hoje -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+                <i class="fas fa-clock"></i>
+                <span>Sessões Hoje</span>
+            </div>
+            <div class="text-2xl font-bold text-info" id="kpi-sessions">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+
+        <!-- Pageviews -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+                <i class="fas fa-eye"></i>
+                <span>Pageviews</span>
+            </div>
+            <div class="text-2xl font-bold text-warning" id="kpi-pageviews">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+
+        <!-- Tempo Médio -->
+        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
+            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-1">
+                <i class="fas fa-stopwatch"></i>
+                <span>Tempo Médio</span>
+            </div>
+            <div class="text-2xl font-bold text-success" id="kpi-avgtime">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row 2 - Briefings e Cotações -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Briefings Criados -->
+        <div class="stat-card bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-xl p-4 border border-blue-500/20">
+            <div class="flex items-center gap-2 text-blue-600 text-xs mb-1">
+                <i class="fas fa-file-alt"></i>
+                <span>Briefings (Hoje)</span>
+            </div>
+            <div class="text-2xl font-bold text-blue-600" id="kpi-briefings">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50" id="kpi-briefings-sent">-- enviados</div>
+        </div>
+
+        <!-- Cotações -->
+        <div class="stat-card bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-xl p-4 border border-green-500/20">
+            <div class="flex items-center gap-2 text-green-600 text-xs mb-1">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Cotações (Hoje)</span>
+            </div>
+            <div class="text-2xl font-bold text-green-600" id="kpi-cotacoes">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50" id="kpi-cotacoes-valor">R$ --</div>
+        </div>
+
+        <!-- Audiências Visualizadas -->
+        <div class="stat-card bg-gradient-to-br from-purple-500/10 to-purple-600/5 rounded-xl p-4 border border-purple-500/20">
+            <div class="flex items-center gap-2 text-purple-600 text-xs mb-1">
+                <i class="fas fa-bullseye"></i>
+                <span>Audiências Vistas</span>
+            </div>
+            <div class="text-2xl font-bold text-purple-600" id="kpi-audiencias">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+
+        <!-- Páginas por Sessão -->
+        <div class="stat-card bg-gradient-to-br from-orange-500/10 to-orange-600/5 rounded-xl p-4 border border-orange-500/20">
+            <div class="flex items-center gap-2 text-orange-600 text-xs mb-1">
+                <i class="fas fa-layer-group"></i>
+                <span>Págs/Sessão</span>
+            </div>
+            <div class="text-2xl font-bold text-orange-600" id="kpi-pages-session">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Gráfico de Sessões Diárias -->
+        <div class="bg-base-100 rounded-xl p-6 border border-base-300">
+            <h3 class="font-semibold text-base-content mb-4">
+                <i class="fas fa-chart-area text-primary mr-2"></i>
+                Sessões Diárias
+            </h3>
+            <div class="chart-container">
+                <canvas id="sessionsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfico de Briefings/Cotações -->
+        <div class="bg-base-100 rounded-xl p-6 border border-base-300">
+            <h3 class="font-semibold text-base-content mb-4">
+                <i class="fas fa-chart-bar text-secondary mr-2"></i>
+                Briefings & Cotações
+            </h3>
+            <div class="chart-container">
+                <canvas id="briefingsCotacoesChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Top Audiências -->
+        <div class="bg-base-100 rounded-xl border border-base-300">
+            <div class="p-4 border-b border-base-300">
+                <h3 class="font-semibold text-base-content">
+                    <i class="fas fa-trophy text-warning mr-2"></i>
+                    Top 10 Audiências
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Audiência</th>
+                            <th>Categoria</th>
+                            <th class="text-right">Views</th>
+                            <th class="text-right">Usuários</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topAudienciasTable">
+                        <tr>
+                            <td colspan="5" class="text-center py-8">
+                                <span class="loading loading-spinner loading-md"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top Páginas -->
+        <div class="bg-base-100 rounded-xl border border-base-300">
+            <div class="p-4 border-b border-base-300">
+                <h3 class="font-semibold text-base-content">
+                    <i class="fas fa-file text-info mr-2"></i>
+                    Top 10 Páginas
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Página</th>
+                            <th>Tipo</th>
+                            <th class="text-right">Views</th>
+                            <th class="text-right">Tempo Médio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topPagesTable">
+                        <tr>
+                            <td colspan="5" class="text-center py-8">
+                                <span class="loading loading-spinner loading-md"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Engagement -->
+    <div class="bg-base-100 rounded-xl border border-base-300">
+        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+            <h3 class="font-semibold text-base-content">
+                <i class="fas fa-user-clock text-success mr-2"></i>
+                Usuários Mais Ativos
+            </h3>
+            <span class="badge badge-ghost">Top 20</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Usuário</th>
+                        <th>Cliente</th>
+                        <th class="text-right">Sessões</th>
+                        <th class="text-right">Tempo Total</th>
+                        <th class="text-right">Pageviews</th>
+                        <th class="text-right">Dias Ativos</th>
+                        <th>Última Sessão</th>
+                    </tr>
+                </thead>
+                <tbody id="activeUsersTable">
+                    <tr>
+                        <td colspan="8" class="text-center py-8">
+                            <span class="loading loading-spinner loading-md"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Funil de Audiências -->
+    <div class="bg-base-100 rounded-xl p-6 border border-base-300">
+        <h3 class="font-semibold text-base-content mb-4">
+            <i class="fas fa-filter text-accent mr-2"></i>
+            Funil de Conversão - Audiências
+        </h3>
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 py-6">
+            <div class="text-center">
+                <div class="text-3xl font-bold text-base-content" id="funnel-views">--</div>
+                <div class="text-sm text-base-content/60">Visualizadas</div>
+            </div>
+            <i class="fas fa-chevron-right text-base-content/30 text-2xl hidden md:block"></i>
+            <i class="fas fa-chevron-down text-base-content/30 text-2xl md:hidden"></i>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-warning" id="funnel-cart">--</div>
+                <div class="text-sm text-base-content/60">Add. Carrinho</div>
+                <div class="text-xs text-success" id="funnel-cart-rate">--%</div>
+            </div>
+            <i class="fas fa-chevron-right text-base-content/30 text-2xl hidden md:block"></i>
+            <i class="fas fa-chevron-down text-base-content/30 text-2xl md:hidden"></i>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-success" id="funnel-quoted">--</div>
+                <div class="text-sm text-base-content/60">Cotadas</div>
+                <div class="text-xs text-success" id="funnel-quoted-rate">--%</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Configuração global dos gráficos
+Chart.defaults.font.family = 'Inter, sans-serif';
+Chart.defaults.color = '#9CA3AF';
+
+// Variáveis globais
+let sessionsChart = null;
+let briefingsCotacoesChart = null;
+let currentDays = 30;
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    
+    // Evento de mudança de período
+    document.getElementById('periodoSelect').addEventListener('change', function() {
+        currentDays = parseInt(this.value);
+        loadDashboardData();
+    });
+    
+    // Botão refresh
+    document.getElementById('refreshBtn').addEventListener('click', loadDashboardData);
+});
+
+// Carregar todos os dados
+async function loadDashboardData() {
+    try {
+        // Mostrar loading no botão
+        const refreshBtn = document.getElementById('refreshBtn');
+        refreshBtn.classList.add('loading');
+        
+        // Carregar dados em paralelo
+        await Promise.all([
+            loadOverview(),
+            loadSessionsChart(),
+            loadBriefingsCotacoesChart(),
+            loadTopAudiencias(),
+            loadTopPages(),
+            loadActiveUsers(),
+            loadAudienciasFunnel()
+        ]);
+        
+        refreshBtn.classList.remove('loading');
+    } catch (error) {
+        console.error('Erro ao carregar dashboard:', error);
+        showToast('Erro ao carregar dados do dashboard', 'error');
+    }
+}
+
+// Carregar overview (KPIs)
+async function loadOverview() {
+    try {
+        const response = await fetch('/api/admin/metrics/overview');
+        const result = await response.json();
+        
+        if (result.success) {
+            const data = result.data;
+            
+            // Atualizar KPIs
+            document.getElementById('kpi-dau').textContent = formatNumber(data.dau?.value || 0);
+            document.getElementById('kpi-wau').textContent = formatNumber(data.wau?.value || 0);
+            document.getElementById('kpi-mau').textContent = formatNumber(data.mau?.value || 0);
+            document.getElementById('kpi-sessions').textContent = formatNumber(data.sessions_today || 0);
+            document.getElementById('kpi-pageviews').textContent = formatNumber(data.pageviews_hoje || 0);
+            document.getElementById('kpi-avgtime').textContent = formatDuration(data.avg_session_duration || 0);
+            
+            // DAU change badge
+            const dauChange = data.dau?.change_percent || 0;
+            const dauBadge = document.getElementById('kpi-dau-change');
+            if (dauChange > 0) {
+                dauBadge.className = 'badge badge-sm badge-success';
+                dauBadge.textContent = `+${dauChange}%`;
+            } else if (dauChange < 0) {
+                dauBadge.className = 'badge badge-sm badge-error';
+                dauBadge.textContent = `${dauChange}%`;
+            } else {
+                dauBadge.className = 'badge badge-sm badge-ghost';
+                dauBadge.textContent = '0%';
+            }
+            
+            // Briefings e Cotações
+            document.getElementById('kpi-briefings').textContent = formatNumber(data.briefings_criados_hoje || 0);
+            document.getElementById('kpi-briefings-sent').textContent = `${data.briefings_enviados_hoje || 0} enviados`;
+            document.getElementById('kpi-cotacoes').textContent = formatNumber(data.cotacoes_criadas_hoje || 0);
+            document.getElementById('kpi-cotacoes-valor').textContent = formatCurrency(data.cotacoes_valor_hoje || 0);
+            document.getElementById('kpi-audiencias').textContent = formatNumber(data.audiencias_hoje || 0);
+            document.getElementById('kpi-pages-session').textContent = (data.avg_pages_per_session || 0).toFixed(1);
+        }
+    } catch (error) {
+        console.error('Erro ao carregar overview:', error);
+    }
+}
+
+// Carregar gráfico de sessões
+async function loadSessionsChart() {
+    try {
+        const response = await fetch(`/api/admin/metrics/sessions/daily?days=${currentDays}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const data = result.data;
+            
+            const ctx = document.getElementById('sessionsChart').getContext('2d');
+            
+            if (sessionsChart) {
+                sessionsChart.destroy();
+            }
+            
+            sessionsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => formatDateShort(d.date)),
+                    datasets: [{
+                        label: 'Sessões',
+                        data: data.map(d => d.total_sessions),
+                        borderColor: '#6366F1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Usuários Únicos',
+                        data: data.map(d => d.unique_users),
+                        borderColor: '#10B981',
+                        backgroundColor: 'transparent',
+                        borderDash: [5, 5],
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico de sessões:', error);
+    }
+}
+
+// Carregar gráfico de briefings/cotações
+async function loadBriefingsCotacoesChart() {
+    try {
+        const [briefingsRes, cotacoesRes] = await Promise.all([
+            fetch(`/api/admin/metrics/briefings?days=${currentDays}`),
+            fetch(`/api/admin/metrics/cotacoes?days=${currentDays}`)
+        ]);
+        
+        const briefingsResult = await briefingsRes.json();
+        const cotacoesResult = await cotacoesRes.json();
+        
+        if (briefingsResult.success && cotacoesResult.success) {
+            const briefingsData = briefingsResult.data;
+            const cotacoesData = cotacoesResult.data;
+            
+            const ctx = document.getElementById('briefingsCotacoesChart').getContext('2d');
+            
+            if (briefingsCotacoesChart) {
+                briefingsCotacoesChart.destroy();
+            }
+            
+            briefingsCotacoesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: briefingsData.map(d => formatDateShort(d.date)),
+                    datasets: [{
+                        label: 'Briefings Criados',
+                        data: briefingsData.map(d => d.briefings_created),
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: '#3B82F6',
+                        borderWidth: 1
+                    }, {
+                        label: 'Cotações Criadas',
+                        data: cotacoesData.map(d => d.cotacoes_created),
+                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                        borderColor: '#22C55E',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico de briefings/cotações:', error);
+    }
+}
+
+// Carregar top audiências
+async function loadTopAudiencias() {
+    try {
+        const response = await fetch('/api/admin/metrics/audiencias/top?limit=10');
+        const result = await response.json();
+        
+        const tbody = document.getElementById('topAudienciasTable');
+        
+        if (result.success && result.data.length > 0) {
+            tbody.innerHTML = result.data.map((a, i) => `
+                <tr>
+                    <td class="font-medium">${i + 1}</td>
+                    <td class="max-w-xs truncate" title="${a.audiencia_nome}">${a.audiencia_nome}</td>
+                    <td><span class="badge badge-ghost badge-sm">${a.categoria || '-'}</span></td>
+                    <td class="text-right font-medium">${formatNumber(a.total_views)}</td>
+                    <td class="text-right">${formatNumber(a.unique_users)}</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar top audiências:', error);
+    }
+}
+
+// Carregar top páginas
+async function loadTopPages() {
+    try {
+        const response = await fetch('/api/admin/metrics/pages/top?limit=10');
+        const result = await response.json();
+        
+        const tbody = document.getElementById('topPagesTable');
+        
+        if (result.success && result.data.length > 0) {
+            tbody.innerHTML = result.data.map((p, i) => `
+                <tr>
+                    <td class="font-medium">${i + 1}</td>
+                    <td class="max-w-xs truncate" title="${p.page_path}">${p.page_path}</td>
+                    <td><span class="badge badge-ghost badge-sm">${p.page_type || '-'}</span></td>
+                    <td class="text-right font-medium">${formatNumber(p.total_views)}</td>
+                    <td class="text-right">${formatDuration(p.avg_time_on_page)}</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar top páginas:', error);
+    }
+}
+
+// Carregar usuários ativos
+async function loadActiveUsers() {
+    try {
+        const response = await fetch('/api/admin/metrics/users/active?limit=20');
+        const result = await response.json();
+        
+        const tbody = document.getElementById('activeUsersTable');
+        
+        if (result.success && result.data.length > 0) {
+            tbody.innerHTML = result.data.map((u, i) => `
+                <tr>
+                    <td class="font-medium">${i + 1}</td>
+                    <td>
+                        <div class="font-medium">${u.user_name || u.user_email}</div>
+                        <div class="text-xs text-base-content/50">${u.user_email}</div>
+                    </td>
+                    <td>${u.client_name || '-'}</td>
+                    <td class="text-right font-medium">${formatNumber(u.total_sessions)}</td>
+                    <td class="text-right">${formatDuration(u.total_time_seconds)}</td>
+                    <td class="text-right">${formatNumber(u.total_pageviews)}</td>
+                    <td class="text-right">${u.active_days} dias</td>
+                    <td class="text-xs">${u.last_session ? formatDateFull(u.last_session) : '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar usuários ativos:', error);
+    }
+}
+
+// Carregar funil de audiências
+async function loadAudienciasFunnel() {
+    try {
+        const response = await fetch(`/api/admin/metrics/audiencias/funnel?days=${currentDays}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const data = result.data;
+            
+            document.getElementById('funnel-views').textContent = formatNumber(data.visualizadas || 0);
+            document.getElementById('funnel-cart').textContent = formatNumber(data.adicionadas_carrinho || 0);
+            document.getElementById('funnel-quoted').textContent = formatNumber(data.cotadas || 0);
+            document.getElementById('funnel-cart-rate').textContent = `${data.taxa_carrinho || 0}%`;
+            document.getElementById('funnel-quoted-rate').textContent = `${data.taxa_cotacao || 0}%`;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar funil:', error);
+    }
+}
+
+// Helpers
+function formatNumber(num) {
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+    }
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toLocaleString('pt-BR');
+}
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
+}
+
+function formatDuration(seconds) {
+    if (!seconds || seconds === 0) return '0s';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+    }
+    return `${secs}s`;
+}
+
+function formatDateShort(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function formatDateFull(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+</script>
+{% endblock %}

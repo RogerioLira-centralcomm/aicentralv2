@@ -5724,3 +5724,308 @@ def listar_projetos(filtros=None):
             return cursor.fetchall()
     except Exception as e:
         raise e
+
+
+# ==================== ANALYTICS - MÉTRICAS E DASHBOARD ====================
+
+def get_analytics_overview():
+    """
+    Obtém métricas principais do dashboard: DAU, MAU, Sessões, etc.
+    Usa a view v_analytics_dau_mau
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            # DAU/MAU da view
+            cursor.execute('''
+                SELECT 
+                    dau_today,
+                    dau_yesterday,
+                    wau,
+                    mau,
+                    sessions_today,
+                    avg_session_duration_today,
+                    avg_pages_per_session_today
+                FROM v_analytics_dau_mau
+            ''')
+            dau_mau = cursor.fetchone()
+            
+            # Métricas de hoje - Briefings
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) FILTER (WHERE event_type = 'briefing_created' AND DATE(created_at) = CURRENT_DATE) AS criados_hoje,
+                    COUNT(*) FILTER (WHERE event_type = 'briefing_submitted' AND DATE(created_at) = CURRENT_DATE) AS enviados_hoje,
+                    COUNT(*) FILTER (WHERE event_type = 'briefing_viewed' AND DATE(created_at) = CURRENT_DATE) AS visualizados_hoje
+                FROM cadu_analytics_events
+                WHERE event_category = 'briefing'
+            ''')
+            briefings = cursor.fetchone()
+            
+            # Métricas de hoje - Cotações
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) FILTER (WHERE event_type = 'cotacao_created' AND DATE(created_at) = CURRENT_DATE) AS criadas_hoje,
+                    COALESCE(SUM((metadata->>'valor_total')::DECIMAL) FILTER (WHERE DATE(created_at) = CURRENT_DATE), 0) AS valor_total_hoje
+                FROM cadu_analytics_events
+                WHERE event_category = 'cotacao'
+            ''')
+            cotacoes = cursor.fetchone()
+            
+            # Pageviews hoje
+            cursor.execute('''
+                SELECT COUNT(*) as pageviews_hoje
+                FROM cadu_analytics_pageviews
+                WHERE DATE(viewed_at) = CURRENT_DATE
+            ''')
+            pageviews = cursor.fetchone()
+            
+            # Audiências visualizadas hoje
+            cursor.execute('''
+                SELECT COUNT(*) as audiencias_hoje
+                FROM cadu_analytics_events
+                WHERE event_type = 'audiencia_viewed' AND DATE(created_at) = CURRENT_DATE
+            ''')
+            audiencias = cursor.fetchone()
+            
+            return {
+                'dau': {
+                    'value': dau_mau.get('dau_today', 0) if dau_mau else 0,
+                    'previous': dau_mau.get('dau_yesterday', 0) if dau_mau else 0,
+                    'change_percent': round(((dau_mau.get('dau_today', 0) - dau_mau.get('dau_yesterday', 1)) / max(dau_mau.get('dau_yesterday', 1), 1)) * 100, 1) if dau_mau else 0
+                },
+                'mau': {
+                    'value': dau_mau.get('mau', 0) if dau_mau else 0
+                },
+                'wau': {
+                    'value': dau_mau.get('wau', 0) if dau_mau else 0
+                },
+                'sessions_today': dau_mau.get('sessions_today', 0) if dau_mau else 0,
+                'avg_session_duration': dau_mau.get('avg_session_duration_today', 0) if dau_mau else 0,
+                'avg_pages_per_session': dau_mau.get('avg_pages_per_session_today', 0) if dau_mau else 0,
+                'briefings_criados_hoje': briefings.get('criados_hoje', 0) if briefings else 0,
+                'briefings_enviados_hoje': briefings.get('enviados_hoje', 0) if briefings else 0,
+                'cotacoes_criadas_hoje': cotacoes.get('criadas_hoje', 0) if cotacoes else 0,
+                'cotacoes_valor_hoje': float(cotacoes.get('valor_total_hoje', 0)) if cotacoes else 0,
+                'pageviews_hoje': pageviews.get('pageviews_hoje', 0) if pageviews else 0,
+                'audiencias_hoje': audiencias.get('audiencias_hoje', 0) if audiencias else 0
+            }
+    except Exception as e:
+        # Se as tabelas não existem, retornar dados zerados
+        return {
+            'dau': {'value': 0, 'previous': 0, 'change_percent': 0},
+            'mau': {'value': 0},
+            'wau': {'value': 0},
+            'sessions_today': 0,
+            'avg_session_duration': 0,
+            'avg_pages_per_session': 0,
+            'briefings_criados_hoje': 0,
+            'briefings_enviados_hoje': 0,
+            'cotacoes_criadas_hoje': 0,
+            'cotacoes_valor_hoje': 0,
+            'pageviews_hoje': 0,
+            'audiencias_hoje': 0
+        }
+
+
+def get_analytics_sessions_daily(days=30):
+    """
+    Obtém sessões por dia para gráfico
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    date,
+                    total_sessions,
+                    unique_users,
+                    avg_duration,
+                    total_pageviews,
+                    mobile_sessions,
+                    desktop_sessions
+                FROM v_analytics_sessions_daily
+                WHERE date >= CURRENT_DATE - INTERVAL '%s days'
+                ORDER BY date ASC
+            ''', (days,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_top_audiencias(limit=20):
+    """
+    Obtém top audiências mais visualizadas
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    audiencia_id,
+                    audiencia_nome,
+                    categoria,
+                    total_views,
+                    unique_users,
+                    unique_clients
+                FROM v_analytics_top_audiencias
+                ORDER BY total_views DESC
+                LIMIT %s
+            ''', (limit,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_top_pages(limit=20):
+    """
+    Obtém top páginas mais visitadas
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    page_path,
+                    page_type,
+                    total_views,
+                    unique_users,
+                    avg_time_on_page
+                FROM v_analytics_top_pages
+                ORDER BY total_views DESC
+                LIMIT %s
+            ''', (limit,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_user_engagement(limit=50):
+    """
+    Obtém usuários mais ativos
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    user_id,
+                    user_name,
+                    user_email,
+                    client_name,
+                    total_sessions,
+                    total_time_seconds,
+                    avg_session_duration,
+                    total_pageviews,
+                    active_days,
+                    last_session
+                FROM v_analytics_user_engagement
+                ORDER BY total_sessions DESC
+                LIMIT %s
+            ''', (limit,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_briefings_metrics(days=30):
+    """
+    Obtém métricas diárias de briefings
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    date,
+                    briefings_created,
+                    briefings_submitted,
+                    briefings_viewed,
+                    conversion_rate
+                FROM v_analytics_briefings_metrics
+                WHERE date >= CURRENT_DATE - INTERVAL '%s days'
+                ORDER BY date ASC
+            ''', (days,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_cotacoes_metrics(days=30):
+    """
+    Obtém métricas diárias de cotações
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    date,
+                    cotacoes_created,
+                    cotacoes_sent,
+                    total_value,
+                    avg_value
+                FROM v_analytics_cotacoes_metrics
+                WHERE date >= CURRENT_DATE - INTERVAL '%s days'
+                ORDER BY date ASC
+            ''', (days,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_briefing_platforms():
+    """
+    Obtém briefings por plataforma
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    plataforma,
+                    total,
+                    unique_users,
+                    unique_clients
+                FROM v_analytics_briefing_platforms
+                ORDER BY total DESC
+            ''')
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_audiencias_funnel(days=30):
+    """
+    Obtém funil de conversão de audiências
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) FILTER (WHERE event_type = 'audiencia_viewed') AS visualizadas,
+                    COUNT(*) FILTER (WHERE event_type = 'audiencia_added_to_cart') AS adicionadas_carrinho,
+                    COUNT(*) FILTER (WHERE event_type = 'audiencia_quoted') AS cotadas,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE event_type = 'audiencia_added_to_cart')::DECIMAL / 
+                        NULLIF(COUNT(*) FILTER (WHERE event_type = 'audiencia_viewed'), 0) * 100, 
+                        1
+                    ) AS taxa_carrinho,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE event_type = 'audiencia_quoted')::DECIMAL / 
+                        NULLIF(COUNT(*) FILTER (WHERE event_type = 'audiencia_viewed'), 0) * 100, 
+                        1
+                    ) AS taxa_cotacao
+                FROM cadu_analytics_events
+                WHERE event_category = 'audiencia'
+                  AND created_at >= CURRENT_DATE - INTERVAL '%s days'
+            ''', (days,))
+            return cursor.fetchone()
+    except Exception:
+        return {
+            'visualizadas': 0,
+            'adicionadas_carrinho': 0,
+            'cotadas': 0,
+            'taxa_carrinho': 0,
+            'taxa_cotacao': 0
+        }

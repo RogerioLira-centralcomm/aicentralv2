@@ -134,8 +134,7 @@
             <div class="form-control">
               <label class="label py-0.5"><span class="label-text text-xs font-medium">Status</span></label>
               <select name="status" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="Pendente" {% if cotacao.status == 'Pendente' %}selected{% endif %}>Pendente</option>
-                <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+                <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
                 <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
                 <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
                 <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>

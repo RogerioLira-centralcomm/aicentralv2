@@ -379,8 +379,7 @@ function renderizarAnexos(anexos) {
             <div class="form-control">
               <label class="label py-0.5"><span class="label-text text-xs font-semibold">Status</span></label>
               <select name="status" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
-                <option value="Pendente" {% if cotacao.status == 'Pendente' %}selected{% endif %}>Pendente</option>
-                <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+                <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
                 <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
                 <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
                 <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
@@ -534,7 +533,7 @@ function renderizarAnexos(anexos) {
               <div class="stat-value text-lg text-black" id="total_audiencias_display">
                 R$ {% set total_aud = namespace(value=0) %}
                 {% for aud in audiencias %}
-                  {% if aud.incluido_proposta and aud.investimento_sugerido %}
+                  {% if aud.investimento_sugerido %}
                     {% set total_aud.value = total_aud.value + aud.investimento_sugerido %}
                   {% endif %}
                 {% endfor %}
@@ -738,13 +737,12 @@ function renderizarAnexos(anexos) {
                 <th>CPM</th>
                 <th>Investimento</th>
                 <th>Impressões</th>
-                <th>Incluído</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody>
               {% for aud in audiencias %}
-              <tr class="{% if not aud.incluido_proposta %}opacity-50{% endif %}">
+              <tr>
                 <td>
                   <span class="cursor-pointer hover:text-primary hover:underline" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
                     {{ aud.audiencia_nome }}
@@ -768,10 +766,6 @@ function renderizarAnexos(anexos) {
                 </td>
                 <td>{{ "{:,}".format(aud.impressoes_estimadas).replace(',', '.') if aud.impressoes_estimadas else '-' }}</td>
                 <td>
-                  <input type="checkbox" class="toggle toggle-sm" {% if aud.incluido_proposta %}checked{% endif %} 
-                         onchange="toggleIncluirAudiencia({{ aud.id }}, this.checked)">
-                </td>
-                <td>
                   <button onclick="removerAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost text-error" title="Remover">
                     <i class="fas fa-trash"></i>
                   </button>
@@ -785,13 +779,13 @@ function renderizarAnexos(anexos) {
                 <td>
                   {% set total_inv = namespace(value=0) %}
                   {% for aud in audiencias %}
-                    {% if aud.incluido_proposta and aud.investimento_sugerido %}
+                    {% if aud.investimento_sugerido %}
                       {% set total_inv.value = total_inv.value + aud.investimento_sugerido %}
                     {% endif %}
                   {% endfor %}
                   R$ {{ "{:,.2f}".format(total_inv.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
                 </td>
-                <td colspan="3"></td>
+                <td colspan="2"></td>
               </tr>
             </tfoot>
           </table>

@@ -3917,6 +3917,99 @@ def init_routes(app):
             vendedores = db.obter_vendedores()
             return render_template('cadu_cotacoes.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores)
 
+    # ==================== CRM PIPELINE ====================
+
+    @app.route('/crm/pipeline')
+    @login_required
+    def crm_pipeline():
+        """Pipeline Kanban de cotações para acompanhamento comercial"""
+        try:
+            # Coletar filtros da query string
+            filtros = {
+                'executivo_id': request.args.get('executivo_id', type=int),
+                'cliente_id': request.args.get('cliente_id', type=int),
+                'periodo_inicio': request.args.get('periodo_inicio'),
+                'periodo_fim': request.args.get('periodo_fim'),
+                'valor_min': request.args.get('valor_min', type=float),
+                'valor_max': request.args.get('valor_max', type=float)
+            }
+            
+            # Remover filtros vazios
+            filtros = {k: v for k, v in filtros.items() if v is not None and v != ''}
+            
+            # Obter cotações agrupadas por status
+            colunas = db.obter_cotacoes_pipeline(filtros)
+            
+            # Obter listas para filtros
+            vendedores = db.obter_vendedores()
+            clientes = db.obter_clientes_para_filtro()
+            
+            # Calcular totais por coluna
+            totais = {
+                status: {
+                    'count': len(cotacoes),
+                    'valor': sum(c.get('valor_total_proposta') or 0 for c in cotacoes)
+                }
+                for status, cotacoes in colunas.items()
+            }
+            
+            return render_template('crm_pipeline.html',
+                                 colunas=colunas,
+                                 totais=totais,
+                                 vendedores=vendedores,
+                                 clientes=clientes,
+                                 filtros=filtros)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar pipeline: {str(e)}", exc_info=True)
+            flash('Erro ao carregar pipeline.', 'error')
+            return redirect(url_for('cotacoes_list'))
+
+    @app.route('/api/crm/pipeline/cotacao/<int:cotacao_id>')
+    @login_required
+    def api_pipeline_cotacao_detalhes(cotacao_id):
+        """API para obter detalhes de uma cotação no modal do pipeline"""
+        try:
+            cotacao = db.obter_cotacao_detalhes_pipeline(cotacao_id)
+            
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            # Serializar datas para JSON
+            def serialize_date(d):
+                if d:
+                    return d.isoformat() if hasattr(d, 'isoformat') else str(d)
+                return None
+            
+            # Preparar dados para resposta
+            dados = {
+                'id': cotacao['id'],
+                'numero_cotacao': cotacao['numero_cotacao'],
+                'nome_campanha': cotacao['nome_campanha'],
+                'status': cotacao['status'],
+                'valor_total_proposta': float(cotacao.get('valor_total_proposta') or 0),
+                'cliente_nome': cotacao.get('cliente_nome'),
+                'executivo_nome': cotacao.get('executivo_nome'),
+                'contato_nome': cotacao.get('contato_nome'),
+                'contato_email': cotacao.get('contato_email'),
+                'objetivo_campanha': cotacao.get('objetivo_campanha'),
+                'observacoes': cotacao.get('observacoes'),
+                'observacoes_internas': cotacao.get('observacoes_internas'),
+                'periodo_inicio': serialize_date(cotacao.get('periodo_inicio')),
+                'periodo_fim': serialize_date(cotacao.get('periodo_fim')),
+                'created_at': serialize_date(cotacao.get('created_at')),
+                'updated_at': serialize_date(cotacao.get('updated_at')),
+                'proposta_enviada_em': serialize_date(cotacao.get('proposta_enviada_em')),
+                'aprovada_em': serialize_date(cotacao.get('aprovada_em')),
+                'itens': cotacao.get('itens', []),
+                'briefing': cotacao.get('briefing'),
+                'anexos': cotacao.get('anexos', [])
+            }
+            
+            return jsonify({'success': True, 'cotacao': dados})
+        except Exception as e:
+            app.logger.error(f"Erro ao obter detalhes cotação: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/cotacoes/nova', methods=['GET', 'POST'])
     @login_required
     def cotacao_nova():

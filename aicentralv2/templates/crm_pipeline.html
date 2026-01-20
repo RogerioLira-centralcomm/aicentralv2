@@ -1,0 +1,708 @@
+{% extends 'base_tailwind.html' %}
+{% block title %}Pipeline CRM - CentralX{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <!-- Header com Filtros (fixo) -->
+  <div class="bg-base-100 shadow-sm rounded-lg p-4 mb-4 sticky top-0 z-40">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-primary">
+          <i class="fa-solid fa-chart-bar mr-2"></i>Pipeline CRM
+        </h1>
+        <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost btn-sm">
+          <i class="fa-solid fa-list mr-1"></i>Lista
+        </a>
+      </div>
+      
+      <!-- Filtros -->
+      <form id="filtros_form" method="GET" action="{{ url_for('crm_pipeline') }}" class="flex flex-wrap items-end gap-2">
+        <!-- Executivo (Obrigatório) -->
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Executivo*</label>
+          <select name="executivo_id" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; min-width: 200px;">
+            <option value="">Todos os executivos</option>
+            {% for vendedor in vendedores %}
+              <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+                {{ vendedor.nome_completo }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <!-- Período -->
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold" style="color: #374151;">De</label>
+          <div class="join" style="border: 2px solid #333; border-radius: 4px;">
+            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()" style="border: none;">
+              <i class="fa-solid fa-calendar" style="color: #374151;"></i>
+            </button>
+            <input type="date" id="periodo_inicio" name="periodo_inicio" value="{{ filtros.get('periodo_inicio', '') }}"
+                   class="join-item" style="padding: 8px 12px; border: none; font-size: 14px; background-color: white; color: black; outline: none;">
+          </div>
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Até</label>
+          <div class="join" style="border: 2px solid #333; border-radius: 4px;">
+            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()" style="border: none;">
+              <i class="fa-solid fa-calendar" style="color: #374151;"></i>
+            </button>
+            <input type="date" id="periodo_fim" name="periodo_fim" value="{{ filtros.get('periodo_fim', '') }}"
+                   class="join-item" style="padding: 8px 12px; border: none; font-size: 14px; background-color: white; color: black; outline: none;">
+          </div>
+        </div>
+        
+        <!-- Valor -->
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Valor mín</label>
+          <input type="text" id="valor_min_display" placeholder="0,00" oninput="formatarMoedaFiltro(this, 'valor_min')"
+                 value="{{ "%.2f"|format(filtros.get('valor_min', 0))|replace('.', ',')|replace(',00', '') if filtros.get('valor_min') else '' }}"
+                 style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; width: 120px;">
+          <input type="hidden" id="valor_min" name="valor_min" value="{{ filtros.get('valor_min', '') }}">
+        </div>
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold" style="color: #374151;">Valor máx</label>
+          <input type="text" id="valor_max_display" placeholder="∞" oninput="formatarMoedaFiltro(this, 'valor_max')"
+                 value="{{ "%.2f"|format(filtros.get('valor_max', 0))|replace('.', ',')|replace(',00', '') if filtros.get('valor_max') else '' }}"
+                 style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; width: 120px;">
+          <input type="hidden" id="valor_max" name="valor_max" value="{{ filtros.get('valor_max', '') }}">
+        </div>
+        
+        <!-- Botões -->
+        <div class="form-control">
+          <label class="label py-0 text-xs font-semibold" style="color: transparent;">&nbsp;</label>
+          <div class="flex gap-1">
+            <button type="submit" class="btn btn-sm text-white" style="background-color: #72cd80; height: 38px;">
+              <i class="fa-solid fa-filter mr-1"></i>Filtrar
+            </button>
+            <a href="{{ url_for('crm_pipeline') }}" class="btn btn-ghost btn-sm" style="height: 38px;">
+              <i class="fa-solid fa-times"></i>
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Aviso se não houver executivo selecionado -->
+  {% if not filtros.get('executivo_id') %}
+  <div class="alert alert-info mb-4">
+    <i class="fa-solid fa-info-circle"></i>
+    <span>Selecione um executivo para visualizar o pipeline personalizado.</span>
+  </div>
+  {% endif %}
+
+  <!-- Kanban Board -->
+  <div class="flex gap-3 overflow-x-auto pb-4" style="min-height: calc(100vh - 250px);">
+    {% set status_config = {
+      'Rascunho': {'icon': 'fa-file-pen', 'color': 'badge-ghost', 'bg': 'bg-base-200'},
+      'Em Análise': {'icon': 'fa-magnifying-glass', 'color': 'badge-info', 'bg': 'bg-info/10'},
+      'Enviada': {'icon': 'fa-paper-plane', 'color': 'badge-primary', 'bg': 'bg-primary/10'},
+      'Negociação': {'icon': 'fa-handshake', 'color': 'badge-warning', 'bg': 'bg-warning/10'},
+      'Aprovada': {'icon': 'fa-circle-check', 'color': 'badge-success', 'bg': 'bg-success/10'},
+      'Rejeitada': {'icon': 'fa-circle-xmark', 'color': 'badge-error', 'bg': 'bg-error/10'}
+    } %}
+    
+    {% for status, cotacoes in colunas.items() %}
+    <div class="kanban-column flex flex-col min-w-[280px] max-w-[320px] {{ status_config[status].bg }} rounded-lg"
+         data-status="{{ status }}"
+         ondragover="handleColumnDragOver(event)"
+         ondragleave="handleColumnDragLeave(event)"
+         ondrop="handleColumnDrop(event)">
+      
+      <!-- Header da Coluna -->
+      <div class="flex items-center justify-between p-3 border-b border-base-300 sticky top-0 {{ status_config[status].bg }} rounded-t-lg z-10">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid {{ status_config[status].icon }} text-sm"></i>
+          <h3 class="font-semibold text-sm">{{ status }}</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="badge {{ status_config[status].color }} badge-sm">{{ cotacoes|length }}</span>
+          {% if totais[status].valor > 0 %}
+          <span class="text-xs text-base-content/60">R$ {{ "%.0f"|format(totais[status].valor / 1000) }}k</span>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Cards Container -->
+      <div class="flex-1 p-2 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 320px);">
+        {% for cotacao in cotacoes %}
+        <div class="kanban-card bg-base-100 rounded-lg p-3 shadow-sm cursor-grab hover:shadow-md transition-shadow border border-base-300"
+             draggable="true"
+             data-cotacao-id="{{ cotacao.id }}"
+             data-status="{{ status }}"
+             onclick="abrirModalCotacao({{ cotacao.id }})"
+             ondragstart="handleCardDragStart(event)"
+             ondragend="handleCardDragEnd(event)">
+          
+          <!-- Número + Badge dias -->
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-mono text-xs text-primary font-semibold">{{ cotacao.numero_cotacao }}</span>
+            {% if cotacao.dias_na_fase > 3 %}
+            <span class="badge badge-warning badge-xs">{{ cotacao.dias_na_fase }}d</span>
+            {% elif cotacao.dias_na_fase > 0 %}
+            <span class="badge badge-ghost badge-xs">{{ cotacao.dias_na_fase }}d</span>
+            {% endif %}
+          </div>
+          
+          <!-- Cliente -->
+          <p class="font-semibold text-sm truncate" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">
+            {{ cotacao.cliente_nome or 'Sem cliente' }}
+          </p>
+          
+          <!-- Campanha -->
+          <p class="text-xs text-base-content/70 truncate" title="{{ cotacao.nome_campanha }}">
+            {{ cotacao.nome_campanha }}
+          </p>
+          
+          <!-- Footer: Executivo + Valor + Briefing -->
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-base-200">
+            <div class="flex items-center gap-1">
+              <!-- Avatar executivo -->
+              <div class="avatar placeholder">
+                <div class="bg-neutral text-neutral-content rounded-full w-5 h-5">
+                  <span class="text-xs">{{ (cotacao.executivo_nome or 'N')[0] }}</span>
+                </div>
+              </div>
+              <span class="text-xs text-base-content/60 truncate max-w-[80px]" title="{{ cotacao.executivo_nome }}">
+                {{ cotacao.executivo_nome|default('N/A') }}
+              </span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              {% if cotacao.tem_briefing %}
+              <i class="fa-solid fa-file-lines text-xs text-info" title="Tem briefing"></i>
+              {% endif %}
+              <span class="text-sm font-semibold text-success">
+                R$ {{ "%.0f"|format(cotacao.valor_total_proposta or 0) }}
+              </span>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <!-- Coluna vazia -->
+        <div class="text-center py-8 text-base-content/40">
+          <i class="fa-solid fa-inbox text-2xl mb-2"></i>
+          <p class="text-xs">Nenhuma cotação</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Modal Detalhes Cotação -->
+<dialog id="modal_cotacao" class="modal">
+  <div class="modal-box w-11/12 max-w-4xl">
+    <!-- Header do Modal -->
+    <div class="flex items-center justify-between border-b pb-3 mb-4">
+      <div>
+        <h3 class="font-bold text-lg" id="modal_titulo">Carregando...</h3>
+        <p class="text-sm text-base-content/60" id="modal_subtitulo"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="badge badge-lg" id="modal_status_badge">-</span>
+        <span class="text-xl font-bold text-success" id="modal_valor">R$ 0</span>
+      </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs tabs-boxed mb-4" id="modal_tabs">
+      <a class="tab tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">
+        <i class="fa-solid fa-info-circle mr-1"></i>Resumo
+      </a>
+      <a class="tab" data-tab="itens" onclick="trocarAbaModal('itens')">
+        <i class="fa-solid fa-list-check mr-1"></i>Itens
+      </a>
+      <a class="tab" data-tab="briefing" onclick="trocarAbaModal('briefing')">
+        <i class="fa-solid fa-file-lines mr-1"></i>Briefing
+      </a>
+      <a class="tab" data-tab="historico" onclick="trocarAbaModal('historico')">
+        <i class="fa-solid fa-clock-rotate-left mr-1"></i>Histórico
+      </a>
+      <a class="tab" data-tab="arquivos" onclick="trocarAbaModal('arquivos')">
+        <i class="fa-solid fa-paperclip mr-1"></i>Arquivos
+      </a>
+    </div>
+    
+    <!-- Conteúdo das Abas -->
+    <div id="modal_content" class="min-h-[300px]">
+      <!-- Aba Resumo -->
+      <div id="tab_resumo" class="modal-tab-content">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Cliente</label>
+              <p class="font-semibold" id="resumo_cliente">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Campanha</label>
+              <p id="resumo_campanha">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Objetivo</label>
+              <p class="text-sm" id="resumo_objetivo">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Período</label>
+              <p id="resumo_periodo">-</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Executivo</label>
+              <p id="resumo_executivo">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Contato</label>
+              <p id="resumo_contato">-</p>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-base-content/60">Observações</label>
+              <p class="text-sm" id="resumo_observacoes">-</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Timeline -->
+        <div class="mt-6 pt-4 border-t">
+          <h4 class="font-semibold mb-3"><i class="fa-solid fa-timeline mr-2"></i>Timeline</h4>
+          <ul class="timeline timeline-vertical timeline-compact" id="resumo_timeline">
+            <li class="text-sm text-base-content/60">Carregando...</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Aba Itens -->
+      <div id="tab_itens" class="modal-tab-content hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Produto/Serviço</th>
+                <th class="text-right">Qtd</th>
+                <th class="text-right">Valor Unit.</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody id="itens_tbody">
+              <tr><td colspan="4" class="text-center">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Aba Briefing -->
+      <div id="tab_briefing" class="modal-tab-content hidden">
+        <div id="briefing_content">
+          <p class="text-center text-base-content/60 py-8">Nenhum briefing vinculado</p>
+        </div>
+      </div>
+      
+      <!-- Aba Histórico -->
+      <div id="tab_historico" class="modal-tab-content hidden">
+        <div id="historico_content">
+          <p class="text-center text-base-content/60 py-8">Histórico será implementado em breve</p>
+        </div>
+        
+        <!-- Adicionar Comentário -->
+        <div class="mt-4 pt-4 border-t">
+          <label class="text-sm font-semibold">Adicionar comentário</label>
+          <div class="flex gap-2 mt-2">
+            <textarea id="novo_comentario" class="textarea textarea-bordered flex-1" rows="2" placeholder="Digite seu comentário..."></textarea>
+            <button class="btn btn-primary btn-sm self-end" onclick="adicionarComentario()">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Aba Arquivos -->
+      <div id="tab_arquivos" class="modal-tab-content hidden">
+        <div id="arquivos_content">
+          <p class="text-center text-base-content/60 py-8">Nenhum arquivo anexado</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer do Modal -->
+    <div class="modal-action border-t pt-4">
+      <div class="flex items-center gap-2 flex-1">
+        <!-- Mover Fase -->
+        <select id="modal_mover_status" class="select select-bordered select-sm" onchange="moverCotacaoStatus(this.value)">
+          <option value="">Mover para...</option>
+          <option value="Rascunho">Rascunho</option>
+          <option value="Em Análise">Em Análise</option>
+          <option value="Enviada">Enviada</option>
+          <option value="Negociação">Negociação</option>
+          <option value="Aprovada">✓ Aprovada</option>
+          <option value="Rejeitada">✗ Rejeitada</option>
+        </select>
+        
+        <a id="modal_link_editar" href="#" class="btn btn-ghost btn-sm">
+          <i class="fa-solid fa-pen mr-1"></i>Editar
+        </a>
+      </div>
+      
+      <form method="dialog">
+        <button class="btn btn-ghost">Fechar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<style>
+/* Kanban styles */
+.kanban-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+}
+
+.kanban-column.drag-over {
+  background-color: rgba(114, 205, 128, 0.1) !important;
+  border: 2px dashed #72cd80;
+}
+
+.modal-tab-content.hidden {
+  display: none;
+}
+
+/* Timeline compact */
+.timeline-compact .timeline-start,
+.timeline-compact .timeline-end {
+  padding: 0.25rem;
+}
+</style>
+
+<script>
+// ==================== DRAG & DROP ====================
+let draggedCard = null;
+let draggedCotacaoId = null;
+let originalStatus = null;
+
+function handleCardDragStart(event) {
+  event.stopPropagation();
+  draggedCard = event.target;
+  draggedCotacaoId = event.target.dataset.cotacaoId;
+  originalStatus = event.target.dataset.status;
+  event.target.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', draggedCotacaoId);
+}
+
+function handleCardDragEnd(event) {
+  event.target.classList.remove('dragging');
+  draggedCard = null;
+}
+
+function handleColumnDragOver(event) {
+  event.preventDefault();
+  event.currentTarget.classList.add('drag-over');
+}
+
+function handleColumnDragLeave(event) {
+  event.currentTarget.classList.remove('drag-over');
+}
+
+function handleColumnDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+  
+  if (!draggedCard || !draggedCotacaoId) return;
+  
+  const novoStatus = event.currentTarget.dataset.status;
+  
+  // Se for o mesmo status, não fazer nada
+  if (novoStatus === originalStatus) return;
+  
+  // Optimistic update - mover card visualmente
+  const container = event.currentTarget.querySelector('.space-y-2');
+  container.appendChild(draggedCard);
+  draggedCard.dataset.status = novoStatus;
+  
+  // Atualizar contadores
+  atualizarContadores();
+  
+  // Chamar API
+  atualizarStatusCotacao(draggedCotacaoId, novoStatus, originalStatus);
+}
+
+async function atualizarStatusCotacao(cotacaoId, novoStatus, statusAnterior) {
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast('Status atualizado!', 'success');
+    } else {
+      showToast(result.message || 'Erro ao atualizar!', 'error');
+      // Rollback - recarregar página
+      location.reload();
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao atualizar status!', 'error');
+    location.reload();
+  }
+}
+
+function atualizarContadores() {
+  document.querySelectorAll('.kanban-column').forEach(col => {
+    const cards = col.querySelectorAll('.kanban-card').length;
+    const badge = col.querySelector('.badge');
+    if (badge) badge.textContent = cards;
+  });
+}
+
+// ==================== MODAL ====================
+let cotacaoAtualId = null;
+
+async function abrirModalCotacao(cotacaoId) {
+  cotacaoAtualId = cotacaoId;
+  const modal = document.getElementById('modal_cotacao');
+  
+  // Mostrar modal com loading
+  document.getElementById('modal_titulo').textContent = 'Carregando...';
+  document.getElementById('modal_subtitulo').textContent = '';
+  modal.showModal();
+  
+  try {
+    const response = await fetch(`/api/crm/pipeline/cotacao/${cotacaoId}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      preencherModal(result.cotacao);
+    } else {
+      showToast(result.message || 'Erro ao carregar cotação', 'error');
+      modal.close();
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao carregar cotação', 'error');
+    modal.close();
+  }
+}
+
+function preencherModal(cotacao) {
+  // Header
+  document.getElementById('modal_titulo').textContent = cotacao.numero_cotacao;
+  document.getElementById('modal_subtitulo').textContent = cotacao.cliente_nome || 'Sem cliente';
+  document.getElementById('modal_valor').textContent = `R$ ${formatarMoeda(cotacao.valor_total_proposta)}`;
+  
+  // Status badge
+  const statusBadge = document.getElementById('modal_status_badge');
+  statusBadge.textContent = cotacao.status;
+  statusBadge.className = 'badge badge-lg ' + getStatusBadgeClass(cotacao.status);
+  
+  // Aba Resumo
+  document.getElementById('resumo_cliente').textContent = cotacao.cliente_nome || '-';
+  document.getElementById('resumo_campanha').textContent = cotacao.nome_campanha || '-';
+  document.getElementById('resumo_objetivo').textContent = cotacao.objetivo_campanha || '-';
+  document.getElementById('resumo_executivo').textContent = cotacao.executivo_nome || '-';
+  document.getElementById('resumo_contato').textContent = cotacao.contato_nome ? 
+    `${cotacao.contato_nome} (${cotacao.contato_email || ''})` : '-';
+  document.getElementById('resumo_observacoes').textContent = cotacao.observacoes || '-';
+  
+  // Período
+  let periodo = '-';
+  if (cotacao.periodo_inicio) {
+    periodo = formatarData(cotacao.periodo_inicio);
+    if (cotacao.periodo_fim) {
+      periodo += ' a ' + formatarData(cotacao.periodo_fim);
+    }
+  }
+  document.getElementById('resumo_periodo').textContent = periodo;
+  
+  // Timeline
+  const timeline = document.getElementById('resumo_timeline');
+  let timelineHtml = '';
+  if (cotacao.created_at) {
+    timelineHtml += `<li><span class="text-sm">Criada em ${formatarDataHora(cotacao.created_at)}</span></li>`;
+  }
+  if (cotacao.proposta_enviada_em) {
+    timelineHtml += `<li><span class="text-sm text-primary">Proposta enviada em ${formatarDataHora(cotacao.proposta_enviada_em)}</span></li>`;
+  }
+  if (cotacao.aprovada_em) {
+    timelineHtml += `<li><span class="text-sm text-success">Aprovada em ${formatarDataHora(cotacao.aprovada_em)}</span></li>`;
+  }
+  timeline.innerHTML = timelineHtml || '<li class="text-sm text-base-content/60">Sem eventos</li>';
+  
+  // Aba Itens
+  const tbody = document.getElementById('itens_tbody');
+  if (cotacao.itens && cotacao.itens.length > 0) {
+    tbody.innerHTML = cotacao.itens.map(item => `
+      <tr>
+        <td>${item.descricao || item.produto || '-'}</td>
+        <td class="text-right">${item.quantidade || 1}</td>
+        <td class="text-right">R$ ${formatarMoeda(item.valor_unitario || 0)}</td>
+        <td class="text-right font-semibold">R$ ${formatarMoeda(item.valor_total || 0)}</td>
+      </tr>
+    `).join('');
+  } else {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-base-content/60">Nenhum item</td></tr>';
+  }
+  
+  // Aba Briefing
+  const briefingContent = document.getElementById('briefing_content');
+  if (cotacao.briefing) {
+    briefingContent.innerHTML = `
+      <div class="card bg-base-200">
+        <div class="card-body">
+          <h4 class="font-semibold">${cotacao.briefing.nome}</h4>
+          <p class="text-sm">Status: <span class="badge badge-sm">${cotacao.briefing.status}</span></p>
+          <a href="/briefings/${cotacao.briefing.id}" class="btn btn-primary btn-sm mt-2" target="_blank">
+            <i class="fa-solid fa-external-link mr-1"></i>Ver Briefing
+          </a>
+        </div>
+      </div>
+    `;
+  } else {
+    briefingContent.innerHTML = '<p class="text-center text-base-content/60 py-8">Nenhum briefing vinculado</p>';
+  }
+  
+  // Aba Arquivos
+  const arquivosContent = document.getElementById('arquivos_content');
+  if (cotacao.anexos && cotacao.anexos.length > 0) {
+    arquivosContent.innerHTML = `
+      <ul class="space-y-2">
+        ${cotacao.anexos.map(a => `
+          <li class="flex items-center justify-between p-2 bg-base-200 rounded">
+            <span><i class="fa-solid fa-file mr-2"></i>${a.nome_arquivo || a.filename}</span>
+            <a href="/cotacoes/anexos/${a.id}/download" class="btn btn-ghost btn-xs">
+              <i class="fa-solid fa-download"></i>
+            </a>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  } else {
+    arquivosContent.innerHTML = '<p class="text-center text-base-content/60 py-8">Nenhum arquivo anexado</p>';
+  }
+  
+  // Link editar
+  document.getElementById('modal_link_editar').href = `/cotacoes/${cotacao.id}/editar`;
+  
+  // Select status
+  document.getElementById('modal_mover_status').value = '';
+  
+  // Resetar para aba resumo
+  trocarAbaModal('resumo');
+}
+
+function trocarAbaModal(tab) {
+  // Atualizar tabs
+  document.querySelectorAll('#modal_tabs .tab').forEach(t => {
+    t.classList.toggle('tab-active', t.dataset.tab === tab);
+  });
+  
+  // Atualizar conteúdo
+  document.querySelectorAll('.modal-tab-content').forEach(c => {
+    c.classList.toggle('hidden', c.id !== `tab_${tab}`);
+  });
+}
+
+async function moverCotacaoStatus(novoStatus) {
+  if (!novoStatus || !cotacaoAtualId) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast('Status atualizado!', 'success');
+      document.getElementById('modal_cotacao').close();
+      location.reload();
+    } else {
+      showToast(result.message || 'Erro!', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao atualizar!', 'error');
+  }
+}
+
+function adicionarComentario() {
+  const texto = document.getElementById('novo_comentario').value.trim();
+  if (!texto) {
+    showToast('Digite um comentário', 'warning');
+    return;
+  }
+  // TODO: Implementar API de comentários
+  showToast('Funcionalidade em desenvolvimento', 'info');
+}
+
+// ==================== UTILS ====================
+function formatarMoeda(valor) {
+  return (valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatarMoedaFiltro(input, hiddenFieldId) {
+  let value = input.value.replace(/\D/g, '');
+  
+  if (value === '') {
+    input.value = '';
+    document.getElementById(hiddenFieldId).value = '';
+    return;
+  }
+  
+  // Converter para número com 2 casas decimais
+  value = (parseInt(value, 10) / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  
+  input.value = value;
+  
+  // Armazenar valor numérico no campo hidden para enviar ao backend
+  const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+  document.getElementById(hiddenFieldId).value = valorNumerico;
+}
+
+function formatarData(dataStr) {
+  if (!dataStr) return '-';
+  const d = new Date(dataStr);
+  return d.toLocaleDateString('pt-BR');
+}
+
+function formatarDataHora(dataStr) {
+  if (!dataStr) return '-';
+  const d = new Date(dataStr);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getStatusBadgeClass(status) {
+  const classes = {
+    'Rascunho': 'badge-ghost',
+    'Em Análise': 'badge-info',
+    'Enviada': 'badge-primary',
+    'Negociação': 'badge-warning',
+    'Aprovada': 'badge-success',
+    'Rejeitada': 'badge-error'
+  };
+  return classes[status] || 'badge-ghost';
+}
+
+// ==================== ATALHOS DE TECLADO ====================
+document.addEventListener('keydown', function(e) {
+  // ESC fecha modal
+  if (e.key === 'Escape') {
+    document.getElementById('modal_cotacao').close();
+  }
+});
+</script>
+{% endblock %}

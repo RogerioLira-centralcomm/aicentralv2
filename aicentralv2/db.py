@@ -6279,3 +6279,217 @@ def obter_executivos_comerciais():
         current_app.logger.error(f"Erro ao obter executivos: {e}")
         return []
 
+
+# ==================== CRM PIPELINE - KANBAN ====================
+
+def obter_cotacoes_pipeline(filtros=None):
+    """
+    Retorna cotações para o pipeline Kanban, agrupadas por status.
+    
+    Args:
+        filtros (dict): Filtros opcionais:
+            - executivo_id: ID do responsável comercial
+            - cliente_id: ID do cliente
+            - periodo_inicio: Data início
+            - periodo_fim: Data fim
+            - valor_min: Valor mínimo
+            - valor_max: Valor máximo
+    
+    Returns:
+        dict: Cotações agrupadas por status (colunas do Kanban)
+    """
+    conn = get_db()
+    filtros = filtros or {}
+    
+    try:
+        with conn.cursor() as cursor:
+            # Query base com cálculo de dias na fase
+            sql = '''
+                SELECT 
+                    cot.id,
+                    cot.numero_cotacao,
+                    cot.nome_campanha,
+                    cot.status,
+                    cot.valor_total_proposta,
+                    cot.responsavel_comercial,
+                    cot.client_id,
+                    cot.briefing_id,
+                    cot.created_at,
+                    cot.updated_at,
+                    cot.proposta_enviada_em,
+                    cot.aprovada_em,
+                    -- Calcular dias na fase atual
+                    EXTRACT(DAY FROM (NOW() - COALESCE(cot.updated_at, cot.created_at)))::INTEGER as dias_na_fase,
+                    -- Dados do cliente
+                    cli.nome_fantasia as cliente_nome,
+                    cli.razao_social as cliente_razao,
+                    -- Dados do executivo
+                    exec.nome_completo as executivo_nome,
+                    -- Verificar se tem briefing
+                    CASE WHEN cot.briefing_id IS NOT NULL THEN true ELSE false END as tem_briefing
+                FROM cadu_cotacoes cot
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
+                LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
+                WHERE cot.deleted_at IS NULL
+            '''
+            
+            params = []
+            
+            # Aplicar filtros
+            if filtros.get('executivo_id'):
+                sql += ' AND cot.responsavel_comercial = %s'
+                params.append(int(filtros['executivo_id']))
+            
+            if filtros.get('cliente_id'):
+                sql += ' AND cot.client_id = %s'
+                params.append(int(filtros['cliente_id']))
+            
+            if filtros.get('periodo_inicio'):
+                sql += ' AND cot.created_at >= %s'
+                params.append(filtros['periodo_inicio'])
+            
+            if filtros.get('periodo_fim'):
+                sql += ' AND cot.created_at <= %s'
+                params.append(filtros['periodo_fim'])
+            
+            if filtros.get('valor_min'):
+                sql += ' AND COALESCE(cot.valor_total_proposta, 0) >= %s'
+                params.append(float(filtros['valor_min']))
+            
+            if filtros.get('valor_max'):
+                sql += ' AND COALESCE(cot.valor_total_proposta, 0) <= %s'
+                params.append(float(filtros['valor_max']))
+            
+            # Ordenar por data de atualização (mais recentes primeiro)
+            sql += ' ORDER BY cot.updated_at DESC NULLS LAST'
+            
+            cursor.execute(sql, params)
+            cotacoes = cursor.fetchall()
+            
+            # Agrupar por status (colunas do Kanban)
+            colunas = {
+                'Rascunho': [],
+                'Em Análise': [],
+                'Enviada': [],
+                'Negociação': [],
+                'Aprovada': [],
+                'Rejeitada': []
+            }
+            
+            for cot in cotacoes:
+                status = cot.get('status') or 'Rascunho'
+                # Tratar status antigo 'Pendente' como 'Rascunho'
+                if status == 'Pendente':
+                    status = 'Rascunho'
+                # Ignorar 'Expirada' no pipeline (opcional: pode adicionar coluna)
+                if status in colunas:
+                    colunas[status].append(cot)
+            
+            return colunas
+            
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter cotações pipeline: {e}")
+        return {
+            'Rascunho': [],
+            'Em Análise': [],
+            'Enviada': [],
+            'Negociação': [],
+            'Aprovada': [],
+            'Rejeitada': []
+        }
+
+
+def obter_cotacao_detalhes_pipeline(cotacao_id):
+    """
+    Retorna detalhes completos de uma cotação para o modal do pipeline.
+    Inclui itens, briefing, histórico e anexos.
+    
+    Args:
+        cotacao_id (int): ID da cotação
+    
+    Returns:
+        dict: Dados completos da cotação
+    """
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            # Dados principais da cotação
+            cursor.execute('''
+                SELECT 
+                    cot.*,
+                    cli.nome_fantasia as cliente_nome,
+                    cli.razao_social as cliente_razao,
+                    exec.nome_completo as executivo_nome,
+                    exec.email as executivo_email,
+                    contact.nome_completo as contato_nome,
+                    contact.email as contato_email
+                FROM cadu_cotacoes cot
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
+                LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
+                LEFT JOIN tbl_contato_cliente contact ON contact.id_contato_cliente = cot.client_user_id
+                WHERE cot.id = %s AND cot.deleted_at IS NULL
+            ''', (cotacao_id,))
+            cotacao = cursor.fetchone()
+            
+            if not cotacao:
+                return None
+            
+            # Itens da cotação
+            cursor.execute('''
+                SELECT * FROM cadu_cotacao_linhas
+                WHERE cotacao_id = %s
+                ORDER BY id
+            ''', (cotacao_id,))
+            cotacao['itens'] = cursor.fetchall()
+            
+            # Briefing vinculado (se houver)
+            if cotacao.get('briefing_id'):
+                cursor.execute('''
+                    SELECT id, nome, status, created_at
+                    FROM cadu_briefings
+                    WHERE id = %s
+                ''', (cotacao['briefing_id'],))
+                cotacao['briefing'] = cursor.fetchone()
+            else:
+                cotacao['briefing'] = None
+            
+            # Anexos
+            cursor.execute('''
+                SELECT * FROM cadu_cotacao_anexos
+                WHERE cotacao_id = %s
+                ORDER BY created_at DESC
+            ''', (cotacao_id,))
+            cotacao['anexos'] = cursor.fetchall()
+            
+            return cotacao
+            
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter detalhes cotação pipeline: {e}")
+        return None
+
+
+def obter_clientes_para_filtro():
+    """
+    Retorna lista simplificada de clientes para uso em filtros.
+    
+    Returns:
+        list: Lista de dicts com id e nome dos clientes
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    id_cliente,
+                    nome_fantasia,
+                    razao_social
+                FROM tbl_cliente
+                ORDER BY nome_fantasia
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter clientes para filtro: {e}")
+        return []
+
+

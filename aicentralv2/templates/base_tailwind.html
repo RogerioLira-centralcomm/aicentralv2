@@ -276,6 +276,11 @@
                             </a>
                         </li>
                         <li>
+                            <a href="{{ url_for('crm_pipeline') }}" class="{% if request.endpoint == 'crm_pipeline' %}active{% endif %}">
+                                <span class="sidebar-text">Pipeline CRM</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
                                 <span class="sidebar-text">Leads &amp; Interesses</span>
                             </a>

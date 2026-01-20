@@ -6029,3 +6029,253 @@ def get_analytics_audiencias_funnel(days=30):
             'taxa_carrinho': 0,
             'taxa_cotacao': 0
         }
+
+
+# ==================== CLIENTES - LISTAGEM OTIMIZADA ====================
+
+def obter_clientes_paginado(page=1, per_page=25, filtros=None):
+    """
+    Retorna clientes com paginação server-side e métricas mensais agregadas.
+    
+    Args:
+        page (int): Número da página (1-indexed)
+        per_page (int): Itens por página
+        filtros (dict): Filtros opcionais (executivo_id, status, search, categoria_abc)
+    
+    Returns:
+        dict: {
+            'clientes': lista de clientes com métricas,
+            'total': total de registros,
+            'pages': total de páginas,
+            'page': página atual
+        }
+    """
+    conn = get_db()
+    filtros = filtros or {}
+    offset = (page - 1) * per_page
+    
+    try:
+        # Query base com métricas agregadas do mês atual
+        base_query = '''
+            WITH metricas_mes AS (
+                SELECT 
+                    cli.id_cliente,
+                    -- Cotações do mês
+                    COUNT(DISTINCT cot.id) FILTER (
+                        WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                    ) AS cotacoes_mes,
+                    -- Cotações aprovadas do mês (status = '3' = Aprovada)
+                    COUNT(DISTINCT cot.id) FILTER (
+                        WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                        AND cot.status = '3'
+                    ) AS cotacoes_aprovadas_mes,
+                    -- Valor total aprovado no mês
+                    COALESCE(SUM(cot.valor_total_proposta) FILTER (
+                        WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                        AND cot.status = '3'
+                    ), 0) AS valor_aprovado_mes,
+                    -- Briefings do mês
+                    COUNT(DISTINCT b.id) FILTER (
+                        WHERE b.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                    ) AS briefings_mes,
+                    -- Briefings aceitos do mês (status = 'accepted' ou similar)
+                    COUNT(DISTINCT b.id) FILTER (
+                        WHERE b.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                        AND b.status IN ('accepted', 'aprovado', 'aceito')
+                    ) AS briefings_aceitos_mes
+                FROM tbl_cliente cli
+                LEFT JOIN cadu_cotacoes cot ON cot.client_id = cli.id_cliente
+                LEFT JOIN cadu_briefings b ON b.cliente = cli.nome_fantasia
+                GROUP BY cli.id_cliente
+            )
+            SELECT 
+                cli.id_cliente,
+                cli.nome_fantasia,
+                cli.razao_social,
+                cli.cnpj,
+                cli.status,
+                cli.categoria_abc,
+                cli.vendas_central_comm,
+                vend.nome_completo AS executivo_nome,
+                COUNT(DISTINCT cont.id_contato_cliente) AS total_usuarios,
+                COALESCE(m.cotacoes_mes, 0) AS cotacoes_mes,
+                COALESCE(m.cotacoes_aprovadas_mes, 0) AS cotacoes_aprovadas_mes,
+                COALESCE(m.valor_aprovado_mes, 0) AS valor_aprovado_mes,
+                COALESCE(m.briefings_mes, 0) AS briefings_mes,
+                COALESCE(m.briefings_aceitos_mes, 0) AS briefings_aceitos_mes
+            FROM tbl_cliente cli
+            LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = cli.vendas_central_comm
+            LEFT JOIN tbl_contato_cliente cont ON cont.pk_id_tbl_cliente = cli.id_cliente
+            LEFT JOIN metricas_mes m ON m.id_cliente = cli.id_cliente
+            WHERE 1=1
+        '''
+        
+        params = []
+        count_params = []
+        
+        # Construir cláusulas WHERE
+        where_clauses = []
+        
+        if filtros.get('executivo_id'):
+            where_clauses.append('cli.vendas_central_comm = %s')
+            params.append(filtros['executivo_id'])
+            count_params.append(filtros['executivo_id'])
+        
+        if filtros.get('status') is not None:
+            where_clauses.append('cli.status = %s')
+            params.append(filtros['status'])
+            count_params.append(filtros['status'])
+        
+        if filtros.get('search'):
+            where_clauses.append('(cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)')
+            search_term = f"%{filtros['search']}%"
+            params.extend([search_term, search_term])
+            count_params.extend([search_term, search_term])
+        
+        if filtros.get('categoria_abc'):
+            where_clauses.append('cli.categoria_abc = %s')
+            params.append(filtros['categoria_abc'])
+            count_params.append(filtros['categoria_abc'])
+        
+        # Aplicar cláusulas WHERE
+        where_sql = ''
+        if where_clauses:
+            where_sql = ' AND ' + ' AND '.join(where_clauses)
+        
+        # Query principal com paginação
+        query = base_query + where_sql + '''
+            GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social, cli.cnpj, 
+                     cli.status, cli.categoria_abc, cli.vendas_central_comm, 
+                     vend.nome_completo, m.cotacoes_mes, m.cotacoes_aprovadas_mes,
+                     m.valor_aprovado_mes, m.briefings_mes, m.briefings_aceitos_mes
+            ORDER BY cli.nome_fantasia ASC
+            LIMIT %s OFFSET %s
+        '''
+        params.extend([per_page, offset])
+        
+        # Query de contagem
+        count_query = f'''
+            SELECT COUNT(*) FROM tbl_cliente cli WHERE 1=1 {where_sql}
+        '''
+        
+        with conn.cursor() as cursor:
+            # Obter total
+            cursor.execute(count_query, count_params)
+            total = cursor.fetchone()['count']
+            
+            # Obter clientes
+            cursor.execute(query, params)
+            clientes = cursor.fetchall()
+        
+        pages = (total + per_page - 1) // per_page  # Ceiling division
+        
+        return {
+            'clientes': clientes,
+            'total': total,
+            'pages': pages,
+            'page': page,
+            'per_page': per_page
+        }
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter clientes paginados: {e}")
+        raise
+
+
+def recategorizar_clientes_abc():
+    """
+    Recategoriza todos os clientes conforme regras ABC:
+    - A: aprovações >= R$200.000/mês
+    - B: ativo (tem briefings/cotações), < R$200k
+    - C: sem briefings/cotações no mês
+    
+    Returns:
+        dict: Resumo da recategorização {a: count, b: count, c: count}
+    """
+    conn = get_db()
+    LIMITE_A = 200000  # R$ 200.000,00
+    
+    try:
+        with conn.cursor() as cursor:
+            # 1. Calcular métricas do mês para cada cliente
+            cursor.execute('''
+                WITH metricas AS (
+                    SELECT 
+                        cli.id_cliente,
+                        COALESCE(SUM(cot.valor_total_proposta) FILTER (
+                            WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                            AND cot.status = '3'
+                        ), 0) AS valor_aprovado_mes,
+                        COUNT(DISTINCT cot.id) FILTER (
+                            WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                        ) AS cotacoes_mes,
+                        COUNT(DISTINCT b.id) FILTER (
+                            WHERE b.created_at >= DATE_TRUNC('month', CURRENT_DATE)
+                        ) AS briefings_mes
+                    FROM tbl_cliente cli
+                    LEFT JOIN cadu_cotacoes cot ON cot.client_id = cli.id_cliente
+                    LEFT JOIN cadu_briefings b ON b.cliente = cli.nome_fantasia
+                    GROUP BY cli.id_cliente
+                )
+                UPDATE tbl_cliente cli
+                SET categoria_abc = CASE
+                    WHEN m.valor_aprovado_mes >= %s THEN 'A'
+                    WHEN m.cotacoes_mes > 0 OR m.briefings_mes > 0 THEN 'B'
+                    ELSE 'C'
+                END
+                FROM metricas m
+                WHERE cli.id_cliente = m.id_cliente
+            ''', (LIMITE_A,))
+            
+            conn.commit()
+            
+            # 2. Contar resultado
+            cursor.execute('''
+                SELECT 
+                    categoria_abc,
+                    COUNT(*) as total
+                FROM tbl_cliente
+                GROUP BY categoria_abc
+                ORDER BY categoria_abc
+            ''')
+            resultados = cursor.fetchall()
+            
+            resumo = {'A': 0, 'B': 0, 'C': 0}
+            for r in resultados:
+                cat = r.get('categoria_abc') or 'C'
+                resumo[cat] = r.get('total', 0)
+            
+            return resumo
+            
+    except Exception as e:
+        conn.rollback()
+        current_app.logger.error(f"Erro ao recategorizar clientes: {e}")
+        raise
+
+
+def obter_executivos_comerciais():
+    """
+    Retorna lista de executivos comerciais (vendedores da CentralComm)
+    para uso no filtro de clientes.
+    
+    Returns:
+        list: Lista de dicts com id e nome dos executivos
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT DISTINCT
+                    c.id_contato_cliente,
+                    c.nome_completo
+                FROM tbl_contato_cliente c
+                INNER JOIN tbl_cliente cli ON cli.id_cliente = c.pk_id_tbl_cliente
+                WHERE cli.nome_fantasia ILIKE '%centralcomm%'
+                  AND c.status = true
+                ORDER BY c.nome_completo
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter executivos: {e}")
+        return []
+

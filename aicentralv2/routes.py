@@ -1029,7 +1029,7 @@ def init_routes(app):
     @app.route('/api/cliente/<int:cliente_id>/criar-contato', methods=['POST'])
     @login_required
     def api_criar_contato_cliente(cliente_id):
-        """API para criar contato do cliente"""
+        """API para criar contato do cliente com integração Brevo"""
         try:
             data = request.get_json()
             
@@ -1073,7 +1073,40 @@ def init_routes(app):
                 user_type=user_type
             )
             
-            # Registro de auditoria
+            # ==================== INTEGRAÇÃO BREVO ====================
+            # Sincronizar contato no Brevo após criação
+            brevo_result = None
+            try:
+                from aicentralv2.services.brevo_service import get_brevo_service, LISTA_USUARIOS_ATIVOS
+                
+                # Obter dados do cliente para contexto
+                cliente = db.obter_cliente_por_id(cliente_id)
+                cliente_nome = cliente.get('nome_fantasia', '') if cliente else ''
+                
+                brevo_service = get_brevo_service()
+                brevo_result = brevo_service.adicionar_contato(
+                    email=email,
+                    nome=nome_completo,
+                    atributos={
+                        'NOME': nome_completo,
+                        'EMPRESA': cliente_nome,
+                        'TELEFONE': telefone or '',
+                        'TIPO_USUARIO': user_type,
+                        'DATA_CADASTRO': datetime.now().strftime('%Y-%m-%d')
+                    },
+                    lista_ids=[LISTA_USUARIOS_ATIVOS]
+                )
+                
+                if brevo_result.get('success'):
+                    app.logger.info(f"Brevo: Contato {email} sincronizado com sucesso")
+                else:
+                    app.logger.warning(f"Brevo: Falha ao sincronizar contato {email}: {brevo_result.get('error')}")
+                    
+            except Exception as brevo_error:
+                app.logger.error(f"Brevo: Erro ao sincronizar contato {email}: {brevo_error}")
+                brevo_result = {'success': False, 'error': str(brevo_error)}
+            
+            # Registro de auditoria (inclui resultado Brevo)
             registrar_auditoria(
                 acao='CREATE',
                 modulo='CONTATOS',
@@ -1083,11 +1116,17 @@ def init_routes(app):
                 dados_novos={
                     'nome_completo': nome_completo,
                     'email': email,
-                    'cliente_id': cliente_id
+                    'cliente_id': cliente_id,
+                    'brevo_sync': brevo_result.get('success') if brevo_result else False
                 }
             )
             
-            return jsonify({'success': True, 'message': f'Contato "{nome_completo}" criado com sucesso!', 'contato_id': contato_id})
+            return jsonify({
+                'success': True, 
+                'message': f'Contato "{nome_completo}" criado com sucesso!', 
+                'contato_id': contato_id,
+                'brevo_synced': brevo_result.get('success') if brevo_result else False
+            })
             
         except ValueError as e:
             return jsonify({'success': False, 'message': str(e)}), 400
@@ -1769,97 +1808,45 @@ def init_routes(app):
     @app.route('/clientes')
     @login_required
     def clientes():
-        """Lista de clientes com estatísticas e filtro opcional por executivo."""
+        """Lista de clientes com paginação server-side, métricas mensais e filtros."""
         try:
-            conn = db.get_db()
-            if not conn:
-                raise Exception("Falha na conexão com o banco de dados")
-
-            with conn.cursor() as cursor:
-                # Estatísticas por tipo de pessoa
-                cursor.execute(
-                    """
-                    SELECT 
-                        pessoa,
-                        COUNT(*) as total,
-                        SUM(CASE WHEN status = TRUE THEN 1 ELSE 0 END) as ativos
-                    FROM tbl_cliente 
-                    GROUP BY pessoa
-                    """
-                )
-                pessoas = cursor.fetchall() or []
-
-                pessoas_stats = {
-                    'fisica': {'total': 0, 'ativos': 0},
-                    'juridica': {'total': 0, 'ativos': 0}
-                }
-                for p in pessoas:
-                    if p.get('pessoa') == 'F':
-                        pessoas_stats['fisica'] = {'total': p.get('total', 0), 'ativos': p.get('ativos', 0)}
-                    elif p.get('pessoa') == 'J':
-                        pessoas_stats['juridica'] = {'total': p.get('total', 0), 'ativos': p.get('ativos', 0)}
-
-                # Filtro opcional por executivo (vendas_central_comm)
-                filtro_vendedor = request.args.get('vendas_central_comm', type=int)
-
-                query = (
-                    """
-                    SELECT 
-                        c.id_cliente,
-                        c.razao_social,
-                        c.nome_fantasia,
-                        c.cnpj,
-                        c.status,
-                        c.pessoa,
-                        c.pk_id_tbl_agencia as pk_id_aux_agencia,
-                        ag.display as agencia_display,
-                        ag.key as agencia_key,
-                        (
-                            SELECT COUNT(*) 
-                            FROM tbl_contato_cliente ct 
-                            WHERE ct.pk_id_tbl_cliente = c.id_cliente
-                        ) as total_contatos,
-                        (
-                            SELECT COUNT(*) 
-                            FROM cadu_client_plans cp 
-                            WHERE cp.id_cliente = c.id_cliente 
-                            AND cp.plan_status = 'active'
-                            AND (cp.valid_until IS NULL OR cp.valid_until >= CURRENT_DATE)
-                        ) as planos_ativos,
-                        vend.id_contato_cliente as executivo_id,
-                        vend.nome_completo as executivo_nome
-                    FROM tbl_cliente c
-                    LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
-                    LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = c.vendas_central_comm
-                    """
-                )
-                params = []
-                if filtro_vendedor:
-                    query += " WHERE c.vendas_central_comm = %s"
-                    params.append(filtro_vendedor)
-                query += " ORDER BY c.id_cliente DESC"
-
-                cursor.execute(query, tuple(params) if params else None)
-                resultados = cursor.fetchall() or []
-
-                lista = []
-                for row in resultados:
-                    lista.append({
-                        'id_cliente': row.get('id_cliente'),
-                        'razao_social': row.get('razao_social') or '',
-                        'nome_fantasia': row.get('nome_fantasia') or '',
-                        'cnpj': row.get('cnpj') or '',
-                        'status': bool(row.get('status')) if row.get('status') is not None else False,
-                        'total_contatos': row.get('total_contatos') or 0,
-                        'planos_ativos': row.get('planos_ativos') or 0,
-                        'pk_id_aux_agencia': row.get('pk_id_aux_agencia'),
-                        'agencia_display': row.get('agencia_display'),
-                        'agencia_key': row.get('agencia_key'),
-                        'executivo_id': row.get('executivo_id'),
-                        'executivo_nome': row.get('executivo_nome'),
-                        'tipo_pessoa': 'Física' if row.get('pessoa') == 'F' else 'Jurídica' if row.get('pessoa') == 'J' else '-',
-                    })
-
+            # Parâmetros de paginação
+            page = request.args.get('page', 1, type=int)
+            per_page = current_app.config.get('CLIENTES_PER_PAGE', 25)
+            
+            # Filtros
+            filtros = {}
+            
+            # Filtro por executivo (obrigatório - default para usuário logado se for vendedor)
+            executivo_id = request.args.get('executivo_id', type=int)
+            if executivo_id:
+                filtros['executivo_id'] = executivo_id
+            
+            # Filtro por status
+            status_filter = request.args.get('status')
+            if status_filter == 'ativo':
+                filtros['status'] = True
+            elif status_filter == 'inativo':
+                filtros['status'] = False
+            
+            # Filtro por busca
+            search = request.args.get('search', '').strip()
+            if search:
+                filtros['search'] = search
+            
+            # Filtro por categoria ABC
+            categoria = request.args.get('categoria', '').upper()
+            if categoria in ['A', 'B', 'C']:
+                filtros['categoria_abc'] = categoria
+            
+            # Obter dados paginados com métricas
+            resultado = db.obter_clientes_paginado(
+                page=page,
+                per_page=per_page,
+                filtros=filtros
+            )
+            
+            # Obter executivos para o filtro
             try:
                 vendedores_cc = db.obter_vendedores_centralcomm()
             except Exception as _e:
@@ -1876,10 +1863,13 @@ def init_routes(app):
 
             return render_template(
                 'clientes.html',
-                clientes=lista,
-                pessoas_stats=pessoas_stats,
+                clientes=resultado['clientes'],
+                total=resultado['total'],
+                pages=resultado['pages'],
+                page=resultado['page'],
+                per_page=resultado['per_page'],
                 vendedores_cc=vendedores_cc,
-                filtro_vendas_central_comm=filtro_vendedor,
+                filtros=filtros,
                 agencias=agencias,
                 tipos_cliente=tipos_cliente,
                 estados=estados,
@@ -1896,7 +1886,12 @@ def init_routes(app):
             return render_template(
                 'clientes.html',
                 clientes=[],
-                pessoas_stats={'fisica': {'total': 0, 'ativos': 0}, 'juridica': {'total': 0, 'ativos': 0}}
+                total=0,
+                pages=0,
+                page=1,
+                per_page=25,
+                filtros={},
+                vendedores_cc=[]
             )
 
     # ==================== INTERESSE PRODUTO ====================
@@ -6014,5 +6009,46 @@ def init_routes(app):
     def admin_metrics_dashboard():
         """Página do Dashboard de Métricas Admin"""
         return render_template('admin_metrics_dashboard.html')
+
+    # ==================== RECATEGORIZAÇÃO ABC ====================
+    
+    @app.route('/admin/clientes/recategorizar', methods=['POST'])
+    @login_required
+    def admin_recategorizar_clientes():
+        """
+        Recategoriza todos os clientes conforme regras ABC:
+        - A: aprovações >= R$200.000/mês
+        - B: ativo (tem briefings/cotações), < R$200k
+        - C: sem briefings/cotações no mês
+        """
+        try:
+            # Verificar permissão (apenas admin ou CentralComm)
+            user_type = session.get('user_type', 'client')
+            if user_type not in ['admin', 'internal']:
+                return jsonify({
+                    'success': False, 
+                    'message': 'Permissão negada. Apenas administradores podem recategorizar.'
+                }), 403
+            
+            # Executar recategorização
+            resumo = db.recategorizar_clientes_abc()
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='CLIENTES',
+                descricao=f'Recategorização ABC executada: A={resumo["A"]}, B={resumo["B"]}, C={resumo["C"]}',
+                dados_novos=resumo
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': f'Recategorização concluída! A: {resumo["A"]}, B: {resumo["B"]}, C: {resumo["C"]}',
+                'data': resumo
+            })
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao recategorizar clientes: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

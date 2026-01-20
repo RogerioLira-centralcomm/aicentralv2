@@ -53,6 +53,14 @@ class Config:
 	BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
 	BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Cadu')
 	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
+	
+	# Cache (Redis ou SimpleCache)
+	CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')  # 'RedisCache' para Redis
+	CACHE_REDIS_URL = os.getenv('CACHE_REDIS_URL', 'redis://localhost:6379/0')
+	CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '900'))  # 15 minutos
+	
+	# Paginação de listagens
+	CLIENTES_PER_PAGE = int(os.getenv('CLIENTES_PER_PAGE', '25'))
     
 	@property
 	def DATABASE_URI(self):

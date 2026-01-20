@@ -15,17 +15,39 @@
     background-color: rgba(114, 205, 128, 0.1) !important;
     color: #72cd80 !important;
   }
+  
+  /* Badges de categoria ABC */
+  .badge-cat-a { background-color: #10b981; color: white; }
+  .badge-cat-b { background-color: #3b82f6; color: white; }
+  .badge-cat-c { background-color: #6b7280; color: white; }
+  
+  /* Filtros collapsible */
+  .filtros-content {
+    max-height: 500px;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+  }
+  .filtros-content.collapsed {
+    max-height: 0;
+  }
 </style>
 
 <div class="max-w-7xl mx-auto">
   <div class="flex items-center justify-between mb-3">
     <div>
       <h1 class="text-2xl font-bold text-base-content">Clientes</h1>
-      <p class="text-sm text-base-content/70">Gerencie os clientes cadastrados na plataforma.</p>
+      <p class="text-sm text-base-content/70">
+        Gerencie os clientes cadastrados na plataforma.
+        {% if total %}<span class="font-semibold">({{ total }} clientes)</span>{% endif %}
+      </p>
     </div>
     <div class="flex gap-2">
-      <button onclick="abrirBuscaCliente()" class="btn btn-outline btn-sm" style="color: #72cd80; border-color: #72cd80;" onmouseover="this.style.backgroundColor='#72cd80'; this.style.color='white';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#72cd80';" title="Buscar cliente">
-        <i class="fas fa-search mr-2 text-xs"></i>Buscar
+      <!-- Botão Recategorizar ABC (admin only) -->
+      <button onclick="recategorizarABC()" class="btn btn-outline btn-sm" style="color: #f59e0b; border-color: #f59e0b;" 
+              onmouseover="this.style.backgroundColor='#f59e0b'; this.style.color='white';" 
+              onmouseout="this.style.backgroundColor='transparent'; this.style.color='#f59e0b';" 
+              title="Recategorizar clientes ABC">
+        <i class="fas fa-tags mr-2 text-xs"></i>ABC
       </button>
       <button onclick="abrirModalNovo()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
         <i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente
@@ -45,57 +67,103 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Filtros -->
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <!-- Pesquisa por Nome -->
-          <div class="flex items-center gap-3">
-            <label class="label font-semibold text-sm py-1">Pesquisar:</label>
-            <input 
-              type="text" 
-              id="pesquisa_cliente" 
-              oninput="pesquisarCliente()" 
-              class="input input-bordered input-sm flex-1" 
-              placeholder="Digite o nome fantasia ou razão social..."
-            >
-          </div>
-          
-          <!-- Filtro por Executivo -->
-          <div class="flex items-center gap-3">
-            <label class="label font-semibold text-sm py-1">Executivo:</label>
-            <select id="filtro_executivo" onchange="filtrarClientes()" class="select select-bordered h-8 min-h-0 text-sm flex-1 h-10 min-h-10">
-              <option value="">Todos os executivos</option>
-              {% for vendedor in vendedores_cc %}
-                <option value="{{ vendedor.nome_completo }}">{{ vendedor.nome_completo }}</option>
-              {% endfor %}
-              <option value="NAO_ATRIBUIDO">Não atribuído</option>
-            </select>
-          </div>
+  <!-- Filtros Collapsible Horizontal -->
+  <div class="card bg-base-100 border border-base-300 mb-4">
+    <div class="card-body p-3">
+      <!-- Header dos Filtros -->
+      <div class="flex items-center justify-between cursor-pointer" onclick="toggleFiltros()">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-filter text-sm" style="color: #72cd80;"></i>
+          <span class="font-semibold text-sm">Filtros</span>
+          {% if filtros %}
+            <span class="badge badge-sm badge-primary">{{ filtros|length }} ativos</span>
+          {% endif %}
         </div>
-        <div class="mt-2">
-          <span id="contador_filtro" class="text-sm text-base-content/70"></span>
-        </div>
+        <i id="filtros_icon" class="fas fa-chevron-down text-xs transition-transform"></i>
+      </div>
+      
+      <!-- Conteúdo dos Filtros -->
+      <div id="filtros_content" class="filtros-content mt-3">
+        <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <!-- Filtro por Executivo (Obrigatório) -->
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Executivo*</label>
+              <select name="executivo_id" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+                <option value="">Todos os executivos</option>
+                {% for vendedor in vendedores_cc %}
+                  <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+                    {{ vendedor.nome_completo }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <!-- Pesquisa por Nome -->
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Pesquisar</label>
+              <input type="text" name="search" 
+                     value="{{ filtros.get('search', '') }}"
+                     style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; width: 100%;"
+                     placeholder="Nome fantasia ou razão social...">
+            </div>
+            
+            <!-- Filtro por Status -->
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Status</label>
+              <select name="status" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+                <option value="">Todos</option>
+                <option value="ativo" {% if request.args.get('status') == 'ativo' %}selected{% endif %}>Ativo</option>
+                <option value="inativo" {% if request.args.get('status') == 'inativo' %}selected{% endif %}>Inativo</option>
+              </select>
+            </div>
+            
+            <!-- Filtro por Categoria ABC -->
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Categoria</label>
+              <select name="categoria" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+                <option value="">Todas</option>
+                <option value="A" {% if request.args.get('categoria') == 'A' %}selected{% endif %}>A - Top Tier</option>
+                <option value="B" {% if request.args.get('categoria') == 'B' %}selected{% endif %}>B - Ativo</option>
+                <option value="C" {% if request.args.get('categoria') == 'C' %}selected{% endif %}>C - Inativo</option>
+              </select>
+            </div>
+            
+            <!-- Botões -->
+            <div class="form-control flex flex-row items-end gap-2">
+              <button type="submit" class="btn btn-sm text-white flex-1" style="background-color: #72cd80;">
+                <i class="fas fa-search mr-1"></i>Filtrar
+              </button>
+              <a href="{{ url_for('clientes') }}" class="btn btn-sm btn-ghost">
+                <i class="fas fa-times"></i>
+              </a>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
+  </div>
 
   <!-- Tabela de Clientes -->
   <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
     {% if clientes %}
       <div class="overflow-x-auto">
-        <table class="table table-xs w-full">
+        <table class="table table-xs w-full" id="tabela_clientes">
           <thead style="background-color: #72cd80;" class="text-white">
             <tr>
-              <th class="text-left font-bold uppercase">Cliente</th>
-              <th class="text-left font-bold uppercase">Executivo</th>
-              <th class="text-center font-bold uppercase w-16">Tipo</th>
-              <th class="text-center font-bold uppercase w-24">Status</th>
-              <th class="text-center font-bold uppercase w-20">Contatos</th>
+              <th class="text-left font-bold uppercase">Nome</th>
+              <th class="text-center font-bold uppercase w-20">Cotações</th>
+              <th class="text-center font-bold uppercase w-24">Aprovação</th>
+              <th class="text-center font-bold uppercase w-20">Briefings</th>
+              <th class="text-center font-bold uppercase w-24">Aceite</th>
+              <th class="text-center font-bold uppercase w-16">Usuários</th>
+              <th class="text-center font-bold uppercase w-20">Status</th>
+              <th class="text-center font-bold uppercase w-16">Cat.</th>
             </tr>
           </thead>
           <tbody>
             {% for cliente in clientes %}
-            <tr class="hover">
+            <tr class="hover" data-executivo="{{ cliente.executivo_nome or 'NAO_ATRIBUIDO' }}">
               <td>
                 <div>
                   <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;" 
@@ -103,18 +171,35 @@
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
-                {% if cliente.nome_fantasia %}<div class="text-xs text-base-content/60">{{ cliente.razao_social }}</div>{% endif %}
+                <div class="text-xs text-base-content/60">
+                  {% if cliente.executivo_nome %}
+                    <i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}
+                  {% else %}
+                    <span class="italic">Sem executivo</span>
+                  {% endif %}
+                </div>
               </td>
-              <td>
-                {% if cliente.executivo_nome %}
-                  <span class="text-base-content">{{ cliente.executivo_nome }}</span>
-                {% else %}
-                  <span class="text-base-content/40 italic">Não atribuído</span>
-                {% endif %}
-              </td>
-              <td class="text-center">{{ cliente.tipo_pessoa }}</td>
               <td class="text-center">
-                {% if cliente.nome_fantasia.upper() != 'CENTRALCOMM' %}
+                <span class="font-semibold">{{ cliente.cotacoes_mes or 0 }}</span>
+              </td>
+              <td class="text-center">
+                <span class="{% if cliente.cotacoes_aprovadas_mes %}text-success font-semibold{% else %}text-base-content/50{% endif %}">
+                  {{ cliente.cotacoes_aprovadas_mes or 0 }}/{{ cliente.cotacoes_mes or 0 }}
+                </span>
+              </td>
+              <td class="text-center">
+                <span class="font-semibold">{{ cliente.briefings_mes or 0 }}</span>
+              </td>
+              <td class="text-center">
+                <span class="{% if cliente.briefings_aceitos_mes %}text-success font-semibold{% else %}text-base-content/50{% endif %}">
+                  {{ cliente.briefings_aceitos_mes or 0 }}/{{ cliente.briefings_mes or 0 }}
+                </span>
+              </td>
+              <td class="text-center">
+                <span class="badge badge-sm badge-ghost">{{ cliente.total_usuarios or 0 }}</span>
+              </td>
+              <td class="text-center">
+                {% if (cliente.nome_fantasia or '')|upper != 'CENTRALCOMM' %}
                   <button type="button"
                           class="badge badge-sm cursor-pointer transition-all hover:scale-105"
                           style="{% if cliente.status %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #ef4444; color: white; border-color: #ef4444;{% endif %}"
@@ -129,21 +214,92 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span class="badge badge-sm badge-ghost">{{ cliente.total_contatos }}</span>
+                {% set cat = cliente.categoria_abc or 'C' %}
+                <span class="badge badge-sm badge-cat-{{ cat|lower }}" title="Categoria {{ cat }}">
+                  {{ cat }}
+                </span>
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      
+      <!-- Paginação -->
+      {% if pages > 1 %}
+      <div class="flex justify-center items-center gap-2 p-4 border-t">
+        {% if page > 1 %}
+          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="btn btn-sm btn-ghost">
+            <i class="fas fa-chevron-left"></i>
+          </a>
+        {% endif %}
+        
+        {% for p in range(1, pages + 1) %}
+          {% if p == page %}
+            <span class="btn btn-sm" style="background-color: #72cd80; color: white;">{{ p }}</span>
+          {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="btn btn-sm btn-ghost">{{ p }}</a>
+          {% elif p == page - 3 or p == page + 3 %}
+            <span class="px-2">...</span>
+          {% endif %}
+        {% endfor %}
+        
+        {% if page < pages %}
+          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="btn btn-sm btn-ghost">
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        {% endif %}
+        
+        <span class="text-sm text-base-content/60 ml-4">
+          Página {{ page }} de {{ pages }} ({{ total }} clientes)
+        </span>
+      </div>
+      {% endif %}
     {% else %}
       <div class="text-center py-8">
-        <p class="mb-2 text-base-content/60 text-sm">Nenhum cliente cadastrado.</p>
-        <a href="{{ url_for('cliente_novo') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-2 text-xs"></i>Cadastrar Primeiro Cliente</a>
+        <p class="mb-2 text-base-content/60 text-sm">Nenhum cliente encontrado.</p>
+        <button onclick="abrirModalNovo()" class="btn btn-primary btn-sm">
+          <i class="fas fa-plus mr-2 text-xs"></i>Cadastrar Primeiro Cliente
+        </button>
       </div>
     {% endif %}
   </div>
 </div>
+
+<script>
+  // Toggle filtros collapsible
+  function toggleFiltros() {
+    const content = document.getElementById('filtros_content');
+    const icon = document.getElementById('filtros_icon');
+    content.classList.toggle('collapsed');
+    icon.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+  }
+  
+  // Recategorizar ABC
+  async function recategorizarABC() {
+    if (!confirm('Deseja recategorizar todos os clientes conforme regras ABC?\n\nA: aprovações >= R$200k/mês\nB: ativo, < R$200k\nC: sem briefings/cotações')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('/admin/clientes/recategorizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(data.message);
+        location.reload();
+      } else {
+        alert('Erro: ' + data.message);
+      }
+    } catch (error) {
+      alert('Erro ao recategorizar: ' + error.message);
+    }
+  }
+</script>
 
 <!-- Modal de Cliente -->
 <dialog id="modal_cliente" class="modal modal-bottom sm:modal-middle">

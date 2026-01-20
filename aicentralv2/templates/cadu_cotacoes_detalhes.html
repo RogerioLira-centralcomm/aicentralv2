@@ -1549,12 +1549,12 @@ function renderizarAnexos(anexos) {
     </div>
     
     {% if modo == 'editar' and cotacao %}
-    <!-- Status e Link atual em linha -->
+    <!-- Status com Toggle e Link atual em linha -->
     <div class="flex gap-3 mb-3">
-      <div class="alert {% if cotacao.link_publico_ativo %}alert-success{% else %}alert-info{% endif %} py-2 flex-1">
-        <i class="fas {% if cotacao.link_publico_ativo %}fa-check-circle{% else %}fa-info-circle{% endif %} text-sm"></i>
+      <div id="alert_status_link" class="alert {% if cotacao.link_publico_ativo %}alert-success{% else %}alert-warning{% endif %} py-2 cursor-pointer" onclick="toggleLinkPublico()">
+        <input type="checkbox" id="link_publico_ativo" class="toggle toggle-success toggle-sm" {% if cotacao.link_publico_ativo %}checked{% endif %} onclick="event.stopPropagation();" onchange="atualizarStatusLinkPublico(this)">
         <div class="text-xs">
-          <p class="font-semibold">{% if cotacao.link_publico_ativo %}Ativo{% else %}Inativo{% endif %}</p>
+          <p id="link_publico_status_text" class="font-semibold">{% if cotacao.link_publico_ativo %}ATIVO{% else %}INATIVO{% endif %}</p>
         </div>
       </div>
       
@@ -1562,7 +1562,7 @@ function renderizarAnexos(anexos) {
       <div class="flex-[3]">
         <div class="join w-full">
           <input type="text" readonly value="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" class="input input-bordered input-sm join-item flex-1 font-mono text-xs" id="link_publico_url">
-          <button onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm join-item text-white" style="background-color: #72cd80; border-color: #72cd80;" title="Copiar">
+          <button type="button" onclick="copiarLinkPublico('{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}')" class="btn btn-sm join-item text-white" style="background-color: #72cd80; border-color: #72cd80;" title="Copiar">
             <i class="fas fa-copy"></i>
           </button>
           <a href="{{ request.url_root }}cotacao/publico/{{ cotacao.link_publico_token }}" target="_blank" class="btn btn-sm btn-ghost join-item" title="Abrir">
@@ -1574,25 +1574,15 @@ function renderizarAnexos(anexos) {
     </div>
     
     <form id="form_link_publico" class="grid grid-cols-12 gap-3">
-      <!-- Habilitar + Token + Expiração em uma linha -->
-      <div class="form-control col-span-3">
-        <label class="label py-0">
-          <span class="label-text font-semibold text-xs">Habilitar</span>
-        </label>
-        <label class="label cursor-pointer justify-start gap-2 py-1">
-          <input type="checkbox" id="link_publico_ativo" class="checkbox checkbox-sm checkbox-primary" {% if cotacao.link_publico_ativo %}checked{% endif %}>
-          <span class="label-text text-xs">Ativo</span>
-        </label>
-      </div>
-
-      <div class="form-control col-span-4">
+      <!-- Token + Expiração em uma linha -->
+      <div class="form-control col-span-6">
         <label class="label py-0">
           <span class="label-text font-semibold text-xs">Token (opcional)</span>
         </label>
-        <input type="text" id="link_publico_token" class="input input-bordered input-sm font-mono text-xs" value="{{ cotacao.link_publico_token if cotacao.link_publico_token else '' }}" placeholder="Auto">
+        <input type="text" id="link_publico_token" class="input input-bordered input-sm font-mono text-xs" value="{{ cotacao.link_publico_token if cotacao.link_publico_token else '' }}" placeholder="Auto - deixe vazio para gerar automaticamente">
       </div>
 
-      <div class="form-control col-span-5">
+      <div class="form-control col-span-6">
         <label class="label py-0">
           <span class="label-text font-semibold text-xs">Expiração</span>
         </label>
@@ -2040,12 +2030,20 @@ document.addEventListener('DOMContentLoaded', function() {
   calcularDiasCampanha();
   {% endif %}
   
-  // Formatar valores monetários
-  const campos = ['budget_estimado', 'valor_total_proposta'];
-  campos.forEach(campo => {
+  // Formatar valores monetários na inicialização
+  const camposMonetarios = ['budget_estimado', 'valor_total_proposta'];
+  camposMonetarios.forEach(campo => {
     const displayInput = document.getElementById(campo);
     if (displayInput && displayInput.value) {
-      formatarMoedaReal(displayInput, campo + '_hidden');
+      // Converter valor decimal (ex: 1234.56) para formato com máscara
+      let valor = parseFloat(displayInput.value.replace(',', '.'));
+      if (!isNaN(valor)) {
+        displayInput.value = valor.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+        document.getElementById(campo + '_hidden').value = valor;
+      }
     }
   });
   
@@ -2973,11 +2971,14 @@ function copiarLinkPublico(link) {
 
 async function salvarLinkPublico() {
   var cotacaoId = getCotacaoId();
+  
   if (!cotacaoId) {
     mostrarToast('Salve a cotação primeiro', 'warning');
     return;
   }
-  const ativo = document.getElementById('link_publico_ativo').checked;
+  
+  const checkbox = document.getElementById('link_publico_ativo');
+  const ativo = checkbox ? checkbox.checked : false;
   const token = document.getElementById('link_publico_token').value.trim();
   const expiresAt = document.getElementById('modal_link_publico_expires_at').value;
   
@@ -2989,23 +2990,44 @@ async function salvarLinkPublico() {
 
   try {
     const response = await fetch(`/api/cotacoes/${cotacaoId}/link-publico`, {
-      method: 'PUT',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
 
     const result = await response.json();
     
-    if (response.ok) {
+    if (response.ok && result.success) {
       mostrarToast('Link público atualizado com sucesso!', 'success');
       setTimeout(() => location.reload(), 1000);
     } else {
-      mostrarToast('Erro: ' + (result.error || 'Erro ao atualizar link público'), 'error');
+      mostrarToast('Erro: ' + (result.message || result.error || 'Erro ao atualizar link público'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
-    showToast('Erro ao atualizar link público', 'error');
+    mostrarToast('Erro ao atualizar link público', 'error');
   }
+}
+
+function atualizarStatusLinkPublico(toggle) {
+  const statusText = document.getElementById('link_publico_status_text');
+  const alertBox = document.getElementById('alert_status_link');
+  
+  if (toggle.checked) {
+    statusText.textContent = 'ATIVO';
+    alertBox.classList.remove('alert-warning');
+    alertBox.classList.add('alert-success');
+  } else {
+    statusText.textContent = 'INATIVO';
+    alertBox.classList.remove('alert-success');
+    alertBox.classList.add('alert-warning');
+  }
+}
+
+function toggleLinkPublico() {
+  const toggle = document.getElementById('link_publico_ativo');
+  toggle.checked = !toggle.checked;
+  atualizarStatusLinkPublico(toggle);
 }
 
 // ==================== FUNÇÃO DE TOAST ====================

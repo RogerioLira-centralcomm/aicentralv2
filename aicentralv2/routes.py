@@ -4636,6 +4636,15 @@ def init_routes(app):
                 base_url = app.config.get('BASE_URL', 'http://localhost:5000')
                 link_cotacao = f"{base_url}/proposta/{cotacao['link_publico_token']}"
             
+            # Formatar validade do link
+            validade = ''
+            if cotacao.get('link_publico_expires_at'):
+                validade_dt = cotacao['link_publico_expires_at']
+                if hasattr(validade_dt, 'strftime'):
+                    validade = validade_dt.strftime('%d/%m/%Y às %H:%M')
+                else:
+                    validade = str(validade_dt)
+            
             # Data de envio
             data_envio = datetime.now().strftime('%d/%m/%Y às %H:%M')
             
@@ -4648,7 +4657,7 @@ def init_routes(app):
                     nome_campanha=cotacao.get('nome_campanha', ''),
                     valor_total=valor_formatado,
                     link_proposta=link_cotacao or '',
-                    validade=cotacao.get('link_publico_expires_at', ''),
+                    validade=validade,
                     executivo_nome=cotacao.get('responsavel_nome', ''),
                     executivo_email=cotacao.get('responsavel_email', '')
                 )
@@ -4667,7 +4676,7 @@ def init_routes(app):
                         dados_novos={
                             'tipo': tipo,
                             'destinatario': destinatario,
-                            'assunto': assunto or f'Cotação {cotacao["numero_cotacao"]}'
+                            'assunto': f'Sua Proposta - {cotacao["numero_cotacao"]}'
                         }
                     )
                     
@@ -5125,7 +5134,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao gerar link público: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico', methods=['PUT'])
+    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico', methods=['PUT', 'POST', 'PATCH'])
     @login_required
     def atualizar_link_publico(cotacao_id):
         """Atualiza as configurações do link público da cotação"""

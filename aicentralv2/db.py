@@ -5185,12 +5185,15 @@ def atualizar_cotacao(cotacao_id, **kwargs):
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim']
+            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at']
+            
+            # Campos booleanos que podem ser False
+            campos_booleanos = ['link_publico_ativo']
             
             for campo in campos_permitidos:
                 if campo in kwargs:
-                    # Para campos nullable, incluir mesmo se for None
-                    if kwargs[campo] is not None or campo in campos_nullable:
+                    # Para campos nullable e booleanos, incluir mesmo se for None/False
+                    if kwargs[campo] is not None or campo in campos_nullable or campo in campos_booleanos:
                         updates.append(f'{campo} = %s')
                         params.append(kwargs[campo])
             

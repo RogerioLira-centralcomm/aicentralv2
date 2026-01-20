@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Bem-vindo ao Cadu!</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f4f5;">
+        <tr>
+            <td style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="520" align="center" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    
+                    <!-- HEADER COM LOGO -->
+                    <tr>
+                        <td style="background-color:#ffffff;padding:24px 32px;text-align:center;border-bottom:1px solid #e5e7eb;">
+                            <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="100" style="display:block;margin:0 auto;">
+                        </td>
+                    </tr>
+                    
+                    <!-- BANNER VERDE -->
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);padding:28px 32px;text-align:center;">
+                            <span style="color:#ffffff;font-size:24px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.1);display:block;">Bem-vindo ao Cadu!</span>
+                            <span style="color:rgba(255,255,255,0.9);font-size:14px;margin-top:8px;display:block;">Sua conta foi criada com sucesso</span>
+                        </td>
+                    </tr>
+                    
+                    <!-- CONTEÚDO PRINCIPAL -->
+                    <tr>
+                        <td style="padding:32px;">
+                            
+                            <!-- Saudação -->
+                            <p style="margin:0 0 20px;font-size:15px;color:#333842;line-height:1.6;">
+                                Olá, <strong style="color:#06F17B;">{{ params.PRIMEIRO_NOME }}</strong>!
+                            </p>
+                            
+                            <!-- Mensagem de Boas-vindas -->
+                            <p style="margin:0 0 24px;font-size:13px;color:#6b7280;line-height:1.7;">
+                                Sua conta no Cadu foi criada com sucesso! Agora você faz parte da equipe da <strong style="color:#333842;">{{ params.EMPRESA }}</strong> e tem acesso a todas as ferramentas de inteligência em mídia programática.
+                            </p>
+                            
+                            <!-- Card: Seus Dados -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f0fdf4;border-radius:8px;margin-bottom:24px;border-left:4px solid #06F17B;">
+                                <tr>
+                                    <td style="padding:20px;">
+                                        <span style="font-size:11px;font-weight:700;color:#06F17B;text-transform:uppercase;letter-spacing:0.8px;">Seus Dados</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:12px;">
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Nome:</strong> {{ params.NOME }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Email:</strong> {{ params.EMAIL }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Empresa:</strong> {{ params.EMPRESA }}
+                                                </td>
+                                            </tr>
+                                            {{ IF params.ROLE_LABEL }}
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Função:</strong> {{ params.ROLE_LABEL }}
+                                                </td>
+                                            </tr>
+                                            {{ ENDIF params.ROLE_LABEL }}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Card: Primeiros Passos -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#F7F8FA;border-radius:8px;margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:20px;">
+                                        <span style="font-size:11px;font-weight:700;color:#333842;text-transform:uppercase;letter-spacing:0.8px;">Primeiros Passos</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:12px;">
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <span style="display:inline-block;width:20px;height:20px;background-color:#06F17B;color:#333842;border-radius:50%;text-align:center;line-height:20px;font-weight:700;font-size:11px;margin-right:8px;">1</span>
+                                                    <strong style="color:#333842;">Explore o Dashboard</strong><br>
+                                                    <span style="margin-left:28px;display:block;">Conheça as principais funcionalidades e métricas disponíveis.</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <span style="display:inline-block;width:20px;height:20px;background-color:#06F17B;color:#333842;border-radius:50%;text-align:center;line-height:20px;font-weight:700;font-size:11px;margin-right:8px;">2</span>
+                                                    <strong style="color:#333842;">Converse com o Cadu</strong><br>
+                                                    <span style="margin-left:28px;display:block;">Use o assistente de IA para criar planejamentos e análises.</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <span style="display:inline-block;width:20px;height:20px;background-color:#06F17B;color:#333842;border-radius:50%;text-align:center;line-height:20px;font-weight:700;font-size:11px;margin-right:8px;">3</span>
+                                                    <strong style="color:#333842;">Descubra Audiências</strong><br>
+                                                    <span style="margin-left:28px;display:block;">Explore mais de 1.000 segmentações para suas campanhas.</span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <span style="display:inline-block;width:20px;height:20px;background-color:#06F17B;color:#333842;border-radius:50%;text-align:center;line-height:20px;font-weight:700;font-size:11px;margin-right:8px;">4</span>
+                                                    <strong style="color:#333842;">Complete seu Perfil</strong><br>
+                                                    <span style="margin-left:28px;display:block;">Adicione suas informações para uma experiência personalizada.</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- CTA Principal -->
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="{{ params.LINK_DASHBOARD }}" style="display:inline-block;background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);color:#333842;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(6,241,123,0.3);">Acessar o Cadu</a>
+                            </div>
+                            
+                            <!-- Links Úteis -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:24px;">
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <span style="font-size:11px;color:#9ca3af;">Links úteis: </span>
+                                        {{ IF params.LINK_PERFIL }}
+                                        <a href="{{ params.LINK_PERFIL }}" style="font-size:11px;color:#06F17B;text-decoration:none;margin:0 8px;">Meu Perfil</a>
+                                        {{ ENDIF params.LINK_PERFIL }}
+                                        {{ IF params.LINK_AJUDA }}
+                                        <a href="{{ params.LINK_AJUDA }}" style="font-size:11px;color:#06F17B;text-decoration:none;margin:0 8px;">Central de Ajuda</a>
+                                        {{ ENDIF params.LINK_AJUDA }}
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="padding:20px 32px;background-color:#333842;border-top:3px solid #06F17B;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <p style="margin:0 0 8px;color:#ffffff;font-size:12px;font-weight:600;">
+                                            <span style="color:#06F17B;">Cadu</span> • Inteligência em Mídia Programática
+                                        </p>
+                                        <p style="margin:0;color:#9ca3af;font-size:11px;">
+                                            <a href="https://centralcomm.media" style="color:#06F17B;text-decoration:none;">centralcomm.media</a>
+                                            |
+                                            <a href="mailto:contato@centralcomm.media" style="color:#06F17B;text-decoration:none;">contato@centralcomm.media</a>
+                                        </p>
+                                        <p style="margin:8px 0 0;color:#6b7280;font-size:10px;">
+                                            © 2026 Centralcomm Media. Todos os direitos reservados.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

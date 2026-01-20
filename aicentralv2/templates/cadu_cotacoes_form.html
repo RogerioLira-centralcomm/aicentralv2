@@ -134,10 +134,13 @@
             <div class="form-control">
               <label class="label py-0.5"><span class="label-text text-xs font-medium">Status</span></label>
               <select name="status" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="pendente" {% if cotacao.status == 'pendente' %}selected{% endif %}>Pendente</option>
-                <option value="aprovada" {% if cotacao.status == 'aprovada' %}selected{% endif %}>Aprovada</option>
-                <option value="rejeitada" {% if cotacao.status == 'rejeitada' %}selected{% endif %}>Rejeitada</option>
-                <option value="expirada" {% if cotacao.status == 'expirada' %}selected{% endif %}>Expirada</option>
+                <option value="Pendente" {% if cotacao.status == 'Pendente' %}selected{% endif %}>Pendente</option>
+                <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+                <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+                <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+                <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+                <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+                <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
               </select>
             </div>
           </div>

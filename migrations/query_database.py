@@ -3,20 +3,25 @@
 """
 Script para executar queries no banco de dados PostgreSQL
 """
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import os
+import psycopg
+from psycopg.rows import dict_row
+from dotenv import load_dotenv
+
+load_dotenv()
 
 try:
-    # Credenciais de conexão
-    conn = psycopg2.connect(
-        host='212.85.13.233',
-        port=123,
-        database='centralp',
-        user='postgres',
-        password='nova_senha'
+    # Credenciais de conexão via variáveis de ambiente
+    conn = psycopg.connect(
+        host=os.getenv('DB_HOST', 'localhost'),
+        port=int(os.getenv('DB_PORT', 5432)),
+        dbname=os.getenv('DB_NAME', 'aicentralv2'),
+        user=os.getenv('DB_USER', 'postgres'),
+        password=os.getenv('DB_PASSWORD', ''),
+        row_factory=dict_row
     )
 
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor = conn.cursor()
 
     # Query 1
     print('=' * 80)
@@ -75,7 +80,7 @@ try:
     conn.close()
     print('\n✓ Conexão fechada com sucesso.')
 
-except psycopg2.OperationalError as e:
+except psycopg.OperationalError as e:
     print(f'❌ Erro de conexão: {e}')
 except Exception as e:
     print(f'❌ Erro: {e}')

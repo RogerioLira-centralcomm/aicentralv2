@@ -253,7 +253,7 @@ function renderizarAnexos(anexos) {
       <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-64 mt-2">
         <li><a onclick="document.getElementById('modal_link_publico').showModal()"><i class="fas fa-link mr-2"></i>Ver Link Público</a></li>
         <li class="menu-title"><span>Emails</span></li>
-        <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-paper-plane mr-2"></i>Enviar Cotação</a></li>
+        <li><a onclick="enviarCotacaoEmail()"><i class="fas fa-paper-plane mr-2"></i>Enviar Cotação</a></li>
         <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-check-circle mr-2 text-success"></i>Email de Aprovação</a></li>
         <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
         <li class="menu-title"><span>Outras ações</span></li>
@@ -379,6 +379,7 @@ function renderizarAnexos(anexos) {
             <div class="form-control">
               <label class="label py-0.5"><span class="label-text text-xs font-semibold">Status</span></label>
               <select name="status" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+                <option value="Pendente" {% if cotacao.status == 'Pendente' %}selected{% endif %}>Pendente</option>
                 <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
                 <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
                 <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
@@ -1620,6 +1621,64 @@ function renderizarAnexos(anexos) {
 </dialog>
 
 <script>
+// Dados dos contatos do cliente para envio de email
+const contatosCliente = {
+  {% if contatos_cliente %}
+    {% for contato in contatos_cliente %}
+    "{{ contato.id_contato_cliente }}": {
+      nome: "{{ contato.nome_completo }}",
+      email: "{{ contato.email or '' }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  {% endif %}
+};
+
+// Função para enviar cotação por email via Brevo
+async function enviarCotacaoEmail() {
+  const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
+  const contatoId = document.getElementById('client_user_id').value;
+  
+  if (!contatoId) {
+    showToast('Selecione um contato do cliente para enviar o email', 'warning');
+    return;
+  }
+  
+  const contato = contatosCliente[contatoId];
+  if (!contato || !contato.email) {
+    showToast('O contato selecionado não possui email cadastrado', 'error');
+    return;
+  }
+  
+  if (!confirm(`Deseja enviar esta cotação por email para ${contato.nome} (${contato.email})?`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/enviar-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tipo: 'enviar_cotacao',
+        destinatario: contato.email,
+        nome_destinatario: contato.nome
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast('Cotação enviada por email com sucesso!', 'success');
+      // Recarregar página para atualizar status
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast('Erro ao enviar email: ' + (data.message || 'Erro desconhecido'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao enviar email', 'error');
+  }
+}
+
 // Função para duplicar cotação
 function duplicarCotacao() {
   if (!confirm('Deseja duplicar esta cotação? Uma cópia será criada.')) {

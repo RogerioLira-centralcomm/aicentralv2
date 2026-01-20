@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Convite para o Cadu</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f4f5;">
+        <tr>
+            <td style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="520" align="center" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    
+                    <!-- HEADER COM LOGO -->
+                    <tr>
+                        <td style="background-color:#ffffff;padding:24px 32px;text-align:center;border-bottom:1px solid #e5e7eb;">
+                            <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="100" style="display:block;margin:0 auto;">
+                        </td>
+                    </tr>
+                    
+                    <!-- BANNER VERDE -->
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);padding:20px 32px;text-align:center;">
+                            <span style="color:#ffffff;font-size:15px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.1);">Você foi convidado para o Cadu</span>
+                        </td>
+                    </tr>
+                    
+                    <!-- CONTEÚDO PRINCIPAL -->
+                    <tr>
+                        <td style="padding:32px;">
+                            
+                            <!-- Mensagem de Boas-vindas -->
+                            <p style="margin:0 0 20px;font-size:14px;color:#333842;line-height:1.6;">
+                                <strong style="color:#06F17B;">{{ params.CONVIDADO_POR }}</strong> convidou você para fazer parte da equipe da <strong>{{ params.EMPRESA }}</strong> no Cadu.
+                            </p>
+                            
+                            <!-- Card: Detalhes do Convite -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f0fdf4;border-radius:8px;margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:20px;">
+                                        <span style="font-size:11px;font-weight:700;color:#06F17B;text-transform:uppercase;letter-spacing:0.8px;">Detalhes do Convite</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:12px;">
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Empresa:</strong> {{ params.EMPRESA }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Função:</strong> {{ params.ROLE_LABEL }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Validade:</strong> {{ params.DIAS_VALIDADE }} dias
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Card: O que você terá acesso -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#F7F8FA;border-radius:8px;margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:20px;">
+                                        <span style="font-size:11px;font-weight:700;color:#333842;text-transform:uppercase;letter-spacing:0.8px;">O que você terá acesso</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:12px;">
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <strong style="color:#06F17B;">Assistente de IA</strong><br>
+                                                    Crie planejamentos, análises e defesas de mídia com inteligência artificial especializada em publicidade.
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <strong style="color:#06F17B;">Audiências Reais</strong><br>
+                                                    Acesse mais de 1.000 segmentações de público para campanhas de mídia programática.
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <strong style="color:#06F17B;">Briefings Inteligentes</strong><br>
+                                                    Crie briefings estruturados com sugestões automáticas e compartilhe com sua equipe.
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:8px 0;font-size:12px;color:#6b7280;line-height:1.5;">
+                                                    <strong style="color:#06F17B;">Cotações e Propostas</strong><br>
+                                                    Solicite cotações de mídia e acompanhe o status das suas propostas comerciais.
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- CTA Principal -->
+                            <div style="text-align:center;margin:28px 0;">
+                                <a href="{{ params.LINK_CONVITE }}" style="display:inline-block;background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);color:#333842;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(6,241,123,0.3);">Aceitar Convite e Criar Conta</a>
+                            </div>
+                            
+                            <!-- Link Alternativo -->
+                            <p style="margin:20px 0 8px;font-size:11px;color:#9ca3af;">Se o botão não funcionar, copie e cole este link:</p>
+                            <p style="margin:0;font-size:10px;color:#6b7280;word-break:break-all;background-color:#F7F8FA;padding:12px;border-radius:6px;line-height:1.5;">{{ params.LINK_CONVITE }}</p>
+                            
+                            <!-- Aviso de Expiração -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#fef3c7;border-radius:6px;margin-top:20px;">
+                                <tr>
+                                    <td style="padding:12px 16px;">
+                                        <span style="font-size:11px;color:#92400e;">Este convite expira em <strong>{{ params.DIAS_VALIDADE }} dias</strong>. Se você não esperava este email, pode ignorá-lo com segurança.</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="padding:20px 32px;background-color:#333842;border-top:3px solid #06F17B;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <p style="margin:0 0 8px;color:#ffffff;font-size:12px;font-weight:600;">
+                                            <span style="color:#06F17B;">Cadu</span> • Inteligência em Mídia Programática
+                                        </p>
+                                        <p style="margin:0;color:#9ca3af;font-size:11px;">
+                                            <a href="https://centralcomm.media" style="color:#06F17B;text-decoration:none;">centralcomm.media</a>
+                                        </p>
+                                        <p style="margin:8px 0 0;color:#6b7280;font-size:10px;">
+                                            © 2026 Centralcomm Media. Todos os direitos reservados.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

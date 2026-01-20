@@ -3948,6 +3948,7 @@ def init_routes(app):
                 kwargs = {
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                     'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
+                    'status': request.form.get('status', 'Pendente').strip(),
                     'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
@@ -4586,88 +4587,97 @@ def init_routes(app):
     @app.route('/api/cotacoes/<int:cotacao_id>/enviar-email', methods=['POST'])
     @login_required
     def enviar_email_cotacao(cotacao_id):
-        """API para enviar email relacionado à cotação"""
+        """API para enviar email relacionado à cotação usando Brevo"""
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
             
-            tipo = data.get('tipo')
+            tipo = data.get('tipo', 'enviar_cotacao')
             destinatario = data.get('destinatario')
-            cc = data.get('cc', '')
-            assunto = data.get('assunto')
-            mensagem = data.get('mensagem')
+            nome_destinatario = data.get('nome_destinatario')
             
-            if not all([tipo, destinatario, assunto, mensagem]):
-                return jsonify({'success': False, 'message': 'Campos obrigatórios faltando'}), 400
+            if not destinatario:
+                return jsonify({'success': False, 'message': 'Email do destinatário não informado'}), 400
             
-            # Buscar cotação
-            cotacao = db.obter_cotacao(cotacao_id)
+            # Buscar cotação com dados completos
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
             if not cotacao:
                 return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
             
-            # Preparar lista de destinatários CC
-            cc_list = [email.strip() for email in cc.split(',') if email.strip()] if cc else []
+            # Importar serviço Brevo
+            from aicentralv2.services.brevo_service import enviar_email_cotacao_enviada_cliente, get_brevo_service
+            from datetime import datetime
             
-            # Enviar email usando o serviço de email
+            # Preparar dados para o template
+            cliente_nome = nome_destinatario or cotacao.get('cliente_nome', 'Cliente')
+            primeiro_nome = cliente_nome.split()[0] if cliente_nome else 'Cliente'
+            
+            # Formatar valor
+            valor_total = cotacao.get('valor_total_proposta') or cotacao.get('budget_estimado') or 0
+            valor_formatado = f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            
+            # Formatar período
+            periodo = ''
+            if cotacao.get('periodo_inicio'):
+                periodo_inicio = cotacao['periodo_inicio']
+                if hasattr(periodo_inicio, 'strftime'):
+                    periodo = periodo_inicio.strftime('%d/%m/%Y')
+                else:
+                    periodo = str(periodo_inicio)
+                if cotacao.get('periodo_fim'):
+                    periodo_fim = cotacao['periodo_fim']
+                    if hasattr(periodo_fim, 'strftime'):
+                        periodo += f" a {periodo_fim.strftime('%d/%m/%Y')}"
+                    else:
+                        periodo += f" a {str(periodo_fim)}"
+            
+            # Gerar link público se ativo
+            link_cotacao = None
+            if cotacao.get('link_publico_ativo') and cotacao.get('link_publico_token'):
+                base_url = app.config.get('BASE_URL', 'http://localhost:5000')
+                link_cotacao = f"{base_url}/proposta/{cotacao['link_publico_token']}"
+            
+            # Data de envio
+            data_envio = datetime.now().strftime('%d/%m/%Y às %H:%M')
+            
             try:
-                from aicentralv2.email_service import enviar_email
-                
-                # Criar corpo HTML do email
-                corpo_html = f"""
-                <html>
-                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <div style="white-space: pre-wrap;">{mensagem}</div>
-                        
-                        <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-                        
-                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
-                            <p style="margin: 0 0 10px 0; font-weight: bold;">Informações da Cotação:</p>
-                            <p style="margin: 5px 0;"><strong>Número:</strong> {cotacao['numero_cotacao']}</p>
-                            <p style="margin: 5px 0;"><strong>Cliente:</strong> {cotacao.get('cliente_nome', 'Não especificado')}</p>
-                            <p style="margin: 5px 0;"><strong>Campanha:</strong> {cotacao.get('nome_campanha', '-')}</p>
-                            <p style="margin: 5px 0;"><strong>Status:</strong> {cotacao.get('status', 'pendente')}</p>
-                        </div>
-                        
-                        <p style="margin-top: 30px; font-size: 12px; color: #666;">
-                            Este email foi enviado através do sistema CentralComm AI
-                        </p>
-                    </div>
-                </body>
-                </html>
-                """
-                
-                # Enviar email
-                resultado = enviar_email(
-                    destinatario=destinatario,
-                    assunto=assunto,
-                    corpo_html=corpo_html,
-                    cc=cc_list
+                # Usar o serviço Brevo com template
+                resultado = enviar_email_cotacao_enviada_cliente(
+                    to_email=destinatario,
+                    to_name=cliente_nome,
+                    numero_cotacao=cotacao.get('numero_cotacao', ''),
+                    nome_campanha=cotacao.get('nome_campanha', ''),
+                    valor_total=valor_formatado,
+                    link_proposta=link_cotacao or '',
+                    validade=cotacao.get('link_publico_expires_at', ''),
+                    executivo_nome=cotacao.get('responsavel_nome', ''),
+                    executivo_email=cotacao.get('responsavel_email', '')
                 )
                 
-                if resultado:
+                if resultado.get('success'):
+                    # Atualizar status da cotação para "Enviada"
+                    db.atualizar_cotacao(cotacao_id, status='Enviada', proposta_enviada_em=datetime.now())
+                    
                     # Registrar auditoria
                     registrar_auditoria(
                         acao='EMAIL_SENT',
                         modulo='cotacoes',
-                        descricao=f'Email {tipo} enviado para {destinatario} - Cotação {cotacao["numero_cotacao"]}',
+                        descricao=f'Email cotação enviado para {destinatario} - Cotação {cotacao["numero_cotacao"]}',
                         registro_id=cotacao_id,
                         registro_tipo='cadu_cotacoes',
                         dados_novos={
                             'tipo': tipo,
                             'destinatario': destinatario,
-                            'cc': cc_list,
-                            'assunto': assunto
+                            'assunto': assunto or f'Cotação {cotacao["numero_cotacao"]}'
                         }
                     )
                     
-                    return jsonify({'success': True, 'message': 'Email enviado com sucesso'})
+                    return jsonify({'success': True, 'message': 'Email enviado com sucesso via Brevo'})
                 else:
-                    return jsonify({'success': False, 'message': 'Falha ao enviar email'}), 500
+                    return jsonify({'success': False, 'message': resultado.get('error', 'Falha ao enviar email')}), 500
                     
-            except ImportError:
-                # Se email_service não estiver disponível, simular sucesso
-                app.logger.warning('email_service não disponível, simulando envio de email')
-                return jsonify({'success': True, 'message': 'Email registrado (modo simulação)'})
+            except Exception as e:
+                app.logger.error(f"Erro ao enviar email via Brevo: {str(e)}", exc_info=True)
+                return jsonify({'success': False, 'message': f'Erro ao enviar email: {str(e)}'}), 500
             
         except Exception as e:
             app.logger.error(f"Erro ao enviar email: {str(e)}", exc_info=True)

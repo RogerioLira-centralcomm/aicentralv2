@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Nova Cotação Recebida</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#F7F8FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#F7F8FA;">
+        <tr>
+            <td style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="center" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.08);">
+                    
+                    <!-- HEADER -->
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#06F17B 0%,#10b981 50%,#059669 100%);padding:40px 40px 32px;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="100" style="display:block;margin:0 auto 20px;">
+                                        <span style="display:inline-block;background:rgba(255,255,255,0.25);color:#ffffff;font-size:11px;padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.3);font-weight:600;">{{ params.DATA_HORA }}</span>
+                                        <h1 style="color:#ffffff;font-size:28px;margin:16px 0 0;text-shadow:0 2px 4px rgba(0,0,0,0.1);font-weight:700;">Nova Cotação Recebida</h1>
+                                        <p style="margin:10px 0 0;color:rgba(255,255,255,0.95);font-size:15px;font-weight:500;">Uma solicitação de cotação acaba de chegar</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- CORPO -->
+                    <tr>
+                        <td style="padding:40px;">
+                            
+                            <!-- INFORMAÇÕES DO CLIENTE -->
+                            <h2 style="margin:0 0 20px;font-size:16px;color:#333842;font-weight:700;">Informações do Cliente</h2>
+                            
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:32px;">
+                                <tr>
+                                    <td style="background:#F7F8FA;border-left:4px solid #06F17B;padding:16px 20px;border-radius:8px;margin-bottom:12px;">
+                                        <span style="font-size:11px;font-weight:700;color:#777E8C;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Nome Completo</span>
+                                        <span style="font-size:16px;color:#333842;font-weight:600;">{{ params.CLIENTE_NOME }}</span>
+                                    </td>
+                                </tr>
+                                <tr><td style="height:12px;"></td></tr>
+                                <tr>
+                                    <td style="background:#F7F8FA;border-left:4px solid #06F17B;padding:16px 20px;border-radius:8px;margin-bottom:12px;">
+                                        <span style="font-size:11px;font-weight:700;color:#777E8C;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Email</span>
+                                        <a href="mailto:{{ params.CLIENTE_EMAIL }}" style="font-size:16px;color:#06F17B;font-weight:600;text-decoration:none;">{{ params.CLIENTE_EMAIL }}</a>
+                                    </td>
+                                </tr>
+                                <tr><td style="height:12px;"></td></tr>
+                                <tr>
+                                    <td style="background:#F7F8FA;border-left:4px solid #06F17B;padding:16px 20px;border-radius:8px;">
+                                        <span style="font-size:11px;font-weight:700;color:#777E8C;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Empresa</span>
+                                        <span style="font-size:16px;color:#333842;font-weight:600;">{{ params.CLIENTE_EMPRESA }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- DETALHES DA COTAÇÃO -->
+                            <h2 style="margin:0 0 20px;font-size:16px;color:#333842;font-weight:700;">Detalhes da Cotação</h2>
+                            
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border:2px solid #06F17B;padding:20px;border-radius:12px;margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding-bottom:16px;">
+                                        <span style="font-size:12px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.8px;">Campanha</span>
+                                        <p style="margin:6px 0 0;color:#047857;font-size:18px;font-weight:700;">{{ params.NOME_CAMPANHA }}</p>
+                                    </td>
+                                </tr>
+                                {{ IF params.AUDIENCIA_NOME }}
+                                <tr>
+                                    <td style="padding-bottom:16px;">
+                                        <span style="font-size:12px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.8px;">Audiência</span>
+                                        <p style="margin:6px 0 0;color:#047857;font-size:16px;font-weight:600;">{{ params.AUDIENCIA_NOME }}</p>
+                                    </td>
+                                </tr>
+                                {{ ENDIF params.AUDIENCIA_NOME }}
+                                {{ IF params.AUDIENCIA_CATEGORIA }}
+                                <tr>
+                                    <td>
+                                        <span style="font-size:12px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.8px;">Categoria</span>
+                                        <p style="margin:6px 0 0;color:#047857;font-size:14px;font-weight:600;">{{ params.AUDIENCIA_CATEGORIA }}</p>
+                                    </td>
+                                </tr>
+                                {{ ENDIF params.AUDIENCIA_CATEGORIA }}
+                            </table>
+                            
+                            <!-- MÉTRICAS -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:24px;">
+                                <tr>
+                                    <td style="width:48%;padding-right:4%;">
+                                        <div style="background-color:#333842;border-radius:12px;padding:20px 16px;text-align:center;">
+                                            <span style="color:#EAEBEE;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Investimento</span>
+                                            <span style="color:#06F17B;font-size:24px;font-weight:800;">{{ params.VALOR_INVESTIMENTO }}</span>
+                                        </div>
+                                    </td>
+                                    <td style="width:48%;">
+                                        <div style="background-color:#333842;border-radius:12px;padding:20px 16px;text-align:center;">
+                                            <span style="color:#EAEBEE;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Impressões Estimadas</span>
+                                            <span style="color:#06F17B;font-size:18px;font-weight:800;">{{ params.IMPRESSOES_ESTIMADAS }}</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr><td colspan="2" style="height:12px;"></td></tr>
+                                <tr>
+                                    <td style="width:48%;padding-right:4%;">
+                                        <div style="background-color:#333842;border-radius:12px;padding:20px 16px;text-align:center;">
+                                            <span style="color:#EAEBEE;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Período</span>
+                                            <span style="color:#ffffff;font-size:20px;font-weight:800;">{{ params.PERIODO }}</span>
+                                        </div>
+                                    </td>
+                                    <td style="width:48%;">
+                                        <div style="background-color:#333842;border-radius:12px;padding:20px 16px;text-align:center;">
+                                            <span style="color:#EAEBEE;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">CPM Estimado</span>
+                                            <span style="color:#06F17B;font-size:18px;font-weight:800;">{{ params.CPM_ESTIMADO }}</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- INFORMAÇÕES ADICIONAIS -->
+                            {{ IF params.PRACA }}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:12px;">
+                                <tr>
+                                    <td style="background:#F7F8FA;border-left:4px solid #06F17B;padding:16px 20px;border-radius:8px;">
+                                        <span style="font-size:11px;font-weight:700;color:#777E8C;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Praça de Veiculação</span>
+                                        <span style="font-size:16px;color:#333842;font-weight:600;">{{ params.PRACA }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            {{ ENDIF params.PRACA }}
+                            
+                            {{ IF params.OBJETIVO }}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:12px;">
+                                <tr>
+                                    <td style="background:#F7F8FA;border-left:4px solid #06F17B;padding:16px 20px;border-radius:8px;">
+                                        <span style="font-size:11px;font-weight:700;color:#777E8C;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Objetivo da Campanha</span>
+                                        <span style="font-size:16px;color:#333842;font-weight:600;">{{ params.OBJETIVO }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            {{ ENDIF params.OBJETIVO }}
+                            
+                            {{ IF params.OBSERVACOES }}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:24px;">
+                                <tr>
+                                    <td style="background:#fef3c7;border-left:4px solid #E0B500;padding:16px 20px;border-radius:8px;">
+                                        <span style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:6px;">Observações</span>
+                                        <span style="font-size:14px;color:#78350f;line-height:1.5;">{{ params.OBSERVACOES }}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            {{ ENDIF params.OBSERVACOES }}
+                            
+                            <!-- CTA -->
+                            <div style="text-align:center;margin:40px 0 24px;">
+                                <a href="{{ params.LINK_ADMIN }}" style="display:inline-block;background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);color:#333842;text-decoration:none;padding:16px 32px;border-radius:12px;font-size:15px;font-weight:700;box-shadow:0 4px 12px rgba(6,241,123,0.3);">Ver Cotação Completa →</a>
+                            </div>
+                            
+                            <!-- DIVIDER -->
+                            <div style="height:1px;background-color:#E1E4EB;margin:24px 0;"></div>
+                            
+                            <!-- AÇÃO REQUERIDA -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="background-color:#F7F8FA;padding:16px;border-radius:8px;border-left:4px solid #06F17B;">
+                                        <span style="font-size:13px;font-weight:700;color:#333842;display:block;margin-bottom:8px;">Ação Requerida</span>
+                                        <span style="font-size:13px;color:#777E8C;line-height:1.6;">
+                                            Entre em contato com o cliente em até <strong style="color:#06F17B;">24 horas</strong> para maximizar a taxa de conversão.
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="padding:24px 40px;background-color:#333842;border-top:3px solid #06F17B;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="80" style="display:block;margin:0 auto 16px;opacity:0.7;">
+                                        <p style="margin:0 0 12px;color:#ffffff;font-size:13px;font-weight:600;">
+                                            <span style="color:#06F17B;">Cadu</span> • Inteligência de Mídia Programática
+                                        </p>
+                                        <p style="margin:0 0 8px;color:#EAEBEE;font-size:12px;">
+                                            <a href="https://centralcomm.media" style="color:#06F17B;text-decoration:none;">centralcomm.media</a>
+                                            |
+                                            <a href="mailto:contato@centralcomm.media" style="color:#06F17B;text-decoration:none;">contato@centralcomm.media</a>
+                                        </p>
+                                        <p style="margin:0;color:#777E8C;font-size:11px;">© 2026 Centralcomm Media. Todos os direitos reservados.</p>
+                                        <p style="margin:8px 0 0;color:#777E8C;font-size:10px;font-style:italic;">Notificação automática do sistema</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

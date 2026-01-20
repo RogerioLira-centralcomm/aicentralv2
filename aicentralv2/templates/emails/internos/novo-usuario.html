@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Novo Usuário Cadastrado</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f4f5;">
+        <tr>
+            <td style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="520" align="center" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    
+                    <!-- HEADER COM LOGO -->
+                    <tr>
+                        <td style="background-color:#ffffff;padding:20px 32px;text-align:center;border-bottom:1px solid #e5e7eb;">
+                            <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="80" style="display:block;margin:0 auto;">
+                        </td>
+                    </tr>
+                    
+                    <!-- BANNER AZUL - NOVO USUÁRIO -->
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);padding:20px 32px;text-align:center;">
+                            <span style="color:#ffffff;font-size:15px;font-weight:700;display:block;">Novo Usuário Cadastrado</span>
+                            <span style="color:rgba(255,255,255,0.8);font-size:11px;margin-top:4px;display:block;">{{ params.DATA_CADASTRO }}</span>
+                        </td>
+                    </tr>
+                    
+                    <!-- CONTEÚDO PRINCIPAL -->
+                    <tr>
+                        <td style="padding:24px 32px;">
+                            
+                            <!-- Mensagem -->
+                            <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6;">
+                                Um novo usuário acabou de se cadastrar no Cadu. Confira os detalhes abaixo:
+                            </p>
+                            
+                            <!-- Card: Dados do Usuário -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#eff6ff;border-radius:8px;margin-bottom:20px;border-left:4px solid #3b82f6;">
+                                <tr>
+                                    <td style="padding:20px;">
+                                        <span style="font-size:11px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:12px;">Dados do Usuário</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Nome:</strong> {{ params.NOME }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Email:</strong> 
+                                                    <a href="mailto:{{ params.EMAIL }}" style="color:#3b82f6;text-decoration:none;">{{ params.EMAIL }}</a>
+                                                </td>
+                                            </tr>
+                                            {{ IF params.EMPRESA }}
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Empresa:</strong> {{ params.EMPRESA }}
+                                                </td>
+                                            </tr>
+                                            {{ ENDIF params.EMPRESA }}
+                                            {{ IF params.CARGO }}
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Cargo:</strong> {{ params.CARGO }}
+                                                </td>
+                                            </tr>
+                                            {{ ENDIF params.CARGO }}
+                                            {{ IF params.TELEFONE }}
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Telefone:</strong> {{ params.TELEFONE }}
+                                                </td>
+                                            </tr>
+                                            {{ ENDIF params.TELEFONE }}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Card: Informações Adicionais -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#F7F8FA;border-radius:8px;margin-bottom:20px;">
+                                <tr>
+                                    <td style="padding:16px;">
+                                        <span style="font-size:11px;font-weight:700;color:#333842;display:block;margin-bottom:10px;">Informações Adicionais</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                            {{ IF params.ORIGEM_CADASTRO }}
+                                            <tr>
+                                                <td style="padding:4px 0;font-size:12px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Origem:</strong> {{ params.ORIGEM_CADASTRO }}
+                                                </td>
+                                            </tr>
+                                            {{ ENDIF params.ORIGEM_CADASTRO }}
+                                            {{ IF params.IP_CADASTRO }}
+                                            <tr>
+                                                <td style="padding:4px 0;font-size:12px;color:#6b7280;">
+                                                    <strong style="color:#333842;">IP:</strong> {{ params.IP_CADASTRO }}
+                                                </td>
+                                            </tr>
+                                            {{ ENDIF params.IP_CADASTRO }}
+                                            <tr>
+                                                <td style="padding:4px 0;font-size:12px;color:#6b7280;">
+                                                    <strong style="color:#333842;">Data/Hora:</strong> {{ params.DATA_CADASTRO }}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Sugestão -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f0fdf4;border-radius:8px;margin-bottom:20px;border-left:4px solid #06F17B;">
+                                <tr>
+                                    <td style="padding:16px;">
+                                        <span style="font-size:11px;font-weight:700;color:#06F17B;display:block;margin-bottom:6px;">Ação Sugerida</span>
+                                        <span style="font-size:11px;color:#6b7280;line-height:1.5;">
+                                            Considere entrar em contato para dar boas-vindas e entender as necessidades do novo usuário.
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- CTA -->
+                            {{ IF params.LINK_ADMIN }}
+                            <div style="text-align:center;margin:24px 0 16px;">
+                                <a href="{{ params.LINK_ADMIN }}" style="display:inline-block;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(59,130,246,0.3);">Ver no Admin</a>
+                            </div>
+                            {{ ENDIF params.LINK_ADMIN }}
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- FOOTER -->
+                    <tr>
+                        <td style="padding:16px 32px;background-color:#333842;border-top:3px solid #06F17B;">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="text-align:center;">
+                                        <p style="margin:0;color:#9ca3af;font-size:11px;">
+                                            <span style="color:#06F17B;">Cadu</span> • Centralcomm Media © 2026
+                                        </p>
+                                        <p style="margin:6px 0 0;color:#6b7280;font-size:10px;font-style:italic;">
+                                            Notificação automática do sistema
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

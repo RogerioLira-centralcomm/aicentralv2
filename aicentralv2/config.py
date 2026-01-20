@@ -49,6 +49,11 @@ class Config:
 	MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', '')
 	MAIL_APP_NAME = os.getenv('MAIL_APP_NAME', 'AIcentral v2')
     
+	# Brevo (Email API)
+	BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+	BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Cadu')
+	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
+    
 	@property
 	def DATABASE_URI(self):
 		"""Retorna a URI completa do banco de dados"""

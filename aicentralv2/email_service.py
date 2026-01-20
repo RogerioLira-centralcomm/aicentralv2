@@ -1,29 +1,27 @@
 """
 =====================================================
 EMAIL SERVICE
-Serviço de envio de emails
+Serviço de envio de emails (usando Brevo API)
 =====================================================
 """
 
 from flask import render_template, current_app
-from flask_mail import Message
 from threading import Thread
-from aicentralv2 import mail
+from aicentralv2.services.brevo_service import (
+    get_brevo_service,
+    enviar_email_convite,
+    enviar_email_boas_vindas,
+    enviar_email_reset_senha,
+    enviar_email_senha_alterada
+)
+import logging
 
-
-def send_async_email(app, msg):
-    """Envia email de forma assíncrona"""
-    with app.app_context():
-        try:
-            mail.send(msg)
-            print(f"OK Email enviado para: {msg.recipients}")
-        except Exception as e:
-            print(f"FALHA Erro ao enviar email: {e}")
+logger = logging.getLogger(__name__)
 
 
 def send_email(subject, recipients, text_body=None, html_body=None, sender=None):
     """
-    Envia email
+    Envia email via Brevo API
     
     Args:
         subject: Assunto do email
@@ -41,29 +39,11 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
     if isinstance(recipients, str):
         recipients = [recipients]
     
-    # Usar sender padrão se não fornecido
-    if not sender:
-        sender = app.config.get('MAIL_DEFAULT_SENDER', 'noreply@aicentral.com')
-    
-    # Criar mensagem
-    msg = Message(
-        subject=subject,
-        sender=sender,
-        recipients=recipients
-    )
-    
-    # Adicionar corpo
-    if text_body:
-        msg.body = text_body
-    if html_body:
-        msg.html = html_body
-    
     # Debug mode - não enviar, só mostrar
     if app.config.get('MAIL_DEBUG', False):
         print("\n" + "="*60)
         print("EMAIL DEBUG MODE")
         print("="*60)
-        print(f"De: {sender}")
         print(f"Para: {', '.join(recipients)}")
         print(f"Assunto: {subject}")
         print(f"\nTexto:\n{text_body}")
@@ -72,17 +52,27 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
         print("="*60 + "\n")
         return True
     
-    # Enviar email (síncrono para debug)
+    # Enviar via Brevo
     try:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Tentando enviar email para {recipients}...")
-        mail.send(msg)
+        service = get_brevo_service()
+        
+        for recipient in recipients:
+            result = service.enviar_email(
+                to_email=recipient,
+                to_name=recipient.split('@')[0],  # Nome básico do email
+                subject=subject,
+                html_content=html_body or f"<p>{text_body}</p>",
+                text_content=text_body
+            )
+            
+            if not result.get('success'):
+                logger.error(f"Falha ao enviar email para {recipient}: {result.get('error')}")
+                return False
+        
         logger.info(f"Email enviado com sucesso para {recipients}")
         return True
+        
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"FALHA ao enviar email: {e}")
         import traceback
         logger.error(traceback.format_exc())
@@ -91,7 +81,7 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
 
 def send_password_reset_email(user_email, user_name, reset_link, expires_hours=1):
     """
-    Envia email de recuperação de senha
+    Envia email de recuperação de senha via Brevo
     
     Args:
         user_email: Email do usuário
@@ -102,49 +92,18 @@ def send_password_reset_email(user_email, user_name, reset_link, expires_hours=1
     Returns:
         bool: True se enviado com sucesso
     """
-    app_name = current_app.config.get('MAIL_APP_NAME', 'AIcentral v2')
-    
-    # Assunto
-    subject = f"Recuperação de Senha - {app_name}"
-    
-    # Corpo em texto plano
-    text_body = f"""
-Olá {user_name},
-
-Você solicitou a recuperação de senha no {app_name}.
-
-Clique no link abaixo para redefinir sua senha:
-{reset_link}
-
-ATENÇÃO: Este link expira em {expires_hours} hora(s).
-
-Se você não solicitou esta recuperação, ignore este email.
-
----
-Equipe {app_name}
-    """.strip()
-    
-    # Corpo em HTML
-    html_body = render_template_string(
-        get_reset_password_template(),
-        user_name=user_name,
+    result = enviar_email_reset_senha(
+        to_email=user_email,
+        to_name=user_name,
         reset_link=reset_link,
-        expires_hours=expires_hours,
-        app_name=app_name
+        expires_hours=expires_hours
     )
-    
-    # Enviar email
-    return send_email(
-        subject=subject,
-        recipients=user_email,
-        text_body=text_body,
-        html_body=html_body
-    )
+    return result.get('success', False)
 
 
 def send_password_changed_email(user_email, user_name):
     """
-    Envia email de confirmação de senha alterada
+    Envia email de confirmação de senha alterada via Brevo
     
     Args:
         user_email: Email do usuário
@@ -153,38 +112,16 @@ def send_password_changed_email(user_email, user_name):
     Returns:
         bool: True se enviado com sucesso
     """
-    app_name = current_app.config.get('MAIL_APP_NAME', 'AIcentral v2')
-    
-    subject = f"OK Senha Alterada - {app_name}"
-    
-    text_body = f"""
-Olá {user_name},
-
-Sua senha foi alterada com sucesso no {app_name}.
-
-Se você não realizou esta alteração, entre em contato imediatamente.
-
----
-Equipe {app_name}
-    """.strip()
-    
-    html_body = render_template_string(
-        get_password_changed_template(),
-        user_name=user_name,
-        app_name=app_name
+    result = enviar_email_senha_alterada(
+        to_email=user_email,
+        to_name=user_name
     )
-    
-    return send_email(
-        subject=subject,
-        recipients=user_email,
-        text_body=text_body,
-        html_body=html_body
-    )
+    return result.get('success', False)
 
 
 def send_welcome_email(user_email, user_name):
     """
-    Envia email de boas-vindas
+    Envia email de boas-vindas via Brevo
     
     Args:
         user_email: Email do usuário
@@ -193,38 +130,16 @@ def send_welcome_email(user_email, user_name):
     Returns:
         bool: True se enviado com sucesso
     """
-    app_name = current_app.config.get('MAIL_APP_NAME', 'AIcentral v2')
-    
-    subject = f"Bem-vindo ao {app_name}!"
-    
-    text_body = f"""
-Olá {user_name},
-
-Bem-vindo ao {app_name}!
-
-Sua conta foi criada com sucesso.
-
----
-Equipe {app_name}
-    """.strip()
-    
-    html_body = render_template_string(
-        get_welcome_template(),
-        user_name=user_name,
-        app_name=app_name
+    result = enviar_email_boas_vindas(
+        to_email=user_email,
+        to_name=user_name
     )
-    
-    return send_email(
-        subject=subject,
-        recipients=user_email,
-        text_body=text_body,
-        html_body=html_body
-    )
+    return result.get('success', False)
 
 
 def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, expires_at):
     """
-    Envia email de convite para novo usuário
+    Envia email de convite para novo usuário via Brevo
     
     Args:
         to_email: Email do convidado
@@ -236,13 +151,7 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
     Returns:
         bool: True se enviado com sucesso
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    app_name = current_app.config.get('MAIL_APP_NAME', 'CentralX')
     base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
-    
-    logger.info(f"BASE_URL configurado: {base_url}")
     
     # Link de aceite do convite
     invite_link = f"{base_url}/aceitar-convite/{invite_token}"
@@ -252,132 +161,18 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
     # Formatar data de expiração
     expires_str = expires_at.strftime('%d/%m/%Y às %H:%M') if hasattr(expires_at, 'strftime') else str(expires_at)
     
-    subject = f"Você foi convidado para o {app_name}"
-    
-    text_body = f"""
-Olá!
-
-{invited_by_name} convidou você para fazer parte da equipe de {cliente_nome} no {app_name}.
-
-Para aceitar o convite e criar sua conta, clique no link abaixo:
-{invite_link}
-
-ATENÇÃO: Este convite expira em {expires_str}.
-
-Se você não esperava este convite, pode ignorar este email.
-
----
-Equipe {app_name}
-    """.strip()
-    
-    html_body = f"""
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convite - {app_name}</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }}
-        .email-container {{
-            background: white;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }}
-        .header {{
-            text-align: center;
-            margin-bottom: 30px;
-        }}
-        .header h1 {{
-            color: #72cd80;
-            font-size: 28px;
-            margin-bottom: 10px;
-        }}
-        .content {{
-            margin-bottom: 30px;
-        }}
-        .btn {{
-            display: inline-block;
-            background-color: #72cd80;
-            color: white !important;
-            text-decoration: none;
-            padding: 14px 30px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 16px;
-            margin: 20px 0;
-        }}
-        .btn:hover {{
-            background-color: #5fb96c;
-        }}
-        .warning {{
-            background-color: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 20px 0;
-            font-size: 14px;
-        }}
-        .footer {{
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            color: #666;
-            font-size: 14px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <h1>Você foi convidado!</h1>
-        </div>
-        
-        <div class="content">
-            <p>Olá!</p>
-            
-            <p><strong>{invited_by_name}</strong> convidou você para fazer parte da equipe de <strong>{cliente_nome}</strong> no <strong>{app_name}</strong>.</p>
-            
-            <p style="text-align: center;">
-                <a href="{invite_link}" class="btn">Aceitar Convite</a>
-            </p>
-            
-            <div class="warning">
-                <strong>⚠️ Atenção:</strong> Este convite expira em <strong>{expires_str}</strong>.
-            </div>
-            
-            <p style="font-size: 14px; color: #666;">
-                Se você não esperava este convite, pode ignorar este email.
-            </p>
-        </div>
-        
-        <div class="footer">
-            <p>Equipe {app_name}</p>
-        </div>
-    </div>
-</body>
-</html>
-    """
-    
-    return send_email(
-        subject=subject,
-        recipients=to_email,
-        text_body=text_body,
-        html_body=html_body
+    result = enviar_email_convite(
+        to_email=to_email,
+        to_name=to_email.split('@')[0],
+        invite_link=invite_link,
+        invited_by=invited_by_name,
+        cliente_nome=cliente_nome,
+        expires_at=expires_str
     )
+    return result.get('success', False)
 
 
-# ==================== TEMPLATES HTML ====================
+# ==================== TEMPLATES HTML (LEGADO) ====================
 
 def render_template_string(template_string, **context):
     """

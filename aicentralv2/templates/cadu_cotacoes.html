@@ -99,12 +99,16 @@
             <td class="max-w-xs truncate">{{ cotacao.nome_campanha }}</td>
             <td class="text-center">
               <span class="badge badge-sm
-                {% if cotacao.status == 'pendente' %}badge-warning
-                {% elif cotacao.status == 'aprovada' %}badge-success
-                {% elif cotacao.status == 'rejeitada' %}badge-error
-                {% elif cotacao.status == 'expirada' %}badge-ghost
+                {% if cotacao.status == 'Pendente' %}badge-warning
+                {% elif cotacao.status == 'Rascunho' %}badge-ghost
+                {% elif cotacao.status == 'Em Análise' %}badge-info
+                {% elif cotacao.status == 'Enviada' %}badge-primary
+                {% elif cotacao.status == 'Aprovada' %}badge-success
+                {% elif cotacao.status == 'Rejeitada' %}badge-error
+                {% elif cotacao.status == 'Expirada' %}badge-neutral
+                {% else %}badge-warning
                 {% endif %}">
-                {{ cotacao.status }}
+                {{ cotacao.status or 'Pendente' }}
               </span>
             </td>
             <td class="text-center">

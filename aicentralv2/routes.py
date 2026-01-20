@@ -5164,6 +5164,18 @@ def init_routes(app):
             return jsonify({'success': False, 'message': str(e)}), 500
 
     
+    @app.route('/api/cotacoes/<int:cotacao_id>/historico', methods=['GET'])
+    @login_required
+    def obter_historico_cotacao(cotacao_id):
+        """Obtém o histórico de alterações de uma cotação via audit log"""
+        try:
+            historico = db.obter_historico_cotacao(cotacao_id)
+            return jsonify({'success': True, 'historico': historico})
+        except Exception as e:
+            current_app.logger.error(f"Erro ao obter histórico: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+
     @app.route('/api/cotacoes/audiencias/<int:audiencia_id>/dados', methods=['GET'])
     @login_required
     def obter_dados_audiencia_cotacao(audiencia_id):

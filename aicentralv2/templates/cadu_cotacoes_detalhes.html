@@ -276,30 +276,155 @@ function renderizarAnexos(anexos) {
     {% endif %}
   {% endwith %}
 
+  <!-- ==================== HEADER CARD - VISÃO RÁPIDA ==================== -->
+  {% if modo == 'editar' and cotacao %}
+  <div class="bg-base-100 shadow-lg rounded-lg p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- COLUNA ESQUERDA: Cliente, Executivo, Data -->
+      <div class="space-y-2">
+        <div>
+          <span class="text-xs text-base-content/60">Cliente</span>
+          <p class="font-semibold text-lg">
+            <a href="{{ url_for('clientes') }}?busca={{ cotacao.cliente_nome|urlencode }}" class="hover:text-primary hover:underline" title="Ver cliente">
+              {{ cotacao.cliente_nome or 'Sem cliente' }}
+            </a>
+          </p>
+        </div>
+        <div class="flex gap-4">
+          <div>
+            <span class="text-xs text-base-content/60">Executivo</span>
+            <p class="font-medium text-sm">{{ cotacao.responsavel_nome or 'Não definido' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60">Criada em</span>
+            <p class="font-medium text-sm">
+              {{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- COLUNA CENTRO: Valor, Itens, Status -->
+      <div class="text-center border-l border-r border-base-200 px-4">
+        <div class="mb-2">
+          <span class="text-xs text-base-content/60">Valor Total</span>
+          <p class="text-3xl font-bold text-success">
+            R$ {{ "%.2f"|format(cotacao.valor_total_proposta or 0) }}
+          </p>
+        </div>
+        <div class="flex justify-center gap-4 text-sm">
+          <div>
+            <span class="text-base-content/60">Linhas:</span>
+            <span class="font-semibold">{{ linhas|length if linhas else 0 }}</span>
+          </div>
+          <div>
+            <span class="text-base-content/60">Audiências:</span>
+            <span class="font-semibold">{{ audiencias|length if audiencias else 0 }}</span>
+          </div>
+        </div>
+        <div class="mt-2">
+          {% set status_classes = {
+            'Rascunho': 'badge-ghost',
+            'Pendente': 'badge-ghost',
+            'Em Análise': 'badge-info',
+            'Enviada': 'badge-primary',
+            'Negociação': 'badge-warning',
+            'Aprovada': 'badge-success',
+            'Rejeitada': 'badge-error',
+            'Expirada': 'badge-neutral'
+          } %}
+          <span class="badge badge-lg {{ status_classes.get(cotacao.status, 'badge-ghost') }}">
+            {{ cotacao.status or 'Rascunho' }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- COLUNA DIREITA: Ações -->
+      <div class="flex flex-col justify-center gap-2">
+        <div class="flex gap-2">
+          {% if cotacao.status not in ['Aprovada', 'Rejeitada'] %}
+          <button type="button" onclick="document.getElementById('modal_aprovar').showModal()" class="btn btn-success btn-sm flex-1">
+            <i class="fas fa-check mr-1"></i>Aprovar
+          </button>
+          <button type="button" onclick="document.getElementById('modal_rejeitar').showModal()" class="btn btn-error btn-sm flex-1">
+            <i class="fas fa-times mr-1"></i>Rejeitar
+          </button>
+          {% endif %}
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="duplicarCotacao()" class="btn btn-outline btn-sm flex-1">
+            <i class="fas fa-copy mr-1"></i>Duplicar
+          </button>
+          <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="btn btn-outline btn-sm flex-1">
+            <i class="fas fa-file-pdf mr-1"></i>PDF
+          </a>
+        </div>
+        <button type="button" onclick="enviarCotacaoEmail()" class="btn btn-sm text-white w-full" style="background-color: #72cd80;">
+          <i class="fas fa-paper-plane mr-1"></i>Enviar por Email
+        </button>
+      </div>
+    </div>
+    
+    <!-- Mini Timeline -->
+    <div class="mt-3 pt-3 border-t border-base-200">
+      <div class="flex items-center gap-4 text-xs flex-wrap">
+        <div class="flex items-center gap-1">
+          <i class="fas fa-plus-circle text-base-content/50"></i>
+          <span class="text-base-content/60">Criada:</span>
+          <span>{{ cotacao.created_at.strftime('%d/%m/%Y %H:%M') if cotacao.created_at else '-' }}</span>
+        </div>
+        {% if cotacao.proposta_enviada_em %}
+        <div class="flex items-center gap-1">
+          <i class="fas fa-paper-plane text-primary"></i>
+          <span class="text-base-content/60">Enviada:</span>
+          <span>{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        {% endif %}
+        {% if cotacao.aprovada_em %}
+        <div class="flex items-center gap-1">
+          <i class="fas fa-check-circle text-success"></i>
+          <span class="text-base-content/60">Aprovada:</span>
+          <span>{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="card bg-base-100 shadow-lg">
     <div class="card-body">
       <!-- Abas -->
-      <div class="tabs tabs-boxed mb-4">
-        <a id="tab_info_basicas" href="javascript:void(0)" class="tab tab-active" onclick="trocarAbaCotacao('info_basicas'); return false;" style="--tab-color: #72cd80;">
-          Informações Básicas
+      <div class="tabs tabs-boxed tabs-sm mb-4 flex-wrap">
+        <a id="tab_info_basicas" href="javascript:void(0)" class="tab tab-sm tab-active" onclick="trocarAbaCotacao('info_basicas'); return false;" style="--tab-color: #72cd80;">
+          Info
         </a>
-        <a id="tab_datas" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('datas'); return false;" style="--tab-color: #72cd80;">
+        <a id="tab_datas" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('datas'); return false;" style="--tab-color: #72cd80;">
           Datas
         </a>
-        <a id="tab_valores" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('valores'); return false;" style="--tab-color: #72cd80;">
+        <a id="tab_valores" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('valores'); return false;" style="--tab-color: #72cd80;">
           Valores
         </a>
-        <a id="tab_linhas" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('linhas'); return false;" style="--tab-color: #72cd80;">
-          Linhas da Cotação <span id="contador_linhas" class="badge badge-sm ml-1">{% if linhas %}{{ linhas|length }}{% else %}0{% endif %}</span>
+        <a id="tab_itens" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('itens'); return false;" style="--tab-color: #72cd80;">
+          Itens <span id="contador_itens" class="badge badge-xs ml-1">{% if linhas %}{{ linhas|length }}{% else %}0{% endif %}</span>
         </a>
-        <a id="tab_audiencias" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('audiencias'); return false;" style="--tab-color: #72cd80;">
-          Audiências <span id="contador_audiencias" class="badge badge-sm ml-1">{% if audiencias %}{{ audiencias|length }}{% else %}0{% endif %}</span>
+        <a id="tab_audiencias" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('audiencias'); return false;" style="--tab-color: #72cd80;">
+          Audiências <span class="badge badge-xs ml-1">{% if audiencias %}{{ audiencias|length }}{% else %}0{% endif %}</span>
         </a>
-        <a id="tab_anexos" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('anexos'); return false;" style="--tab-color: #72cd80;">
-          Anexos <span id="contador_anexos" class="badge badge-sm ml-1">0</span>
+        <a id="tab_anexos" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('anexos'); return false;" style="--tab-color: #72cd80;">
+          Anexos
         </a>
-        <a id="tab_observacoes" href="javascript:void(0)" class="tab" onclick="trocarAbaCotacao('observacoes'); return false;" style="--tab-color: #72cd80;">
-          Observações
+        <a id="tab_observacoes" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('observacoes'); return false;" style="--tab-color: #72cd80;">
+          Obs.
+        </a>
+        <a id="tab_briefing" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('briefing'); return false;" style="--tab-color: #72cd80;">
+          Briefing {% if cotacao and cotacao.briefing_id %}<span class="badge badge-xs badge-success ml-1">●</span>{% endif %}
+        </a>
+        <a id="tab_comunicacao" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('comunicacao'); carregarComentarios(); return false;" style="--tab-color: #72cd80;">
+          Comunicação <span id="contador_comentarios" class="badge badge-xs ml-1">0</span>
+        </a>
+        <a id="tab_historico" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('historico'); carregarHistorico(); return false;" style="--tab-color: #72cd80;">
+          Histórico
         </a>
       </div>
 
@@ -624,8 +749,8 @@ function renderizarAnexos(anexos) {
         </form>
       </div>
 
-      <!-- Conteúdo Linhas -->
-      <div id="content_linhas" class="aba-content">
+      <!-- Conteúdo Itens (Aba Principal) -->
+      <div id="content_itens" class="aba-content">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-lg font-bold">Linhas da Cotação</h2>
           <button onclick="abrirModalNovaLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
@@ -897,6 +1022,101 @@ function renderizarAnexos(anexos) {
             >{{ cotacao.condicoes_comerciais if cotacao and cotacao.condicoes_comerciais else '' }}</textarea>
           </div>
         </form>
+      </div>
+
+      <!-- Conteúdo Briefing -->
+      <div id="content_briefing" class="aba-content">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b">
+          <h2 class="text-lg font-bold"><i class="fas fa-file-alt mr-2"></i>Briefing Vinculado</h2>
+        </div>
+        
+        {% if cotacao and cotacao.briefing_id %}
+        <div id="briefing_vinculado" class="card bg-base-200 p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="avatar placeholder">
+                <div class="bg-success text-success-content rounded-full w-12">
+                  <i class="fas fa-file-alt text-xl"></i>
+                </div>
+              </div>
+              <div>
+                <p class="font-bold text-lg">{{ briefing_vinculado.titulo if briefing_vinculado else 'Briefing #' ~ cotacao.briefing_id }}</p>
+                <p class="text-sm opacity-70">Vinculado em {{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</p>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <a href="/briefings/{{ cotacao.briefing_id }}" class="btn btn-sm btn-outline btn-info">
+                <i class="fas fa-eye mr-1"></i>Ver Briefing
+              </a>
+              <button onclick="desvincularBriefing()" class="btn btn-sm btn-outline btn-error">
+                <i class="fas fa-unlink mr-1"></i>Desvincular
+              </button>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div id="briefing_nao_vinculado" class="text-center py-8">
+          <i class="fas fa-file-alt text-6xl text-base-content/20 mb-4"></i>
+          <p class="text-base-content/50 mb-4">Nenhum briefing vinculado a esta cotação</p>
+          <div class="form-control max-w-md mx-auto">
+            <label class="label"><span class="label-text font-semibold">Selecione um briefing para vincular:</span></label>
+            <div class="flex gap-2">
+              <select id="select_briefing_vincular" class="select select-bordered flex-1">
+                <option value="">Selecione um briefing...</option>
+                {% for briefing in briefings %}
+                <option value="{{ briefing.id }}">{{ briefing.titulo }} {% if briefing.cliente_nome %}({{ briefing.cliente_nome }}){% endif %}</option>
+                {% endfor %}
+              </select>
+              <button onclick="vincularBriefing()" class="btn btn-success">
+                <i class="fas fa-link mr-1"></i>Vincular
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Conteúdo Comunicação (Aba Principal) -->
+      <div id="content_comunicacao" class="aba-content">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b">
+          <h2 class="text-lg font-bold"><i class="fas fa-comments mr-2"></i>Comunicação</h2>
+        </div>
+        
+        <!-- Formulário Novo Comentário -->
+        <div class="card bg-base-200 p-4 mb-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Adicionar comentário</span></label>
+            <textarea id="novo_comentario" class="textarea textarea-bordered" rows="2" placeholder="Digite seu comentário..."></textarea>
+          </div>
+          <div class="flex justify-end mt-2">
+            <button onclick="adicionarComentario()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+              <i class="fas fa-paper-plane mr-1"></i>Enviar
+            </button>
+          </div>
+        </div>
+        
+        <!-- Lista de Comentários -->
+        <div id="lista_comentarios" class="space-y-3">
+          <div class="flex justify-center py-8">
+            <span class="loading loading-spinner loading-md"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo Histórico (Aba Principal) -->
+      <div id="content_historico" class="aba-content">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b">
+          <h2 class="text-lg font-bold"><i class="fas fa-history mr-2"></i>Histórico de Alterações</h2>
+          <button onclick="carregarHistorico()" class="btn btn-sm btn-ghost">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+        
+        <div id="lista_historico" class="space-y-2">
+          <div class="flex justify-center py-8">
+            <span class="loading loading-spinner loading-md"></span>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -3024,10 +3244,303 @@ function toggleLinkPublico() {
   atualizarStatusLinkPublico(toggle);
 }
 
+// ==================== APROVAR / REJEITAR ====================
+
+async function confirmarAprovacao() {
+  const cotacaoId = getCotacaoId();
+  const motivo = document.getElementById('motivo_aprovacao').value;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        status: 'Aprovada',
+        aprovada_em: new Date().toISOString()
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Adicionar comentário se houver motivo
+      if (motivo && motivo.trim()) {
+        await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comentario: `[APROVAÇÃO] ${motivo}` })
+        });
+      }
+      showToast('Cotação aprovada com sucesso!', 'success');
+      document.getElementById('modal_aprovar').close();
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast(result.message || 'Erro ao aprovar', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao aprovar cotação', 'error');
+  }
+}
+
+async function confirmarRejeicao() {
+  const cotacaoId = getCotacaoId();
+  const motivo = document.getElementById('motivo_rejeicao').value;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Rejeitada' })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Adicionar comentário se houver motivo
+      if (motivo && motivo.trim()) {
+        await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comentario: `[REJEIÇÃO] ${motivo}` })
+        });
+      }
+      showToast('Cotação rejeitada', 'warning');
+      document.getElementById('modal_rejeitar').close();
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast(result.message || 'Erro ao rejeitar', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao rejeitar cotação', 'error');
+  }
+}
+
+// ==================== BRIEFING ====================
+
+async function vincularBriefing() {
+  const cotacaoId = getCotacaoId();
+  const briefingId = document.getElementById('select_briefing_vincular').value;
+  
+  if (!briefingId) {
+    showToast('Selecione um briefing para vincular', 'warning');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ briefing_id: briefingId })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      showToast('Briefing vinculado com sucesso!', 'success');
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast(result.message || 'Erro ao vincular', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao vincular briefing', 'error');
+  }
+}
+
+async function desvincularBriefing() {
+  const cotacaoId = getCotacaoId();
+  
+  if (!confirm('Deseja realmente desvincular o briefing desta cotação?')) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ briefing_id: null })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      showToast('Briefing desvinculado', 'success');
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast(result.message || 'Erro ao desvincular', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao desvincular briefing', 'error');
+  }
+}
+
+// ==================== COMUNICAÇÃO ====================
+
+async function carregarComentarios() {
+  const cotacaoId = getCotacaoId();
+  const container = document.getElementById('lista_comentarios');
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/comentarios`);
+    const result = await response.json();
+    
+    if (result.success && result.comentarios) {
+      if (result.comentarios.length === 0) {
+        container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum comentário ainda</p>';
+      } else {
+        container.innerHTML = result.comentarios.map(c => `
+          <div class="card bg-base-200 p-3">
+            <div class="flex items-start gap-3">
+              <div class="avatar placeholder">
+                <div class="bg-neutral text-neutral-content rounded-full w-10">
+                  <span class="text-sm">${(c.usuario_nome || 'U').substring(0,2).toUpperCase()}</span>
+                </div>
+              </div>
+              <div class="flex-1">
+                <div class="flex justify-between items-center">
+                  <span class="font-semibold">${c.usuario_nome || 'Usuário'}</span>
+                  <span class="text-xs opacity-50">${formatarData(c.created_at)}</span>
+                </div>
+                <p class="text-sm mt-1">${c.comentario}</p>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      // Atualizar contador
+      document.getElementById('contador_comentarios').textContent = result.comentarios.length;
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    container.innerHTML = '<p class="text-center text-error py-8">Erro ao carregar comentários</p>';
+  }
+}
+
+async function adicionarComentario() {
+  const cotacaoId = getCotacaoId();
+  const textarea = document.getElementById('novo_comentario');
+  const comentario = textarea.value.trim();
+  
+  if (!comentario) {
+    showToast('Digite um comentário', 'warning');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comentario })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      textarea.value = '';
+      showToast('Comentário adicionado!', 'success');
+      carregarComentarios();
+    } else {
+      showToast(result.message || 'Erro ao adicionar', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao adicionar comentário', 'error');
+  }
+}
+
+// ==================== HISTÓRICO ====================
+
+async function carregarHistorico() {
+  const cotacaoId = getCotacaoId();
+  const container = document.getElementById('lista_historico');
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/historico`);
+    const result = await response.json();
+    
+    if (result.success && result.historico) {
+      if (result.historico.length === 0) {
+        container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum registro de histórico</p>';
+      } else {
+        container.innerHTML = result.historico.map(h => `
+          <div class="flex items-start gap-3 p-2 hover:bg-base-200 rounded-lg">
+            <div class="badge ${getBadgeClassForAction(h.acao)}">${h.acao}</div>
+            <div class="flex-1">
+              <p class="text-sm">${h.descricao}</p>
+              <p class="text-xs opacity-50">${formatarData(h.created_at)} por ${h.usuario_nome || 'Sistema'}</p>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    container.innerHTML = '<p class="text-center text-error py-8">Erro ao carregar histórico</p>';
+  }
+}
+
+function getBadgeClassForAction(acao) {
+  const classes = {
+    'CREATE': 'badge-success',
+    'UPDATE': 'badge-info',
+    'DELETE': 'badge-error',
+    'APROVAR': 'badge-success',
+    'REJEITAR': 'badge-error',
+    'ENVIAR': 'badge-warning'
+  };
+  return classes[acao] || 'badge-ghost';
+}
+
+function formatarData(dataStr) {
+  if (!dataStr) return '-';
+  const data = new Date(dataStr);
+  return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
 // ==================== FUNÇÃO DE TOAST ====================
 
 function mostrarToast(mensagem, tipo) {
   showToast(mensagem, tipo);
 }
 </script>
+
+<!-- Modal Aprovar -->
+<dialog id="modal_aprovar" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg text-success"><i class="fas fa-check-circle mr-2"></i>Aprovar Cotação</h3>
+    <p class="py-2">Confirma a aprovação desta cotação?</p>
+    <div class="form-control">
+      <label class="label"><span class="label-text">Observação (opcional)</span></label>
+      <textarea id="motivo_aprovacao" class="textarea textarea-bordered" rows="2" placeholder="Observação sobre a aprovação..."></textarea>
+    </div>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost">Cancelar</button>
+      </form>
+      <button class="btn btn-success" onclick="confirmarAprovacao()">
+        <i class="fas fa-check mr-1"></i>Confirmar Aprovação
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Modal Rejeitar -->
+<dialog id="modal_rejeitar" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg text-error"><i class="fas fa-times-circle mr-2"></i>Rejeitar Cotação</h3>
+    <p class="py-2">Confirma a rejeição desta cotação?</p>
+    <div class="form-control">
+      <label class="label"><span class="label-text">Motivo (opcional)</span></label>
+      <textarea id="motivo_rejeicao" class="textarea textarea-bordered" rows="2" placeholder="Motivo da rejeição..."></textarea>
+    </div>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost">Cancelar</button>
+      </form>
+      <button class="btn btn-error" onclick="confirmarRejeicao()">
+        <i class="fas fa-times mr-1"></i>Confirmar Rejeição
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 {% endblock %}

@@ -4636,6 +4636,34 @@ def remover_comentario_cotacao(comentario_id, user_id, user_type):
         raise e
 
 
+def obter_historico_cotacao(cotacao_id):
+    """Obtém o histórico de alterações de uma cotação via audit log"""
+    conn = get_db()
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    a.id,
+                    a.acao,
+                    a.descricao,
+                    a.created_at,
+                    COALESCE(u.nome_completo, 'Sistema') as usuario_nome
+                FROM tbl_admin_audit_log a
+                LEFT JOIN tbl_contato_cliente u ON a.user_id = u.id_contato_cliente
+                WHERE a.registro_tipo = 'cadu_cotacoes' 
+                  AND a.registro_id = %s
+                ORDER BY a.created_at DESC
+                LIMIT 50
+            ''', (cotacao_id,))
+            
+            return cursor.fetchall()
+            
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter histórico da cotação {cotacao_id}: {e}")
+        raise e
+
+
 # ==================== GESTÃO DE BRIEFINGS ====================
 
 def obter_todos_briefings(filtros=None):

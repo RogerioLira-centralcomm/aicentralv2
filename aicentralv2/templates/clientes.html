@@ -4,60 +4,109 @@
 
 {% block content %}
 <style>
-  /* Estilo customizado para abas ativas */
-  #tabs_container .tab.tab-active {
-    background-color: #72cd80 !important;
-    color: white !important;
-    border-color: #72cd80 !important;
-  }
-  
-  #tabs_container .tab:hover:not(.tab-active) {
-    background-color: rgba(114, 205, 128, 0.1) !important;
-    color: #72cd80 !important;
-  }
-  
   /* Badges de categoria ABC */
   .badge-cat-a { background-color: #10b981; color: white; }
-  .badge-cat-b { background-color: #3b82f6; color: white; }
-  .badge-cat-c { background-color: #6b7280; color: white; }
+  .badge-cat-b { background-color: #6b7280; color: white; }
+  .badge-cat-c { background-color: #9ca3af; color: white; }
   
-  /* Filtros collapsible */
-  .filtros-content {
-    max-height: 500px;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-  }
-  .filtros-content.collapsed {
-    max-height: 0;
-  }
+  /* Tab styles */
+  .tab-btn.tab-active { color: #1f2937; border-bottom-color: #374151; }
+  .modal-tab-content.hidden { display: none; }
 </style>
 
-<div class="max-w-7xl mx-auto">
-  <div class="flex items-center justify-between mb-3">
-    <div>
-      <h1 class="text-2xl font-bold text-base-content">Clientes</h1>
-      <p class="text-sm text-base-content/70">
-        Gerencie os clientes cadastrados na plataforma.
-        {% if total %}<span class="font-semibold">({{ total }} clientes)</span>{% endif %}
-      </p>
-    </div>
-    <div class="flex gap-2">
-      <!-- Botão Recategorizar ABC (admin only) -->
-      <button onclick="recategorizarABC()" class="btn btn-outline btn-sm" style="color: #f59e0b; border-color: #f59e0b;" 
-              onmouseover="this.style.backgroundColor='#f59e0b'; this.style.color='white';" 
-              onmouseout="this.style.backgroundColor='transparent'; this.style.color='#f59e0b';" 
-              title="Recategorizar clientes ABC">
-        <i class="fas fa-tags mr-2 text-xs"></i>ABC
-      </button>
-      <button onclick="abrirModalNovo()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-plus mr-2 text-xs"></i>Novo Cliente
-      </button>
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto (max 66px) estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Clientes</h1>
+        {% if total %}<span class="text-xs text-gray-500">({{ total }} registros)</span>{% endif %}
+      </div>
+      
+      <!-- Filtros Inline -->
+      <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="flex items-center gap-3">
+        <!-- Executivo -->
+        <select name="executivo_id" onchange="this.form.submit()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todos executivos</option>
+          {% for vendedor in vendedores_cc %}
+            <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+              {{ vendedor.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+        
+        <!-- Busca -->
+        <input type="text" name="search" value="{{ filtros.get('search', '') }}" placeholder="Buscar cliente..."
+               onkeydown="if(event.key==='Enter'){this.form.submit();}"
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+        
+        <!-- Hidden fields para manter filtros -->
+        <input type="hidden" name="status" id="status_filter" value="{{ request.args.get('status', 'ativo') }}">
+        <input type="hidden" name="categoria" id="categoria_filter" value="{{ request.args.get('categoria', '') }}">
+        <input type="hidden" name="agencia" id="agencia_filter" value="{{ filtros.get('agencia', 'nao') }}">
+        
+        <!-- Status Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarStatus('ativo')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status', 'ativo') == 'ativo' %}bg-gray-200{% endif %}" 
+                  title="Ativos">
+            <i class="fa-solid fa-circle-check text-sm text-gray-{% if request.args.get('status', 'ativo') == 'ativo' %}800{% else %}400{% endif %}"></i>
+          </button>
+          <button type="button" onclick="filtrarStatus('inativo')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'inativo' %}bg-gray-200{% endif %}" 
+                  title="Inativos">
+            <i class="fa-solid fa-circle-xmark text-sm text-gray-{% if request.args.get('status') == 'inativo' %}800{% else %}400{% endif %}"></i>
+          </button>
+          <button type="button" onclick="filtrarStatus('todos')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'todos' %}bg-gray-200{% endif %}" 
+                  title="Todos">
+            <i class="fa-solid fa-list text-sm text-gray-{% if request.args.get('status') == 'todos' %}800{% else %}400{% endif %}"></i>
+          </button>
+        </div>
+        
+        <!-- Categoria ABC -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarCategoria('')" 
+                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors {% if not request.args.get('categoria') %}bg-gray-200 text-gray-800{% else %}text-gray-400{% endif %}" 
+                  title="Todas categorias">∀</button>
+          <button type="button" onclick="filtrarCategoria('A')" 
+                  class="px-2 py-1 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'A' %}bg-green-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                  title="Categoria A">A</button>
+          <button type="button" onclick="filtrarCategoria('B')" 
+                  class="px-2 py-1 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'B' %}bg-gray-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                  title="Categoria B">B</button>
+          <button type="button" onclick="filtrarCategoria('C')" 
+                  class="px-2 py-1 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'C' %}bg-gray-400 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                  title="Categoria C">C</button>
+        </div>
+        
+        <!-- Agência toggle -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarAgencia()" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtros.get('agencia') == 'sim' %}bg-gray-200{% endif %}" 
+                  title="Filtrar agências">
+            <i class="fa-solid fa-building text-sm text-gray-{% if filtros.get('agencia') == 'sim' %}800{% else %}400{% endif %}"></i>
+          </button>
+        </div>
+      </form>
+      
+      <!-- Botões -->
+      <div class="flex gap-2">
+        <button onclick="recategorizarABC()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" title="Recategorizar ABC">
+          <i class="fas fa-tags mr-1"></i>ABC
+        </button>
+        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Novo
+        </button>
+      </div>
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-6 space-y-2">
+      <div class="mb-4 space-y-2">
         {% for category, message in messages %}
           <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
             <span>{{ message }}</span>
@@ -67,120 +116,34 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Filtros Collapsible Horizontal -->
-  <div class="card bg-base-100 border border-base-300 mb-4">
-    <div class="card-body p-3">
-      <!-- Header dos Filtros -->
-      <div class="flex items-center justify-between cursor-pointer" onclick="toggleFiltros()">
-        <div class="flex items-center gap-2">
-          <i class="fas fa-filter text-sm" style="color: #72cd80;"></i>
-          <span class="font-semibold text-sm">Filtros</span>
-          {% if filtros %}
-            <span class="badge badge-sm badge-primary">{{ filtros|length }} ativos</span>
-          {% endif %}
-        </div>
-        <i id="filtros_icon" class="fas fa-chevron-down text-xs transition-transform"></i>
-      </div>
-      
-      <!-- Conteúdo dos Filtros -->
-      <div id="filtros_content" class="filtros-content mt-3">
-        <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}">
-          <div class="flex flex-wrap items-end gap-3">
-            <!-- Filtro por Executivo (Obrigatório) -->
-            <div class="form-control" style="min-width: 140px; max-width: 180px;">
-              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Executivo*</label>
-              <select name="executivo_id" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
-                <option value="">Todos</option>
-                {% for vendedor in vendedores_cc %}
-                  <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
-                    {{ vendedor.nome_completo }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            
-            <!-- Pesquisa por Nome -->
-            <div class="form-control flex-1" style="min-width: 150px;">
-              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Pesquisar</label>
-              <input type="text" name="search" 
-                     value="{{ filtros.get('search', '') }}"
-                     onkeydown="if(event.key==='Enter'){this.form.submit();}"
-                     style="height: 32px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;"
-                     placeholder="Nome fantasia ou razão social...">
-            </div>
-            
-            <!-- Filtro por Status -->
-            <div class="form-control" style="min-width: 90px;">
-              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Status</label>
-              <select name="status" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
-                <option value="">Todos</option>
-                <option value="ativo" {% if request.args.get('status') == 'ativo' %}selected{% endif %}>Ativo</option>
-                <option value="inativo" {% if request.args.get('status') == 'inativo' %}selected{% endif %}>Inativo</option>
-              </select>
-            </div>
-            
-            <!-- Filtro por Categoria ABC -->
-            <div class="form-control" style="min-width: 100px;">
-              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Categoria</label>
-              <select name="categoria" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
-                <option value="">Todas</option>
-                <option value="A" {% if request.args.get('categoria') == 'A' %}selected{% endif %}>A - Top Tier</option>
-                <option value="B" {% if request.args.get('categoria') == 'B' %}selected{% endif %}>B - Ativo</option>
-                <option value="C" {% if request.args.get('categoria') == 'C' %}selected{% endif %}>C - Inativo</option>
-              </select>
-            </div>
-            
-            <!-- Filtro por Agência (Sim/Não) -->
-            <div class="form-control" style="min-width: 80px;">
-              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Agência</label>
-              <select name="agencia" id="filtro_agencia" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
-                <option value="nao" {% if filtros.get('agencia') != 'sim' and filtros.get('agencia') != 'todos' %}selected{% endif %}>Não</option>
-                <option value="sim" {% if filtros.get('agencia') == 'sim' %}selected{% endif %}>Sim</option>
-                <option value="todos" {% if filtros.get('agencia') == 'todos' %}selected{% endif %}>Todos</option>
-              </select>
-            </div>
-            
-            <!-- Botão Limpar -->
-            <div class="form-control">
-              <label class="label py-0 text-xs font-semibold" style="color: transparent;">.</label>
-              <a href="{{ url_for('clientes') }}" class="btn btn-sm btn-ghost" style="height: 32px; min-height: 32px;" title="Limpar filtros">
-                <i class="fas fa-times"></i>
-              </a>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <!-- Tabela de Clientes -->
-  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     {% if clientes %}
       <div class="overflow-x-auto">
-        <table class="table table-xs w-full" id="tabela_clientes">
-          <thead style="background-color: #72cd80;" class="text-white">
+        <table class="w-full text-sm" id="tabela_clientes">
+          <thead class="bg-gray-100">
             <tr>
-              <th class="text-left font-bold uppercase">Nome</th>
-              <th class="text-center font-bold uppercase w-20">Cotações</th>
-              <th class="text-center font-bold uppercase w-24">Aprovação</th>
-              <th class="text-center font-bold uppercase w-20">Briefings</th>
-              <th class="text-center font-bold uppercase w-24">Aceite</th>
-              <th class="text-center font-bold uppercase w-16">Usuários</th>
-              <th class="text-center font-bold uppercase w-20">Status</th>
-              <th class="text-center font-bold uppercase w-16">Cat.</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Nome</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Tipo</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Cotações</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Aprovação</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Briefings</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Aceite</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-16">Usuários</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-14">Cat.</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {% for cliente in clientes %}
-            <tr class="hover" data-executivo="{{ cliente.executivo_nome or 'NAO_ATRIBUIDO' }}" data-agencia="{{ 'sim' if cliente.agencia_key else 'nao' }}">
-              <td>
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3">
                 <div>
                   <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;" 
-                     class="font-semibold text-primary hover:text-primary-focus cursor-pointer transition-colors">
+                     class="font-medium text-gray-800 hover:text-gray-600 cursor-pointer transition-colors">
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
-                <div class="text-xs text-base-content/60">
+                <div class="text-xs text-gray-500">
                   {% if cliente.executivo_nome %}
                     <i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}
                   {% else %}
@@ -188,41 +151,29 @@
                   {% endif %}
                 </div>
               </td>
-              <td class="text-center">
-                <span class="font-semibold">{{ cliente.cotacoes_mes or 0 }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="text-xs text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
               </td>
-              <td class="text-center">
-                <span class="{% if cliente.cotacoes_aprovadas_mes %}text-success font-semibold{% else %}text-base-content/50{% endif %}">
+              <td class="text-center py-2 px-2">
+                <span class="font-medium text-gray-700">{{ cliente.cotacoes_mes or 0 }}</span>
+              </td>
+              <td class="text-center py-2 px-2">
+                <span class="{% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.cotacoes_aprovadas_mes or 0 }}/{{ cliente.cotacoes_mes or 0 }}
                 </span>
               </td>
-              <td class="text-center">
-                <span class="font-semibold">{{ cliente.briefings_mes or 0 }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="font-medium text-gray-700">{{ cliente.briefings_mes or 0 }}</span>
               </td>
-              <td class="text-center">
-                <span class="{% if cliente.briefings_aceitos_mes %}text-success font-semibold{% else %}text-base-content/50{% endif %}">
+              <td class="text-center py-2 px-2">
+                <span class="{% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.briefings_aceitos_mes or 0 }}/{{ cliente.briefings_mes or 0 }}
                 </span>
               </td>
-              <td class="text-center">
-                <span class="badge badge-sm badge-ghost">{{ cliente.total_usuarios or 0 }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{{ cliente.total_usuarios or 0 }}</span>
               </td>
-              <td class="text-center">
-                {% if (cliente.nome_fantasia or '')|upper != 'CENTRALCOMM' %}
-                  <button type="button"
-                          class="badge badge-sm cursor-pointer transition-all hover:scale-105"
-                          style="{% if cliente.status %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #ef4444; color: white; border-color: #ef4444;{% endif %}"
-                          onclick="toggleStatus({{ cliente.id_cliente }}, this, {{ 'true' if cliente.status else 'false' }})"
-                          title="Clique para {% if cliente.status %}desativar{% else %}ativar{% endif %}">
-                    {% if cliente.status %}Ativo{% else %}Inativo{% endif %}
-                  </button>
-                {% else %}
-                  <span class="badge badge-success badge-sm">
-                    <i class="fas fa-lock mr-1"></i>Ativo
-                  </span>
-                {% endif %}
-              </td>
-              <td class="text-center">
+              <td class="text-center py-2 px-2">
                 {% set cat = cliente.categoria_abc or 'C' %}
                 <span class="badge badge-sm badge-cat-{{ cat|lower }}" title="Categoria {{ cat }}">
                   {{ cat }}
@@ -236,39 +187,40 @@
       
       <!-- Paginação -->
       {% if pages > 1 %}
-      <div class="flex justify-center items-center gap-2 p-4 border-t">
+      <div class="flex justify-center items-center gap-2 p-4 border-t border-gray-200">
         {% if page > 1 %}
-          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="btn btn-sm btn-ghost">
+          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded">
             <i class="fas fa-chevron-left"></i>
           </a>
         {% endif %}
         
         {% for p in range(1, pages + 1) %}
           {% if p == page %}
-            <span class="btn btn-sm" style="background-color: #72cd80; color: white;">{{ p }}</span>
+            <span class="px-3 py-1 text-sm bg-gray-800 text-white rounded">{{ p }}</span>
           {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
-            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="btn btn-sm btn-ghost">{{ p }}</a>
+            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded">{{ p }}</a>
           {% elif p == page - 3 or p == page + 3 %}
-            <span class="px-2">...</span>
+            <span class="px-2 text-gray-400">...</span>
           {% endif %}
         {% endfor %}
         
         {% if page < pages %}
-          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="btn btn-sm btn-ghost">
+          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded">
             <i class="fas fa-chevron-right"></i>
           </a>
         {% endif %}
         
-        <span class="text-sm text-base-content/60 ml-4">
-          Página {{ page }} de {{ pages }} ({{ total }} clientes)
+        <span class="text-xs text-gray-500 ml-4">
+          Página {{ page }} de {{ pages }}
         </span>
       </div>
       {% endif %}
     {% else %}
-      <div class="text-center py-8">
-        <p class="mb-2 text-base-content/60 text-sm">Nenhum cliente encontrado.</p>
-        <button onclick="abrirModalNovo()" class="btn btn-primary btn-sm">
-          <i class="fas fa-plus mr-2 text-xs"></i>Cadastrar Primeiro Cliente
+      <div class="text-center py-12">
+        <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 mb-4">Nenhum cliente encontrado.</p>
+        <button onclick="abrirModalNovo()" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700">
+          <i class="fas fa-plus mr-2"></i>Cadastrar Cliente
         </button>
       </div>
     {% endif %}
@@ -276,12 +228,26 @@
 </div>
 
 <script>
-  // Toggle filtros collapsible
-  function toggleFiltros() {
-    const content = document.getElementById('filtros_content');
-    const icon = document.getElementById('filtros_icon');
-    content.classList.toggle('collapsed');
-    icon.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+  // Filtros
+  function filtrarStatus(status) {
+    document.getElementById('status_filter').value = status;
+    document.getElementById('filtros_form').submit();
+  }
+  
+  function filtrarCategoria(cat) {
+    document.getElementById('categoria_filter').value = cat;
+    document.getElementById('filtros_form').submit();
+  }
+  
+  function filtrarAgencia() {
+    const current = document.getElementById('agencia_filter').value;
+    // Cicla: nao -> sim -> todos -> nao
+    let next = 'nao';
+    if (current === 'nao') next = 'sim';
+    else if (current === 'sim') next = 'todos';
+    else next = 'nao';
+    document.getElementById('agencia_filter').value = next;
+    document.getElementById('filtros_form').submit();
   }
   
   // Recategorizar ABC
@@ -311,293 +277,293 @@
 </script>
 
 <!-- Modal de Cliente -->
-<dialog id="modal_cliente" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
-    <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-    </form>
-    
-    <h3 class="font-bold text-lg mb-4" style="color: black;">
-      <span id="modal_title">Novo Cliente</span>
-    </h3>
-    
-    <!-- Abas (apenas visível em modo edição) -->
-    <div id="tabs_container" class="tabs tabs-boxed mb-4" style="display:none;">
-      <a id="tab_editar" class="tab tab-active" onclick="trocarAba('editar')" style="--tab-color: #72cd80;">
-        <i class="fas fa-edit mr-2"></i>Editar
-      </a>
-      <a id="tab_detalhes" class="tab" onclick="trocarAba('detalhes')" style="--tab-color: #72cd80;">
-        <i class="fas fa-info-circle mr-2"></i>Detalhes
-      </a>
-      <a id="tab_contatos" class="tab" onclick="trocarAba('contatos')" style="--tab-color: #72cd80;">
-        <i class="fas fa-address-book mr-2"></i>Contatos
-      </a>
-      <a id="tab_contratos" class="tab" onclick="trocarAba('contratos')" style="--tab-color: #72cd80;">
-        <i class="fas fa-file-contract mr-2"></i>Contratos
-      </a>
-      <a id="tab_invites" class="tab" onclick="trocarAba('invites')" style="--tab-color: #72cd80;">
-        <i class="fas fa-envelope mr-2"></i>Invites
-      </a>
+<dialog id="modal_cliente" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg" style="height: 85vh; max-height: 85vh;">
+    <!-- Header fixo -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Cliente</h3>
+      <button onclick="modal_cliente.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
     </div>
     
-    <!-- Conteúdo Editar -->
-    <form id="form_cliente" method="post" class="space-y-2">
-      <input type="hidden" id="cliente_id" name="cliente_id" value="">
-      
-      <!-- Linha 1: Pessoa + CNPJ + Nome Fantasia + Razão Social -->
-      <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
-        <div class="form-control col-span-1 md:col-span-1">
-          <label class="label py-0 text-xs font-semibold">Pessoa*</label>
-          <div class="flex gap-1">
-            <label class="cursor-pointer flex items-center gap-0.5 px-1.5 py-1 border border-base-300 rounded text-xs bg-base-100">
-              <input type="radio" name="pessoa" value="J" class="radio radio-xs" style="--chkbg: #72cd80;" required checked>
-              <span>PJ</span>
-            </label>
-            <label class="cursor-pointer flex items-center gap-0.5 px-1.5 py-1 border border-base-300 rounded text-xs bg-base-100">
-              <input type="radio" name="pessoa" value="F" class="radio radio-xs" style="--chkbg: #72cd80;" required>
-              <span>PF</span>
-            </label>
-          </div>
-        </div>
-        <div class="form-control col-span-1 md:col-span-2">
-          <label id="label_cnpj" class="label py-0 text-xs font-semibold">CNPJ*</label>
-          <input id="input_cnpj" name="cnpj" required class="input input-bordered input-sm w-full" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
-          <span id="cnpjcpf_msg" class="text-error text-xs"></span>
-        </div>
-        <div class="form-control col-span-1 md:col-span-4">
-          <label id="label_nome_fantasia" class="label py-0 text-xs font-semibold">Nome Fantasia*</label>
-          <input id="input_nome_fantasia" name="nome_fantasia" required class="input input-bordered input-sm w-full" placeholder="Nome fantasia">
-        </div>
-        <div id="razao_social_fields" class="form-control col-span-1 md:col-span-5">
-          <label class="label py-0 text-xs font-semibold">Razão Social*</label>
-          <input id="input_razao_social" name="razao_social" required class="input input-bordered input-sm w-full" placeholder="Razão social">
-        </div>
-      </div>
-
-      <!-- Linha 2: Inscrições + Tipo + Vendas + Agência + Percentual -->
-      <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
-        <div id="inscricoes_fields" class="form-control col-span-2 md:col-span-2">
-          <div class="grid grid-cols-2 gap-2">
-            <div class="form-control">
-              <label class="label py-0 text-xs font-semibold">Insc. Estadual</label>
-              <input name="inscricao_estadual" class="input input-bordered input-sm w-full" placeholder="IE">
-            </div>
-            <div class="form-control">
-              <label class="label py-0 text-xs font-semibold">Insc. Municipal</label>
-              <input name="inscricao_municipal" class="input input-bordered input-sm w-full" placeholder="IM">
+    <!-- Tabs -->
+    <div id="tabs_container" class="flex border-b border-gray-200 px-6 bg-gray-50" style="display:none;">
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="editar" onclick="trocarAba('editar')">
+        <i class="fas fa-edit mr-2"></i>Editar
+      </button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="detalhes" onclick="trocarAba('detalhes')">
+        <i class="fas fa-info-circle mr-2"></i>Detalhes
+      </button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contatos" onclick="trocarAba('contatos')">
+        <i class="fas fa-address-book mr-2"></i>Contatos
+      </button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
+        <i class="fas fa-file-contract mr-2"></i>Contratos
+      </button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="invites" onclick="trocarAba('invites')">
+        <i class="fas fa-envelope mr-2"></i>Invites
+      </button>
+    </div>
+    
+    <!-- Conteúdo com scroll -->
+    <div class="p-6 overflow-y-auto" style="height: calc(85vh - 130px);">
+      <!-- Conteúdo Editar -->
+      <form id="form_cliente" method="post" class="space-y-3 modal-tab-content" data-tab="editar">
+        <input type="hidden" id="cliente_id" name="cliente_id" value="">
+        
+        <!-- Linha 1: Pessoa + CNPJ + Nome Fantasia + Razão Social -->
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+          <div class="form-control col-span-1 md:col-span-1">
+            <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
+            <div class="flex gap-1">
+              <label class="cursor-pointer flex items-center gap-0.5 px-2 py-1.5 border border-gray-300 rounded text-xs bg-white hover:bg-gray-50">
+                <input type="radio" name="pessoa" value="J" class="radio radio-xs" required checked>
+                <span>PJ</span>
+              </label>
+              <label class="cursor-pointer flex items-center gap-0.5 px-2 py-1.5 border border-gray-300 rounded text-xs bg-white hover:bg-gray-50">
+                <input type="radio" name="pessoa" value="F" class="radio radio-xs" required>
+                <span>PF</span>
+              </label>
             </div>
           </div>
-        </div>
-        <div id="tipo_cliente_fields" class="form-control">
-          <label class="label py-0 text-xs font-semibold">Tipo*</label>
-          <select id="select_tipo_cliente" name="id_tipo_cliente" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
-            <option value="">Selecione</option>
-            {% for tipo in tipos_cliente %}
-              <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Vendas CC*</label>
-          <select name="vendas_central_comm" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
-            <option value="">Selecione</option>
-            {% for vendedor in vendedores_cc %}
-              <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div id="agencia_fields" class="form-control">
-          <label class="label py-0 text-xs font-semibold">Agência*</label>
-          <select name="pk_id_tbl_agencia" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
-            <option value="">Selecione</option>
-            {% for agencia in agencias %}
-              <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div id="percentual_fields" class="form-control">
-          <label class="label py-0 text-xs font-semibold">Percentual</label>
-          <input name="percentual" type="text" maxlength="5" class="input input-bordered input-sm w-full" placeholder="00,00" oninput="mascaraPercentual(this)">
-        </div>
-      </div>
-
-      <!-- Linha 3: Apresentação + Fluxo + ID CentralX -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Apresentação Executivo</label>
-          <select name="id_apresentacao_executivo" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
-            <option value="">Selecione</option>
-            {% for apresentacao in apresentacoes %}
-              <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}">{{ apresentacao.display }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">Fluxo Boas-Vindas*</label>
-          <select name="id_fluxo_boas_vindas" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight" required>
-            <option value="">Selecione</option>
-            {% for fluxo in fluxos %}
-              <option value="{{ fluxo.id_fluxo_boas_vindas }}">{{ fluxo.display }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-control">
-          <label class="label py-0 text-xs font-semibold">ID CentralX</label>
-          <input id="input_id_centralx" name="id_centralx" class="input input-bordered input-sm w-full" placeholder="ID CentralX">
-        </div>
-      </div>
-
-      <!-- Endereço Compacto -->
-      <div class="border-t pt-2 mt-1">
-        <div class="grid grid-cols-3 md:grid-cols-7 gap-2">
-          <div class="form-control">
-            <label class="label py-0 text-xs font-semibold">CEP</label>
-            <input id="cep" name="cep" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="input input-bordered input-sm w-full" placeholder="CEP">
+          <div class="form-control col-span-1 md:col-span-2">
+            <label id="label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
+            <input id="input_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+            <span id="cnpjcpf_msg" class="text-red-500 text-xs"></span>
           </div>
-          <div class="form-control">
-            <label class="label py-0 text-xs font-semibold">UF</label>
-            <select id="estado" name="pk_id_aux_estado" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
-              <option value="">UF</option>
-              {% for estado in estados %}
-                <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+          <div class="form-control col-span-1 md:col-span-4">
+            <label id="label_nome_fantasia" class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
+            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+          </div>
+          <div id="razao_social_fields" class="form-control col-span-1 md:col-span-5">
+            <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
+            <input id="input_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
+          </div>
+        </div>
+
+        <!-- Linha 2: Inscrições + Tipo + Vendas + Agência + Percentual -->
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div id="inscricoes_fields" class="form-control col-span-2 md:col-span-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="form-control">
+                <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
+                <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+              </div>
+              <div class="form-control">
+                <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
+                <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+              </div>
+            </div>
+          </div>
+          <div id="tipo_cliente_fields" class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
+            <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for tipo in tipos_cliente %}
+                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="form-control">
-            <label class="label py-0 text-xs font-semibold">Cidade</label>
-            <input id="cidade" name="cidade" class="input input-bordered input-sm w-full" placeholder="Cidade">
+            <label class="text-xs font-medium text-gray-600 mb-1">Vendas CC*</label>
+            <select name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for vendedor in vendedores_cc %}
+                <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="agencia_fields" class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
+            <select name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for agencia in agencias %}
+                <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="percentual_fields" class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Percentual</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
+          </div>
+        </div>
+
+        <!-- Linha 3: Apresentação + Fluxo + ID CentralX -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Apresentação Executivo</label>
+            <select name="id_apresentacao_executivo" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <option value="">Selecione</option>
+              {% for apresentacao in apresentacoes %}
+                <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}">{{ apresentacao.display }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="form-control">
-            <label class="label py-0 text-xs font-semibold">Bairro</label>
-            <input id="bairro" name="bairro" class="input input-bordered input-sm w-full" placeholder="Bairro">
-          </div>
-          <div class="form-control col-span-2">
-            <label class="label py-0 text-xs font-semibold">Logradouro</label>
-            <input id="logradouro" name="logradouro" class="input input-bordered input-sm w-full" placeholder="Logradouro">
+            <label class="text-xs font-medium text-gray-600 mb-1">Fluxo Boas-Vindas*</label>
+            <select name="id_fluxo_boas_vindas" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for fluxo in fluxos %}
+                <option value="{{ fluxo.id_fluxo_boas_vindas }}">{{ fluxo.display }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="form-control">
-            <label class="label py-0 text-xs font-semibold">Nº</label>
-            <input id="numero" name="numero" class="input input-bordered input-sm w-full" placeholder="Nº">
+            <label class="text-xs font-medium text-gray-600 mb-1">ID CentralX</label>
+            <input id="input_id_centralx" name="id_centralx" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="ID CentralX">
           </div>
         </div>
-        <div class="form-control mt-2">
-          <label class="label py-0 text-xs font-semibold">Complemento</label>
-          <input id="complemento" name="complemento" class="input input-bordered input-sm w-full" placeholder="Complemento">
-        </div>
-      </div>
 
-      <!-- Hidden field para pessoa física -->
-      <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
-
-      <!-- Botões do Modal -->
-      <div class="modal-action mt-2 pt-2 border-t">
-        <button type="button" onclick="modal_cliente.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-save mr-2"></i><span id="btn_submit_text">Cadastrar</span>
-        </button>
-      </div>
-    </form>
-    
-    <!-- Conteúdo Detalhes (dentro do mesmo modal) -->
-    <div id="detalhes_aba_content" class="space-y-1" style="display:none;">
-      <!-- Informações Principais -->
-      <div class="bg-base-200/50 rounded-lg p-2">
-        <h4 class="text-xs font-semibold mb-1 flex items-center text-primary">
-          <i class="fas fa-info-circle mr-1"></i>Informações Principais
-        </h4>
-        <div id="info_principais_aba" class="grid grid-cols-2 md:grid-cols-4 gap-1 text-xs">
-          <!-- Conteúdo será preenchido via JavaScript -->
-        </div>
-      </div>
-
-      <!-- Endereço -->
-      <div id="endereco_section_aba" class="bg-base-200/50 rounded-lg p-2" style="display:none;">
-        <h4 class="text-xs font-semibold mb-1 flex items-center text-primary">
-          <i class="fas fa-map-marker-alt mr-1"></i>Endereço
-        </h4>
-        <div id="info_endereco_aba" class="grid grid-cols-2 md:grid-cols-4 gap-1 text-xs">
-          <!-- Conteúdo será preenchido via JavaScript -->
-        </div>
-      </div>
-    </div>
-    
-    <!-- Conteúdo Contatos (dentro do mesmo modal) -->
-    <div id="contatos_aba_content" class="space-y-4" style="display:none;">
-      <div class="flex justify-between items-center mb-4">
-        <h4 class="text-md font-semibold">Contatos Vinculados</h4>
-        <!-- Contatos são cadastrados via convite -->
-      </div>
-      
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <div id="lista_contatos_aba">
-          <!-- Conteúdo será preenchido via JavaScript -->
-        </div>
-      </div>
-    </div>
-    
-    <!-- Conteúdo Contratos (dentro do mesmo modal) -->
-    <div id="contratos_aba_content" class="space-y-4" style="display:none;">
-      <div class="flex justify-between items-center mb-4">
-        <h4 class="text-md font-semibold">Contratos do Cliente</h4>
-      </div>
-      
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <div id="lista_contratos_aba">
-          <!-- Conteúdo será preenchido via JavaScript -->
-        </div>
-      </div>
-      
-      <!-- Botão Criar Plano Beta -->
-      <div class="modal-action mt-4">
-        <button type="button" onclick="criarPlanoBetaTesterAba()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-gift mr-2"></i>Criar Plano Beta
-        </button>
-      </div>
-    </div>
-    
-    <!-- Conteúdo Invites (dentro do mesmo modal) -->
-    <div id="invites_aba_content" class="space-y-4" style="display:none;">
-      <div class="flex justify-between items-center mb-4">
-        <h4 class="text-md font-semibold">Convites de Usuários</h4>
-      </div>
-      
-      <!-- Formulário de Novo Convite -->
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <h5 class="text-sm font-semibold mb-3">Enviar Novo Convite</h5>
-        <div class="flex gap-3">
-          <div class="flex-1 relative">
-            <input 
-              type="email" 
-              id="invite_email" 
-              placeholder="Digite o email do convidado" 
-              class="input input-bordered input-sm w-full"
-              onblur="verificarEmailInvite(this)"
-            >
-            <span id="invite_email_status" class="text-xs absolute -bottom-5 left-0"></span>
+        <!-- Endereço Compacto -->
+        <div class="border-t border-gray-200 pt-3 mt-3">
+          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
+          <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
+              <input id="cep" name="cep" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
+              <select id="estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="">UF</option>
+                {% for estado in estados %}
+                  <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
+              <input id="cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
+              <input id="bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+            </div>
+            <div class="form-control col-span-2">
+              <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
+              <input id="logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
+              <input id="numero" name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+            </div>
           </div>
-          <select id="invite_role" class="select select-bordered h-8 min-h-0 text-sm w-40 h-10 min-h-10">
-            <option value="member">Membro</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button 
-            type="button" 
-            onclick="enviarConvite()" 
-            class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-            <i class="fas fa-paper-plane mr-2"></i>Enviar
+          <div class="form-control mt-3">
+            <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
+            <input id="complemento" name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+          </div>
+        </div>
+
+        <!-- Hidden field para pessoa física -->
+        <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
+
+        <!-- Botões do Form -->
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
+          <button type="button" onclick="modal_cliente.close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+          <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-save mr-2"></i><span id="btn_submit_text">Cadastrar</span>
+          </button>
+        </div>
+      </form>
+      
+      <!-- Conteúdo Detalhes -->
+      <div id="detalhes_aba_content" class="modal-tab-content hidden" data-tab="detalhes">
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3 flex items-center">
+            <i class="fas fa-info-circle mr-2"></i>Informações Principais
+          </h4>
+          <div id="info_principais_aba" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <!-- Conteúdo via JavaScript -->
+          </div>
+        </div>
+
+        <div id="endereco_section_aba" class="bg-gray-50 rounded-lg p-4" style="display:none;">
+          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3 flex items-center">
+            <i class="fas fa-map-marker-alt mr-2"></i>Endereço
+          </h4>
+          <div id="info_endereco_aba" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <!-- Conteúdo via JavaScript -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Conteúdo Contatos -->
+      <div id="contatos_aba_content" class="modal-tab-content hidden" data-tab="contatos">
+        <div class="flex justify-between items-center mb-4">
+          <h4 class="text-sm font-medium text-gray-700">Contatos Vinculados</h4>
+        </div>
+        
+        <div class="bg-gray-50 rounded-lg p-4">
+          <div id="lista_contatos_aba">
+            <!-- Conteúdo via JavaScript -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Conteúdo Contratos -->
+      <div id="contratos_aba_content" class="modal-tab-content hidden" data-tab="contratos">
+        <div class="flex justify-between items-center mb-4">
+          <h4 class="text-sm font-medium text-gray-700">Contratos do Cliente</h4>
+        </div>
+        
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+          <div id="lista_contratos_aba">
+            <!-- Conteúdo via JavaScript -->
+          </div>
+        </div>
+        
+        <div class="flex justify-end">
+          <button type="button" onclick="criarPlanoBetaTesterAba()" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-gift mr-2"></i>Criar Plano Beta
           </button>
         </div>
       </div>
       
-      <!-- Lista de Convites -->
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <h5 class="text-sm font-semibold mb-3">Convites Enviados</h5>
-        <div id="lista_invites_aba">
-          <!-- Conteúdo será preenchido via JavaScript -->
+      <!-- Conteúdo Invites -->
+      <div id="invites_aba_content" class="modal-tab-content hidden" data-tab="invites">
+        <div class="flex justify-between items-center mb-4">
+          <h4 class="text-sm font-medium text-gray-700">Convites de Usuários</h4>
+        </div>
+        
+        <!-- Formulário de Novo Convite -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+          <h5 class="text-xs font-medium text-gray-500 uppercase mb-3">Enviar Novo Convite</h5>
+          <div class="flex gap-3">
+            <div class="flex-1 relative">
+              <input 
+                type="email" 
+                id="invite_email" 
+                placeholder="Digite o email do convidado" 
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400"
+                onblur="verificarEmailInvite(this)"
+              >
+              <span id="invite_email_status" class="text-xs absolute -bottom-5 left-0"></span>
+            </div>
+            <select id="invite_role" class="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <option value="member">Membro</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button 
+              type="button" 
+              onclick="enviarConvite()" 
+              class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+              <i class="fas fa-paper-plane mr-2"></i>Enviar
+            </button>
+          </div>
+        </div>
+        
+        <!-- Lista de Convites -->
+        <div class="bg-gray-50 rounded-lg p-4">
+          <h5 class="text-xs font-medium text-gray-500 uppercase mb-3">Convites Enviados</h5>
+          <div id="lista_invites_aba">
+            <!-- Conteúdo via JavaScript -->
+          </div>
         </div>
       </div>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="modal-backdrop bg-black/50">
     <button>close</button>
   </form>
 </dialog>
@@ -869,10 +835,17 @@ function abrirModalNovo() {
   
   // Ocultar abas (modo novo)
   document.getElementById('tabs_container').style.display = 'none';
-  document.getElementById('form_cliente').style.display = '';
-  document.getElementById('detalhes_aba_content').style.display = 'none';
-  document.getElementById('contatos_aba_content').style.display = 'none';
-  document.getElementById('contratos_aba_content').style.display = 'none';
+  
+  // Mostrar apenas o formulário
+  document.querySelectorAll('.modal-tab-content').forEach(content => {
+    if (content.dataset.tab === 'editar') {
+      content.classList.remove('hidden');
+      content.style.display = '';
+    } else {
+      content.classList.add('hidden');
+      content.style.display = 'none';
+    }
+  });
   
   // Abrir modal
   modal_cliente.showModal();
@@ -1512,50 +1485,35 @@ function filtrarPorExecutivo() {
 
 // Função para trocar entre abas no modal
 function trocarAba(aba) {
-  const tabEditar = document.getElementById('tab_editar');
-  const tabDetalhes = document.getElementById('tab_detalhes');
-  const tabContatos = document.getElementById('tab_contatos');
-  const tabContratos = document.getElementById('tab_contratos');
-  const tabInvites = document.getElementById('tab_invites');
-  const formCliente = document.getElementById('form_cliente');
-  const detalhesContent = document.getElementById('detalhes_aba_content');
-  const contatosContent = document.getElementById('contatos_aba_content');
-  const contratosContent = document.getElementById('contratos_aba_content');
-  const invitesContent = document.getElementById('invites_aba_content');
+  // Atualizar botões das tabs
+  document.querySelectorAll('#tabs_container .tab-btn').forEach(btn => {
+    const isActive = btn.dataset.tab === aba;
+    btn.classList.toggle('tab-active', isActive);
+    if (isActive) {
+      btn.style.borderBottomColor = '#374151';
+      btn.style.color = '#1f2937';
+    } else {
+      btn.style.borderBottomColor = 'transparent';
+      btn.style.color = '#4b5563';
+    }
+  });
   
-  // Remover active de todas as abas
-  tabEditar.classList.remove('tab-active');
-  tabDetalhes.classList.remove('tab-active');
-  tabContatos.classList.remove('tab-active');
-  tabContratos.classList.remove('tab-active');
-  tabInvites.classList.remove('tab-active');
+  // Mostrar/ocultar conteúdos
+  document.querySelectorAll('.modal-tab-content').forEach(content => {
+    const tabName = content.dataset.tab;
+    if (tabName === aba) {
+      content.classList.remove('hidden');
+      content.style.display = '';
+    } else {
+      content.classList.add('hidden');
+      content.style.display = 'none';
+    }
+  });
   
-  // Ocultar todos os conteúdos
-  formCliente.style.display = 'none';
-  detalhesContent.style.display = 'none';
-  contatosContent.style.display = 'none';
-  contratosContent.style.display = 'none';
-  invitesContent.style.display = 'none';
-  
-  // Mostrar aba selecionada
-  if (aba === 'editar') {
-    tabEditar.classList.add('tab-active');
-    formCliente.style.display = '';
-  } else if (aba === 'detalhes') {
-    tabDetalhes.classList.add('tab-active');
-    detalhesContent.style.display = '';
-  } else if (aba === 'contatos') {
-    tabContatos.classList.add('tab-active');
-    contatosContent.style.display = '';
-  } else if (aba === 'contratos') {
-    tabContratos.classList.add('tab-active');
-    contratosContent.style.display = '';
-    // Carregar contratos ao abrir a aba
-  } else if (aba === 'invites') {
-    tabInvites.classList.add('tab-active');
-    invitesContent.style.display = '';
-    // Carregar invites ao abrir a aba
+  // Carregar dados específicos da aba
+  if (aba === 'invites') {
     carregarInvites();
+  } else if (aba === 'contratos') {
     const clienteId = document.getElementById('cliente_id').value;
     if (clienteId) {
       carregarContratosCliente(clienteId);

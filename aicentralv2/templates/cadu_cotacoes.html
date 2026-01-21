@@ -3,138 +3,259 @@
 {% block title %}Cotações - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-  <div class="mb-6 flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold text-base-content">Cotações</h1>
-      <p class="text-sm text-base-content/70">Gerencie as cotações cadastradas no sistema.</p>
-      <!-- Mostrar filtro ativo se houver cliente selecionado -->
-      {% if cliente_filtro %}
-        <div class="mt-2 p-2 bg-primary/10 rounded border border-primary/20">
-          <p class="text-sm font-semibold text-primary">
-            <i class="fas fa-filter mr-2"></i>Filtro: {{ cliente_filtro.nome_fantasia }}
-            <a href="{{ url_for('cotacoes_list') }}" class="ml-2 text-primary/70 hover:text-primary underline text-xs">
-              (limpar filtro)
-            </a>
-          </p>
-        </div>
-      {% endif %}
-
-      <!-- Mostrar filtro ativo se houver vendedor selecionado -->
-      {% set responsavel_comercial = request.args.get('responsavel_comercial') %}
-      {% if responsavel_comercial %}
-        {% set vendedor_nome = vendedores | selectattr('id_contato_cliente', 'equalto', responsavel_comercial|int) | map(attribute='nome_completo') | first %}
-        {% if vendedor_nome %}
-          <div class="mt-2 p-2 bg-success/10 rounded border border-success/20">
-            <p class="text-sm font-semibold text-success">
-              <i class="fas fa-filter mr-2"></i>Filtro Vendedor: {{ vendedor_nome }}
-              <a href="{{ url_for('cotacoes_list') }}" class="ml-2 text-success/70 hover:text-success underline text-xs">
-                (limpar filtro)
-              </a>
-            </p>
-          </div>
-        {% endif %}
-      {% endif %}
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto (estilo CRM) -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título + Link CRM -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Cotações</h1>
+        <a href="{{ url_for('crm_pipeline') }}" class="text-xs text-gray-500 hover:text-gray-700">
+          <i class="fa-solid fa-columns mr-1"></i>Pipeline
+        </a>
+      </div>
       
-      <!-- Dropdown de Filtro por Vendedor -->
-      <div class="mt-3 flex gap-2 items-center">
-        <label class="text-sm font-medium">Filtrar por Vendedor:</label>
-        <select id="filtro_vendedor" onchange="filtrarPorVendedor(this.value)" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; min-width: 250px; background-color: white; color: black; cursor: pointer;">
-          <option value="" style="color: black;">-- Selecione um vendedor --</option>
+      <!-- Filtros Inline -->
+      <form id="filtros_form" class="flex items-center gap-3">
+        <!-- Executivo -->
+        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todos executivos</option>
           {% for vendedor in vendedores %}
-          <option value="{{ vendedor.id_contato_cliente }}" style="color: black;">{{ vendedor.nome_completo }}</option>
+            <option value="{{ vendedor.id_contato_cliente }}" {% if request.args.get('responsavel_comercial')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+              {{ vendedor.nome_completo }}
+            </option>
           {% endfor %}
         </select>
-        <button onclick="limparFiltroVendedor()" class="btn btn-ghost btn-sm" title="Limpar filtro de vendedor">
-          <i class="fas fa-times"></i>Limpar
-        </button>
-      </div>
-    </div>
-    <div class="flex gap-2">
-      <button onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-outline" style="color: #72cd80; border-color: #72cd80;" onmouseover="this.style.backgroundColor='#72cd80'; this.style.color='white';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#72cd80';" title="Buscar cliente para nova cotação">
-        <i class="fas fa-search mr-2"></i>Buscar Cliente
-      </button>
-      <a href="{{ url_for('cotacao_nova') }}" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-plus mr-2"></i>Nova Cotação
+        
+        <!-- Mês -->
+        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
+          <option value="">Todos meses</option>
+          <option value="01" {% if request.args.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
+          <option value="02" {% if request.args.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
+          <option value="03" {% if request.args.get('mes') == '03' %}selected{% endif %}>Março</option>
+          <option value="04" {% if request.args.get('mes') == '04' %}selected{% endif %}>Abril</option>
+          <option value="05" {% if request.args.get('mes') == '05' %}selected{% endif %}>Maio</option>
+          <option value="06" {% if request.args.get('mes') == '06' %}selected{% endif %}>Junho</option>
+          <option value="07" {% if request.args.get('mes') == '07' %}selected{% endif %}>Julho</option>
+          <option value="08" {% if request.args.get('mes') == '08' %}selected{% endif %}>Agosto</option>
+          <option value="09" {% if request.args.get('mes') == '09' %}selected{% endif %}>Setembro</option>
+          <option value="10" {% if request.args.get('mes') == '10' %}selected{% endif %}>Outubro</option>
+          <option value="11" {% if request.args.get('mes') == '11' %}selected{% endif %}>Novembro</option>
+          <option value="12" {% if request.args.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
+        </select>
+        
+        <!-- Busca Cliente -->
+        <div class="relative">
+          <input type="text" name="busca" id="filtro_busca" 
+                 value="{{ request.args.get('busca', '') }}"
+                 placeholder="Buscar cliente..."
+                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" 
+                 style="min-width: 180px;"
+                 onkeyup="debounceAplicarFiltros()">
+          <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+        </div>
+        
+        <!-- Status Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          {% set status_icons = [
+            ('Rascunho', 'fa-file-pen', request.args.get('status') == 'Rascunho'),
+            ('Em Análise', 'fa-magnifying-glass', request.args.get('status') == 'Em Análise'),
+            ('Enviada', 'fa-paper-plane', request.args.get('status') == 'Enviada'),
+            ('Aprovada', 'fa-circle-check', request.args.get('status') == 'Aprovada'),
+            ('Rejeitada', 'fa-circle-xmark', request.args.get('status') == 'Rejeitada')
+          ] %}
+          {% for status, icon, active in status_icons %}
+          <button type="button" onclick="filtrarPorStatus('{{ status }}')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if active %}bg-gray-200{% endif %}" 
+                  title="{{ status }}">
+            <i class="fa-solid {{ icon }} text-sm text-gray-{% if active %}800{% else %}400{% endif %}"></i>
+          </button>
+          {% endfor %}
+        </div>
+      </form>
+      
+      <!-- Botão Nova Cotação -->
+      <a href="{{ url_for('cotacao_nova') }}" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+        <i class="fas fa-plus mr-1"></i>Nova
       </a>
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-6 space-y-2">
+      <div class="mb-4 space-y-2">
         {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span>{{ message }}</span>
+          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span class="text-sm">{{ message }}</span>
           </div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
-    <!-- Tabela de Cotações -->
+  <!-- Tabela de Cotações -->
+  <div class="bg-white rounded border border-gray-200 overflow-hidden">
     {% if cotacoes %}
-      <table class="table table-xs w-full">
-        <thead style="background-color: #72cd80;" class="text-white">
+      <table class="table table-sm w-full">
+        <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
           <tr>
-            <th class="text-left font-bold uppercase">Nº Cotação</th>
-            <th class="text-left font-bold uppercase">Cliente</th>
-            <th class="text-left font-bold uppercase">Campanha</th>
-            <th class="text-center font-bold uppercase">Status</th>
-            <th class="text-center font-bold uppercase">Linhas</th>
-            <th class="text-center font-bold uppercase">Audiências</th>
-            <th class="text-center font-bold uppercase">Anexos</th>
+            <th class="font-semibold py-3">Cotação</th>
+            <th class="font-semibold">Cliente / Campanha</th>
+            <th class="font-semibold">Executivo</th>
+            <th class="font-semibold text-center">Período</th>
+            <th class="font-semibold text-right">Valor</th>
+            <th class="font-semibold text-center">Status</th>
+            <th class="font-semibold text-center w-10"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="text-sm">
           {% for cotacao in cotacoes %}
-          <tr class="hover">
-            <td class="font-mono text-sm font-semibold">
-              <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="link link-primary">
-                {{ cotacao.numero_cotacao }}
-              </a>
+          {% set hoje = now().date() %}
+          {% set dias_para_inicio = (cotacao.periodo_inicio - hoje).days if cotacao.periodo_inicio else none %}
+          {% set status_enviada = cotacao.status == 'Enviada' %}
+          {% set sem_responsavel = not cotacao.responsavel_nome %}
+          {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
+          
+          <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer {% if urgente %}bg-amber-50{% endif %}" 
+              onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
+            <!-- Cotação -->
+            <td class="py-3">
+              <div class="flex flex-col">
+                <span class="font-mono text-xs font-semibold text-gray-700">{{ cotacao.numero_cotacao }}</span>
+                <span class="text-xs text-gray-400">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</span>
+              </div>
             </td>
-            <td>{{ cotacao.cliente_nome or '-' }}</td>
-            <td class="max-w-xs truncate">{{ cotacao.nome_campanha }}</td>
+            
+            <!-- Cliente / Campanha -->
+            <td>
+              <div class="flex flex-col">
+                <span class="font-medium text-gray-800">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
+                <span class="text-xs text-gray-500 truncate max-w-xs">{{ cotacao.nome_campanha or '-' }}</span>
+                {% if cotacao.total_linhas or cotacao.total_audiencias %}
+                <div class="flex items-center gap-2 mt-1">
+                  {% if cotacao.total_linhas %}
+                  <span class="text-xs text-gray-400"><i class="fa-solid fa-list mr-1"></i>{{ cotacao.total_linhas }} itens</span>
+                  {% endif %}
+                  {% if cotacao.total_audiencias %}
+                  <span class="text-xs text-gray-400"><i class="fa-solid fa-users mr-1"></i>{{ cotacao.total_audiencias }} aud.</span>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- Executivo -->
+            <td>
+              {% if sem_responsavel %}
+              <div class="flex items-center gap-1 text-amber-600">
+                <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                <span class="text-xs font-medium">Sem responsável</span>
+              </div>
+              {% else %}
+              <span class="text-sm text-gray-700">{{ cotacao.responsavel_nome }}</span>
+              {% endif %}
+            </td>
+            
+            <!-- Período -->
             <td class="text-center">
-              <span class="badge badge-sm
-                {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}badge-ghost
-                {% elif cotacao.status == 'Em Análise' %}badge-info
-                {% elif cotacao.status == 'Enviada' %}badge-primary
-                {% elif cotacao.status == 'Aprovada' %}badge-success
-                {% elif cotacao.status == 'Rejeitada' %}badge-error
-                {% elif cotacao.status == 'Expirada' %}badge-neutral
-                {% else %}badge-ghost
-                {% endif %}">
-                {{ 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status }}
+              {% if cotacao.periodo_inicio %}
+              <div class="flex flex-col items-center">
+                <span class="text-xs text-gray-600">
+                  {{ cotacao.periodo_inicio.strftime('%d/%m') if cotacao.periodo_inicio else '-' }}
+                  {% if cotacao.periodo_fim %} - {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}
+                </span>
+                {% if status_enviada and dias_para_inicio is not none %}
+                  {% if dias_para_inicio < 0 %}
+                  <span class="text-xs font-medium text-red-600"><i class="fa-solid fa-clock mr-1"></i>Já iniciou</span>
+                  {% elif dias_para_inicio == 0 %}
+                  <span class="text-xs font-medium text-red-600"><i class="fa-solid fa-clock mr-1"></i>Inicia hoje!</span>
+                  {% elif dias_para_inicio <= 3 %}
+                  <span class="text-xs font-medium text-red-600"><i class="fa-solid fa-clock mr-1"></i>{{ dias_para_inicio }}d para início</span>
+                  {% elif dias_para_inicio <= 7 %}
+                  <span class="text-xs font-medium text-amber-600"><i class="fa-solid fa-clock mr-1"></i>{{ dias_para_inicio }}d para início</span>
+                  {% else %}
+                  <span class="text-xs text-gray-400">{{ dias_para_inicio }}d para início</span>
+                  {% endif %}
+                {% endif %}
+              </div>
+              {% else %}
+              <span class="text-xs text-gray-400">-</span>
+              {% endif %}
+            </td>
+            
+            <!-- Valor -->
+            <td class="text-right">
+              {% if cotacao.valor_total_proposta %}
+              <span class="font-semibold text-gray-800">R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+              {% else %}
+              <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
+            
+            <!-- Status (escala de cinza) -->
+            <td class="text-center">
+              {% set status_display = 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status %}
+              {% if status_display == 'Enviada' %}
+              <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-gray-800 text-white">
+                {{ status_display }}
               </span>
+              {% elif status_display == 'Aprovada' %}
+              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-200 text-gray-700">
+                {{ status_display }}
+              </span>
+              {% elif status_display == 'Rejeitada' %}
+              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-300 text-gray-600 line-through">
+                {{ status_display }}
+              </span>
+              {% else %}
+              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-500">
+                {{ status_display }}
+              </span>
+              {% endif %}
             </td>
-            <td class="text-center">
-              <span class="badge badge-sm badge-ghost">{{ cotacao.total_linhas or 0 }}</span>
-            </td>
-            <td class="text-center">
-              <span class="badge badge-sm badge-ghost">{{ cotacao.total_audiencias or 0 }}</span>
-            </td>
-            <td class="text-center">
-              <span class="badge badge-sm badge-ghost">{{ cotacao.total_anexos or 0 }}</span>
+            
+            <!-- Ações -->
+            <td class="text-center" onclick="event.stopPropagation()">
+              <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-xs">
+                  <i class="fa-solid fa-ellipsis-vertical text-gray-400"></i>
+                </label>
+                <ul tabindex="0" class="dropdown-content z-[1] menu p-1 shadow bg-base-100 rounded-box w-40">
+                  <li><a href="/cotacoes/{{ cotacao.id }}/detalhes"><i class="fa-solid fa-eye mr-2"></i>Ver detalhes</a></li>
+                  <li><a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank"><i class="fa-solid fa-file-pdf mr-2"></i>Gerar PDF</a></li>
+                  <li><a onclick="duplicarCotacao({{ cotacao.id }})"><i class="fa-solid fa-copy mr-2"></i>Duplicar</a></li>
+                </ul>
+              </div>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
 
-      <div class="p-4 border-t border-base-300">
-        <p class="text-sm text-base-content/70">
-          Total: <strong>{{ cotacoes|length }}</strong> cotação(ões)
+      <!-- Rodapé com contagem -->
+      <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+        <p class="text-sm text-gray-600">
+          <strong>{{ cotacoes|length }}</strong> cotação(ões)
+          {% if request.args.get('status') %}
+          <span class="text-gray-400">• Filtro: {{ request.args.get('status') }}</span>
+          {% endif %}
         </p>
+        
+        <!-- Legenda rápida -->
+        <div class="flex items-center gap-4 text-xs text-gray-500">
+          <span><i class="fa-solid fa-paper-plane text-gray-800 mr-1"></i>Enviada = Aguardando aprovação</span>
+          <span><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i>Sem responsável</span>
+          <span class="px-2 py-0.5 bg-amber-50 rounded">Urgente (&lt;7 dias)</span>
+        </div>
       </div>
     {% else %}
       <div class="p-8 text-center">
-        <i class="fas fa-file-invoice text-4xl text-base-content/30 mb-3"></i>
-        <p class="text-base-content/60">Nenhuma cotação cadastrada ainda.</p>
-        <a href="{{ url_for('cotacao_nova') }}" class="btn btn-primary btn-sm mt-4">
-          <i class="fas fa-plus mr-2"></i>Criar Primeira Cotação
+        <i class="fas fa-file-invoice text-4xl text-gray-300 mb-3"></i>
+        <p class="text-gray-500">Nenhuma cotação encontrada.</p>
+        <a href="{{ url_for('cotacao_nova') }}" class="btn btn-sm mt-4 text-white" style="background-color: #72cd80;">
+          <i class="fas fa-plus mr-2"></i>Criar Cotação
         </a>
       </div>
     {% endif %}
@@ -142,240 +263,62 @@
 </div>
 
 <script>
-async function buscarClientesParaCotacao() {
-  const termo = document.getElementById('busca_cliente_input').value.trim();
-  const resultados = document.getElementById('resultados_busca_cliente');
+let debounceTimer;
 
-  if (termo.length < 2) {
-    resultados.classList.add('hidden');
-    return;
-  }
-
-  try {
-    const response = await fetch('/api/clientes/buscar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nome: termo,
-        pessoa: null,
-        cnpj: termo,
-        razao: termo
-      })
-    });
-
-    const result = await response.json();
-
-    if (result.success && result.clientes.length > 0) {
-      exibirResultadosClientesParaCotacao(result.clientes);
-      resultados.classList.remove('hidden');
-    } else {
-      resultados.innerHTML = '<p class="text-center text-sm text-base-content/50 py-4">Nenhum cliente encontrado</p>';
-      resultados.classList.remove('hidden');
-    }
-  } catch (error) {
-    console.error('Erro ao buscar:', error);
-  }
+function debounceAplicarFiltros() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(aplicarFiltros, 500);
 }
 
-function exibirResultadosClientesParaCotacao(clientes) {
-  const resultados = document.getElementById('resultados_busca_cliente').querySelector('.space-y-2');
-  let html = '';
-
-  clientes.forEach(cliente => {
-    const documento = cliente.cnpj || cliente.cpf || '-';
-    html += `
-      <a href="/cotacoes/nova?cliente_id=${cliente.id_cliente}" class="block border border-base-300 rounded p-2 hover:bg-base-200 transition cursor-pointer">
-        <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
-        <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
-        <p class="text-xs text-base-content/50">${documento}</p>
-      </a>
-    `;
-  });
-
-  resultados.innerHTML = html;
-}
-
-function limparBuscaCliente() {
-  document.getElementById('busca_cliente_input').value = '';
-  document.getElementById('resultados_busca_cliente').classList.add('hidden');
-}
-
-async function deletarCotacao(cotacaoId) {
-  if (!confirm('Tem certeza que deseja deletar esta cotação?')) return;
-  
-  try {
-    const response = await fetch(`/api/cotacoes/${cotacaoId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showToast(result.message || 'Cotação deletada com sucesso!', 'success');
-      window.location.reload();
-    } else {
-      showToast(result.message || 'Erro ao deletar cotação!', 'error');
-    }
-  } catch (error) {
-    console.error('Erro ao deletar cotação:', error);
-    showToast('Erro ao deletar cotação!', 'error');
-  }
-}
-
-// Função para redirecionar para nova cotação com cliente pré-selecionado
-function criarCotacaoComCliente(clienteId) {
-  // Redireciona para a página de criar cotação, mas como o modal seleciona, vamos fechar e deixar preenchido
-  document.getElementById('modal_busca_cliente').close();
-}
-
-// Função para filtrar cotações por vendedor
-function filtrarPorVendedor(vendedorId) {
-  if (!vendedorId) {
-    // Se nenhum vendedor foi selecionado, voltar à página sem filtro
-    window.location.href = '/cotacoes';
-  } else {
-    // Redirecionar para a página com filtro de vendedor
-    window.location.href = `/cotacoes?vendas_central_comm=${vendedorId}`;
-  }
-}
-</script>
-
-<!-- Modal Escolher Cliente para Nova Cotação -->
-<dialog id="modal_escolher_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Buscar Cliente para Nova Cotação</h3>
-    
-    <!-- Campo de Busca -->
-    <div class="flex gap-2 mb-4">
-      <input 
-        type="text" 
-        id="busca_cliente_modal" 
-        placeholder="Digite nome, CNPJ, razão social..." 
-        class="input input-bordered flex-1"
-        onkeyup="buscarClientesModal()"
-      >
-      <button onclick="limparBuscaModal()" class="btn btn-ghost">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-
-    <!-- Resultados -->
-    <div id="resultados_modal" class="max-h-96 overflow-y-auto mb-4">
-      <p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>
-    </div>
-
-    <!-- Ações -->
-    <div class="modal-action">
-      <form method="dialog">
-        <button class="btn">Cancelar</button>
-      </form>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>close</button>
-  </form>
-</dialog>
-
-<script>
-async function buscarClientesModal() {
-  const termo = document.getElementById('busca_cliente_modal').value.trim();
-  const resultados = document.getElementById('resultados_modal');
-
-  if (termo.length < 2) {
-    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
-    return;
-  }
-
-  try {
-    const response = await fetch('/api/clientes/buscar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nome: termo,
-        razao: termo
-      })
-    });
-
-    const result = await response.json();
-    console.log('Resultado busca modal:', result);
-
-    if (result.success && result.clientes.length > 0) {
-      let html = '<div class="space-y-2">';
-      result.clientes.forEach(cliente => {
-        const documento = cliente.cnpj || '-';
-        const clienteId = cliente.pk_id_tbl_cliente;
-        console.log('Cliente encontrado:', {nome: cliente.nome_fantasia, id: clienteId});
-        html += `
-          <a href="/cotacoes?cliente_id=${clienteId}" class="block border border-base-300 rounded-lg p-3 hover:bg-base-200 transition cursor-pointer">
-            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
-            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
-            <p class="text-xs text-base-content/50">${documento}</p>
-          </a>
-        `;
-      });
-      html += '</div>';
-      resultados.innerHTML = html;
-    } else {
-      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
-    }
-  } catch (error) {
-    console.error('Erro ao buscar:', error);
-    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar clientes</p>';
-  }
-}
-
-function limparBuscaModal() {
-  document.getElementById('busca_cliente_modal').value = '';
-  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
-}
-function filtrarPorVendedor(vendedorId) {
-  if (vendedorId) {
-    window.location.href = `/cotacoes?responsavel_comercial=${vendedorId}`;
-  } else {
-    window.location.href = '/cotacoes';
-  }
-}
-
-function limparFiltroVendedor() {
-  const selectVendedor = document.getElementById('filtro_vendedor');
-  selectVendedor.value = '';
-  window.location.href = '/cotacoes';
-}
-
-// Formatar valores na tabela de cotações e resetar dropdown
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('=== DOMContentLoaded INICIADO ===');
-  
-  // Resetar dropdown ao valor do filtro ativo (se houver)
+function aplicarFiltros() {
+  const executivo = document.getElementById('filtro_executivo').value;
+  const mes = document.getElementById('filtro_mes').value;
+  const busca = document.getElementById('filtro_busca').value.trim();
   const urlParams = new URLSearchParams(window.location.search);
-  const vendedorFiltrado = urlParams.get('responsavel_comercial');
-  console.log('Vendedor filtrado da URL:', vendedorFiltrado);
+  const status = urlParams.get('status');
   
-  const selectVendedor = document.getElementById('filtro_vendedor');
-  console.log('Select element:', selectVendedor);
+  let params = new URLSearchParams();
+  if (executivo) params.set('responsavel_comercial', executivo);
+  if (mes) params.set('mes', mes);
+  if (busca) params.set('busca', busca);
+  if (status) params.set('status', status);
   
-  if (vendedorFiltrado && selectVendedor) {
-    console.log('Setando valor do select para:', vendedorFiltrado);
-    selectVendedor.value = vendedorFiltrado;
-    console.log('Valor atual do select após setar:', selectVendedor.value);
-  }
+  window.location.href = '/cotacoes' + (params.toString() ? '?' + params.toString() : '');
+}
 
-  // Formatar valores monetários
-  document.querySelectorAll('td[data-valor]').forEach(cell => {
-    const valor = parseFloat(cell.getAttribute('data-valor'));
-    if (!isNaN(valor)) {
-      const valorFormatado = valor.toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      });
-      const span = cell.querySelector('.valor-formatado');
-      if (span) {
-        span.textContent = valorFormatado;
-      }
-    }
-  });
+function filtrarPorStatus(status) {
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentStatus = urlParams.get('status');
   
-  console.log('=== DOMContentLoaded FINALIZADO ===');
-});
+  // Toggle: se já está no status, remove o filtro
+  if (currentStatus === status) {
+    urlParams.delete('status');
+  } else {
+    urlParams.set('status', status);
+  }
+  
+  window.location.href = '/cotacoes' + (urlParams.toString() ? '?' + urlParams.toString() : '');
+}
+
+function duplicarCotacao(cotacaoId) {
+  if (!confirm('Deseja duplicar esta cotação?')) return;
+  
+  fetch(`/api/cotacoes/${cotacaoId}/duplicar`, {
+    method: 'POST'
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showToast('Cotação duplicada com sucesso!', 'success');
+      window.location.href = `/cotacoes/${data.nova_cotacao_id}/detalhes`;
+    } else {
+      showToast(data.message || 'Erro ao duplicar', 'error');
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showToast('Erro ao duplicar cotação', 'error');
+  });
+}
 </script>
 {% endblock %}

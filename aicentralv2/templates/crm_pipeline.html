@@ -146,7 +146,13 @@
             {% endif %}
             
             <span class="text-sm font-semibold text-gray-700">
-              {{ "%.0f"|format(cotacao.valor_total_proposta or 0) }}
+              {% if cotacao.valor_total_proposta and cotacao.valor_total_proposta >= 1000 %}
+                {{ "%.1f"|format((cotacao.valor_total_proposta or 0) / 1000) }}k
+              {% elif cotacao.valor_total_proposta and cotacao.valor_total_proposta > 0 %}
+                R$ {{ "%.0f"|format(cotacao.valor_total_proposta) }}
+              {% else %}
+                -
+              {% endif %}
             </span>
           </div>
         </div>
@@ -182,12 +188,8 @@
     <!-- Tabs -->
     <div class="flex border-b border-gray-200 px-6 bg-gray-50" id="modal_tabs">
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="resumo" onclick="trocarAbaModal('resumo')">Resumo</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="itens" onclick="trocarAbaModal('itens')">Itens</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="valores" onclick="trocarAbaModal('valores')">Valores</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="audiencias" onclick="trocarAbaModal('audiencias')">Audiências</button>
+      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="comunicacao_ia" onclick="trocarAbaModal('comunicacao_ia')">Comunicação IA</button>
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="briefing" onclick="trocarAbaModal('briefing')">Briefing</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="comunicacao" onclick="trocarAbaModal('comunicacao')">Comunicação</button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="historico" onclick="trocarAbaModal('historico')">Histórico</button>
     </div>
     
     <!-- Conteúdo das Abas -->
@@ -244,6 +246,47 @@
           </div>
         </div>
         
+        <!-- Seção de Valores -->
+        <div class="mt-6 pt-4 border-t border-gray-100">
+          <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Valores</h4>
+          <div class="grid grid-cols-4 gap-4">
+            <div class="p-3 bg-gray-50 rounded">
+              <p class="text-xs text-gray-500">Subtotal</p>
+              <p class="text-sm font-semibold text-gray-800" id="resumo_subtotal">R$ 0,00</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded">
+              <p class="text-xs text-gray-500">Desconto</p>
+              <p class="text-sm font-semibold text-red-600" id="resumo_desconto">- R$ 0,00</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded">
+              <p class="text-xs text-gray-500">Impostos</p>
+              <p class="text-sm font-semibold text-gray-800" id="resumo_impostos">R$ 0,00</p>
+            </div>
+            <div class="p-3 bg-green-50 rounded border border-green-200">
+              <p class="text-xs text-green-600">Total</p>
+              <p class="text-base font-bold text-green-700" id="resumo_total">R$ 0,00</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Resumo de Itens e Audiências -->
+        <div class="mt-6 pt-4 border-t border-gray-100">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Itens (<span id="resumo_itens_count">0</span>)</h4>
+              <div id="resumo_itens_lista" class="space-y-1 max-h-32 overflow-y-auto">
+                <p class="text-sm text-gray-400">Nenhum item</p>
+              </div>
+            </div>
+            <div>
+              <h4 class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Audiências (<span id="resumo_audiencias_count">0</span>)</h4>
+              <div id="resumo_audiencias_lista" class="space-y-1 max-h-32 overflow-y-auto">
+                <p class="text-sm text-gray-400">Nenhuma audiência</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Observações -->
         <div class="mt-6 pt-4 border-t border-gray-100">
           <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Observações</label>
@@ -251,64 +294,74 @@
         </div>
       </div>
       
-      <!-- Aba Itens -->
-      <div id="tab_itens" class="modal-tab-content hidden">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b border-gray-200">
-              <th class="text-left py-2 text-xs font-medium text-gray-500 uppercase">Plataforma</th>
-              <th class="text-left py-2 text-xs font-medium text-gray-500 uppercase">Produto</th>
-              <th class="text-left py-2 text-xs font-medium text-gray-500 uppercase">Segmentação</th>
-              <th class="text-right py-2 text-xs font-medium text-gray-500 uppercase">Qtd</th>
-              <th class="text-right py-2 text-xs font-medium text-gray-500 uppercase">Valor</th>
-            </tr>
-          </thead>
-          <tbody id="itens_tbody" class="divide-y divide-gray-100">
-            <tr><td colspan="5" class="py-8 text-center text-gray-400">Carregando...</td></tr>
-          </tbody>
-          <tfoot id="itens_tfoot" class="border-t-2 border-gray-300">
-          </tfoot>
-        </table>
-      </div>
-      
-      <!-- Aba Valores -->
-      <div id="tab_valores" class="modal-tab-content hidden">
-        <div class="grid grid-cols-2 gap-6">
-          <div class="space-y-3">
-            <div class="flex justify-between py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Subtotal</span>
-              <span class="text-sm font-medium text-gray-800" id="valores_subtotal">R$ 0,00</span>
+      <!-- Aba Comunicação IA -->
+      <div id="tab_comunicacao_ia" class="modal-tab-content hidden">
+        <!-- Header com info do contato -->
+        <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                <i class="fa-solid fa-user text-gray-500"></i>
+              </div>
+              <div>
+                <p class="font-medium text-gray-800" id="ia_contato_nome">-</p>
+                <p class="text-sm text-gray-500" id="ia_contato_email">-</p>
+              </div>
             </div>
-            <div class="flex justify-between py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Desconto</span>
-              <span class="text-sm font-medium text-red-600" id="valores_desconto">- R$ 0,00</span>
-            </div>
-            <div class="flex justify-between py-2 border-b border-gray-100">
-              <span class="text-sm text-gray-600">Impostos</span>
-              <span class="text-sm font-medium text-gray-800" id="valores_impostos">R$ 0,00</span>
-            </div>
-            <div class="flex justify-between py-3 bg-gray-50 rounded px-2">
-              <span class="text-base font-semibold text-gray-800">Total</span>
-              <span class="text-base font-bold text-gray-900" id="valores_total">R$ 0,00</span>
-            </div>
-          </div>
-          <div class="space-y-3">
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase">Moeda</label>
-              <p class="text-sm text-gray-700 mt-1" id="valores_moeda">BRL</p>
-            </div>
-            <div>
-              <label class="text-xs font-medium text-gray-400 uppercase">Condições Comerciais</label>
-              <p class="text-sm text-gray-600 mt-1 whitespace-pre-line" id="valores_condicoes">-</p>
+            <div class="flex items-center gap-2">
+              <a id="ia_whatsapp_link" href="#" target="_blank" class="p-2 rounded bg-green-500 hover:bg-green-600 text-white transition-colors" title="Abrir WhatsApp">
+                <i class="fa-brands fa-whatsapp text-lg"></i>
+              </a>
+              <a id="ia_email_link" href="#" class="p-2 rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors" title="Enviar Email">
+                <i class="fa-solid fa-envelope"></i>
+              </a>
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Aba Audiências -->
-      <div id="tab_audiencias" class="modal-tab-content hidden">
-        <div id="audiencias_content" class="space-y-3">
-          <p class="py-8 text-center text-gray-400">Carregando...</p>
+        
+        <!-- Seletor de tipo de comunicação -->
+        <div class="flex items-center gap-4 mb-4">
+          <label class="text-sm font-medium text-gray-600">Tipo:</label>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="selecionarTipoComunicacao('email')" id="btn_tipo_email" class="px-4 py-2 text-sm rounded border border-gray-300 bg-gray-800 text-white transition-colors">
+              <i class="fa-solid fa-envelope mr-1"></i>Email
+            </button>
+            <button type="button" onclick="selecionarTipoComunicacao('whatsapp')" id="btn_tipo_whatsapp" class="px-4 py-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+              <i class="fa-brands fa-whatsapp mr-1"></i>WhatsApp
+            </button>
+          </div>
+        </div>
+        
+        <!-- Área de geração -->
+        <div class="relative">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Mensagem Gerada</label>
+          <textarea id="ia_mensagem_gerada" class="w-full mt-2 p-4 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-gray-400 resize-none" rows="10" placeholder="Clique em 'Gerar com IA' para criar uma mensagem personalizada..."></textarea>
+          
+          <!-- Indicador de loading -->
+          <div id="ia_loading" class="hidden absolute inset-0 mt-6 bg-white/80 rounded-lg flex items-center justify-center">
+            <div class="flex items-center gap-3 text-gray-600">
+              <i class="fa-solid fa-spinner fa-spin text-xl"></i>
+              <span>Gerando mensagem...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Botões de ação -->
+        <div class="flex items-center justify-between mt-4">
+          <div class="text-xs text-gray-400">
+            <span id="ia_assinatura_preview">Assinatura: {{ session.get('user_fullname', 'Usuário') }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="limparMensagemIA()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+              <i class="fa-solid fa-eraser mr-1"></i>Limpar
+            </button>
+            <button type="button" onclick="copiarMensagemIA()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors">
+              <i class="fa-solid fa-copy mr-1"></i>Copiar
+            </button>
+            <button type="button" onclick="gerarMensagemIA()" id="btn_gerar_ia" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Gerar com IA
+            </button>
+          </div>
         </div>
       </div>
       
@@ -319,27 +372,7 @@
         </div>
       </div>
       
-      <!-- Aba Comunicação -->
-      <div id="tab_comunicacao" class="modal-tab-content hidden">
-        <div id="comunicacao_content" class="space-y-3 mb-4" style="max-height: 250px; overflow-y: auto;">
-          <p class="py-4 text-center text-gray-400">Nenhum comentário</p>
-        </div>
-        <div class="border-t border-gray-200 pt-4">
-          <div class="flex gap-2">
-            <input type="text" id="novo_comentario" class="flex-1 border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-400" placeholder="Adicionar comentário...">
-            <button onclick="adicionarComentario()" class="px-4 py-2 bg-gray-800 text-white text-sm rounded hover:bg-gray-700">
-              Enviar
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Aba Histórico -->
-      <div id="tab_historico" class="modal-tab-content hidden">
-        <div id="historico_content" class="space-y-2">
-          <p class="py-8 text-center text-gray-400">Carregando histórico...</p>
-        </div>
-      </div>
+
     </div>
     
     <!-- Footer do Modal -->
@@ -521,7 +554,7 @@ function preencherModal(c) {
   document.getElementById('modal_valor').textContent = `R$ ${formatarMoeda(c.valor_total_proposta)}`;
   document.getElementById('modal_status_badge').textContent = c.status;
   
-  // Resumo
+  // Resumo básico
   document.getElementById('resumo_cliente').textContent = c.cliente_nome || '-';
   document.getElementById('resumo_campanha').textContent = c.nome_campanha || '-';
   document.getElementById('resumo_objetivo').textContent = c.objetivo_campanha || '-';
@@ -539,52 +572,42 @@ function preencherModal(c) {
   }
   document.getElementById('resumo_periodo').textContent = periodo;
   
-  // Itens
-  const tbody = document.getElementById('itens_tbody');
-  const tfoot = document.getElementById('itens_tfoot');
+  // Valores no resumo
+  document.getElementById('resumo_subtotal').textContent = `R$ ${formatarMoeda(c.valor_bruto || c.valor_total_proposta || 0)}`;
+  document.getElementById('resumo_desconto').textContent = `- R$ ${formatarMoeda(c.valor_desconto || 0)}`;
+  document.getElementById('resumo_impostos').textContent = `R$ ${formatarMoeda(c.valor_impostos || 0)}`;
+  document.getElementById('resumo_total').textContent = `R$ ${formatarMoeda(c.valor_total_proposta || 0)}`;
+  
+  // Resumo de itens
+  const itensLista = document.getElementById('resumo_itens_lista');
+  const itensCount = document.getElementById('resumo_itens_count');
   if (c.itens && c.itens.length > 0) {
-    tbody.innerHTML = c.itens.map(item => `
-      <tr>
-        <td class="py-2 text-gray-700">${item.plataforma || '-'}</td>
-        <td class="py-2 text-gray-700">${item.produto || item.descricao || '-'}</td>
-        <td class="py-2 text-gray-600">${item.segmentacao || '-'}</td>
-        <td class="py-2 text-right text-gray-700">${item.quantidade || 1}</td>
-        <td class="py-2 text-right font-medium text-gray-800">R$ ${formatarMoeda(item.valor_total || 0)}</td>
-      </tr>
-    `).join('');
-    tfoot.innerHTML = `<tr><td colspan="4" class="py-3 text-right font-semibold text-gray-800">Total</td><td class="py-3 text-right font-bold text-gray-900">R$ ${formatarMoeda(c.valor_total_proposta)}</td></tr>`;
+    itensCount.textContent = c.itens.length;
+    itensLista.innerHTML = c.itens.slice(0, 5).map(item => `
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-600 truncate" style="max-width: 150px;">${item.plataforma || '-'} - ${item.produto || item.descricao || '-'}</span>
+        <span class="font-medium text-gray-700">R$ ${formatarMoeda(item.valor_total || 0)}</span>
+      </div>
+    `).join('') + (c.itens.length > 5 ? `<p class="text-xs text-gray-400">+${c.itens.length - 5} mais...</p>` : '');
   } else {
-    tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-400">Nenhum item</td></tr>';
-    tfoot.innerHTML = '';
+    itensCount.textContent = '0';
+    itensLista.innerHTML = '<p class="text-sm text-gray-400">Nenhum item</p>';
   }
   
-  // Valores
-  document.getElementById('valores_subtotal').textContent = `R$ ${formatarMoeda(c.valor_bruto || c.valor_total_proposta || 0)}`;
-  document.getElementById('valores_desconto').textContent = `- R$ ${formatarMoeda(c.valor_desconto || 0)}`;
-  document.getElementById('valores_impostos').textContent = `R$ ${formatarMoeda(c.valor_impostos || 0)}`;
-  document.getElementById('valores_total').textContent = `R$ ${formatarMoeda(c.valor_total_proposta || 0)}`;
-  document.getElementById('valores_moeda').textContent = c.moeda || 'BRL';
-  document.getElementById('valores_condicoes').textContent = c.condicoes_comerciais || '-';
-  
-  // Audiências
-  const audienciasContent = document.getElementById('audiencias_content');
+  // Resumo de audiências
+  const audienciasLista = document.getElementById('resumo_audiencias_lista');
+  const audienciasCount = document.getElementById('resumo_audiencias_count');
   if (c.audiencias && c.audiencias.length > 0) {
-    audienciasContent.innerHTML = c.audiencias.map(a => `
-      <div class="p-3 bg-gray-50 rounded border border-gray-200">
-        <div class="flex items-start justify-between">
-          <div>
-            <p class="font-medium text-sm text-gray-800">${a.nome || 'Audiência'}</p>
-            <p class="text-xs text-gray-500 mt-1">${a.categoria || ''}${a.subcategoria ? ' > ' + a.subcategoria : ''}</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm font-semibold text-gray-700">R$ ${formatarMoeda(a.investimento_sugerido || 0)}</p>
-            <p class="text-xs text-gray-400">${a.publico || ''}</p>
-          </div>
-        </div>
+    audienciasCount.textContent = c.audiencias.length;
+    audienciasLista.innerHTML = c.audiencias.slice(0, 5).map(a => `
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-600 truncate" style="max-width: 150px;">${a.nome || 'Audiência'}</span>
+        <span class="font-medium text-gray-700">R$ ${formatarMoeda(a.investimento_sugerido || 0)}</span>
       </div>
-    `).join('');
+    `).join('') + (c.audiencias.length > 5 ? `<p class="text-xs text-gray-400">+${c.audiencias.length - 5} mais...</p>` : '');
   } else {
-    audienciasContent.innerHTML = '<p class="py-8 text-center text-gray-400">Nenhuma audiência</p>';
+    audienciasCount.textContent = '0';
+    audienciasLista.innerHTML = '<p class="text-sm text-gray-400">Nenhuma audiência</p>';
   }
   
   // Briefing
@@ -603,11 +626,33 @@ function preencherModal(c) {
     briefingContent.innerHTML = '<p class="py-8 text-center text-gray-400">Nenhum briefing vinculado</p>';
   }
   
-  // Comunicação
-  carregarComentarios(c.id);
+  // Comunicação IA - preencher dados do contato
+  document.getElementById('ia_contato_nome').textContent = c.contato_nome || c.cliente_nome || '-';
+  document.getElementById('ia_contato_email').textContent = c.contato_email || '-';
   
-  // Histórico
-  carregarHistorico(c.id);
+  // Links de WhatsApp e Email
+  const telefone = c.contato_telefone || '';
+  const telefoneFormatado = telefone.replace(/\D/g, '');
+  if (telefoneFormatado) {
+    document.getElementById('ia_whatsapp_link').href = `https://wa.me/55${telefoneFormatado}`;
+    document.getElementById('ia_whatsapp_link').classList.remove('opacity-50', 'pointer-events-none');
+  } else {
+    document.getElementById('ia_whatsapp_link').href = '#';
+    document.getElementById('ia_whatsapp_link').classList.add('opacity-50', 'pointer-events-none');
+  }
+  
+  if (c.contato_email) {
+    document.getElementById('ia_email_link').href = `mailto:${c.contato_email}`;
+    document.getElementById('ia_email_link').classList.remove('opacity-50', 'pointer-events-none');
+  } else {
+    document.getElementById('ia_email_link').href = '#';
+    document.getElementById('ia_email_link').classList.add('opacity-50', 'pointer-events-none');
+  }
+  
+  // Limpar mensagem gerada
+  document.getElementById('ia_mensagem_gerada').value = '';
+  tipoComunicacaoAtual = 'email';
+  selecionarTipoComunicacao('email');
   
   document.getElementById('modal_link_editar').href = `/cotacoes/${c.id}/detalhes`;
   document.getElementById('modal_mover_status').value = '';
@@ -626,52 +671,6 @@ function preencherModal(c) {
   trocarAbaModal('resumo');
 }
 
-async function carregarComentarios(cotacaoId) {
-  try {
-    const response = await fetch(`/api/cotacoes/${cotacaoId}/comentarios`);
-    const result = await response.json();
-    const container = document.getElementById('comunicacao_content');
-    if (result.success && result.comentarios && result.comentarios.length > 0) {
-      container.innerHTML = result.comentarios.map(c => `
-        <div class="p-3 bg-gray-50 rounded">
-          <div class="flex justify-between items-start">
-            <span class="text-sm font-medium text-gray-700">${c.user_nome || 'Usuário'}</span>
-            <span class="text-xs text-gray-400">${formatarDataHora(c.created_at)}</span>
-          </div>
-          <p class="text-sm text-gray-600 mt-1">${c.comentario}</p>
-        </div>
-      `).join('');
-    } else {
-      container.innerHTML = '<p class="py-4 text-center text-gray-400">Nenhum comentário</p>';
-    }
-  } catch (error) {
-    console.error('Erro:', error);
-  }
-}
-
-async function carregarHistorico(cotacaoId) {
-  try {
-    const response = await fetch(`/api/cotacoes/${cotacaoId}/historico`);
-    const result = await response.json();
-    const container = document.getElementById('historico_content');
-    if (result.success && result.historico && result.historico.length > 0) {
-      container.innerHTML = result.historico.map(h => `
-        <div class="flex items-start gap-3 py-2 border-b border-gray-100">
-          <span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">${h.acao}</span>
-          <div class="flex-1">
-            <p class="text-sm text-gray-700">${h.descricao}</p>
-            <p class="text-xs text-gray-400 mt-0.5">${formatarDataHora(h.created_at)} - ${h.usuario_nome || 'Sistema'}</p>
-          </div>
-        </div>
-      `).join('');
-    } else {
-      container.innerHTML = '<p class="py-8 text-center text-gray-400">Nenhum registro</p>';
-    }
-  } catch (error) {
-    container.innerHTML = '<p class="py-8 text-center text-gray-400">Erro ao carregar</p>';
-  }
-}
-
 function trocarAbaModal(tab) {
   document.querySelectorAll('#modal_tabs .tab-btn').forEach(t => {
     t.classList.toggle('tab-active', t.dataset.tab === tab);
@@ -679,6 +678,97 @@ function trocarAbaModal(tab) {
   document.querySelectorAll('.modal-tab-content').forEach(c => {
     c.classList.toggle('hidden', c.id !== `tab_${tab}`);
   });
+}
+
+// ==================== COMUNICAÇÃO IA ====================
+let tipoComunicacaoAtual = 'email';
+
+function selecionarTipoComunicacao(tipo) {
+  tipoComunicacaoAtual = tipo;
+  const btnEmail = document.getElementById('btn_tipo_email');
+  const btnWhatsapp = document.getElementById('btn_tipo_whatsapp');
+  
+  if (tipo === 'email') {
+    btnEmail.className = 'px-4 py-2 text-sm rounded border border-gray-300 bg-gray-800 text-white transition-colors';
+    btnWhatsapp.className = 'px-4 py-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors';
+  } else {
+    btnEmail.className = 'px-4 py-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors';
+    btnWhatsapp.className = 'px-4 py-2 text-sm rounded border border-gray-300 bg-gray-800 text-white transition-colors';
+  }
+}
+
+async function gerarMensagemIA() {
+  if (!cotacaoAtualData) {
+    showToast('Dados da cotação não carregados', 'error');
+    return;
+  }
+  
+  const loading = document.getElementById('ia_loading');
+  const btnGerar = document.getElementById('btn_gerar_ia');
+  const textarea = document.getElementById('ia_mensagem_gerada');
+  
+  loading.classList.remove('hidden');
+  btnGerar.disabled = true;
+  btnGerar.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Gerando...';
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/gerar-comunicacao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tipo: tipoComunicacaoAtual,
+        cotacao_data: {
+          numero: cotacaoAtualData.numero_cotacao,
+          cliente: cotacaoAtualData.cliente_nome,
+          campanha: cotacaoAtualData.nome_campanha,
+          objetivo: cotacaoAtualData.objetivo_campanha,
+          valor_total: cotacaoAtualData.valor_total_proposta,
+          periodo_inicio: cotacaoAtualData.periodo_inicio,
+          periodo_fim: cotacaoAtualData.periodo_fim,
+          contato_nome: cotacaoAtualData.contato_nome,
+          status: cotacaoAtualData.status,
+          itens_count: cotacaoAtualData.itens?.length || 0,
+          audiencias_count: cotacaoAtualData.audiencias?.length || 0
+        }
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      textarea.value = result.mensagem;
+      showToast('Mensagem gerada com sucesso', 'success');
+    } else {
+      showToast(result.message || 'Erro ao gerar mensagem', 'error');
+    }
+  } catch (error) {
+    showToast('Erro ao comunicar com o servidor', 'error');
+    console.error('Erro:', error);
+  } finally {
+    loading.classList.add('hidden');
+    btnGerar.disabled = false;
+    btnGerar.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Gerar com IA';
+  }
+}
+
+function copiarMensagemIA() {
+  const textarea = document.getElementById('ia_mensagem_gerada');
+  if (!textarea.value.trim()) {
+    showToast('Nenhuma mensagem para copiar', 'error');
+    return;
+  }
+  
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    showToast('Mensagem copiada!', 'success');
+  }).catch(() => {
+    // Fallback para navegadores antigos
+    textarea.select();
+    document.execCommand('copy');
+    showToast('Mensagem copiada!', 'success');
+  });
+}
+
+function limparMensagemIA() {
+  document.getElementById('ia_mensagem_gerada').value = '';
 }
 
 async function moverCotacaoStatus(novoStatus) {
@@ -751,26 +841,6 @@ async function executarAcaoConfirmada() {
     }
   } catch (error) {
     showToast('Erro ao processar', 'error');
-  }
-}
-
-async function adicionarComentario() {
-  const texto = document.getElementById('novo_comentario').value.trim();
-  if (!texto) return;
-  
-  try {
-    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/comentarios`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comentario: texto })
-    });
-    const result = await response.json();
-    if (result.success) {
-      document.getElementById('novo_comentario').value = '';
-      carregarComentarios(cotacaoAtualId);
-    }
-  } catch (error) {
-    showToast('Erro ao adicionar comentário', 'error');
   }
 }
 

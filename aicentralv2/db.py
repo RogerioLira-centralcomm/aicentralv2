@@ -4671,7 +4671,7 @@ def obter_todos_briefings(filtros=None):
     Retorna todos os briefings com filtros opcionais
     
     Args:
-        filtros (dict): {'status': str, 'cliente_id': int, 'busca': str, 'projeto_id': int, 'responsavel_id': int}
+        filtros (dict): {'status': str, 'cliente_id': int, 'busca': str, 'projeto_id': int, 'responsavel_id': int, 'sem_responsavel': bool}
     
     Returns:
         list: Lista de briefings com dados relacionados
@@ -4713,7 +4713,9 @@ def obter_todos_briefings(filtros=None):
                     query += ' AND b.plataforma = %s'
                     params.append(filtros['plataforma'])
                 
-                if 'responsavel_id' in filtros and filtros['responsavel_id']:
+                if filtros.get('sem_responsavel'):
+                    query += ' AND (b.responsavel_centralcomm IS NULL OR b.responsavel_centralcomm = \'\')'
+                elif 'responsavel_id' in filtros and filtros['responsavel_id']:
                     query += ' AND b.responsavel_centralcomm = %s'
                     params.append(str(filtros['responsavel_id']))
                 
@@ -4750,11 +4752,13 @@ def obter_briefing_por_id(briefing_id):
                     cont.nome_completo as contato_nome,
                     cont.email as contato_email,
                     cont.telefone as contato_telefone,
-                    p.nome as projeto_nome
+                    p.nome as projeto_nome,
+                    resp.nome_completo as responsavel_nome
                 FROM cadu_briefings b
                 LEFT JOIN tbl_cliente c ON b.id_cliente = c.id_cliente
                 LEFT JOIN tbl_contato_cliente cont ON b.id_contato_cliente = cont.id_contato_cliente
                 LEFT JOIN cadu_projetos p ON b.id_projeto = p.id
+                LEFT JOIN tbl_contato_cliente resp ON b.responsavel_centralcomm::integer = resp.id_contato_cliente
                 WHERE b.id = %s AND b.deleted_at IS NULL
             ''', (briefing_id,))
             return cursor.fetchone()
@@ -4935,6 +4939,7 @@ def atualizar_briefing(briefing_id, dados):
                 'id_cliente': 'id_cliente',
                 'cliente_id': 'id_cliente',
                 'id_contato_cliente': 'id_contato_cliente',
+                'id_cotacao': 'id_cotacao',
                 'titulo': 'titulo',
                 'status': 'status',
                 'progresso': 'progresso',
@@ -4951,7 +4956,8 @@ def atualizar_briefing(briefing_id, dados):
                 'enviado_para_centralcomm': 'enviado_para_centralcomm',
                 'data_envio': 'data_envio',
                 'id_projeto': 'id_projeto',
-                'plataforma': 'plataforma'
+                'plataforma': 'plataforma',
+                'observacoes': 'observacoes'
             }
             
             for key, db_field in campos_mapeamento.items():
@@ -5124,6 +5130,64 @@ def obter_cotacoes_por_vendedor(vendedor_id):
                 WHERE c.responsavel_comercial = %s AND c.deleted_at IS NULL
                 ORDER BY c.periodo_inicio DESC
             ''', (vendedor_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_cotacoes_filtradas(cliente_id=None, responsavel_id=None, mes=None, busca=None, status=None):
+    """Obtém cotações com filtros avançados para listagem"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    c.*,
+                    cli.nome_fantasia as cliente_nome,
+                    resp.nome_completo as responsavel_nome,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id), 0) as total_linhas,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos
+                FROM cadu_cotacoes c
+                LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
+                WHERE c.deleted_at IS NULL
+            '''
+            params = []
+            
+            if cliente_id:
+                query += ' AND c.client_id = %s'
+                params.append(cliente_id)
+            
+            if responsavel_id:
+                query += ' AND c.responsavel_comercial = %s'
+                params.append(responsavel_id)
+            
+            if mes:
+                query += ' AND EXTRACT(MONTH FROM c.created_at) = %s'
+                params.append(int(mes))
+            
+            if busca:
+                query += ' AND (cli.nome_fantasia ILIKE %s OR c.nome_campanha ILIKE %s OR c.numero_cotacao ILIKE %s)'
+                busca_param = f'%{busca}%'
+                params.extend([busca_param, busca_param, busca_param])
+            
+            if status:
+                if status == 'Rascunho':
+                    query += " AND (c.status = 'Rascunho' OR c.status = 'Pendente' OR c.status IS NULL)"
+                else:
+                    query += ' AND c.status = %s'
+                    params.append(status)
+            
+            # Ordenar: Enviadas primeiro (prioridade), depois por data de período
+            query += '''
+                ORDER BY 
+                    CASE WHEN c.status = 'Enviada' THEN 0 ELSE 1 END,
+                    c.periodo_inicio DESC NULLS LAST,
+                    c.created_at DESC
+            '''
+            
+            cursor.execute(query, params)
             return cursor.fetchall()
     except Exception as e:
         raise e
@@ -6130,6 +6194,8 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
                 cli.categoria_abc,
                 cli.vendas_central_comm,
                 cli.pk_id_tbl_agencia,
+                cli.id_tipo_cliente,
+                tc.display AS tipo_cliente_display,
                 ag.key AS agencia_key,
                 vend.nome_completo AS executivo_nome,
                 COUNT(DISTINCT cont.id_contato_cliente) AS total_usuarios,
@@ -6143,6 +6209,7 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             LEFT JOIN tbl_contato_cliente cont ON cont.pk_id_tbl_cliente = cli.id_cliente
             LEFT JOIN metricas_mes m ON m.id_cliente = cli.id_cliente
             LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+            LEFT JOIN tbl_tipo_cliente tc ON tc.id_tipo_cliente = cli.id_tipo_cliente
             WHERE 1=1
         '''
         
@@ -6189,6 +6256,7 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
         query = base_query + where_sql + '''
             GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social, cli.cnpj, 
                      cli.status, cli.categoria_abc, cli.vendas_central_comm, cli.pk_id_tbl_agencia,
+                     cli.id_tipo_cliente, tc.display,
                      ag.key, vend.nome_completo, m.cotacoes_mes, m.cotacoes_aprovadas_mes,
                      m.valor_aprovado_mes, m.briefings_mes, m.briefings_aceitos_mes
             ORDER BY cli.nome_fantasia ASC

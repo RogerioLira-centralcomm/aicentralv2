@@ -3,162 +3,101 @@
 {% block title %}Gestão de Briefings{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-2">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-        <h1 class="text-xl font-bold text-base-content">Gestão de Briefings</h1>
-        <a href="{{ url_for('briefing_create') }}" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg>
-            Novo Briefing
-        </a>
-    </div>
-
-    <!-- Estatísticas -->
-    <div class="grid grid-cols-4 lg:grid-cols-7 gap-1 mb-2">
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Total</div>
-                <div class="stat-value text-lg text-black">{{ stats.total }}</div>
+<div class="max-w-full mx-auto px-2">
+    <!-- Header Compacto (max 66px) - Estilo CRM -->
+    <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+        <div class="flex items-center justify-between gap-4">
+            <!-- Título -->
+            <div class="flex items-center gap-4">
+                <h1 class="text-lg font-semibold text-gray-800">Briefings</h1>
+                <span class="text-xs text-gray-400">Gerenciamento de briefings do Cadu</span>
             </div>
-        </div>
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Rascunho</div>
-                <div class="stat-value text-lg text-black">{{ stats.rascunho }}</div>
-            </div>
-        </div>
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Pendente</div>
-                <div class="stat-value text-lg text-black">{{ stats.pendente }}</div>
-            </div>
-        </div>
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Andamento</div>
-                <div class="stat-value text-lg text-black">{{ stats.em_andamento }}</div>
-            </div>
-        </div>
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Revisão</div>
-                <div class="stat-value text-lg text-black">{{ stats.em_revisao }}</div>
-            </div>
-        </div>
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Completo</div>
-                <div class="stat-value text-lg text-black">{{ stats.completo }}</div>
-            </div>
-        </div>
-        <div class="stats shadow bg-base-100">
-            <div class="stat py-1 px-2">
-                <div class="stat-title text-xs">Arquivado</div>
-                <div class="stat-value text-lg text-black">{{ stats.arquivado }}</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filtros -->
-    <div class="card bg-base-100 border border-base-300 mb-2">
-        <div class="card-body p-2">
-            <form method="get" action="{{ url_for('briefing_list') }}" class="grid grid-cols-2 md:grid-cols-6 gap-2">
+            
+            <!-- Filtros Inline -->
+            <form id="filtros_form" method="get" action="{{ url_for('briefing_list') }}" class="flex items-center gap-3">
                 <!-- Status -->
-                <div class="form-control">
-                    <label class="label py-0"><span class="label-text text-xs">Status</span></label>
-                    <select name="status" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
-                        <option value="">Todos</option>
-                        <option value="rascunho" {% if filtros.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
-                        <option value="pendente" {% if filtros.status == 'pendente' %}selected{% endif %}>Pendente</option>
-                        <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
-                        <option value="em_revisao" {% if filtros.status == 'em_revisao' %}selected{% endif %}>Em Revisão</option>
-                        <option value="completo" {% if filtros.status == 'completo' %}selected{% endif %}>Completo</option>
-                        <option value="arquivado" {% if filtros.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
-                    </select>
+                <select name="status" onchange="this.form.submit()"
+                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
+                    <option value="">Todos status</option>
+                    <option value="pendente" {% if filtros.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                    <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
+                    <option value="em_revisao" {% if filtros.status == 'em_revisao' %}selected{% endif %}>Em Revisão</option>
+                    <option value="completo" {% if filtros.status == 'completo' %}selected{% endif %}>Completo</option>
+                    <option value="arquivado" {% if filtros.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
+                </select>
+                
+                <!-- Cliente Autocomplete -->
+                <div class="relative">
+                    <input type="hidden" name="cliente_id" id="cliente_id_filtro" value="{{ filtros.cliente_id }}">
+                    <input type="text" id="cliente_busca" 
+                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" 
+                        style="min-width: 180px;"
+                        placeholder="Buscar cliente..."
+                        value="{% if filtros.cliente_id and cliente_selecionado %}{{ cliente_selecionado.nome_fantasia }}{% endif %}"
+                        autocomplete="off"
+                        oninput="aoDigitarClienteFiltro(this.value)"
+                        onfocus="mostrarResultadosFiltro()"
+                    >
+                    <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-gray-200"></div>
                 </div>
-
-                <!-- Cliente -->
-                <div class="form-control">
-                    <label class="label py-0"><span class="label-text text-xs">Cliente</span></label>
-                    <div class="relative">
-                        <input type="hidden" name="cliente_id" id="cliente_id_filtro" value="{{ filtros.cliente_id }}">
-                        <input type="text" id="cliente_busca" 
-                            class="input input-bordered input-sm w-full h-8 min-h-8" 
-                            placeholder="Buscar..."
-                            value="{% if filtros.cliente_id and cliente_selecionado %}{{ cliente_selecionado.nome_fantasia }}{% endif %}"
-                            autocomplete="off"
-                            oninput="aoDigitarClienteFiltro(this.value)"
-                            onfocus="mostrarResultadosFiltro()"
-                        >
-                        <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
-                    </div>
-                </div>
-
-                <!-- Projeto -->
-                <div class="form-control">
-                    <label class="label py-0"><span class="label-text text-xs">Projeto</span></label>
-                    <select name="projeto_id" id="projeto_id_filtro" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
-                        <option value="">{{ 'Selecione cliente...' if not filtros.cliente_id else 'Todos' }}</option>
-                        {% for projeto in projetos %}
-                            <option value="{{ projeto.id }}" {% if filtros.projeto_id == projeto.id|string %}selected{% endif %}>{{ projeto.nome }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
+                
                 <!-- Responsável -->
-                <div class="form-control">
-                    <label class="label py-0"><span class="label-text text-xs">Responsável</span></label>
-                    <select name="responsavel_id" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
-                        <option value="">Todos</option>
-                        {% for resp in responsaveis %}
-                            <option value="{{ resp.id_contato_cliente }}" {% if filtros.responsavel_id == resp.id_contato_cliente|string %}selected{% endif %}>{{ resp.nome_completo }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
+                <select name="responsavel_id" onchange="this.form.submit()"
+                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+                    <option value="">Todos responsáveis</option>
+                    <option value="sem_responsavel" {% if filtros.responsavel_id == 'sem_responsavel' %}selected{% endif %}>⚠️ Sem responsável</option>
+                    {% for resp in responsaveis %}
+                        <option value="{{ resp.id_contato_cliente }}" {% if filtros.responsavel_id == resp.id_contato_cliente|string %}selected{% endif %}>{{ resp.nome_completo }}</option>
+                    {% endfor %}
+                </select>
+                
                 <!-- Busca -->
-                <div class="form-control">
-                    <label class="label py-0"><span class="label-text text-xs">Buscar</span></label>
-                    <input type="text" name="busca" value="{{ filtros.busca }}" 
-                           placeholder="Título..." class="input input-bordered input-sm h-8">
-                </div>
-
-                <!-- Botões -->
-                <div class="form-control justify-end">
-                    <div class="flex gap-1 mt-4">
-                        <button type="submit" class="btn text-white btn-xs" style="background-color: #72cd80; border-color: #72cd80;">Filtrar</button>
-                        <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-xs">Limpar</a>
-                    </div>
-                </div>
+                <input type="text" name="busca" value="{{ filtros.busca }}" 
+                       placeholder="Buscar título..." 
+                       class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+                       style="min-width: 150px;"
+                       onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                
+                <!-- Limpar -->
+                {% if filtros.status or filtros.cliente_id or filtros.responsavel_id or filtros.busca %}
+                <a href="{{ url_for('briefing_list') }}" class="text-gray-400 hover:text-gray-600 p-1.5" title="Limpar filtros">
+                    <i class="fa-solid fa-xmark"></i>
+                </a>
+                {% endif %}
             </form>
         </div>
     </div>
 
     <!-- Lista de Briefings - Desktop -->
-    <div class="bg-base-100 rounded-xl overflow-hidden hidden lg:block">
-        <table class="table table-zebra w-full text-sm">
-            <thead style="background-color: #72cd80;" class="text-white">
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hidden lg:block">
+        <table class="table w-full text-sm">
+            <thead class="bg-gray-800 text-white">
                 <tr class="text-xs">
-                    <th>Título</th>
-                    <th class="w-20">Status</th>
-                    <th>Cliente</th>
-                    <th>Projeto</th>
-                    <th>Resp.</th>
-                    <th>Plataforma</th>
-                    <th class="w-20">Prazo</th>
-                    <th class="w-20">Budget</th>
+                    <th class="font-medium py-3">Título</th>
+                    <th class="font-medium py-3 w-24">Status</th>
+                    <th class="font-medium py-3">Cliente</th>
+                    <th class="font-medium py-3">Responsável</th>
+                    <th class="font-medium py-3">Plataforma</th>
+                    <th class="font-medium py-3 w-24">Prazo</th>
+                    <th class="font-medium py-3 w-24">Budget</th>
+                    <th class="font-medium py-3 w-16 text-center">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% if briefings %}
                     {% for briefing in briefings %}
-                    <tr>
-                        <td class="py-1">
-                            <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" class="hover:text-primary font-semibold text-sm">{{ briefing.titulo }}</a>
+                    <tr class="hover:bg-gray-50 border-b border-gray-100 {% if not briefing.responsavel_centralcomm %}bg-amber-50{% endif %}">
+                        <td class="py-2">
+                            <div class="flex items-center gap-2">
+                                {% if not briefing.responsavel_centralcomm %}
+                                <span class="text-amber-500" title="Sem responsável definido">
+                                    <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                                </span>
+                                {% endif %}
+                                <span class="font-medium text-gray-800">{{ briefing.titulo }}</span>
+                            </div>
                         </td>
-                        <td class="py-1">
+                        <td class="py-2">
                             {% if briefing.status == 'rascunho' %}
                                 <span class="badge badge-xs bg-slate-200 text-slate-700 border-0">Rascunho</span>
                             {% elif briefing.status == 'pendente' %}
@@ -173,18 +112,31 @@
                                 <span class="badge badge-xs bg-gray-100 text-gray-500 border-0">Arquivado</span>
                             {% endif %}
                         </td>
-                        <td class="py-1 text-xs">{{ briefing.cliente_nome or '-' }}</td>
-                        <td class="py-1 text-xs">{{ briefing.projeto_nome or '-' }}</td>
-                        <td class="py-1 text-xs">{{ briefing.responsavel_nome or '-' }}</td>
-                        <td class="py-1 text-xs">{{ briefing.plataforma or '-' }}</td>
-                        <td class="py-1 text-xs">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
-                        <td class="py-1 text-xs">{% if briefing.budget %}R$ {{ "%.0f"|format(briefing.budget|float) }}{% else %}-{% endif %}</td>
+                        <td class="py-2 text-xs text-gray-600">{{ briefing.cliente_nome or '-' }}</td>
+                        <td class="py-2 text-xs text-gray-600">
+                            {% if briefing.responsavel_nome %}
+                                {{ briefing.responsavel_nome }}
+                            {% else %}
+                                <span class="text-amber-600 font-medium">Não definido</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-2 text-xs text-gray-600">{{ briefing.plataforma or '-' }}</td>
+                        <td class="py-2 text-xs text-gray-600">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
+                        <td class="py-2 text-xs text-gray-600">{% if briefing.budget %}R$ {{ "%.0f"|format(briefing.budget|float) }}{% else %}-{% endif %}</td>
+                        <td class="py-2 text-center">
+                            <button onclick="abrirModalBriefing({{ briefing.id }})" 
+                                    class="btn btn-xs btn-ghost text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                                    title="Ver briefing">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
                         <td colspan="8" class="text-center py-8 text-gray-500">
-                            Nenhum briefing encontrado.
+                            <i class="fa-solid fa-inbox text-4xl text-gray-300 mb-3"></i>
+                            <p>Nenhum briefing encontrado.</p>
                         </td>
                     </tr>
                 {% endif %}
@@ -193,63 +145,184 @@
     </div>
 
     <!-- Lista de Briefings - Mobile -->
-    <div class="lg:hidden space-y-3">
+    <div class="lg:hidden space-y-2">
         {% if briefings %}
             {% for briefing in briefings %}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body p-4">
-                    <a href="{{ url_for('briefing_edit', briefing_id=briefing.id) }}" class="hover:text-primary">
-                        <h3 class="card-title text-base">{{ briefing.titulo }}</h3>
-                    </a>
-                    <div class="space-y-1 text-xs">
-                        <div><strong>Cliente:</strong> {{ briefing.cliente_nome or '-' }}</div>
-                        <div><strong>Responsável:</strong> {{ briefing.responsavel_nome or '-' }}</div>
-                        <div><strong>Plataforma:</strong> {{ briefing.plataforma or '-' }}</div>
-                        <div><strong>Prazo:</strong> {{ briefing.prazo.strftime('%d/%m/%Y') if briefing.prazo else '-' }}</div>
-                        <div><strong>Budget:</strong> 
-                            {% if briefing.budget %}
-                                R$ {{ "%.2f"|format(briefing.budget|float) }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </div>
-                        <div><strong>Objetivo:</strong> {{ (briefing.objetivo or '')|truncate(100) }}</div>
-                        <div>
-                            <strong>Status:</strong>
-                            {% if briefing.status == 'rascunho' %}
-                                <span class="badge badge-sm bg-slate-200 text-slate-700 border-0">Rascunho</span>
-                            {% elif briefing.status == 'pendente' %}
-                                <span class="badge badge-sm bg-amber-100 text-amber-700 border-0">Pendente</span>
-                            {% elif briefing.status == 'em_andamento' %}
-                                <span class="badge badge-sm bg-blue-100 text-blue-700 border-0">Em Andamento</span>
-                            {% elif briefing.status == 'em_revisao' %}
-                                <span class="badge badge-sm bg-purple-100 text-purple-700 border-0">Em Revisão</span>
-                            {% elif briefing.status == 'completo' %}
-                                <span class="badge badge-sm bg-green-100 text-green-700 border-0">Completo</span>
-                            {% elif briefing.status == 'arquivado' %}
-                                <span class="badge badge-sm bg-gray-100 text-gray-500 border-0">Arquivado</span>
-                            {% endif %}
-                        </div>
+            <div class="bg-white border border-gray-200 rounded-lg p-3 {% if not briefing.responsavel_centralcomm %}border-l-4 border-l-amber-400{% endif %}">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center gap-2">
+                        {% if not briefing.responsavel_centralcomm %}
+                        <span class="text-amber-500"><i class="fa-solid fa-triangle-exclamation text-xs"></i></span>
+                        {% endif %}
+                        <span class="font-medium text-gray-800">{{ briefing.titulo }}</span>
                     </div>
-                    <div class="card-actions justify-end mt-3">
-                        <form method="post" action="{{ url_for('briefing_delete', briefing_id=briefing.id) }}" 
-                              onsubmit="return confirm('Deseja realmente excluir este briefing?');" class="inline">
-                            <button type="submit" class="btn btn-xs btn-error">Excluir</button>
-                        </form>
-                    </div>
+                    {% if briefing.status == 'pendente' %}
+                        <span class="badge badge-xs bg-amber-100 text-amber-700 border-0">Pendente</span>
+                    {% elif briefing.status == 'em_andamento' %}
+                        <span class="badge badge-xs bg-blue-100 text-blue-700 border-0">Andamento</span>
+                    {% elif briefing.status == 'completo' %}
+                        <span class="badge badge-xs bg-green-100 text-green-700 border-0">Completo</span>
+                    {% else %}
+                        <span class="badge badge-xs bg-gray-100 text-gray-500 border-0">{{ briefing.status }}</span>
+                    {% endif %}
+                </div>
+                <div class="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-3">
+                    <div><strong>Cliente:</strong> {{ briefing.cliente_nome or '-' }}</div>
+                    <div><strong>Resp:</strong> {{ briefing.responsavel_nome or 'Não definido' }}</div>
+                    <div><strong>Prazo:</strong> {{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</div>
+                    <div><strong>Budget:</strong> {% if briefing.budget %}R$ {{ "%.0f"|format(briefing.budget|float) }}{% else %}-{% endif %}</div>
+                </div>
+                <div class="flex justify-end">
+                    <button onclick="abrirModalBriefing({{ briefing.id }})" class="btn btn-xs btn-ghost text-gray-600">
+                        <i class="fa-solid fa-eye mr-1"></i> Ver
+                    </button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div class="alert alert-info">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>Nenhum briefing encontrado.</span>
+            <div class="text-center py-8 text-gray-500">
+                <i class="fa-solid fa-inbox text-4xl text-gray-300 mb-3"></i>
+                <p>Nenhum briefing encontrado.</p>
             </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Modal Briefing Detalhado -->
+<dialog id="modal_briefing" class="modal">
+    <div class="modal-box w-11/12 max-w-6xl p-0 overflow-hidden" style="height: 85vh;">
+        <!-- Header do Modal -->
+        <div class="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
+            <div>
+                <h3 id="modal_briefing_titulo" class="text-lg font-semibold">Briefing</h3>
+                <p id="modal_briefing_cliente" class="text-sm text-gray-300"></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="modal_briefing_status" class="badge"></span>
+                <form method="dialog">
+                    <button class="btn btn-sm btn-ghost text-white hover:bg-gray-700">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Conteúdo do Modal - 2 Colunas -->
+        <div class="flex h-[calc(85vh-130px)]">
+            <!-- Coluna Esquerda - Briefing Original (70%) -->
+            <div class="w-[70%] p-4 border-r border-gray-200 flex flex-col">
+                <label class="text-sm font-medium text-gray-700 mb-2">
+                    <i class="fa-solid fa-file-lines mr-1"></i> Briefing Original
+                </label>
+                <textarea id="modal_briefing_conteudo" 
+                    class="flex-1 w-full p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 resize-none focus:outline-none"
+                    readonly></textarea>
+                
+                <!-- Briefing Melhorado (se existir) -->
+                <div id="briefing_melhorado_container" class="mt-3 hidden">
+                    <label class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Briefing Melhorado (IA)
+                        <span class="badge badge-xs bg-purple-100 text-purple-700">AI</span>
+                    </label>
+                    <textarea id="modal_briefing_melhorado" 
+                        class="w-full h-32 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-gray-700 resize-none focus:outline-none"
+                        readonly></textarea>
+                </div>
+            </div>
+            
+            <!-- Coluna Direita - Informações e Ações (30%) -->
+            <div class="w-[30%] p-4 bg-gray-50 flex flex-col">
+                <!-- Informações do Briefing -->
+                <div class="space-y-3 mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">
+                        <i class="fa-solid fa-info-circle mr-1"></i> Informações
+                    </h4>
+                    
+                    <div class="bg-white rounded-lg p-3 border border-gray-200">
+                        <div class="text-xs text-gray-500">Responsável CC</div>
+                        <div id="modal_briefing_responsavel" class="text-sm font-medium text-gray-800">-</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                            <div class="text-xs text-gray-500">Prazo</div>
+                            <div id="modal_briefing_prazo" class="text-sm font-medium text-gray-800">-</div>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                            <div class="text-xs text-gray-500">Budget</div>
+                            <div id="modal_briefing_budget" class="text-sm font-medium text-gray-800">-</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg p-3 border border-gray-200">
+                        <div class="text-xs text-gray-500">Plataforma</div>
+                        <div id="modal_briefing_plataforma" class="text-sm font-medium text-gray-800">-</div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg p-3 border border-gray-200">
+                        <div class="text-xs text-gray-500">Objetivo</div>
+                        <div id="modal_briefing_objetivo" class="text-sm text-gray-700 max-h-20 overflow-y-auto">-</div>
+                    </div>
+                </div>
+                
+                <!-- Link Público -->
+                <div id="link_publico_container" class="mb-4 hidden">
+                    <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <div class="text-xs text-blue-600 mb-1">
+                            <i class="fa-solid fa-link mr-1"></i> Link Público (Cadu)
+                        </div>
+                        <a id="modal_briefing_link_publico" href="#" target="_blank" 
+                           class="text-xs text-blue-700 hover:underline break-all"></a>
+                    </div>
+                </div>
+                
+                <!-- Ações -->
+                <div class="mt-auto space-y-2">
+                    <h4 class="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">
+                        <i class="fa-solid fa-bolt mr-1"></i> Ações
+                    </h4>
+                    
+                    <button onclick="aceitarBriefing()" id="btn_aceitar_briefing"
+                            class="btn btn-sm w-full bg-green-600 hover:bg-green-700 text-white border-0">
+                        <i class="fa-solid fa-check mr-2"></i> Aceitar e Iniciar Cotação
+                    </button>
+                    
+                    <button onclick="mostrarDevolucao()" id="btn_devolver_briefing"
+                            class="btn btn-sm w-full bg-gray-600 hover:bg-gray-700 text-white border-0">
+                        <i class="fa-solid fa-rotate-left mr-2"></i> Devolver ao Cliente
+                    </button>
+                    
+                    <!-- Formulário de Devolução (hidden por padrão) -->
+                    <div id="form_devolucao" class="hidden mt-3 p-3 bg-white border border-gray-200 rounded-lg">
+                        <label class="text-xs text-gray-600 block mb-1">Motivo da devolução:</label>
+                        <textarea id="motivo_devolucao" rows="3" 
+                            class="w-full p-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-gray-400"
+                            placeholder="Ex: Informações insuficientes, não trabalhamos com este tipo de serviço..."></textarea>
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="confirmarDevolucao()" class="btn btn-xs bg-red-500 hover:bg-red-600 text-white border-0">
+                                Confirmar Devolução
+                            </button>
+                            <button onclick="cancelarDevolucao()" class="btn btn-xs btn-ghost">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer do Modal -->
+        <div class="bg-gray-100 px-6 py-3 border-t border-gray-200 flex justify-between items-center">
+            <div class="text-xs text-gray-500">
+                <span id="modal_briefing_criado_em"></span>
+            </div>
+            <form method="dialog">
+                <button class="btn btn-sm btn-ghost text-gray-600">Fechar</button>
+            </form>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
 
 <script>
 let timeoutBuscaCliente = null;
@@ -301,11 +374,12 @@ function renderizarResultadosFiltro() {
   
   clientesSugeridos.forEach(cliente => {
     const documento = cliente.cnpj || cliente.cpf || '-';
+    const nomeEscapado = (cliente.nome_fantasia || cliente.razao_social).replace(/'/g, "\\'");
     html += `
-      <div class="p-3 hover:bg-base-200 cursor-pointer border-b border-base-300" 
-           onclick="selecionarClienteFiltro(${cliente.pk_id_tbl_cliente}, '${cliente.nome_fantasia || cliente.razao_social}')">
-        <div class="font-semibold text-sm">${cliente.nome_fantasia || cliente.razao_social}</div>
-        <div class="text-xs text-base-content/60">${documento}</div>
+      <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100" 
+           onclick="selecionarClienteFiltro(${cliente.pk_id_tbl_cliente}, '${nomeEscapado}')">
+        <div class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia || cliente.razao_social}</div>
+        <div class="text-xs text-gray-500">${documento}</div>
       </div>
     `;
   });
@@ -319,35 +393,8 @@ function selecionarClienteFiltro(clienteId, nomeCliente) {
   document.getElementById('cliente_busca').value = nomeCliente;
   document.getElementById('resultados_clientes_filtro').classList.add('hidden');
   
-  // Carregar projetos do cliente selecionado
-  carregarProjetosFiltro(clienteId);
-}
-
-function carregarProjetosFiltro(clienteId) {
-  const selectProjeto = document.getElementById('projeto_id_filtro');
-  
-  if (!clienteId) {
-    selectProjeto.innerHTML = '<option value="">Selecione cliente...</option>';
-    return;
-  }
-  
-  selectProjeto.innerHTML = '<option value="">Carregando...</option>';
-  
-  fetch(`/api/clientes/${clienteId}/projetos`)
-    .then(response => response.json())
-    .then(projetos => {
-      if (projetos.length === 0) {
-        selectProjeto.innerHTML = '<option value="">Nenhum projeto</option>';
-        return;
-      }
-      
-      selectProjeto.innerHTML = '<option value="">Todos</option>' + 
-        projetos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
-    })
-    .catch(error => {
-      console.error('Erro ao carregar projetos:', error);
-      selectProjeto.innerHTML = '<option value="">Erro ao carregar</option>';
-    });
+  // Submeter formulário ao selecionar cliente
+  document.getElementById('filtros_form').submit();
 }
 
 function mostrarResultadosFiltro() {
@@ -365,6 +412,208 @@ document.addEventListener('click', function(event) {
     resultados.classList.add('hidden');
   }
 });
+
+// ============================================
+// MODAL BRIEFING FUNCTIONS
+// ============================================
+
+let briefingAtual = null;
+
+async function abrirModalBriefing(briefingId) {
+  try {
+    // Buscar dados do briefing
+    const response = await fetch(`/api/briefing/${briefingId}`);
+    if (!response.ok) throw new Error('Erro ao buscar briefing');
+    
+    briefingAtual = await response.json();
+    
+    // Preencher modal
+    document.getElementById('modal_briefing_titulo').textContent = briefingAtual.titulo || 'Sem título';
+    document.getElementById('modal_briefing_cliente').textContent = briefingAtual.cliente_nome || '-';
+    
+    // Status badge
+    const statusEl = document.getElementById('modal_briefing_status');
+    const statusConfig = {
+      'rascunho': { bg: 'bg-slate-200', text: 'text-slate-700', label: 'Rascunho' },
+      'pendente': { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pendente' },
+      'em_andamento': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Em Andamento' },
+      'em_revisao': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Em Revisão' },
+      'completo': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completo' },
+      'arquivado': { bg: 'bg-gray-100', text: 'text-gray-500', label: 'Arquivado' }
+    };
+    const status = statusConfig[briefingAtual.status] || statusConfig['rascunho'];
+    statusEl.className = `badge badge-sm ${status.bg} ${status.text} border-0`;
+    statusEl.textContent = status.label;
+    
+    // Conteúdo do briefing
+    document.getElementById('modal_briefing_conteudo').value = briefingAtual.briefing_original || 'Sem conteúdo de briefing.';
+    
+    // Briefing melhorado (se existir)
+    const melhoradoContainer = document.getElementById('briefing_melhorado_container');
+    if (briefingAtual.briefing_melhorado) {
+      document.getElementById('modal_briefing_melhorado').value = briefingAtual.briefing_melhorado;
+      melhoradoContainer.classList.remove('hidden');
+    } else {
+      melhoradoContainer.classList.add('hidden');
+    }
+    
+    // Informações laterais
+    document.getElementById('modal_briefing_responsavel').textContent = briefingAtual.responsavel_nome || 'Não definido';
+    document.getElementById('modal_briefing_prazo').textContent = briefingAtual.prazo ? formatarData(briefingAtual.prazo) : '-';
+    document.getElementById('modal_briefing_budget').textContent = briefingAtual.budget ? `R$ ${parseFloat(briefingAtual.budget).toLocaleString('pt-BR')}` : '-';
+    document.getElementById('modal_briefing_plataforma').textContent = briefingAtual.plataforma || '-';
+    document.getElementById('modal_briefing_objetivo').textContent = briefingAtual.objetivo || '-';
+    
+    // Link público
+    const linkContainer = document.getElementById('link_publico_container');
+    if (briefingAtual.link_publico_token && briefingAtual.link_publico_ativo) {
+      const linkUrl = `https://cadu.centralcomm.media/briefing-publico/${briefingAtual.link_publico_token}`;
+      const linkEl = document.getElementById('modal_briefing_link_publico');
+      linkEl.href = linkUrl;
+      linkEl.textContent = linkUrl;
+      linkContainer.classList.remove('hidden');
+    } else {
+      linkContainer.classList.add('hidden');
+    }
+    
+    // Data de criação
+    document.getElementById('modal_briefing_criado_em').textContent = briefingAtual.created_at ? 
+      `Criado em ${formatarDataHora(briefingAtual.created_at)}` : '';
+    
+    // Resetar formulário de devolução
+    document.getElementById('form_devolucao').classList.add('hidden');
+    document.getElementById('motivo_devolucao').value = '';
+    
+    // Mostrar/ocultar botões baseado no status
+    const btnAceitar = document.getElementById('btn_aceitar_briefing');
+    const btnDevolver = document.getElementById('btn_devolver_briefing');
+    
+    if (briefingAtual.status === 'arquivado' || briefingAtual.status === 'completo') {
+      btnAceitar.classList.add('hidden');
+      btnDevolver.classList.add('hidden');
+    } else {
+      btnAceitar.classList.remove('hidden');
+      btnDevolver.classList.remove('hidden');
+    }
+    
+    // Abrir modal
+    document.getElementById('modal_briefing').showModal();
+    
+  } catch (error) {
+    console.error('Erro ao abrir briefing:', error);
+    showToast('Erro ao carregar briefing.', 'error');
+  }
+}
+
+function formatarData(dataStr) {
+  if (!dataStr) return '-';
+  const data = new Date(dataStr);
+  return data.toLocaleDateString('pt-BR');
+}
+
+function formatarDataHora(dataStr) {
+  if (!dataStr) return '-';
+  const data = new Date(dataStr);
+  return data.toLocaleDateString('pt-BR') + ' às ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function aceitarBriefing() {
+  if (!briefingAtual) return;
+  
+  if (!confirm('Deseja aceitar este briefing e iniciar uma nova cotação?')) return;
+  
+  try {
+    const response = await fetch(`/api/briefing/${briefingAtual.id}/iniciar-cotacao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast('Cotação criada com sucesso!', 'success');
+      // Redirecionar para a cotação criada
+      window.location.href = `/cotacoes/${data.cotacao_id}/editar`;
+    } else {
+      showToast(data.error || 'Erro ao criar cotação.', 'error');
+    }
+  } catch (error) {
+    console.error('Erro ao aceitar briefing:', error);
+    showToast('Erro ao processar solicitação.', 'error');
+  }
+}
+
+function mostrarDevolucao() {
+  document.getElementById('form_devolucao').classList.remove('hidden');
+  document.getElementById('motivo_devolucao').focus();
+}
+
+function cancelarDevolucao() {
+  document.getElementById('form_devolucao').classList.add('hidden');
+  document.getElementById('motivo_devolucao').value = '';
+}
+
+async function confirmarDevolucao() {
+  if (!briefingAtual) return;
+  
+  const motivo = document.getElementById('motivo_devolucao').value.trim();
+  if (!motivo) {
+    showToast('Por favor, informe o motivo da devolução.', 'warning');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/briefing/${briefingAtual.id}/devolver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motivo: motivo })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast('Briefing devolvido ao cliente.', 'success');
+      document.getElementById('modal_briefing').close();
+      // Recarregar a lista
+      window.location.reload();
+    } else {
+      showToast(data.error || 'Erro ao devolver briefing.', 'error');
+    }
+  } catch (error) {
+    console.error('Erro ao devolver briefing:', error);
+    showToast('Erro ao processar solicitação.', 'error');
+  }
+}
+
+// Toast notification helper
+function showToast(message, type = 'info') {
+  // Verificar se já existe um container de toast
+  let toastContainer = document.getElementById('toast-container');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.className = 'fixed bottom-4 right-4 z-50 space-y-2';
+    document.body.appendChild(toastContainer);
+  }
+  
+  const bgColors = {
+    'success': 'bg-green-500',
+    'error': 'bg-red-500',
+    'warning': 'bg-amber-500',
+    'info': 'bg-blue-500'
+  };
+  
+  const toast = document.createElement('div');
+  toast.className = `${bgColors[type] || bgColors['info']} text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-fade-in`;
+  toast.textContent = message;
+  
+  toastContainer.appendChild(toast);
+  
+  // Remover após 3 segundos
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+}
 </script>
 
 {% endblock %}

@@ -1822,12 +1822,13 @@ def init_routes(app):
             if executivo_id:
                 filtros['executivo_id'] = executivo_id
             
-            # Filtro por status
-            status_filter = request.args.get('status')
+            # Filtro por status - Default: ativo
+            status_filter = request.args.get('status', 'ativo')
             if status_filter == 'ativo':
                 filtros['status'] = True
             elif status_filter == 'inativo':
                 filtros['status'] = False
+            # Se 'todos', não aplica filtro de status
             
             # Filtro por busca
             search = request.args.get('search', '').strip()
@@ -3588,7 +3589,10 @@ def init_routes(app):
             if busca:
                 filtros['busca'] = busca
             if responsavel_id:
-                filtros['responsavel_id'] = int(responsavel_id)
+                if responsavel_id == 'sem_responsavel':
+                    filtros['sem_responsavel'] = True
+                else:
+                    filtros['responsavel_id'] = int(responsavel_id)
             
             # Buscar briefings - com tratamento de erro
             try:
@@ -3904,21 +3908,161 @@ def init_routes(app):
             flash('Erro ao atualizar status.', 'error')
             return redirect(url_for('briefing_list'))
 
+    @app.route('/api/briefing/<int:briefing_id>')
+    @login_required
+    def api_obter_briefing(briefing_id):
+        """API para obter dados de um briefing"""
+        try:
+            briefing = db.obter_briefing_por_id(briefing_id)
+            if not briefing:
+                return jsonify({'error': 'Briefing não encontrado'}), 404
+            
+            # Converter para dict serializável
+            briefing_dict = dict(briefing)
+            
+            # Converter datas para string ISO
+            for campo in ['prazo', 'created_at', 'updated_at', 'data_envio_centralcomm']:
+                if briefing_dict.get(campo):
+                    briefing_dict[campo] = briefing_dict[campo].isoformat() if hasattr(briefing_dict[campo], 'isoformat') else str(briefing_dict[campo])
+            
+            return jsonify(briefing_dict)
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao obter briefing: {str(e)}")
+            return jsonify({'error': 'Erro ao obter briefing'}), 500
+
+    @app.route('/api/briefing/<int:briefing_id>/iniciar-cotacao', methods=['POST'])
+    @login_required
+    def api_briefing_iniciar_cotacao(briefing_id):
+        """API para aceitar briefing e criar uma cotação a partir dele"""
+        try:
+            briefing = db.obter_briefing_por_id(briefing_id)
+            if not briefing:
+                return jsonify({'success': False, 'error': 'Briefing não encontrado'}), 404
+            
+            # Verificar se briefing já tem cotação vinculada
+            if briefing.get('id_cotacao'):
+                return jsonify({'success': False, 'error': 'Este briefing já possui uma cotação vinculada'}), 400
+            
+            # Dados para criar a cotação
+            from datetime import datetime, timedelta
+            
+            dados_cotacao = {
+                'client_id': briefing.get('id_cliente'),
+                'nome_campanha': briefing.get('titulo') or 'Campanha do Briefing',
+                'periodo_inicio': briefing.get('prazo') or datetime.now().date(),
+                'objetivo_campanha': briefing.get('objetivo') or briefing.get('briefing_original', '')[:500],
+                'briefing_id': briefing_id,
+                'budget_estimado': briefing.get('budget'),
+                'meio': briefing.get('plataforma'),
+                'status': 'Rascunho',
+                'responsavel_comercial': briefing.get('responsavel_centralcomm'),
+                'origem': 'briefing'
+            }
+            
+            # Criar cotação
+            resultado = db.criar_cotacao(
+                client_id=dados_cotacao['client_id'],
+                nome_campanha=dados_cotacao['nome_campanha'],
+                periodo_inicio=dados_cotacao['periodo_inicio'],
+                **{k: v for k, v in dados_cotacao.items() if k not in ['client_id', 'nome_campanha', 'periodo_inicio'] and v is not None}
+            )
+            
+            if resultado:
+                cotacao_id = resultado['id']
+                numero_cotacao = resultado['numero_cotacao']
+                
+                # Atualizar briefing com a cotação vinculada e status
+                db.atualizar_briefing(briefing_id, {
+                    'id_cotacao': cotacao_id,
+                    'status': 'em_andamento'
+                })
+                
+                # Registrar auditoria
+                registrar_auditoria(
+                    acao='criar_cotacao_de_briefing',
+                    modulo='briefings',
+                    descricao=f'Criou cotação {numero_cotacao} a partir do briefing "{briefing.get("titulo")}"',
+                    registro_id=briefing_id,
+                    registro_tipo='cadu_briefings',
+                    dados_novos={'cotacao_id': cotacao_id, 'numero_cotacao': numero_cotacao}
+                )
+                
+                return jsonify({
+                    'success': True, 
+                    'cotacao_id': cotacao_id,
+                    'numero_cotacao': numero_cotacao,
+                    'message': 'Cotação criada com sucesso'
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Erro ao criar cotação'}), 500
+                
+        except Exception as e:
+            import traceback
+            app.logger.error(f"Erro ao criar cotação de briefing: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/briefing/<int:briefing_id>/devolver', methods=['POST'])
+    @login_required
+    def api_briefing_devolver(briefing_id):
+        """API para devolver briefing ao cliente com motivo"""
+        try:
+            briefing = db.obter_briefing_por_id(briefing_id)
+            if not briefing:
+                return jsonify({'success': False, 'error': 'Briefing não encontrado'}), 404
+            
+            data = request.get_json() or {}
+            motivo = data.get('motivo', '').strip()
+            
+            if not motivo:
+                return jsonify({'success': False, 'error': 'Motivo da devolução é obrigatório'}), 400
+            
+            # Atualizar briefing para status arquivado/devolvido
+            db.atualizar_briefing(briefing_id, {
+                'status': 'arquivado',
+                'observacoes': f"[DEVOLVIDO] {motivo}"
+            })
+            
+            # Registrar auditoria
+            registrar_auditoria(
+                acao='devolver_briefing',
+                modulo='briefings',
+                descricao=f'Devolveu briefing "{briefing.get("titulo")}" ao cliente. Motivo: {motivo}',
+                registro_id=briefing_id,
+                registro_tipo='cadu_briefings',
+                dados_anteriores={'status': briefing.get('status')},
+                dados_novos={'status': 'arquivado', 'motivo': motivo}
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': 'Briefing devolvido ao cliente'
+            })
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao devolver briefing: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     # ==================== COTAÇÕES ====================
 
     @app.route('/cotacoes')
     @login_required
     def cotacoes_list():
-        """Lista cotações, opcionalmente filtradas por cliente ou vendedor"""
+        """Lista cotações com filtros avançados"""
         try:
             db.criar_tabela_cotacoes()
             
-            # Verificar se há filtro de cliente ou vendedor responsável
+            # Coletar todos os filtros
             cliente_id = request.args.get('cliente_id', type=int)
             responsavel_id = request.args.get('responsavel_comercial', type=int)
+            mes = request.args.get('mes')
+            busca = request.args.get('busca', '').strip()
+            status = request.args.get('status')
+            
             cliente_info = None
             
-            app.logger.info(f"DEBUG cotacoes_list: cliente_id={cliente_id}, responsavel_id={responsavel_id}")
+            app.logger.info(f"DEBUG cotacoes_list: cliente_id={cliente_id}, responsavel_id={responsavel_id}, mes={mes}, busca={busca}, status={status}")
             
             # Se há cliente_id, buscar informações do cliente
             if cliente_id:
@@ -3926,25 +4070,29 @@ def init_routes(app):
                 with conn.cursor() as cursor:
                     cursor.execute('SELECT id_cliente, nome_fantasia, razao_social FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
                     cliente_info = cursor.fetchone()
-                    app.logger.info(f"DEBUG cotacoes_list: cliente_info={cliente_info}")
             
-            # Obter cotações com filtro apropriado
-            if responsavel_id:
-                # Filtrar por vendedor/responsável
-                cotacoes = db.obter_cotacoes_por_vendedor(responsavel_id)
-            else:
-                # Filtrar por cliente se fornecido
-                cotacoes = db.obter_cotacoes(cliente_id=cliente_id)
+            # Obter cotações com filtros
+            cotacoes = db.obter_cotacoes_filtradas(
+                cliente_id=cliente_id,
+                responsavel_id=responsavel_id,
+                mes=mes,
+                busca=busca,
+                status=status
+            )
             
             app.logger.info(f"DEBUG: Cotações obtidas: {len(cotacoes) if cotacoes else 0} registros")
             
             vendedores = db.obter_vendedores()
-            return render_template('cadu_cotacoes.html', cotacoes=cotacoes or [], cliente_filtro=cliente_info, vendedores=vendedores)
+            return render_template('cadu_cotacoes.html', 
+                                 cotacoes=cotacoes or [], 
+                                 cliente_filtro=cliente_info, 
+                                 vendedores=vendedores,
+                                 now=datetime.now)
         except Exception as e:
             app.logger.error(f"Erro ao listar cotações: {str(e)}", exc_info=True)
             flash('Erro ao carregar cotações.', 'error')
             vendedores = db.obter_vendedores()
-            return render_template('cadu_cotacoes.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores)
+            return render_template('cadu_cotacoes.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores, now=datetime.now)
 
     # ==================== CRM PIPELINE ====================
 
@@ -4840,6 +4988,115 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao buscar briefings do cliente: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cotacoes/<int:cotacao_id>/gerar-comunicacao', methods=['POST'])
+    @login_required
+    def gerar_comunicacao_ia(cotacao_id):
+        """API para gerar comunicação (email/WhatsApp) usando IA via OpenRouter"""
+        try:
+            import requests
+            import os
+            
+            data = request.get_json() or {}
+            tipo = data.get('tipo', 'email')
+            cotacao_data = data.get('cotacao_data', {})
+            
+            # Obter nome do usuário logado para assinatura
+            user_fullname = session.get('user_fullname', 'Equipe Comercial')
+            
+            # Construir prompt baseado no tipo
+            if tipo == 'email':
+                prompt = f"""Você é um assistente de vendas especializado em mídia digital. 
+Gere um email profissional e cordial para o cliente sobre a cotação abaixo.
+
+DADOS DA COTAÇÃO:
+- Número: {cotacao_data.get('numero', 'N/A')}
+- Cliente: {cotacao_data.get('cliente', 'N/A')}
+- Campanha: {cotacao_data.get('campanha', 'N/A')}
+- Objetivo: {cotacao_data.get('objetivo', 'N/A')}
+- Valor Total: R$ {cotacao_data.get('valor_total', 0):,.2f}
+- Período: {cotacao_data.get('periodo_inicio', '')} a {cotacao_data.get('periodo_fim', '')}
+- Status: {cotacao_data.get('status', 'N/A')}
+- Total de Itens: {cotacao_data.get('itens_count', 0)}
+- Total de Audiências: {cotacao_data.get('audiencias_count', 0)}
+- Contato: {cotacao_data.get('contato_nome', 'N/A')}
+
+INSTRUÇÕES:
+1. Use uma saudação apropriada com o nome do contato
+2. Seja profissional mas amigável
+3. Destaque os principais pontos da proposta
+4. Inclua um call-to-action claro
+5. Finalize com a assinatura: {user_fullname}
+6. Mantenha o email conciso (máximo 200 palavras)
+7. Use formatação adequada para email (parágrafos curtos)
+
+Gere apenas o texto do email, sem marcações markdown."""
+            else:
+                prompt = f"""Você é um assistente de vendas especializado em mídia digital.
+Gere uma mensagem curta e objetiva para WhatsApp sobre a cotação abaixo.
+
+DADOS DA COTAÇÃO:
+- Número: {cotacao_data.get('numero', 'N/A')}
+- Cliente: {cotacao_data.get('cliente', 'N/A')}
+- Campanha: {cotacao_data.get('campanha', 'N/A')}
+- Valor Total: R$ {cotacao_data.get('valor_total', 0):,.2f}
+- Status: {cotacao_data.get('status', 'N/A')}
+- Contato: {cotacao_data.get('contato_nome', 'N/A')}
+
+INSTRUÇÕES:
+1. Inicie com saudação informal usando o primeiro nome do contato
+2. Seja direto e objetivo
+3. Use emojis moderadamente (1-2 no máximo)
+4. Máximo de 100 palavras
+5. Inclua call-to-action
+6. Finalize com o nome: {user_fullname}
+
+Gere apenas o texto da mensagem, sem marcações markdown."""
+            
+            # Chamar OpenRouter
+            OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+            if not OPENROUTER_API_KEY:
+                return jsonify({'success': False, 'message': 'API Key do OpenRouter não configurada'}), 500
+            
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "HTTP-Referer": "https://centralcomm.media",
+                "X-Title": "CentralComm AI"
+            }
+            
+            payload = {
+                "model": "google/gemini-pro",
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.7
+            }
+            
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            
+            response.raise_for_status()
+            result = response.json()
+            
+            mensagem = result['choices'][0]['message']['content']
+            
+            return jsonify({
+                'success': True,
+                'mensagem': mensagem,
+                'tipo': tipo
+            })
+            
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Erro ao chamar OpenRouter: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': f'Erro na comunicação com IA: {str(e)}'}), 500
+        except Exception as e:
+            app.logger.error(f"Erro ao gerar comunicação: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/clientes/<int:cliente_id>/contatos')
     @login_required

@@ -173,6 +173,13 @@
             background-color: hsl(var(--b2));
         }
         
+        /* Reduzir padding dos subitens da sidebar */
+        .menu details ul li > a {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            font-size: 0.8rem;
+        }
+        
         /* Drawer transitions */
         .drawer-side {
             transition: transform 0.3s ease-in-out;
@@ -351,6 +358,27 @@
                             </details>
                         </li>
 
+                        <!-- Cadu (colapsível) -->
+                        <li class="mt-2">
+                            <details data-group="cadu">
+                                <summary>
+                                    <span class="sidebar-text">Cadu</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
+                                            <span class="sidebar-text">Métricas Semanais</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
+                                            <span class="sidebar-text">Métricas Plataforma</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
                         <!-- Configurações (colapsível) -->
                         <li class="mt-4">
                             <details data-group="config">
@@ -377,27 +405,6 @@
                             </details>
                         </li>
 
-                        <!-- Cadu (colapsível) -->
-                        <li class="mt-2">
-                            <details data-group="cadu">
-                                <summary>
-                                    <span class="sidebar-text">Cadu</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
-                                            <span class="sidebar-text">Métricas Semanais</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
-                                            <span class="sidebar-text">Métricas Plataforma</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
                         <!-- Administração (colapsível) -->
                         {% if session.user_type in ['admin', 'superadmin'] or true %}
                         <li class="mt-2">
@@ -416,32 +423,18 @@
                                             <span class="sidebar-text">Assistente IA</span>
                                         </a>
                                     </li>
-                                    <li>
-                                        <details data-group="design">
-                                            <summary>
-                                                <span class="sidebar-text">Design System</span>
-                                            </summary>
-                                            <ul>
-                                                <li>
-                                                    <a href="{{ url_for('components') }}" class="{% if request.endpoint == 'components' %}active{% endif %}">
-                                                        <span class="sidebar-text">Componentes</span>
-                                                    </a>
-                                                </li>
-                                                <li class="px-2 py-2">
-                                                    <div class="flex items-center gap-2 px-2 text-sm opacity-70">
-                                                        <span class="sidebar-text">Seletor de Tema</span>
-                                                    </div>
-                                                    <div class="px-2 pt-1">
-                                                        <select id="themeSelector" class="select select-bordered select-sm w-full text-xs">
-                                                            <option value="centralcomm">CentralComm</option>
-                                                            <option value="light">Light</option>
-                                                            <option value="dark">Dark</option>
-                                                            <option value="corporate">Corporate</option>
-                                                        </select>
-                                                    </div>
-                                                </li>
-                                            </ul>
-                                        </details>
+                                    <li class="px-2 py-2">
+                                        <div class="flex items-center gap-2 px-2 text-sm opacity-70">
+                                            <span class="sidebar-text">Seletor de Tema</span>
+                                        </div>
+                                        <div class="px-2 pt-1">
+                                            <select id="themeSelector" class="select select-bordered select-sm w-full text-xs">
+                                                <option value="centralcomm">CentralComm</option>
+                                                <option value="light">Light</option>
+                                                <option value="dark">Dark</option>
+                                                <option value="corporate">Corporate</option>
+                                            </select>
+                                        </div>
                                     </li>
                                 </ul>
                             </details>

@@ -3070,9 +3070,25 @@ def init_routes(app):
     def cadu_audiencia_editar(audiencia_id):
         """Edita audiência existente"""
         
-        # GET: redireciona para a lista com o modal aberto
+        # GET: renderiza página de edição
         if request.method == 'GET':
-            return redirect(url_for('cadu_audiencias', editar=audiencia_id))
+            try:
+                audiencia = db.obter_cadu_audiencia_por_id(audiencia_id)
+                if not audiencia:
+                    flash('Audiência não encontrada!', 'error')
+                    return redirect(url_for('cadu_audiencias'))
+                
+                categorias = db.obter_cadu_categorias()
+                subcategorias = db.obter_cadu_subcategorias(audiencia.get('categoria_id')) if audiencia.get('categoria_id') else []
+                
+                return render_template('cadu_audiencias_editar.html', 
+                                       audiencia=audiencia, 
+                                       categorias=categorias,
+                                       subcategorias=subcategorias)
+            except Exception as e:
+                app.logger.error(f"Erro ao carregar audiência para edição: {str(e)}")
+                flash('Erro ao carregar audiência.', 'error')
+                return redirect(url_for('cadu_audiencias'))
         
         # POST: processa o formulário
         try:

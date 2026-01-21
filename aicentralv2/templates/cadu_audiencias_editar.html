@@ -1,0 +1,292 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Editar Audiência - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto p-3">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+      <h1 class="text-lg font-bold">Editar Audiência</h1>
+      <span class="badge {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %}">
+        {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
+      </span>
+    </div>
+    <div class="flex gap-2">
+      <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="btn btn-ghost btn-sm">
+        <i class="fas fa-arrow-left mr-1"></i>Voltar
+      </a>
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Formulário -->
+  <form method="POST" action="{{ url_for('cadu_audiencia_editar', audiencia_id=audiencia.id) }}" class="space-y-4">
+    
+    <!-- Identificação -->
+    <div class="bg-base-100 rounded-lg shadow p-4">
+      <h2 class="text-sm font-bold mb-3 border-b pb-2">
+        <i class="fas fa-fingerprint mr-2 text-primary"></i>Identificação
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">ID Plataforma *</span></label>
+          <input type="text" name="id_audiencia_plataforma" value="{{ audiencia.id_audiencia_plataforma or '' }}" 
+                 class="input input-bordered input-sm" required />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Fonte</span></label>
+          <input type="text" name="fonte" value="{{ audiencia.fonte or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Slug</span></label>
+          <input type="text" name="slug" value="{{ audiencia.slug or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control md:col-span-3">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Nome *</span></label>
+          <input type="text" name="nome" value="{{ audiencia.nome or '' }}" 
+                 class="input input-bordered input-sm" required />
+        </div>
+      </div>
+    </div>
+
+    <!-- Categoria e Classificação -->
+    <div class="bg-base-100 rounded-lg shadow p-4">
+      <h2 class="text-sm font-bold mb-3 border-b pb-2">
+        <i class="fas fa-tags mr-2 text-primary"></i>Classificação
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Categoria *</span></label>
+          <select name="categoria_id" id="categoria_id" required style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+            <option value="" style="color: black;">Selecione</option>
+            {% for cat in categorias %}
+              <option value="{{ cat.id }}" style="color: black;" {% if audiencia.categoria_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Subcategoria</span></label>
+          <select name="subcategoria_id" id="subcategoria_id" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+            <option value="" style="color: black;">Selecione</option>
+            {% for sub in subcategorias %}
+              <option value="{{ sub.id }}" style="color: black;" {% if audiencia.subcategoria_id == sub.id %}selected{% endif %}>{{ sub.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Perfil Socioeconômico</span></label>
+          <input type="text" name="perfil_socioeconomico" value="{{ audiencia.perfil_socioeconomico or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Descrições -->
+    <div class="bg-base-100 rounded-lg shadow p-4">
+      <h2 class="text-sm font-bold mb-3 border-b pb-2">
+        <i class="fas fa-align-left mr-2 text-primary"></i>Descrições
+      </h2>
+      <div class="grid grid-cols-1 gap-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Título Chamativo</span></label>
+          <input type="text" name="titulo_chamativo" value="{{ audiencia.titulo_chamativo or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Descrição Curta</span></label>
+          <textarea name="descricao_curta" class="textarea textarea-bordered textarea-sm" rows="2">{{ audiencia.descricao_curta or '' }}</textarea>
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Descrição Completa</span></label>
+          <textarea name="descricao" class="textarea textarea-bordered textarea-sm" rows="3">{{ audiencia.descricao or '' }}</textarea>
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Descrição Comercial</span></label>
+          <textarea name="descricao_comercial" class="textarea textarea-bordered textarea-sm" rows="3">{{ audiencia.descricao_comercial or '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valores CPM -->
+    <div class="bg-base-100 rounded-lg shadow p-4">
+      <h2 class="text-sm font-bold mb-3 border-b pb-2">
+        <i class="fas fa-dollar-sign mr-2 text-primary"></i>Valores CPM
+      </h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">CPM Custo</span></label>
+          <input type="number" step="0.01" name="cpm_custo" value="{{ audiencia.cpm_custo or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">CPM Venda</span></label>
+          <input type="number" step="0.01" name="cpm_venda" value="{{ audiencia.cpm_venda or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">CPM Mínimo</span></label>
+          <input type="number" step="0.01" name="cpm_minimo" value="{{ audiencia.cpm_minimo or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">CPM Máximo</span></label>
+          <input type="number" step="0.01" name="cpm_maximo" value="{{ audiencia.cpm_maximo or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Público -->
+    <div class="bg-base-100 rounded-lg shadow p-4">
+      <h2 class="text-sm font-bold mb-3 border-b pb-2">
+        <i class="fas fa-users mr-2 text-primary"></i>Público
+      </h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Público Estimado</span></label>
+          <input type="text" name="publico_estimado" value="{{ audiencia.publico_estimado or '' }}" 
+                 class="input input-bordered input-sm" placeholder="Ex: 1M - 5M" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Público Número</span></label>
+          <input type="number" name="publico_numero" value="{{ audiencia.publico_numero or '' }}" 
+                 class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Tamanho</span></label>
+          <input type="text" name="tamanho" value="{{ audiencia.tamanho or '' }}" 
+                 class="input input-bordered input-sm" placeholder="Ex: Grande" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">Propensão Compra</span></label>
+          <select name="propensao_compra" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+            <option value="" style="color: black;">Selecione</option>
+            <option value="Alta" style="color: black;" {% if audiencia.propensao_compra == 'Alta' %}selected{% endif %}>Alta</option>
+            <option value="Média" style="color: black;" {% if audiencia.propensao_compra == 'Média' %}selected{% endif %}>Média</option>
+            <option value="Baixa" style="color: black;" {% if audiencia.propensao_compra == 'Baixa' %}selected{% endif %}>Baixa</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Demografia -->
+    <div class="bg-base-100 rounded-lg shadow p-4">
+      <h2 class="text-sm font-bold mb-3 border-b pb-2">
+        <i class="fas fa-chart-pie mr-2 text-primary"></i>Demografia
+      </h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% Homens</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="demografia_homens" 
+                 value="{{ audiencia.demografia_homens or '' }}" class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% Mulheres</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="demografia_mulheres" 
+                 value="{{ audiencia.demografia_mulheres or '' }}" class="input input-bordered input-sm" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% 18-24 anos</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="idade_18_24" 
+                 value="{{ audiencia.idade_18_24 or '' }}" class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% 25-34 anos</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="idade_25_34" 
+                 value="{{ audiencia.idade_25_34 or '' }}" class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% 35-44 anos</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="idade_35_44" 
+                 value="{{ audiencia.idade_35_44 or '' }}" class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% 45+ anos</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="idade_45_mais" 
+                 value="{{ audiencia.idade_45_mais or '' }}" class="input input-bordered input-sm" />
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% Mobile</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="dispositivo_mobile" 
+                 value="{{ audiencia.dispositivo_mobile or '' }}" class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% Desktop</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="dispositivo_desktop" 
+                 value="{{ audiencia.dispositivo_desktop or '' }}" class="input input-bordered input-sm" />
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold">% Tablet</span></label>
+          <input type="number" step="0.1" min="0" max="100" name="dispositivo_tablet" 
+                 value="{{ audiencia.dispositivo_tablet or '' }}" class="input input-bordered input-sm" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="flex justify-end gap-2">
+      <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="btn btn-ghost btn-sm">
+        Cancelar
+      </a>
+      <button type="submit" class="btn btn-sm text-white" style="background-color: #72cd80;">
+        <i class="fas fa-save mr-1"></i>Salvar Alterações
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const categoriaSelect = document.getElementById('categoria_id');
+  const subcategoriaSelect = document.getElementById('subcategoria_id');
+  
+  categoriaSelect.addEventListener('change', async function() {
+    const categoriaId = this.value;
+    subcategoriaSelect.innerHTML = '<option value="" style="color: black;">Carregando...</option>';
+    
+    if (!categoriaId) {
+      subcategoriaSelect.innerHTML = '<option value="" style="color: black;">Selecione</option>';
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/cadu-subcategorias?categoria_id=${categoriaId}`);
+      const data = await response.json();
+      
+      subcategoriaSelect.innerHTML = '<option value="" style="color: black;">Selecione</option>';
+      if (data.success && data.subcategorias) {
+        data.subcategorias.forEach(sub => {
+          const option = document.createElement('option');
+          option.value = sub.id;
+          option.textContent = sub.nome;
+          option.style.color = 'black';
+          subcategoriaSelect.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar subcategorias:', error);
+      subcategoriaSelect.innerHTML = '<option value="" style="color: black;">Erro ao carregar</option>';
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -85,12 +85,12 @@
       <!-- Conteúdo dos Filtros -->
       <div id="filtros_content" class="filtros-content mt-3">
         <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div class="flex flex-wrap items-end gap-3">
             <!-- Filtro por Executivo (Obrigatório) -->
-            <div class="form-control">
+            <div class="form-control" style="min-width: 140px; max-width: 180px;">
               <label class="label py-0 text-xs font-semibold" style="color: #374151;">Executivo*</label>
-              <select name="executivo_id" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
-                <option value="">Todos os executivos</option>
+              <select name="executivo_id" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
+                <option value="">Todos</option>
                 {% for vendedor in vendedores_cc %}
                   <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
                     {{ vendedor.nome_completo }}
@@ -100,18 +100,19 @@
             </div>
             
             <!-- Pesquisa por Nome -->
-            <div class="form-control">
+            <div class="form-control flex-1" style="min-width: 150px;">
               <label class="label py-0 text-xs font-semibold" style="color: #374151;">Pesquisar</label>
               <input type="text" name="search" 
                      value="{{ filtros.get('search', '') }}"
-                     style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; width: 100%;"
+                     onkeydown="if(event.key==='Enter'){this.form.submit();}"
+                     style="height: 32px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;"
                      placeholder="Nome fantasia ou razão social...">
             </div>
             
             <!-- Filtro por Status -->
-            <div class="form-control">
+            <div class="form-control" style="min-width: 90px;">
               <label class="label py-0 text-xs font-semibold" style="color: #374151;">Status</label>
-              <select name="status" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+              <select name="status" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
                 <option value="">Todos</option>
                 <option value="ativo" {% if request.args.get('status') == 'ativo' %}selected{% endif %}>Ativo</option>
                 <option value="inativo" {% if request.args.get('status') == 'inativo' %}selected{% endif %}>Inativo</option>
@@ -119,9 +120,9 @@
             </div>
             
             <!-- Filtro por Categoria ABC -->
-            <div class="form-control">
+            <div class="form-control" style="min-width: 100px;">
               <label class="label py-0 text-xs font-semibold" style="color: #374151;">Categoria</label>
-              <select name="categoria" style="padding: 8px 12px; border: 2px solid #333; border-radius: 4px; font-size: 14px; background-color: white; color: black; cursor: pointer; width: 100%;">
+              <select name="categoria" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
                 <option value="">Todas</option>
                 <option value="A" {% if request.args.get('categoria') == 'A' %}selected{% endif %}>A - Top Tier</option>
                 <option value="B" {% if request.args.get('categoria') == 'B' %}selected{% endif %}>B - Ativo</option>
@@ -129,12 +130,20 @@
               </select>
             </div>
             
-            <!-- Botões -->
-            <div class="form-control flex flex-row items-end gap-2">
-              <button type="submit" class="btn btn-sm text-white flex-1" style="background-color: #72cd80;">
-                <i class="fas fa-search mr-1"></i>Filtrar
-              </button>
-              <a href="{{ url_for('clientes') }}" class="btn btn-sm btn-ghost">
+            <!-- Filtro por Agência (Sim/Não) -->
+            <div class="form-control" style="min-width: 80px;">
+              <label class="label py-0 text-xs font-semibold" style="color: #374151;">Agência</label>
+              <select name="agencia" id="filtro_agencia" onchange="this.form.submit()" style="height: 32px; padding: 4px 24px 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background-color: white; color: #000; width: 100%;">
+                <option value="nao" {% if filtros.get('agencia') != 'sim' and filtros.get('agencia') != 'todos' %}selected{% endif %}>Não</option>
+                <option value="sim" {% if filtros.get('agencia') == 'sim' %}selected{% endif %}>Sim</option>
+                <option value="todos" {% if filtros.get('agencia') == 'todos' %}selected{% endif %}>Todos</option>
+              </select>
+            </div>
+            
+            <!-- Botão Limpar -->
+            <div class="form-control">
+              <label class="label py-0 text-xs font-semibold" style="color: transparent;">.</label>
+              <a href="{{ url_for('clientes') }}" class="btn btn-sm btn-ghost" style="height: 32px; min-height: 32px;" title="Limpar filtros">
                 <i class="fas fa-times"></i>
               </a>
             </div>
@@ -163,7 +172,7 @@
           </thead>
           <tbody>
             {% for cliente in clientes %}
-            <tr class="hover" data-executivo="{{ cliente.executivo_nome or 'NAO_ATRIBUIDO' }}">
+            <tr class="hover" data-executivo="{{ cliente.executivo_nome or 'NAO_ATRIBUIDO' }}" data-agencia="{{ 'sim' if cliente.agencia_key else 'nao' }}">
               <td>
                 <div>
                   <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;" 
@@ -1432,10 +1441,11 @@ function criarPlanoBetaTester(clienteId) {
   });
 }
 
-// Função para filtrar clientes por executivo
+// Função para filtrar clientes por executivo e agência
 function filtrarClientes() {
   const pesquisa = document.getElementById('pesquisa_cliente')?.value.toLowerCase().trim() || '';
-  const filtroExecutivo = document.getElementById('filtro_executivo').value;
+  const filtroExecutivo = document.getElementById('filtro_executivo')?.value || '';
+  const filtroAgencia = document.getElementById('filtro_agencia')?.value || '';
   const tbody = document.querySelector('table tbody');
   const linhas = tbody.querySelectorAll('tr');
   let totalVisiveis = 0;
@@ -1447,6 +1457,7 @@ function filtrarClientes() {
     const nomeFantasia = nomeCell.querySelector('.font-semibold')?.textContent.toLowerCase() || '';
     const razaoSocial = nomeCell.querySelector('.text-xs')?.textContent.toLowerCase() || '';
     const executivoTexto = executivoCell.textContent.trim();
+    const agenciaData = linha.dataset.agencia || 'nao';
     
     // Verificar se passa no filtro de pesquisa
     const passaPesquisa = !pesquisa || nomeFantasia.includes(pesquisa) || razaoSocial.includes(pesquisa);
@@ -1459,8 +1470,16 @@ function filtrarClientes() {
       passaExecutivo = executivoTexto === filtroExecutivo;
     }
     
-    // Mostrar apenas se passar em ambos os filtros
-    if (passaPesquisa && passaExecutivo) {
+    // Verificar se passa no filtro de agência
+    let passaAgencia = true;
+    if (filtroAgencia === 'sim') {
+      passaAgencia = agenciaData === 'sim';
+    } else if (filtroAgencia === 'nao') {
+      passaAgencia = agenciaData === 'nao';
+    }
+    
+    // Mostrar apenas se passar em todos os filtros
+    if (passaPesquisa && passaExecutivo && passaAgencia) {
       linha.style.display = '';
       totalVisiveis++;
     } else {
@@ -1472,7 +1491,9 @@ function filtrarClientes() {
   const contador = document.getElementById('contador_filtro');
   const totalClientes = linhas.length;
   
-  if (pesquisa || filtroExecutivo) {
+  // Mostrar contador apenas se houver filtros ativos (agencia 'todos' não conta como filtro)
+  const filtroAgenciaAtivo = filtroAgencia && filtroAgencia !== 'todos';
+  if (pesquisa || filtroExecutivo || filtroAgenciaAtivo) {
     contador.textContent = `Mostrando ${totalVisiveis} de ${totalClientes} cliente(s)`;
   } else {
     contador.textContent = '';

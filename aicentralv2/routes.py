@@ -1839,6 +1839,19 @@ def init_routes(app):
             if categoria in ['A', 'B', 'C']:
                 filtros['categoria_abc'] = categoria
             
+            # Filtro por agência (Sim/Não) - baseado na existência de pk_id_tbl_agencia
+            # Default: 'nao' (sem agência) - sempre aplicar filtro exceto quando 'todos'
+            agencia = (request.args.get('agencia', 'nao') or 'nao').strip().lower()
+            if agencia == 'sim':
+                filtros['tem_agencia'] = True
+                filtros['agencia'] = 'sim'
+            elif agencia == 'todos':
+                # Não aplica filtro de agência - mostra todos
+                filtros['agencia'] = 'todos'
+            else:  # 'nao' (default)
+                filtros['tem_agencia'] = False
+                filtros['agencia'] = 'nao'
+            
             # Obter dados paginados com métricas
             resultado = db.obter_clientes_paginado(
                 page=page,

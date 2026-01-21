@@ -6068,7 +6068,12 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
     Args:
         page (int): Número da página (1-indexed)
         per_page (int): Itens por página
-        filtros (dict): Filtros opcionais (executivo_id, status, search, categoria_abc)
+        filtros (dict): Filtros opcionais:
+            - executivo_id
+            - status
+            - search
+            - categoria_abc
+            - tem_agencia (True para clientes com agência, False para sem agência)
     
     Returns:
         dict: {
@@ -6124,6 +6129,8 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
                 cli.status,
                 cli.categoria_abc,
                 cli.vendas_central_comm,
+                cli.pk_id_tbl_agencia,
+                ag.key AS agencia_key,
                 vend.nome_completo AS executivo_nome,
                 COUNT(DISTINCT cont.id_contato_cliente) AS total_usuarios,
                 COALESCE(m.cotacoes_mes, 0) AS cotacoes_mes,
@@ -6135,6 +6142,7 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = cli.vendas_central_comm
             LEFT JOIN tbl_contato_cliente cont ON cont.pk_id_tbl_cliente = cli.id_cliente
             LEFT JOIN metricas_mes m ON m.id_cliente = cli.id_cliente
+            LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
             WHERE 1=1
         '''
         
@@ -6165,6 +6173,13 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             params.append(filtros['categoria_abc'])
             count_params.append(filtros['categoria_abc'])
         
+        # Filtro por agência (com/sem agência vinculada).
+        # Considera nulos e zeros como “sem agência” para cobrir bases com default 0.
+        if filtros.get('tem_agencia') is True:
+            where_clauses.append('ag.key = true')
+        elif filtros.get('tem_agencia') is False:
+            where_clauses.append('(ag.key = false OR ag.key IS NULL)')
+        
         # Aplicar cláusulas WHERE
         where_sql = ''
         if where_clauses:
@@ -6173,8 +6188,8 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
         # Query principal com paginação
         query = base_query + where_sql + '''
             GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social, cli.cnpj, 
-                     cli.status, cli.categoria_abc, cli.vendas_central_comm, 
-                     vend.nome_completo, m.cotacoes_mes, m.cotacoes_aprovadas_mes,
+                     cli.status, cli.categoria_abc, cli.vendas_central_comm, cli.pk_id_tbl_agencia,
+                     ag.key, vend.nome_completo, m.cotacoes_mes, m.cotacoes_aprovadas_mes,
                      m.valor_aprovado_mes, m.briefings_mes, m.briefings_aceitos_mes
             ORDER BY cli.nome_fantasia ASC
             LIMIT %s OFFSET %s
@@ -6183,7 +6198,9 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
         
         # Query de contagem
         count_query = f'''
-            SELECT COUNT(*) FROM tbl_cliente cli WHERE 1=1 {where_sql}
+            SELECT COUNT(*) FROM tbl_cliente cli 
+            LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+            WHERE 1=1 {where_sql}
         '''
         
         with conn.cursor() as cursor:

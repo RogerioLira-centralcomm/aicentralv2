@@ -228,104 +228,21 @@ function renderizarAnexos(anexos) {
 </script>
 
 <div class="max-w-7xl mx-auto" data-cotacao-id="{{ cotacao.id if cotacao else '' }}">
-  <div class="mb-3 flex justify-between items-start">
-    <div>
-      <h1 class="text-lg font-semibold leading-tight">
-        {% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}
-      </h1>
-      <p class="text-sm text-base-content/70">
-        {% if modo == 'novo' %}Criar uma nova cotação{% else %}Atualizar dados da cotação{% endif %}
-      </p>
-    </div>
-
-    <div class="flex gap-2">
-      <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost">
-        Voltar
+  
+  <!-- ==================== HEADER - TÍTULO E VALOR ==================== -->
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost btn-sm btn-circle">
+        <i class="fas fa-arrow-left"></i>
       </a>
-      
-      {% if modo == 'editar' %}
-      <!-- Dropdown Ações Rápidas -->
-      <div class="dropdown dropdown-end">
-        <label tabindex="0" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-          Ações Rápidas
-          <i class="fas fa-chevron-down ml-2"></i>
-        </label>
-      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-64 mt-2">
-        <li><a onclick="document.getElementById('modal_link_publico').showModal()"><i class="fas fa-link mr-2"></i>Ver Link Público</a></li>
-        <li class="menu-title"><span>Emails</span></li>
-        <li><a onclick="enviarCotacaoEmail()"><i class="fas fa-paper-plane mr-2"></i>Enviar Cotação</a></li>
-        <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-check-circle mr-2 text-success"></i>Email de Aprovação</a></li>
-        <li><a onclick="showToast('Em desenvolvimento', 'info')"><i class="fas fa-times-circle mr-2 text-error"></i>Email de Recusa</a></li>
-        <li class="menu-title"><span>Outras ações</span></li>
-        <li><a onclick="duplicarCotacao()"><i class="fas fa-copy mr-2"></i>Duplicar Cotação</a></li>
-      </ul>
-    </div>
-      {% endif %}
-    </div>
-  </div>
-
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="mb-6 space-y-2">
-        {% for category, message in messages %}
-          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span>{{ message }}</span>
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  <!-- ==================== HEADER CARD - VISÃO RÁPIDA ==================== -->
-  {% if modo == 'editar' and cotacao %}
-  <div class="bg-base-100 shadow-lg rounded-lg p-4 mb-4">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <!-- COLUNA ESQUERDA: Cliente, Executivo, Data -->
-      <div class="space-y-2">
-        <div>
-          <span class="text-xs text-base-content/60">Cliente</span>
-          <p class="font-semibold text-lg">
-            <a href="{{ url_for('clientes') }}?busca={{ cotacao.cliente_nome|urlencode }}" class="hover:text-primary hover:underline" title="Ver cliente">
-              {{ cotacao.cliente_nome or 'Sem cliente' }}
-            </a>
-          </p>
-        </div>
-        <div class="flex gap-4">
-          <div>
-            <span class="text-xs text-base-content/60">Executivo</span>
-            <p class="font-medium text-sm">{{ cotacao.responsavel_nome or 'Não definido' }}</p>
-          </div>
-          <div>
-            <span class="text-xs text-base-content/60">Criada em</span>
-            <p class="font-medium text-sm">
-              {{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- COLUNA CENTRO: Valor, Itens, Status -->
-      <div class="text-center border-l border-r border-base-200 px-4">
-        <div class="mb-2">
-          <span class="text-xs text-base-content/60">Valor Total</span>
-          <p class="text-3xl font-bold text-success">
-            R$ {{ "%.2f"|format(cotacao.valor_total_proposta or 0) }}
-          </p>
-        </div>
-        <div class="flex justify-center gap-4 text-sm">
-          <div>
-            <span class="text-base-content/60">Linhas:</span>
-            <span class="font-semibold">{{ linhas|length if linhas else 0 }}</span>
-          </div>
-          <div>
-            <span class="text-base-content/60">Audiências:</span>
-            <span class="font-semibold">{{ audiencias|length if audiencias else 0 }}</span>
-          </div>
-        </div>
-        <div class="mt-2">
+      <div>
+        <h1 class="text-lg font-bold leading-tight">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
+        <div class="flex items-center gap-2 mt-1">
+          {% if cotacao %}
+          <span class="badge badge-sm" style="background-color: #ef4444; color: white;">{{ cotacao.numero_cotacao }}</span>
           {% set status_classes = {
             'Rascunho': 'badge-ghost',
-            'Pendente': 'badge-ghost',
+            'Pendente': 'badge-warning',
             'Em Análise': 'badge-info',
             'Enviada': 'badge-primary',
             'Negociação': 'badge-warning',
@@ -333,794 +250,472 @@ function renderizarAnexos(anexos) {
             'Rejeitada': 'badge-error',
             'Expirada': 'badge-neutral'
           } %}
-          <span class="badge badge-lg {{ status_classes.get(cotacao.status, 'badge-ghost') }}">
-            {{ cotacao.status or 'Rascunho' }}
-          </span>
+          <span class="badge badge-sm {{ status_classes.get(cotacao.status, 'badge-ghost') }}">{{ cotacao.status or 'Rascunho' }}</span>
+          {% endif %}
         </div>
       </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="text-right">
+        <span class="text-xs text-base-content/60 uppercase">Total</span>
+        <p class="text-xl font-bold" style="color: #10b981;">R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
+      </div>
+      <div class="flex gap-1">
+        <button onclick="window.print()" class="btn btn-ghost btn-sm btn-square" title="Imprimir">
+          <i class="fas fa-share-alt"></i>
+        </button>
+        <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="btn btn-ghost btn-sm btn-square" title="Exportar PDF">
+          <i class="fas fa-print"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span class="text-sm">{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ==================== LAYOUT DUAS COLUNAS ==================== -->
+  <div class="flex gap-4 w-full">
+    
+    <!-- ==================== COLUNA ESQUERDA (PRINCIPAL) ==================== -->
+    <div class="flex-1 min-w-0 space-y-4">
       
-      <!-- COLUNA DIREITA: Ações -->
-      <div class="flex flex-col justify-center gap-2">
-        <div class="flex gap-2">
-          {% if cotacao.status not in ['Aprovada', 'Rejeitada'] %}
-          <button type="button" onclick="document.getElementById('modal_aprovar').showModal()" class="btn btn-success btn-sm flex-1">
-            <i class="fas fa-check mr-1"></i>Aprovar
-          </button>
-          <button type="button" onclick="document.getElementById('modal_rejeitar').showModal()" class="btn btn-error btn-sm flex-1">
-            <i class="fas fa-times mr-1"></i>Rejeitar
+      <!-- INFORMAÇÕES DO CLIENTE -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i class="fas fa-building text-base-content/50"></i>
+            Informações do Cliente
+          </h2>
+          <div class="flex items-center gap-2">
+            {% if modo == 'editar' %}
+            <button onclick="abrirModalEditarCliente()" class="btn btn-ghost btn-xs" title="Editar cliente">
+              <i class="fas fa-edit"></i>
+            </button>
+            {% endif %}
+            <span class="badge badge-sm" style="background-color: #ef4444; color: white;">{{ cotacao.numero_cotacao if cotacao else '-' }}</span>
+            {% if cotacao %}
+            <span class="badge badge-sm {{ status_classes.get(cotacao.status, 'badge-ghost') }}">{{ cotacao.status or 'Rascunho' }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-user text-xs"></i> CLIENTE</span>
+            <p class="font-semibold">{{ cotacao.cliente_nome if cotacao else '-' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-address-book text-xs"></i> CONTATO</span>
+            <p class="font-medium">{{ cotacao.contato_nome if cotacao and cotacao.contato_nome else '-' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-envelope text-xs"></i> EMAIL</span>
+            <p class="font-medium text-xs">{{ cotacao.contato_email if cotacao and cotacao.contato_email else '-' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-phone text-xs"></i> TELEFONE</span>
+            <p class="font-medium">{{ cotacao.contato_telefone if cotacao and cotacao.contato_telefone else '-' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-user-tie text-xs"></i> EXECUTIVO RESPONSÁVEL</span>
+            <p class="font-medium">{{ cotacao.responsavel_nome if cotacao else '-' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-id-card text-xs"></i> CNPJ</span>
+            <p class="font-medium">{{ cliente.cnpj if cliente else '-' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- INFORMAÇÕES DA CAMPANHA -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i class="fas fa-bullhorn text-base-content/50"></i>
+            Informações da Campanha
+          </h2>
+          {% if modo == 'editar' %}
+          <button onclick="abrirModalEditarCampanha()" class="btn btn-ghost btn-xs" title="Editar campanha">
+            <i class="fas fa-edit"></i>
           </button>
           {% endif %}
         </div>
-        <div class="flex gap-2">
-          <button type="button" onclick="duplicarCotacao()" class="btn btn-outline btn-sm flex-1">
-            <i class="fas fa-copy mr-1"></i>Duplicar
-          </button>
-          <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="btn btn-outline btn-sm flex-1">
-            <i class="fas fa-file-pdf mr-1"></i>PDF
-          </a>
+        <div class="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-calendar text-xs"></i> CRIADO EM</span>
+            <p class="font-medium">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao and cotacao.created_at else '-' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-calendar-alt text-xs"></i> PERÍODO</span>
+            <p class="font-medium">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_inicio else '-' }} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_fim else '' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-tv text-xs"></i> PLATAFORMAS</span>
+            <div class="flex flex-wrap gap-1 mt-1">
+              {% if linhas %}
+                {% set plataformas = linhas|map(attribute='plataforma')|unique|list %}
+                {% for plat in plataformas %}
+                  {% if plat %}
+                  <span class="badge badge-xs" style="background-color: #72cd80; color: white;">{{ plat }}</span>
+                  {% endif %}
+                {% endfor %}
+              {% else %}
+              <span class="text-base-content/50">-</span>
+              {% endif %}
+            </div>
+          </div>
         </div>
-        <button type="button" onclick="enviarCotacaoEmail()" class="btn btn-sm text-white w-full" style="background-color: #72cd80;">
-          <i class="fas fa-paper-plane mr-1"></i>Enviar por Email
-        </button>
       </div>
+
+      <!-- ITENS DA PROPOSTA -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i class="fas fa-list text-base-content/50"></i>
+            Itens da Proposta
+            <span class="badge badge-xs badge-ghost">{{ linhas|length if linhas else 0 }} itens</span>
+          </h2>
+          {% if modo == 'editar' %}
+          <button onclick="abrirModalNovaLinha()" class="btn btn-xs" style="background-color: #72cd80; color: white;">
+            <i class="fas fa-plus mr-1"></i>Adicionar
+          </button>
+          {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="table table-xs w-full">
+            <thead class="bg-base-200">
+              <tr class="text-xs">
+                <th class="font-semibold">#</th>
+                <th class="font-semibold">PLATAFORMA</th>
+                <th class="font-semibold">PRODUTO</th>
+                <th class="font-semibold">SEGMENTAÇÃO</th>
+                <th class="font-semibold">FORMATOS</th>
+                <th class="font-semibold text-center">KPI</th>
+                <th class="font-semibold">PERÍODO</th>
+                <th class="font-semibold text-right">VOLUME</th>
+                <th class="font-semibold text-right">VAL. UNIT.</th>
+                <th class="font-semibold text-right">INVEST.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if linhas %}
+                {% for linha in linhas %}
+                <tr class="hover cursor-pointer" onclick="editarLinha({{ linha.id }})">
+                  <td class="text-xs">{{ loop.index }}</td>
+                  <td>
+                    <span class="badge badge-xs" style="background-color: #3b82f6; color: white;">{{ linha.plataforma or '-' }}</span>
+                  </td>
+                  <td class="text-xs">{{ linha.produto or '-' }}</td>
+                  <td class="text-xs max-w-[150px] truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
+                  <td class="text-xs">{{ linha.formato_compra or '-' }}</td>
+                  <td class="text-center">
+                    <span class="badge badge-xs" style="background-color: #72cd80; color: white;">{{ linha.objetivo_kpi or 'CPM' }}</span>
+                  </td>
+                  <td class="text-xs">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
+                  <td class="text-xs text-right">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
+                  <td class="text-xs text-right">R$ {{ "{:,.2f}".format(linha.valor_unitario or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="text-xs text-right font-semibold">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="10" class="text-center text-base-content/50 py-4">Nenhum item adicionado</td></tr>
+              {% endif %}
+            </tbody>
+            {% if linhas %}
+            <tfoot class="bg-base-200">
+              <tr class="font-semibold text-xs">
+                <td colspan="7" class="text-right">Total Itens</td>
+                <td class="text-right">{{ "{:,}".format(linhas|sum(attribute='volume_contratado') or 0).replace(',', '.') }}</td>
+                <td class="text-right">-</td>
+                <td class="text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+
+      <!-- AUDIÊNCIAS SELECIONADAS -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold flex items-center gap-2">
+            <i class="fas fa-users text-base-content/50"></i>
+            Audiências Selecionadas
+            <span class="badge badge-xs badge-ghost">{{ audiencias|length if audiencias else 0 }} audiências</span>
+          </h2>
+          {% if modo == 'editar' %}
+          <button onclick="abrirModalAudiencia()" class="btn btn-xs" style="background-color: #72cd80; color: white;">
+            <i class="fas fa-plus mr-1"></i>Adicionar
+          </button>
+          {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="table table-xs w-full">
+            <thead class="bg-base-200">
+              <tr class="text-xs">
+                <th class="font-semibold">#</th>
+                <th class="font-semibold">AUDIÊNCIA</th>
+                <th class="font-semibold">CATEGORIA</th>
+                <th class="font-semibold text-right">CPM</th>
+                <th class="font-semibold text-right">IMPRESSÕES</th>
+                <th class="font-semibold text-right">INVESTIMENTO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if audiencias %}
+                {% for aud in audiencias %}
+                <tr class="hover">
+                  <td>
+                    <span class="badge badge-sm badge-circle" style="background-color: #72cd80; color: white;">{{ loop.index }}</span>
+                  </td>
+                  <td class="text-xs">
+                    <div class="font-medium">{{ aud.audiencia_nome or '-' }}</div>
+                    <div class="text-base-content/50 text-xs">{{ aud.audiencia_publico or '' }}</div>
+                  </td>
+                  <td class="text-xs">{{ aud.categoria or '-' }}</td>
+                  <td class="text-xs text-right">R$ {{ "{:,.2f}".format(aud.cpm or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="text-xs text-right">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
+                  <td class="text-xs text-right font-semibold">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="6" class="text-center text-base-content/50 py-4">Nenhuma audiência adicionada</td></tr>
+              {% endif %}
+            </tbody>
+            {% if audiencias %}
+            <tfoot class="bg-base-200">
+              <tr class="font-semibold text-xs">
+                <td colspan="4" class="text-right">Total Audiências</td>
+                <td class="text-right">{{ "{:,}".format(audiencias|sum(attribute='impressoes_estimadas') or 0).replace(',', '.') }}</td>
+                <td class="text-right">R$ {{ "{:,.2f}".format(audiencias|sum(attribute='investimento_sugerido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+
+      <!-- RESUMO TOTAL DA PROPOSTA -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
+          <i class="fas fa-calculator text-base-content/50"></i>
+          Resumo Total da Proposta
+        </h2>
+        <div class="space-y-2 text-sm">
+          {% set total_volume = (linhas|sum(attribute='volume_contratado') or 0) if linhas else 0 %}
+          {% set total_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
+          {% set total_audiencias = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
+          {% set subtotal = total_itens + total_audiencias %}
+          {% set desconto = cotacao.desconto_total or 0 if cotacao else 0 %}
+          {% set valor_liquido = cotacao.valor_total_proposta or 0 if cotacao else 0 %}
+          
+          <div class="flex justify-between py-1">
+            <span class="text-base-content/70"><i class="fas fa-chart-bar mr-2"></i>Volume Total</span>
+            <span class="font-medium">{{ "{:,}".format(total_volume).replace(',', '.') }}</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-base-content/70"><i class="fas fa-list mr-2"></i>Total Itens ({{ linhas|length if linhas else 0 }}) <span class="text-xs">(Val. × Unit.)</span></span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-base-content/70"><i class="fas fa-users mr-2"></i>Total Audiências ({{ audiencias|length if audiencias else 0 }})</span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between py-1 border-t border-base-200 pt-2">
+            <span class="font-medium"><i class="fas fa-plus mr-2"></i>Subtotal (Itens + Audiências)</span>
+            <span class="font-semibold">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-base-content/70"><i class="fas fa-minus mr-2"></i>Desconto Aplicado <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
+            <span class="font-medium text-error">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between py-2 bg-success/10 rounded-lg px-3 mt-2">
+            <span class="font-bold text-success"><i class="fas fa-check-circle mr-2"></i>Valor Líquido</span>
+            <span class="font-bold text-lg text-success">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTÓRICO E COMENTÁRIOS -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
+          <i class="fas fa-history text-base-content/50"></i>
+          Histórico e Comentários
+          <span id="contador_comentarios_main" class="badge badge-xs badge-ghost">0</span>
+        </h2>
+        <div id="lista_comentarios" class="space-y-3 max-h-48 overflow-y-auto">
+          <p class="text-center text-base-content/50 py-4 text-sm">Nenhum comentário ainda</p>
+        </div>
+      </div>
+
+      <!-- INFORMAÇÕES ADICIONAIS -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
+          <i class="fas fa-info-circle text-base-content/50"></i>
+          Informações Adicionais
+        </h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span class="text-xs text-base-content/60">Objetivo</span>
+            <p class="font-medium">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha else 'Awareness' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60">Praça</span>
+            <p class="font-medium">{{ cotacao.praca if cotacao and cotacao.praca else 'Nacional' }}</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60">Período</span>
+            <p class="font-medium">{{ cotacao.dias_campanha if cotacao and cotacao.dias_campanha else 1 }} mês(es)</p>
+          </div>
+          <div>
+            <span class="text-xs text-base-content/60">Budget</span>
+            <p class="font-medium">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
+          </div>
+        </div>
+      </div>
+
     </div>
     
-    <!-- Mini Timeline -->
-    <div class="mt-3 pt-3 border-t border-base-200">
-      <div class="flex items-center gap-4 text-xs flex-wrap">
-        <div class="flex items-center gap-1">
-          <i class="fas fa-plus-circle text-base-content/50"></i>
-          <span class="text-base-content/60">Criada:</span>
-          <span>{{ cotacao.created_at.strftime('%d/%m/%Y %H:%M') if cotacao.created_at else '-' }}</span>
+    <!-- ==================== COLUNA DIREITA (SIDEBAR) ==================== -->
+    <div class="w-72 space-y-4 flex-shrink-0">
+      
+      <!-- RESUMO FINANCEIRO -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <i class="fas fa-coins text-base-content/50"></i>
+          RESUMO FINANCEIRO
+        </h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-base-content/60">VALOR BRUTO</span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-base-content/60">DESCONTO <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
+            <span class="font-medium text-error">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="bg-success/10 rounded-lg p-3 text-center mt-3">
+            <p class="text-2xl font-bold text-success">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+            <span class="text-xs text-base-content/60">VALOR LÍQUIDO</span>
+          </div>
         </div>
-        {% if cotacao.proposta_enviada_em %}
-        <div class="flex items-center gap-1">
-          <i class="fas fa-paper-plane text-primary"></i>
-          <span class="text-base-content/60">Enviada:</span>
-          <span>{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') }}</span>
-        </div>
-        {% endif %}
-        {% if cotacao.aprovada_em %}
-        <div class="flex items-center gap-1">
-          <i class="fas fa-check-circle text-success"></i>
-          <span class="text-base-content/60">Aprovada:</span>
-          <span>{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') }}</span>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <div class="card bg-base-100 shadow-lg">
-    <div class="card-body">
-      <!-- Abas -->
-      <div class="tabs tabs-boxed tabs-sm mb-4 flex-wrap">
-        <a id="tab_info_basicas" href="javascript:void(0)" class="tab tab-sm tab-active" onclick="trocarAbaCotacao('info_basicas'); return false;" style="--tab-color: #72cd80;">
-          Info
-        </a>
-        <a id="tab_datas" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('datas'); return false;" style="--tab-color: #72cd80;">
-          Datas
-        </a>
-        <a id="tab_valores" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('valores'); return false;" style="--tab-color: #72cd80;">
-          Valores
-        </a>
-        <a id="tab_itens" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('itens'); return false;" style="--tab-color: #72cd80;">
-          Itens <span id="contador_itens" class="badge badge-xs ml-1">{% if linhas %}{{ linhas|length }}{% else %}0{% endif %}</span>
-        </a>
-        <a id="tab_audiencias" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('audiencias'); return false;" style="--tab-color: #72cd80;">
-          Audiências <span class="badge badge-xs ml-1">{% if audiencias %}{{ audiencias|length }}{% else %}0{% endif %}</span>
-        </a>
-        <a id="tab_anexos" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('anexos'); return false;" style="--tab-color: #72cd80;">
-          Anexos
-        </a>
-        <a id="tab_observacoes" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('observacoes'); return false;" style="--tab-color: #72cd80;">
-          Obs.
-        </a>
-        <a id="tab_briefing" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('briefing'); return false;" style="--tab-color: #72cd80;">
-          Briefing {% if cotacao and cotacao.briefing_id %}<span class="badge badge-xs badge-success ml-1">●</span>{% endif %}
-        </a>
-        <a id="tab_comunicacao" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('comunicacao'); carregarComentarios(); return false;" style="--tab-color: #72cd80;">
-          Comunicação <span id="contador_comentarios" class="badge badge-xs ml-1">0</span>
-        </a>
-        <a id="tab_historico" href="javascript:void(0)" class="tab tab-sm" onclick="trocarAbaCotacao('historico'); carregarHistorico(); return false;" style="--tab-color: #72cd80;">
-          Histórico
-        </a>
       </div>
 
-      <!-- Conteúdo Informações Básicas -->
-      <div id="content_info_basicas" class="aba-content active">
-        <form method="POST" id="form_info_basicas" class="space-y-2">
-          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            <!-- Número da Cotação (somente leitura em edição) -->
-            {% if modo == 'editar' and cotacao %}
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nº Cotação</span></label>
-              <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered input-sm" disabled>
-            </div>
-            {% endif %}
-
-            <!-- Cliente -->
-            <div class="form-control {% if modo == 'editar' and cotacao %}col-span-2{% else %}col-span-3{% endif %}">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cliente *</span></label>
-              <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% endif %}" required>
-              <div class="flex gap-1 items-center">
-                <div class="flex-1 px-2 py-1.5 border border-base-300 rounded-lg bg-base-100">
-                  <span id="nome_cliente_selecionado" class="text-xs">
-                    {% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Nenhum cliente{% endif %}
-                  </span>
+      <!-- COMPOSIÇÃO -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h3 class="text-sm font-bold mb-3">COMPOSIÇÃO</h3>
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between">
+            <span class="text-base-content/60"><i class="fas fa-chart-bar mr-1"></i> Volume</span>
+            <span class="font-medium">{{ "{:,}".format(total_volume).replace(',', '.') }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-base-content/60"><i class="fas fa-list mr-1"></i> Itens ({{ linhas|length if linhas else 0 }})</span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-base-content/60"><i class="fas fa-users mr-1"></i> Audiências ({{ audiencias|length if audiencias else 0 }})</span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="border-t border-base-200 pt-2 mt-2">
+            <p class="text-base-content/60 mb-1">POR PLATAFORMA</p>
+            {% if linhas %}
+              {% set plataformas = linhas|groupby('plataforma') %}
+              {% for plat, items in plataformas %}
+                {% if plat %}
+                <div class="flex justify-between">
+                  <span class="text-base-content/60"><i class="fas fa-tv mr-1"></i> {{ plat }}</span>
+                  <span class="font-medium">R$ {{ "{:,.2f}".format(items|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
                 </div>
-                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-xs btn-outline" style="color: #72cd80; border-color: #72cd80;" title="Buscar cliente">
-                  <i class="fas fa-search"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Nome da Campanha -->
-            <div class="form-control col-span-2">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nome da Campanha *</span></label>
-              <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="input input-bordered input-sm" placeholder="Ex: Campanha Verão 2025" required>
-            </div>
-
-            <!-- Responsável Comercial -->
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Resp. Comercial</span></label>
-              <select name="responsavel_comercial" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
-                <option value="">Selecione</option>
-                {% for vendedor in vendedores %}
-                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial|string == vendedor.id_contato_cliente|string %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <!-- Contato do Cliente -->
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Contato Cliente</span></label>
-              <select name="client_user_id" id="client_user_id" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
-                <option value="">Selecione</option>
-                {% if cotacao and contatos_cliente %}
-                  {% for contato in contatos_cliente %}
-                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id|string == contato.id_contato_cliente|string %}selected{% endif %}>{{ contato.nome_completo }}</option>
-                  {% endfor %}
                 {% endif %}
-              </select>
-            </div>
-
-            <!-- Briefing -->
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Briefing</span></label>
-              <select name="briefing_id" id="briefing_id" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
-                <option value="">Selecione</option>
-                {% if briefings %}
-                  {% for briefing in briefings %}
-                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>{{ briefing.titulo }}</option>
-                  {% endfor %}
-                {% endif %}
-              </select>
-            </div>
-
-            <!-- Status -->
-            {% if modo == 'editar' %}
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Status</span></label>
-              <select name="status" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
-                <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
-                <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
-                <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
-                <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-                <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-                <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
-              </select>
-            </div>
-            {% endif %}
-
-            <!-- Informações Adicionais -->
-            <div class="form-control col-span-2 md:col-span-4 lg:col-span-6">
-              <label class="label py-0.5"><span class="label-text text-xs font-semibold">Informações Adicionais</span></label>
-              <textarea name="objetivo_campanha" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Informações adicionais...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-            </div>
-          </div>
-
-          <!-- Botão Salvar -->
-          <div class="flex justify-end mt-2">
-            <button type="button" onclick="salvarFormulario('form_info_basicas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              <i class="fas fa-save mr-2"></i>Salvar
-            </button>
-          </div>
-
-          <input type="hidden" name="origem" value="Admin">
-        </form>
-      </div>
-
-      <!-- Conteúdo Datas -->
-      <div id="content_datas" class="aba-content">
-        <form method="POST" id="form_datas" class="space-y-3">
-          <h2 class="text-lg font-bold mb-3 pb-2 border-b">Datas da Campanha</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <!-- Período Início -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Data de Início *</span>
-              </label>
-              <div class="join">
-                <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()">
-                  <i class="fas fa-calendar-alt text-primary"></i>
-                </button>
-                <input 
-                  type="date" 
-                  id="periodo_inicio"
-                  name="periodo_inicio" 
-                  value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
-                  class="input input-bordered input-sm join-item w-full"
-                  required
-                  onchange="calcularDiasCampanha(); validarDataInicio(this)"
-                >
-              </div>
-              <label id="erro_data_inicio" class="label py-0 text-error text-xs hidden">
-                <span>Data não pode ser anterior a hoje</span>
-              </label>
-            </div>
-
-            <!-- Período Fim -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Data de Término</span>
-              </label>
-              <div class="join">
-                <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()">
-                  <i class="fas fa-calendar-alt text-primary"></i>
-                </button>
-                <input 
-                  type="date" 
-                  id="periodo_fim"
-                  name="periodo_fim" 
-                  value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
-                  class="input input-bordered input-sm join-item w-full"
-                  onchange="calcularDiasCampanha()"
-                >
-              </div>
-            </div>
-
-            <!-- Quantidade de Dias -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Dias de Campanha</span>
-              </label>
-              <div class="flex items-center gap-2">
-                <input 
-                  type="text" 
-                  id="dias_campanha"
-                  class="input input-bordered input-sm bg-base-200 text-center font-bold w-20" 
-                  readonly
-                  value="0"
-                >
-                <span class="text-sm text-base-content/60">dias</span>
-              </div>
-            </div>
-
-            <!-- Proposta Enviada Em -->
-            {% if modo == 'editar' and cotacao and cotacao.proposta_enviada_em %}
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Proposta Enviada em</span>
-              </label>
-              <input type="text" value="{{ cotacao.proposta_enviada_em.strftime('%d/%m/%Y %H:%M') if cotacao.proposta_enviada_em.strftime else cotacao.proposta_enviada_em }}" class="input input-bordered input-sm bg-base-200" disabled>
-            </div>
-            {% endif %}
-
-            <!-- Aprovada Em -->
-            {% if modo == 'editar' and cotacao and cotacao.aprovada_em %}
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Aprovada em</span>
-              </label>
-              <input type="text" value="{{ cotacao.aprovada_em.strftime('%d/%m/%Y %H:%M') if cotacao.aprovada_em.strftime else cotacao.aprovada_em }}" class="input input-bordered input-sm bg-base-200" disabled>
-            </div>
-            {% endif %}
-          </div>
-
-          <!-- Botão Salvar -->
-          <div class="flex justify-end mt-4">
-            <button type="button" onclick="salvarFormulario('form_datas')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              <i class="fas fa-save mr-2"></i>Salvar
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Conteúdo Valores -->
-      <div id="content_valores" class="aba-content">
-        <form method="POST" id="form_valores" class="space-y-4">
-          <div class="flex justify-between items-center mb-4 pb-2 border-b">
-            <h2 class="text-lg font-bold">Valores e Totais da Cotação</h2>
-          </div>
-          
-          <!-- Resumo Automático -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <!-- Total Linhas -->
-            <div class="stat bg-base-200 rounded-lg p-4">
-              <div class="stat-title text-xs">Total Linhas</div>
-              <div class="stat-value text-lg text-black" id="total_linhas_display">
-                R$ {% set total_linhas = namespace(value=0) %}
-                {% for linha in linhas %}
-                  {% if linha.investimento_bruto %}
-                    {% set total_linhas.value = total_linhas.value + linha.investimento_bruto %}
-                  {% endif %}
-                {% endfor %}
-                {{ "{:,.2f}".format(total_linhas.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
-              </div>
-            </div>
-            
-            <!-- Total Audiências -->
-            <div class="stat bg-base-200 rounded-lg p-4">
-              <div class="stat-title text-xs">Total Audiências</div>
-              <div class="stat-value text-lg text-black" id="total_audiencias_display">
-                R$ {% set total_aud = namespace(value=0) %}
-                {% for aud in audiencias %}
-                  {% if aud.investimento_sugerido %}
-                    {% set total_aud.value = total_aud.value + aud.investimento_sugerido %}
-                  {% endif %}
-                {% endfor %}
-                {{ "{:,.2f}".format(total_aud.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
-              </div>
-            </div>
-            
-            <!-- Desconto -->
-            <div class="stat bg-base-200 rounded-lg p-4">
-              <div class="stat-title text-xs">Desconto Total</div>
-              <div class="stat-value text-lg text-black" id="desconto_total_display">
-                R$ {{ "{:,.2f}".format(cotacao.desconto_total if cotacao and cotacao.desconto_total else 0).replace(',', 'X').replace('.', ',').replace('X', '.') }}
-              </div>
-            </div>
-            
-            <!-- Total Geral -->
-            <div class="stat bg-primary/10 rounded-lg p-4 border-2 border-primary">
-              <div class="stat-title text-xs font-bold">TOTAL DA COTAÇÃO</div>
-              <div class="stat-value text-xl text-black" id="total_geral_display">
-                R$ {% set total_geral = total_linhas.value + total_aud.value - (cotacao.desconto_total if cotacao and cotacao.desconto_total else 0) %}
-                {{ "{:,.2f}".format(total_geral).replace(',', 'X').replace('.', ',').replace('X', '.') }}
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Budget Estimado -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Budget Estimado (R$)</span>
-              </label>
-              <input 
-                type="text" 
-                id="budget_estimado" 
-                name="budget_estimado_display" 
-                value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" 
-                class="input input-bordered input-sm" 
-                placeholder="0,00"
-                oninput="formatarMoedaReal(this, 'budget_estimado_hidden')"
-              >
-              <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
-            </div>
-
-            <!-- Desconto Total -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Desconto no Total (R$)</span>
-              </label>
-              <input 
-                type="text" 
-                id="desconto_total" 
-                name="desconto_total_display" 
-                value="{{ "%.2f"|format(cotacao.desconto_total) if cotacao and cotacao.desconto_total else '' }}" 
-                class="input input-bordered input-sm" 
-                placeholder="0,00"
-                oninput="formatarMoedaReal(this, 'desconto_total_hidden'); recalcularTotais()"
-              >
-              <input type="hidden" id="desconto_total_hidden" name="desconto_total">
-            </div>
-
-            <!-- Valor Total da Proposta (Calculado) -->
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text font-semibold">Valor Total da Proposta (R$)</span>
-              </label>
-              <input 
-                type="text" 
-                id="valor_total_proposta" 
-                name="valor_total_proposta_display" 
-                value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" 
-                class="input input-bordered input-sm bg-base-200 font-bold" 
-                placeholder="Calculado automaticamente"
-                readonly
-              >
-              <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
-              <label class="label py-0">
-                <span class="label-text-alt text-base-content/60">Soma automática das linhas + audiências - desconto</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Botão Salvar -->
-          <div class="flex justify-end gap-2 pt-4 border-t">
-            <button type="button" onclick="recalcularTotais(); salvarFormulario('form_valores')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              <i class="fas fa-save mr-2"></i>Salvar Valores
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Conteúdo Itens (Aba Principal) -->
-      <div id="content_itens" class="aba-content">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-bold">Linhas da Cotação</h2>
-          <button onclick="abrirModalNovaLinha()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-            <i class="fas fa-plus mr-1"></i>Nova Linha
-          </button>
-        </div>
-
-        {% if linhas and linhas|length > 0 %}
-        <div>
-          <table class="table table-sm table-compact w-full">
-            <thead>
-              <tr class="text-xs">
-                <th>Plataforma</th>
-                <th>Produto</th>
-                <th class="hidden lg:table-cell">Segmentação</th>
-                <th class="hidden md:table-cell">Formatos</th>
-                <th>KPI</th>
-                <th>Período</th>
-                <th class="text-right">Volume</th>
-                <th class="text-right">Val.Unit.</th>
-                <th class="text-right">Invest.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for linha in linhas %}
-              <tr class="hover cursor-pointer" onclick="editarLinha({{ linha.id }})" title="Clique para editar">
-                <td class="text-xs">{{ linha.plataforma if linha.plataforma else '-' }}</td>
-                <td class="text-xs">{{ linha.produto if linha.produto else '-' }}</td>
-                <td class="hidden lg:table-cell text-xs">
-                  <div class="max-w-[120px] truncate" title="{{ linha.segmentacao if linha.segmentacao else '-' }}">
-                    {{ linha.segmentacao if linha.segmentacao else '-' }}
-                  </div>
-                </td>
-                <td class="hidden md:table-cell text-xs">
-                  <div class="max-w-[100px] truncate" title="{{ linha.formatos if linha.formatos else '-' }}">
-                    {{ linha.formatos if linha.formatos else '-' }}
-                  </div>
-                </td>
-                <td>
-                  <span class="badge badge-xs badge-{{ 'primary' if linha.objetivo_kpi == 'CPM' else 'neutral' }}">
-                    {{ linha.objetivo_kpi if linha.objetivo_kpi else '-' }}
-                  </span>
-                </td>
-                <td class="text-xs whitespace-nowrap">
-                  {% if linha.data_inicio and linha.data_fim %}
-                    {{ linha.data_inicio.strftime('%d/%m') }}-{{ linha.data_fim.strftime('%d/%m') }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-                <td class="text-xs text-right">{{ "{:,}".format(linha.volume_contratado|int).replace(',', '.') if linha.volume_contratado else '-' }}</td>
-                <td class="text-xs text-right whitespace-nowrap">
-                  {% if linha.valor_unitario %}
-                    R$ {{ "%.2f"|format(linha.valor_unitario) }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-                <td class="text-xs text-right whitespace-nowrap">
-                  {% if linha.investimento_bruto %}
-                    R$ {{ "{:,.0f}".format(linha.investimento_bruto).replace(',', '.') }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-              </tr>
               {% endfor %}
-            </tbody>
-            <tfoot>
-              <tr class="font-bold text-xs">
-                <td colspan="8" class="text-right">Total:</td>
-                <td class="text-right">
-                  {% set total = namespace(value=0) %}
-                  {% for linha in linhas %}
-                    {% if linha.investimento_bruto %}
-                      {% set total.value = total.value + linha.investimento_bruto %}
-                    {% elif linha.valor_total %}
-                      {% set total.value = total.value + linha.valor_total %}
-                    {% endif %}
-                  {% endfor %}
-                  R$ {{ "{:,.0f}".format(total.value).replace(',', '.') }}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+            {% else %}
+              <span class="text-base-content/50">-</span>
+            {% endif %}
+          </div>
         </div>
-        {% else %}
-        <p class="text-center text-base-content/50 py-8">Nenhuma linha adicionada ainda</p>
-        {% endif %}
       </div>
 
-      <!-- Conteúdo Audiências -->
-      <div id="content_audiencias" class="aba-content">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-bold">Audiências</h2>
-          <button onclick="abrirModalAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-            <i class="fas fa-plus mr-1"></i>Adicionar Audiência
-          </button>
-        </div>
-
-        {% if audiencias and audiencias|length > 0 %}
-        <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Público</th>
-                <th>Categoria</th>
-                <th>CPM</th>
-                <th>Investimento</th>
-                <th>Impressões</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for aud in audiencias %}
-              <tr>
-                <td>
-                  <span class="cursor-pointer hover:text-primary hover:underline" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
-                    {{ aud.audiencia_nome }}
-                  </span>
-                </td>
-                <td>{{ aud.audiencia_publico if aud.audiencia_publico else '-' }}</td>
-                <td>{{ aud.audiencia_categoria if aud.audiencia_categoria else '-' }}</td>
-                <td>
-                  {% if aud.cpm_estimado %}
-                    R$ {{ "%.2f"|format(aud.cpm_estimado)|replace('.', ',') }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-                <td>
-                  {% if aud.investimento_sugerido %}
-                    R$ {{ "{:,.2f}".format(aud.investimento_sugerido).replace(',', 'X').replace('.', ',').replace('X', '.') }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-                <td>{{ "{:,}".format(aud.impressoes_estimadas).replace(',', '.') if aud.impressoes_estimadas else '-' }}</td>
-                <td>
-                  <button onclick="removerAudienciaCotacao({{ aud.id }})" class="btn btn-xs btn-ghost text-error" title="Remover">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-            <tfoot>
-              <tr class="font-bold">
-                <td colspan="4" class="text-right">Total Investimento:</td>
-                <td>
-                  {% set total_inv = namespace(value=0) %}
-                  {% for aud in audiencias %}
-                    {% if aud.investimento_sugerido %}
-                      {% set total_inv.value = total_inv.value + aud.investimento_sugerido %}
-                    {% endif %}
-                  {% endfor %}
-                  R$ {{ "{:,.2f}".format(total_inv.value).replace(',', 'X').replace('.', ',').replace('X', '.') }}
-                </td>
-                <td colspan="2"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-        {% else %}
-        <p class="text-center text-base-content/50 py-8">Nenhuma audiência adicionada ainda</p>
-        {% endif %}
-      </div>
-
-      <!-- Conteúdo Anexos -->
-      <div id="content_anexos" class="aba-content">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-bold">Anexos</h2>
-        </div>
-
-        <!-- Drag & Drop Zone -->
-        <div 
-          id="dropzone_anexos" 
-          class="border-2 border-dashed border-base-300 rounded-lg p-8 mb-4 text-center transition-all duration-200 cursor-pointer hover:border-primary hover:bg-primary/5"
-          ondragover="handleDragOver(event)"
-          ondragleave="handleDragLeave(event)"
-          ondrop="handleDrop(event)"
-          onclick="document.getElementById('input_anexo_files').click()"
-        >
-          <input 
-            type="file" 
-            id="input_anexo_files" 
-            multiple 
-            class="hidden"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip,.rar"
-            onchange="handleFileSelect(event)"
-          >
-          <div class="flex flex-col items-center gap-3">
-            <i class="fas fa-cloud-upload-alt text-4xl text-base-content/30"></i>
-            <div>
-              <p class="font-semibold text-base-content/70">Arraste arquivos aqui ou clique para selecionar</p>
-              <p class="text-xs text-base-content/50 mt-1">PDF, DOC, XLS, PPT, imagens ou arquivos compactados (máx. 15MB cada)</p>
+      <!-- LINK PÚBLICO -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <i class="fas fa-link text-base-content/50"></i>
+          LINK PÚBLICO
+        </h3>
+        {% if cotacao and cotacao.link_publico_token %}
+        <div class="space-y-2">
+          <div class="flex items-center gap-2 justify-between">
+            <div class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full {% if cotacao.link_publico_ativo %}bg-success{% else %}bg-error{% endif %}"></span>
+              <span class="text-xs">{% if cotacao.link_publico_ativo %}Link ativo{% else %}Link inativo{% endif %}</span>
             </div>
-          </div>
-          <!-- Progress bar para upload -->
-          <div id="upload_progress" class="hidden mt-4">
-            <progress class="progress progress-primary w-full" value="0" max="100"></progress>
-            <p class="text-xs text-base-content/50 mt-1">Enviando arquivos...</p>
-          </div>
-        </div>
-
-        <!-- Lista de Anexos -->
-        <div id="lista_anexos">
-          <!-- Lista será carregada via JavaScript -->
-          <div class="flex justify-center items-center py-8">
-            <span class="loading loading-spinner loading-md"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Conteúdo Observações -->
-      <div id="content_observacoes" class="aba-content">
-        <form method="POST" id="form_observacoes">
-          <div class="flex justify-between items-center mb-2 pb-1 border-b">
-            <h2 class="text-base font-bold">Observações</h2>
-            <button type="button" onclick="salvarFormulario('form_observacoes')" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              <i class="fas fa-save mr-1"></i>Salvar
+            <button onclick="document.getElementById('modal_link_publico').showModal()" class="btn btn-xs btn-ghost" title="Configurar">
+              <i class="fas fa-cog"></i>
             </button>
           </div>
-          
-          <!-- Linha 1: Observações lado a lado -->
-          <div class="grid grid-cols-2 gap-3 mb-2">
-            <div class="form-control">
-              <label class="label py-0">
-                <span class="label-text font-semibold text-xs">Observações Gerais</span>
-              </label>
-              <textarea 
-                name="observacoes" 
-                class="textarea textarea-bordered textarea-xs text-xs py-1" 
-                rows="2"
-                placeholder="Notas gerais sobre a cotação..."
-              >{{ cotacao.observacoes if cotacao else '' }}</textarea>
-            </div>
-
-            <div class="form-control">
-              <label class="label py-0">
-                <span class="label-text font-semibold text-xs">Observações Internas</span>
-              </label>
-              <textarea 
-                name="observacoes_internas" 
-                class="textarea textarea-bordered textarea-xs text-xs py-1" 
-                rows="2"
-                placeholder="Notas internas (não visíveis ao cliente)..."
-              >{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
-            </div>
-          </div>
-
-          <!-- Condições Comerciais -->
-          <div class="form-control">
-            <div class="flex justify-between items-center">
-              <label class="label py-0">
-                <span class="label-text font-semibold text-xs">Condições Comerciais</span>
-              </label>
-              <button type="button" onclick="preencherCondicoesComerciais()" class="btn btn-xs btn-ghost text-primary py-0">
-                <i class="fas fa-magic mr-1"></i>Preencher Padrão
-              </button>
-            </div>
-            <textarea 
-              name="condicoes_comerciais" 
-              id="condicoes_comerciais"
-              class="textarea textarea-bordered textarea-xs font-mono text-xs py-1" 
-              rows="7"
-              placeholder="Condições comerciais da proposta..."
-            >{{ cotacao.condicoes_comerciais if cotacao and cotacao.condicoes_comerciais else '' }}</textarea>
-          </div>
-        </form>
-      </div>
-
-      <!-- Conteúdo Briefing -->
-      <div id="content_briefing" class="aba-content">
-        <div class="flex justify-between items-center mb-4 pb-2 border-b">
-          <h2 class="text-lg font-bold"><i class="fas fa-file-alt mr-2"></i>Briefing Vinculado</h2>
-        </div>
-        
-        {% if cotacao and cotacao.briefing_id %}
-        <div id="briefing_vinculado" class="card bg-base-200 p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="avatar placeholder">
-                <div class="bg-success text-success-content rounded-full w-12">
-                  <i class="fas fa-file-alt text-xl"></i>
-                </div>
-              </div>
-              <div>
-                <p class="font-bold text-lg">{{ briefing_vinculado.titulo if briefing_vinculado else 'Briefing #' ~ cotacao.briefing_id }}</p>
-                <p class="text-sm opacity-70">Vinculado em {{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</p>
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <a href="/briefings/{{ cotacao.briefing_id }}" class="btn btn-sm btn-outline btn-info">
-                <i class="fas fa-eye mr-1"></i>Ver Briefing
-              </a>
-              <button onclick="desvincularBriefing()" class="btn btn-sm btn-outline btn-error">
-                <i class="fas fa-unlink mr-1"></i>Desvincular
-              </button>
-            </div>
+          <input type="text" value="{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}" class="input input-xs input-bordered w-full text-xs" readonly>
+          <div class="flex gap-1">
+            <button onclick="copiarLinkPublico('{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}')" class="btn btn-xs btn-outline flex-1">
+              <i class="fas fa-copy mr-1"></i>Copiar
+            </button>
+            <a href="{{ url_for('cotacao_publica', token=cotacao.link_publico_token) }}" target="_blank" class="btn btn-xs btn-outline">
+              <i class="fas fa-external-link-alt"></i>
+            </a>
           </div>
         </div>
         {% else %}
-        <div id="briefing_nao_vinculado" class="text-center py-8">
-          <i class="fas fa-file-alt text-6xl text-base-content/20 mb-4"></i>
-          <p class="text-base-content/50 mb-4">Nenhum briefing vinculado a esta cotação</p>
-          <div class="form-control max-w-md mx-auto">
-            <label class="label"><span class="label-text font-semibold">Selecione um briefing para vincular:</span></label>
-            <div class="flex gap-2">
-              <select id="select_briefing_vincular" class="select select-bordered flex-1">
-                <option value="">Selecione um briefing...</option>
-                {% for briefing in briefings %}
-                <option value="{{ briefing.id }}">{{ briefing.titulo }} {% if briefing.cliente_nome %}({{ briefing.cliente_nome }}){% endif %}</option>
-                {% endfor %}
-              </select>
-              <button onclick="vincularBriefing()" class="btn btn-success">
-                <i class="fas fa-link mr-1"></i>Vincular
-              </button>
-            </div>
-          </div>
-        </div>
+        <p class="text-xs text-base-content/50 mb-2">Nenhum link gerado</p>
+        <button onclick="document.getElementById('modal_link_publico').showModal()" class="btn btn-xs w-full text-white" style="background-color: #72cd80;">
+          <i class="fas fa-plus mr-1"></i>Gerar Link Público
+        </button>
         {% endif %}
       </div>
 
-      <!-- Conteúdo Comunicação (Aba Principal) -->
-      <div id="content_comunicacao" class="aba-content">
-        <div class="flex justify-between items-center mb-4 pb-2 border-b">
-          <h2 class="text-lg font-bold"><i class="fas fa-comments mr-2"></i>Comunicação</h2>
-        </div>
-        
-        <!-- Formulário Novo Comentário -->
-        <div class="card bg-base-200 p-4 mb-4">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Adicionar comentário</span></label>
-            <textarea id="novo_comentario" class="textarea textarea-bordered" rows="2" placeholder="Digite seu comentário..."></textarea>
-          </div>
-          <div class="flex justify-end mt-2">
-            <button onclick="adicionarComentario()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-              <i class="fas fa-paper-plane mr-1"></i>Enviar
-            </button>
-          </div>
-        </div>
-        
-        <!-- Lista de Comentários -->
-        <div id="lista_comentarios" class="space-y-3">
-          <div class="flex justify-center py-8">
-            <span class="loading loading-spinner loading-md"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Conteúdo Histórico (Aba Principal) -->
-      <div id="content_historico" class="aba-content">
-        <div class="flex justify-between items-center mb-4 pb-2 border-b">
-          <h2 class="text-lg font-bold"><i class="fas fa-history mr-2"></i>Histórico de Alterações</h2>
-          <button onclick="carregarHistorico()" class="btn btn-sm btn-ghost">
-            <i class="fas fa-sync-alt"></i>
+      <!-- AÇÕES RÁPIDAS -->
+      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <i class="fas fa-bolt text-base-content/50"></i>
+          AÇÕES RÁPIDAS
+        </h3>
+        <div class="space-y-2">
+          {% if cotacao and cotacao.status not in ['Aprovada', 'Rejeitada'] %}
+          <button onclick="document.getElementById('modal_aprovar').showModal()" class="btn btn-sm btn-outline btn-success w-full justify-start">
+            <i class="fas fa-check mr-2"></i>Aprovar Proposta
           </button>
-        </div>
-        
-        <div id="lista_historico" class="space-y-2">
-          <div class="flex justify-center py-8">
-            <span class="loading loading-spinner loading-md"></span>
-          </div>
+          <button onclick="document.getElementById('modal_rejeitar').showModal()" class="btn btn-sm btn-outline btn-error w-full justify-start">
+            <i class="fas fa-times mr-2"></i>Rejeitar Proposta
+          </button>
+          <div class="divider my-1 text-xs text-base-content/50">ou</div>
+          {% endif %}
+          <button onclick="adicionarComentarioRapido()" class="btn btn-sm btn-outline w-full justify-start">
+            <i class="fas fa-comment mr-2"></i>Adicionar Comentário
+          </button>
+          <button onclick="enviarCotacaoEmail()" class="btn btn-sm w-full justify-start text-white" style="background-color: #72cd80;">
+            <i class="fas fa-share mr-2"></i>Compartilhar Proposta
+          </button>
+          <button onclick="window.print()" class="btn btn-sm btn-ghost w-full justify-start">
+            <i class="fas fa-print mr-2"></i>Imprimir
+          </button>
+          <p class="text-xs text-center text-base-content/50 mt-2">PRECISA DE AJUDA?</p>
+          <a href="#" class="btn btn-sm w-full" style="background-color: #25D366; color: white;">
+            <i class="fab fa-whatsapp mr-2"></i>Falar com Atendimento
+          </a>
         </div>
       </div>
 
     </div>
   </div>
+</div>
+
 </div>
 
 <!-- Modal de Busca de Cliente -->
@@ -1510,69 +1105,71 @@ function renderizarAnexos(anexos) {
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-xs bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
+          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
             <i class="fas fa-calendar-alt text-primary"></i>
           </button>
-          <input type="date" id="edit_data_inicio" class="input input-bordered input-xs join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinhaEdit()">
+          <input type="date" id="edit_data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
         </div>
       </div>
 
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-xs bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
+          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
             <i class="fas fa-calendar-alt text-primary"></i>
           </button>
-          <input type="date" id="edit_data_fim" class="input input-bordered input-xs join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinhaEdit()">
+          <input type="date" id="edit_data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
         </div>
       </div>
 
-      <div class="form-control col-span-2">
+      <div class="form-control col-span-1">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Dias</span></label>
-        <input type="number" id="edit_dias_linha" class="input input-bordered input-xs bg-base-200" readonly>
+        <input type="text" id="edit_dias_linha" class="input input-bordered input-sm bg-base-200 text-center min-h-8 h-8" readonly value="0">
       </div>
 
-      <div class="form-control col-span-4">
+      <div class="form-control col-span-5">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Especificações</span></label>
-        <input type="text" id="edit_especificacoes" class="input input-bordered input-xs w-full" placeholder="Detalhes adicionais...">
+        <input id="edit_especificacoes" type="text" class="input input-bordered input-xs w-full" placeholder="Detalhes adicionais...">
       </div>
 
-      <!-- Linha 5: Valores -->
+      <!-- Valores -->
       <div class="col-span-12 border-t pt-2 mt-1">
+        <h4 class="font-semibold text-xs mb-1">Valores</h4>
         <div class="grid grid-cols-6 gap-2">
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Valor Tabela (R$)</span></label>
-            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00" 
-                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociadoEdit()">
+            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Tabela</span></label>
+            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00">
           </div>
+
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="number" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0" min="0" max="100"
-                   onchange="calcularValorNegociadoEdit()">
+            <input type="number" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0" min="0" max="100">
           </div>
+
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Valor Negociado (R$)</span></label>
+            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
             <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
           </div>
+
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Invest. Bruto (R$)</span></label>
-            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00" 
-                   oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit(); calcularInvestLiquidoEdit()">
+            <label class="label py-0"><span class="label-text text-xs">Invest. Bruto</span></label>
+            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00">
           </div>
+
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Volume</span></label>
+            <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
             <input type="text" id="edit_volume_contratado" class="input input-bordered input-xs bg-base-200" placeholder="0" readonly>
           </div>
+
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Invest. Líquido (R$)</span></label>
+            <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
             <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
           </div>
         </div>
       </div>
 
-      <!-- Botões -->
-      <div class="col-span-12 flex justify-between mt-2 pt-2 border-t">
-        <button type="button" onclick="excluirLinhaDoModal()" class="btn btn-error btn-xs btn-outline">
+      <div class="form-control col-span-12 flex flex-row justify-between items-end gap-2 mt-2">
+        <button type="button" onclick="excluirLinhaDoModal()" class="btn btn-error btn-xs">
           <i class="fas fa-trash mr-1"></i>Excluir
         </button>
         <div class="flex gap-2">
@@ -1581,6 +1178,107 @@ function renderizarAnexos(anexos) {
         </div>
       </div>
 
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Editar Cliente -->
+<dialog id="modal_editar_cliente" class="modal">
+  <div class="modal-box max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Informações do Cliente</h3>
+    
+    <form id="form_editar_cliente" class="space-y-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Cliente * (somente não-agências)</span></label>
+        <div class="relative">
+          <input type="hidden" id="edit_cliente_id" value="{{ cotacao.cliente_id if cotacao else '' }}">
+          <input type="text" id="edit_cliente_busca" class="input input-bordered w-full" 
+                 placeholder="Digite para buscar cliente..." 
+                 value="{{ cotacao.cliente_nome if cotacao else '' }}"
+                 autocomplete="off" 
+                 oninput="buscarClientesEditModal(this.value)" 
+                 onfocus="mostrarResultadosEditModal()">
+          <div id="resultados_clientes_edit" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-base-300"></div>
+        </div>
+      </div>
+      
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Contato</span></label>
+        <select id="edit_contato_id" class="select select-bordered w-full">
+          <option value="">Selecione um contato...</option>
+          {% if contatos_cliente %}
+            {% for cont in contatos_cliente %}
+            <option value="{{ cont.id }}" {% if cotacao and cotacao.contato_id == cont.id %}selected{% endif %}>{{ cont.nome }} ({{ cont.email or '-' }})</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Executivo Responsável</span></label>
+        <select id="edit_responsavel_comercial" class="select select-bordered w-full">
+          <option value="">Selecione...</option>
+          {% for user in vendedores %}
+          <option value="{{ user.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == user.id_contato_cliente %}selected{% endif %}>{{ user.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="modal-action">
+        <button type="button" onclick="document.getElementById('modal_editar_cliente').close()" class="btn btn-ghost">Cancelar</button>
+        <button type="button" onclick="salvarEdicaoCliente()" class="btn text-white" style="background-color: #72cd80;">Salvar</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>Fechar</button>
+  </form>
+</dialog>
+
+<!-- Modal Editar Campanha -->
+<dialog id="modal_editar_campanha" class="modal">
+  <div class="modal-box max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Editar Informações da Campanha</h3>
+    
+    <form id="form_editar_campanha" class="space-y-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Nome da Campanha *</span></label>
+        <input type="text" id="edit_nome_campanha" class="input input-bordered w-full" value="{{ cotacao.nome_campanha if cotacao else '' }}">
+      </div>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Período Início</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('edit_periodo_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-primary"></i>
+            </button>
+            <input type="date" id="edit_periodo_inicio" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_inicio else '' }}">
+          </div>
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Período Fim</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('edit_periodo_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-primary"></i>
+            </button>
+            <input type="date" id="edit_periodo_fim" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_fim else '' }}">
+          </div>
+        </div>
+      </div>
+      
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Objetivo da Campanha</span></label>
+        <textarea id="edit_objetivo_campanha" class="textarea textarea-bordered w-full" rows="2">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha and cotacao.objetivo_campanha != 'None' else '' }}</textarea>
+      </div>
+      
+      <div class="modal-action">
+        <button type="button" onclick="document.getElementById('modal_editar_campanha').close()" class="btn btn-ghost">Cancelar</button>
+        <button type="button" onclick="salvarEdicaoCampanha()" class="btn text-white" style="background-color: #72cd80;">Salvar</button>
+      </div>
     </form>
   </div>
   <form method="dialog" class="modal-backdrop">
@@ -1959,6 +1657,177 @@ function validarDataInicio(input) {
   } else {
     erroLabel.classList.add('hidden');
     input.classList.remove('input-error');
+  }
+}
+
+// Funções para editar Cliente
+function abrirModalEditarCliente() {
+  document.getElementById('modal_editar_cliente').showModal();
+}
+
+async function carregarContatosCliente(clienteId, selectId) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = '<option value="">Carregando...</option>';
+  
+  if (!clienteId) {
+    select.innerHTML = '<option value="">Selecione um cliente primeiro...</option>';
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/clientes/${clienteId}/contatos`);
+    const result = await response.json();
+    
+    select.innerHTML = '<option value="">Selecione um contato...</option>';
+    if (result.contatos && result.contatos.length > 0) {
+      result.contatos.forEach(cont => {
+        select.innerHTML += `<option value="${cont.id}">${cont.nome} (${cont.email || '-'})</option>`;
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao carregar contatos:', error);
+    select.innerHTML = '<option value="">Erro ao carregar contatos</option>';
+  }
+}
+
+// Busca de clientes para modal de edição
+let timeoutBuscaClienteEdit = null;
+
+function buscarClientesEditModal(termo) {
+  clearTimeout(timeoutBuscaClienteEdit);
+  
+  if (termo.length < 2) {
+    document.getElementById('resultados_clientes_edit').classList.add('hidden');
+    return;
+  }
+  
+  timeoutBuscaClienteEdit = setTimeout(async () => {
+    try {
+      const response = await fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: termo, razao: termo, agencia: false })
+      });
+      const data = await response.json();
+      renderizarResultadosClientesEdit(data.clientes || []);
+    } catch (error) {
+      console.error('Erro ao buscar clientes:', error);
+    }
+  }, 300);
+}
+
+function renderizarResultadosClientesEdit(clientes) {
+  const resultadosDiv = document.getElementById('resultados_clientes_edit');
+  
+  if (clientes.length === 0) {
+    resultadosDiv.innerHTML = '<div class="p-2 text-xs text-gray-500">Nenhum cliente encontrado</div>';
+    resultadosDiv.classList.remove('hidden');
+    return;
+  }
+  
+  resultadosDiv.innerHTML = clientes.map(cliente => `
+    <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0" 
+         onclick="selecionarClienteEdit(${cliente.id_cliente}, '${(cliente.nome_fantasia || cliente.razao_social || '').replace(/'/g, "\\'")}')">
+      <div class="font-semibold text-xs">${cliente.nome_fantasia || cliente.razao_social}</div>
+      <div class="text-xs text-gray-500">${cliente.razao_social || ''}</div>
+    </div>
+  `).join('');
+  
+  resultadosDiv.classList.remove('hidden');
+}
+
+function selecionarClienteEdit(clienteId, clienteNome) {
+  document.getElementById('edit_cliente_id').value = clienteId;
+  document.getElementById('edit_cliente_busca').value = clienteNome;
+  document.getElementById('resultados_clientes_edit').classList.add('hidden');
+  
+  // Carregar contatos do cliente selecionado
+  carregarContatosCliente(clienteId, 'edit_contato_id');
+}
+
+function mostrarResultadosEditModal() {
+  const termo = document.getElementById('edit_cliente_busca').value;
+  if (termo.length >= 2) {
+    buscarClientesEditModal(termo);
+  }
+}
+
+// Fechar resultados ao clicar fora
+document.addEventListener('click', function(e) {
+  const resultados = document.getElementById('resultados_clientes_edit');
+  const input = document.getElementById('edit_cliente_busca');
+  if (resultados && input && !resultados.contains(e.target) && e.target !== input) {
+    resultados.classList.add('hidden');
+  }
+});
+
+async function salvarEdicaoCliente() {
+  const cotacaoId = document.querySelector('[data-cotacao-id]').dataset.cotacaoId;
+  
+  const data = {
+    cliente_id: parseInt(document.getElementById('edit_cliente_id').value) || null,
+    contato_id: parseInt(document.getElementById('edit_contato_id').value) || null,
+    responsavel_comercial: parseInt(document.getElementById('edit_responsavel_comercial').value) || null
+  };
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      document.getElementById('modal_editar_cliente').close();
+      showToast('Informações do cliente atualizadas!', 'success');
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      showToast('Erro: ' + result.message, 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao salvar alterações', 'error');
+  }
+}
+
+// Funções para editar Campanha
+function abrirModalEditarCampanha() {
+  document.getElementById('modal_editar_campanha').showModal();
+}
+
+async function salvarEdicaoCampanha() {
+  const cotacaoId = document.querySelector('[data-cotacao-id]').dataset.cotacaoId;
+  
+  const objetivoVal = document.getElementById('edit_objetivo_campanha').value.trim();
+  
+  const data = {
+    nome_campanha: document.getElementById('edit_nome_campanha').value,
+    periodo_inicio: document.getElementById('edit_periodo_inicio').value || null,
+    periodo_fim: document.getElementById('edit_periodo_fim').value || null,
+    objetivo_campanha: objetivoVal || null
+  };
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      document.getElementById('modal_editar_campanha').close();
+      showToast('Informações da campanha atualizadas!', 'success');
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      showToast('Erro: ' + result.message, 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao salvar alterações', 'error');
   }
 }
 

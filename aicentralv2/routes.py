@@ -4654,7 +4654,7 @@ def init_routes(app):
                 'nome_campanha', 'objetivo_campanha', 'responsavel_comercial',
                 'periodo_inicio', 'periodo_fim', 'expires_at',
                 'budget_estimado', 'valor_total_proposta',
-                'briefing_id',
+                'briefing_id', 'cliente_id', 'contato_id',
                 'client_user_id',
                 'observacoes', 'observacoes_internas', 'origem',
                 'status', 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'aprovada_em'
@@ -5854,30 +5854,47 @@ def init_routes(app):
             
             nome = data.get('nome') or ''
             razao = data.get('razao') or ''
+            agencia_filter = data.get('agencia')  # True = só agências, False = só não-agências, None = todos
             
             # Limpar espaços
             nome = nome.strip() if nome else ''
             razao = razao.strip() if razao else ''
             
-            app.logger.info(f"Filtros processados: nome='{nome}', razao='{razao}'")
+            app.logger.info(f"Filtros processados: nome='{nome}', razao='{razao}', agencia={agencia_filter}")
             
             # Construir query com filtros - buscar em nome_fantasia OU razao_social
-            query = 'SELECT id_cliente, nome_fantasia, razao_social, cnpj, pessoa FROM tbl_cliente WHERE status = true'
+            # JOIN com tbl_agencia para filtrar por tipo de agência
+            query = '''
+                SELECT c.id_cliente, c.nome_fantasia, c.razao_social, c.cnpj, c.pessoa, c.pk_id_tbl_agencia, a.key as is_agencia
+                FROM tbl_cliente c
+                LEFT JOIN tbl_agencia a ON c.pk_id_tbl_agencia = a.id_agencia
+                WHERE c.status = true
+            '''
             params = []
+            
+            # Filtro de agência - key = true significa "Sim" (é agência), key = false significa "Não" (é cliente)
+            if agencia_filter is False:
+                # Somente clientes (não-agências) - onde key = false ou NULL
+                query += ' AND (a.key = false OR a.key IS NULL)'
+                app.logger.info("Filtrando: somente clientes (key = false ou NULL)")
+            elif agencia_filter is True:
+                # Somente agências - onde key = true (display = "Sim")
+                query += ' AND a.key = true'
+                app.logger.info("Filtrando: somente agências (key = true / Sim)")
             
             # Usar OR para buscar em qualquer um dos campos
             if nome and razao:
                 # Se ambos estão preenchidos (mesmo valor), buscar com OR
-                query += ' AND (nome_fantasia ILIKE %s OR razao_social ILIKE %s)'
+                query += ' AND (c.nome_fantasia ILIKE %s OR c.razao_social ILIKE %s)'
                 params.append(f'%{nome}%')
                 params.append(f'%{razao}%')
                 app.logger.info(f"Adicionado filtro OR: nome=%{nome}% OU razao=%{razao}%")
             elif nome:
-                query += ' AND nome_fantasia ILIKE %s'
+                query += ' AND c.nome_fantasia ILIKE %s'
                 params.append(f'%{nome}%')
                 app.logger.info(f"Adicionado filtro nome: %{nome}%")
             elif razao:
-                query += ' AND razao_social ILIKE %s'
+                query += ' AND c.razao_social ILIKE %s'
                 params.append(f'%{razao}%')
                 app.logger.info(f"Adicionado filtro razao: %{razao}%")
             
@@ -5887,7 +5904,7 @@ def init_routes(app):
                     'message': 'Preencha pelo menos um filtro'
                 })
             
-            query += ' ORDER BY nome_fantasia ASC LIMIT 50'
+            query += ' ORDER BY c.nome_fantasia ASC LIMIT 50'
             
             app.logger.info(f"Query final: {query}")
             app.logger.info(f"Params: {params}")

@@ -5209,11 +5209,11 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
-                'aprovada_em', 'desconto_total', 'condicoes_comerciais'
+                'aprovada_em', 'desconto_total', 'condicoes_comerciais', 'cliente_id', 'contato_id', 'expires_at'
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at']
+            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'contato_id', 'expires_at']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']

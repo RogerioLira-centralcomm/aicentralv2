@@ -416,7 +416,7 @@ function renderizarAnexos(anexos) {
                   </td>
                   <td class="text-xs">{{ linha.produto or '-' }}</td>
                   <td class="text-xs max-w-[150px] truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
-                  <td class="text-xs">{{ linha.formato_compra or '-' }}</td>
+                  <td class="text-xs">{{ linha.formatos or linha.formato or '-' }}</td>
                   <td class="text-center">
                     <span class="badge badge-xs" style="background-color: #72cd80; color: white;">{{ linha.objetivo_kpi or 'CPM' }}</span>
                   </td>
@@ -473,16 +473,16 @@ function renderizarAnexos(anexos) {
             <tbody>
               {% if audiencias %}
                 {% for aud in audiencias %}
-                <tr class="hover">
+                <tr class="hover cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
                   <td>
                     <span class="badge badge-sm badge-circle" style="background-color: #72cd80; color: white;">{{ loop.index }}</span>
                   </td>
                   <td class="text-xs">
-                    <div class="font-medium">{{ aud.audiencia_nome or '-' }}</div>
+                    <div class="font-medium text-primary hover:underline">{{ aud.audiencia_nome or '-' }}</div>
                     <div class="text-base-content/50 text-xs">{{ aud.audiencia_publico or '' }}</div>
                   </td>
-                  <td class="text-xs">{{ aud.categoria or '-' }}</td>
-                  <td class="text-xs text-right">R$ {{ "{:,.2f}".format(aud.cpm or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="text-xs">{{ aud.audiencia_categoria or '-' }}</td>
+                  <td class="text-xs text-right">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                   <td class="text-xs text-right">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
                   <td class="text-xs text-right font-semibold">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 </tr>

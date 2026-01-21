@@ -4662,12 +4662,23 @@ def init_routes(app):
 
             # Coletar dados para atualização
             update_data = {}
+            # Campos de data que precisam de tratamento especial
+            campos_data = ['periodo_inicio', 'periodo_fim', 'expires_at', 'link_publico_expires_at', 'aprovada_em']
+            
             for campo in campos_permitidos:
                 if campo in data:
                     valor_novo = data[campo]
                     valor_anterior = cotacao.get(campo)
                     
-                    if valor_anterior != valor_novo:
+                    # Para campos de data, converter para string para comparação correta
+                    if campo in campos_data:
+                        valor_anterior_str = str(valor_anterior) if valor_anterior else None
+                        valor_novo_str = valor_novo if valor_novo else None
+                        if valor_anterior_str != valor_novo_str:
+                            update_data[campo] = valor_novo
+                            dados_anteriores[campo] = valor_anterior_str
+                            dados_novos[campo] = valor_novo_str
+                    elif valor_anterior != valor_novo:
                         update_data[campo] = valor_novo
                         dados_anteriores[campo] = valor_anterior
                         dados_novos[campo] = valor_novo

@@ -128,20 +128,21 @@
           </thead>
           <tbody>
             {% for audiencia in audiencias %}
-            <tr class="hover" 
+            <tr class="hover cursor-pointer transition-colors" 
                 id="audiencia-{{ audiencia.id }}"
                 data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
                 data-categoria-id="{{ audiencia.categoria_id or '' }}"
                 data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
               <td>
-                <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
+                <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
                   <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
+                  <div class="text-xs text-base-content/60 mt-1">{{ audiencia.fonte }}</div>
                 </a>
-                <div class="text-xs text-base-content/60 mt-1">{{ audiencia.fonte }}</div>
               </td>
               <td>
-                <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
-                  <div class="font-semibold text-base-content">{{ audiencia.nome }}</div>
+                <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
+                  <div class="font-semibold text-primary hover:underline">{{ audiencia.nome }}</div>
+                  <div class="text-xs text-base-content/50">Clique para ver/editar</div>
                 </a>
               </td>
               <td>
@@ -231,22 +232,21 @@
   <div class="block md:hidden space-y-4">
     {% if audiencias %}
       {% for audiencia in audiencias %}
-      <div class="card bg-base-100 shadow-lg" 
+      <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow" 
            data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
            data-categoria-id="{{ audiencia.categoria_id or '' }}"
            data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
         <div class="card-body p-4">
-          <div class="flex items-start justify-between mb-3">
-            <div class="flex-1">
-              <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
-                <h3 class="font-semibold text-sm mb-1">{{ audiencia.nome }}</h3>
-              </a>
-              <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="hover:text-primary">
+          <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block mb-3">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <h3 class="font-semibold text-sm mb-1 text-primary hover:underline">{{ audiencia.nome }}</h3>
                 <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
-              </a>
+                <div class="text-xs text-base-content/50 mt-1">Toque para ver/editar</div>
+              </div>
+              <span class="badge badge-sm badge-outline ml-2">{{ audiencia.fonte }}</span>
             </div>
-            <span class="badge badge-sm badge-outline ml-2">{{ audiencia.fonte }}</span>
-          </div>
+          </a>
 
           <div class="space-y-2 text-xs">
             <div class="flex justify-between">

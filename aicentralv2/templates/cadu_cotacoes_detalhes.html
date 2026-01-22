@@ -4,16 +4,24 @@
 
 {% block content %}
 <style>
-  /* Estilo customizado para abas ativas */
-  .tabs .tab.tab-active {
-    background-color: #72cd80 !important;
-    color: white !important;
-    border-color: #72cd80 !important;
+  /* Estilo customizado para abas ativas - padrão CRM */
+  .tab-crm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
   }
   
-  .tabs .tab:hover:not(.tab-active) {
-    background-color: rgba(114, 205, 128, 0.1) !important;
-    color: #72cd80 !important;
+  .tab-crm:hover {
+    color: #374151;
+    background-color: #f9fafb;
+  }
+  
+  .tab-crm.tab-active {
+    color: #374151;
+    border-bottom-color: #72cd80;
   }
   
   .aba-content {
@@ -29,7 +37,7 @@
 // Função para trocar abas - definida no início para estar disponível imediatamente
 function trocarAbaCotacao(aba) {
   // Remover active de todas as abas
-  document.querySelectorAll('.tabs .tab').forEach(function(tab) {
+  document.querySelectorAll('.tab-crm').forEach(function(tab) {
     tab.classList.remove('tab-active');
   });
   
@@ -55,19 +63,19 @@ function trocarAbaCotacao(aba) {
 function handleDragOver(event) {
   event.preventDefault();
   event.stopPropagation();
-  event.currentTarget.classList.add('border-primary', 'bg-primary/10');
+  event.currentTarget.classList.add('border-gray-400', 'bg-gray-50');
 }
 
 function handleDragLeave(event) {
   event.preventDefault();
   event.stopPropagation();
-  event.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+  event.currentTarget.classList.remove('border-gray-400', 'bg-gray-50');
 }
 
 function handleDrop(event) {
   event.preventDefault();
   event.stopPropagation();
-  event.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+  event.currentTarget.classList.remove('border-gray-400', 'bg-gray-50');
   
   var files = event.dataTransfer.files;
   if (files.length > 0) {
@@ -158,7 +166,7 @@ async function carregarAnexos() {
   if (!listaEl) return;
   
   if (!cotacaoId) {
-    listaEl.innerHTML = '<p class="text-center text-base-content/50 py-8">Salve a cotação primeiro para adicionar anexos</p>';
+    listaEl.innerHTML = '<p class="text-center text-gray-400 py-8">Salve a cotação primeiro para adicionar anexos</p>';
     return;
   }
   
@@ -169,11 +177,11 @@ async function carregarAnexos() {
     if (data.success) {
       renderizarAnexos(data.anexos);
     } else {
-      listaEl.innerHTML = '<p class="text-center text-base-content/50 py-8">Erro ao carregar anexos</p>';
+      listaEl.innerHTML = '<p class="text-center text-gray-400 py-8">Erro ao carregar anexos</p>';
     }
   } catch (error) {
     console.error('Erro ao carregar anexos:', error);
-    listaEl.innerHTML = '<p class="text-center text-error py-8">Erro ao carregar anexos</p>';
+    listaEl.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao carregar anexos</p>';
   }
 }
 
@@ -189,33 +197,33 @@ function renderizarAnexos(anexos) {
   }
   
   if (!anexos || anexos.length === 0) {
-    container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum anexo adicionado ainda</p>';
+    container.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum anexo adicionado ainda</p>';
     return;
   }
   
-  var html = '<div class="overflow-x-auto"><table class="table table-sm">';
-  html += '<thead><tr><th>Arquivo</th><th>Descrição</th><th>Tamanho</th><th>Enviado em</th><th>Ações</th></tr></thead><tbody>';
+  var html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
+  html += '<thead class="bg-gray-100"><tr class="text-xs text-gray-600 uppercase"><th class="py-2 px-2">Arquivo</th><th class="py-2 px-2">Descrição</th><th class="py-2 px-2">Tamanho</th><th class="py-2 px-2">Enviado em</th><th class="py-2 px-2">Ações</th></tr></thead><tbody class="divide-y divide-gray-100">';
   
   anexos.forEach(function(anexo) {
     var tamanhoKB = anexo.tamanho_bytes ? (anexo.tamanho_bytes / 1024).toFixed(2) : '-';
     var dataFormatada = anexo.created_at ? new Date(anexo.created_at).toLocaleString('pt-BR') : '-';
     
-    html += '<tr>' +
-      '<td>' +
-        '<a href="' + anexo.url_arquivo + '" target="_blank" class="link link-primary">' +
-          '<i class="fas fa-file mr-1"></i>' + anexo.nome_original +
+    html += '<tr class="hover:bg-gray-50">' +
+      '<td class="py-2 px-2">' +
+        '<a href="' + anexo.url_arquivo + '" target="_blank" class="text-gray-700 hover:text-gray-900">' +
+          '<i class="fas fa-file mr-1 text-gray-400"></i>' + anexo.nome_original +
         '</a>' +
       '</td>' +
-      '<td>' + (anexo.descricao || '-') + '</td>' +
-      '<td>' + tamanhoKB + ' KB</td>' +
-      '<td>' + dataFormatada + '</td>' +
-      '<td>' +
+      '<td class="py-2 px-2 text-gray-600">' + (anexo.descricao || '-') + '</td>' +
+      '<td class="py-2 px-2 text-gray-600">' + tamanhoKB + ' KB</td>' +
+      '<td class="py-2 px-2 text-gray-600">' + dataFormatada + '</td>' +
+      '<td class="py-2 px-2">' +
         '<div class="flex gap-1">' +
-          '<button onclick="editarAnexo(' + anexo.id + ')" class="btn btn-xs btn-ghost" title="Editar">' +
-            '<i class="fas fa-edit"></i>' +
+          '<button onclick="editarAnexo(' + anexo.id + ')" class="p-1 rounded hover:bg-gray-100 text-gray-400" title="Editar">' +
+            '<i class="fas fa-edit text-xs"></i>' +
           '</button>' +
-          '<button onclick="deletarAnexo(' + anexo.id + ')" class="btn btn-xs btn-ghost text-error" title="Remover">' +
-            '<i class="fas fa-trash"></i>' +
+          '<button onclick="deletarAnexo(' + anexo.id + ')" class="p-1 rounded hover:bg-gray-100 text-red-400" title="Remover">' +
+            '<i class="fas fa-trash text-xs"></i>' +
           '</button>' +
         '</div>' +
       '</td>' +
@@ -227,56 +235,56 @@ function renderizarAnexos(anexos) {
 }
 </script>
 
-<div class="max-w-7xl mx-auto" data-cotacao-id="{{ cotacao.id if cotacao else '' }}">
+<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}">
   
-  <!-- ==================== HEADER - TÍTULO E VALOR ==================== -->
-  <div class="flex items-center justify-between mb-4">
-    <div class="flex items-center gap-3">
-      <a href="{{ url_for('cotacoes_list') }}" class="btn btn-ghost btn-sm btn-circle">
-        <i class="fas fa-arrow-left"></i>
-      </a>
-      <div>
-        <h1 class="text-lg font-bold leading-tight">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
-        <div class="flex items-center gap-2 mt-1">
-          {% if cotacao %}
-          <span class="badge badge-sm" style="background-color: #ef4444; color: white;">{{ cotacao.numero_cotacao }}</span>
-          {% set status_classes = {
-            'Rascunho': 'badge-ghost',
-            'Pendente': 'badge-warning',
-            'Em Análise': 'badge-info',
-            'Enviada': 'badge-primary',
-            'Negociação': 'badge-warning',
-            'Aprovada': 'badge-success',
-            'Rejeitada': 'badge-error',
-            'Expirada': 'badge-neutral'
-          } %}
-          <span class="badge badge-sm {{ status_classes.get(cotacao.status, 'badge-ghost') }}">{{ cotacao.status or 'Rascunho' }}</span>
-          {% endif %}
+  <!-- ==================== HEADER COMPACTO (estilo CRM) ==================== -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Voltar + Título -->
+      <div class="flex items-center gap-3">
+        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+          <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+          <h1 class="text-lg font-semibold text-gray-800 leading-tight">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
+          <div class="flex items-center gap-2 mt-0.5">
+            {% if cotacao %}
+            <span class="text-xs font-mono font-medium text-gray-500">{{ cotacao.numero_cotacao }}</span>
+            <span class="text-gray-300">•</span>
+            <select id="status_header_select" class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-0.5 text-gray-700 font-medium focus:outline-none focus:border-gray-400" onchange="alterarStatusCotacao(this.value)">
+              <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+              <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+              <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+              <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
+              <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+              <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+              <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
+            </select>
+            {% endif %}
+          </div>
         </div>
       </div>
-    </div>
-    <div class="flex items-center gap-3">
-      <div class="text-right">
-        <span class="text-xs text-base-content/60 uppercase">Total</span>
-        <p class="text-xl font-bold" style="color: #10b981;">R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
-      </div>
-      <div class="flex gap-1">
-        <button onclick="window.print()" class="btn btn-ghost btn-sm btn-square" title="Imprimir">
-          <i class="fas fa-share-alt"></i>
-        </button>
-        <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="btn btn-ghost btn-sm btn-square" title="Exportar PDF">
-          <i class="fas fa-print"></i>
+      
+      <!-- Ações -->
+      <div class="flex items-center gap-2">
+        <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Exportar PDF">
+          <i class="fas fa-file-pdf text-sm"></i>
         </a>
+        {% if modo == 'editar' %}
+        <a href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+          <i class="fas fa-edit mr-1"></i>Editar
+        </a>
+        {% endif %}
       </div>
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-4 space-y-2">
+      <div class="mb-3 space-y-2">
         {% for category, message in messages %}
-          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span class="text-sm">{{ message }}</span>
+          <div class="px-4 py-2 rounded border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border-green-200 text-green-700{% elif category == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-700{% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
+            {{ message }}
           </div>
         {% endfor %}
       </div>
@@ -290,86 +298,80 @@ function renderizarAnexos(anexos) {
     <div class="flex-1 min-w-0 space-y-4">
       
       <!-- INFORMAÇÕES DO CLIENTE -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+      <div class="bg-white rounded border border-gray-200 p-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-bold flex items-center gap-2">
-            <i class="fas fa-building text-base-content/50"></i>
+          <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-building text-gray-400"></i>
             Informações do Cliente
           </h2>
-          <div class="flex items-center gap-2">
-            {% if modo == 'editar' %}
-            <button onclick="abrirModalEditarCliente()" class="btn btn-ghost btn-xs" title="Editar cliente">
-              <i class="fas fa-edit"></i>
-            </button>
-            {% endif %}
-            <span class="badge badge-sm" style="background-color: #ef4444; color: white;">{{ cotacao.numero_cotacao if cotacao else '-' }}</span>
-            {% if cotacao %}
-            <span class="badge badge-sm {{ status_classes.get(cotacao.status, 'badge-ghost') }}">{{ cotacao.status or 'Rascunho' }}</span>
-            {% endif %}
-          </div>
+          {% if modo == 'editar' %}
+          <button onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente">
+            <i class="fas fa-edit text-xs"></i>
+          </button>
+          {% endif %}
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-user text-xs"></i> CLIENTE</span>
-            <p class="font-semibold">{{ cotacao.cliente_nome if cotacao else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Cliente</span>
+            <p class="font-medium text-gray-800">{{ cotacao.cliente_nome if cotacao else '-' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-address-book text-xs"></i> CONTATO</span>
-            <p class="font-medium">{{ cotacao.contato_nome if cotacao and cotacao.contato_nome else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Contato</span>
+            <p class="font-medium text-gray-700">{{ cotacao.contato_nome if cotacao and cotacao.contato_nome else '-' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-envelope text-xs"></i> EMAIL</span>
-            <p class="font-medium text-xs">{{ cotacao.contato_email if cotacao and cotacao.contato_email else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Email</span>
+            <p class="font-medium text-gray-700 text-xs">{{ cotacao.contato_email if cotacao and cotacao.contato_email else '-' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-phone text-xs"></i> TELEFONE</span>
-            <p class="font-medium">{{ cotacao.contato_telefone if cotacao and cotacao.contato_telefone else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Telefone</span>
+            <p class="font-medium text-gray-700">{{ cotacao.contato_telefone if cotacao and cotacao.contato_telefone else '-' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-user-tie text-xs"></i> EXECUTIVO RESPONSÁVEL</span>
-            <p class="font-medium">{{ cotacao.responsavel_nome if cotacao else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Executivo Responsável</span>
+            <p class="font-medium text-gray-700">{{ cotacao.responsavel_nome if cotacao else '-' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-id-card text-xs"></i> CNPJ</span>
-            <p class="font-medium">{{ cliente.cnpj if cliente else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">CNPJ</span>
+            <p class="font-medium text-gray-700">{{ cliente.cnpj if cliente else '-' }}</p>
           </div>
         </div>
       </div>
 
       <!-- INFORMAÇÕES DA CAMPANHA -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+      <div class="bg-white rounded border border-gray-200 p-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-bold flex items-center gap-2">
-            <i class="fas fa-bullhorn text-base-content/50"></i>
+          <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-bullhorn text-gray-400"></i>
             Informações da Campanha
           </h2>
           {% if modo == 'editar' %}
-          <button onclick="abrirModalEditarCampanha()" class="btn btn-ghost btn-xs" title="Editar campanha">
-            <i class="fas fa-edit"></i>
+          <button onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha">
+            <i class="fas fa-edit text-xs"></i>
           </button>
           {% endif %}
         </div>
         <div class="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-calendar text-xs"></i> CRIADO EM</span>
-            <p class="font-medium">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao and cotacao.created_at else '-' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Criado em</span>
+            <p class="font-medium text-gray-700">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao and cotacao.created_at else '-' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-calendar-alt text-xs"></i> PERÍODO</span>
-            <p class="font-medium">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_inicio else '-' }} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_fim else '' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Período</span>
+            <p class="font-medium text-gray-700">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_inicio else '-' }} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') if cotacao and cotacao.periodo_fim else '' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60 flex items-center gap-1"><i class="fas fa-tv text-xs"></i> PLATAFORMAS</span>
+            <span class="text-xs text-gray-500 uppercase">Plataformas</span>
             <div class="flex flex-wrap gap-1 mt-1">
               {% if linhas %}
                 {% set plataformas = linhas|map(attribute='plataforma')|unique|list %}
                 {% for plat in plataformas %}
                   {% if plat %}
-                  <span class="badge badge-xs" style="background-color: #72cd80; color: white;">{{ plat }}</span>
+                  <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ plat }}</span>
                   {% endif %}
                 {% endfor %}
               {% else %}
-              <span class="text-base-content/50">-</span>
+              <span class="text-gray-400">-</span>
               {% endif %}
             </div>
           </div>
@@ -377,66 +379,66 @@ function renderizarAnexos(anexos) {
       </div>
 
       <!-- ITENS DA PROPOSTA -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+      <div class="bg-white rounded border border-gray-200 p-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-bold flex items-center gap-2">
-            <i class="fas fa-list text-base-content/50"></i>
+          <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-list text-gray-400"></i>
             Itens da Proposta
-            <span class="badge badge-xs badge-ghost">{{ linhas|length if linhas else 0 }} itens</span>
+            <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
           </h2>
           {% if modo == 'editar' %}
-          <button onclick="abrirModalNovaLinha()" class="btn btn-xs" style="background-color: #72cd80; color: white;">
+          <button onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
         </div>
         <div class="overflow-x-auto">
-          <table class="table table-xs w-full">
-            <thead class="bg-base-200">
-              <tr class="text-xs">
-                <th class="font-semibold">#</th>
-                <th class="font-semibold">PLATAFORMA</th>
-                <th class="font-semibold">PRODUTO</th>
-                <th class="font-semibold">SEGMENTAÇÃO</th>
-                <th class="font-semibold">FORMATOS</th>
-                <th class="font-semibold text-center">KPI</th>
-                <th class="font-semibold">PERÍODO</th>
-                <th class="font-semibold text-right">VOLUME</th>
-                <th class="font-semibold text-right">VAL. UNIT.</th>
-                <th class="font-semibold text-right">INVEST.</th>
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr class="text-xs text-gray-600 uppercase">
+                <th class="font-medium py-2 px-2">#</th>
+                <th class="font-medium py-2 px-2">Plataforma</th>
+                <th class="font-medium py-2 px-2">Produto</th>
+                <th class="font-medium py-2 px-2">Segmentação</th>
+                <th class="font-medium py-2 px-2">Formatos</th>
+                <th class="font-medium py-2 px-2 text-center">KPI</th>
+                <th class="font-medium py-2 px-2">Período</th>
+                <th class="font-medium py-2 px-2 text-right">Volume</th>
+                <th class="font-medium py-2 px-2 text-right">Val. Unit.</th>
+                <th class="font-medium py-2 px-2 text-right">Invest.</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
               {% if linhas %}
                 {% for linha in linhas %}
-                <tr class="hover cursor-pointer" onclick="editarLinha({{ linha.id }})">
-                  <td class="text-xs">{{ loop.index }}</td>
-                  <td>
-                    <span class="badge badge-xs" style="background-color: #3b82f6; color: white;">{{ linha.plataforma or '-' }}</span>
+                <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarLinha({{ linha.id }})">
+                  <td class="py-2 px-2 text-xs text-gray-600">{{ loop.index }}</td>
+                  <td class="py-2 px-2">
+                    <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                   </td>
-                  <td class="text-xs">{{ linha.produto or '-' }}</td>
-                  <td class="text-xs max-w-[150px] truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
-                  <td class="text-xs">{{ linha.formatos or linha.formato or '-' }}</td>
-                  <td class="text-center">
-                    <span class="badge badge-xs" style="background-color: #72cd80; color: white;">{{ linha.objetivo_kpi or 'CPM' }}</span>
+                  <td class="py-2 px-2 text-xs text-gray-700">{{ linha.produto or '-' }}</td>
+                  <td class="py-2 px-2 text-xs text-gray-600 max-w-[150px] truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
+                  <td class="py-2 px-2 text-xs text-gray-600">{{ linha.formatos or linha.formato or '-' }}</td>
+                  <td class="py-2 px-2 text-center">
+                    <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
                   </td>
-                  <td class="text-xs">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
-                  <td class="text-xs text-right">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
-                  <td class="text-xs text-right">R$ {{ "{:,.2f}".format(linha.valor_unitario or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                  <td class="text-xs text-right font-semibold">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="py-2 px-2 text-xs text-gray-600">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
+                  <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
+                  <td class="py-2 px-2 text-xs text-right text-gray-700">R$ {{ "{:,.2f}".format(linha.valor_unitario or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 </tr>
                 {% endfor %}
               {% else %}
-                <tr><td colspan="10" class="text-center text-base-content/50 py-4">Nenhum item adicionado</td></tr>
+                <tr><td colspan="10" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
               {% endif %}
             </tbody>
             {% if linhas %}
-            <tfoot class="bg-base-200">
-              <tr class="font-semibold text-xs">
-                <td colspan="7" class="text-right">Total Itens</td>
-                <td class="text-right">{{ "{:,}".format(linhas|sum(attribute='volume_contratado') or 0).replace(',', '.') }}</td>
-                <td class="text-right">-</td>
-                <td class="text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+            <tfoot class="bg-gray-50">
+              <tr class="font-semibold text-xs text-gray-700">
+                <td colspan="7" class="py-2 px-2 text-right">Total Itens</td>
+                <td class="py-2 px-2 text-right">{{ "{:,}".format(linhas|sum(attribute='volume_contratado') or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-2 text-right">-</td>
+                <td class="py-2 px-2 text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
             </tfoot>
             {% endif %}
@@ -445,58 +447,58 @@ function renderizarAnexos(anexos) {
       </div>
 
       <!-- AUDIÊNCIAS SELECIONADAS -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
+      <div class="bg-white rounded border border-gray-200 p-4">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-bold flex items-center gap-2">
-            <i class="fas fa-users text-base-content/50"></i>
+          <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-users text-gray-400"></i>
             Audiências Selecionadas
-            <span class="badge badge-xs badge-ghost">{{ audiencias|length if audiencias else 0 }} audiências</span>
+            <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
           </h2>
           {% if modo == 'editar' %}
-          <button onclick="abrirModalAudiencia()" class="btn btn-xs" style="background-color: #72cd80; color: white;">
+          <button onclick="abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
         </div>
         <div class="overflow-x-auto">
-          <table class="table table-xs w-full">
-            <thead class="bg-base-200">
-              <tr class="text-xs">
-                <th class="font-semibold">#</th>
-                <th class="font-semibold">AUDIÊNCIA</th>
-                <th class="font-semibold">CATEGORIA</th>
-                <th class="font-semibold text-right">CPM</th>
-                <th class="font-semibold text-right">IMPRESSÕES</th>
-                <th class="font-semibold text-right">INVESTIMENTO</th>
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr class="text-xs text-gray-600 uppercase">
+                <th class="font-medium py-2 px-2">#</th>
+                <th class="font-medium py-2 px-2">Audiência</th>
+                <th class="font-medium py-2 px-2">Categoria</th>
+                <th class="font-medium py-2 px-2 text-right">CPM</th>
+                <th class="font-medium py-2 px-2 text-right">Impressões</th>
+                <th class="font-medium py-2 px-2 text-right">Investimento</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
               {% if audiencias %}
                 {% for aud in audiencias %}
-                <tr class="hover cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
-                  <td>
-                    <span class="badge badge-sm badge-circle" style="background-color: #72cd80; color: white;">{{ loop.index }}</span>
+                <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
+                  <td class="py-2 px-2">
+                    <span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-xs text-white" style="background-color: #72cd80;">{{ loop.index }}</span>
                   </td>
-                  <td class="text-xs">
-                    <div class="font-medium text-primary hover:underline">{{ aud.audiencia_nome or '-' }}</div>
-                    <div class="text-base-content/50 text-xs">{{ aud.audiencia_publico or '' }}</div>
+                  <td class="py-2 px-2 text-xs">
+                    <div class="font-medium text-gray-800 hover:text-gray-600">{{ aud.audiencia_nome or '-' }}</div>
+                    <div class="text-gray-400 text-xs">{{ aud.audiencia_publico or '' }}</div>
                   </td>
-                  <td class="text-xs">{{ aud.audiencia_categoria or '-' }}</td>
-                  <td class="text-xs text-right">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                  <td class="text-xs text-right">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
-                  <td class="text-xs text-right font-semibold">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="py-2 px-2 text-xs text-gray-600">{{ aud.audiencia_categoria or '-' }}</td>
+                  <td class="py-2 px-2 text-xs text-right text-gray-700">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                  <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
+                  <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 </tr>
                 {% endfor %}
               {% else %}
-                <tr><td colspan="6" class="text-center text-base-content/50 py-4">Nenhuma audiência adicionada</td></tr>
+                <tr><td colspan="6" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
               {% endif %}
             </tbody>
             {% if audiencias %}
-            <tfoot class="bg-base-200">
-              <tr class="font-semibold text-xs">
-                <td colspan="4" class="text-right">Total Audiências</td>
-                <td class="text-right">{{ "{:,}".format(audiencias|sum(attribute='impressoes_estimadas') or 0).replace(',', '.') }}</td>
-                <td class="text-right">R$ {{ "{:,.2f}".format(audiencias|sum(attribute='investimento_sugerido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+            <tfoot class="bg-gray-50">
+              <tr class="font-semibold text-xs text-gray-700">
+                <td colspan="4" class="py-2 px-2 text-right">Total Audiências</td>
+                <td class="py-2 px-2 text-right">{{ "{:,}".format(audiencias|sum(attribute='impressoes_estimadas') or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-2 text-right">R$ {{ "{:,.2f}".format(audiencias|sum(attribute='investimento_sugerido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
             </tfoot>
             {% endif %}
@@ -505,9 +507,9 @@ function renderizarAnexos(anexos) {
       </div>
 
       <!-- RESUMO TOTAL DA PROPOSTA -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
-          <i class="fas fa-calculator text-base-content/50"></i>
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
+          <i class="fas fa-calculator text-gray-400"></i>
           Resumo Total da Proposta
         </h2>
         <div class="space-y-2 text-sm">
@@ -519,66 +521,66 @@ function renderizarAnexos(anexos) {
           {% set valor_liquido = cotacao.valor_total_proposta or 0 if cotacao else 0 %}
           
           <div class="flex justify-between py-1">
-            <span class="text-base-content/70"><i class="fas fa-chart-bar mr-2"></i>Volume Total</span>
-            <span class="font-medium">{{ "{:,}".format(total_volume).replace(',', '.') }}</span>
+            <span class="text-gray-600"><i class="fas fa-chart-bar mr-2"></i>Volume Total</span>
+            <span class="font-medium text-gray-700">{{ "{:,}".format(total_volume).replace(',', '.') }}</span>
           </div>
           <div class="flex justify-between py-1">
-            <span class="text-base-content/70"><i class="fas fa-list mr-2"></i>Total Itens ({{ linhas|length if linhas else 0 }}) <span class="text-xs">(Val. × Unit.)</span></span>
-            <span class="font-medium">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-600"><i class="fas fa-list mr-2"></i>Total Itens ({{ linhas|length if linhas else 0 }}) <span class="text-xs">(Val. × Unit.)</span></span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between py-1">
-            <span class="text-base-content/70"><i class="fas fa-users mr-2"></i>Total Audiências ({{ audiencias|length if audiencias else 0 }})</span>
-            <span class="font-medium">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-600"><i class="fas fa-users mr-2"></i>Total Audiências ({{ audiencias|length if audiencias else 0 }})</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="flex justify-between py-1 border-t border-base-200 pt-2">
-            <span class="font-medium"><i class="fas fa-plus mr-2"></i>Subtotal (Itens + Audiências)</span>
-            <span class="font-semibold">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          <div class="flex justify-between py-1 border-t border-gray-200 pt-2">
+            <span class="font-medium text-gray-700"><i class="fas fa-plus mr-2"></i>Subtotal (Itens + Audiências)</span>
+            <span class="font-semibold text-gray-800">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between py-1">
-            <span class="text-base-content/70"><i class="fas fa-minus mr-2"></i>Desconto Aplicado <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
-            <span class="font-medium text-error">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-600"><i class="fas fa-minus mr-2"></i>Desconto Aplicado <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
+            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="flex justify-between py-2 bg-success/10 rounded-lg px-3 mt-2">
-            <span class="font-bold text-success"><i class="fas fa-check-circle mr-2"></i>Valor Líquido</span>
-            <span class="font-bold text-lg text-success">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          <div class="flex justify-between py-2 bg-gray-800 rounded px-3 mt-2">
+            <span class="font-bold text-white"><i class="fas fa-check-circle mr-2"></i>Valor Líquido</span>
+            <span class="font-bold text-lg text-white">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
         </div>
       </div>
 
       <!-- HISTÓRICO E COMENTÁRIOS -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
-          <i class="fas fa-history text-base-content/50"></i>
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
+          <i class="fas fa-history text-gray-400"></i>
           Histórico e Comentários
-          <span id="contador_comentarios_main" class="badge badge-xs badge-ghost">0</span>
+          <span id="contador_comentarios_main" class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">0</span>
         </h2>
         <div id="lista_comentarios" class="space-y-3 max-h-48 overflow-y-auto">
-          <p class="text-center text-base-content/50 py-4 text-sm">Nenhum comentário ainda</p>
+          <p class="text-center text-gray-400 py-4 text-sm">Nenhum comentário ainda</p>
         </div>
       </div>
 
       <!-- INFORMAÇÕES ADICIONAIS -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
-          <i class="fas fa-info-circle text-base-content/50"></i>
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
+          <i class="fas fa-info-circle text-gray-400"></i>
           Informações Adicionais
         </h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <span class="text-xs text-base-content/60">Objetivo</span>
-            <p class="font-medium">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha else 'Awareness' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Objetivo</span>
+            <p class="font-medium text-gray-700">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha else 'Awareness' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60">Praça</span>
-            <p class="font-medium">{{ cotacao.praca if cotacao and cotacao.praca else 'Nacional' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Praça</span>
+            <p class="font-medium text-gray-700">{{ cotacao.praca if cotacao and cotacao.praca else 'Nacional' }}</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60">Período</span>
-            <p class="font-medium">{{ cotacao.dias_campanha if cotacao and cotacao.dias_campanha else 1 }} mês(es)</p>
+            <span class="text-xs text-gray-500 uppercase">Período</span>
+            <p class="font-medium text-gray-700">{{ cotacao.dias_campanha if cotacao and cotacao.dias_campanha else 1 }} mês(es)</p>
           </div>
           <div>
-            <span class="text-xs text-base-content/60">Budget</span>
-            <p class="font-medium">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
+            <span class="text-xs text-gray-500 uppercase">Budget</span>
+            <p class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
           </div>
         </div>
       </div>
@@ -586,129 +588,122 @@ function renderizarAnexos(anexos) {
     </div>
     
     <!-- ==================== COLUNA DIREITA (SIDEBAR) ==================== -->
-    <div class="w-72 space-y-4 flex-shrink-0">
+    <div class="w-72 space-y-3 flex-shrink-0">
       
       <!-- RESUMO FINANCEIRO -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
-          <i class="fas fa-coins text-base-content/50"></i>
-          RESUMO FINANCEIRO
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">
+          <i class="fas fa-coins text-gray-400"></i>
+          Resumo Financeiro
         </h3>
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
-            <span class="text-base-content/60">VALOR BRUTO</span>
-            <span class="font-medium">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-500 text-xs">Valor Bruto</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-base-content/60">DESCONTO <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
-            <span class="font-medium text-error">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
+            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="bg-success/10 rounded-lg p-3 text-center mt-3">
-            <p class="text-2xl font-bold text-success">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
-            <span class="text-xs text-base-content/60">VALOR LÍQUIDO</span>
+          <div class="bg-gray-800 rounded p-3 text-center mt-3">
+            <p class="text-xl font-bold text-white">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+            <span class="text-xs text-gray-300">VALOR LÍQUIDO</span>
           </div>
         </div>
       </div>
 
       <!-- COMPOSIÇÃO -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h3 class="text-sm font-bold mb-3">COMPOSIÇÃO</h3>
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase mb-3">Composição</h3>
         <div class="space-y-2 text-xs">
           <div class="flex justify-between">
-            <span class="text-base-content/60"><i class="fas fa-chart-bar mr-1"></i> Volume</span>
-            <span class="font-medium">{{ "{:,}".format(total_volume).replace(',', '.') }}</span>
+            <span class="text-gray-500"><i class="fas fa-chart-bar mr-1"></i> Volume</span>
+            <span class="font-medium text-gray-700">{{ "{:,}".format(total_volume).replace(',', '.') }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-base-content/60"><i class="fas fa-list mr-1"></i> Itens ({{ linhas|length if linhas else 0 }})</span>
-            <span class="font-medium">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-500"><i class="fas fa-list mr-1"></i> Itens ({{ linhas|length if linhas else 0 }})</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-base-content/60"><i class="fas fa-users mr-1"></i> Audiências ({{ audiencias|length if audiencias else 0 }})</span>
-            <span class="font-medium">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-500"><i class="fas fa-users mr-1"></i> Audiências ({{ audiencias|length if audiencias else 0 }})</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="border-t border-base-200 pt-2 mt-2">
-            <p class="text-base-content/60 mb-1">POR PLATAFORMA</p>
+          <div class="border-t border-gray-200 pt-2 mt-2">
+            <p class="text-gray-500 mb-1 uppercase">Por Plataforma</p>
             {% if linhas %}
               {% set plataformas = linhas|groupby('plataforma') %}
               {% for plat, items in plataformas %}
                 {% if plat %}
                 <div class="flex justify-between">
-                  <span class="text-base-content/60"><i class="fas fa-tv mr-1"></i> {{ plat }}</span>
-                  <span class="font-medium">R$ {{ "{:,.2f}".format(items|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                  <span class="text-gray-500"><i class="fas fa-tv mr-1"></i> {{ plat }}</span>
+                  <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(items|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
                 </div>
                 {% endif %}
               {% endfor %}
             {% else %}
-              <span class="text-base-content/50">-</span>
+              <span class="text-gray-400">-</span>
             {% endif %}
           </div>
         </div>
       </div>
 
       <!-- LINK PÚBLICO -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
-          <i class="fas fa-link text-base-content/50"></i>
-          LINK PÚBLICO
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">
+          <i class="fas fa-link text-gray-400"></i>
+          Link Público
         </h3>
         {% if cotacao and cotacao.link_publico_token %}
         <div class="space-y-2">
           <div class="flex items-center gap-2 justify-between">
             <div class="flex items-center gap-1">
-              <span class="w-2 h-2 rounded-full {% if cotacao.link_publico_ativo %}bg-success{% else %}bg-error{% endif %}"></span>
-              <span class="text-xs">{% if cotacao.link_publico_ativo %}Link ativo{% else %}Link inativo{% endif %}</span>
+              <span class="w-2 h-2 rounded-full {% if cotacao.link_publico_ativo %}bg-green-500{% else %}bg-red-500{% endif %}"></span>
+              <span class="text-xs text-gray-600">{% if cotacao.link_publico_ativo %}Link ativo{% else %}Link inativo{% endif %}</span>
             </div>
-            <button onclick="document.getElementById('modal_link_publico').showModal()" class="btn btn-xs btn-ghost" title="Configurar">
-              <i class="fas fa-cog"></i>
+            <button onclick="document.getElementById('modal_link_publico').showModal()" class="p-1 rounded hover:bg-gray-100 text-gray-400" title="Configurar">
+              <i class="fas fa-cog text-xs"></i>
             </button>
           </div>
-          <input type="text" value="{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}" class="input input-xs input-bordered w-full text-xs" readonly>
+          <input type="text" value="{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}" class="w-full text-xs px-2 py-1 border border-gray-200 rounded bg-gray-50 text-gray-600" readonly>
           <div class="flex gap-1">
-            <button onclick="copiarLinkPublico('{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}')" class="btn btn-xs btn-outline flex-1">
+            <button onclick="copiarLinkPublico('{{ url_for('cotacao_publica', token=cotacao.link_publico_token, _external=True) }}')" class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
               <i class="fas fa-copy mr-1"></i>Copiar
             </button>
-            <a href="{{ url_for('cotacao_publica', token=cotacao.link_publico_token) }}" target="_blank" class="btn btn-xs btn-outline">
+            <a href="{{ url_for('cotacao_publica', token=cotacao.link_publico_token) }}" target="_blank" class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
               <i class="fas fa-external-link-alt"></i>
             </a>
           </div>
         </div>
         {% else %}
-        <p class="text-xs text-base-content/50 mb-2">Nenhum link gerado</p>
-        <button onclick="document.getElementById('modal_link_publico').showModal()" class="btn btn-xs w-full text-white" style="background-color: #72cd80;">
+        <p class="text-xs text-gray-400 mb-2">Nenhum link gerado</p>
+        <button onclick="document.getElementById('modal_link_publico').showModal()" class="w-full px-2 py-1.5 text-xs rounded text-white" style="background-color: #72cd80;">
           <i class="fas fa-plus mr-1"></i>Gerar Link Público
         </button>
         {% endif %}
       </div>
 
       <!-- AÇÕES RÁPIDAS -->
-      <div class="bg-base-100 rounded-lg border border-base-300 p-4">
-        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
-          <i class="fas fa-bolt text-base-content/50"></i>
-          AÇÕES RÁPIDAS
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase mb-3 flex items-center gap-2">
+          <i class="fas fa-bolt text-gray-400"></i>
+          Ações Rápidas
         </h3>
         <div class="space-y-2">
           {% if cotacao and cotacao.status not in ['Aprovada', 'Rejeitada'] %}
-          <button onclick="document.getElementById('modal_aprovar').showModal()" class="btn btn-sm btn-outline btn-success w-full justify-start">
-            <i class="fas fa-check mr-2"></i>Aprovar Proposta
+          <button onclick="document.getElementById('modal_aprovar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+            <i class="fas fa-check mr-2 text-green-600"></i>Aprovar Proposta
           </button>
-          <button onclick="document.getElementById('modal_rejeitar').showModal()" class="btn btn-sm btn-outline btn-error w-full justify-start">
-            <i class="fas fa-times mr-2"></i>Rejeitar Proposta
+          <button onclick="document.getElementById('modal_rejeitar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+            <i class="fas fa-times mr-2 text-red-600"></i>Rejeitar Proposta
           </button>
-          <div class="divider my-1 text-xs text-base-content/50">ou</div>
+          <div class="border-t border-gray-200 my-2"></div>
           {% endif %}
-          <button onclick="adicionarComentarioRapido()" class="btn btn-sm btn-outline w-full justify-start">
-            <i class="fas fa-comment mr-2"></i>Adicionar Comentário
+          <button onclick="adicionarComentarioRapido()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+            <i class="fas fa-comment mr-2 text-gray-400"></i>Adicionar Comentário
           </button>
-          <button onclick="enviarCotacaoEmail()" class="btn btn-sm w-full justify-start text-white" style="background-color: #72cd80;">
+          <button onclick="enviarCotacaoEmail()" class="w-full px-3 py-1.5 text-xs rounded text-white text-left" style="background-color: #72cd80;">
             <i class="fas fa-share mr-2"></i>Compartilhar Proposta
           </button>
-          <button onclick="window.print()" class="btn btn-sm btn-ghost w-full justify-start">
-            <i class="fas fa-print mr-2"></i>Imprimir
-          </button>
-          <p class="text-xs text-center text-base-content/50 mt-2">PRECISA DE AJUDA?</p>
-          <a href="#" class="btn btn-sm w-full" style="background-color: #25D366; color: white;">
-            <i class="fab fa-whatsapp mr-2"></i>Falar com Atendimento
-          </a>
         </div>
       </div>
 
@@ -718,33 +713,37 @@ function renderizarAnexos(anexos) {
 
 <!-- Modal de Busca de Cliente -->
 <dialog id="modal_escolher_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Buscar Cliente</h3>
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Cliente</h3>
+    </div>
     
-    <div class="flex gap-2 mb-4">
-      <input 
-        type="text" 
-        id="busca_cliente_modal" 
-        placeholder="Digite nome, CNPJ, razão social..." 
-        class="input input-bordered input-sm flex-1"
-        onkeyup="buscarClientesModal()"
-      >
-      <button onclick="limparBuscaModal()" class="btn btn-ghost btn-sm">
-        <i class="fas fa-times"></i>
-      </button>
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_cliente_modal" 
+          placeholder="Digite nome, CNPJ, razão social..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarClientesModal()"
+        >
+        <button onclick="limparBuscaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>
+      </div>
     </div>
 
-    <div id="resultados_modal" class="max-h-96 overflow-y-auto mb-4">
-      <p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>
-    </div>
-
-    <div class="modal-action">
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
       <form method="dialog">
-        <button class="btn btn-sm">Cancelar</button>
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="modal-backdrop bg-black/50">
     <button>close</button>
   </form>
 </dialog>
@@ -761,7 +760,7 @@ function renderizarAnexos(anexos) {
         <label class="label py-0"><span class="label-text font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
         <textarea id="segmentacao" class="textarea textarea-bordered textarea-xs w-full" rows="1" required minlength="10" 
                   placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
-        <label id="erro_segmentacao" class="label py-0 text-error text-xs hidden">
+        <label id="erro_segmentacao" class="label py-0 text-red-600 text-xs hidden">
           <span>Mínimo de 10 caracteres</span>
         </label>
       </div>
@@ -804,7 +803,7 @@ function renderizarAnexos(anexos) {
             <span class="label-text text-xs">Outros</span>
           </label>
         </div>
-        <label id="erro_formatos" class="label py-0 text-error text-xs hidden">
+        <label id="erro_formatos" class="label py-0 text-red-600 text-xs hidden">
           <span>Selecione pelo menos um formato</span>
         </label>
       </div>
@@ -889,8 +888,8 @@ function renderizarAnexos(anexos) {
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
-            <i class="fas fa-calendar-alt text-primary"></i>
+          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
+            <i class="fas fa-calendar-alt text-gray-800"></i>
           </button>
           <input type="date" id="data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
         </div>
@@ -899,8 +898,8 @@ function renderizarAnexos(anexos) {
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
-            <i class="fas fa-calendar-alt text-primary"></i>
+          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
+            <i class="fas fa-calendar-alt text-gray-800"></i>
           </button>
           <input type="date" id="data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
         </div>
@@ -908,7 +907,7 @@ function renderizarAnexos(anexos) {
 
       <div class="form-control col-span-1">
         <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
-        <input type="text" id="dias_linha" class="input input-bordered input-sm bg-base-200 text-center min-h-8 h-8" readonly value="0">
+        <input type="text" id="dias_linha" class="input input-bordered input-sm bg-gray-100 text-center min-h-8 h-8" readonly value="0">
       </div>
 
       <div class="form-control col-span-5">
@@ -934,7 +933,7 @@ function renderizarAnexos(anexos) {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
-            <input type="text" id="valor_unitario" class="input input-bordered input-xs bg-base-200" placeholder="0,00" 
+            <input type="text" id="valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" 
                    readonly>
           </div>
 
@@ -946,12 +945,12 @@ function renderizarAnexos(anexos) {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
-            <input type="text" id="volume_contratado" class="input input-bordered input-xs bg-base-200" placeholder="0" readonly>
+            <input type="text" id="volume_contratado" class="input input-bordered input-xs bg-gray-100" placeholder="0" readonly>
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
-            <input type="text" id="investimento_liquido" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
+            <input type="text" id="investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
           </div>
         </div>
       </div>
@@ -1103,8 +1102,8 @@ function renderizarAnexos(anexos) {
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
-            <i class="fas fa-calendar-alt text-primary"></i>
+          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
+            <i class="fas fa-calendar-alt text-gray-800"></i>
           </button>
           <input type="date" id="edit_data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
         </div>
@@ -1113,8 +1112,8 @@ function renderizarAnexos(anexos) {
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-base-200 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
-            <i class="fas fa-calendar-alt text-primary"></i>
+          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
+            <i class="fas fa-calendar-alt text-gray-800"></i>
           </button>
           <input type="date" id="edit_data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
         </div>
@@ -1122,7 +1121,7 @@ function renderizarAnexos(anexos) {
 
       <div class="form-control col-span-1">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Dias</span></label>
-        <input type="text" id="edit_dias_linha" class="input input-bordered input-sm bg-base-200 text-center min-h-8 h-8" readonly value="0">
+        <input type="text" id="edit_dias_linha" class="input input-bordered input-sm bg-gray-100 text-center min-h-8 h-8" readonly value="0">
       </div>
 
       <div class="form-control col-span-5">
@@ -1146,7 +1145,7 @@ function renderizarAnexos(anexos) {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
-            <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
+            <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
           </div>
 
           <div class="form-control">
@@ -1156,12 +1155,12 @@ function renderizarAnexos(anexos) {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
-            <input type="text" id="edit_volume_contratado" class="input input-bordered input-xs bg-base-200" placeholder="0" readonly>
+            <input type="text" id="edit_volume_contratado" class="input input-bordered input-xs bg-gray-100" placeholder="0" readonly>
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
-            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs bg-base-200" placeholder="0,00" readonly>
+            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
           </div>
         </div>
       </div>
@@ -1199,7 +1198,7 @@ function renderizarAnexos(anexos) {
                  autocomplete="off" 
                  oninput="buscarClientesEditModal(this.value)" 
                  onfocus="mostrarResultadosEditModal()">
-          <div id="resultados_clientes_edit" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-base-300"></div>
+          <div id="resultados_clientes_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
         </div>
       </div>
       
@@ -1251,8 +1250,8 @@ function renderizarAnexos(anexos) {
         <div class="form-control">
           <label class="label"><span class="label-text font-semibold">Período Início</span></label>
           <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('edit_periodo_inicio').showPicker()">
-              <i class="fas fa-calendar-alt text-primary"></i>
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_periodo_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
             </button>
             <input type="date" id="edit_periodo_inicio" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_inicio else '' }}">
           </div>
@@ -1260,8 +1259,8 @@ function renderizarAnexos(anexos) {
         <div class="form-control">
           <label class="label"><span class="label-text font-semibold">Período Fim</span></label>
           <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('edit_periodo_fim').showPicker()">
-              <i class="fas fa-calendar-alt text-primary"></i>
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_periodo_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
             </button>
             <input type="date" id="edit_periodo_fim" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_fim else '' }}">
           </div>
@@ -1331,8 +1330,8 @@ function renderizarAnexos(anexos) {
         <input type="hidden" id="audiencia_id_selecionada">
         
         <!-- Card da Audiência com Thumbnail -->
-        <div class="md:col-span-3 bg-base-200 rounded-lg p-4 flex gap-4">
-          <div id="audiencia_thumbnail" class="w-24 h-24 bg-base-300 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <div class="md:col-span-3 bg-gray-100 rounded-lg p-4 flex gap-4">
+          <div id="audiencia_thumbnail" class="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
             <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
             </svg>
@@ -1343,7 +1342,7 @@ function renderizarAnexos(anexos) {
               <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
               <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
             </div>
-            <p id="audiencia_publico_display" class="text-sm text-base-content/70 mt-2"></p>
+            <p id="audiencia_publico_display" class="text-sm text-gray-600 mt-2"></p>
           </div>
         </div>
         
@@ -1362,7 +1361,7 @@ function renderizarAnexos(anexos) {
         
         <div class="form-control">
           <label class="label"><span class="label-text font-semibold">Impressões</span></label>
-          <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm bg-base-200" placeholder="0" readonly>
+          <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm bg-gray-100" placeholder="0" readonly>
         </div>
         
         <!-- Campos ocultos para envio -->
@@ -1497,15 +1496,15 @@ function renderizarAnexos(anexos) {
           <span class="label-text font-semibold text-xs">Expiração</span>
         </label>
         <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('modal_link_publico_expires_at').showPicker()">
-            <i class="fas fa-calendar-alt text-primary"></i>
+          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('modal_link_publico_expires_at').showPicker()">
+            <i class="fas fa-calendar-alt text-gray-800"></i>
           </button>
           <input type="datetime-local" id="modal_link_publico_expires_at" class="input input-bordered input-sm join-item flex-1" value="{% if cotacao.link_publico_expires_at %}{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
         </div>
       </div>
       
       {% if cotacao.link_publico_token %}
-      <div class="col-span-12 text-xs text-base-content/60 flex gap-4">
+      <div class="col-span-12 text-xs text-gray-500 flex gap-4">
         <span><i class="fas fa-fingerprint mr-1"></i>Token: <span class="font-mono">{{ cotacao.link_publico_token }}</span></span>
         {% if cotacao.link_publico_expires_at %}
         <span><i class="fas fa-clock mr-1"></i>Expira: {{ cotacao.link_publico_expires_at.strftime('%d/%m/%Y %H:%M') }}</span>
@@ -1521,6 +1520,33 @@ function renderizarAnexos(anexos) {
 </dialog>
 
 <script>
+// Função para alterar status da cotação via select no header
+async function alterarStatusCotacao(novoStatus) {
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    showToast('Cotação não encontrada', 'error');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: novoStatus })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      showToast(`Status alterado para "${novoStatus}"`, 'success');
+    } else {
+      showToast('Erro ao alterar status: ' + (result.message || 'Erro desconhecido'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao alterar status', 'error');
+  }
+}
+
 // Dados dos contatos do cliente para envio de email
 const contatosCliente = {
   {% if contatos_cliente %}
@@ -1724,7 +1750,7 @@ function renderizarResultadosClientesEdit(clientes) {
   }
   
   resultadosDiv.innerHTML = clientes.map(cliente => `
-    <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0" 
+    <div class="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0" 
          onclick="selecionarClienteEdit(${cliente.id_cliente}, '${(cliente.nome_fantasia || cliente.razao_social || '').replace(/'/g, "\\'")}')">
       <div class="font-semibold text-xs">${cliente.nome_fantasia || cliente.razao_social}</div>
       <div class="text-xs text-gray-500">${cliente.razao_social || ''}</div>
@@ -2000,7 +2026,7 @@ async function buscarClientesModal() {
   const resultados = document.getElementById('resultados_modal');
 
   if (termo.length < 2) {
-    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
     return;
   }
 
@@ -2019,18 +2045,18 @@ async function buscarClientesModal() {
         const documento = cliente.cnpj || '-';
         const clienteId = cliente.pk_id_tbl_cliente;
         html += `
-          <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+          <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-100 cursor-pointer transition" 
                onclick="selecionarClienteForm('${clienteId}', '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
             <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
-            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
-            <p class="text-xs text-base-content/50">${documento}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
           </div>
         `;
       });
       html += '</div>';
       resultados.innerHTML = html;
     } else {
-      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum cliente encontrado</p>';
     }
   } catch (error) {
     console.error('Erro ao buscar:', error);
@@ -2040,7 +2066,7 @@ async function buscarClientesModal() {
 
 function limparBuscaModal() {
   document.getElementById('busca_cliente_modal').value = '';
-  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
 }
 
 function selecionarClienteForm(clienteId, nomeFantasia) {
@@ -2637,16 +2663,16 @@ async function executarBuscaAudiencias() {
     audienciasSugeridas = await response.json();
     
     if (!audienciasSugeridas || audienciasSugeridas.length === 0) {
-      listaResultados.innerHTML = '<div class="col-span-2 text-center py-4 text-base-content/50">Nenhuma audiência encontrada</div>';
+      listaResultados.innerHTML = '<div class="col-span-2 text-center py-4 text-gray-400">Nenhuma audiência encontrada</div>';
       return;
     }
     
     listaResultados.innerHTML = audienciasSugeridas.map(aud => `
-      <div class="card bg-base-100 border border-base-300 hover:border-primary cursor-pointer transition-all" 
+      <div class="card bg-white border border-gray-200 hover:border-primary cursor-pointer transition-all" 
            onclick="selecionarAudienciaCard(${aud.id})">
         <div class="card-body p-3">
           <div class="flex gap-3">
-            <div class="w-14 h-14 bg-base-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div class="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
               ${aud.imagem_url ? 
                 `<img src="${aud.imagem_url}" alt="" class="w-full h-full object-cover">` :
                 `<svg class="w-6 h-6 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2656,7 +2682,7 @@ async function executarBuscaAudiencias() {
             </div>
             <div class="flex-1 min-w-0">
               <h5 class="font-semibold text-sm truncate">${aud.nome}</h5>
-              <p class="text-xs text-base-content/60 truncate">${aud.perfil_socioeconomico || ''}</p>
+              <p class="text-xs text-gray-500 truncate">${aud.perfil_socioeconomico || ''}</p>
               ${aud.cpm_venda ? `<span class="badge badge-sm badge-primary mt-1">CPM: R$ ${parseFloat(aud.cpm_venda).toFixed(2)}</span>` : ''}
             </div>
           </div>
@@ -2666,7 +2692,7 @@ async function executarBuscaAudiencias() {
     
   } catch (error) {
     console.error('Erro ao buscar audiências:', error);
-    listaResultados.innerHTML = '<div class="col-span-2 text-center py-4 text-error">Erro ao buscar audiências</div>';
+    listaResultados.innerHTML = '<div class="col-span-2 text-center py-4 text-red-600">Erro ao buscar audiências</div>';
   }
 }
 
@@ -3250,10 +3276,10 @@ async function carregarComentarios() {
     
     if (result.success && result.comentarios) {
       if (result.comentarios.length === 0) {
-        container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum comentário ainda</p>';
+        container.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum comentário ainda</p>';
       } else {
         container.innerHTML = result.comentarios.map(c => `
-          <div class="card bg-base-200 p-3">
+          <div class="card bg-gray-100 p-3">
             <div class="flex items-start gap-3">
               <div class="avatar placeholder">
                 <div class="bg-neutral text-neutral-content rounded-full w-10">
@@ -3277,7 +3303,7 @@ async function carregarComentarios() {
     }
   } catch (error) {
     console.error('Erro:', error);
-    container.innerHTML = '<p class="text-center text-error py-8">Erro ao carregar comentários</p>';
+    container.innerHTML = '<p class="text-center text-red-600 py-8">Erro ao carregar comentários</p>';
   }
 }
 
@@ -3324,10 +3350,10 @@ async function carregarHistorico() {
     
     if (result.success && result.historico) {
       if (result.historico.length === 0) {
-        container.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum registro de histórico</p>';
+        container.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum registro de histórico</p>';
       } else {
         container.innerHTML = result.historico.map(h => `
-          <div class="flex items-start gap-3 p-2 hover:bg-base-200 rounded-lg">
+          <div class="flex items-start gap-3 p-2 hover:bg-gray-100 rounded-lg">
             <div class="badge ${getBadgeClassForAction(h.acao)}">${h.acao}</div>
             <div class="flex-1">
               <p class="text-sm">${h.descricao}</p>
@@ -3339,7 +3365,7 @@ async function carregarHistorico() {
     }
   } catch (error) {
     console.error('Erro:', error);
-    container.innerHTML = '<p class="text-center text-error py-8">Erro ao carregar histórico</p>';
+    container.innerHTML = '<p class="text-center text-red-600 py-8">Erro ao carregar histórico</p>';
   }
 }
 
@@ -3371,7 +3397,7 @@ function mostrarToast(mensagem, tipo) {
 <!-- Modal Aprovar -->
 <dialog id="modal_aprovar" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg text-success"><i class="fas fa-check-circle mr-2"></i>Aprovar Cotação</h3>
+    <h3 class="font-bold text-lg text-green-600"><i class="fas fa-check-circle mr-2"></i>Aprovar Cotação</h3>
     <p class="py-2">Confirma a aprovação desta cotação?</p>
     <div class="form-control">
       <label class="label"><span class="label-text">Observação (opcional)</span></label>
@@ -3392,7 +3418,7 @@ function mostrarToast(mensagem, tipo) {
 <!-- Modal Rejeitar -->
 <dialog id="modal_rejeitar" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg text-error"><i class="fas fa-times-circle mr-2"></i>Rejeitar Cotação</h3>
+    <h3 class="font-bold text-lg text-red-600"><i class="fas fa-times-circle mr-2"></i>Rejeitar Cotação</h3>
     <p class="py-2">Confirma a rejeição desta cotação?</p>
     <div class="form-control">
       <label class="label"><span class="label-text">Motivo (opcional)</span></label>

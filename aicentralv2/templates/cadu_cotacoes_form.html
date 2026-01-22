@@ -3,275 +3,289 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-  <div class="mb-2">
-    <h1 class="text-lg font-semibold">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
-    <p class="text-xs text-base-content/70">{% if modo == 'novo' %}Criar nova cotação{% else %}Atualizar dados da cotação{% endif %}</p>
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto (max 66px) estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Voltar + Título -->
+      <div class="flex items-center gap-3">
+        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+          <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+          <h1 class="text-lg font-semibold text-gray-800">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
+          <p class="text-xs text-gray-500">{% if modo == 'novo' %}Criar nova cotação{% else %}Atualizar dados da cotação{% endif %}</p>
+        </div>
+      </div>
+      
+      <!-- Ações -->
+      <div class="flex items-center gap-2">
+        <button type="submit" form="cotacao_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
+          <i class="fas fa-save mr-1"></i>{% if modo == 'novo' %}Criar{% else %}Salvar{% endif %}
+        </button>
+      </div>
+    </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-2">
+      <div class="mb-3">
         {% for category, message in messages %}
-          <div class="alert alert-sm py-1 {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% else %}alert-info{% endif %}">
-            <span class="text-sm">{{ message }}</span>
+          <div class="px-4 py-2 rounded border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border-green-200 text-green-700{% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
+            {{ message }}
           </div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body p-4">
-      <form method="POST" class="space-y-3">
-        
-        <!-- LINHA 1: Informações Básicas -->
-        <div>
-          <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Informações Básicas</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {% if modo == 'editar' and cotacao %}
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Nº Cotação</span></label>
-              <input type="text" value="{{ cotacao.numero_cotacao }}" class="input input-bordered input-sm" disabled>
-            </div>
-            {% endif %}
+  <div class="bg-white rounded border border-gray-200 p-4">
+    <form id="cotacao_form" method="POST" class="space-y-4">
+      
+      <!-- LINHA 1: Informações Básicas -->
+      <div>
+        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Informações Básicas</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {% if modo == 'editar' and cotacao %}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nº Cotação</label>
+            <input type="text" value="{{ cotacao.numero_cotacao }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" disabled>
+          </div>
+          {% endif %}
 
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Cliente *</span></label>
-              <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
-              <div class="flex gap-1 items-center">
-                <div class="flex-1 px-2 py-1.5 border border-base-300 rounded bg-base-100 text-sm truncate h-8 flex items-center">
-                  <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
-                </div>
-                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="btn btn-sm btn-square btn-outline" style="color:#72cd80;border-color:#72cd80;">
-                  <i class="fas fa-search text-xs"></i>
-                </button>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
+            <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
+            <div class="flex gap-1 items-center">
+              <div class="flex-1 px-3 py-1.5 border border-gray-200 rounded bg-white text-sm truncate h-8 flex items-center text-gray-700">
+                <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
               </div>
+              <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
+                <i class="fas fa-search text-xs"></i>
+              </button>
             </div>
+          </div>
 
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Nome da Campanha *</span></label>
-              <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="input input-bordered input-sm" placeholder="Ex: Campanha Verão 2025" required>
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nome da Campanha *</label>
+            <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Ex: Campanha Verão 2025" required>
+          </div>
 
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Responsável Comercial</span></label>
-              <select name="responsavel_comercial" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="">Selecione...</option>
-                {% for vendedor in vendedores %}
-                <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
+            <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="">Selecione...</option>
+              {% for vendedor in vendedores %}
+              <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Contato do Cliente</label>
+            <select name="client_user_id" id="client_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="">Selecione...</option>
+              {% if cotacao and contatos_cliente %}
+                {% for contato in contatos_cliente %}
+                <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
                 {% endfor %}
-              </select>
-            </div>
+              {% endif %}
+            </select>
+          </div>
 
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Contato do Cliente</span></label>
-              <select name="client_user_id" id="client_user_id" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="">Selecione...</option>
-                {% if cotacao and contatos_cliente %}
-                  {% for contato in contatos_cliente %}
-                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
-                  {% endfor %}
-                {% endif %}
-              </select>
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Briefing</label>
+            <select name="briefing_id" id="briefing_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="">Selecione...</option>
+              {% if briefings %}
+                {% for briefing in briefings %}
+                <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>{{ briefing.titulo }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
 
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Briefing</span></label>
-              <select name="briefing_id" id="briefing_id" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="">Selecione...</option>
-                {% if briefings %}
-                  {% for briefing in briefings %}
-                  <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>{{ briefing.titulo }}</option>
-                  {% endfor %}
-                {% endif %}
-              </select>
-            </div>
-
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Agência</span></label>
-              <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
-              <div class="flex gap-1 items-center">
-                <div class="flex-1 px-2 py-1.5 border border-base-300 rounded bg-base-100 text-sm truncate h-8 flex items-center">
-                  <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
-                </div>
-                <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="btn btn-sm btn-square btn-outline" style="color:#72cd80;border-color:#72cd80;">
-                  <i class="fas fa-search text-xs"></i>
-                </button>
-                <button type="button" onclick="limparAgenciaSelecionada()" class="btn btn-sm btn-square btn-ghost text-gray-400 hover:text-red-500" title="Limpar">
-                  <i class="fas fa-times text-xs"></i>
-                </button>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
+            <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
+            <div class="flex gap-1 items-center">
+              <div class="flex-1 px-3 py-1.5 border border-gray-200 rounded bg-white text-sm truncate h-8 flex items-center text-gray-700">
+                <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
               </div>
+              <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
+                <i class="fas fa-search text-xs"></i>
+              </button>
+              <button type="button" onclick="limparAgenciaSelecionada()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
+                <i class="fas fa-times text-xs"></i>
+              </button>
             </div>
+          </div>
 
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Contato Agência</span></label>
-              <select name="agencia_user_id" id="agencia_user_id" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="">Selecione...</option>
-                {% if cotacao and contatos_agencia %}
-                  {% for contato in contatos_agencia %}
-                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
-                  {% endfor %}
-                {% endif %}
-              </select>
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Contato Agência</label>
+            <select name="agencia_user_id" id="agencia_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="">Selecione...</option>
+              {% if cotacao and contatos_agencia %}
+                {% for contato in contatos_agencia %}
+                <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
           </div>
         </div>
+      </div>
 
-        <!-- LINHA 2: Datas e Valores -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <!-- Início -->
-          <div class="form-control">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Início *</span></label>
-            <div class="join">
-              <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_inicio').showPicker()">
-                <i class="fas fa-calendar-alt text-primary"></i>
-              </button>
-              <input type="date" id="periodo_inicio" name="periodo_inicio" value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}" class="input input-bordered input-sm join-item w-full" required>
-            </div>
-          </div>
-          <!-- Término -->
-          <div class="form-control">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Término</span></label>
-            <div class="join">
-              <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('periodo_fim').showPicker()">
-                <i class="fas fa-calendar-alt text-primary"></i>
-              </button>
-              <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="input input-bordered input-sm join-item w-full">
-            </div>
-          </div>
-          <!-- Budget Estimado -->
-          <div class="form-control">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Budget Est. (R$)</span></label>
-            <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
-            <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
-          </div>
-          <!-- Valor Total -->
-          <div class="form-control">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Valor Total (R$) *</span></label>
-            <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="input input-bordered input-sm" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')" required>
-            <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
-          </div>
-        </div>
-
-        {% if modo == 'editar' %}
-        <!-- LINHA 3: Status (só em edição) -->
+      <!-- LINHA 2: Datas e Valores -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- Início -->
         <div>
-          <h2 class="text-sm font-bold mb-2 pb-1 border-b text-primary">Status</h2>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="form-control">
-              <label class="label py-0.5"><span class="label-text text-xs font-medium">Status</span></label>
-              <select name="status" class="select select-bordered h-9 min-h-0 text-sm">
-                <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
-                <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
-                <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
-                <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
-                <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-                <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-                <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
-              </select>
-            </div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Início *</label>
+          <div class="flex">
+            <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('periodo_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-xs"></i>
+            </button>
+            <input type="date" id="periodo_inicio" name="periodo_inicio" value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}" class="flex-1 text-sm border border-gray-200 rounded-r px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
           </div>
         </div>
-        {% endif %}
-
-        <!-- LINHA 4: Objetivo e Observações lado a lado -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Objetivo da Campanha</span></label>
-            <textarea name="objetivo_campanha" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Descreva o objetivo...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-          </div>
-          <div class="form-control">
-            <label class="label py-0.5"><span class="label-text text-xs font-medium">Observações</span></label>
-            <textarea name="observacoes" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Notas gerais...">{{ cotacao.observacoes if cotacao else '' }}</textarea>
+        <!-- Término -->
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
+          <div class="flex">
+            <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('periodo_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-xs"></i>
+            </button>
+            <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="flex-1 text-sm border border-gray-200 rounded-r px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
           </div>
         </div>
-
-        {% if modo == 'editar' %}
-        <div class="form-control">
-          <label class="label py-0.5"><span class="label-text text-xs font-medium">Observações Internas</span></label>
-          <textarea name="observacoes_internas" class="textarea textarea-bordered textarea-sm text-sm" rows="2" placeholder="Notas internas (não visíveis ao cliente)...">{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+        <!-- Budget Estimado -->
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Budget Est. (R$)</label>
+          <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+          <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
         </div>
-        {% endif %}
-
-        <input type="hidden" name="origem" value="Admin">
-
-        <!-- Botões lado a lado à direita -->
-        <div class="flex justify-end gap-2 pt-2 border-t">
-          <a href="{{ url_for('cotacoes_list') }}" class="btn btn-sm btn-ghost">
-            <i class="fas fa-arrow-left mr-1"></i>Voltar
-          </a>
-          <button type="submit" class="btn btn-sm text-white" style="background-color:#72cd80;border-color:#72cd80;">
-            <i class="fas fa-save mr-1"></i>{% if modo == 'novo' %}Criar Cotação{% else %}Salvar{% endif %}
-          </button>
+        <!-- Valor Total -->
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$) *</label>
+          <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')" required>
+          <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
         </div>
-      </form>
-    </div>
+      </div>
+
+      {% if modo == 'editar' %}
+      <!-- LINHA 3: Status (só em edição) -->
+      <div>
+        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Status</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+            <select name="status" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
+              <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+              <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+              <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
+              <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+              <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+              <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- LINHA 4: Objetivo e Observações lado a lado -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Objetivo da Campanha</label>
+          <textarea name="objetivo_campanha" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Descreva o objetivo...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Observações</label>
+          <textarea name="observacoes" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas gerais...">{{ cotacao.observacoes if cotacao else '' }}</textarea>
+        </div>
+      </div>
+
+      {% if modo == 'editar' %}
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Observações Internas</label>
+        <textarea name="observacoes_internas" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas internas (não visíveis ao cliente)...">{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+      </div>
+      {% endif %}
+
+      <input type="hidden" name="origem" value="Admin">
+    </form>
   </div>
 </div>
 
 <!-- Modal de Busca de Cliente -->
 <dialog id="modal_escolher_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Buscar Cliente</h3>
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Cliente</h3>
+    </div>
     
-    <div class="flex gap-2 mb-4">
-      <input 
-        type="text" 
-        id="busca_cliente_modal" 
-        placeholder="Digite nome, CNPJ, razão social..." 
-        class="input input-bordered flex-1"
-        onkeyup="buscarClientesModal()"
-      >
-      <button onclick="limparBuscaModal()" class="btn btn-ghost">
-        <i class="fas fa-times"></i>
-      </button>
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_cliente_modal" 
+          placeholder="Digite nome, CNPJ, razão social..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarClientesModal()"
+        >
+        <button onclick="limparBuscaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>
+      </div>
     </div>
 
-    <div id="resultados_modal" class="max-h-96 overflow-y-auto mb-4">
-      <p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>
-    </div>
-
-    <div class="modal-action">
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
       <form method="dialog">
-        <button class="btn">Cancelar</button>
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="modal-backdrop bg-black/50">
     <button>close</button>
   </form>
 </dialog>
 
 <!-- Modal de Busca de Agência -->
 <dialog id="modal_escolher_agencia" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Buscar Agência</h3>
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Agência</h3>
+    </div>
     
-    <div class="flex gap-2 mb-4">
-      <input 
-        type="text" 
-        id="busca_agencia_modal" 
-        placeholder="Digite nome da agência..." 
-        class="input input-bordered flex-1"
-        onkeyup="buscarAgenciasModal()"
-      >
-      <button onclick="limparBuscaAgenciaModal()" class="btn btn-ghost">
-        <i class="fas fa-times"></i>
-      </button>
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_agencia_modal" 
+          placeholder="Digite nome da agência..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarAgenciasModal()"
+        >
+        <button onclick="limparBuscaAgenciaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_agencia_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>
+      </div>
     </div>
 
-    <div id="resultados_agencia_modal" class="max-h-96 overflow-y-auto mb-4">
-      <p class="text-center text-base-content/50 py-8">Digite para buscar agências...</p>
-    </div>
-
-    <div class="modal-action">
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
       <form method="dialog">
-        <button class="btn">Cancelar</button>
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
+  <form method="dialog" class="modal-backdrop bg-black/50">
     <button>close</button>
   </form>
 </dialog>
@@ -282,7 +296,7 @@ async function buscarClientesModal() {
   const resultados = document.getElementById('resultados_modal');
 
   if (termo.length < 2) {
-    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
     return;
   }
 
@@ -305,18 +319,18 @@ async function buscarClientesModal() {
         const documento = cliente.cnpj || '-';
         const clienteId = cliente.pk_id_tbl_cliente;
         html += `
-          <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
                onclick="selecionarClienteForm('${clienteId}', '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
-            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
-            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
-            <p class="text-xs text-base-content/50">${documento}</p>
+            <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
           </div>
         `;
       });
       html += '</div>';
       resultados.innerHTML = html;
     } else {
-      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhum cliente encontrado</p>';
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum cliente encontrado</p>';
     }
   } catch (error) {
     console.error('Erro ao buscar:', error);
@@ -326,7 +340,7 @@ async function buscarClientesModal() {
 
 function limparBuscaModal() {
   document.getElementById('busca_cliente_modal').value = '';
-  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar clientes...</p>';
+  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
 }
 
 function selecionarClienteForm(clienteId, nomeFantasia) {
@@ -391,7 +405,7 @@ function formatarMoedaReal(input, hiddenFieldId) {
 }
 
 // Ao submeter o formulário, garantir que os valores corretos são enviados
-document.querySelector('form').addEventListener('submit', function(e) {
+document.getElementById('cotacao_form').addEventListener('submit', function(e) {
   const campos = ['budget_estimado', 'valor_total_proposta'];
   campos.forEach(campo => {
     const displayInput = document.getElementById(campo);
@@ -468,7 +482,7 @@ async function buscarAgenciasModal() {
   const resultados = document.getElementById('resultados_agencia_modal');
 
   if (termo.length < 2) {
-    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar agências...</p>';
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
     return;
   }
 
@@ -492,18 +506,18 @@ async function buscarAgenciasModal() {
         const clienteId = cliente.pk_id_tbl_cliente;
         const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
         html += `
-          <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
                onclick="selecionarAgenciaForm('${clienteId}', '${nomeEscapado}')">
-            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
-            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
-            <p class="text-xs text-base-content/50">${documento}</p>
+            <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
           </div>
         `;
       });
       html += '</div>';
       resultados.innerHTML = html;
     } else {
-      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhuma agência encontrada</p>';
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhuma agência encontrada</p>';
     }
   } catch (error) {
     console.error('Erro ao buscar agências:', error);
@@ -513,7 +527,7 @@ async function buscarAgenciasModal() {
 
 function limparBuscaAgenciaModal() {
   document.getElementById('busca_agencia_modal').value = '';
-  document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar agências...</p>';
+  document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
 }
 
 async function selecionarAgenciaForm(agenciaId, nomeAgencia) {

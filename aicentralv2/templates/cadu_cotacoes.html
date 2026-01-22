@@ -101,13 +101,13 @@
       <table class="table table-sm table-fixed w-full">
         <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
           <tr>
-            <th class="font-semibold py-3 w-24">Cotação</th>
-            <th class="font-semibold">Cliente / Campanha</th>
-            <th class="font-semibold w-28">Executivo</th>
-            <th class="font-semibold text-center w-24">Período</th>
-            <th class="font-semibold text-right w-24">Valor</th>
+            <th class="font-semibold py-3 w-32">Cotação</th>
+            <th class="font-semibold w-48">Cliente / Campanha</th>
+            <th class="font-semibold w-24">Executivo</th>
+            <th class="font-semibold text-center w-20">Período</th>
+            <th class="font-semibold text-right w-28">Valor</th>
             <th class="font-semibold text-center w-20">Status</th>
-            <th class="font-semibold text-center w-28">Itens</th>
+            <th class="font-semibold text-center w-24">Itens</th>
           </tr>
         </thead>
         <tbody class="text-sm">
@@ -133,8 +133,8 @@
             <!-- Cliente / Campanha -->
             <td>
               <div class="flex flex-col">
-                <span class="font-medium text-gray-800">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
-                <span class="text-xs text-gray-500 truncate max-w-xs">{{ cotacao.nome_campanha or '-' }}</span>
+                <span class="font-medium text-gray-800 truncate">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
+                <span class="text-xs text-gray-500 truncate max-w-[180px]">{{ cotacao.nome_campanha or '-' }}</span>
               </div>
             </td>
             

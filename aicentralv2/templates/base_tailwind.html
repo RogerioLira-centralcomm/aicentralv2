@@ -314,13 +314,13 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
-                                            <span class="sidebar-text">Interesses</span>
+                                        <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
+                                            <span class="sidebar-text">Briefings</span>
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
-                                            <span class="sidebar-text">Briefings</span>
+                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
+                                            <span class="sidebar-text">Métricas Semanais</span>
                                         </a>
                                     </li>
                                 </ul>
@@ -366,8 +366,8 @@
                                 </summary>
                                 <ul>
                                     <li>
-                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
-                                            <span class="sidebar-text">Métricas Semanais</span>
+                                        <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
+                                            <span class="sidebar-text">Interesses</span>
                                         </a>
                                     </li>
                                     <li>

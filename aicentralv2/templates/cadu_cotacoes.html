@@ -98,16 +98,16 @@
   <!-- Tabela de Cotações -->
   <div class="bg-white rounded border border-gray-200 overflow-hidden">
     {% if cotacoes %}
-      <table class="table table-sm w-full">
+      <table class="table table-sm table-fixed w-full">
         <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
           <tr>
-            <th class="font-semibold py-3">Cotação</th>
+            <th class="font-semibold py-3 w-24">Cotação</th>
             <th class="font-semibold">Cliente / Campanha</th>
-            <th class="font-semibold">Executivo</th>
-            <th class="font-semibold text-center">Período</th>
-            <th class="font-semibold text-right">Valor</th>
-            <th class="font-semibold text-center">Status</th>
-            <th class="font-semibold text-center w-10"></th>
+            <th class="font-semibold w-28">Executivo</th>
+            <th class="font-semibold text-center w-24">Período</th>
+            <th class="font-semibold text-right w-24">Valor</th>
+            <th class="font-semibold text-center w-20">Status</th>
+            <th class="font-semibold text-center w-28">Itens</th>
           </tr>
         </thead>
         <tbody class="text-sm">
@@ -121,9 +121,11 @@
           <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer {% if urgente %}bg-amber-50{% endif %}" 
               onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
             <!-- Cotação -->
-            <td class="py-3">
+            <td class="py-3" onclick="event.stopPropagation()">
               <div class="flex flex-col">
-                <span class="font-mono text-xs font-semibold text-gray-700">{{ cotacao.numero_cotacao }}</span>
+                <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="font-mono text-xs font-semibold text-gray-700 hover:text-gray-900 hover:underline">
+                  {{ cotacao.numero_cotacao }}
+                </a>
                 <span class="text-xs text-gray-400">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</span>
               </div>
             </td>
@@ -133,16 +135,6 @@
               <div class="flex flex-col">
                 <span class="font-medium text-gray-800">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
                 <span class="text-xs text-gray-500 truncate max-w-xs">{{ cotacao.nome_campanha or '-' }}</span>
-                {% if cotacao.total_linhas or cotacao.total_audiencias %}
-                <div class="flex items-center gap-2 mt-1">
-                  {% if cotacao.total_linhas %}
-                  <span class="text-xs text-gray-400"><i class="fa-solid fa-list mr-1"></i>{{ cotacao.total_linhas }} itens</span>
-                  {% endif %}
-                  {% if cotacao.total_audiencias %}
-                  <span class="text-xs text-gray-400"><i class="fa-solid fa-users mr-1"></i>{{ cotacao.total_audiencias }} aud.</span>
-                  {% endif %}
-                </div>
-                {% endif %}
               </div>
             </td>
             
@@ -216,17 +208,12 @@
               {% endif %}
             </td>
             
-            <!-- Ações -->
-            <td class="text-center" onclick="event.stopPropagation()">
-              <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-ghost btn-xs">
-                  <i class="fa-solid fa-ellipsis-vertical text-gray-400"></i>
-                </label>
-                <ul tabindex="0" class="dropdown-content z-[1] menu p-1 shadow bg-base-100 rounded-box w-40">
-                  <li><a href="/cotacoes/{{ cotacao.id }}/detalhes"><i class="fa-solid fa-eye mr-2"></i>Ver detalhes</a></li>
-                  <li><a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank"><i class="fa-solid fa-file-pdf mr-2"></i>Gerar PDF</a></li>
-                  <li><a onclick="duplicarCotacao({{ cotacao.id }})"><i class="fa-solid fa-copy mr-2"></i>Duplicar</a></li>
-                </ul>
+            <!-- Contadores -->
+            <td class="text-center">
+              <div class="flex items-center justify-center gap-2">
+                <span class="text-xs text-gray-500" title="Itens"><i class="fa-solid fa-list text-gray-400"></i> {{ cotacao.total_linhas or 0 }}</span>
+                <span class="text-xs text-gray-500" title="Audiências"><i class="fa-solid fa-users text-gray-400"></i> {{ cotacao.total_audiencias or 0 }}</span>
+                <span class="text-xs text-gray-500" title="Anexos"><i class="fa-solid fa-paperclip text-gray-400"></i> {{ cotacao.total_anexos or 0 }}</span>
               </div>
             </td>
           </tr>

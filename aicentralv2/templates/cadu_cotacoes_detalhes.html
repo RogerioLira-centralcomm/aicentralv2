@@ -197,27 +197,26 @@ function renderizarAnexos(anexos) {
   }
   
   if (!anexos || anexos.length === 0) {
-    container.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum anexo adicionado ainda</p>';
+    container.innerHTML = '<p class="text-center text-gray-400 py-4 text-sm">Nenhum anexo adicionado ainda</p>';
     return;
   }
   
-  var html = '<div class="overflow-x-auto"><table class="w-full text-sm">';
-  html += '<thead class="bg-gray-100"><tr class="text-xs text-gray-600 uppercase"><th class="py-2 px-2">Arquivo</th><th class="py-2 px-2">Descrição</th><th class="py-2 px-2">Tamanho</th><th class="py-2 px-2">Enviado em</th><th class="py-2 px-2">Ações</th></tr></thead><tbody class="divide-y divide-gray-100">';
+  var html = '<table class="w-full text-sm table-fixed">';
+  html += '<thead class="bg-gray-100"><tr class="text-xs text-gray-600 uppercase"><th class="py-2 px-1 font-medium">Arquivo</th><th class="py-2 px-1 font-medium w-20">Tamanho</th><th class="py-2 px-1 font-medium w-24">Data</th><th class="py-2 px-1 font-medium w-14">Ações</th></tr></thead><tbody class="divide-y divide-gray-100">';
   
   anexos.forEach(function(anexo) {
-    var tamanhoKB = anexo.tamanho_bytes ? (anexo.tamanho_bytes / 1024).toFixed(2) : '-';
-    var dataFormatada = anexo.created_at ? new Date(anexo.created_at).toLocaleString('pt-BR') : '-';
+    var tamanhoKB = anexo.tamanho_bytes ? (anexo.tamanho_bytes / 1024).toFixed(0) + ' KB' : '-';
+    var dataFormatada = anexo.created_at ? new Date(anexo.created_at).toLocaleDateString('pt-BR') : '-';
     
     html += '<tr class="hover:bg-gray-50">' +
-      '<td class="py-2 px-2">' +
-        '<a href="' + anexo.url_arquivo + '" target="_blank" class="text-gray-700 hover:text-gray-900">' +
+      '<td class="py-2 px-1 truncate" title="' + anexo.nome_original + '">' +
+        '<a href="' + anexo.url_arquivo + '" target="_blank" class="text-gray-700 hover:text-gray-900 text-xs">' +
           '<i class="fas fa-file mr-1 text-gray-400"></i>' + anexo.nome_original +
         '</a>' +
       '</td>' +
-      '<td class="py-2 px-2 text-gray-600">' + (anexo.descricao || '-') + '</td>' +
-      '<td class="py-2 px-2 text-gray-600">' + tamanhoKB + ' KB</td>' +
-      '<td class="py-2 px-2 text-gray-600">' + dataFormatada + '</td>' +
-      '<td class="py-2 px-2">' +
+      '<td class="py-2 px-1 text-xs text-gray-600">' + tamanhoKB + '</td>' +
+      '<td class="py-2 px-1 text-xs text-gray-600">' + dataFormatada + '</td>' +
+      '<td class="py-2 px-1">' +
         '<div class="flex gap-1">' +
           '<button onclick="editarAnexo(' + anexo.id + ')" class="p-1 rounded hover:bg-gray-100 text-gray-400" title="Editar">' +
             '<i class="fas fa-edit text-xs"></i>' +
@@ -230,7 +229,7 @@ function renderizarAnexos(anexos) {
     '</tr>';
   });
   
-  html += '</tbody></table></div>';
+  html += '</tbody></table>';
   container.innerHTML = html;
 }
 </script>
@@ -392,58 +391,49 @@ function renderizarAnexos(anexos) {
           </button>
           {% endif %}
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-100">
-              <tr class="text-xs text-gray-600 uppercase">
-                <th class="font-medium py-2 px-2">#</th>
-                <th class="font-medium py-2 px-2">Plataforma</th>
-                <th class="font-medium py-2 px-2">Produto</th>
-                <th class="font-medium py-2 px-2">Segmentação</th>
-                <th class="font-medium py-2 px-2">Formatos</th>
-                <th class="font-medium py-2 px-2 text-center">KPI</th>
-                <th class="font-medium py-2 px-2">Período</th>
-                <th class="font-medium py-2 px-2 text-right">Volume</th>
-                <th class="font-medium py-2 px-2 text-right">Val. Unit.</th>
-                <th class="font-medium py-2 px-2 text-right">Invest.</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              {% if linhas %}
-                {% for linha in linhas %}
-                <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarLinha({{ linha.id }})">
-                  <td class="py-2 px-2 text-xs text-gray-600">{{ loop.index }}</td>
-                  <td class="py-2 px-2">
-                    <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
-                  </td>
-                  <td class="py-2 px-2 text-xs text-gray-700">{{ linha.produto or '-' }}</td>
-                  <td class="py-2 px-2 text-xs text-gray-600 max-w-[150px] truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
-                  <td class="py-2 px-2 text-xs text-gray-600">{{ linha.formatos or linha.formato or '-' }}</td>
-                  <td class="py-2 px-2 text-center">
-                    <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
-                  </td>
-                  <td class="py-2 px-2 text-xs text-gray-600">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
-                  <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
-                  <td class="py-2 px-2 text-xs text-right text-gray-700">R$ {{ "{:,.2f}".format(linha.valor_unitario or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                  <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                </tr>
-                {% endfor %}
-              {% else %}
-                <tr><td colspan="10" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
-              {% endif %}
-            </tbody>
+        <table class="w-full text-sm table-fixed">
+          <thead class="bg-gray-100">
+            <tr class="text-xs text-gray-600 uppercase">
+              <th class="font-medium py-2 px-1 w-8">#</th>
+              <th class="font-medium py-2 px-1 w-20">Plataforma</th>
+              <th class="font-medium py-2 px-1">Segmentação</th>
+              <th class="font-medium py-2 px-1 w-16 text-center">KPI</th>
+              <th class="font-medium py-2 px-1 w-20">Período</th>
+              <th class="font-medium py-2 px-1 w-20 text-right">Volume</th>
+              <th class="font-medium py-2 px-1 w-24 text-right">Invest.</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
             {% if linhas %}
-            <tfoot class="bg-gray-50">
-              <tr class="font-semibold text-xs text-gray-700">
-                <td colspan="7" class="py-2 px-2 text-right">Total Itens</td>
-                <td class="py-2 px-2 text-right">{{ "{:,}".format(linhas|sum(attribute='volume_contratado') or 0).replace(',', '.') }}</td>
-                <td class="py-2 px-2 text-right">-</td>
-                <td class="py-2 px-2 text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              {% for linha in linhas %}
+              <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarLinha({{ linha.id }})">
+                <td class="py-2 px-1 text-xs text-gray-600">{{ loop.index }}</td>
+                <td class="py-2 px-1">
+                  <span class="px-1 py-0.5 text-xs rounded text-white truncate block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
+                </td>
+                <td class="py-2 px-1 text-xs text-gray-600 truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
+                <td class="py-2 px-1 text-center">
+                  <span class="px-1 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
+                </td>
+                <td class="py-2 px-1 text-xs text-gray-600">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
+                <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-1 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
-            </tfoot>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="7" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
             {% endif %}
-          </table>
-        </div>
+          </tbody>
+          {% if linhas %}
+          <tfoot class="bg-gray-50">
+            <tr class="font-semibold text-xs text-gray-700">
+              <td colspan="5" class="py-2 px-1 text-right">Total Itens</td>
+              <td class="py-2 px-1 text-right">{{ "{:,}".format(linhas|sum(attribute='volume_contratado') or 0).replace(',', '.') }}</td>
+              <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
       </div>
 
       <!-- AUDIÊNCIAS SELECIONADAS -->
@@ -460,50 +450,47 @@ function renderizarAnexos(anexos) {
           </button>
           {% endif %}
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-100">
-              <tr class="text-xs text-gray-600 uppercase">
-                <th class="font-medium py-2 px-2">#</th>
-                <th class="font-medium py-2 px-2">Audiência</th>
-                <th class="font-medium py-2 px-2">Categoria</th>
-                <th class="font-medium py-2 px-2 text-right">CPM</th>
-                <th class="font-medium py-2 px-2 text-right">Impressões</th>
-                <th class="font-medium py-2 px-2 text-right">Investimento</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              {% if audiencias %}
-                {% for aud in audiencias %}
-                <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
-                  <td class="py-2 px-2">
-                    <span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-xs text-white" style="background-color: #72cd80;">{{ loop.index }}</span>
-                  </td>
-                  <td class="py-2 px-2 text-xs">
-                    <div class="font-medium text-gray-800 hover:text-gray-600">{{ aud.audiencia_nome or '-' }}</div>
-                    <div class="text-gray-400 text-xs">{{ aud.audiencia_publico or '' }}</div>
-                  </td>
-                  <td class="py-2 px-2 text-xs text-gray-600">{{ aud.audiencia_categoria or '-' }}</td>
-                  <td class="py-2 px-2 text-xs text-right text-gray-700">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                  <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
-                  <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                </tr>
-                {% endfor %}
-              {% else %}
-                <tr><td colspan="6" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
-              {% endif %}
-            </tbody>
+        <table class="w-full text-sm table-fixed">
+          <thead class="bg-gray-100">
+            <tr class="text-xs text-gray-600 uppercase">
+              <th class="font-medium py-2 px-1 w-8">#</th>
+              <th class="font-medium py-2 px-1">Audiência</th>
+              <th class="font-medium py-2 px-1 w-20">Categoria</th>
+              <th class="font-medium py-2 px-1 w-16 text-right">CPM</th>
+              <th class="font-medium py-2 px-1 w-24 text-right">Impressões</th>
+              <th class="font-medium py-2 px-1 w-24 text-right">Invest.</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
-            <tfoot class="bg-gray-50">
-              <tr class="font-semibold text-xs text-gray-700">
-                <td colspan="4" class="py-2 px-2 text-right">Total Audiências</td>
-                <td class="py-2 px-2 text-right">{{ "{:,}".format(audiencias|sum(attribute='impressoes_estimadas') or 0).replace(',', '.') }}</td>
-                <td class="py-2 px-2 text-right">R$ {{ "{:,.2f}".format(audiencias|sum(attribute='investimento_sugerido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              {% for aud in audiencias %}
+              <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
+                <td class="py-2 px-1">
+                  <span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-xs text-white" style="background-color: #72cd80;">{{ loop.index }}</span>
+                </td>
+                <td class="py-2 px-1 text-xs truncate" title="{{ aud.audiencia_nome or '' }}">
+                  <div class="font-medium text-gray-800 truncate">{{ aud.audiencia_nome or '-' }}</div>
+                </td>
+                <td class="py-2 px-1 text-xs text-gray-600 truncate">{{ aud.audiencia_categoria or '-' }}</td>
+                <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-1 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
-            </tfoot>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="6" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
             {% endif %}
-          </table>
-        </div>
+          </tbody>
+          {% if audiencias %}
+          <tfoot class="bg-gray-50">
+            <tr class="font-semibold text-xs text-gray-700">
+              <td colspan="4" class="py-2 px-1 text-right">Total</td>
+              <td class="py-2 px-1 text-right">{{ "{:,}".format(audiencias|sum(attribute='impressoes_estimadas') or 0).replace(',', '.') }}</td>
+              <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(audiencias|sum(attribute='investimento_sugerido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
       </div>
 
       <!-- RESUMO TOTAL DA PROPOSTA -->
@@ -556,6 +543,48 @@ function renderizarAnexos(anexos) {
         </h2>
         <div id="lista_comentarios" class="space-y-3 max-h-48 overflow-y-auto">
           <p class="text-center text-gray-400 py-4 text-sm">Nenhum comentário ainda</p>
+        </div>
+      </div>
+
+      <!-- ANEXOS -->
+      <div class="bg-white rounded border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <i class="fas fa-paperclip text-gray-400"></i>
+            Anexos
+            <span id="contador_anexos" class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">0</span>
+          </h2>
+          {% if modo == 'editar' %}
+          <button onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
+            <i class="fas fa-plus mr-1"></i>Adicionar
+          </button>
+          {% endif %}
+        </div>
+        
+        <!-- Área de Drag & Drop -->
+        {% if modo == 'editar' %}
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-3 text-center transition-colors"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)">
+          <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
+          <p class="text-sm text-gray-500">Arraste arquivos aqui ou</p>
+          <label class="cursor-pointer">
+            <span class="text-sm font-medium" style="color: #72cd80;">clique para selecionar</span>
+            <input type="file" multiple class="hidden" onchange="handleFileSelect(event)">
+          </label>
+          <p class="text-xs text-gray-400 mt-1">Máximo 15MB por arquivo</p>
+        </div>
+        
+        <!-- Progress bar de upload -->
+        <div id="upload_progress" class="hidden mb-3">
+          <progress class="progress w-full" value="0" max="100"></progress>
+        </div>
+        {% endif %}
+        
+        <!-- Lista de Anexos -->
+        <div id="lista_anexos">
+          <p class="text-center text-gray-400 py-4 text-sm">Nenhum anexo adicionado ainda</p>
         </div>
       </div>
 
@@ -700,6 +729,9 @@ function renderizarAnexos(anexos) {
           {% endif %}
           <button onclick="adicionarComentarioRapido()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
             <i class="fas fa-comment mr-2 text-gray-400"></i>Adicionar Comentário
+          </button>
+          <button onclick="duplicarCotacao()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+            <i class="fas fa-copy mr-2 text-gray-400"></i>Duplicar Cotação
           </button>
           <button onclick="enviarCotacaoEmail()" class="w-full px-3 py-1.5 text-xs rounded text-white text-left" style="background-color: #72cd80;">
             <i class="fas fa-share mr-2"></i>Compartilhar Proposta

@@ -87,6 +87,34 @@
                 {% endif %}
               </select>
             </div>
+
+            <div class="form-control">
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Agência</span></label>
+              <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-2 py-1.5 border border-base-300 rounded bg-base-100 text-sm truncate h-8 flex items-center">
+                  <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
+                </div>
+                <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="btn btn-sm btn-square btn-outline" style="color:#72cd80;border-color:#72cd80;">
+                  <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="limparAgenciaSelecionada()" class="btn btn-sm btn-square btn-ghost text-gray-400 hover:text-red-500" title="Limpar">
+                  <i class="fas fa-times text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-control">
+              <label class="label py-0.5"><span class="label-text text-xs font-medium">Contato Agência</span></label>
+              <select name="agencia_user_id" id="agencia_user_id" class="select select-bordered h-9 min-h-0 text-sm">
+                <option value="">Selecione...</option>
+                {% if cotacao and contatos_agencia %}
+                  {% for contato in contatos_agencia %}
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -215,6 +243,39 @@
   </form>
 </dialog>
 
+<!-- Modal de Busca de Agência -->
+<dialog id="modal_escolher_agencia" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Buscar Agência</h3>
+    
+    <div class="flex gap-2 mb-4">
+      <input 
+        type="text" 
+        id="busca_agencia_modal" 
+        placeholder="Digite nome da agência..." 
+        class="input input-bordered flex-1"
+        onkeyup="buscarAgenciasModal()"
+      >
+      <button onclick="limparBuscaAgenciaModal()" class="btn btn-ghost">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div id="resultados_agencia_modal" class="max-h-96 overflow-y-auto mb-4">
+      <p class="text-center text-base-content/50 py-8">Digite para buscar agências...</p>
+    </div>
+
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
 <script>
 async function buscarClientesModal() {
   const termo = document.getElementById('busca_cliente_modal').value.trim();
@@ -231,7 +292,8 @@ async function buscarClientesModal() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nome: termo,
-        razao: termo
+        razao: termo,
+        agencia: false  // Filtrar apenas clientes (não agências)
       })
     });
 
@@ -396,6 +458,101 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// ============================================
+// BUSCA DE AGÊNCIA
+// ============================================
+
+async function buscarAgenciasModal() {
+  const termo = document.getElementById('busca_agencia_modal').value.trim();
+  const resultados = document.getElementById('resultados_agencia_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar agências...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo,
+        agencia: true  // Filtrar apenas agências (Agência=Sim)
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
+        html += `
+          <div class="border border-base-300 rounded-lg p-3 hover:bg-base-200 cursor-pointer transition" 
+               onclick="selecionarAgenciaForm('${clienteId}', '${nomeEscapado}')">
+            <p class="font-semibold text-sm">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-base-content/60">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-base-content/50">${documento}</p>
+          </div>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-base-content/50 py-8">Nenhuma agência encontrada</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar agências:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar agências</p>';
+  }
+}
+
+function limparBuscaAgenciaModal() {
+  document.getElementById('busca_agencia_modal').value = '';
+  document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-base-content/50 py-8">Digite para buscar agências...</p>';
+}
+
+async function selecionarAgenciaForm(agenciaId, nomeAgencia) {
+  document.getElementById('agencia_id').value = agenciaId;
+  document.getElementById('nome_agencia_selecionada').textContent = nomeAgencia;
+  document.getElementById('modal_escolher_agencia').close();
+  limparBuscaAgenciaModal();
+  
+  // Carregar contatos da agência
+  await carregarContatosAgencia(agenciaId);
+}
+
+async function carregarContatosAgencia(agenciaId) {
+  const contatoAgenciaSelect = document.getElementById('agencia_user_id');
+  contatoAgenciaSelect.innerHTML = '<option value="">Selecione...</option>';
+  
+  if (agenciaId) {
+    try {
+      const response = await fetch(`/api/clientes/${agenciaId}/todos-contatos`);
+      if (response.ok) {
+        const contatos = await response.json();
+        contatos.forEach(contato => {
+          const option = document.createElement('option');
+          option.value = contato.id_contato_cliente;
+          option.textContent = contato.nome_completo + (contato.email ? ` - ${contato.email}` : '');
+          contatoAgenciaSelect.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contatos da agência:', error);
+    }
+  }
+}
+
+function limparAgenciaSelecionada() {
+  document.getElementById('agencia_id').value = '';
+  document.getElementById('nome_agencia_selecionada').textContent = 'Nenhuma';
+  document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
+}
 
 </script>
 {% endblock %}

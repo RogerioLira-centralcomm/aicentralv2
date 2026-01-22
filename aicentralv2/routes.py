@@ -1008,7 +1008,9 @@ def init_routes(app):
         """API para retornar contatos do cliente em JSON"""
         try:
             contatos = db.obter_contatos_por_cliente(cliente_id)
-            return jsonify(contatos or [])
+            # Converter Row objects para dict para garantir todos os campos
+            resultado = [dict(c) for c in contatos] if contatos else []
+            return jsonify(resultado)
         except Exception as e:
             app.logger.error(f"Erro ao buscar contatos do cliente {cliente_id}: {e}")
             return jsonify({'error': str(e)}), 500
@@ -1840,18 +1842,11 @@ def init_routes(app):
             if categoria in ['A', 'B', 'C']:
                 filtros['categoria_abc'] = categoria
             
-            # Filtro por agência (Sim/Não) - baseado na existência de pk_id_tbl_agencia
-            # Default: 'nao' (sem agência) - sempre aplicar filtro exceto quando 'todos'
-            agencia = (request.args.get('agencia', 'nao') or 'nao').strip().lower()
-            if agencia == 'sim':
-                filtros['tem_agencia'] = True
-                filtros['agencia'] = 'sim'
-            elif agencia == 'todos':
-                # Não aplica filtro de agência - mostra todos
-                filtros['agencia'] = 'todos'
-            else:  # 'nao' (default)
-                filtros['tem_agencia'] = False
-                filtros['agencia'] = 'nao'
+            # Filtro por agência: 'nao' = clientes (default), 'sim' = agências, '' = todos
+            agencia = request.args.get('agencia', 'nao').strip().lower()
+            if agencia in ['sim', 'nao']:
+                filtros['agencia'] = agencia
+            # Se vazio ou outro valor, não aplica filtro (mostra todos)
             
             # Obter dados paginados com métricas
             resultado = db.obter_clientes_paginado(
@@ -4232,6 +4227,8 @@ def init_routes(app):
                     'link_publico_ativo': 'link_publico_ativo' in request.form,
                     'link_publico_token': request.form.get('link_publico_token', '').strip(),
                     'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
+                    'agencia_id': request.form.get('agencia_id', type=int) if request.form.get('agencia_id') else None,
+                    'agencia_user_id': request.form.get('agencia_user_id', type=int) if request.form.get('agencia_user_id') else None,
                 }
 
                 # Remover None values para evitar conflitos
@@ -4314,6 +4311,8 @@ def init_routes(app):
                     'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
                     'client_user_id': request.form.get('client_user_id', type=int) if request.form.get('client_user_id') else None,
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
+                    'agencia_id': request.form.get('agencia_id', type=int) if request.form.get('agencia_id') else None,
+                    'agencia_user_id': request.form.get('agencia_user_id', type=int) if request.form.get('agencia_user_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
                     'observacoes': request.form.get('observacoes', '').strip(),
                     'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
@@ -4346,11 +4345,14 @@ def init_routes(app):
             vendedores = db.obter_vendedores()
             briefings = []
             contatos_cliente = []
+            contatos_agencia = []
             if cotacao.get('client_id'):
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
-                contatos_cliente = db.obter_contatos_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
+            if cotacao.get('agencia_id'):
+                contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
             return render_template('cadu_cotacoes_form.html', 
-                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, modo='editar')
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, modo='editar')
 
         except Exception as e:
             app.logger.error(f"Erro ao editar cotação: {str(e)}", exc_info=True)
@@ -4425,7 +4427,7 @@ def init_routes(app):
             briefing_atual = None
             if cotacao.get('client_id'):
                 app.logger.info(f"DEBUG: Buscando briefings para client_id={cotacao['client_id']}")
-                contatos_cliente = db.obter_contatos_por_cliente(cotacao['client_id'])
+                contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
                 app.logger.info(f"DEBUG: Encontrados {len(briefings)} briefings")
             
@@ -5114,10 +5116,35 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def api_contatos_briefing_por_cliente(cliente_id):
         """API para obter contatos de um cliente (setores Comercial e Operações) para briefings"""
         try:
-            contatos = db.obter_contatos_por_cliente(cliente_id)
+            contatos = db.obter_contatos_comerciais_por_cliente(cliente_id)
             return jsonify([dict(c) for c in contatos] if contatos else [])
         except Exception as e:
             app.logger.error(f"Erro ao buscar contatos do cliente para briefing: {str(e)}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/clientes/<int:cliente_id>/todos-contatos')
+    @login_required
+    def api_todos_contatos_por_cliente(cliente_id):
+        """API para obter TODOS os contatos de um cliente (sem filtro de setor)"""
+        try:
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT 
+                        c.id_contato_cliente,
+                        c.nome_completo,
+                        c.email,
+                        s.display as setor
+                    FROM tbl_contato_cliente c
+                    LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
+                    WHERE c.status = true
+                    AND c.pk_id_tbl_cliente = %s
+                    ORDER BY c.nome_completo ASC
+                ''', (cliente_id,))
+                contatos = cursor.fetchall()
+            return jsonify([dict(c) for c in contatos] if contatos else [])
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar todos contatos do cliente: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/clientes/<int:cliente_id>/projetos')

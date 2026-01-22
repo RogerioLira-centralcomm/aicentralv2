@@ -2860,7 +2860,7 @@ def obter_contatos_comercial_operacoes():
         raise e
 
 
-def obter_contatos_por_cliente(cliente_id):
+def obter_contatos_comerciais_por_cliente(cliente_id):
     """Retorna lista de contatos de um cliente específico dos setores Comercial e Operações"""
     conn = get_db()
     try:
@@ -5205,11 +5205,15 @@ def obter_cotacao_por_id(cotacao_id):
                     resp.nome_completo as responsavel_nome,
                     cont.nome_completo as contato_cliente_nome,
                     cont.email as contato_cliente_email,
-                    cont.telefone as contato_cliente_telefone
+                    cont.telefone as contato_cliente_telefone,
+                    ag.nome_fantasia as agencia_nome,
+                    cont_ag.nome_completo as agencia_user_nome
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
                 LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
+                LEFT JOIN tbl_cliente ag ON c.agencia_id = ag.id_cliente
+                LEFT JOIN tbl_contato_cliente cont_ag ON c.agencia_user_id = cont_ag.id_contato_cliente
                 WHERE c.id = %s AND c.deleted_at IS NULL
             ''', (cotacao_id,))
             return cursor.fetchone()
@@ -5237,7 +5241,8 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'responsavel_comercial', 'briefing_id', 'meio', 'tipo_peca', 
                 'budget_estimado', 'valor_total_proposta', 
                 'observacoes', 'observacoes_internas', 'origem',
-                'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at'
+                'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at',
+                'agencia_id', 'agencia_user_id'
             ]
             
             for campo in campos_opcionais:
@@ -5273,11 +5278,12 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
-                'aprovada_em', 'desconto_total', 'condicoes_comerciais', 'cliente_id', 'contato_id', 'expires_at'
+                'aprovada_em', 'desconto_total', 'condicoes_comerciais', 'cliente_id', 'contato_id', 'expires_at',
+                'agencia_id', 'agencia_user_id'
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'contato_id', 'expires_at']
+            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'contato_id', 'expires_at', 'agencia_id', 'agencia_user_id']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']
@@ -6240,12 +6246,14 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             params.append(filtros['categoria_abc'])
             count_params.append(filtros['categoria_abc'])
         
-        # Filtro por agência (com/sem agência vinculada).
-        # Considera nulos e zeros como “sem agência” para cobrir bases com default 0.
-        if filtros.get('tem_agencia') is True:
+        # Filtro por agência: ag.key = true significa "é agência", false/NULL significa "é cliente"
+        if filtros.get('agencia') == 'sim':
+            # Mostrar apenas agências (ag.key = true)
             where_clauses.append('ag.key = true')
-        elif filtros.get('tem_agencia') is False:
+        elif filtros.get('agencia') == 'nao':
+            # Mostrar apenas clientes (ag.key = false ou NULL)
             where_clauses.append('(ag.key = false OR ag.key IS NULL)')
+        # Se não especificado ou 'todos', não aplica filtro
         
         # Aplicar cláusulas WHERE
         where_sql = ''

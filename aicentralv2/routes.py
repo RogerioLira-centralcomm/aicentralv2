@@ -63,12 +63,31 @@ def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo
 
 
 def login_required(f):
-    """Decorator para rotas protegidas"""
+    """Decorator para rotas protegidas - SOMENTE CENTRALCOMM"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Faça login para acessar esta página.', 'warning')
             return redirect(url_for('login'))
+        
+        # REGRA INQUEBRÁVEL: Verificar se usuário pertence à CENTRALCOMM
+        try:
+            contato = db.obter_contato_por_id(session['user_id'])
+            if not contato or not contato.get('pk_id_tbl_cliente'):
+                session.clear()
+                flash('Acesso não autorizado.', 'error')
+                return redirect(url_for('login'))
+            
+            cliente = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
+            if not cliente or cliente.get('nome_fantasia', '').upper() != 'CENTRALCOMM':
+                session.clear()
+                flash('Acesso restrito apenas para usuários CENTRALCOMM.', 'error')
+                return redirect(url_for('login'))
+        except Exception:
+            session.clear()
+            flash('Erro de autenticação.', 'error')
+            return redirect(url_for('login'))
+        
         return f(*args, **kwargs)
     return decorated_function
 
@@ -1664,6 +1683,12 @@ def init_routes(app):
         # Convite válido
         cliente_nome = invite.get('cliente_nome') or invite.get('cliente_razao') or 'Cliente'
         
+        # REGRA INQUEBRÁVEL: Verificar se o convite é para CENTRALCOMM
+        cliente = db.obter_cliente_por_id(invite['id_cliente'])
+        if not cliente or cliente.get('nome_fantasia', '').upper() != 'CENTRALCOMM':
+            return render_template('aceitar_convite.html', 
+                                   error='Acesso restrito. Apenas usuários CENTRALCOMM podem criar conta neste sistema.')
+        
         return render_template('aceitar_convite.html', 
                                invite=invite, 
                                cliente_nome=cliente_nome,
@@ -1680,6 +1705,12 @@ def init_routes(app):
         if not invite:
             return render_template('aceitar_convite.html', 
                                    error='Convite não encontrado ou inválido.')
+        
+        # REGRA INQUEBRÁVEL: Verificar se o convite é para CENTRALCOMM
+        cliente = db.obter_cliente_por_id(invite['id_cliente'])
+        if not cliente or cliente.get('nome_fantasia', '').upper() != 'CENTRALCOMM':
+            return render_template('aceitar_convite.html', 
+                                   error='Acesso restrito. Apenas usuários CENTRALCOMM podem criar conta neste sistema.')
         
         if invite['status'] == 'accepted':
             return render_template('aceitar_convite.html', 
@@ -5441,6 +5472,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         try:
             data = request.get_json()
             comentario = data.get('comentario', '').strip()
+            enviar_email = data.get('enviar_email', False)
             
             if not comentario:
                 return jsonify({'success': False, 'message': 'Comentário não pode estar vazio'}), 400
@@ -5459,11 +5491,50 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 registro_tipo='cadu_cotacao_comentarios'
             )
             
+            # Enviar email se solicitado
+            email_enviado = False
+            if enviar_email:
+                try:
+                    # Obter dados da cotação e cliente
+                    cotacao = db.obter_cotacao_por_id(cotacao_id)
+                    if cotacao and cotacao.get('contato_email'):
+                        from brevo import enviar_email_brevo
+                        
+                        # Obter nome do usuário que comentou
+                        usuario = db.obter_contato_por_id(user_id)
+                        usuario_nome = usuario.get('nome_completo', 'Equipe CentralComm') if usuario else 'Equipe CentralComm'
+                        
+                        # Preparar conteúdo do email
+                        assunto = f"Novo comentário na cotação {cotacao.get('numero_cotacao', '')}"
+                        corpo_html = f"""
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #333;">Novo comentário na sua cotação</h2>
+                            <p><strong>Cotação:</strong> {cotacao.get('numero_cotacao', '')} - {cotacao.get('nome_campanha', '')}</p>
+                            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 0;"><strong>{usuario_nome}</strong> comentou:</p>
+                                <p style="margin: 10px 0 0 0;">{comentario}</p>
+                            </div>
+                            <p style="color: #666; font-size: 12px;">Este é um email automático. Para responder, acesse a plataforma.</p>
+                        </div>
+                        """
+                        
+                        enviar_email_brevo(
+                            destinatario_email=cotacao.get('contato_email'),
+                            destinatario_nome=cotacao.get('contato_nome', ''),
+                            assunto=assunto,
+                            corpo_html=corpo_html
+                        )
+                        email_enviado = True
+                        app.logger.info(f"Email de comentário enviado para {cotacao.get('contato_email')}")
+                except Exception as email_error:
+                    app.logger.error(f"Erro ao enviar email de comentário: {email_error}")
+            
             return jsonify({
                 'success': True, 
-                'message': 'Comentário adicionado com sucesso',
+                'message': 'Comentário adicionado com sucesso' + (' e email enviado' if email_enviado else ''),
                 'comentario_id': result['id'],
-                'created_at': result['created_at'].isoformat() if result['created_at'] else None
+                'created_at': result['created_at'].isoformat() if result['created_at'] else None,
+                'email_enviado': email_enviado
             })
             
         except Exception as e:
@@ -5527,6 +5598,80 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
     
+    @app.route('/api/cotacoes/<int:cotacao_id>/criar-briefing', methods=['POST'])
+    @login_required
+    def criar_briefing_cotacao(cotacao_id):
+        """Cria um briefing vinculado à cotação"""
+        try:
+            data = request.get_json() or {}
+            
+            # Obter cotação
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'error': 'Cotação não encontrada'}), 404
+            
+            # Verificar se já tem briefing
+            if cotacao.get('briefing_id'):
+                return jsonify({'success': False, 'error': 'Esta cotação já possui um briefing vinculado'}), 400
+            
+            # Preparar dados do briefing
+            titulo = data.get('titulo', f"{cotacao.get('numero_cotacao', '')} - {cotacao.get('nome_campanha', '')}")
+            cliente_id = data.get('cliente_id') or cotacao.get('client_id')
+            budget = data.get('budget', cotacao.get('budget_estimado'))
+            objetivo = data.get('objetivo', cotacao.get('objetivo_campanha'))
+            
+            user_id = session.get('user_id')
+            
+            dados_briefing = {
+                'titulo': titulo,
+                'cliente_id': cliente_id,
+                'id_contato_cliente': cotacao.get('client_user_id'),
+                'status': 'Em Análise',
+                'progresso': 20,
+                'objetivo': objetivo,
+                'budget': budget,
+                'prazo': cotacao.get('periodo_fim'),
+                'responsavel_centralcomm': user_id,
+                'responsavel': user_id,
+                'id_projeto': None,
+                'plataforma': None,
+                'briefing_original': objetivo,
+                'briefing_melhorado': None,
+                'analise_ia': None,
+                'link_publico_token': None,
+                'link_publico_ativo': False,
+                'enviado_para_centralcomm': True,
+                'data_envio': None
+            }
+            
+            # Criar briefing
+            result = db.criar_briefing(dados_briefing)
+            briefing_id = result.get('id') if isinstance(result, dict) else result
+            
+            if briefing_id:
+                # Vincular briefing à cotação
+                db.atualizar_cotacao(cotacao_id, briefing_id=briefing_id)
+                
+                registrar_auditoria(
+                    acao='CREATE',
+                    modulo='briefings',
+                    descricao=f'Briefing criado e vinculado à cotação {cotacao.get("numero_cotacao")}',
+                    registro_id=briefing_id,
+                    registro_tipo='cadu_briefings'
+                )
+                
+                return jsonify({
+                    'success': True, 
+                    'message': 'Briefing criado e vinculado com sucesso',
+                    'briefing_id': briefing_id
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Erro ao criar briefing'}), 500
+                
+        except Exception as e:
+            app.logger.error(f"Erro ao criar briefing para cotação: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     @app.route('/api/cotacoes/<int:cotacao_id>/link-publico/gerar', methods=['POST'])
     @login_required
     def gerar_link_publico(cotacao_id):

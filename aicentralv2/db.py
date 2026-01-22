@@ -5207,13 +5207,15 @@ def obter_cotacao_por_id(cotacao_id):
                     cont.email as contato_cliente_email,
                     cont.telefone as contato_cliente_telefone,
                     ag.nome_fantasia as agencia_nome,
-                    cont_ag.nome_completo as agencia_user_nome
+                    cont_ag.nome_completo as agencia_user_nome,
+                    br.titulo as briefing_titulo
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
                 LEFT JOIN tbl_contato_cliente cont ON c.client_user_id = cont.id_contato_cliente
                 LEFT JOIN tbl_cliente ag ON c.agencia_id = ag.id_cliente
                 LEFT JOIN tbl_contato_cliente cont_ag ON c.agencia_user_id = cont_ag.id_contato_cliente
+                LEFT JOIN cadu_briefings br ON c.briefing_id = br.id
                 WHERE c.id = %s AND c.deleted_at IS NULL
             ''', (cotacao_id,))
             return cursor.fetchone()

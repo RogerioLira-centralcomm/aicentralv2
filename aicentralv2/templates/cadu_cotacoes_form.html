@@ -53,6 +53,7 @@
           </div>
           {% endif %}
 
+          <!-- Cliente e Contato do Cliente -->
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
             <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
@@ -67,21 +68,6 @@
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Nome da Campanha *</label>
-            <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Ex: Campanha Verão 2025" required>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
-            <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
-              <option value="">Selecione...</option>
-              {% for vendedor in vendedores %}
-              <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Contato do Cliente</label>
             <select name="client_user_id" id="client_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
               <option value="">Selecione...</option>
@@ -93,18 +79,7 @@
             </select>
           </div>
 
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Briefing</label>
-            <select name="briefing_id" id="briefing_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
-              <option value="">Selecione...</option>
-              {% if briefings %}
-                {% for briefing in briefings %}
-                <option value="{{ briefing.id }}" {% if cotacao and cotacao.briefing_id == briefing.id %}selected{% endif %}>{{ briefing.titulo }}</option>
-                {% endfor %}
-              {% endif %}
-            </select>
-          </div>
-
+          <!-- Agência e Contato Agência -->
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
             <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
@@ -131,6 +106,45 @@
                 {% endfor %}
               {% endif %}
             </select>
+          </div>
+
+          <!-- Dados da Campanha -->
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nome da Campanha *</label>
+            <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Ex: Campanha Verão 2025" required>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
+            <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="">Selecione...</option>
+              {% for vendedor in vendedores %}
+              <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Briefing</label>
+            <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
+            <div class="relative">
+              <div class="flex gap-1 items-center">
+                <input type="text" 
+                       id="briefing_busca" 
+                       class="flex-1 text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+                       placeholder="Digite para buscar briefing..."
+                       value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
+                       oninput="buscarBriefingsAutocomplete(this.value)"
+                       onfocus="mostrarSugestoesBriefing()"
+                       autocomplete="off">
+                <button type="button" onclick="limparBriefingSelecionado()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
+                  <i class="fas fa-times text-xs"></i>
+                </button>
+              </div>
+              <div id="briefing_sugestoes" class="absolute z-50 w-full bg-white border border-gray-200 rounded-b shadow-lg max-h-48 overflow-y-auto hidden">
+                <!-- Sugestões serão inseridas aqui -->
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -163,12 +177,14 @@
           <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
           <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
         </div>
-        <!-- Valor Total -->
+        <!-- Valor Total (somente em modo edição) -->
+        {% if modo == 'editar' %}
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$) *</label>
-          <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')" required>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$)</label>
+          <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')">
           <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
         </div>
+        {% endif %}
       </div>
 
       {% if modo == 'editar' %}
@@ -343,7 +359,7 @@ function limparBuscaModal() {
   document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
 }
 
-function selecionarClienteForm(clienteId, nomeFantasia) {
+async function selecionarClienteForm(clienteId, nomeFantasia) {
   // Preencher campo hidden
   document.getElementById('client_id').value = clienteId;
   
@@ -356,6 +372,22 @@ function selecionarClienteForm(clienteId, nomeFantasia) {
   
   // Fechar modal
   document.getElementById('modal_escolher_cliente').close();
+  
+  // Buscar dados do cliente e auto-preencher responsável comercial
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}`);
+    if (response.ok) {
+      const cliente = await response.json();
+      if (cliente.vendas_central_comm) {
+        const selectResp = document.querySelector('select[name="responsavel_comercial"]');
+        if (selectResp) {
+          selectResp.value = cliente.vendas_central_comm;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao buscar dados do cliente:', error);
+  }
 }
 </script>
 
@@ -567,6 +599,155 @@ function limparAgenciaSelecionada() {
   document.getElementById('nome_agencia_selecionada').textContent = 'Nenhuma';
   document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
 }
+
+// ============================================
+// BUSCA DE BRIEFING COM AUTOCOMPLETE
+// ============================================
+
+let briefingBuscaTimeout = null;
+let briefingsCache = [];
+
+async function buscarBriefingsAutocomplete(termo) {
+  const clienteId = document.getElementById('client_id').value;
+  const sugestoesDiv = document.getElementById('briefing_sugestoes');
+  
+  // Limpar timeout anterior
+  if (briefingBuscaTimeout) {
+    clearTimeout(briefingBuscaTimeout);
+  }
+  
+  if (!clienteId) {
+    sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Selecione um cliente primeiro</div>';
+    sugestoesDiv.classList.remove('hidden');
+    return;
+  }
+  
+  if (termo.length < 2) {
+    // Mostrar todos os briefings do cliente
+    if (briefingsCache.length > 0) {
+      renderizarSugestoesBriefing(briefingsCache, termo);
+    } else {
+      await carregarBriefingsCliente(clienteId);
+      renderizarSugestoesBriefing(briefingsCache, termo);
+    }
+    return;
+  }
+  
+  // Debounce de 300ms
+  briefingBuscaTimeout = setTimeout(async () => {
+    try {
+      // Se não temos cache, carregar
+      if (briefingsCache.length === 0) {
+        await carregarBriefingsCliente(clienteId);
+      }
+      
+      // Filtrar localmente
+      const filtrados = briefingsCache.filter(b => 
+        b.titulo.toLowerCase().includes(termo.toLowerCase())
+      );
+      
+      renderizarSugestoesBriefing(filtrados, termo);
+    } catch (error) {
+      console.error('Erro ao buscar briefings:', error);
+      sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-red-500">Erro ao buscar briefings</div>';
+      sugestoesDiv.classList.remove('hidden');
+    }
+  }, 300);
+}
+
+async function carregarBriefingsCliente(clienteId) {
+  try {
+    const response = await fetch(`/api/briefings/cliente/${clienteId}`);
+    if (response.ok) {
+      briefingsCache = await response.json();
+    } else {
+      briefingsCache = [];
+    }
+  } catch (error) {
+    console.error('Erro ao carregar briefings:', error);
+    briefingsCache = [];
+  }
+}
+
+function renderizarSugestoesBriefing(briefings, termo) {
+  const sugestoesDiv = document.getElementById('briefing_sugestoes');
+  
+  if (!briefings || briefings.length === 0) {
+    sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Nenhum briefing encontrado</div>';
+    sugestoesDiv.classList.remove('hidden');
+    return;
+  }
+  
+  let html = '';
+  briefings.forEach(briefing => {
+    const statusClass = getStatusClassBriefing(briefing.status);
+    html += `
+      <div class="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0" 
+           onclick="selecionarBriefing(${briefing.id}, '${briefing.titulo.replace(/'/g, "\\'")}')">
+        <div class="flex justify-between items-center">
+          <span class="text-sm font-medium text-gray-800">${briefing.titulo}</span>
+          <span class="px-1.5 py-0.5 text-xs rounded ${statusClass}">${briefing.status || 'Rascunho'}</span>
+        </div>
+        ${briefing.objetivo ? `<p class="text-xs text-gray-500 truncate mt-0.5">${briefing.objetivo.substring(0, 60)}${briefing.objetivo.length > 60 ? '...' : ''}</p>` : ''}
+      </div>
+    `;
+  });
+  
+  sugestoesDiv.innerHTML = html;
+  sugestoesDiv.classList.remove('hidden');
+}
+
+function getStatusClassBriefing(status) {
+  const classes = {
+    'Rascunho': 'bg-gray-100 text-gray-600',
+    'Enviado': 'bg-blue-100 text-blue-600',
+    'Em Análise': 'bg-yellow-100 text-yellow-600',
+    'Aprovado': 'bg-green-100 text-green-600',
+    'Rejeitado': 'bg-red-100 text-red-600'
+  };
+  return classes[status] || 'bg-gray-100 text-gray-600';
+}
+
+function selecionarBriefing(briefingId, titulo) {
+  document.getElementById('briefing_id').value = briefingId;
+  document.getElementById('briefing_busca').value = titulo;
+  document.getElementById('briefing_sugestoes').classList.add('hidden');
+}
+
+function limparBriefingSelecionado() {
+  document.getElementById('briefing_id').value = '';
+  document.getElementById('briefing_busca').value = '';
+  document.getElementById('briefing_sugestoes').classList.add('hidden');
+}
+
+function mostrarSugestoesBriefing() {
+  const clienteId = document.getElementById('client_id').value;
+  const termo = document.getElementById('briefing_busca').value;
+  
+  if (clienteId) {
+    buscarBriefingsAutocomplete(termo);
+  } else {
+    const sugestoesDiv = document.getElementById('briefing_sugestoes');
+    sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Selecione um cliente primeiro</div>';
+    sugestoesDiv.classList.remove('hidden');
+  }
+}
+
+// Fechar sugestões ao clicar fora
+document.addEventListener('click', function(e) {
+  const briefingContainer = document.getElementById('briefing_busca');
+  const sugestoesDiv = document.getElementById('briefing_sugestoes');
+  
+  if (briefingContainer && sugestoesDiv && !briefingContainer.contains(e.target) && !sugestoesDiv.contains(e.target)) {
+    sugestoesDiv.classList.add('hidden');
+  }
+});
+
+// Limpar cache ao trocar cliente
+document.getElementById('client_id').addEventListener('change', function() {
+  briefingsCache = [];
+  limparBriefingSelecionado();
+});
 
 </script>
 {% endblock %}

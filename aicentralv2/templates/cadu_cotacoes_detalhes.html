@@ -630,8 +630,8 @@ function renderizarAnexos(anexos) {
             <span class="text-gray-500 text-xs">Valor Bruto</span>
             <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
+          <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded p-1 -m-1" onclick="{% if modo == 'editar' %}document.getElementById('modal_editar_desconto').showModal(){% endif %}" title="{% if modo == 'editar' %}Clique para editar{% endif %}">
+            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span>{% if modo == 'editar' %}<i class="fas fa-edit text-xs ml-1 text-gray-400"></i>{% endif %}</span>
             <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="bg-gray-800 rounded p-3 text-center mt-3">
@@ -730,6 +730,11 @@ function renderizarAnexos(anexos) {
           <button onclick="adicionarComentarioRapido()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
             <i class="fas fa-comment mr-2 text-gray-400"></i>Adicionar Comentário
           </button>
+          {% if not cotacao.briefing_id %}
+          <button onclick="document.getElementById('modal_novo_briefing').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
+            <i class="fas fa-file-alt mr-2 text-gray-400"></i>Criar Briefing
+          </button>
+          {% endif %}
           <button onclick="duplicarCotacao()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
             <i class="fas fa-copy mr-2 text-gray-400"></i>Duplicar Cotação
           </button>
@@ -782,9 +787,16 @@ function renderizarAnexos(anexos) {
 
 <!-- Modal Nova Linha -->
 <dialog id="modal_nova_linha" class="modal">
-  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
-    <h3 class="font-bold text-lg mb-2">Nova Linha de Cotação</h3>
+  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto p-0">
+    <!-- Header padrão CRM -->
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+      <h3 class="font-semibold text-lg text-gray-800">Nova Linha de Cotação</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
     
+    <div class="p-6">
     <form id="form_nova_linha" class="grid grid-cols-12 gap-2">
       
       <!-- Linha 1: Segmentação e Praça -->
@@ -870,6 +882,11 @@ function renderizarAnexos(anexos) {
             <option value="YouTube">YouTube</option>
             <option value="Spotify">Spotify</option>
           </optgroup>
+          <optgroup label="Dados">
+            <option value="Serasa">Serasa</option>
+            <option value="Logan">Logan</option>
+            <option value="Cadastro Positivo">Cadastro Positivo</option>
+          </optgroup>
         </select>
       </div>
 
@@ -910,8 +927,8 @@ function renderizarAnexos(anexos) {
             <span class="label-text text-xs">Interativo</span>
           </label>
           <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="produto" value="Outros" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Outros</span>
+            <input type="checkbox" name="produto" value="Parceiro" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Parceiro</span>
           </label>
         </div>
       </div>
@@ -987,23 +1004,34 @@ function renderizarAnexos(anexos) {
         </div>
       </div>
 
-      <div class="form-control col-span-12 flex flex-row justify-end items-end gap-2 mt-2">
-        <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="btn btn-ghost btn-xs">Cancelar</button>
-        <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="btn btn-xs text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
-      </div>
-
     </form>
+    </div>
+    
+    <!-- Footer padrão CRM -->
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+      <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <i class="fas fa-save mr-1"></i>Salvar
+      </button>
+    </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>Fechar</button>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
   </form>
 </dialog>
 
 <!-- Modal Editar Linha -->
 <dialog id="modal_editar_linha" class="modal">
-  <div class="modal-box max-w-6xl">
-    <h3 class="font-bold text-lg mb-2">Editar Linha de Cotação</h3>
+  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto p-0">
+    <!-- Header padrão CRM -->
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+      <h3 class="font-semibold text-lg text-gray-800">Editar Linha de Cotação</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
     
+    <div class="p-6">
     <form id="form_editar_linha" class="grid grid-cols-12 gap-2">
       <input type="hidden" id="edit_linha_id">
       
@@ -1084,6 +1112,11 @@ function renderizarAnexos(anexos) {
             <option value="YouTube">YouTube</option>
             <option value="Spotify">Spotify</option>
           </optgroup>
+          <optgroup label="Dados">
+            <option value="Serasa">Serasa</option>
+            <option value="Logan">Logan</option>
+            <option value="Cadastro Positivo">Cadastro Positivo</option>
+          </optgroup>
         </select>
       </div>
 
@@ -1124,8 +1157,8 @@ function renderizarAnexos(anexos) {
             <span class="label-text text-xs">Interativo</span>
           </label>
           <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_produto" value="Outros" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Outros</span>
+            <input type="checkbox" name="edit_produto" value="Parceiro" class="checkbox checkbox-xs">
+            <span class="label-text text-xs">Parceiro</span>
           </label>
         </div>
       </div>
@@ -1197,20 +1230,24 @@ function renderizarAnexos(anexos) {
         </div>
       </div>
 
-      <div class="form-control col-span-12 flex flex-row justify-between items-end gap-2 mt-2">
-        <button type="button" onclick="excluirLinhaDoModal()" class="btn btn-error btn-xs">
-          <i class="fas fa-trash mr-1"></i>Excluir
-        </button>
-        <div class="flex gap-2">
-          <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="btn btn-ghost btn-xs">Cancelar</button>
-          <button type="button" onclick="salvarEdicaoLinha()" class="btn btn-xs text-white" style="background-color: #72cd80; border-color: #72cd80;">Salvar</button>
-        </div>
-      </div>
-
     </form>
+    </div>
+    
+    <!-- Footer padrão CRM -->
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
+      <button type="button" onclick="excluirLinhaDoModal()" class="px-4 py-2 text-sm border border-red-300 rounded hover:bg-red-50 text-red-600">
+        <i class="fas fa-trash mr-1"></i>Excluir
+      </button>
+      <div class="flex gap-2">
+        <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+        <button type="button" onclick="salvarEdicaoLinha()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+          <i class="fas fa-save mr-1"></i>Salvar
+        </button>
+      </div>
+    </div>
   </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>Fechar</button>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
   </form>
 </dialog>
 
@@ -1317,102 +1354,122 @@ function renderizarAnexos(anexos) {
 
 <!-- Modal Adicionar Audiência - 2 Etapas -->
 <dialog id="modal_adicionar_audiencia" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-4xl">
+  <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto p-0">
     
     <!-- Etapa 1: Busca -->
     <div id="etapa_busca_audiencia">
-      <h3 class="font-bold text-lg mb-4">Buscar Audiência</h3>
+      <!-- Header padrão CRM -->
+      <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+        <h3 class="font-semibold text-lg text-gray-800">Buscar Audiência</h3>
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+        </form>
+      </div>
       
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Digite o nome da audiência</span></label>
-        <div class="join w-full">
-          <input type="text" id="busca_audiencia_termo" class="input input-bordered input-sm join-item flex-1" 
-                 placeholder="Ex: Interessados em viagens, Compradores de eletrônicos..."
-                 onkeyup="if(event.key==='Enter') executarBuscaAudiencias()">
-          <button type="button" onclick="executarBuscaAudiencias()" class="btn btn-sm join-item" style="background-color: #72cd80; color: white;">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            Buscar
-          </button>
+      <div class="p-6">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Digite o nome da audiência</span></label>
+          <div class="join w-full">
+            <input type="text" id="busca_audiencia_termo" class="input input-bordered input-sm join-item flex-1" 
+                   placeholder="Ex: Interessados em viagens, Compradores de eletrônicos..."
+                   onkeyup="if(event.key==='Enter') executarBuscaAudiencias()">
+            <button type="button" onclick="executarBuscaAudiencias()" class="btn btn-sm join-item" style="background-color: #72cd80; color: white;">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              Buscar
+            </button>
+          </div>
+        </div>
+        
+        <!-- Resultados da Busca -->
+        <div id="resultados_busca_container" class="mt-4 hidden">
+          <h4 class="font-semibold text-sm mb-2">Resultados encontrados:</h4>
+          <div id="resultados_busca_lista" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+            <!-- Resultados serão inseridos aqui -->
+          </div>
         </div>
       </div>
       
-      <!-- Resultados da Busca -->
-      <div id="resultados_busca_container" class="mt-4 hidden">
-        <h4 class="font-semibold text-sm mb-2">Resultados encontrados:</h4>
-        <div id="resultados_busca_lista" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
-          <!-- Resultados serão inseridos aqui -->
-        </div>
-      </div>
-      
-      <div class="modal-action">
-        <button type="button" onclick="document.getElementById('modal_adicionar_audiencia').close()" class="btn btn-ghost btn-sm">Cancelar</button>
+      <!-- Footer padrão CRM -->
+      <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+        <button type="button" onclick="document.getElementById('modal_adicionar_audiencia').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
       </div>
     </div>
     
     <!-- Etapa 2: Detalhes da Audiência Selecionada -->
     <div id="etapa_detalhes_audiencia" class="hidden">
-      <div class="flex items-center gap-2 mb-4">
-        <button type="button" onclick="voltarBuscaAudiencia()" class="btn btn-ghost btn-sm btn-circle">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        </button>
-        <h3 class="font-bold text-lg">Configurar Audiência</h3>
+      <!-- Header padrão CRM -->
+      <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="voltarBuscaAudiencia()" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <h3 class="font-semibold text-lg text-gray-800">Configurar Audiência</h3>
+        </div>
+        <form method="dialog">
+          <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+        </form>
       </div>
       
-      <form id="form_nova_audiencia" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <input type="hidden" id="audiencia_id_selecionada">
-        
-        <!-- Card da Audiência com Thumbnail -->
-        <div class="md:col-span-3 bg-gray-100 rounded-lg p-4 flex gap-4">
-          <div id="audiencia_thumbnail" class="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <h4 id="audiencia_nome_display" class="font-bold text-lg"></h4>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
-              <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
+      <div class="p-6">
+        <form id="form_nova_audiencia" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input type="hidden" id="audiencia_id_selecionada">
+          
+          <!-- Card da Audiência com Thumbnail -->
+          <div class="md:col-span-3 bg-gray-100 rounded-lg p-4 flex gap-4">
+            <div id="audiencia_thumbnail" class="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
             </div>
-            <p id="audiencia_publico_display" class="text-sm text-gray-600 mt-2"></p>
+            <div class="flex-1">
+              <h4 id="audiencia_nome_display" class="font-bold text-lg"></h4>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
+                <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
+              </div>
+              <p id="audiencia_publico_display" class="text-sm text-gray-600 mt-2"></p>
+            </div>
           </div>
-        </div>
-        
-        <!-- Campos editáveis -->
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">CPM (R$) *</span></label>
-          <input type="text" id="cpm_estimado" class="input input-bordered input-sm" placeholder="0,00"
-                 oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
-        </div>
-        
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Investimento (R$)</span></label>
-          <input type="text" id="investimento_sugerido" class="input input-bordered input-sm" placeholder="0,00"
-                 oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
-        </div>
-        
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Impressões</span></label>
-          <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm bg-gray-100" placeholder="0" readonly>
-        </div>
-        
-        <!-- Campos ocultos para envio -->
-        <input type="hidden" id="audiencia_nome">
-        <input type="hidden" id="audiencia_publico">
-        <input type="hidden" id="audiencia_categoria">
-        <input type="hidden" id="audiencia_subcategoria">
+          
+          <!-- Campos editáveis -->
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">CPM (R$) *</span></label>
+            <input type="text" id="cpm_estimado" class="input input-bordered input-sm" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
+          </div>
+          
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Investimento (R$)</span></label>
+            <input type="text" id="investimento_sugerido" class="input input-bordered input-sm" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
+          </div>
+          
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Impressões</span></label>
+            <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm bg-gray-100" placeholder="0" readonly>
+          </div>
+          
+          <!-- Campos ocultos para envio -->
+          <input type="hidden" id="audiencia_nome">
+          <input type="hidden" id="audiencia_publico">
+          <input type="hidden" id="audiencia_categoria">
+          <input type="hidden" id="audiencia_subcategoria">
 
-      </form>
+        </form>
+      </div>
       
-      <div class="modal-action">
-        <button type="button" onclick="voltarBuscaAudiencia()" class="btn btn-ghost btn-sm">Voltar</button>
-        <button type="button" id="btn_salvar_audiencia" onclick="salvarNovaAudiencia()" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">Adicionar à Cotação</button>
+      <!-- Footer padrão CRM -->
+      <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+        <button type="button" onclick="voltarBuscaAudiencia()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Voltar</button>
+        <button type="button" id="btn_salvar_audiencia" onclick="salvarNovaAudiencia()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+          <i class="fas fa-plus mr-1"></i>Adicionar à Cotação
+        </button>
       </div>
     </div>
     
   </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>Fechar</button>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
   </form>
 </dialog>
 
@@ -1676,8 +1733,9 @@ function exportarPDF() {
   window.open(`/cotacoes/${cotacaoId}/pdf`, '_blank');
 }
 
-// Percentual líquido do cliente (carregado do servidor)
-const percentualLiquidoCliente = {{ (cliente.percentual if cliente and cliente.percentual else 100)|default(100) }};
+// Percentual do cliente (carregado do servidor) - usado para calcular o valor líquido
+// Fórmula: investLiquido = investBruto * (100 - percentualCliente) / 100
+const percentualCliente = {{ (cliente.percentual if cliente and cliente.percentual else 0)|default(0) }};
 
 // Função para calcular quantidade de dias da campanha
 function calcularDiasCampanha() {
@@ -1935,8 +1993,8 @@ function calcularValorNegociado() {
 function calcularInvestimentoLiquido() {
   const investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
   
-  if (investBruto > 0 && percentualLiquidoCliente > 0) {
-    const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  if (investBruto > 0) {
+    const investLiquido = investBruto * ((100 - percentualCliente) / 100);
     document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
   } else {
     document.getElementById('investimento_liquido').value = '0,00';
@@ -2383,7 +2441,7 @@ async function salvarNovaLinha() {
   
   // Calcular investimento líquido
   const investBruto = parseMoeda(document.getElementById('investimento_bruto').value) || 0;
-  const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  const investLiquido = investBruto * ((100 - percentualCliente) / 100);
   
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) {
@@ -2428,6 +2486,8 @@ async function salvarNovaLinha() {
       document.getElementById('modal_nova_linha').close();
       incrementarContador('linhas');
       showToast('Linha adicionada com sucesso!', 'success');
+      // Recalcular valor total da cotação
+      await recalcularValorTotalCotacao();
       // Recarregar na aba de linhas
       setTimeout(() => {
         window.location.href = window.location.pathname + '?aba=linhas';
@@ -2556,7 +2616,7 @@ function calcularVolumeEdit() {
 
 function calcularInvestLiquidoEdit() {
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  const investLiquido = investBruto * ((100 - percentualCliente) / 100);
   document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
 }
 
@@ -2571,7 +2631,7 @@ async function salvarEdicaoLinha() {
   
   // Calcular investimento líquido
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const investLiquido = investBruto * (percentualLiquidoCliente / 100);
+  const investLiquido = investBruto * ((100 - percentualCliente) / 100);
   
   const data = {
     segmentacao: document.getElementById('edit_segmentacao').value,
@@ -2605,6 +2665,8 @@ async function salvarEdicaoLinha() {
     if (response.ok) {
       document.getElementById('modal_editar_linha').close();
       showToast('Linha atualizada com sucesso!', 'success');
+      // Recalcular valor total da cotação
+      await recalcularValorTotalCotacao();
       // Recarregar na aba de linhas
       setTimeout(() => {
         window.location.href = window.location.pathname + '?aba=linhas';
@@ -2644,6 +2706,8 @@ async function confirmarRemoverLinha(linhaId) {
     if (response.ok) {
       decrementarContador('linhas');
       showToast('Linha removida com sucesso!', 'success');
+      // Recalcular valor total da cotação
+      await recalcularValorTotalCotacao();
       // Recarregar na aba de linhas
       setTimeout(() => {
         window.location.href = window.location.pathname + '?aba=linhas';
@@ -2858,6 +2922,8 @@ async function salvarNovaAudiencia() {
       // Limpar flag de edição
       delete formAudiencia.dataset.editandoId;
       showToast(mensagem, 'success');
+      // Recalcular valor total da cotação
+      await recalcularValorTotalCotacao();
       // Recarregar na aba de audiências
       setTimeout(() => {
         window.location.href = window.location.pathname + '?aba=audiencias';
@@ -2944,6 +3010,8 @@ async function removerAudienciaCotacao(audienciaId) {
     if (response.ok) {
       decrementarContador('audiencias');
       showToast('Audiência removida com sucesso!', 'success');
+      // Recalcular valor total da cotação
+      await recalcularValorTotalCotacao();
       // Recarregar na aba de audiências
       setTimeout(() => {
         window.location.href = window.location.pathname + '?aba=audiencias';
@@ -3424,7 +3492,306 @@ function formatarData(dataStr) {
 function mostrarToast(mensagem, tipo) {
   showToast(mensagem, tipo);
 }
+
+// ==================== CRIAR BRIEFING VINCULADO ====================
+
+async function salvarNovoBriefing() {
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
+  const clienteId = document.getElementById('briefing_cliente_id').value;
+  const titulo = document.getElementById('briefing_titulo').value;
+  const budget = parseMoeda(document.getElementById('briefing_budget').value) || 0;
+  const objetivo = document.getElementById('briefing_objetivo').value.trim();
+  
+  if (!titulo || !clienteId) {
+    showToast('Dados inválidos', 'error');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/criar-briefing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        titulo: titulo,
+        cliente_id: clienteId,
+        budget: budget,
+        objetivo: objetivo
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      document.getElementById('modal_novo_briefing').close();
+      showToast('Briefing criado e vinculado com sucesso!', 'success');
+      // Recarregar a página para atualizar os dados
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } else {
+      showToast(result.error || 'Erro ao criar briefing', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao criar briefing', 'error');
+  }
+}
+
+// ==================== COMENTÁRIOS COM EMAIL ====================
+
+function adicionarComentarioRapido() {
+  document.getElementById('novo_comentario').value = '';
+  document.getElementById('enviar_email_comentario').checked = false;
+  document.getElementById('modal_comentario').showModal();
+}
+
+async function salvarComentarioComEmail() {
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
+  const comentario = document.getElementById('novo_comentario').value.trim();
+  const enviarEmail = document.getElementById('enviar_email_comentario').checked;
+  
+  if (!comentario) {
+    showToast('Digite um comentário', 'warning');
+    return;
+  }
+  
+  try {
+    // Salvar comentário
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comentario, enviar_email: enviarEmail })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      document.getElementById('novo_comentario').value = '';
+      document.getElementById('modal_comentario').close();
+      
+      if (enviarEmail) {
+        showToast('Comentário salvo e email enviado!', 'success');
+      } else {
+        showToast('Comentário adicionado!', 'success');
+      }
+      
+      carregarComentarios();
+    } else {
+      showToast(result.message || 'Erro ao adicionar', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao adicionar comentário', 'error');
+  }
+}
+
+// ==================== EDITAR DESCONTO ====================
+
+async function salvarDesconto() {
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
+  const valorDesconto = parseMoeda(document.getElementById('desconto_valor_modal').value) || 0;
+  const justificativa = document.getElementById('desconto_justificativa').value.trim();
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        desconto_total: valorDesconto
+      })
+    });
+    
+    if (response.ok) {
+      // Adicionar comentário com justificativa se fornecida
+      if (justificativa) {
+        await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comentario: `[DESCONTO] R$ ${valorDesconto.toFixed(2).replace('.', ',')} - ${justificativa}` })
+        });
+      }
+      
+      document.getElementById('modal_editar_desconto').close();
+      showToast('Desconto atualizado com sucesso!', 'success');
+      // Recalcular valor total
+      await recalcularValorTotalCotacao();
+      // Recarregar a página para atualizar os valores
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } else {
+      showToast('Erro ao atualizar desconto', 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao atualizar desconto', 'error');
+  }
+}
+
+// ==================== RECÁLCULO AUTOMÁTICO DO VALOR TOTAL ====================
+
+async function recalcularValorTotalCotacao() {
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) return;
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/calcular-total`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Valor total recalculado:', result);
+    }
+  } catch (error) {
+    console.error('Erro ao recalcular valor total:', error);
+  }
+}
 </script>
+
+<!-- Modal Novo Briefing Simplificado -->
+<dialog id="modal_novo_briefing" class="modal">
+  <div class="modal-box max-w-lg bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+      <h3 class="font-semibold text-lg text-gray-800">Criar Briefing Vinculado</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
+    
+    <div class="p-6">
+      <form id="form_novo_briefing" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Título *</span></label>
+          <input type="text" id="briefing_titulo" class="input input-bordered w-full" 
+                 value="{{ cotacao.numero_cotacao if cotacao else '' }} - {{ cotacao.nome_campanha if cotacao else '' }}"
+                 readonly>
+          <span class="text-xs text-gray-500 mt-1">Gerado automaticamente a partir da cotação</span>
+        </div>
+        
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Cliente</span></label>
+          <input type="text" class="input input-bordered w-full bg-gray-100" 
+                 value="{{ cotacao.cliente_nome if cotacao else '-' }}"
+                 readonly>
+          <input type="hidden" id="briefing_cliente_id" value="{{ cotacao.client_id if cotacao else '' }}">
+        </div>
+        
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Budget (R$)</span></label>
+          <input type="text" id="briefing_budget" class="input input-bordered w-full" 
+                 placeholder="0,00"
+                 value="{% if cotacao and cotacao.budget_estimado %}{{ '{:,.2f}'.format(cotacao.budget_estimado).replace(',', '_').replace('.', ',').replace('_', '.') }}{% endif %}"
+                 oninput="aplicarMascaraDinheiro(this)">
+        </div>
+        
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Objetivo</span></label>
+          <textarea id="briefing_objetivo" class="textarea textarea-bordered w-full" rows="3" 
+                    placeholder="Descreva o objetivo da campanha...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+        </div>
+      </form>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+      <button type="button" onclick="salvarNovoBriefing()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <i class="fas fa-save mr-1"></i>Criar e Vincular
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal Adicionar Comentário -->
+<dialog id="modal_comentario" class="modal">
+  <div class="modal-box max-w-md bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+      <h3 class="font-semibold text-lg text-gray-800">Adicionar Comentário</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
+    
+    <div class="p-6">
+      <form id="form_comentario" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Comentário</span></label>
+          <textarea id="novo_comentario" class="textarea textarea-bordered w-full" rows="4" placeholder="Digite seu comentário..."></textarea>
+        </div>
+        
+        <div class="form-control">
+          <label class="label cursor-pointer justify-start gap-3">
+            <input type="checkbox" id="enviar_email_comentario" class="checkbox checkbox-sm" style="border-color: #72cd80;">
+            <span class="label-text"><i class="fas fa-envelope mr-1"></i>Enviar por email ao cliente</span>
+          </label>
+        </div>
+      </form>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+      <button type="button" onclick="salvarComentarioComEmail()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <i class="fas fa-save mr-1"></i>Salvar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal Editar Desconto -->
+<dialog id="modal_editar_desconto" class="modal">
+  <div class="modal-box max-w-md bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+      <h3 class="font-semibold text-lg text-gray-800">Editar Desconto</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
+    
+    <div class="p-6">
+      <form id="form_editar_desconto" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Valor do Desconto (R$)</span></label>
+          <input type="text" id="desconto_valor_modal" class="input input-bordered w-full" placeholder="0,00" 
+                 value="{% if desconto %}{{ '{:,.2f}'.format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}{% else %}0,00{% endif %}"
+                 oninput="aplicarMascaraDinheiro(this)">
+        </div>
+        
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Justificativa</span></label>
+          <textarea id="desconto_justificativa" class="textarea textarea-bordered" rows="3" placeholder="Informe o motivo do desconto..."></textarea>
+        </div>
+      </form>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+      <button type="button" onclick="salvarDesconto()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <i class="fas fa-save mr-1"></i>Salvar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
 
 <!-- Modal Aprovar -->
 <dialog id="modal_aprovar" class="modal">

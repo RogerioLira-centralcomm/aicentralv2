@@ -355,6 +355,51 @@
                 </div>
                 {% endif %}
 
+                <!-- Card: Decisão do Cliente -->
+                {% if cotacao.status not in ['Aprovada', 'Rejeitada'] %}
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
+                            <i class="fas fa-gavel text-gray-400"></i>
+                            Sua Decisão
+                        </h3>
+                    </div>
+                    <div class="p-5 space-y-3">
+                        <button onclick="abrirModalAprovacao()" 
+                                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-white font-medium transition-all transform hover:scale-[1.02] shadow-md hover:shadow-lg"
+                                style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
+                            <i class="fas fa-check-circle text-lg"></i>
+                            Aprovar Proposta
+                        </button>
+                        <button onclick="abrirModalRejeicao()" 
+                                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-white font-medium transition-all transform hover:scale-[1.02] shadow-md hover:shadow-lg"
+                                style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                            <i class="fas fa-times-circle text-lg"></i>
+                            Rejeitar Proposta
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Status já definido -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-5 text-center">
+                        {% if cotacao.status == 'Aprovada' %}
+                        <div class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center" style="background-color: #dcfce7;">
+                            <i class="fas fa-check-circle text-3xl" style="color: #72cd80;"></i>
+                        </div>
+                        <p class="font-semibold text-gray-800">Proposta Aprovada</p>
+                        <p class="text-sm text-gray-500 mt-1">Obrigado pela confiança!</p>
+                        {% else %}
+                        <div class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-red-50">
+                            <i class="fas fa-times-circle text-3xl text-red-500"></i>
+                        </div>
+                        <p class="font-semibold text-gray-800">Proposta Rejeitada</p>
+                        <p class="text-sm text-gray-500 mt-1">Agradecemos seu feedback.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Card: Ações -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div class="p-5 space-y-3">
@@ -390,6 +435,222 @@
             </div>
         </div>
     </footer>
+
+<!-- Modal Aprovação -->
+<div id="modal_aprovacao" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="fecharModalAprovacao()"></div>
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mx-4">
+            <!-- Header -->
+            <div class="p-6 text-center" style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-white/20 flex items-center justify-center">
+                    <i class="fas fa-check-circle text-3xl text-white"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white">Aprovar Proposta</h3>
+                <p class="text-white/80 text-sm mt-1">Confirme a aprovação desta cotação</p>
+            </div>
+            
+            <!-- Conteúdo -->
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observações (opcional)</label>
+                    <textarea id="obs_aprovacao" rows="3" 
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                              placeholder="Alguma observação sobre a aprovação..."></textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="fecharModalAprovacao()" 
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                        Cancelar
+                    </button>
+                    <button onclick="confirmarAprovacao()" 
+                            class="flex-1 px-4 py-3 rounded-lg text-white font-medium transition-all hover:shadow-lg"
+                            style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
+                        <i class="fas fa-check mr-2"></i>Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Rejeição -->
+<div id="modal_rejeicao" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="fecharModalRejeicao()"></div>
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mx-4">
+            <!-- Header -->
+            <div class="p-6 text-center" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-white/20 flex items-center justify-center">
+                    <i class="fas fa-times-circle text-3xl text-white"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white">Rejeitar Proposta</h3>
+                <p class="text-white/80 text-sm mt-1">Nos ajude a entender o motivo</p>
+            </div>
+            
+            <!-- Conteúdo -->
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Motivo da rejeição *</label>
+                    <select id="motivo_rejeicao" 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3">
+                        <option value="">Selecione um motivo...</option>
+                        <option value="Preço acima do orçamento">Preço acima do orçamento</option>
+                        <option value="Prazo não atende">Prazo não atende</option>
+                        <option value="Escopo diferente do esperado">Escopo diferente do esperado</option>
+                        <option value="Optamos por outro fornecedor">Optamos por outro fornecedor</option>
+                        <option value="Projeto cancelado/adiado">Projeto cancelado/adiado</option>
+                        <option value="Outro">Outro motivo</option>
+                    </select>
+                    
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Comentário adicional</label>
+                    <textarea id="obs_rejeicao" rows="3" 
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                              placeholder="Conte-nos mais detalhes..."></textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="fecharModalRejeicao()" 
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                        Cancelar
+                    </button>
+                    <button onclick="confirmarRejeicao()" 
+                            class="flex-1 px-4 py-3 rounded-lg text-white font-medium transition-all hover:shadow-lg"
+                            style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <i class="fas fa-times mr-2"></i>Rejeitar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast de Notificação -->
+<div id="toast" class="fixed bottom-4 right-4 z-50 hidden">
+    <div id="toast_content" class="px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 text-white font-medium">
+        <i id="toast_icon" class="fas fa-check-circle"></i>
+        <span id="toast_message">Mensagem</span>
+    </div>
+</div>
+
+<script>
+const TOKEN = '{{ token }}';
+const COTACAO_ID = {{ cotacao.id }};
+
+// Modal Aprovação
+function abrirModalAprovacao() {
+    document.getElementById('modal_aprovacao').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function fecharModalAprovacao() {
+    document.getElementById('modal_aprovacao').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+async function confirmarAprovacao() {
+    const observacoes = document.getElementById('obs_aprovacao').value;
+    
+    try {
+        const response = await fetch(`/api/cotacao/publica/${TOKEN}/aprovar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ observacoes })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Proposta aprovada com sucesso!', 'success');
+            fecharModalAprovacao();
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(result.error || 'Erro ao aprovar', 'error');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao processar aprovação', 'error');
+    }
+}
+
+// Modal Rejeição
+function abrirModalRejeicao() {
+    document.getElementById('modal_rejeicao').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function fecharModalRejeicao() {
+    document.getElementById('modal_rejeicao').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+async function confirmarRejeicao() {
+    const motivo = document.getElementById('motivo_rejeicao').value;
+    const observacoes = document.getElementById('obs_rejeicao').value;
+    
+    if (!motivo) {
+        showToast('Selecione um motivo para a rejeição', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/cotacao/publica/${TOKEN}/rejeitar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ motivo, observacoes })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast('Feedback registrado. Obrigado!', 'success');
+            fecharModalRejeicao();
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(result.error || 'Erro ao processar', 'error');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao processar rejeição', 'error');
+    }
+}
+
+// Toast
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    const content = document.getElementById('toast_content');
+    const icon = document.getElementById('toast_icon');
+    const msg = document.getElementById('toast_message');
+    
+    msg.textContent = message;
+    
+    if (type === 'success') {
+        content.style.background = 'linear-gradient(135deg, #72cd80 0%, #5cb868 100%)';
+        icon.className = 'fas fa-check-circle';
+    } else if (type === 'error') {
+        content.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+        icon.className = 'fas fa-exclamation-circle';
+    } else if (type === 'warning') {
+        content.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+        icon.className = 'fas fa-exclamation-triangle';
+    }
+    
+    toast.classList.remove('hidden');
+    
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 4000);
+}
+
+// Fechar modais com ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharModalAprovacao();
+        fecharModalRejeicao();
+    }
+});
+</script>
 
 </body>
 </html>

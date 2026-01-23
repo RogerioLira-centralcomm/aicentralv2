@@ -820,6 +820,72 @@ def init_routes(app):
 
         return render_template('forgot_password_tailwind.html')
     
+    @app.route('/reset-password/<string:token>', methods=['GET', 'POST'])
+    def reset_password(token):
+        """Redefinição de senha via token"""
+        if 'user_id' in session:
+            return redirect(url_for('index'))
+        
+        # Verificar se o token é válido
+        contato = db.buscar_contato_por_token(token)
+        
+        if not contato:
+            flash('Link inválido ou expirado. Solicite um novo.', 'error')
+            return redirect(url_for('forgot_password'))
+        
+        if request.method == 'POST':
+            nova_senha = request.form.get('password', '').strip()
+            confirmar_senha = request.form.get('confirm_password', '').strip()
+            
+            # Validações
+            if not nova_senha or not confirmar_senha:
+                flash('Preencha todos os campos!', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+            
+            if nova_senha != confirmar_senha:
+                flash('As senhas não coincidem!', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+            
+            if len(nova_senha) < 6:
+                flash('A senha deve ter no mínimo 6 caracteres!', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+            
+            try:
+                # Atualizar senha usando bcrypt (mesmo padrão do sistema)
+                nova_senha_hash = db.gerar_senha_hash(nova_senha)
+                
+                conn = db.get_db()
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        UPDATE tbl_contato_cliente
+                        SET senha = %s,
+                            reset_token = NULL,
+                            reset_token_expires = NULL,
+                            data_modificacao = CURRENT_TIMESTAMP
+                        WHERE id_contato_cliente = %s
+                    ''', (nova_senha_hash, contato['id_contato_cliente']))
+                conn.commit()
+                
+                # Enviar email de confirmação
+                try:
+                    send_password_changed_email(
+                        user_email=contato['email'],
+                        user_name=contato['nome_completo']
+                    )
+                except Exception as e:
+                    app.logger.warning(f"Erro ao enviar email de confirmação: {e}")
+                
+                app.logger.info(f"Senha redefinida com sucesso para: {contato['email']}")
+                flash('Senha redefinida com sucesso! Faça login com sua nova senha.', 'success')
+                return redirect(url_for('login'))
+                
+            except Exception as e:
+                app.logger.error(f"Erro ao redefinir senha: {str(e)}", exc_info=True)
+                flash('Erro ao redefinir senha. Tente novamente.', 'error')
+                return render_template('reset_password_tailwind.html', token=token, user=contato)
+        
+        return render_template('reset_password_tailwind.html', token=token, user=contato)
+    
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required
     def cliente_editar(cliente_id):
@@ -4590,8 +4656,9 @@ def init_routes(app):
             from reportlab.lib.pagesizes import A4
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import mm
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
             from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            import os
             
             # Buscar cotação pelo token
             conn = db.get_db()
@@ -4621,6 +4688,7 @@ def init_routes(app):
             cliente = db.obter_cliente_por_id(cotacao['client_id']) if cotacao.get('client_id') else None
             linhas = db.obter_linhas_cotacao(cotacao_id)
             audiencias = db.obter_audiencias_cotacao(cotacao_id)
+            responsavel = db.obter_contato_cliente(cotacao['responsavel_id']) if cotacao.get('responsavel_id') else None
             
             # Criar PDF em memória
             buffer = BytesIO()
@@ -4628,90 +4696,165 @@ def init_routes(app):
             
             # Estilos
             styles = getSampleStyleSheet()
-            title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#1e3a8a'), spaceAfter=12, alignment=TA_CENTER)
-            heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#1e3a8a'), spaceAfter=8, spaceBefore=12)
+            title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.white, spaceAfter=4, alignment=TA_LEFT)
+            subtitle_style = ParagraphStyle('CustomSubtitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#72cd80'), spaceAfter=0)
+            heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a1a2e'), spaceAfter=6, spaceBefore=10)
             normal_style = styles['Normal']
+            small_style = ParagraphStyle('Small', parent=styles['Normal'], fontSize=8)
+            white_text = ParagraphStyle('WhiteText', parent=styles['Normal'], fontSize=9, textColor=colors.white)
+            green_text = ParagraphStyle('GreenText', parent=styles['Normal'], fontSize=14, textColor=colors.HexColor('#72cd80'), fontName='Helvetica-Bold')
             
             # Conteúdo do PDF
             story = []
             
-            # Título
-            story.append(Paragraph("PROPOSTA COMERCIAL", title_style))
-            story.append(Spacer(1, 10*mm))
+            # Header com fundo escuro (simula o gradient-header do site)
+            logo_path = os.path.join(app.root_path, 'static', 'images', 'cc_logo.png')
             
-            # Informações da Cotação
-            info_data = [
-                ['Número:', cotacao.get('numero_cotacao', 'N/A')],
-                ['Cliente:', cliente.get('nome_fantasia', 'N/A') if cliente else 'N/A'],
-                ['Campanha:', cotacao.get('nome_campanha', 'N/A')],
-                ['Data Criação:', cotacao.get('created_at').strftime('%d/%m/%Y') if cotacao.get('created_at') else 'N/A'],
-                ['Status:', cotacao.get('status', 'N/A')],
-            ]
+            # Preparar dados do header
+            nome_campanha = cotacao.get('nome_campanha', 'Proposta Comercial')
+            numero_cotacao = cotacao.get('numero_cotacao', '')
+            nome_cliente = cliente.get('nome_fantasia', cliente.get('razao_social', '')) if cliente else ''
+            valor_total = cotacao.get('valor_total_proposta', 0) or 0
+            valor_formatado = f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
             
+            # Criar header com logo e informações
+            header_content = []
+            
+            # Linha com logo e valor total
+            if os.path.exists(logo_path):
+                try:
+                    # Manter proporção do logo (não espremer)
+                    logo = Image(logo_path, width=22*mm, height=22*mm, kind='proportional')
+                    header_row1 = [[logo, '', Paragraph(f"<b>{valor_formatado}</b>", green_text)]]
+                except:
+                    header_row1 = [['', '', Paragraph(f"<b>{valor_formatado}</b>", green_text)]]
+            else:
+                header_row1 = [['CentralComm', '', Paragraph(f"<b>{valor_formatado}</b>", green_text)]]
+            
+            header_table1 = Table(header_row1, colWidths=[35*mm, 80*mm, 55*mm])
+            header_table1.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1a1a2e')),
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (-1, 0), (-1, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]))
+            story.append(header_table1)
+            
+            # Linha com nome da campanha e cliente
+            header_row2 = [[
+                Paragraph(f"<b>{nome_campanha}</b><br/><font size='8' color='#aaaaaa'>{nome_cliente}</font>", title_style),
+                Paragraph(f"<font size='10' color='#ffffff'><b>Nº {numero_cotacao}</b></font>", white_text)
+            ]]
+            header_table2 = Table(header_row2, colWidths=[120*mm, 50*mm])
+            header_table2.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1a1a2e')),
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (-1, 0), (-1, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ]))
+            story.append(header_table2)
+            story.append(Spacer(1, 8*mm))
+            
+            # Informações da Campanha
+            story.append(Paragraph("Informações da Campanha", heading_style))
+            
+            info_items = []
             if cotacao.get('periodo_inicio') and cotacao.get('periodo_fim'):
                 periodo_inicio = cotacao['periodo_inicio'].strftime('%d/%m/%Y') if hasattr(cotacao['periodo_inicio'], 'strftime') else str(cotacao['periodo_inicio'])
                 periodo_fim = cotacao['periodo_fim'].strftime('%d/%m/%Y') if hasattr(cotacao['periodo_fim'], 'strftime') else str(cotacao['periodo_fim'])
-                info_data.append(['Período:', f"{periodo_inicio} a {periodo_fim}"])
+                info_items.append(['Período:', f"{periodo_inicio} a {periodo_fim}"])
             
-            info_table = Table(info_data, colWidths=[40*mm, 130*mm])
-            info_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0e7ff')),
-                ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e3a8a')),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ]))
-            story.append(info_table)
-            story.append(Spacer(1, 8*mm))
+            if responsavel:
+                info_items.append(['Executivo:', responsavel.get('nome_completo', 'N/A')])
+                if responsavel.get('email'):
+                    info_items.append(['E-mail:', responsavel.get('email')])
+            
+            info_items.append(['Status:', cotacao.get('status', 'N/A')])
+            info_items.append(['Data:', cotacao.get('created_at').strftime('%d/%m/%Y') if cotacao.get('created_at') else 'N/A'])
+            
+            if info_items:
+                info_table = Table(info_items, colWidths=[35*mm, 135*mm])
+                info_table.setStyle(TableStyle([
+                    ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+                    ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#333333')),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ]))
+                story.append(info_table)
+            story.append(Spacer(1, 6*mm))
+            
+            # Objetivo da Campanha
+            if cotacao.get('objetivo_campanha'):
+                story.append(Paragraph("Objetivo da Campanha", heading_style))
+                story.append(Paragraph(cotacao['objetivo_campanha'], normal_style))
+                story.append(Spacer(1, 6*mm))
             
             # Linhas de Cotação
             if linhas:
                 story.append(Paragraph("Itens da Proposta", heading_style))
                 
-                linhas_data = [['Item', 'Descrição', 'Plataforma', 'Período', 'Volume', 'Valor Unit.', 'Total']]
+                linhas_data = [['#', 'Segmentação/Praça', 'Plataforma', 'Formato', 'KPI', 'Período', 'Volume', 'Invest. Bruto']]
                 
                 for idx, linha in enumerate(linhas, 1):
+                    # Segmentação e Praça
                     descricao_parts = []
                     if linha.get('segmentacao'):
-                        descricao_parts.append(linha['segmentacao'])
-                    if linha.get('especificacoes'):
-                        descricao_parts.append(linha['especificacoes'])
-                    descricao = ' - '.join(descricao_parts) if descricao_parts else 'N/A'
+                        descricao_parts.append(linha['segmentacao'][:50] + '...' if len(linha['segmentacao']) > 50 else linha['segmentacao'])
+                    if linha.get('praca'):
+                        descricao_parts.append(f"({linha['praca']})")
+                    descricao = ' '.join(descricao_parts) if descricao_parts else 'N/A'
                     
+                    # Formato
+                    formato = linha.get('formatos') or linha.get('formato_compra') or '-'
+                    
+                    # KPI
+                    kpi = linha.get('objetivo_kpi') or '-'
+                    
+                    # Período
                     periodo = ''
                     if linha.get('data_inicio') and linha.get('data_fim'):
-                        periodo = f"{linha['data_inicio'].strftime('%d/%m') if hasattr(linha['data_inicio'], 'strftime') else linha['data_inicio']} a {linha['data_fim'].strftime('%d/%m') if hasattr(linha['data_fim'], 'strftime') else linha['data_fim']}"
+                        data_ini = linha['data_inicio'].strftime('%d/%m') if hasattr(linha['data_inicio'], 'strftime') else str(linha['data_inicio'])[:5]
+                        data_fim = linha['data_fim'].strftime('%d/%m') if hasattr(linha['data_fim'], 'strftime') else str(linha['data_fim'])[:5]
+                        periodo = f"{data_ini} a {data_fim}"
                     
                     linhas_data.append([
                         str(idx),
-                        Paragraph(descricao[:80], normal_style) if len(descricao) > 80 else descricao,
-                        linha.get('plataforma', 'N/A'),
+                        Paragraph(descricao, small_style),
+                        linha.get('plataforma', '-') or '-',
+                        formato[:15] if len(str(formato)) > 15 else formato,
+                        kpi,
                         periodo,
                         f"{linha.get('volume_contratado', 0):,.0f}".replace(',', '.') if linha.get('volume_contratado') else '-',
-                        f"R$ {linha.get('valor_unitario', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('valor_unitario') else '-',
                         f"R$ {linha.get('investimento_bruto', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('investimento_bruto') else '-'
                     ])
                 
-                linhas_table = Table(linhas_data, colWidths=[12*mm, 48*mm, 25*mm, 22*mm, 20*mm, 22*mm, 22*mm])
+                linhas_table = Table(linhas_data, colWidths=[8*mm, 42*mm, 22*mm, 20*mm, 14*mm, 22*mm, 18*mm, 24*mm])
                 linhas_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+                    ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 8),
+                    ('FONTSIZE', (0, 0), (-1, 0), 7),
                     ('FONTSIZE', (0, 1), (-1, -1), 7),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                     ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 3),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
                     ('TOPPADDING', (0, 0), (-1, -1), 3),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
                 ]))
@@ -4760,6 +4903,23 @@ def init_routes(app):
             ]))
             story.append(totais_table)
             
+            # Condições Comerciais
+            if cotacao.get('condicoes_comerciais'):
+                story.append(Spacer(1, 8*mm))
+                story.append(Paragraph("Condições Comerciais", heading_style))
+                # Quebrar por linhas e adicionar cada uma
+                condicoes = cotacao['condicoes_comerciais'].replace('\r\n', '\n').split('\n')
+                for cond in condicoes:
+                    if cond.strip():
+                        story.append(Paragraph(cond.strip(), small_style))
+                        story.append(Spacer(1, 1*mm))
+            
+            # Observações
+            if cotacao.get('observacoes'):
+                story.append(Spacer(1, 6*mm))
+                story.append(Paragraph("Observações", heading_style))
+                story.append(Paragraph(cotacao['observacoes'], normal_style))
+            
             # Gerar PDF
             doc.build(story)
             
@@ -4774,6 +4934,110 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao gerar PDF público: {str(e)}", exc_info=True)
             return f"Erro ao gerar PDF: {str(e)}", 500
+
+    @app.route('/api/cotacao/publica/<string:token>/aprovar', methods=['POST'])
+    def aprovar_cotacao_publica(token):
+        """API para aprovar cotação via link público"""
+        try:
+            from datetime import datetime
+            
+            data = request.get_json() or {}
+            observacoes = data.get('observacoes', '')
+            
+            # Buscar cotação pelo token
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT id, status FROM cadu_cotacoes 
+                    WHERE link_publico_token = %s 
+                    AND link_publico_ativo = TRUE
+                    AND deleted_at IS NULL
+                ''', (token,))
+                cotacao = cursor.fetchone()
+            
+            if not cotacao:
+                return jsonify({'success': False, 'error': 'Link inválido ou expirado'}), 404
+            
+            # Verificar se já foi aprovada/rejeitada
+            if cotacao['status'] in ['Aprovada', 'Rejeitada']:
+                return jsonify({'success': False, 'error': 'Esta cotação já foi processada'}), 400
+            
+            # Atualizar status para Aprovada
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    UPDATE cadu_cotacoes 
+                    SET status = 'Aprovada',
+                        aprovada_em = %s,
+                        observacoes_cliente = %s,
+                        updated_at = %s
+                    WHERE id = %s
+                ''', (datetime.now(), observacoes, datetime.now(), cotacao['id']))
+                conn.commit()
+            
+            app.logger.info(f"Cotação {cotacao['id']} aprovada via link público")
+            
+            return jsonify({'success': True, 'message': 'Cotação aprovada com sucesso!'})
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao aprovar cotação pública: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/cotacao/publica/<string:token>/rejeitar', methods=['POST'])
+    def rejeitar_cotacao_publica(token):
+        """API para rejeitar cotação via link público"""
+        try:
+            from datetime import datetime
+            
+            data = request.get_json() or {}
+            motivo = data.get('motivo', '')
+            observacoes = data.get('observacoes', '')
+            
+            if not motivo:
+                return jsonify({'success': False, 'error': 'Motivo é obrigatório'}), 400
+            
+            # Buscar cotação pelo token
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    SELECT id, status FROM cadu_cotacoes 
+                    WHERE link_publico_token = %s 
+                    AND link_publico_ativo = TRUE
+                    AND deleted_at IS NULL
+                ''', (token,))
+                cotacao = cursor.fetchone()
+            
+            if not cotacao:
+                return jsonify({'success': False, 'error': 'Link inválido ou expirado'}), 404
+            
+            # Verificar se já foi aprovada/rejeitada
+            if cotacao['status'] in ['Aprovada', 'Rejeitada']:
+                return jsonify({'success': False, 'error': 'Esta cotação já foi processada'}), 400
+            
+            # Combinar motivo e observações
+            obs_completa = f"Motivo: {motivo}"
+            if observacoes:
+                obs_completa += f"\nObservações: {observacoes}"
+            
+            # Atualizar status para Rejeitada
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    UPDATE cadu_cotacoes 
+                    SET status = 'Rejeitada',
+                        rejeitada_em = %s,
+                        motivo_rejeicao = %s,
+                        observacoes_cliente = %s,
+                        updated_at = %s
+                    WHERE id = %s
+                ''', (datetime.now(), motivo, obs_completa, datetime.now(), cotacao['id']))
+                conn.commit()
+            
+            app.logger.info(f"Cotação {cotacao['id']} rejeitada via link público. Motivo: {motivo}")
+            
+            return jsonify({'success': True, 'message': 'Feedback registrado com sucesso!'})
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao rejeitar cotação pública: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/download/anexo/<int:anexo_id>')
     def download_anexo(anexo_id):

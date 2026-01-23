@@ -2219,7 +2219,8 @@ def buscar_audiencias(termo, limite=20):
                     nome,
                     perfil_socioeconomico,
                     cpm_custo,
-                    cpm_venda
+                    cpm_venda,
+                    imagem_url
                 FROM cadu_audiencias
                 WHERE is_active = true
                   AND LOWER(nome) LIKE LOWER(%s)

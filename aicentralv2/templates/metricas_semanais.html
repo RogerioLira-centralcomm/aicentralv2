@@ -30,6 +30,63 @@
     .status-negociacao { background-color: #e0e7ff; color: #4338ca; }
     .status-aprovada { background-color: #dcfce7; color: #166534; }
     .status-rejeitada { background-color: #fee2e2; color: #991b1b; }
+    
+    /* Fix para selects e input week */
+    .select, .input[type="week"] {
+        min-height: 2.5rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        overflow: visible;
+    }
+    .select select {
+        padding-right: 2.5rem;
+        padding-left: 0.75rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        text-overflow: clip;
+        white-space: nowrap;
+        overflow: visible;
+        background-color: transparent;
+        color: inherit;
+        width: 100%;
+    }
+    .select select:focus {
+        outline: 2px solid hsl(var(--p));
+        outline-offset: 2px;
+    }
+    .select select option {
+        padding: 0.5rem;
+        white-space: normal;
+        background-color: hsl(var(--b1));
+        color: hsl(var(--bc));
+    }
+    input[type="week"] {
+        min-width: 180px;
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    input[type="week"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.7;
+    }
+    input[type="week"]:focus {
+        outline: 2px solid hsl(var(--p));
+        outline-offset: 2px;
+    }
+    
+    /* Estilos para busca inteligente de clientes */
+    #resultados_clientes_metricas {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    #resultados_clientes_metricas .cliente-resultado:hover {
+        background-color: hsl(var(--b2));
+    }
+    #filtroClienteBusca:focus {
+        outline: 2px solid hsl(var(--p));
+        outline-offset: 2px;
+    }
 </style>
 {% endblock %}
 
@@ -52,13 +109,13 @@
             <!-- Seletor de Semana -->
             <div class="form-control">
                 <label class="text-xs text-base-content/60 mb-1">Semana</label>
-                <input type="week" id="filtroSemana" class="input input-bordered input-sm w-40" />
+                <input type="week" id="filtroSemana" class="input input-bordered w-full min-w-[180px]" style="min-width: 180px;" />
             </div>
             
             <!-- Executivo -->
             <div class="form-control">
                 <label class="text-xs text-base-content/60 mb-1">Executivo</label>
-                <select id="filtroExecutivo" class="select select-bordered select-sm w-44">
+                <select id="filtroExecutivo" class="select select-bordered w-full min-w-[200px]" style="min-width: 200px;">
                     <option value="">Todos</option>
                     {% for exec in executivos %}
                     <option value="{{ exec.id }}">{{ exec.nome }}</option>
@@ -69,12 +126,26 @@
             <!-- Cliente -->
             <div class="form-control">
                 <label class="text-xs text-base-content/60 mb-1">Cliente</label>
-                <select id="filtroCliente" class="select select-bordered select-sm w-44">
-                    <option value="">Todos</option>
-                    {% for cli in clientes %}
-                    <option value="{{ cli.id_cliente }}">{{ cli.nome_fantasia or cli.razao_social }}</option>
-                    {% endfor %}
-                </select>
+                <div class="relative" style="min-width: 200px;">
+                    <input type="hidden" id="filtroCliente" value="">
+                    <div class="relative">
+                        <input type="text" id="filtroClienteBusca" class="input input-bordered w-full pr-8" 
+                               placeholder="Buscar cliente..." 
+                               autocomplete="off" 
+                               oninput="buscarClientesMetricas(this.value)" 
+                               onfocus="mostrarResultadosClientes()">
+                        <button type="button" 
+                                class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle p-0 h-6 w-6" 
+                                onclick="limparFiltroCliente()"
+                                id="btnLimparCliente"
+                                style="display: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="resultados_clientes_metricas" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-base-300"></div>
+                </div>
             </div>
             
             <!-- Botão Atualizar -->
@@ -337,6 +408,120 @@ function getVariacaoHTML(valor) {
     const cls = valor > 0 ? 'variacao-positiva' : valor < 0 ? 'variacao-negativa' : 'variacao-neutra';
     return `<span class="${cls}">${icon} ${Math.abs(valor).toFixed(1)}%</span>`;
 }
+
+// ==================== BUSCA INTELIGENTE DE CLIENTES ====================
+let timeoutBuscaClientes = null;
+
+function buscarClientesMetricas(termo) {
+    clearTimeout(timeoutBuscaClientes);
+    
+    if (termo.length < 2) {
+        document.getElementById('resultados_clientes_metricas').style.display = 'none';
+        // Se o campo estiver vazio, limpar o filtro
+        if (termo.length === 0) {
+            document.getElementById('filtroCliente').value = '';
+            document.getElementById('filtroClienteBusca').value = '';
+            document.getElementById('btnLimparCliente').style.display = 'none';
+        }
+        return;
+    }
+    
+    timeoutBuscaClientes = setTimeout(() => {
+        fetch('/api/clientes/buscar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nome: termo,
+                razao: termo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            renderizarResultadosClientes(data.clientes || []);
+        })
+        .catch(error => {
+            console.error('Erro ao buscar clientes:', error);
+        });
+    }, 300);
+}
+
+function renderizarResultadosClientes(clientes) {
+    const resultadosDiv = document.getElementById('resultados_clientes_metricas');
+    
+    if (clientes.length === 0) {
+        resultadosDiv.innerHTML = '<div class="p-2 text-xs text-base-content/60">Nenhum cliente encontrado</div>';
+        resultadosDiv.style.display = 'block';
+        return;
+    }
+    
+    // Adicionar opção "Todos"
+    let html = '<div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 cliente-resultado" data-id="" data-nome="">';
+    html += '<div class="font-semibold text-xs text-primary">Todos os clientes</div>';
+    html += '</div>';
+    
+    html += clientes.map((cliente) => `
+        <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0 cliente-resultado" 
+             data-id="${cliente.id_cliente}" 
+             data-nome="${cliente.nome_fantasia || cliente.razao_social}">
+            <div class="font-semibold text-xs">${cliente.nome_fantasia || cliente.razao_social}</div>
+            ${cliente.razao_social && cliente.nome_fantasia ? `<div class="text-xs text-base-content/60">${cliente.razao_social}</div>` : ''}
+        </div>
+    `).join('');
+    
+    resultadosDiv.innerHTML = html;
+    resultadosDiv.style.display = 'block';
+    
+    document.querySelectorAll('.cliente-resultado').forEach(elem => {
+        elem.addEventListener('click', function() {
+            const clienteId = this.getAttribute('data-id');
+            const clienteNome = this.getAttribute('data-nome');
+            
+            document.getElementById('filtroCliente').value = clienteId;
+            document.getElementById('filtroClienteBusca').value = clienteNome || '';
+            resultadosDiv.style.display = 'none';
+            
+            // Mostrar/ocultar botão de limpar
+            const btnLimpar = document.getElementById('btnLimparCliente');
+            if (clienteId) {
+                btnLimpar.style.display = 'block';
+            } else {
+                btnLimpar.style.display = 'none';
+            }
+            
+            // Recarregar dados quando um cliente for selecionado
+            carregarDados();
+        });
+    });
+}
+
+function mostrarResultadosClientes() {
+    const termo = document.getElementById('filtroClienteBusca').value;
+    if (termo.length >= 2) {
+        buscarClientesMetricas(termo);
+    }
+}
+
+function limparFiltroCliente() {
+    document.getElementById('filtroCliente').value = '';
+    document.getElementById('filtroClienteBusca').value = '';
+    document.getElementById('resultados_clientes_metricas').style.display = 'none';
+    document.getElementById('btnLimparCliente').style.display = 'none';
+    carregarDados();
+}
+
+// Fechar resultados ao clicar fora
+document.addEventListener('click', function(event) {
+    const resultadosDiv = document.getElementById('resultados_clientes_metricas');
+    const inputBusca = document.getElementById('filtroClienteBusca');
+    
+    if (resultadosDiv && inputBusca && 
+        !resultadosDiv.contains(event.target) && 
+        !inputBusca.contains(event.target)) {
+        resultadosDiv.style.display = 'none';
+    }
+});
 
 function getFilters() {
     const semana = document.getElementById('filtroSemana').value;
@@ -702,7 +887,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnAtualizar').addEventListener('click', carregarDados);
     document.getElementById('filtroSemana').addEventListener('change', carregarDados);
     document.getElementById('filtroExecutivo').addEventListener('change', carregarDados);
-    document.getElementById('filtroCliente').addEventListener('change', carregarDados);
+    // Cliente usa busca inteligente - carregarDados() é chamado automaticamente ao selecionar
 });
 </script>
 {% endblock %}

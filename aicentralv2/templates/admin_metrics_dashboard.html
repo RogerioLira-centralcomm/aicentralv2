@@ -26,6 +26,36 @@
         0%, 100% { opacity: 1; }
         50% { opacity: .5; }
     }
+    /* Fix para selects */
+    .select {
+        min-height: 2.5rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        overflow: visible;
+    }
+    .select select {
+        padding-right: 2.5rem;
+        padding-left: 0.75rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        text-overflow: clip;
+        white-space: nowrap;
+        overflow: visible;
+        background-color: transparent;
+        color: inherit;
+        width: 100%;
+    }
+    .select select:focus {
+        outline: 2px solid hsl(var(--p));
+        outline-offset: 2px;
+    }
+    .select select option {
+        padding: 0.5rem;
+        white-space: normal;
+        background-color: hsl(var(--b1));
+        color: hsl(var(--bc));
+    }
 </style>
 {% endblock %}
 
@@ -42,16 +72,21 @@
         </div>
         
         <!-- Filtro de período -->
-        <div class="flex items-center gap-2">
-            <label class="text-sm text-base-content/70">Período:</label>
-            <select id="periodoSelect" class="select select-bordered select-sm">
-                <option value="7">Últimos 7 dias</option>
-                <option value="30" selected>Últimos 30 dias</option>
-                <option value="90">Últimos 90 dias</option>
-            </select>
-            <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Atualizar">
-                <i class="fas fa-sync-alt"></i>
-            </button>
+        <div class="flex items-center gap-3">
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">Período</label>
+                <select id="periodoSelect" class="select select-bordered w-full min-w-[180px]" style="min-width: 180px;">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">&nbsp;</label>
+                <button id="refreshBtn" class="btn btn-ghost btn-sm" title="Atualizar">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
         </div>
     </div>
 

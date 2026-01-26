@@ -391,8 +391,8 @@
           </div>
         </div>
 
-        <!-- Linha 3: Apresentação + Fluxo + ID CentralX -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- Linha 3: Apresentação + Fluxo + ID CentralX (campos ocultos) -->
+        <div class="hidden">
           <div class="form-control">
             <label class="text-xs font-medium text-gray-600 mb-1">Apresentação Executivo</label>
             <select name="id_apresentacao_executivo" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
@@ -403,8 +403,8 @@
             </select>
           </div>
           <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Fluxo Boas-Vindas*</label>
-            <select name="id_fluxo_boas_vindas" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-xs font-medium text-gray-600 mb-1">Fluxo Boas-Vindas</label>
+            <select name="id_fluxo_boas_vindas" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
               <option value="">Selecione</option>
               {% for fluxo in fluxos %}
                 <option value="{{ fluxo.id_fluxo_boas_vindas }}">{{ fluxo.display }}</option>
@@ -1054,8 +1054,13 @@ async function buscarEmpresaPorCNPJ(cnpj) {
       if (inputRazaoSocial && data.razao_social) {
         inputRazaoSocial.value = data.razao_social;
       }
-      if (inputNomeFantasia && data.nome_fantasia) {
-        inputNomeFantasia.value = data.nome_fantasia;
+      // Se nome_fantasia vier vazio da ReceitaWS, usar razão social como fallback
+      if (inputNomeFantasia) {
+        if (data.nome_fantasia) {
+          inputNomeFantasia.value = data.nome_fantasia;
+        } else if (data.razao_social) {
+          inputNomeFantasia.value = data.razao_social;
+        }
       }
       
       // Atualizar inscrições

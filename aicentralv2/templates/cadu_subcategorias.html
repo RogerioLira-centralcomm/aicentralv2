@@ -3,134 +3,150 @@
 {% block title %}Subcategorias - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6 space-y-6">
-  <!-- Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold text-base-content">Subcategorias</h1>
-      <p class="text-sm text-base-content/70 mt-1">Gerencie as subcategorias do catálogo de audiências</p>
-    </div>
-    <a href="{{ url_for('cadu_subcategorias_novo') }}" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-      <i class="fas fa-plus mr-2"></i>Nova Subcategoria
-    </a>
-  </div>
-
-  <!-- Filtros -->
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-4">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <!-- Pesquisa por Nome -->
-        <div class="flex items-center gap-3">
-          <label class="label font-semibold text-sm py-1">Pesquisar:</label>
-          <input 
-            type="text" 
-            id="pesquisa_subcategoria" 
-            oninput="filtrarSubcategorias()" 
-            class="input input-bordered input-sm flex-1" 
-            placeholder="Digite o nome..."
-          >
-        </div>
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto (max 66px) estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Subcategorias</h1>
+        {% if subcategorias %}<span class="text-xs text-gray-500">({{ subcategorias|length }} registros)</span>{% endif %}
+      </div>
+      
+      <!-- Filtros Inline -->
+      <div class="flex items-center gap-3">
+        <!-- Pesquisa -->
+        <input type="text" id="pesquisa_subcategoria" oninput="filtrarSubcategorias()" 
+               placeholder="Buscar subcategoria..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
         
-        <!-- Filtro por Categoria -->
-        <div class="flex items-center gap-3">
-          <label class="label font-semibold text-sm py-1">Categoria:</label>
-          <select id="filtro_categoria" onchange="filtrarSubcategorias()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
-            <option value="">Todas as categorias</option>
-            {% for cat in categorias %}
+        <!-- Categoria -->
+        <select id="filtro_categoria" onchange="filtrarSubcategorias()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todas categorias</option>
+          {% for cat in categorias %}
             <option value="{{ cat.nome }}">{{ cat.nome }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Filtro por Status -->
-        <div class="flex items-center gap-3">
-          <label class="label font-semibold text-sm py-1">Status:</label>
-          <select id="filtro_status" onchange="filtrarSubcategorias()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
-            <option value="">Todos os status</option>
-            <option value="ativa">Ativa</option>
-            <option value="inativa">Inativa</option>
-          </select>
+          {% endfor %}
+        </select>
+        
+        <!-- Status Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarStatus('ativa')" id="btn_ativa"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Ativas">
+            <i class="fa-solid fa-circle-check text-sm text-gray-400" id="icon_ativa"></i>
+          </button>
+          <button type="button" onclick="filtrarStatus('inativa')" id="btn_inativa"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Inativas">
+            <i class="fa-solid fa-circle-xmark text-sm text-gray-400" id="icon_inativa"></i>
+          </button>
+          <button type="button" onclick="filtrarStatus('')" id="btn_todos"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  title="Todos">
+            <i class="fa-solid fa-list text-sm text-gray-800" id="icon_todos"></i>
+          </button>
         </div>
       </div>
-      <div class="mt-2">
-        <span id="contador_filtro" class="text-sm text-base-content/70"></span>
+      
+      <!-- Botão Novo -->
+      <div class="flex gap-2">
+        <a href="{{ url_for('cadu_subcategorias_novo') }}" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Nova
+        </a>
       </div>
     </div>
   </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
 
   <!-- Tabela de Subcategorias -->
-  <div class="bg-base-100 rounded-xl overflow-hidden">
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     {% if subcategorias %}
       <div class="overflow-x-auto">
-        <table class="table table-xs w-full" id="tabela_subcategorias">
-          <thead style="background-color: #72cd80;" class="text-white">
+        <table class="w-full text-sm" id="tabela_subcategorias">
+          <thead class="bg-gray-100">
             <tr>
-              <th class="text-left font-bold uppercase">Subcategoria</th>
-              <th class="text-left font-bold uppercase">Categoria</th>
-              <th class="text-left font-bold uppercase">Descrição</th>
-              <th class="text-center font-bold uppercase w-20">Ordem</th>
-              <th class="text-center font-bold uppercase w-24">Status</th>
-              <th class="text-center font-bold uppercase w-32">Ações</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Subcategoria</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase w-40">Categoria</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Descrição</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Ordem</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Status</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {% for sub in subcategorias %}
-            <tr class="hover" data-categoria="{{ sub.categoria_nome or '' }}" data-status="{{ 'ativa' if sub.is_active else 'inativa' }}">
-              <td>
+            <tr class="hover:bg-gray-50 transition-colors {% if not sub.is_active %}opacity-60{% endif %}" 
+                data-categoria="{{ sub.categoria_nome or '' }}"
+                data-status="{{ 'ativa' if sub.is_active else 'inativa' }}">
+              <td class="py-2 px-3">
                 <div class="flex items-center gap-3">
                   {% if sub.icone %}
-                  <div class="avatar placeholder">
-                    <div class="bg-primary text-primary-content rounded-lg w-8 h-8 flex items-center justify-center">
-                      <i class="{{ sub.icone }} text-sm"></i>
-                    </div>
+                  <div class="w-8 h-8 rounded-lg bg-gray-800 text-white flex items-center justify-center">
+                    <i class="{{ sub.icone }} text-sm"></i>
                   </div>
                   {% else %}
-                  <div class="avatar placeholder">
-                    <div class="bg-neutral text-neutral-content rounded-lg w-8 h-8">
-                      <span class="text-xs">{{ sub.nome[0:2]|upper if sub.nome else 'SC' }}</span>
-                    </div>
+                  <div class="w-8 h-8 rounded-lg bg-gray-200 text-gray-600 flex items-center justify-center">
+                    <span class="text-xs font-medium">{{ sub.nome[0:2]|upper if sub.nome else 'SC' }}</span>
                   </div>
                   {% endif %}
                   <div>
-                    <div class="font-semibold text-base-content">{{ sub.nome }}</div>
+                    <div class="font-medium text-gray-800">{{ sub.nome }}</div>
                     {% if sub.slug %}
-                    <div class="text-xs text-base-content/50 font-mono">/{{ sub.slug }}</div>
+                    <div class="text-xs text-gray-400 font-mono">{{ sub.slug }}</div>
                     {% endif %}
                   </div>
                 </div>
               </td>
-              <td>
-                <span class="text-xs">{{ sub.categoria_nome or 'Sem categoria' }}</span>
+              <td class="py-2 px-3">
+                {% if sub.categoria_nome %}
+                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{{ sub.categoria_nome }}</span>
+                {% else %}
+                <span class="text-xs text-gray-400 italic">Sem categoria</span>
+                {% endif %}
               </td>
-              <td>
-                <div class="text-xs text-base-content/70 line-clamp-2 max-w-md">
+              <td class="py-2 px-3">
+                <div class="text-xs text-gray-500 line-clamp-2 max-w-md">
                   {{ sub.descricao or '-' }}
                 </div>
               </td>
-              <td class="text-center">
-                <span class="text-xs">{{ sub.ordem_exibicao or 0 }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="text-xs text-gray-600">{{ sub.ordem_exibicao or 0 }}</span>
               </td>
-              <td class="text-center">
-                <span class="badge badge-sm {% if sub.is_active %}badge-success{% else %}badge-ghost{% endif %}">
-                  {{ 'Ativa' if sub.is_active else 'Inativa' }}
-                </span>
+              <td class="text-center py-2 px-2">
+                {% if sub.is_active %}
+                <span class="text-xs px-2 py-0.5 rounded bg-green-50 text-green-600 font-medium">Ativa</span>
+                {% else %}
+                <span class="text-xs px-2 py-0.5 rounded bg-red-50 text-red-600 font-medium">Inativa</span>
+                {% endif %}
               </td>
-              <td class="text-center">
-                <div class="flex items-center justify-center gap-2">
+              <td class="text-center py-2 px-2">
+                <div class="flex items-center justify-center gap-1">
                   <a href="{{ url_for('cadu_subcategorias_detalhes', id_subcategoria=sub.id) }}" 
-                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                     class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
                      title="Ver detalhes">
-                    <i class="fas fa-eye"></i>
+                    <i class="fas fa-eye text-sm"></i>
                   </a>
                   <a href="{{ url_for('cadu_subcategorias_editar', id_subcategoria=sub.id) }}" 
-                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                     class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
                      title="Editar">
-                    <i class="fas fa-edit"></i>
+                    <i class="fas fa-edit text-sm"></i>
                   </a>
                   <button onclick="confirmarExclusao({{ sub.id }}, '{{ sub.nome }}')"
-                          class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors duration-200"
+                          class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Excluir">
-                    <i class="fas fa-trash"></i>
+                    <i class="fas fa-trash text-sm"></i>
                   </button>
                 </div>
               </td>
@@ -139,17 +155,23 @@
           </tbody>
         </table>
       </div>
+      
+      <!-- Rodapé com contador -->
+      <div class="flex justify-between items-center px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <span id="contador_filtro" class="text-xs text-gray-500"></span>
+      </div>
     {% else %}
-      <div class="text-center py-8">
-        <p class="mb-2 text-base-content/60 text-sm">
+      <div class="text-center py-12">
+        <i class="fas fa-folder-open text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 mb-4">
           {% if categoria_id_filtro %}
           Nenhuma subcategoria nesta categoria.
           {% else %}
           Nenhuma subcategoria cadastrada.
           {% endif %}
         </p>
-        <a href="{{ url_for('cadu_subcategorias_novo') }}" class="btn btn-primary btn-sm">
-          <i class="fas fa-plus mr-2 text-xs"></i>Criar Primeira Subcategoria
+        <a href="{{ url_for('cadu_subcategorias_novo') }}" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700">
+          <i class="fas fa-plus mr-2"></i>Criar Primeira Subcategoria
         </a>
       </div>
     {% endif %}
@@ -157,58 +179,72 @@
 </div>
 
 <script>
+let filtroStatusAtual = '';
+
+function atualizarBotoesStatus() {
+  // Reset todos os botões
+  document.getElementById('btn_ativa').classList.remove('bg-gray-200');
+  document.getElementById('btn_inativa').classList.remove('bg-gray-200');
+  document.getElementById('btn_todos').classList.remove('bg-gray-200');
+  document.getElementById('icon_ativa').classList.remove('text-gray-800');
+  document.getElementById('icon_ativa').classList.add('text-gray-400');
+  document.getElementById('icon_inativa').classList.remove('text-gray-800');
+  document.getElementById('icon_inativa').classList.add('text-gray-400');
+  document.getElementById('icon_todos').classList.remove('text-gray-800');
+  document.getElementById('icon_todos').classList.add('text-gray-400');
+  
+  // Ativar botão selecionado
+  if (filtroStatusAtual === 'ativa') {
+    document.getElementById('btn_ativa').classList.add('bg-gray-200');
+    document.getElementById('icon_ativa').classList.remove('text-gray-400');
+    document.getElementById('icon_ativa').classList.add('text-gray-800');
+  } else if (filtroStatusAtual === 'inativa') {
+    document.getElementById('btn_inativa').classList.add('bg-gray-200');
+    document.getElementById('icon_inativa').classList.remove('text-gray-400');
+    document.getElementById('icon_inativa').classList.add('text-gray-800');
+  } else {
+    document.getElementById('btn_todos').classList.add('bg-gray-200');
+    document.getElementById('icon_todos').classList.remove('text-gray-400');
+    document.getElementById('icon_todos').classList.add('text-gray-800');
+  }
+}
+
+function filtrarStatus(status) {
+  filtroStatusAtual = status;
+  atualizarBotoesStatus();
+  filtrarSubcategorias();
+}
+
 function filtrarSubcategorias() {
   const pesquisa = document.getElementById('pesquisa_subcategoria').value.toLowerCase().trim();
   const categoriaFiltro = document.getElementById('filtro_categoria').value.trim();
-  const statusFiltro = document.getElementById('filtro_status').value.trim();
   const tabela = document.getElementById('tabela_subcategorias');
-  const tbody = tabela.querySelector('tbody');
+  if (!tabela) return;
   
-  if (!tbody) {
-    console.error('Tbody não encontrado');
-    return;
-  }
+  const tbody = tabela.querySelector('tbody');
+  if (!tbody) return;
   
   const linhas = tbody.getElementsByTagName('tr');
   
   let visiveis = 0;
   const total = linhas.length;
   
-  console.log('=== FILTRO DEBUG ===');
-  console.log('Pesquisa:', pesquisa);
-  console.log('Categoria Filtro:', categoriaFiltro);
-  console.log('Status Filtro:', statusFiltro);
-  console.log('Total de linhas:', total);
-  
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const colunas = linha.getElementsByTagName('td');
     
     if (colunas.length > 0) {
-      // Pegar apenas o texto do nome (dentro do div.font-semibold)
-      const nomeElement = colunas[0].querySelector('.font-semibold');
+      const nomeElement = colunas[0].querySelector('.font-medium');
       const nome = nomeElement ? nomeElement.textContent.toLowerCase().trim() : '';
-      
-      const categoriaAttr = linha.getAttribute('data-categoria');
-      const categoria = categoriaAttr ? categoriaAttr.trim() : '';
-      
-      const statusAttr = linha.getAttribute('data-status');
-      const status = statusAttr ? statusAttr.trim() : '';
-      
-      const descricao = colunas[2].textContent.toLowerCase().trim();
-      
-      console.log(`Linha ${i}: categoria="${categoria}", status="${status}", nome="${nome}"`);
+      const categoriaAttr = linha.getAttribute('data-categoria') || '';
+      const statusAttr = linha.getAttribute('data-status') || '';
+      const descricao = colunas[2] ? colunas[2].textContent.toLowerCase().trim() : '';
       
       const matchPesquisa = pesquisa === '' || nome.includes(pesquisa) || descricao.includes(pesquisa);
-      const matchCategoria = categoriaFiltro === '' || categoria === categoriaFiltro;
-      const matchStatus = statusFiltro === '' || status === statusFiltro;
+      const matchCategoria = categoriaFiltro === '' || categoriaAttr === categoriaFiltro;
+      const matchStatus = filtroStatusAtual === '' || statusAttr === filtroStatusAtual;
       
-      // Todos filtros devem passar (AND)
-      const mostrar = matchPesquisa && matchCategoria && matchStatus;
-      
-      console.log(`  matchPesquisa: ${matchPesquisa}, matchCategoria: ${matchCategoria}, matchStatus: ${matchStatus}, mostrar: ${mostrar}`);
-      
-      if (mostrar) {
+      if (matchPesquisa && matchCategoria && matchStatus) {
         linha.style.display = '';
         visiveis++;
       } else {
@@ -217,19 +253,18 @@ function filtrarSubcategorias() {
     }
   }
   
-  console.log('Visíveis:', visiveis);
-  console.log('===================');
-  
   // Atualizar contador
   const contador = document.getElementById('contador_filtro');
-  if (pesquisa || categoriaFiltro || statusFiltro) {
-    contador.textContent = `Mostrando ${visiveis} de ${total} subcategorias`;
-  } else {
-    contador.textContent = `Total: ${total} subcategorias`;
+  if (contador) {
+    if (pesquisa || categoriaFiltro || filtroStatusAtual) {
+      contador.textContent = `Mostrando ${visiveis} de ${total} subcategoria(s)`;
+    } else {
+      contador.textContent = `${total} subcategoria(s)`;
+    }
   }
 }
 
-// Inicializar contador ao carregar a página
+// Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', function() {
   filtrarSubcategorias();
 });
@@ -249,7 +284,7 @@ function confirmarExclusao(id, nome) {
       }
     })
     .catch(error => {
-      showToast('Erro ao excluir subcategoria: ' + error, 'error');
+      alert('Erro ao excluir subcategoria: ' + error);
     });
   }
 }

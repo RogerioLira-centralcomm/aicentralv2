@@ -71,61 +71,61 @@
     <!-- Lista de Briefings - Desktop -->
     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hidden lg:block">
         <table class="table w-full text-sm">
-            <thead class="bg-gray-800 text-white">
-                <tr class="text-xs">
-                    <th class="font-medium py-3">Título</th>
-                    <th class="font-medium py-3 w-24">Status</th>
-                    <th class="font-medium py-3">Cliente</th>
-                    <th class="font-medium py-3">Responsável</th>
-                    <th class="font-medium py-3">Plataforma</th>
-                    <th class="font-medium py-3 w-24">Prazo</th>
-                    <th class="font-medium py-3 w-24">Budget</th>
-                    <th class="font-medium py-3 w-16 text-center">Ações</th>
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Título</th>
+                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Status</th>
+                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Cliente</th>
+                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Responsável</th>
+                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Plataforma</th>
+                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Prazo</th>
+                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Budget</th>
+                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-16">Ações</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100">
                 {% if briefings %}
                     {% for briefing in briefings %}
-                    <tr class="hover:bg-gray-50 border-b border-gray-100 {% if not briefing.responsavel_centralcomm %}bg-amber-50{% endif %}">
-                        <td class="py-2">
+                    <tr class="hover:bg-gray-50 {% if not briefing.responsavel_centralcomm %}bg-amber-50{% endif %}">
+                        <td class="py-2 px-3">
                             <div class="flex items-center gap-2">
                                 {% if not briefing.responsavel_centralcomm %}
                                 <span class="text-amber-500" title="Sem responsável definido">
                                     <i class="fa-solid fa-triangle-exclamation text-xs"></i>
                                 </span>
                                 {% endif %}
-                                <span class="font-medium text-gray-800">{{ briefing.titulo }}</span>
+                                <a href="javascript:void(0)" onclick="abrirModalBriefing({{ briefing.id }})" class="font-medium text-gray-800 hover:text-blue-600 hover:underline">{{ briefing.titulo }}</a>
                             </div>
                         </td>
-                        <td class="py-2">
+                        <td class="py-2 px-3 text-center">
                             {% if briefing.status == 'rascunho' %}
-                                <span class="badge badge-xs bg-slate-200 text-slate-700 border-0">Rascunho</span>
+                                <span class="badge badge-sm bg-slate-200 text-slate-700 border-0">Rascunho</span>
                             {% elif briefing.status == 'pendente' %}
-                                <span class="badge badge-xs bg-amber-100 text-amber-700 border-0">Pendente</span>
+                                <span class="badge badge-sm bg-amber-100 text-amber-700 border-0">Pendente</span>
                             {% elif briefing.status == 'em_andamento' %}
-                                <span class="badge badge-xs bg-blue-100 text-blue-700 border-0">Andamento</span>
+                                <span class="badge badge-sm bg-blue-100 text-blue-700 border-0">Andamento</span>
                             {% elif briefing.status == 'em_revisao' %}
-                                <span class="badge badge-xs bg-purple-100 text-purple-700 border-0">Revisão</span>
+                                <span class="badge badge-sm bg-purple-100 text-purple-700 border-0">Revisão</span>
                             {% elif briefing.status == 'completo' %}
-                                <span class="badge badge-xs bg-green-100 text-green-700 border-0">Completo</span>
+                                <span class="badge badge-sm bg-green-100 text-green-700 border-0">Completo</span>
                             {% elif briefing.status == 'arquivado' %}
-                                <span class="badge badge-xs bg-gray-100 text-gray-500 border-0">Arquivado</span>
+                                <span class="badge badge-sm bg-gray-100 text-gray-500 border-0">Arquivado</span>
                             {% endif %}
                         </td>
-                        <td class="py-2 text-xs text-gray-600">{{ briefing.cliente_nome or '-' }}</td>
-                        <td class="py-2 text-xs text-gray-600">
+                        <td class="py-2 px-3 text-sm text-gray-600">{{ briefing.cliente_nome or '-' }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-600">
                             {% if briefing.responsavel_nome %}
                                 {{ briefing.responsavel_nome }}
                             {% else %}
                                 <span class="text-amber-600 font-medium">Não definido</span>
                             {% endif %}
                         </td>
-                        <td class="py-2 text-xs text-gray-600">{{ briefing.plataforma or '-' }}</td>
-                        <td class="py-2 text-xs text-gray-600">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
-                        <td class="py-2 text-xs text-gray-600">{% if briefing.budget %}R$ {{ "%.0f"|format(briefing.budget|float) }}{% else %}-{% endif %}</td>
-                        <td class="py-2 text-center">
+                        <td class="py-2 px-3 text-sm text-gray-600">{{ briefing.plataforma or '-' }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-600 text-center">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-600 text-center">{% if briefing.budget %}<span class="text-green-600 font-medium">R$ {{ "%.0f"|format(briefing.budget|float) }}</span>{% else %}-{% endif %}</td>
+                        <td class="py-2 px-3 text-center">
                             <button onclick="abrirModalBriefing({{ briefing.id }})" 
-                                    class="btn btn-xs btn-ghost text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                                    class="btn btn-xs btn-ghost text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                     title="Ver briefing">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
@@ -134,9 +134,12 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="8" class="text-center py-8 text-gray-500">
-                            <i class="fa-solid fa-inbox text-4xl text-gray-300 mb-3"></i>
-                            <p>Nenhum briefing encontrado.</p>
+                        <td colspan="8" class="text-center py-12 text-gray-500">
+                            <div class="flex flex-col items-center justify-center">
+                                <i class="fa-solid fa-file-lines text-5xl text-gray-300 mb-4"></i>
+                                <p class="text-gray-500 text-sm">Nenhum briefing encontrado.</p>
+                                <p class="text-gray-400 text-xs mt-1">Tente ajustar os filtros ou aguarde novos briefings.</p>
+                            </div>
                         </td>
                     </tr>
                 {% endif %}
@@ -180,9 +183,12 @@
             </div>
             {% endfor %}
         {% else %}
-            <div class="text-center py-8 text-gray-500">
-                <i class="fa-solid fa-inbox text-4xl text-gray-300 mb-3"></i>
-                <p>Nenhum briefing encontrado.</p>
+            <div class="text-center py-12 text-gray-500">
+                <div class="flex flex-col items-center justify-center">
+                    <i class="fa-solid fa-file-lines text-5xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-sm">Nenhum briefing encontrado.</p>
+                    <p class="text-gray-400 text-xs mt-1">Tente ajustar os filtros ou aguarde novos briefings.</p>
+                </div>
             </div>
         {% endif %}
     </div>

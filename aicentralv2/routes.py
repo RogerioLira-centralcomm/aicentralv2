@@ -4948,7 +4948,7 @@ def init_routes(app):
             conn = db.get_db()
             with conn.cursor() as cursor:
                 cursor.execute('''
-                    SELECT id, status FROM cadu_cotacoes 
+                    SELECT id, status, observacoes FROM cadu_cotacoes 
                     WHERE link_publico_token = %s 
                     AND link_publico_ativo = TRUE
                     AND deleted_at IS NULL
@@ -4962,16 +4962,22 @@ def init_routes(app):
             if cotacao['status'] in ['Aprovada', 'Rejeitada']:
                 return jsonify({'success': False, 'error': 'Esta cotação já foi processada'}), 400
             
+            # Preparar observações (concatenar com existentes se houver)
+            obs_existentes = cotacao.get('observacoes') or ''
+            nova_obs = f"\n\n[Aprovação pelo cliente em {datetime.now().strftime('%d/%m/%Y %H:%M')}]"
+            if observacoes:
+                nova_obs += f"\nObservações: {observacoes}"
+            obs_final = obs_existentes + nova_obs
+            
             # Atualizar status para Aprovada
             with conn.cursor() as cursor:
                 cursor.execute('''
                     UPDATE cadu_cotacoes 
                     SET status = 'Aprovada',
-                        aprovada_em = %s,
-                        observacoes_cliente = %s,
+                        observacoes = %s,
                         updated_at = %s
                     WHERE id = %s
-                ''', (datetime.now(), observacoes, datetime.now(), cotacao['id']))
+                ''', (obs_final.strip(), datetime.now(), cotacao['id']))
                 conn.commit()
             
             app.logger.info(f"Cotação {cotacao['id']} aprovada via link público")
@@ -4999,7 +5005,7 @@ def init_routes(app):
             conn = db.get_db()
             with conn.cursor() as cursor:
                 cursor.execute('''
-                    SELECT id, status FROM cadu_cotacoes 
+                    SELECT id, status, observacoes FROM cadu_cotacoes 
                     WHERE link_publico_token = %s 
                     AND link_publico_ativo = TRUE
                     AND deleted_at IS NULL
@@ -5013,22 +5019,23 @@ def init_routes(app):
             if cotacao['status'] in ['Aprovada', 'Rejeitada']:
                 return jsonify({'success': False, 'error': 'Esta cotação já foi processada'}), 400
             
-            # Combinar motivo e observações
-            obs_completa = f"Motivo: {motivo}"
+            # Preparar observações (concatenar com existentes se houver)
+            obs_existentes = cotacao.get('observacoes') or ''
+            nova_obs = f"\n\n[Rejeição pelo cliente em {datetime.now().strftime('%d/%m/%Y %H:%M')}]"
+            nova_obs += f"\nMotivo: {motivo}"
             if observacoes:
-                obs_completa += f"\nObservações: {observacoes}"
+                nova_obs += f"\nObservações: {observacoes}"
+            obs_final = obs_existentes + nova_obs
             
             # Atualizar status para Rejeitada
             with conn.cursor() as cursor:
                 cursor.execute('''
                     UPDATE cadu_cotacoes 
                     SET status = 'Rejeitada',
-                        rejeitada_em = %s,
-                        motivo_rejeicao = %s,
-                        observacoes_cliente = %s,
+                        observacoes = %s,
                         updated_at = %s
                     WHERE id = %s
-                ''', (datetime.now(), motivo, obs_completa, datetime.now(), cotacao['id']))
+                ''', (obs_final.strip(), datetime.now(), cotacao['id']))
                 conn.commit()
             
             app.logger.info(f"Cotação {cotacao['id']} rejeitada via link público. Motivo: {motivo}")

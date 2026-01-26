@@ -18,14 +18,14 @@
     
     <!-- Header Fixo -->
     <header class="gradient-header text-white sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-3">
+        <div class="max-w-5xl mx-auto px-3 py-2">
             <div class="flex items-center justify-between">
                 <!-- Logo e Info -->
-                <div class="flex items-center gap-4">
-                    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-10 brightness-0 invert">
-                    <div class="hidden sm:block border-l border-white/20 pl-4">
-                        <span class="text-white/60 text-xs uppercase tracking-wider">Link Público</span>
-                        <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-8 brightness-0 invert">
+                    <div class="hidden sm:block border-l border-white/20 pl-3">
+                        <span class="text-white/60 text-[10px] uppercase tracking-wider">Link Público</span>
+                        <div class="flex items-center gap-1.5">
                             {% set status_colors = {
                                 'Rascunho': 'bg-gray-500',
                                 'Pendente': 'bg-yellow-500',
@@ -36,17 +36,17 @@
                                 'Rejeitada': 'bg-red-500',
                                 'Expirada': 'bg-gray-600'
                             } %}
-                            <span class="w-2 h-2 rounded-full {{ status_colors.get(cotacao.status, 'bg-gray-500') }}"></span>
-                            <span class="text-sm font-medium">{{ cotacao.status or 'Pendente' }}</span>
+                            <span class="w-1.5 h-1.5 rounded-full {{ status_colors.get(cotacao.status, 'bg-gray-500') }}"></span>
+                            <span class="text-xs font-medium">{{ cotacao.status or 'Pendente' }}</span>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Ações -->
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                     <a href="{{ url_for('cotacao_publica_pdf', token=token) }}" target="_blank" 
-                       class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fas fa-file-pdf"></i>
+                       class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium transition-colors">
+                        <i class="fas fa-file-pdf text-xs"></i>
                         <span class="hidden sm:inline">Exportar PDF</span>
                     </a>
                 </div>
@@ -55,24 +55,24 @@
     </header>
 
     <!-- Hero Section -->
-    <section class="gradient-header text-white pb-16 pt-8">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+    <section class="gradient-header text-white pb-10 pt-4">
+        <div class="max-w-5xl mx-auto px-3">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
-                    <span class="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-medium mb-4">
-                        <i class="fas fa-file-invoice-dollar"></i>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-full text-[10px] font-medium mb-2">
+                        <i class="fas fa-file-invoice-dollar text-[10px]"></i>
                         {{ cotacao.numero_cotacao }}
                     </span>
-                    <h1 class="text-3xl md:text-4xl font-bold mb-2">{{ cotacao.nome_campanha or 'Proposta Comercial' }}</h1>
+                    <h1 class="text-xl md:text-2xl font-bold mb-1">{{ cotacao.nome_campanha or 'Proposta Comercial' }}</h1>
                     {% if cliente %}
-                    <p class="text-white/70 text-lg">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
+                    <p class="text-white/70 text-sm">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
                     {% endif %}
                 </div>
                 
                 {% if cotacao.valor_total_proposta %}
                 <div class="text-right">
-                    <p class="text-white/60 text-sm uppercase tracking-wider mb-1">Valor Total</p>
-                    <p class="text-4xl font-bold" style="color: #72cd80;">
+                    <p class="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Valor Total</p>
+                    <p class="text-2xl font-bold" style="color: #72cd80;">
                         R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta).replace(',', '_').replace('.', ',').replace('_', '.') }}
                     </p>
                 </div>
@@ -82,101 +82,101 @@
     </section>
 
     <!-- Conteúdo Principal -->
-    <main class="max-w-6xl mx-auto px-4 -mt-8 pb-12">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main class="max-w-5xl mx-auto px-3 -mt-6 pb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
             
             <!-- Coluna Principal (2/3) -->
-            <div class="lg:col-span-2 space-y-6">
+            <div class="lg:col-span-2 space-y-4">
                 
                 <!-- Card: Informações da Campanha -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
-                        <h2 class="font-semibold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-bullhorn text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-bullhorn text-gray-400 text-xs"></i>
                             Informações da Campanha
                         </h2>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div class="p-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {% if cotacao.periodo_inicio %}
                             <div>
-                                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Início</p>
-                                <p class="font-medium text-gray-800">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') }}</p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Início</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') }}</p>
                             </div>
                             {% endif %}
                             {% if cotacao.periodo_fim %}
                             <div>
-                                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Término</p>
-                                <p class="font-medium text-gray-800">{{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}</p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Término</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}</p>
                             </div>
                             {% endif %}
                             {% if responsavel %}
                             <div class="col-span-2">
-                                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Executivo Responsável</p>
-                                <p class="font-medium text-gray-800">{{ responsavel.nome_completo }}</p>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Executivo Responsável</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ responsavel.nome_completo }}</p>
                                 {% if responsavel.email %}
-                                <p class="text-sm text-gray-500">{{ responsavel.email }}</p>
+                                <p class="text-xs text-gray-500">{{ responsavel.email }}</p>
                                 {% endif %}
                             </div>
                             {% endif %}
                         </div>
                         
                         {% if cotacao.objetivo_campanha %}
-                        <div class="mt-6 pt-6 border-t border-gray-100">
-                            <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Objetivo da Campanha</p>
-                            <p class="text-gray-700 whitespace-pre-wrap">{{ cotacao.objetivo_campanha }}</p>
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Objetivo da Campanha</p>
+                            <p class="text-gray-700 text-sm whitespace-pre-wrap">{{ cotacao.objetivo_campanha }}</p>
                         </div>
                         {% endif %}
                     </div>
                 </div>
 
                 <!-- Card: Itens da Proposta -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                        <h2 class="font-semibold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-list text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-list text-gray-400 text-xs"></i>
                             Itens da Proposta
                         </h2>
-                        <span class="px-2 py-1 bg-gray-200 rounded text-xs font-medium text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
+                        <span class="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] font-medium text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
                     </div>
                     {% if linhas and linhas|length > 0 %}
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead class="bg-gray-50 border-b border-gray-100">
-                                <tr class="text-xs text-gray-500 uppercase tracking-wider">
-                                    <th class="px-6 py-3 text-left font-medium">Plataforma</th>
-                                    <th class="px-6 py-3 text-left font-medium">Produto</th>
-                                    <th class="px-6 py-3 text-right font-medium">Volume</th>
-                                    <th class="px-6 py-3 text-left font-medium">Formato</th>
-                                    <th class="px-6 py-3 text-right font-medium">Val. Unit.</th>
-                                    <th class="px-6 py-3 text-right font-medium">Total</th>
+                                <tr class="text-[10px] text-gray-500 uppercase tracking-wider">
+                                    <th class="px-3 py-2 text-left font-medium">Plataforma</th>
+                                    <th class="px-3 py-2 text-left font-medium">Produto</th>
+                                    <th class="px-3 py-2 text-right font-medium">Volume</th>
+                                    <th class="px-3 py-2 text-left font-medium">Formato</th>
+                                    <th class="px-3 py-2 text-right font-medium">Val. Unit.</th>
+                                    <th class="px-3 py-2 text-right font-medium">Total</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-50">
                                 {% for linha in linhas %}
                                 <tr class="{% if linha.is_subtotal %}bg-gray-100 font-semibold{% else %}hover:bg-gray-50{% endif %}">
-                                    <td class="px-6 py-4">
+                                    <td class="px-3 py-2.5">
                                         {% if linha.is_subtotal %}
-                                            <span class="font-semibold text-gray-700">{{ linha.subtotal_label }}</span>
+                                            <span class="font-semibold text-gray-700 text-xs">{{ linha.subtotal_label }}</span>
                                         {% else %}
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800">
                                                 {{ linha.plataforma or '-' }}
                                             </span>
                                         {% endif %}
                                     </td>
-                                    <td class="px-6 py-4 text-sm text-gray-700">{{ linha.produto or '-' }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-700 text-right">
+                                    <td class="px-3 py-2.5 text-xs text-gray-700">{{ linha.produto or '-' }}</td>
+                                    <td class="px-3 py-2.5 text-xs text-gray-700 text-right">
                                         {% if linha.volume_contratado %}
                                             {{ "{:,}".format(linha.volume_contratado).replace(',', '.') }}
                                         {% else %}-{% endif %}
                                     </td>
-                                    <td class="px-6 py-4 text-sm text-gray-700">{{ linha.formato_compra or linha.formatos or '-' }}</td>
-                                    <td class="px-6 py-4 text-sm text-gray-700 text-right">
+                                    <td class="px-3 py-2.5 text-xs text-gray-700">{{ linha.formato_compra or linha.formatos or '-' }}</td>
+                                    <td class="px-3 py-2.5 text-xs text-gray-700 text-right">
                                         {% if linha.valor_unitario %}
                                             R$ {{ "{:,.2f}".format(linha.valor_unitario).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                         {% else %}-{% endif %}
                                     </td>
-                                    <td class="px-6 py-4 text-sm font-semibold text-gray-800 text-right">
+                                    <td class="px-3 py-2.5 text-xs font-semibold text-gray-800 text-right">
                                         {% if linha.valor_total or linha.investimento_bruto %}
                                             R$ {{ "{:,.2f}".format(linha.valor_total or linha.investimento_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                         {% else %}-{% endif %}
@@ -186,8 +186,8 @@
                             </tbody>
                             <tfoot class="bg-gray-800 text-white">
                                 <tr>
-                                    <td colspan="5" class="px-6 py-4 text-right font-semibold">Total Itens</td>
-                                    <td class="px-6 py-4 text-right font-bold text-lg">
+                                    <td colspan="5" class="px-3 py-2.5 text-right font-semibold text-xs">Total Itens</td>
+                                    <td class="px-3 py-2.5 text-right font-bold text-sm">
                                         R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or linhas|sum(attribute='valor_total') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                     </td>
                                 </tr>
@@ -195,62 +195,62 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="p-6 text-center text-gray-500">
-                        <i class="fas fa-inbox text-3xl mb-2 text-gray-300"></i>
-                        <p>Nenhum item adicionado</p>
+                    <div class="p-4 text-center text-gray-500">
+                        <i class="fas fa-inbox text-2xl mb-1 text-gray-300"></i>
+                        <p class="text-sm">Nenhum item adicionado</p>
                     </div>
                     {% endif %}
                 </div>
 
                 <!-- Card: Audiências Selecionadas -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                        <h2 class="font-semibold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-users text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-users text-gray-400 text-xs"></i>
                             Audiências Selecionadas
                         </h2>
-                        <span class="px-2 py-1 bg-gray-200 rounded text-xs font-medium text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
+                        <span class="px-1.5 py-0.5 bg-gray-200 rounded text-[10px] font-medium text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
                     </div>
                     {% if audiencias and audiencias|length > 0 %}
-                    <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {% for audiencia in audiencias %}
-                            <div class="p-4 rounded-lg border border-gray-200 bg-gray-50/50 hover:border-gray-300 transition-colors">
-                                <div class="flex items-start gap-3">
-                                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style="background-color: #72cd80;">
+                    <div class="divide-y divide-gray-100">
+                        {% for audiencia in audiencias %}
+                        <div class="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style="background-color: #72cd80;">
                                         {{ loop.index }}
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <h4 class="font-semibold text-gray-800 truncate">{{ audiencia.audiencia_nome }}</h4>
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="font-medium text-gray-800 text-sm truncate">{{ audiencia.audiencia_nome }}</p>
                                         {% if audiencia.audiencia_publico %}
-                                        <p class="text-sm text-gray-500 mt-1">{{ audiencia.audiencia_publico }}</p>
+                                        <p class="text-xs text-gray-500 truncate">{{ audiencia.audiencia_publico }}</p>
                                         {% endif %}
-                                        <div class="flex flex-wrap gap-4 mt-3 text-sm">
-                                            {% if audiencia.impressoes_estimadas %}
-                                            <div>
-                                                <span class="text-gray-500">Impressões:</span>
-                                                <span class="font-medium text-gray-700">{{ "{:,}".format(audiencia.impressoes_estimadas).replace(',', '.') }}</span>
-                                            </div>
-                                            {% endif %}
-                                            {% if audiencia.investimento_sugerido %}
-                                            <div>
-                                                <span class="text-gray-500">Investimento:</span>
-                                                <span class="font-semibold" style="color: #72cd80;">
-                                                    R$ {{ "{:,.2f}".format(audiencia.investimento_sugerido).replace(',', '_').replace('.', ',').replace('_', '.') }}
-                                                </span>
-                                            </div>
-                                            {% endif %}
-                                        </div>
                                     </div>
                                 </div>
+                                <div class="flex items-center gap-4 flex-shrink-0 ml-3">
+                                    {% if audiencia.impressoes_estimadas %}
+                                    <div class="text-right hidden sm:block">
+                                        <p class="text-[10px] text-gray-400 uppercase">Impressões</p>
+                                        <p class="text-xs font-medium text-gray-700">{{ "{:,}".format(audiencia.impressoes_estimadas).replace(',', '.') }}</p>
+                                    </div>
+                                    {% endif %}
+                                    {% if audiencia.investimento_sugerido %}
+                                    <div class="text-right">
+                                        <p class="text-[10px] text-gray-400 uppercase">Investimento</p>
+                                        <p class="text-xs font-semibold" style="color: #72cd80;">
+                                            R$ {{ "{:,.2f}".format(audiencia.investimento_sugerido).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                                        </p>
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                            {% endfor %}
                         </div>
+                        {% endfor %}
                     </div>
                     {% else %}
-                    <div class="p-6 text-center text-gray-500">
-                        <i class="fas fa-users text-3xl mb-2 text-gray-300"></i>
-                        <p>Nenhuma audiência selecionada</p>
+                    <div class="p-4 text-center text-gray-500">
+                        <i class="fas fa-users text-2xl mb-1 text-gray-300"></i>
+                        <p class="text-sm">Nenhuma audiência selecionada</p>
                     </div>
                     {% endif %}
                 </div>
@@ -258,45 +258,45 @@
             </div>
 
             <!-- Sidebar (1/3) -->
-            <div class="space-y-6">
+            <div class="space-y-4">
                 
                 <!-- Card: Resumo Financeiro -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-                            <i class="fas fa-calculator text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
+                            <i class="fas fa-calculator text-gray-400 text-[10px]"></i>
                             Resumo Financeiro
                         </h3>
                     </div>
-                    <div class="p-5 space-y-3">
+                    <div class="p-3 space-y-2">
                         {% set total_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
                         {% set total_audiencias = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
                         {% set subtotal = total_itens + total_audiencias %}
                         {% set desconto = cotacao.desconto_total or 0 if cotacao else 0 %}
                         {% set valor_final = cotacao.valor_total_proposta or subtotal %}
                         
-                        <div class="flex justify-between text-sm">
+                        <div class="flex justify-between text-xs">
                             <span class="text-gray-500">Itens ({{ linhas|length if linhas else 0 }})</span>
                             <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="flex justify-between text-xs">
                             <span class="text-gray-500">Audiências ({{ audiencias|length if audiencias else 0 }})</span>
                             <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
                         </div>
                         {% if desconto > 0 %}
-                        <div class="flex justify-between text-sm border-t border-gray-100 pt-3">
+                        <div class="flex justify-between text-xs border-t border-gray-100 pt-2">
                             <span class="text-gray-500">Subtotal</span>
                             <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="flex justify-between text-xs">
                             <span class="text-gray-500">Desconto</span>
                             <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
                         </div>
                         {% endif %}
-                        <div class="pt-3 mt-3 border-t border-gray-200">
-                            <div class="rounded-lg p-4 text-center" style="background-color: #1a1a2e;">
-                                <p class="text-white/60 text-xs uppercase tracking-wider mb-1">Valor Total</p>
-                                <p class="text-2xl font-bold" style="color: #72cd80;">
+                        <div class="pt-2 mt-2 border-t border-gray-200">
+                            <div class="rounded p-3 text-center" style="background-color: #1a1a2e;">
+                                <p class="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Valor Total</p>
+                                <p class="text-xl font-bold" style="color: #72cd80;">
                                     R$ {{ "{:,.2f}".format(valor_final).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                 </p>
                             </div>
@@ -306,20 +306,20 @@
 
                 <!-- Card: Cliente -->
                 {% if cliente %}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-                            <i class="fas fa-building text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
+                            <i class="fas fa-building text-gray-400 text-[10px]"></i>
                             Cliente
                         </h3>
                     </div>
-                    <div class="p-5">
-                        <p class="font-semibold text-gray-800">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
+                    <div class="p-3">
+                        <p class="font-semibold text-gray-800 text-sm">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
                         {% if cliente.razao_social and cliente.nome_fantasia %}
-                        <p class="text-sm text-gray-500 mt-1">{{ cliente.razao_social }}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ cliente.razao_social }}</p>
                         {% endif %}
                         {% if cliente.cnpj %}
-                        <p class="text-xs text-gray-400 mt-2">CNPJ: {{ cliente.cnpj }}</p>
+                        <p class="text-[10px] text-gray-400 mt-1">CNPJ: {{ cliente.cnpj }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -327,28 +327,28 @@
 
                 <!-- Card: Anexos -->
                 {% if anexos and anexos|length > 0 %}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-                            <i class="fas fa-paperclip text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
+                            <i class="fas fa-paperclip text-gray-400 text-[10px]"></i>
                             Anexos
-                            <span class="px-1.5 py-0.5 bg-gray-200 rounded text-xs">{{ anexos|length }}</span>
+                            <span class="px-1 py-0.5 bg-gray-200 rounded text-[10px]">{{ anexos|length }}</span>
                         </h3>
                     </div>
-                    <div class="p-4 space-y-2">
+                    <div class="p-2 space-y-1.5">
                         {% for anexo in anexos %}
                         <a href="{{ url_for('download_anexo', anexo_id=anexo['id']) }}" target="_blank"
-                           class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group">
-                            <div class="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 group-hover:bg-gray-300">
-                                <i class="fas fa-file-alt"></i>
+                           class="flex items-center gap-2 p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors group">
+                            <div class="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-gray-500 group-hover:bg-gray-300">
+                                <i class="fas fa-file-alt text-xs"></i>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-700 truncate">{{ anexo['nome_original'] if anexo.get('nome_original') else 'Arquivo' }}</p>
+                                <p class="text-xs font-medium text-gray-700 truncate">{{ anexo['nome_original'] if anexo.get('nome_original') else 'Arquivo' }}</p>
                                 {% if anexo.get('descricao') %}
-                                <p class="text-xs text-gray-500 truncate">{{ anexo['descricao'] }}</p>
+                                <p class="text-[10px] text-gray-500 truncate">{{ anexo['descricao'] }}</p>
                                 {% endif %}
                             </div>
-                            <i class="fas fa-download text-gray-400 group-hover:text-gray-600"></i>
+                            <i class="fas fa-download text-gray-400 group-hover:text-gray-600 text-xs"></i>
                         </a>
                         {% endfor %}
                     </div>
@@ -357,60 +357,60 @@
 
                 <!-- Card: Decisão do Cliente -->
                 {% if cotacao.status not in ['Aprovada', 'Rejeitada'] %}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-2 text-sm">
-                            <i class="fas fa-gavel text-gray-400"></i>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
+                            <i class="fas fa-gavel text-gray-400 text-[10px]"></i>
                             Sua Decisão
                         </h3>
                     </div>
-                    <div class="p-5 space-y-3">
+                    <div class="p-3 space-y-2">
                         <button onclick="abrirModalAprovacao()" 
-                                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-white font-medium transition-all transform hover:scale-[1.02] shadow-md hover:shadow-lg"
+                                class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded text-white text-xs font-medium transition-all transform hover:scale-[1.02] shadow-sm hover:shadow-md"
                                 style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
-                            <i class="fas fa-check-circle text-lg"></i>
+                            <i class="fas fa-check-circle"></i>
                             Aprovar Proposta
                         </button>
                         <button onclick="abrirModalRejeicao()" 
-                                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-white font-medium transition-all transform hover:scale-[1.02] shadow-md hover:shadow-lg"
+                                class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded text-white text-xs font-medium transition-all transform hover:scale-[1.02] shadow-sm hover:shadow-md"
                                 style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                            <i class="fas fa-times-circle text-lg"></i>
+                            <i class="fas fa-times-circle"></i>
                             Rejeitar Proposta
                         </button>
                     </div>
                 </div>
                 {% else %}
                 <!-- Status já definido -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-5 text-center">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-4 text-center">
                         {% if cotacao.status == 'Aprovada' %}
-                        <div class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center" style="background-color: #dcfce7;">
-                            <i class="fas fa-check-circle text-3xl" style="color: #72cd80;"></i>
+                        <div class="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center" style="background-color: #dcfce7;">
+                            <i class="fas fa-check-circle text-xl" style="color: #72cd80;"></i>
                         </div>
-                        <p class="font-semibold text-gray-800">Proposta Aprovada</p>
-                        <p class="text-sm text-gray-500 mt-1">Obrigado pela confiança!</p>
+                        <p class="font-semibold text-gray-800 text-sm">Proposta Aprovada</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Obrigado pela confiança!</p>
                         {% else %}
-                        <div class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-red-50">
-                            <i class="fas fa-times-circle text-3xl text-red-500"></i>
+                        <div class="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center bg-red-50">
+                            <i class="fas fa-times-circle text-xl text-red-500"></i>
                         </div>
-                        <p class="font-semibold text-gray-800">Proposta Rejeitada</p>
-                        <p class="text-sm text-gray-500 mt-1">Agradecemos seu feedback.</p>
+                        <p class="font-semibold text-gray-800 text-sm">Proposta Rejeitada</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Agradecemos seu feedback.</p>
                         {% endif %}
                     </div>
                 </div>
                 {% endif %}
 
                 <!-- Card: Ações -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-5 space-y-3">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-3 space-y-2">
                         <a href="{{ url_for('cotacao_publica_pdf', token=token) }}" target="_blank"
-                           class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg text-white font-medium transition-colors"
+                           class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded text-white text-xs font-medium transition-colors"
                            style="background-color: #72cd80;">
                             <i class="fas fa-file-pdf"></i>
                             Baixar PDF
                         </a>
                         <button onclick="window.print()" 
-                                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                                class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors">
                             <i class="fas fa-print"></i>
                             Imprimir
                         </button>
@@ -422,14 +422,14 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 py-8 mt-auto">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-8 opacity-50">
-                    <span class="text-sm text-gray-500">Powered by CentralComm</span>
+    <footer class="bg-white border-t border-gray-200 py-4 mt-auto">
+        <div class="max-w-5xl mx-auto px-3">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-6 opacity-50">
+                    <span class="text-xs text-gray-500">Powered by CentralComm</span>
                 </div>
-                <p class="text-xs text-gray-400">
+                <p class="text-[10px] text-gray-400">
                     © {{ "now"|string|truncate(4, True, '') }} Central Comm - Todos os direitos reservados
                 </p>
             </div>
@@ -439,35 +439,35 @@
 <!-- Modal Aprovação -->
 <div id="modal_aprovacao" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="fecharModalAprovacao()"></div>
-    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
-        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mx-4">
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-sm">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden mx-3">
             <!-- Header -->
-            <div class="p-6 text-center" style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
-                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-white/20 flex items-center justify-center">
-                    <i class="fas fa-check-circle text-3xl text-white"></i>
+            <div class="p-4 text-center" style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-white/20 flex items-center justify-center">
+                    <i class="fas fa-check-circle text-xl text-white"></i>
                 </div>
-                <h3 class="text-xl font-bold text-white">Aprovar Proposta</h3>
-                <p class="text-white/80 text-sm mt-1">Confirme a aprovação desta cotação</p>
+                <h3 class="text-base font-bold text-white">Aprovar Proposta</h3>
+                <p class="text-white/80 text-xs mt-0.5">Confirme a aprovação desta cotação</p>
             </div>
             
             <!-- Conteúdo -->
-            <div class="p-6">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Observações (opcional)</label>
-                    <textarea id="obs_aprovacao" rows="3" 
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+            <div class="p-4">
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Observações (opcional)</label>
+                    <textarea id="obs_aprovacao" rows="2" 
+                              class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                               placeholder="Alguma observação sobre a aprovação..."></textarea>
                 </div>
                 
-                <div class="flex gap-3">
+                <div class="flex gap-2">
                     <button onclick="fecharModalAprovacao()" 
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors">
                         Cancelar
                     </button>
                     <button onclick="confirmarAprovacao()" 
-                            class="flex-1 px-4 py-3 rounded-lg text-white font-medium transition-all hover:shadow-lg"
+                            class="flex-1 px-3 py-2 rounded text-white text-xs font-medium transition-all hover:shadow-lg"
                             style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
-                        <i class="fas fa-check mr-2"></i>Confirmar
+                        <i class="fas fa-check mr-1"></i>Confirmar
                     </button>
                 </div>
             </div>
@@ -478,23 +478,23 @@
 <!-- Modal Rejeição -->
 <div id="modal_rejeicao" class="fixed inset-0 z-50 hidden">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="fecharModalRejeicao()"></div>
-    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
-        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mx-4">
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-sm">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden mx-3">
             <!-- Header -->
-            <div class="p-6 text-center" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-white/20 flex items-center justify-center">
-                    <i class="fas fa-times-circle text-3xl text-white"></i>
+            <div class="p-4 text-center" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-white/20 flex items-center justify-center">
+                    <i class="fas fa-times-circle text-xl text-white"></i>
                 </div>
-                <h3 class="text-xl font-bold text-white">Rejeitar Proposta</h3>
-                <p class="text-white/80 text-sm mt-1">Nos ajude a entender o motivo</p>
+                <h3 class="text-base font-bold text-white">Rejeitar Proposta</h3>
+                <p class="text-white/80 text-xs mt-0.5">Nos ajude a entender o motivo</p>
             </div>
             
             <!-- Conteúdo -->
-            <div class="p-6">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Motivo da rejeição *</label>
+            <div class="p-4">
+                <div class="mb-3">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Motivo da rejeição *</label>
                     <select id="motivo_rejeicao" 
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3">
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent mb-2">
                         <option value="">Selecione um motivo...</option>
                         <option value="Preço acima do orçamento">Preço acima do orçamento</option>
                         <option value="Prazo não atende">Prazo não atende</option>
@@ -504,21 +504,21 @@
                         <option value="Outro">Outro motivo</option>
                     </select>
                     
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Comentário adicional</label>
-                    <textarea id="obs_rejeicao" rows="3" 
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Comentário adicional</label>
+                    <textarea id="obs_rejeicao" rows="2" 
+                              class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
                               placeholder="Conte-nos mais detalhes..."></textarea>
                 </div>
                 
-                <div class="flex gap-3">
+                <div class="flex gap-2">
                     <button onclick="fecharModalRejeicao()" 
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors">
                         Cancelar
                     </button>
                     <button onclick="confirmarRejeicao()" 
-                            class="flex-1 px-4 py-3 rounded-lg text-white font-medium transition-all hover:shadow-lg"
+                            class="flex-1 px-3 py-2 rounded text-white text-xs font-medium transition-all hover:shadow-lg"
                             style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                        <i class="fas fa-times mr-2"></i>Rejeitar
+                        <i class="fas fa-times mr-1"></i>Rejeitar
                     </button>
                 </div>
             </div>
@@ -527,9 +527,9 @@
 </div>
 
 <!-- Toast de Notificação -->
-<div id="toast" class="fixed bottom-4 right-4 z-50 hidden">
-    <div id="toast_content" class="px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 text-white font-medium">
-        <i id="toast_icon" class="fas fa-check-circle"></i>
+<div id="toast" class="fixed bottom-3 right-3 z-50 hidden">
+    <div id="toast_content" class="px-4 py-2.5 rounded shadow-lg flex items-center gap-2 text-white text-sm font-medium">
+        <i id="toast_icon" class="fas fa-check-circle text-sm"></i>
         <span id="toast_message">Mensagem</span>
     </div>
 </div>

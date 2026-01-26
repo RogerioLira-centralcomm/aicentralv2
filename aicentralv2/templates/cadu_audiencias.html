@@ -3,65 +3,80 @@
 {% block title %}Audiências Cadastradas - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-  <div class="mb-3">
-    <h1 class="text-lg font-semibold leading-tight">Audiências Cadastradas</h1>
-    <p class="text-sm text-base-content/70">Catálogo completo de audiências disponíveis para campanhas.</p>
-  </div>
-
-  <!-- Filtros -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">ID Audiência</span>
-        </label>
-        <input type="text" id="filtro-id" placeholder="Buscar por ID..." 
-               class="input input-bordered w-full h-10">
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto Sticky com Filtros Inline -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Audiências</h1>
+        <span class="text-xs text-gray-500">(<span id="contador-header">{{ audiencias|length }}</span> registros)</span>
       </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Categoria</span>
-        </label>
-        <select id="filtro-categoria" class="select select-bordered w-full h-10 min-h-10">
-          <option value="" selected>Todas as categorias</option>
+      
+      <!-- Filtros Inline -->
+      <div class="flex items-center gap-3">
+        <!-- ID -->
+        <input type="text" id="filtro-id" placeholder="Buscar ID..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
+        
+        <!-- Categoria -->
+        <select id="filtro-categoria" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+          <option value="" selected>Todas categorias</option>
           {% for categoria in categorias %}
             <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
           {% endfor %}
         </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Subcategoria</span>
-        </label>
-        <select id="filtro-subcategoria" class="select select-bordered w-full h-10 min-h-10" disabled>
-          <option value="" selected>Todas as subcategorias</option>
+        
+        <!-- Subcategoria -->
+        <select id="filtro-subcategoria" disabled
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 disabled:opacity-50" style="min-width: 160px;">
+          <option value="" selected>Todas subcategorias</option>
         </select>
+        
+        <!-- Status Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" id="filtro-status-ativa"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Ativas">
+            <i class="fa-solid fa-circle-check text-sm text-gray-400"></i>
+          </button>
+          <button type="button" id="filtro-status-inativa"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Inativas">
+            <i class="fa-solid fa-circle-xmark text-sm text-gray-400"></i>
+          </button>
+          <button type="button" id="filtro-status-todos"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  title="Todas">
+            <i class="fa-solid fa-list text-sm text-gray-800"></i>
+          </button>
+        </div>
+        
+        <!-- Limpar Filtros -->
+        <button type="button" id="btn-limpar-filtros" 
+                class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600" 
+                title="Limpar Filtros">
+          <i class="fas fa-times text-sm"></i>
+        </button>
       </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text font-semibold">Status</span>
-        </label>
-        <select id="filtro-status" class="select select-bordered w-full h-10 min-h-10">
-          <option value="" selected>Todos os status</option>
-          <option value="ativa">Ativa</option>
-          <option value="inativa">Inativa</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text opacity-0">Ações</span>
-        </label>
-        <button type="button" id="btn-limpar-filtros" class="btn btn-ghost btn-sm w-full h-10">
-          <i class="fas fa-times mr-2"></i>Limpar Filtros
+      
+      <!-- Botão Nova Audiência -->
+      <div class="flex gap-2">
+        <button onclick="modal_audiencia.showModal(); document.getElementById('modal_audiencia_title').textContent='Nova Audiência'; document.getElementById('audiencia_id').value=''; document.getElementById('btn_submit_audiencia_text').textContent='Cadastrar'; document.getElementById('form_audiencia').reset();" 
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Nova Audiência
         </button>
       </div>
     </div>
   </div>
+  
+  <!-- Hidden select para manter compatibilidade com JS existente -->
+  <select id="filtro-status" class="hidden">
+    <option value="" selected>Todos os status</option>
+    <option value="ativa">Ativa</option>
+    <option value="inativa">Inativa</option>
+  </select>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -75,139 +90,105 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Stats Cards -->
-  {% if stats %}
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-    <div class="bg-base-100 border border-base-300 rounded-lg p-2 shadow-sm">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-xs text-base-content/60 uppercase">Total</p>
-          <p class="text-sm font-semibold">{{ stats.total }}</p>
-        </div>
-        <i class="fas fa-users text-lg text-base-content/20"></i>
-      </div>
-    </div>
-    <div class="bg-base-100 border border-success/30 rounded-lg p-2 shadow-sm">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-xs text-base-content/60 uppercase">Ativas</p>
-          <p class="text-sm font-semibold text-success">{{ stats.ativos }}</p>
-        </div>
-        <i class="fas fa-check-circle text-lg text-success/20"></i>
-      </div>
-    </div>
-    <div class="bg-base-100 border border-error/30 rounded-lg p-2 shadow-sm">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-xs text-base-content/60 uppercase">Inativas</p>
-          <p class="text-sm font-semibold text-error">{{ stats.inativos }}</p>
-        </div>
-        <i class="fas fa-ban text-lg text-error/20"></i>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
   <!-- Desktop Table -->
-  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden hidden md:block">
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hidden md:block">
     {% if audiencias %}
       <div class="overflow-x-auto">
-        <table class="table table-xs w-full">
-          <thead style="background-color: #72cd80;" class="text-white">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100">
             <tr>
-              <th class="text-left font-bold uppercase">ID Plataforma</th>
-              <th class="text-left font-bold uppercase">Nome</th>
-              <th class="text-left font-bold uppercase">Perfil</th>
-              <th class="text-left font-bold uppercase">Categoria</th>
-              <th class="text-left font-bold uppercase">Subcategoria</th>
-              <th class="text-center font-bold uppercase w-20">CPMC</th>
-              <th class="text-center font-bold uppercase w-20">CPMV</th>
-              <th class="text-center font-bold uppercase w-24">Status</th>
-              <th class="text-center font-bold uppercase w-32">Ações</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID Plataforma</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Nome</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Perfil</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Categoria</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Subcategoria</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">CPMC</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">CPMV</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Status</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-32">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {% for audiencia in audiencias %}
-            <tr class="hover cursor-pointer transition-colors" 
+            <tr class="hover:bg-gray-50 transition-colors" 
                 id="audiencia-{{ audiencia.id }}"
                 data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
                 data-categoria-id="{{ audiencia.categoria_id or '' }}"
                 data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
-              <td>
+              <td class="py-2 px-3">
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
-                  <code class="text-xs bg-base-200 px-2 py-1 rounded">{{ audiencia.id_audiencia_plataforma }}</code>
-                  <div class="text-xs text-base-content/60 mt-1">{{ audiencia.fonte }}</div>
+                  <code class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">{{ audiencia.id_audiencia_plataforma }}</code>
+                  <div class="text-xs text-gray-500 mt-1">{{ audiencia.fonte }}</div>
                 </a>
               </td>
-              <td>
+              <td class="py-2 px-3">
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
-                  <div class="font-semibold text-primary hover:underline">{{ audiencia.nome }}</div>
-                  <div class="text-xs text-base-content/50">Clique para ver/editar</div>
+                  <div class="font-medium text-gray-800 hover:text-gray-600">{{ audiencia.nome }}</div>
+                  <div class="text-xs text-gray-400">Clique para ver/editar</div>
                 </a>
               </td>
-              <td>
+              <td class="py-2 px-3">
                 {% if audiencia.perfil_socioeconomico %}
-                  <span class="text-base-content">{{ audiencia.perfil_socioeconomico }}</span>
+                  <span class="text-gray-700">{{ audiencia.perfil_socioeconomico }}</span>
                 {% else %}
-                  <span class="text-base-content/40 italic">-</span>
+                  <span class="text-gray-400 italic">-</span>
                 {% endif %}
               </td>
-              <td>
+              <td class="py-2 px-3">
                 {% if audiencia.categoria_nome %}
-                  <span class="text-base-content">{{ audiencia.categoria_nome }}</span>
+                  <span class="text-gray-700">{{ audiencia.categoria_nome }}</span>
                 {% else %}
-                  <span class="text-base-content/40 italic">-</span>
+                  <span class="text-gray-400 italic">-</span>
                 {% endif %}
               </td>
-              <td>
+              <td class="py-2 px-3">
                 {% if audiencia.subcategoria_nome %}
-                  <span class="text-base-content/80">{{ audiencia.subcategoria_nome }}</span>
+                  <span class="text-gray-600">{{ audiencia.subcategoria_nome }}</span>
                 {% else %}
-                  <span class="text-base-content/40 italic">-</span>
+                  <span class="text-gray-400 italic">-</span>
                 {% endif %}
               </td>
-              <td class="text-center">
+              <td class="text-center py-2 px-2">
                 {% if audiencia.cpm_custo %}
-                  <span class="font-mono text-sm">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
+                  <span class="font-mono text-sm text-gray-700">R$ {{ "%.2f"|format(audiencia.cpm_custo) }}</span>
                 {% else %}
-                  <span class="text-base-content/40 italic">-</span>
+                  <span class="text-gray-400 italic">-</span>
                 {% endif %}
               </td>
-              <td class="text-center">
+              <td class="text-center py-2 px-2">
                 {% if audiencia.cpm_venda %}
-                  <span class="font-mono text-sm">R$ {{ "%.2f"|format(audiencia.cpm_venda) }}</span>
+                  <span class="font-mono text-sm text-gray-700">R$ {{ "%.2f"|format(audiencia.cpm_venda) }}</span>
                 {% else %}
-                  <span class="text-base-content/40 italic">-</span>
+                  <span class="text-gray-400 italic">-</span>
                 {% endif %}
               </td>
-              <td class="text-center">
+              <td class="text-center py-2 px-2">
                 <button type="button"
-                        class="badge badge-sm cursor-pointer transition-all hover:scale-105 btn-toggle-status"
-                        style="{% if audiencia.is_active %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #ef4444; color: white; border-color: #ef4444;{% endif %}"
+                        class="text-xs px-2 py-0.5 rounded cursor-pointer transition-all hover:scale-105 btn-toggle-status"
+                        style="{% if audiencia.is_active %}background-color: #10b981; color: white;{% else %}background-color: #ef4444; color: white;{% endif %}"
                         data-audiencia-id="{{ audiencia.id }}"
                         title="Clique para {% if audiencia.is_active %}desativar{% else %}ativar{% endif %}">
                   {% if audiencia.is_active %}Ativa{% else %}Inativa{% endif %}
                 </button>
               </td>
-              <td>
+              <td class="py-2 px-2">
                 <div class="flex items-center justify-center gap-2">
                   <button type="button" 
-                          class="p-2 {% if audiencia.imagem_url %}text-green-600 hover:text-green-800 hover:bg-green-50{% else %}hover:bg-green-50{% endif %} rounded transition-colors duration-200 btn-gerar-imagem" 
-                          style="{% if not audiencia.imagem_url %}color: #72cd80;{% endif %}"
+                          class="p-1.5 rounded transition-colors duration-200 btn-gerar-imagem {% if audiencia.imagem_url %}text-green-600 hover:text-green-800 hover:bg-green-50{% else %}text-gray-400 hover:text-gray-600 hover:bg-gray-100{% endif %}" 
                           data-audiencia-id="{{ audiencia.id }}"
                           data-audiencia-nome="{{ audiencia.nome }}"
                           data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
                           data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
                           data-audiencia-imagem="{{ audiencia.imagem_url or '' }}"
                           title="{% if audiencia.imagem_url %}Editar Imagem{% else %}Gerar Imagem{% endif %}">
-                    <i class="fas fa-image"></i>
+                    <i class="fas fa-image text-sm"></i>
                   </button>
                   <button type="button" 
-                          class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors duration-200 btn-delete"
+                          class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 btn-delete"
                           data-audiencia-id="{{ audiencia.id }}"
                           data-audiencia-nome="{{ audiencia.nome }}"
                           title="Deletar">
-                    <i class="fas fa-trash"></i>
+                    <i class="fas fa-trash text-sm"></i>
                   </button>
                 </div>
               </td>
@@ -216,14 +197,14 @@
           </tbody>
         </table>
       </div>
-      <div class="p-4 border-t border-base-300 bg-base-100">
-        <p class="text-sm text-base-content/70">
-          Exibindo <strong id="contador-visiveis">{{ audiencias|length }}</strong> de <strong>{{ audiencias|length }}</strong> audiências
+      <div class="p-3 border-t border-gray-200 bg-gray-50">
+        <p class="text-xs text-gray-500">
+          Exibindo <strong class="text-gray-700" id="contador-visiveis">{{ audiencias|length }}</strong> de <strong class="text-gray-700">{{ audiencias|length }}</strong> audiências
         </p>
       </div>
     {% else %}
       <div class="text-center py-8">
-        <p class="text-base-content/60 text-sm">Nenhuma audiência cadastrada.</p>
+        <p class="text-gray-500 text-sm">Nenhuma audiência cadastrada.</p>
       </div>
     {% endif %}
   </div>
@@ -428,19 +409,78 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('✅ Script de audiências carregado');
   
   let audienciaIdToDelete = null;
+  let statusFiltroAtual = ''; // '', 'ativa', 'inativa'
+  
   const filtroId = document.getElementById('filtro-id');
   const filtroCategoria = document.getElementById('filtro-categoria');
   const filtroSubcategoria = document.getElementById('filtro-subcategoria');
   const filtroStatus = document.getElementById('filtro-status');
   const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
+  
+  // Botões de status (novos ícones)
+  const btnStatusAtiva = document.getElementById('filtro-status-ativa');
+  const btnStatusInativa = document.getElementById('filtro-status-inativa');
+  const btnStatusTodos = document.getElementById('filtro-status-todos');
 
   console.log('Elementos encontrados:', {
     filtroId: !!filtroId,
     filtroCategoria: !!filtroCategoria,
     filtroSubcategoria: !!filtroSubcategoria,
     filtroStatus: !!filtroStatus,
-    btnLimparFiltros: !!btnLimparFiltros
+    btnLimparFiltros: !!btnLimparFiltros,
+    btnStatusAtiva: !!btnStatusAtiva,
+    btnStatusInativa: !!btnStatusInativa,
+    btnStatusTodos: !!btnStatusTodos
   });
+  
+  // Função para atualizar visual dos botões de status
+  function atualizarBotoesStatus(status) {
+    statusFiltroAtual = status;
+    
+    // Reset all buttons
+    [btnStatusAtiva, btnStatusInativa, btnStatusTodos].forEach(btn => {
+      if (btn) {
+        btn.classList.remove('bg-gray-200');
+        btn.querySelector('i').classList.remove('text-gray-800');
+        btn.querySelector('i').classList.add('text-gray-400');
+      }
+    });
+    
+    // Highlight active button
+    let activeBtn = null;
+    if (status === 'ativa') activeBtn = btnStatusAtiva;
+    else if (status === 'inativa') activeBtn = btnStatusInativa;
+    else activeBtn = btnStatusTodos;
+    
+    if (activeBtn) {
+      activeBtn.classList.add('bg-gray-200');
+      activeBtn.querySelector('i').classList.remove('text-gray-400');
+      activeBtn.querySelector('i').classList.add('text-gray-800');
+    }
+    
+    // Sync hidden select for compatibility
+    if (filtroStatus) filtroStatus.value = status;
+  }
+  
+  // Status filter button events
+  if (btnStatusAtiva) {
+    btnStatusAtiva.addEventListener('click', function() {
+      atualizarBotoesStatus('ativa');
+      aplicarFiltros();
+    });
+  }
+  if (btnStatusInativa) {
+    btnStatusInativa.addEventListener('click', function() {
+      atualizarBotoesStatus('inativa');
+      aplicarFiltros();
+    });
+  }
+  if (btnStatusTodos) {
+    btnStatusTodos.addEventListener('click', function() {
+      atualizarBotoesStatus('');
+      aplicarFiltros();
+    });
+  }
 
   // Verificar se deve abrir modal de edição
   const urlParams = new URLSearchParams(window.location.search);
@@ -556,9 +596,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Aplicar filtro ao trocar subcategoria
   filtroSubcategoria.addEventListener('change', aplicarFiltros);
 
-  // Aplicar filtro ao trocar status
-  filtroStatus.addEventListener('change', aplicarFiltros);
-
   // Aplicar filtro ao digitar ID
   filtroId.addEventListener('input', aplicarFiltros);
 
@@ -566,9 +603,9 @@ document.addEventListener('DOMContentLoaded', function() {
   btnLimparFiltros.addEventListener('click', function() {
     filtroId.value = '';
     filtroCategoria.value = '';
-    filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
+    filtroSubcategoria.innerHTML = '<option value="" selected>Todas subcategorias</option>';
     filtroSubcategoria.disabled = true;
-    filtroStatus.value = '';
+    atualizarBotoesStatus('');
     aplicarFiltros();
   });
 
@@ -580,7 +617,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const idFiltro = filtroId.value.trim().toLowerCase();
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
-    const statusFiltro = filtroStatus.value;
+    const statusFiltro = statusFiltroAtual;
 
     console.log('Filtros aplicados:', { idFiltro, categoriaId, subcategoriaId, statusFiltro });
 
@@ -685,6 +722,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (contadorElement) {
       contadorElement.textContent = visibleRows.length;
     }
+    
+    // Atualizar contador do header
+    const contadorHeader = document.getElementById('contador-header');
+    if (contadorHeader) {
+      contadorHeader.textContent = visibleRows.length;
+    }
   }
 
   // Toggle Status
@@ -714,9 +757,8 @@ document.addEventListener('DOMContentLoaded', function() {
           // Atualizar visualmente sem reload
           const isActive = data.new_status === 'ativa';
           button.textContent = isActive ? 'Ativa' : 'Inativa';
-          button.style.backgroundColor = isActive ? '#72cd80' : '#ef4444';
+          button.style.backgroundColor = isActive ? '#10b981' : '#ef4444';
           button.style.color = 'white';
-          button.style.borderColor = isActive ? '#72cd80' : '#ef4444';
           button.title = `Clique para ${isActive ? 'desativar' : 'ativar'}`;
           
           // Atualizar data-status da linha para os filtros funcionarem

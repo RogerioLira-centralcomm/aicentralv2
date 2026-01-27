@@ -90,8 +90,18 @@ function handleFileSelect(event) {
   }
 }
 
+// Status que permitem edição (definido no início para uso em uploadAnexos)
+var STATUS_PERMITE_EDICAO_INICIAL = ['Rascunho', 'Em Análise', 'Negociação'];
+var statusAtualCotacaoInicial = '{{ cotacao.status if cotacao else "Rascunho" }}';
+
 // Função de Upload de Anexos - definida no início
 async function uploadAnexos(files) {
+  // Verificar se edição é permitida pelo status
+  if (!STATUS_PERMITE_EDICAO_INICIAL.includes(statusAtualCotacaoInicial)) {
+    showToast('Edição não permitida. Status deve ser: Rascunho, Em Análise ou Negociação.', 'warning');
+    return;
+  }
+  
   // Obter cotacaoId do data attribute no container
   var container = document.querySelector('[data-cotacao-id]');
   var cotacaoId = container ? container.dataset.cotacaoId : null;
@@ -268,7 +278,7 @@ function renderizarAnexos(anexos) {
         <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Exportar PDF">
           <i class="fas fa-file-pdf text-sm"></i>
         </a>
-        {% if modo == 'editar' %}
+        {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
         <a href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
           <i class="fas fa-edit mr-1"></i>Editar
         </a>
@@ -302,7 +312,7 @@ function renderizarAnexos(anexos) {
             <i class="fas fa-building text-gray-400"></i>
             Informações do Cliente
           </h2>
-          {% if modo == 'editar' %}
+          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
           <button onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente">
             <i class="fas fa-edit text-xs"></i>
           </button>
@@ -343,7 +353,7 @@ function renderizarAnexos(anexos) {
             <i class="fas fa-bullhorn text-gray-400"></i>
             Informações da Campanha
           </h2>
-          {% if modo == 'editar' %}
+          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
           <button onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha">
             <i class="fas fa-edit text-xs"></i>
           </button>
@@ -384,7 +394,7 @@ function renderizarAnexos(anexos) {
             Itens da Proposta
             <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
           </h2>
-          {% if modo == 'editar' %}
+          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
           <button onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
@@ -405,7 +415,7 @@ function renderizarAnexos(anexos) {
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
-              <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarLinha({{ linha.id }})">
+              <tr class="hover:bg-gray-50{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarLinha({{ linha.id }})"{% endif %}>
                 <td class="py-2 px-1">
                   <span class="px-1 py-0.5 text-xs rounded text-white truncate block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
@@ -443,7 +453,7 @@ function renderizarAnexos(anexos) {
             Audiências Selecionadas
             <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
           </h2>
-          {% if modo == 'editar' %}
+          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
           <button onclick="abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
@@ -462,10 +472,10 @@ function renderizarAnexos(anexos) {
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
-              <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
+              <tr class="hover:bg-gray-50{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
                 <td class="py-2 px-1 text-xs truncate" title="{{ aud.audiencia_nome or '' }}">
                   <div class="font-medium text-gray-800 truncate">
-                    <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px]"></i>{{ aud.audiencia_nome or '-' }}
+                    {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}<i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px]"></i>{% endif %}{{ aud.audiencia_nome or '-' }}
                   </div>
                   <div class="text-[10px] text-gray-400 truncate">
                     {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
@@ -572,7 +582,7 @@ function renderizarAnexos(anexos) {
             Anexos
             <span id="contador_anexos" class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">0</span>
           </h2>
-          {% if modo == 'editar' %}
+          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
           <button onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
@@ -580,7 +590,7 @@ function renderizarAnexos(anexos) {
         </div>
         
         <!-- Área de Drag & Drop -->
-        {% if modo == 'editar' %}
+        {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
         <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-3 text-center transition-colors"
              ondragover="handleDragOver(event)"
              ondragleave="handleDragLeave(event)"
@@ -660,8 +670,8 @@ function renderizarAnexos(anexos) {
             <span class="text-gray-500 text-xs">Valor Líquido</span>
             <span class="font-medium text-green-600">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded p-1 -m-1" onclick="{% if modo == 'editar' %}document.getElementById('modal_editar_desconto').showModal(){% endif %}" title="{% if modo == 'editar' %}Clique para editar{% endif %}">
-            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span>{% if modo == 'editar' %}<i class="fas fa-edit text-xs ml-1 text-gray-400"></i>{% endif %}</span>
+          <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded p-1 -m-1" onclick="{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}document.getElementById('modal_editar_desconto').showModal(){% endif %}" title="{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}Clique para editar{% endif %}">
+            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span>{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}<i class="fas fa-edit text-xs ml-1 text-gray-400"></i>{% endif %}</span>
             <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(rf_desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="bg-gray-800 rounded p-3 text-center mt-3">
@@ -1645,6 +1655,20 @@ function renderizarAnexos(anexos) {
 </dialog>
 
 <script>
+// Status que permitem edição de linhas, audiências, cliente e campanha
+const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise', 'Negociação'];
+const statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
+
+// Função auxiliar para verificar se edição é permitida
+function podeEditar() {
+  return STATUS_PERMITE_EDICAO.includes(statusAtualCotacao);
+}
+
+// Função para mostrar mensagem de bloqueio de edição
+function mostrarBloqueioEdicao() {
+  showToast('Edição não permitida. Status deve ser: Rascunho, Em Análise ou Negociação.', 'warning');
+}
+
 // Função para alterar status da cotação via select no header
 async function alterarStatusCotacao(novoStatus) {
   const cotacaoId = getCotacaoId();
@@ -1848,6 +1872,10 @@ function validarDataInicio(input) {
 
 // Funções para editar Cliente
 function abrirModalEditarCliente() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   document.getElementById('modal_editar_cliente').showModal();
 }
 
@@ -1948,6 +1976,10 @@ document.addEventListener('click', function(e) {
 });
 
 async function salvarEdicaoCliente() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const cotacaoId = document.querySelector('[data-cotacao-id]').dataset.cotacaoId;
   
   const data = {
@@ -1980,10 +2012,18 @@ async function salvarEdicaoCliente() {
 
 // Funções para editar Campanha
 function abrirModalEditarCampanha() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   document.getElementById('modal_editar_campanha').showModal();
 }
 
 async function salvarEdicaoCampanha() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const cotacaoId = document.querySelector('[data-cotacao-id]').dataset.cotacaoId;
   
   const objetivoVal = document.getElementById('edit_objetivo_campanha').value.trim();
@@ -2019,6 +2059,10 @@ async function salvarEdicaoCampanha() {
 
 // Função para abrir modal Nova Linha com datas pré-preenchidas
 function abrirModalNovaLinha() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const hoje = new Date();
   const dataInicio = new Date(hoje);
   dataInicio.setDate(hoje.getDate() + 7);
@@ -2552,6 +2596,10 @@ function decrementarContador(tipo) {
 // ==================== FUNÇÕES DE LINHAS ====================
 
 async function salvarNovaLinha() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const formatosSelecionados = Array.from(document.querySelectorAll('input[name="formatos"]:checked'))
     .map(cb => cb.value);
   
@@ -2622,6 +2670,10 @@ async function salvarNovaLinha() {
 }
 
 async function editarLinha(linhaId) {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   try {
     // Buscar dados da linha
     const response = await fetch(`/api/cotacoes/linhas/${linhaId}`);
@@ -2743,6 +2795,10 @@ function calcularInvestLiquidoEdit() {
 }
 
 async function salvarEdicaoLinha() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const linhaId = document.getElementById('edit_linha_id').value;
   
   const formatosSelecionados = Array.from(document.querySelectorAll('input[name="edit_formatos"]:checked'))
@@ -2805,6 +2861,10 @@ async function salvarEdicaoLinha() {
 
 // Função para excluir linha a partir do modal de edição
 function excluirLinhaDoModal() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const linhaId = document.getElementById('edit_linha_id').value;
   if (linhaId && confirm('Tem certeza que deseja excluir esta linha?')) {
     document.getElementById('modal_editar_linha').close();
@@ -2813,6 +2873,10 @@ function excluirLinhaDoModal() {
 }
 
 function removerLinha(linhaId) {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   if (confirm('Tem certeza que deseja remover esta linha?')) {
     confirmarRemoverLinha(linhaId);
   }
@@ -2850,6 +2914,10 @@ let audienciasSugeridas = [];
 
 // Abrir modal na etapa 1 (busca)
 function abrirModalAudiencia() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   // Resetar para etapa 1
   document.getElementById('etapa_busca_audiencia').classList.remove('hidden');
   document.getElementById('etapa_detalhes_audiencia').classList.add('hidden');
@@ -2984,6 +3052,10 @@ function calcularImpressoesAudiencia() {
 }
 
 async function salvarNovaAudiencia() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const nome = document.getElementById('audiencia_nome').value;
   if (!nome) {
     showToast('Selecione uma audiência!', 'warning');
@@ -3082,6 +3154,10 @@ async function toggleIncluirAudiencia(audienciaId, incluido) {
 
 // Editar audiência - abre modal com dados preenchidos
 async function editarAudienciaCotacao(audienciaId) {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   try {
     const response = await fetch(`/api/cotacoes/audiencias/${audienciaId}`);
     if (!response.ok) throw new Error('Erro ao buscar audiência');
@@ -3123,6 +3199,10 @@ async function editarAudienciaCotacao(audienciaId) {
 
 // Remover audiência
 async function removerAudienciaCotacao(audienciaId) {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   if (!confirm('Tem certeza que deseja remover esta audiência?')) return;
   
   try {
@@ -3153,6 +3233,10 @@ async function removerAudienciaCotacao(audienciaId) {
 let anexoIdParaRemover = null;
 
 async function salvarNovoAnexo() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const arquivo = document.getElementById('anexo_arquivo').files[0];
   const descricao = document.getElementById('anexo_descricao').value;
   
@@ -3199,6 +3283,10 @@ async function salvarNovoAnexo() {
 }
 
 async function editarAnexo(anexoId) {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) return;
   
@@ -3222,6 +3310,10 @@ async function editarAnexo(anexoId) {
 }
 
 async function salvarEdicaoAnexo() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const anexoId = document.getElementById('edit_anexo_id').value;
   const nomeOriginal = document.getElementById('edit_anexo_nome').value;
   const descricao = document.getElementById('edit_anexo_descricao').value;
@@ -3260,6 +3352,10 @@ async function salvarEdicaoAnexo() {
 }
 
 function deletarAnexo(anexoId) {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   if (confirm('Tem certeza que deseja remover este anexo?')) {
     confirmarRemoverAnexo(anexoId);
   }
@@ -3620,6 +3716,10 @@ function mostrarToast(mensagem, tipo) {
 // ==================== CRIAR BRIEFING VINCULADO ====================
 
 async function salvarNovoBriefing() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const cotacaoId = getCotacaoId();
   if (!cotacaoId) return;
   
@@ -3728,6 +3828,10 @@ function calcularDescontoEmReais() {
 }
 
 async function salvarDesconto() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
   const cotacaoId = getCotacaoId();
   if (!cotacaoId) return;
   

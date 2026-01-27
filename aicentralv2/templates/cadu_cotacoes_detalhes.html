@@ -278,8 +278,8 @@ function renderizarAnexos(anexos) {
         <a href="/api/cotacoes/{{ cotacao.id }}/pdf" target="_blank" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Exportar PDF">
           <i class="fas fa-file-pdf text-sm"></i>
         </a>
-        {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-        <a href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+        {% if modo == 'editar' %}
+        <a id="btn_editar_header" href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
           <i class="fas fa-edit mr-1"></i>Editar
         </a>
         {% endif %}
@@ -312,8 +312,8 @@ function renderizarAnexos(anexos) {
             <i class="fas fa-building text-gray-400"></i>
             Informações do Cliente
           </h2>
-          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-          <button onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente">
+          {% if modo == 'editar' %}
+          <button id="btn_editar_cliente" onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
             <i class="fas fa-edit text-xs"></i>
           </button>
           {% endif %}
@@ -353,8 +353,8 @@ function renderizarAnexos(anexos) {
             <i class="fas fa-bullhorn text-gray-400"></i>
             Informações da Campanha
           </h2>
-          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-          <button onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha">
+          {% if modo == 'editar' %}
+          <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
             <i class="fas fa-edit text-xs"></i>
           </button>
           {% endif %}
@@ -394,8 +394,8 @@ function renderizarAnexos(anexos) {
             Itens da Proposta
             <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
           </h2>
-          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-          <button onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
+          {% if modo == 'editar' %}
+          <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
@@ -415,7 +415,7 @@ function renderizarAnexos(anexos) {
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
-              <tr class="hover:bg-gray-50{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarLinha({{ linha.id }})"{% endif %}>
+              <tr class="hover:bg-gray-50 linha-item-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-linha-id="{{ linha.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarLinha({{ linha.id }})"{% endif %}>
                 <td class="py-2 px-1">
                   <span class="px-1 py-0.5 text-xs rounded text-white truncate block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
@@ -453,8 +453,8 @@ function renderizarAnexos(anexos) {
             Audiências Selecionadas
             <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
           </h2>
-          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-          <button onclick="abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
+          {% if modo == 'editar' %}
+          <button id="btn_adicionar_audiencia" onclick="abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
@@ -472,10 +472,10 @@ function renderizarAnexos(anexos) {
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
-              <tr class="hover:bg-gray-50{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
+              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
                 <td class="py-2 px-1 text-xs truncate" title="{{ aud.audiencia_nome or '' }}">
                   <div class="font-medium text-gray-800 truncate">
-                    {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}<i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px]"></i>{% endif %}{{ aud.audiencia_nome or '-' }}
+                    <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
                   </div>
                   <div class="text-[10px] text-gray-400 truncate">
                     {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
@@ -582,19 +582,20 @@ function renderizarAnexos(anexos) {
             Anexos
             <span id="contador_anexos" class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">0</span>
           </h2>
-          {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-          <button onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;">
+          {% if modo == 'editar' %}
+          <button id="btn_adicionar_anexo" onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
         </div>
         
         <!-- Área de Drag & Drop -->
-        {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
-        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-3 text-center transition-colors"
+        {% if modo == 'editar' %}
+        <div id="area_drag_drop_anexos" class="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-3 text-center transition-colors"
              ondragover="handleDragOver(event)"
              ondragleave="handleDragLeave(event)"
-             ondrop="handleDrop(event)">
+             ondrop="handleDrop(event)"
+             {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
           <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
           <p class="text-sm text-gray-500">Arraste arquivos aqui ou</p>
           <label class="cursor-pointer">
@@ -670,8 +671,8 @@ function renderizarAnexos(anexos) {
             <span class="text-gray-500 text-xs">Valor Líquido</span>
             <span class="font-medium text-green-600">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded p-1 -m-1" onclick="{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}document.getElementById('modal_editar_desconto').showModal(){% endif %}" title="{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}Clique para editar{% endif %}">
-            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span>{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}<i class="fas fa-edit text-xs ml-1 text-gray-400"></i>{% endif %}</span>
+          <div id="area_editar_desconto" class="flex justify-between items-center hover:bg-gray-50 rounded p-1 -m-1{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="document.getElementById('modal_editar_desconto').showModal()" title="Clique para editar"{% endif %}>
+            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span><i id="icone_editar_desconto" class="fas fa-edit text-xs ml-1 text-gray-400" {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação']) %}style="display: none;"{% endif %}></i></span>
             <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(rf_desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="bg-gray-800 rounded p-3 text-center mt-3">
@@ -1657,7 +1658,7 @@ function renderizarAnexos(anexos) {
 <script>
 // Status que permitem edição de linhas, audiências, cliente e campanha
 const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise', 'Negociação'];
-const statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
+let statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
 
 // Função auxiliar para verificar se edição é permitida
 function podeEditar() {
@@ -1667,6 +1668,105 @@ function podeEditar() {
 // Função para mostrar mensagem de bloqueio de edição
 function mostrarBloqueioEdicao() {
   showToast('Edição não permitida. Status deve ser: Rascunho, Em Análise ou Negociação.', 'warning');
+}
+
+// Função para atualizar visibilidade dos elementos de edição baseado no status
+function atualizarElementosEdicao(novoStatus) {
+  const podeEditarAgora = STATUS_PERMITE_EDICAO.includes(novoStatus);
+  
+  // Atualizar variável global de status
+  statusAtualCotacao = novoStatus;
+  
+  // Botão Editar no header
+  const btnEditarHeader = document.getElementById('btn_editar_header');
+  if (btnEditarHeader) {
+    btnEditarHeader.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Botão editar cliente
+  const btnEditarCliente = document.getElementById('btn_editar_cliente');
+  if (btnEditarCliente) {
+    btnEditarCliente.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Botão editar campanha
+  const btnEditarCampanha = document.getElementById('btn_editar_campanha');
+  if (btnEditarCampanha) {
+    btnEditarCampanha.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Botão adicionar linha
+  const btnAdicionarLinha = document.getElementById('btn_adicionar_linha');
+  if (btnAdicionarLinha) {
+    btnAdicionarLinha.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Botão adicionar audiência
+  const btnAdicionarAudiencia = document.getElementById('btn_adicionar_audiencia');
+  if (btnAdicionarAudiencia) {
+    btnAdicionarAudiencia.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Botão adicionar anexo
+  const btnAdicionarAnexo = document.getElementById('btn_adicionar_anexo');
+  if (btnAdicionarAnexo) {
+    btnAdicionarAnexo.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Área de drag & drop de anexos
+  const areaDragDrop = document.getElementById('area_drag_drop_anexos');
+  if (areaDragDrop) {
+    areaDragDrop.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Área de edição de desconto
+  const areaDesconto = document.getElementById('area_editar_desconto');
+  if (areaDesconto) {
+    if (podeEditarAgora) {
+      areaDesconto.classList.add('cursor-pointer');
+      areaDesconto.onclick = function() { document.getElementById('modal_editar_desconto').showModal(); };
+      areaDesconto.title = 'Clique para editar';
+    } else {
+      areaDesconto.classList.remove('cursor-pointer');
+      areaDesconto.onclick = null;
+      areaDesconto.title = '';
+    }
+  }
+  
+  // Ícone de edição no desconto
+  const iconeDesconto = document.getElementById('icone_editar_desconto');
+  if (iconeDesconto) {
+    iconeDesconto.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  // Linhas da tabela de itens (linhas)
+  document.querySelectorAll('.linha-item-cotacao').forEach(tr => {
+    const linhaId = tr.dataset.linhaId;
+    if (podeEditarAgora) {
+      tr.classList.add('cursor-pointer');
+      tr.onclick = function() { editarLinha(parseInt(linhaId)); };
+    } else {
+      tr.classList.remove('cursor-pointer');
+      tr.onclick = null;
+    }
+  });
+  
+  // Linhas da tabela de audiências
+  document.querySelectorAll('.linha-audiencia-cotacao').forEach(tr => {
+    const audienciaId = tr.dataset.audienciaId;
+    const icone = tr.querySelector('.icone-editar-audiencia');
+    if (podeEditarAgora) {
+      tr.classList.add('cursor-pointer');
+      tr.onclick = function() { editarAudienciaCotacao(parseInt(audienciaId)); };
+      tr.title = 'Clique para editar';
+      if (icone) icone.style.display = '';
+    } else {
+      tr.classList.remove('cursor-pointer');
+      tr.onclick = null;
+      tr.title = '';
+      if (icone) icone.style.display = 'none';
+    }
+  });
 }
 
 // Função para alterar status da cotação via select no header
@@ -1689,6 +1789,8 @@ async function alterarStatusCotacao(novoStatus) {
       showToast(`Status alterado para "${novoStatus}"`, 'success');
       // Atualizar dinamicamente os botões de Aprovar/Rejeitar
       atualizarBotoesAprovarRejeitar(novoStatus);
+      // Atualizar visibilidade dos elementos de edição
+      atualizarElementosEdicao(novoStatus);
     } else {
       showToast('Erro ao alterar status: ' + (result.message || 'Erro desconhecido'), 'error');
     }

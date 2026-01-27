@@ -3,24 +3,92 @@
 {% block title %}Categorias - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6 space-y-6">
-  <!-- Header -->
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold text-base-content">Categorias</h1>
-      <p class="text-sm text-base-content/70 mt-1">Gerencie as categorias do catálogo de audiências</p>
+<style>
+  /* Badge styles */
+  .badge-ativa { background-color: #10b981; color: white; }
+  .badge-inativa { background-color: #ef4444; color: white; }
+  .badge-featured { background-color: #f59e0b; color: white; }
+</style>
+
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título e contador -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Categorias</h1>
+        {% if categorias %}<span class="text-xs text-gray-500">({{ categorias|length }} registros)</span>{% endif %}
+      </div>
+      
+      <!-- Filtros Inline -->
+      <div class="flex items-center gap-3">
+        <!-- Pesquisa -->
+        <div class="relative">
+          <input 
+            type="text" 
+            id="pesquisa_categoria" 
+            oninput="filtrarCategorias()" 
+            placeholder="Buscar categoria..."
+            class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 pl-8 text-gray-700 focus:outline-none focus:border-gray-400" 
+            style="min-width: 200px;"
+          >
+          <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+        </div>
+        
+        <!-- Status Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarStatus('')" 
+                  id="btn_todos"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  title="Todos">
+            <i class="fa-solid fa-list text-sm text-gray-800"></i>
+          </button>
+          <button type="button" onclick="filtrarStatus('ativa')" 
+                  id="btn_ativa"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Ativas">
+            <i class="fa-solid fa-circle-check text-sm text-gray-400"></i>
+          </button>
+          <button type="button" onclick="filtrarStatus('inativa')" 
+                  id="btn_inativa"
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Inativas">
+            <i class="fa-solid fa-circle-xmark text-sm text-gray-400"></i>
+          </button>
+        </div>
+        
+        <!-- Destaque toggle -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarDestaque('')" 
+                  id="btn_destaque_todos"
+                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors bg-gray-200 text-gray-800" 
+                  title="Todas">
+            <i class="fas fa-th-list"></i>
+          </button>
+          <button type="button" onclick="filtrarDestaque('sim')" 
+                  id="btn_destaque_sim"
+                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors text-gray-400" 
+                  title="Com destaque">
+            <i class="fas fa-star"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Botão Novo -->
+      <div class="flex gap-2">
+        <a href="{{ url_for('cadu_categorias_novo') }}" 
+           class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Nova Categoria
+        </a>
+      </div>
     </div>
-    <a href="{{ url_for('cadu_categorias_novo') }}" class="btn text-white" style="background-color: #72cd80; border-color: #72cd80;">
-      <i class="fas fa-plus mr-2"></i>Nova Categoria
-    </a>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="space-y-2">
+      <div class="mb-4 space-y-2">
         {% for category, message in messages %}
           <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
             <span>{{ message }}</span>
           </div>
         {% endfor %}
@@ -28,113 +96,84 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Filtros -->
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <!-- Pesquisa por Descrição -->
-          <div class="flex items-center gap-3">
-            <label class="label font-semibold text-sm py-1">Pesquisar:</label>
-            <input 
-              type="text" 
-              id="pesquisa_categoria" 
-              oninput="filtrarCategorias()" 
-              class="input input-bordered input-sm flex-1" 
-              placeholder="Digite o nome ou descrição..."
-            >
-          </div>
-          
-          <!-- Filtro por Status -->
-          <div class="flex items-center gap-3">
-            <label class="label font-semibold text-sm py-1">Status:</label>
-            <select id="filtro_status" onchange="filtrarCategorias()" class="select select-bordered select-sm flex-1 h-10 min-h-10">
-              <option value="">Todos os status</option>
-              <option value="ativa">Ativas</option>
-              <option value="inativa">Inativas</option>
-            </select>
-          </div>
-        </div>
-        <div class="mt-2">
-          <span id="contador_filtro" class="text-sm text-base-content/70"></span>
-        </div>
-      </div>
-    </div>
-  
+  <!-- Contador de resultados -->
+  <div class="mb-2 px-1">
+    <span id="contador_filtro" class="text-xs text-gray-500"></span>
+  </div>
+
   <!-- Tabela de Categorias -->
-  <div class="bg-base-100 rounded-xl overflow-hidden">
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     {% if categorias %}
       <div class="overflow-x-auto">
-        <table class="table table-xs w-full" id="tabela_categorias">
-          <thead style="background-color: #72cd80;" class="text-white">
+        <table class="w-full text-sm" id="tabela_categorias">
+          <thead class="bg-gray-100">
             <tr>
-              <th class="text-left font-bold uppercase">Categoria</th>
-              <th class="text-left font-bold uppercase">Descrição</th>
-              <th class="text-center font-bold uppercase w-24">Audiências</th>
-              <th class="text-center font-bold uppercase w-20">Ordem</th>
-              <th class="text-center font-bold uppercase w-24">Status</th>
-              <th class="text-center font-bold uppercase w-32">Ações</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Categoria</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Descrição</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Audiências</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Ordem</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Status</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {% for cat in categorias %}
-            <tr class="hover {% if not cat.is_active %}opacity-60{% endif %}" data-status="{{ 'ativa' if cat.is_active else 'inativa' }}">
-              <td>
+            <tr class="hover:bg-gray-50 transition-colors {% if not cat.is_active %}opacity-60{% endif %}" 
+                data-status="{{ 'ativa' if cat.is_active else 'inativa' }}"
+                data-destaque="{{ 'sim' if cat.is_featured else 'nao' }}">
+              <td class="py-2 px-3">
                 <div class="flex items-center gap-3">
                   {% if cat.icone %}
-                  <div class="avatar placeholder">
-                    <div class="bg-primary text-primary-content rounded-lg w-8 h-8 flex items-center justify-center">
-                      <i class="{{ cat.icone }} text-sm"></i>
-                    </div>
+                  <div class="w-8 h-8 rounded-lg bg-gray-800 text-white flex items-center justify-center">
+                    <i class="{{ cat.icone }} text-sm"></i>
                   </div>
                   {% elif cat.cor_hex %}
-                  <div class="w-8 h-8 rounded-lg border-2 border-base-300" style="background-color: {{ cat.cor_hex }};"></div>
+                  <div class="w-8 h-8 rounded-lg border-2 border-gray-200" style="background-color: {{ cat.cor_hex }};"></div>
                   {% else %}
-                  <div class="avatar placeholder">
-                    <div class="bg-neutral text-neutral-content rounded-lg w-8 h-8">
-                      <span class="text-xs">{{ cat.nome[0:2]|upper if cat.nome else 'CA' }}</span>
-                    </div>
+                  <div class="w-8 h-8 rounded-lg bg-gray-200 text-gray-600 flex items-center justify-center">
+                    <span class="text-xs font-semibold">{{ cat.nome[0:2]|upper if cat.nome else 'CA' }}</span>
                   </div>
                   {% endif %}
                   <div>
-                    <div class="font-semibold text-base-content flex items-center gap-2">
+                    <div class="font-medium text-gray-800 flex items-center gap-2">
                       {{ cat.nome }}
                       {% if cat.is_featured %}
-                      <i class="fas fa-star text-warning text-xs" title="Destaque"></i>
+                      <i class="fas fa-star text-amber-500 text-xs" title="Destaque"></i>
                       {% endif %}
                     </div>
                     {% if cat.slug %}
-                    <div class="text-xs text-base-content/50 font-mono">{{ cat.slug }}</div>
+                    <div class="text-xs text-gray-400 font-mono">{{ cat.slug }}</div>
                     {% endif %}
                   </div>
                 </div>
               </td>
-              <td>
-                <div class="text-xs text-base-content/70 line-clamp-2 max-w-md">
+              <td class="py-2 px-3">
+                <div class="text-xs text-gray-500 line-clamp-2 max-w-md">
                   {{ cat.descricao or '-' }}
                 </div>
               </td>
-              <td class="text-center">
-                <span class="badge badge-sm badge-info badge-ghost">{{ cat.total_audiencias or 0 }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">{{ cat.total_audiencias or 0 }}</span>
               </td>
-              <td class="text-center">
-                <span class="text-xs">{{ cat.ordem_exibicao or 0 }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="text-xs text-gray-600">{{ cat.ordem_exibicao or 0 }}</span>
               </td>
-              <td class="text-center">
-                <span class="badge badge-sm {% if cat.is_active %}badge-success{% else %}badge-error{% endif %}">
+              <td class="text-center py-2 px-2">
+                <span class="badge badge-sm {% if cat.is_active %}badge-ativa{% else %}badge-inativa{% endif %}">
                   {{ 'Ativa' if cat.is_active else 'Inativa' }}
                 </span>
               </td>
-              <td class="text-center">
-                <div class="flex items-center justify-center gap-2">
+              <td class="text-center py-2 px-2">
+                <div class="flex items-center justify-center gap-1">
                   <a href="{{ url_for('cadu_categorias_detalhes', id_categoria=cat.id) }}" 
-                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                     class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                      title="Ver detalhes">
-                    <i class="fas fa-eye"></i>
+                    <i class="fas fa-eye text-sm"></i>
                   </a>
                   <a href="{{ url_for('cadu_categorias_editar', id_categoria=cat.id) }}" 
-                     class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
+                     class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                      title="Editar">
-                    <i class="fas fa-edit"></i>
+                    <i class="fas fa-edit text-sm"></i>
                   </a>
                 </div>
               </td>
@@ -144,10 +183,11 @@
         </table>
       </div>
     {% else %}
-      <div class="text-center py-8">
-        <p class="mb-2 text-base-content/60 text-sm">Nenhuma categoria cadastrada.</p>
-        <a href="{{ url_for('cadu_categorias_novo') }}" class="btn btn-primary btn-sm">
-          <i class="fas fa-plus mr-2 text-xs"></i>Criar Primeira Categoria
+      <div class="text-center py-12">
+        <i class="fas fa-folder-open text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 mb-4">Nenhuma categoria cadastrada.</p>
+        <a href="{{ url_for('cadu_categorias_novo') }}" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700">
+          <i class="fas fa-plus mr-2"></i>Criar Primeira Categoria
         </a>
       </div>
     {% endif %}
@@ -155,10 +195,69 @@
 </div>
 
 <script>
+let statusFiltroAtual = '';
+let destaqueFiltroAtual = '';
+
+function filtrarStatus(status) {
+  statusFiltroAtual = status;
+  
+  // Atualizar visual dos botões
+  const btnTodos = document.getElementById('btn_todos');
+  const btnAtiva = document.getElementById('btn_ativa');
+  const btnInativa = document.getElementById('btn_inativa');
+  
+  [btnTodos, btnAtiva, btnInativa].forEach(btn => {
+    btn.classList.remove('bg-gray-200');
+    btn.querySelector('i').classList.remove('text-gray-800');
+    btn.querySelector('i').classList.add('text-gray-400');
+  });
+  
+  if (status === '') {
+    btnTodos.classList.add('bg-gray-200');
+    btnTodos.querySelector('i').classList.remove('text-gray-400');
+    btnTodos.querySelector('i').classList.add('text-gray-800');
+  } else if (status === 'ativa') {
+    btnAtiva.classList.add('bg-gray-200');
+    btnAtiva.querySelector('i').classList.remove('text-gray-400');
+    btnAtiva.querySelector('i').classList.add('text-gray-800');
+  } else if (status === 'inativa') {
+    btnInativa.classList.add('bg-gray-200');
+    btnInativa.querySelector('i').classList.remove('text-gray-400');
+    btnInativa.querySelector('i').classList.add('text-gray-800');
+  }
+  
+  filtrarCategorias();
+}
+
+function filtrarDestaque(destaque) {
+  destaqueFiltroAtual = destaque;
+  
+  // Atualizar visual dos botões
+  const btnTodos = document.getElementById('btn_destaque_todos');
+  const btnSim = document.getElementById('btn_destaque_sim');
+  
+  [btnTodos, btnSim].forEach(btn => {
+    btn.classList.remove('bg-gray-200', 'text-gray-800');
+    btn.classList.add('text-gray-400');
+  });
+  
+  if (destaque === '') {
+    btnTodos.classList.add('bg-gray-200', 'text-gray-800');
+    btnTodos.classList.remove('text-gray-400');
+  } else if (destaque === 'sim') {
+    btnSim.classList.add('bg-gray-200', 'text-gray-800');
+    btnSim.classList.remove('text-gray-400');
+  }
+  
+  filtrarCategorias();
+}
+
 function filtrarCategorias() {
   const pesquisa = document.getElementById('pesquisa_categoria').value.toLowerCase();
-  const statusFiltro = document.getElementById('filtro_status').value.toLowerCase();
   const tabela = document.getElementById('tabela_categorias');
+  
+  if (!tabela) return;
+  
   const linhas = tabela.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
   
   let visivel = 0;
@@ -169,9 +268,11 @@ function filtrarCategorias() {
     const nome = linha.cells[0].textContent.toLowerCase();
     const descricao = linha.cells[1].textContent.toLowerCase();
     const statusLinha = linha.getAttribute('data-status');
+    const destaqueLinha = linha.getAttribute('data-destaque');
     
     let mostrarPesquisa = true;
     let mostrarStatus = true;
+    let mostrarDestaque = true;
     
     // Filtro de pesquisa
     if (pesquisa) {
@@ -179,11 +280,16 @@ function filtrarCategorias() {
     }
     
     // Filtro de status
-    if (statusFiltro) {
-      mostrarStatus = statusLinha === statusFiltro;
+    if (statusFiltroAtual) {
+      mostrarStatus = statusLinha === statusFiltroAtual;
     }
     
-    if (mostrarPesquisa && mostrarStatus) {
+    // Filtro de destaque
+    if (destaqueFiltroAtual) {
+      mostrarDestaque = destaqueLinha === destaqueFiltroAtual;
+    }
+    
+    if (mostrarPesquisa && mostrarStatus && mostrarDestaque) {
       linha.style.display = '';
       visivel++;
     } else {
@@ -192,11 +298,15 @@ function filtrarCategorias() {
   }
   
   // Atualizar contador
-  document.getElementById('contador_filtro').textContent = 
-    `Mostrando ${visivel} de ${total} categoria(s)`;
+  const contador = document.getElementById('contador_filtro');
+  if (pesquisa || statusFiltroAtual || destaqueFiltroAtual) {
+    contador.textContent = `Mostrando ${visivel} de ${total} categoria(s)`;
+  } else {
+    contador.textContent = '';
+  }
 }
 
-// Inicializar contador ao carregar
+// Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', function() {
   filtrarCategorias();
 });

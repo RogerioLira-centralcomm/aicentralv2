@@ -3,17 +3,94 @@
 {% block title %}Leads & Interesses - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-  <div class="flex items-center justify-between mb-3">
-    <div>
-      <h1 class="text-2xl font-bold text-base-content">Leads & Interesses</h1>
-      <p class="text-sm text-base-content/70">Visualize os contatos interessados em nossos produtos.</p>
+<style>
+  /* Badge styles */
+  .badge-notificado { background-color: #10b981; color: white; }
+  .badge-pendente { background-color: #f59e0b; color: white; }
+  
+  /* Produto badges */
+  .badge-produto { background-color: #e5e7eb; color: #374151; }
+</style>
+
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Leads & Interesses</h1>
+        {% if interesses %}<span class="text-xs text-gray-500">({{ interesses|length }} registros)</span>{% endif %}
+      </div>
+      
+      <!-- Filtros Inline -->
+      <form id="filtros_form" method="GET" action="{{ url_for('interesse_produto_listar') }}" class="flex items-center gap-3">
+        <!-- Tipo de Produto -->
+        <select name="tipo_produto" onchange="this.form.submit()" 
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todos produtos</option>
+          <option value="regenerar_resposta" {% if filtro_tipo == 'regenerar_resposta' %}selected{% endif %}>Regenerar Resposta</option>
+          <option value="anexo_arquivos" {% if filtro_tipo == 'anexo_arquivos' %}selected{% endif %}>Anexo Arquivos</option>
+          <option value="canais" {% if filtro_tipo == 'canais' %}selected{% endif %}>Canais</option>
+          <option value="self_media" {% if filtro_tipo == 'self_media' %}selected{% endif %}>Self Media</option>
+          <option value="estrategias" {% if filtro_tipo == 'estrategias' %}selected{% endif %}>Estratégias</option>
+        </select>
+        
+        <!-- Busca Cliente -->
+        <div class="relative">
+          <input type="hidden" name="cliente_id" id="cliente_id_interesse" value="{{ filtro_cliente_id }}">
+          <input
+            type="text"
+            id="cliente_busca_interesse"
+            class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+            style="min-width: 180px;"
+            placeholder="Buscar cliente..."
+            value="{{ cliente_nome_prefill or '' }}"
+            autocomplete="off"
+            oninput="buscarClientesInteresse(this.value)"
+            onfocus="mostrarResultadosInteresse()"
+          >
+          <div id="resultados_clientes_interesse" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-gray-200"></div>
+        </div>
+        
+        <!-- Hidden filter para notificado -->
+        <input type="hidden" name="notificado" id="notificado_filter" value="{{ filtro_notificado or '' }}">
+        
+        <!-- Status Notificação Icons -->
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+          <button type="button" onclick="filtrarNotificado('')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if not filtro_notificado %}bg-gray-200{% endif %}" 
+                  title="Todos">
+            <i class="fa-solid fa-list text-sm text-gray-{% if not filtro_notificado %}800{% else %}400{% endif %}"></i>
+          </button>
+          <button type="button" onclick="filtrarNotificado('true')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtro_notificado == 'true' %}bg-gray-200{% endif %}" 
+                  title="Notificados">
+            <i class="fa-solid fa-bell text-sm text-gray-{% if filtro_notificado == 'true' %}800{% else %}400{% endif %}"></i>
+          </button>
+          <button type="button" onclick="filtrarNotificado('false')" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if filtro_notificado == 'false' %}bg-gray-200{% endif %}" 
+                  title="Pendentes">
+            <i class="fa-solid fa-bell-slash text-sm text-gray-{% if filtro_notificado == 'false' %}800{% else %}400{% endif %}"></i>
+          </button>
+        </div>
+        
+        <!-- Limpar Filtros -->
+        {% if filtro_tipo or filtro_notificado or filtro_cliente_id %}
+        <div class="border-l border-gray-200 pl-3">
+          <a href="{{ url_for('interesse_produto_listar') }}" 
+             class="p-1.5 rounded hover:bg-gray-100 transition-colors inline-flex items-center justify-center" 
+             title="Limpar filtros">
+            <i class="fa-solid fa-times text-sm text-gray-500"></i>
+          </a>
+        </div>
+        {% endif %}
+      </form>
     </div>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-6 space-y-2">
+      <div class="mb-4 space-y-2">
         {% for category, message in messages %}
           <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
             <span>{{ message }}</span>
@@ -23,103 +100,46 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Filtros -->
-  <div class="bg-base-100 rounded-xl shadow-lg p-4 mb-4">
-    <form method="GET" action="{{ url_for('interesse_produto_listar') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Tipo de Produto</span>
-        </label>
-        <select name="tipo_produto" class="select select-bordered w-full">
-          <option value="">Todos</option>
-          <option value="regenerar_resposta" {% if filtro_tipo == 'regenerar_resposta' %}selected{% endif %}>Regenerar Resposta</option>
-          <option value="anexo_arquivos" {% if filtro_tipo == 'anexo_arquivos' %}selected{% endif %}>Anexo Arquivos</option>
-          <option value="canais" {% if filtro_tipo == 'canais' %}selected{% endif %}>Canais</option>
-          <option value="self_media" {% if filtro_tipo == 'self_media' %}selected{% endif %}>Self Media</option>
-          <option value="estrategias" {% if filtro_tipo == 'estrategias' %}selected{% endif %}>Estratégias</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Status Notificação</span>
-        </label>
-        <select name="notificado" class="select select-bordered w-full">
-          <option value="">Todos</option>
-          <option value="true" {% if filtro_notificado == 'true' %}selected{% endif %}>Notificado</option>
-          <option value="false" {% if filtro_notificado == 'false' %}selected{% endif %}>Não Notificado</option>
-        </select>
-      </div>
-
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">Cliente</span>
-        </label>
-        <div class="relative">
-          <input type="hidden" name="cliente_id" id="cliente_id_interesse" value="{{ filtro_cliente_id }}">
-          <input
-            type="text"
-            id="cliente_busca_interesse"
-            class="input input-bordered w-full"
-            placeholder="Digite para buscar cliente..."
-            value="{{ cliente_nome_prefill or '' }}"
-            autocomplete="off"
-            oninput="buscarClientesInteresse(this.value)"
-            onfocus="mostrarResultadosInteresse()"
-          >
-          <div id="resultados_clientes_interesse" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-base-300"></div>
-        </div>
-      </div>
-
-      <div class="form-control flex flex-row gap-2 items-end">
-        <button type="submit" class="btn text-white btn-sm flex-1" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-filter mr-2"></i>Filtrar
-        </button>
-        <a href="{{ url_for('interesse_produto_listar') }}" class="btn btn-outline btn-sm">
-          <i class="fas fa-times"></i>
-        </a>
-      </div>
-    </form>
-  </div>
-
-  <div class="bg-base-100 rounded-xl shadow-lg overflow-hidden">
+  <!-- Tabela de Interesses -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     {% if interesses %}
       <!-- Desktop -->
       <div class="hidden md:block overflow-x-auto">
-        <table class="table table-xs w-full">
-          <thead style="background-color: #72cd80;" class="text-white">
+        <table class="w-full text-sm" id="tabela_interesses">
+          <thead class="bg-gray-100">
             <tr>
-              <th class="text-left font-bold uppercase">Contato</th>
-              <th class="text-left font-bold uppercase">Cliente</th>
-              <th class="text-left font-bold uppercase">Tipo Produto</th>
-              <th class="text-center font-bold uppercase w-32">Notificado</th>
-              <th class="text-center font-bold uppercase w-32">Data Registro</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Contato</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Cliente</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-40">Produto</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Status</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-32">Data</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100">
             {% for interesse in interesses %}
-            <tr class="hover">
-              <td>
-                <div class="font-semibold text-base-content">{{ interesse.nome_completo }}</div>
-                <div class="text-xs text-base-content/60">{{ interesse.email }}</div>
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3">
+                <div>
+                  <span class="font-medium text-gray-800">{{ interesse.nome_completo }}</span>
+                </div>
+                <div class="text-xs text-gray-500">
+                  <i class="fas fa-envelope mr-1"></i>{{ interesse.email }}
+                </div>
               </td>
-              <td>
-                <span class="text-base-content">{{ interesse.nome_fantasia or interesse.razao_social or 'N/A' }}</span>
+              <td class="py-2 px-3">
+                <span class="text-gray-700">{{ interesse.nome_fantasia or interesse.razao_social or 'N/A' }}</span>
               </td>
-              <td>
-                <span class="badge badge-sm badge-outline">{{ interesse.tipo_produto }}</span>
+              <td class="text-center py-2 px-2">
+                <span class="text-xs px-2 py-1 rounded badge-produto">{{ interesse.tipo_produto }}</span>
               </td>
-              <td class="text-center">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-                  style="{% if interesse.notificado %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #fbbf24; color: white; border-color: #fbbf24;{% endif %}">
-                  {% if interesse.notificado %}
-                    Sim
-                  {% else %}
-                    Não
-                  {% endif %}
-                </span>
+              <td class="text-center py-2 px-2">
+                {% if interesse.notificado %}
+                  <span class="text-xs px-2 py-1 rounded-full badge-notificado">Notificado</span>
+                {% else %}
+                  <span class="text-xs px-2 py-1 rounded-full badge-pendente">Pendente</span>
+                {% endif %}
               </td>
-              <td class="text-center text-xs text-base-content/70">
+              <td class="text-center py-2 px-2 text-xs text-gray-500">
                 {{ interesse.data_registro.strftime('%d/%m/%Y %H:%M') if interesse.data_registro else '-' }}
               </td>
             </tr>
@@ -129,49 +149,54 @@
       </div>
 
       <!-- Mobile -->
-      <div class="md:hidden divide-y divide-base-300">
+      <div class="md:hidden divide-y divide-gray-100">
         {% for interesse in interesses %}
-        <div class="p-4 hover:bg-base-200">
+        <div class="p-4 hover:bg-gray-50 transition-colors">
           <div class="flex items-start justify-between mb-2">
             <div class="flex-1">
-              <div class="font-semibold text-base-content">{{ interesse.nome_completo }}</div>
-              <div class="text-xs text-base-content/60">{{ interesse.email }}</div>
+              <div class="font-medium text-gray-800">{{ interesse.nome_completo }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">
+                <i class="fas fa-envelope mr-1"></i>{{ interesse.email }}
+              </div>
             </div>
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-              style="{% if interesse.notificado %}background-color: #72cd80; color: white; border-color: #72cd80;{% else %}background-color: #fbbf24; color: white; border-color: #fbbf24;{% endif %}">
-              {% if interesse.notificado %}
-                Sim
-              {% else %}
-                Não
-              {% endif %}
-            </span>
+            {% if interesse.notificado %}
+              <span class="text-xs px-2 py-1 rounded-full badge-notificado">Sim</span>
+            {% else %}
+              <span class="text-xs px-2 py-1 rounded-full badge-pendente">Não</span>
+            {% endif %}
           </div>
-          <div class="grid grid-cols-2 gap-2 text-xs mt-2">
+          
+          <div class="grid grid-cols-2 gap-3 mt-3">
             <div>
-              <span class="text-base-content/60">Cliente:</span>
-              <div class="font-medium">{{ interesse.nome_fantasia or interesse.razao_social or 'N/A' }}</div>
+              <span class="text-xs text-gray-400 uppercase">Cliente</span>
+              <div class="text-sm text-gray-700 mt-0.5">{{ interesse.nome_fantasia or interesse.razao_social or 'N/A' }}</div>
             </div>
             <div>
-              <span class="text-base-content/60">Produto:</span>
-              <div><span class="badge badge-sm badge-outline">{{ interesse.tipo_produto }}</span></div>
+              <span class="text-xs text-gray-400 uppercase">Produto</span>
+              <div class="mt-0.5">
+                <span class="text-xs px-2 py-1 rounded badge-produto">{{ interesse.tipo_produto }}</span>
+              </div>
             </div>
           </div>
+          
           {% if interesse.observacoes %}
-          <div class="text-xs text-base-content/70 mt-2 p-2 bg-base-300 rounded">
-            {{ interesse.observacoes }}
+          <div class="text-xs text-gray-600 mt-3 p-2 bg-gray-50 rounded border border-gray-100">
+            <i class="fas fa-comment mr-1 text-gray-400"></i>{{ interesse.observacoes }}
           </div>
           {% endif %}
-          <div class="text-xs text-base-content/50 mt-2">
+          
+          <div class="text-xs text-gray-400 mt-3 flex items-center">
             <i class="fas fa-calendar mr-1"></i>{{ interesse.data_registro.strftime('%d/%m/%Y %H:%M') if interesse.data_registro else '-' }}
           </div>
         </div>
         {% endfor %}
       </div>
     {% else %}
-      <div class="text-center py-8">
-        <p class="mb-2 text-base-content/60 text-sm">Nenhum interesse cadastrado com os filtros selecionados.</p>
-        {% if filtro_tipo or filtro_notificado or filtro_cliente %}
-        <a href="{{ url_for('interesse_produto_listar') }}" class="btn btn-outline btn-sm">
+      <div class="text-center py-12">
+        <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 mb-4">Nenhum interesse cadastrado com os filtros selecionados.</p>
+        {% if filtro_tipo or filtro_notificado or filtro_cliente_id %}
+        <a href="{{ url_for('interesse_produto_listar') }}" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors inline-flex items-center">
           <i class="fas fa-times mr-2"></i>Limpar Filtros
         </a>
         {% endif %}
@@ -183,7 +208,13 @@
 
 {% block scripts %}
 <script>
-// Busca de clientes (mesma UX do briefing)
+// Filtrar por status de notificação
+function filtrarNotificado(valor) {
+  document.getElementById('notificado_filter').value = valor;
+  document.getElementById('filtros_form').submit();
+}
+
+// Busca de clientes
 let timeoutIdInteresse = null;
 let currentIndexInteresse = -1;
 
@@ -220,7 +251,7 @@ function renderizarResultadosInteresse(clientes) {
   const resultadosDiv = document.getElementById('resultados_clientes_interesse');
 
   if (!clientes.length) {
-    resultadosDiv.innerHTML = '<div class="p-2 text-sm text-gray-500">Nenhum cliente encontrado</div>';
+    resultadosDiv.innerHTML = '<div class="p-3 text-sm text-gray-500">Nenhum cliente encontrado</div>';
     resultadosDiv.style.display = 'block';
     return;
   }
@@ -230,11 +261,11 @@ function renderizarResultadosInteresse(clientes) {
     const nome = cliente.nome_fantasia || '';
     const razao = cliente.razao_social || '';
     return `
-    <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0 cliente-resultado-interesse"
+    <div class="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 cliente-resultado-interesse transition-colors"
          data-index="${index}"
          onclick="selecionarClienteInteresse('${id}', '${nome.replace(/'/g, "\\'")}')">
-      <div class="font-medium">${nome}</div>
-      <div class="text-sm text-gray-500">${razao}</div>
+      <div class="font-medium text-gray-800">${nome}</div>
+      <div class="text-xs text-gray-500">${razao}</div>
     </div>
   `;}).join('');
 
@@ -246,6 +277,8 @@ function selecionarClienteInteresse(id, nome) {
   document.getElementById('cliente_id_interesse').value = id;
   document.getElementById('cliente_busca_interesse').value = nome;
   document.getElementById('resultados_clientes_interesse').style.display = 'none';
+  // Auto-submit ao selecionar cliente
+  document.getElementById('filtros_form').submit();
 }
 
 function mostrarResultadosInteresse() {
@@ -294,10 +327,10 @@ document.getElementById('cliente_busca_interesse').addEventListener('keydown', f
 function atualizarSelecaoInteresse(resultados) {
   resultados.forEach((el, idx) => {
     if (idx === currentIndexInteresse) {
-      el.classList.add('bg-base-200');
+      el.classList.add('bg-gray-100');
       el.scrollIntoView({ block: 'nearest' });
     } else {
-      el.classList.remove('bg-base-200');
+      el.classList.remove('bg-gray-100');
     }
   });
 }

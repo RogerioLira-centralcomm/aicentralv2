@@ -3,84 +3,184 @@
 {% block title %}Tipos de Cliente - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="p-6">
-    <!-- Header -->
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <h1 class="text-3xl font-bold text-text-primary flex items-center">
-                <i class="fas fa-tags text-primary mr-3"></i>
-                Tipos de Cliente
-            </h1>
-            <a href="{{ url_for('tipo_cliente_novo') }}" 
-               class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200 shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                Novo Tipo
-            </a>
-        </div>
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto (max 66px) estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Tipos de Cliente</h1>
+        {% if tipos %}<span class="text-xs text-gray-500">({{ tipos|length }} registros)</span>{% endif %}
+      </div>
+      
+      <!-- Busca Inline -->
+      <div class="flex items-center gap-3">
+        <input type="text" id="searchInput" placeholder="Buscar tipo..." 
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      </div>
+      
+      <!-- Botões -->
+      <div class="flex gap-2">
+        <button onclick="modal_tipo.showModal()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Novo Tipo
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Tabela de Tipos -->
-    <div class="bg-base-100 rounded-xl overflow-hidden">
-        {% if tipos and tipos|length > 0 %}
-            <div class="overflow-x-auto">
-                <table class="table table-xs w-full">
-                    <thead class="bg-primary text-white">
-                        <tr>
-                            <th class="text-left font-bold uppercase">ID</th>
-                            <th class="text-left font-bold uppercase">Nome</th>
-                            <th class="text-left font-bold uppercase">Data Criação</th>
-                            <th class="text-left font-bold uppercase">Última Modificação</th>
-                            <th class="text-center font-bold uppercase w-32">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for tipo in tipos %}
-                        <tr class="hover">
-                            <td class="text-sm">#{{ tipo.id_tipo_cliente }}</td>
-                            <td>
-                                <div class="text-sm font-medium">{{ tipo.display }}</div>
-                            </td>
-                            <td class="text-sm text-base-content/70">
-                                {{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}
-                            </td>
-                            <td class="text-sm text-base-content/70">
-                                {{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}
-                            </td>
-                            <td>
-                                <div class="flex items-center justify-center gap-2">
-                                    <a href="{{ url_for('tipo_cliente_editar', id_tipo=tipo.id_tipo_cliente) }}" 
-                                       class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
-                                       title="Editar">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <form method="POST" 
-                                          action="{{ url_for('tipo_cliente_excluir', id_tipo=tipo.id_tipo_cliente) }}"
-                                          onsubmit="return confirm('Tem certeza que deseja excluir este tipo de cliente?');"
-                                          class="inline">
-                                        <button type="submit" 
-                                                class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors duration-200"
-                                                title="Excluir">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="text-center py-12">
-                <i class="fas fa-tags text-6xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500 text-lg mb-4">Nenhum tipo de cliente cadastrado.</p>
-                <a href="{{ url_for('tipo_cliente_novo') }}" 
-                   class="inline-flex items-center px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors duration-200">
-                    <i class="fas fa-plus mr-2"></i>
-                    Cadastrar Primeiro Tipo
-                </a>
-            </div>
-        {% endif %}
-    </div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Tabela de Tipos -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {% if tipos and tipos|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tabela_tipos">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Nome</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Data Criação</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Última Modificação</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100" id="tiposTableBody">
+            {% for tipo in tipos %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3 text-gray-600">#{{ tipo.id_tipo_cliente }}</td>
+              <td class="py-2 px-3">
+                <span class="font-medium text-gray-800">{{ tipo.display }}</span>
+              </td>
+              <td class="py-2 px-3 text-gray-500">
+                {{ tipo.data_cadastro.strftime('%d/%m/%Y %H:%M') if tipo.data_cadastro else 'N/A' }}
+              </td>
+              <td class="py-2 px-3 text-gray-500">
+                {{ tipo.data_modificacao.strftime('%d/%m/%Y %H:%M') if tipo.data_modificacao else 'N/A' }}
+              </td>
+              <td class="py-2 px-3">
+                <div class="flex items-center justify-center gap-2">
+                  <button onclick="abrirModalEditar({{ tipo.id_tipo_cliente }}, '{{ tipo.display|e }}')"
+                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <form method="POST" 
+                        action="{{ url_for('tipo_cliente_excluir', id_tipo=tipo.id_tipo_cliente) }}"
+                        onsubmit="return confirm('Tem certeza que deseja excluir este tipo de cliente?');"
+                        class="inline">
+                    <button type="submit" 
+                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-12">
+        <i class="fas fa-tags text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">Nenhum tipo de cliente cadastrado.</p>
+        <button onclick="modal_tipo.showModal()" 
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Cadastrar Primeiro Tipo
+        </button>
+      </div>
+    {% endif %}
+  </div>
 </div>
+
+<!-- Modal de Criação/Edição -->
+<dialog id="modal_tipo" class="modal">
+  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
+    <!-- Header fixo -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Tipo de Cliente</h3>
+      <button onclick="modal_tipo.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+    
+    <!-- Conteúdo -->
+    <div class="p-6">
+      <form id="tipoForm" method="POST" action="{{ url_for('tipo_cliente_novo') }}">
+        <input type="hidden" id="tipoId" name="id_tipo_cliente" value="">
+        
+        <div class="mb-4">
+          <label for="display" class="block text-sm font-medium text-gray-700 mb-1">
+            Nome do Tipo <span class="text-red-500">*</span>
+          </label>
+          <input type="text" 
+                 id="display" 
+                 name="display" 
+                 required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+        
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" 
+                  onclick="modal_tipo.close()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit" 
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Busca na tabela
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#tiposTableBody tr');
+    
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+
+  // Abrir modal para edição
+  function abrirModalEditar(id, display) {
+    document.getElementById('modal_title').textContent = 'Editar Tipo de Cliente';
+    document.getElementById('tipoId').value = id;
+    document.getElementById('display').value = display;
+    document.getElementById('tipoForm').action = "{{ url_for('tipo_cliente_editar', id_tipo=0) }}".replace('0', id);
+    modal_tipo.showModal();
+  }
+
+  // Reset modal ao fechar
+  document.getElementById('modal_tipo').addEventListener('close', function() {
+    document.getElementById('modal_title').textContent = 'Novo Tipo de Cliente';
+    document.getElementById('tipoId').value = '';
+    document.getElementById('display').value = '';
+    document.getElementById('tipoForm').action = "{{ url_for('tipo_cliente_novo') }}";
+  });
+</script>
 {% endblock %}

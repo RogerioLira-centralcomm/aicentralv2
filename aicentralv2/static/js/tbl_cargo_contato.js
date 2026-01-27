@@ -1,7 +1,7 @@
 // Elementos do DOM
 const searchInput = document.getElementById('searchInput');
 const cargosTableBody = document.getElementById('cargosTableBody');
-const cargoModal = document.getElementById('cargoModal');
+const cargoModal = document.getElementById('modal_cargo');
 const cargoForm = document.getElementById('cargoForm');
 const modalTitle = document.getElementById('modalTitle');
 const setorSelect = document.getElementById('setor_select');
@@ -75,8 +75,7 @@ function openCreateModal() {
     modalTitle.textContent = 'Novo Cargo';
     cargoForm.reset();
     cargoForm.querySelector('#cargoId').value = '';
-    cargoModal.classList.remove('hidden');
-    cargoModal.classList.add('flex');
+    cargoModal.showModal();
 }
 
 function openEditModal(cargo) {
@@ -88,13 +87,11 @@ function openEditModal(cargo) {
     cargoForm.querySelector('#id_centralx').value = cargo.id_centralx || '';
     cargoForm.querySelector('#indice').value = cargo.indice || '';
     cargoForm.querySelector('#status').value = cargo.status.toString();
-    cargoModal.classList.remove('hidden');
-    cargoModal.classList.add('flex');
+    cargoModal.showModal();
 }
 
 function closeModal() {
-    cargoModal.classList.add('hidden');
-    cargoModal.classList.remove('flex');
+    cargoModal.close();
     cargoForm.reset();
 }
 

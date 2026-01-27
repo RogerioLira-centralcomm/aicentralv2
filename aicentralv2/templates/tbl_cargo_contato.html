@@ -2,239 +2,201 @@
 
 {% block title %}Cargos - CentralComm AI{% endblock %}
 
-{% block styles %}
-<style>
-    .status-badge {
-        @apply px-2 py-1 text-xs font-medium rounded-full;
-    }
-    .status-active {
-        @apply bg-green-100 text-green-800;
-    }
-    .status-inactive {
-        @apply bg-red-100 text-red-800;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <!-- Cabeçalho -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Cargos</h1>
-        <p class="text-gray-600">Gerencie os cargos do sistema.</p>
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto (max 66px) estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Título -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Cargos</h1>
+        {% if cargos %}<span class="text-xs text-gray-500">({{ cargos|length }} registros)</span>{% endif %}
+      </div>
+      
+      <!-- Busca Inline -->
+      <div class="flex items-center gap-3">
+        <input type="text" id="searchInput" placeholder="Buscar cargo..." 
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      </div>
+      
+      <!-- Botões -->
+      <div class="flex gap-2">
+        <button onclick="window.location.reload()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+          <i class="fas fa-sync-alt mr-1"></i>Atualizar
+        </button>
+        <button onclick="openCreateModal()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Novo Cargo
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Mensagens Flash -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="mb-4 p-4 rounded-lg 
-                    {%- if category == 'success' -%} bg-green-100 text-green-800 
-                    {%- elif category == 'error' -%} bg-red-100 text-red-800 
-                    {%- else -%} bg-blue-100 text-blue-800 
-                    {%- endif -%}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
 
-    <!-- Barra de Ações -->
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <!-- Busca e Filtros -->
-        <div class="flex-1 min-w-[300px]">
-            <div class="relative">
-                <input type="text" 
-                    id="searchInput"
-                    placeholder="Buscar cargos..."
-                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-            </div>
-        </div>
-        
-        <!-- Botões de Ação -->
-        <div class="flex gap-2">
-            <button onclick="window.location.reload()" class="btn-outline">
-                <i class="fas fa-sync-alt mr-2"></i>
-                Atualizar
-            </button>
-            <button onclick="openCreateModal()" class="btn-primary">
-                <i class="fas fa-plus mr-2"></i>
-                Novo Cargo
-            </button>
-        </div>
+  <!-- Tabela de Cargos -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" id="tabela_cargos">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
+            <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Descrição</th>
+            <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Setor</th>
+            <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Status</th>
+            <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Data Cadastro</th>
+            <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100" id="cargosTableBody">
+          {% for cargo in cargos %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-2 px-3 text-gray-600 font-medium">{{ cargo.id_cargo_contato }}</td>
+            <td class="py-2 px-3 text-gray-800">{{ cargo.descricao }}</td>
+            <td class="py-2 px-3 text-gray-500">{{ cargo.setor_display or 'Nenhum' }}</td>
+            <td class="py-2 px-3">
+              <span class="px-2 py-0.5 text-xs font-medium rounded-full {% if cargo.status %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                {{ "Ativo" if cargo.status else "Inativo" }}
+              </span>
+            </td>
+            <td class="py-2 px-3 text-gray-500">
+              {{ cargo.data_cadastro.strftime('%d/%m/%Y %H:%M') }}
+            </td>
+            <td class="py-2 px-3">
+              <div class="flex items-center justify-center gap-2">
+                {% set cargo_json = {
+                    'id_cargo_contato': cargo.id_cargo_contato,
+                    'descricao': cargo.descricao,
+                    'pk_id_aux_setor': cargo.pk_id_aux_setor,
+                    'id_centralx': cargo.id_centralx,
+                    'indice': cargo.indice,
+                    'status': cargo.status
+                }|tojson|safe %}
+                <button onclick='openEditModal({{ cargo_json }})' 
+                    class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                    title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="toggleStatus({{ cargo.id_cargo_contato }}, {{ cargo.status|tojson }})" 
+                    class="p-2 {% if cargo.status %}text-red-600 hover:text-red-800 hover:bg-red-50{% else %}text-green-600 hover:text-green-800 hover:bg-green-50{% endif %} rounded transition-colors"
+                    title="{% if cargo.status %}Desativar{% else %}Ativar{% endif %}">
+                    <i class="fas {% if cargo.status %}fa-times-circle{% else %}fa-check-circle{% endif %}"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-
-    <!-- Tabela -->
-    <div class="bg-base-100 rounded-xl overflow-hidden">
-        <table class="table table-xs w-full">
-            <thead class="bg-primary text-white">
-                <tr>
-                    <th class="text-left font-bold uppercase">
-                        ID
-                    </th>
-                    <th class="text-left font-bold uppercase">
-                        Descrição
-                    </th>
-                    <th class="text-left font-bold uppercase">
-                        Setor
-                    </th>
-                    <th class="text-left font-bold uppercase">
-                        Status
-                    </th>
-                    <th class="text-left font-bold uppercase">
-                        Data Cadastro
-                    </th>
-                    <th class="text-center font-bold uppercase w-32">
-                        Ações
-                    </th>
-                </tr>
-            </thead>
-            <tbody id="cargosTableBody">
-                {% for cargo in cargos %}
-                <tr class="hover">
-                    <td class="text-sm font-medium">
-                        {{ cargo.id_cargo_contato }}
-                    </td>
-                    <td class="text-sm">
-                        {{ cargo.descricao }}
-                    </td>
-                    <td class="text-sm text-base-content/70">
-                        {{ cargo.setor_display or 'Nenhum' }}
-                    </td>
-                    <td>
-                        <span class="badge badge-sm {% if cargo.status %}badge-success{% else %}badge-error{% endif %}">
-                            {{ "Ativo" if cargo.status else "Inativo" }}
-                        </span>
-                    </td>
-                    <td class="text-sm text-base-content/70">
-                        {{ cargo.data_cadastro.strftime('%d/%m/%Y %H:%M') }}
-                    </td>
-                    <td>
-                        <div class="flex items-center justify-center gap-2">
-                        <div class="flex items-center justify-center gap-2">
-                        {% set cargo_json = {
-                            'id_cargo_contato': cargo.id_cargo_contato,
-                            'descricao': cargo.descricao,
-                            'pk_id_aux_setor': cargo.pk_id_aux_setor,
-                            'id_centralx': cargo.id_centralx,
-                            'indice': cargo.indice,
-                            'status': cargo.status
-                        }|tojson|safe %}
-                        <button onclick='openEditModal({{ cargo_json }})' 
-                            class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-200"
-                            title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button onclick="toggleStatus({{ cargo.id_cargo_contato }}, {{ cargo.status|tojson }})" 
-                            class="p-2 {% if cargo.status %}text-red-600 hover:text-red-800 hover:bg-red-50{% else %}text-green-600 hover:text-green-800 hover:bg-green-50{% endif %} rounded transition-colors duration-200"
-                            title="{% if cargo.status %}Desativar{% else %}Ativar{% endif %}">
-                            <i class="fas {% if cargo.status %}fa-times-circle{% else %}fa-check-circle{% endif %}"></i>
-                        </button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  </div>
 </div>
 
 <!-- Modal de Criação/Edição -->
-<div id="cargoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
-        <div class="p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">
-                Novo Cargo
-            </h3>
-            
-            <form id="cargoForm" onsubmit="handleSubmit(event)">
-                <input type="hidden" id="cargoId" name="id_cargo_contato">
-                
-                <div class="mb-4">
-                    <label for="descricao" class="block text-sm font-medium text-gray-700 mb-1">
-                        Descrição
-                    </label>
-                    <input type="text" 
-                        id="descricao" 
-                        name="descricao" 
-                        required
-                        maxlength="60"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                </div>
-
-                <div class="mb-4">
-                    <label for="setor" class="block text-sm font-medium text-gray-700 mb-1">
-                        Setor
-                    </label>
-                    <select id="setor" 
-                        name="pk_id_aux_setor" 
-                        required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                        <option value="">Selecione um setor</option>
-                        {% for setor in setores %}
-                            <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-4">
-                    <label for="id_centralx" class="block text-sm font-medium text-gray-700 mb-1">
-                        ID CentralX
-                    </label>
-                    <input type="text" 
-                        id="id_centralx" 
-                        name="id_centralx" 
-                        maxlength="100"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                </div>
-
-                <div class="mb-4">
-                    <label for="indice" class="block text-sm font-medium text-gray-700 mb-1">
-                        Índice
-                    </label>
-                    <input type="number" 
-                        id="indice" 
-                        name="indice" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                </div>
-                
-                <div class="mb-4">
-                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
-                        Status
-                    </label>
-                    <select id="status" 
-                        name="status" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                        <option value="true">Ativo</option>
-                        <option value="false">Inativo</option>
-                    </select>
-                </div>
-                
-                <div class="mt-6 flex justify-end gap-3">
-                    <button type="button" 
-                        onclick="closeModal()"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                    >
-                        Cancelar
-                    </button>
-                    <button type="submit" 
-                        class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                    >
-                        Salvar
-                    </button>
-                </div>
-            </form>
-        </div>
+<dialog id="modal_cargo" class="modal">
+  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
+    <!-- Header fixo -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modalTitle">Novo Cargo</h3>
+      <button onclick="closeModal()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
     </div>
-</div>
+    
+    <!-- Conteúdo -->
+    <div class="p-6">
+      <form id="cargoForm" onsubmit="handleSubmit(event)">
+        <input type="hidden" id="cargoId" name="id_cargo_contato">
+        
+        <div class="mb-4">
+          <label for="descricao" class="block text-sm font-medium text-gray-700 mb-1">
+            Descrição <span class="text-red-500">*</span>
+          </label>
+          <input type="text" 
+                 id="descricao" 
+                 name="descricao" 
+                 required
+                 maxlength="60"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
 
+        <div class="mb-4">
+          <label for="setor" class="block text-sm font-medium text-gray-700 mb-1">
+            Setor <span class="text-red-500">*</span>
+          </label>
+          <select id="setor" 
+                  name="pk_id_aux_setor" 
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <option value="">Selecione um setor</option>
+            {% for setor in setores %}
+              <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label for="id_centralx" class="block text-sm font-medium text-gray-700 mb-1">
+            ID CentralX
+          </label>
+          <input type="text" 
+                 id="id_centralx" 
+                 name="id_centralx" 
+                 maxlength="100"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+
+        <div class="mb-4">
+          <label for="indice" class="block text-sm font-medium text-gray-700 mb-1">
+            Índice
+          </label>
+          <input type="number" 
+                 id="indice" 
+                 name="indice" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+        
+        <div class="mb-4">
+          <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
+            Status
+          </label>
+          <select id="status" 
+                  name="status" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
+        </div>
+        
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" 
+                  onclick="closeModal()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit" 
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}

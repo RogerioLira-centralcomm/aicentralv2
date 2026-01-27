@@ -1,7 +1,7 @@
 // Elementos do DOM
 const searchInput = document.getElementById('searchInput');
 const setoresTableBody = document.getElementById('setoresTableBody');
-const setorModal = document.getElementById('setorModal');
+const setorModal = document.getElementById('modal_setor');
 const setorForm = document.getElementById('setorForm');
 const modalTitle = document.getElementById('modalTitle');
 
@@ -35,8 +35,7 @@ function openCreateModal() {
     modalTitle.textContent = 'Novo Setor';
     setorForm.reset();
     setorForm.querySelector('#setorId').value = '';
-    setorModal.classList.remove('hidden');
-    setorModal.classList.add('flex');
+    setorModal.showModal();
 }
 
 function openEditModal(setor) {
@@ -45,13 +44,11 @@ function openEditModal(setor) {
     setorForm.querySelector('#setorId').value = setor.id_setor;
     setorForm.querySelector('#display').value = setor.display;
     setorForm.querySelector('#status').value = setor.status.toString();
-    setorModal.classList.remove('hidden');
-    setorModal.classList.add('flex');
+    setorModal.showModal();
 }
 
 function closeModal() {
-    setorModal.classList.add('hidden');
-    setorModal.classList.remove('flex');
+    setorModal.close();
     setorForm.reset();
 }
 

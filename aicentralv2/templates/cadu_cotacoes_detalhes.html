@@ -393,20 +393,19 @@ function renderizarAnexos(anexos) {
         <table class="w-full text-sm table-fixed">
           <thead class="bg-gray-100">
             <tr class="text-xs text-gray-600 uppercase">
-              <th class="font-medium py-2 px-1 w-8">#</th>
-              <th class="font-medium py-2 px-1 w-20">Plataforma</th>
+              <th class="font-medium py-2 px-1 w-14">Plataf.</th>
               <th class="font-medium py-2 px-1">Segmentação</th>
-              <th class="font-medium py-2 px-1 w-16 text-center">KPI</th>
-              <th class="font-medium py-2 px-1 w-20">Período</th>
-              <th class="font-medium py-2 px-1 w-20 text-right">Volume</th>
-              <th class="font-medium py-2 px-1 w-24 text-right">Invest.</th>
+              <th class="font-medium py-2 px-1 w-10 text-center">KPI</th>
+              <th class="font-medium py-2 px-1 w-16">Período</th>
+              <th class="font-medium py-2 px-1 w-14 text-right">Volume</th>
+              <th class="font-medium py-2 px-1 w-20 text-right">Bruto</th>
+              <th class="font-medium py-2 px-1 w-20 text-right">Líquido</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
               <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarLinha({{ linha.id }})">
-                <td class="py-2 px-1 text-xs text-gray-600">{{ loop.index }}</td>
                 <td class="py-2 px-1">
                   <span class="px-1 py-0.5 text-xs rounded text-white truncate block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
@@ -416,7 +415,8 @@ function renderizarAnexos(anexos) {
                 </td>
                 <td class="py-2 px-1 text-xs text-gray-600">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
                 <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
-                <td class="py-2 px-1 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-1 text-xs text-right text-gray-700">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-1 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
               {% endfor %}
             {% else %}
@@ -427,8 +427,8 @@ function renderizarAnexos(anexos) {
           <tfoot class="bg-gray-50">
             <tr class="font-semibold text-xs text-gray-700">
               <td colspan="5" class="py-2 px-1 text-right">Total Itens</td>
-              <td class="py-2 px-1 text-right">{{ "{:,}".format(linhas|sum(attribute='volume_contratado') or 0).replace(',', '.') }}</td>
               <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_liquido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
             </tr>
           </tfoot>
           {% endif %}
@@ -452,7 +452,6 @@ function renderizarAnexos(anexos) {
         <table class="w-full text-sm table-fixed">
           <thead class="bg-gray-100">
             <tr class="text-xs text-gray-600 uppercase">
-              <th class="font-medium py-2 px-1 w-8">#</th>
               <th class="font-medium py-2 px-1">Audiência</th>
               <th class="font-medium py-2 px-1 w-20">Categoria</th>
               <th class="font-medium py-2 px-1 w-16 text-right">CPM</th>
@@ -464,11 +463,15 @@ function renderizarAnexos(anexos) {
             {% if audiencias %}
               {% for aud in audiencias %}
               <tr class="hover:bg-gray-50 cursor-pointer" onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar">
-                <td class="py-2 px-1">
-                  <span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-xs text-white" style="background-color: #72cd80;">{{ loop.index }}</span>
-                </td>
                 <td class="py-2 px-1 text-xs truncate" title="{{ aud.audiencia_nome or '' }}">
-                  <div class="font-medium text-gray-800 truncate">{{ aud.audiencia_nome or '-' }}</div>
+                  <div class="font-medium text-gray-800 truncate">
+                    <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px]"></i>{{ aud.audiencia_nome or '-' }}
+                  </div>
+                  <div class="text-[10px] text-gray-400 truncate">
+                    {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
+                    {% if aud.id_audiencia_plataforma and aud.fonte %} | {% endif %}
+                    {% if aud.fonte %}{{ aud.fonte }}{% endif %}
+                  </div>
                 </td>
                 <td class="py-2 px-1 text-xs text-gray-600 truncate">{{ aud.audiencia_categoria or '-' }}</td>
                 <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
@@ -477,13 +480,13 @@ function renderizarAnexos(anexos) {
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="6" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
+              <tr><td colspan="5" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
             {% endif %}
           </tbody>
           {% if audiencias %}
           <tfoot class="bg-gray-50">
             <tr class="font-semibold text-xs text-gray-700">
-              <td colspan="4" class="py-2 px-1 text-right">Total</td>
+              <td colspan="3" class="py-2 px-1 text-right">Total</td>
               <td class="py-2 px-1 text-right">{{ "{:,}".format(audiencias|sum(attribute='impressoes_estimadas') or 0).replace(',', '.') }}</td>
               <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(audiencias|sum(attribute='investimento_sugerido') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
             </tr>
@@ -499,12 +502,18 @@ function renderizarAnexos(anexos) {
           Resumo Total da Proposta
         </h2>
         <div class="space-y-2 text-sm">
-          {% set total_volume = (linhas|sum(attribute='volume_contratado') or 0) if linhas else 0 %}
-          {% set total_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
-          {% set total_audiencias = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
-          {% set subtotal = total_itens + total_audiencias %}
-          {% set desconto = cotacao.desconto_total or 0 if cotacao else 0 %}
-          {% set valor_liquido = cotacao.valor_total_proposta or 0 if cotacao else 0 %}
+          {% set total_volume = ((linhas|sum(attribute='volume_contratado') or 0)|float) if linhas else 0.0 %}
+          {% set total_itens_bruto = ((linhas|sum(attribute='investimento_bruto') or 0)|float) if linhas else 0.0 %}
+          {% set total_itens_liquido = ((linhas|sum(attribute='investimento_liquido') or 0)|float) if linhas else 0.0 %}
+          {% set total_itens = total_itens_bruto %}
+          {% set total_audiencias = ((audiencias|sum(attribute='investimento_sugerido') or 0)|float) if audiencias else 0.0 %}
+          {% set desconto_percentual = (cotacao.desconto_percentual|float) if cotacao and cotacao.desconto_percentual else 0.0 %}
+          {% set valor_liquido = (cotacao.valor_total_proposta|float) if cotacao and cotacao.valor_total_proposta else 0.0 %}
+          {# Subtotal = valor líquido + desconto (para garantir cálculo correto do %) #}
+          {% set subtotal_calculado = total_itens + total_audiencias %}
+          {% set subtotal = subtotal_calculado if subtotal_calculado > 0 else (valor_liquido / (1 - desconto_percentual/100)) if desconto_percentual < 100 else valor_liquido %}
+          {# Calcular desconto em reais a partir do percentual #}
+          {% set desconto = subtotal * (desconto_percentual / 100) %}
           
           <div class="flex justify-between py-1">
             <span class="text-gray-600"><i class="fas fa-chart-bar mr-2"></i>Volume Total</span>
@@ -512,23 +521,33 @@ function renderizarAnexos(anexos) {
           </div>
           <div class="flex justify-between py-1">
             <span class="text-gray-600"><i class="fas fa-list mr-2"></i>Total Itens ({{ linhas|length if linhas else 0 }}) <span class="text-xs">(Val. × Unit.)</span></span>
-            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <div class="text-right">
+              <span class="font-medium text-gray-700">Bruto: R$ {{ "{:,.2f}".format(total_itens_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+              <span class="mx-1 text-gray-400">|</span>
+              <span class="font-medium text-green-600">Líquido: R$ {{ "{:,.2f}".format(total_itens_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            </div>
           </div>
           <div class="flex justify-between py-1">
             <span class="text-gray-600"><i class="fas fa-users mr-2"></i>Total Audiências ({{ audiencias|length if audiencias else 0 }})</span>
             <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
+          {% set subtotal_bruto = total_itens_bruto + total_audiencias %}
+          {% set subtotal_liquido = total_itens_liquido + total_audiencias %}
           <div class="flex justify-between py-1 border-t border-gray-200 pt-2">
             <span class="font-medium text-gray-700"><i class="fas fa-plus mr-2"></i>Subtotal (Itens + Audiências)</span>
-            <span class="font-semibold text-gray-800">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <div class="text-right">
+              <span class="font-semibold text-gray-800">Bruto: R$ {{ "{:,.2f}".format(subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+              <span class="mx-1 text-gray-400">|</span>
+              <span class="font-semibold text-green-600">Líquido: R$ {{ "{:,.2f}".format(subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            </div>
           </div>
           <div class="flex justify-between py-1">
-            <span class="text-gray-600"><i class="fas fa-minus mr-2"></i>Desconto Aplicado <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span></span>
-            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-600"><i class="fas fa-minus mr-2"></i>Desconto Aplicado <span class="text-xs">({{ "%.1f"|format(desconto_percentual) }}%)</span></span>
+            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(subtotal_liquido * (desconto_percentual / 100)).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between py-2 bg-gray-800 rounded px-3 mt-2">
-            <span class="font-bold text-white"><i class="fas fa-check-circle mr-2"></i>Valor Líquido</span>
-            <span class="font-bold text-lg text-white">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="font-bold text-white"><i class="fas fa-check-circle mr-2"></i>Valor Líquido Final</span>
+            <span class="font-bold text-lg text-white">R$ {{ "{:,.2f}".format(subtotal_liquido * (1 - desconto_percentual / 100)).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
         </div>
       </div>
@@ -624,18 +643,30 @@ function renderizarAnexos(anexos) {
           <i class="fas fa-coins text-gray-400"></i>
           Resumo Financeiro
         </h3>
+        {% set rf_total_itens_bruto = ((linhas|sum(attribute='investimento_bruto') or 0)|float) if linhas else 0.0 %}
+        {% set rf_total_itens_liquido = ((linhas|sum(attribute='investimento_liquido') or 0)|float) if linhas else 0.0 %}
+        {% set rf_total_audiencias = ((audiencias|sum(attribute='investimento_sugerido') or 0)|float) if audiencias else 0.0 %}
+        {% set rf_subtotal_bruto = rf_total_itens_bruto + rf_total_audiencias %}
+        {% set rf_subtotal_liquido = rf_total_itens_liquido + rf_total_audiencias %}
+        {% set rf_desconto_percentual = (cotacao.desconto_percentual|float) if cotacao and cotacao.desconto_percentual else 0.0 %}
+        {% set rf_desconto = rf_subtotal_liquido * (rf_desconto_percentual / 100) %}
+        {% set rf_valor_liquido_final = rf_subtotal_liquido * (1 - rf_desconto_percentual / 100) %}
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-500 text-xs">Valor Bruto</span>
-            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(rf_subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500 text-xs">Valor Líquido</span>
+            <span class="font-medium text-green-600">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded p-1 -m-1" onclick="{% if modo == 'editar' %}document.getElementById('modal_editar_desconto').showModal(){% endif %}" title="{% if modo == 'editar' %}Clique para editar{% endif %}">
-            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format((desconto / subtotal * 100) if subtotal > 0 else 0) }}%)</span>{% if modo == 'editar' %}<i class="fas fa-edit text-xs ml-1 text-gray-400"></i>{% endif %}</span>
-            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span>{% if modo == 'editar' %}<i class="fas fa-edit text-xs ml-1 text-gray-400"></i>{% endif %}</span>
+            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(rf_desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="bg-gray-800 rounded p-3 text-center mt-3">
-            <p class="text-xl font-bold text-white">R$ {{ "{:,.2f}".format(valor_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
-            <span class="text-xs text-gray-300">VALOR LÍQUIDO</span>
+            <p class="text-xl font-bold text-white">R$ {{ "{:,.2f}".format(rf_valor_liquido_final).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+            <span class="text-xs text-gray-300">VALOR LÍQUIDO FINAL</span>
           </div>
         </div>
       </div>
@@ -717,23 +748,26 @@ function renderizarAnexos(anexos) {
           Ações Rápidas
         </h3>
         <div class="space-y-2">
-          {% if cotacao and cotacao.status not in ['Aprovada', 'Rejeitada'] %}
-          <button onclick="document.getElementById('modal_aprovar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
-            <i class="fas fa-check mr-2 text-green-600"></i>Aprovar Proposta
-          </button>
-          <button onclick="document.getElementById('modal_rejeitar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
-            <i class="fas fa-times mr-2 text-red-600"></i>Rejeitar Proposta
-          </button>
-          <div class="border-t border-gray-200 my-2"></div>
-          {% endif %}
+          <div id="acoes_aprovar_rejeitar">
+            {% if cotacao and cotacao.status in ['Enviada', 'Negociação'] %}
+            <button onclick="document.getElementById('modal_aprovar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-2">
+              <i class="fas fa-check mr-2 text-green-600"></i>Aprovar Proposta
+            </button>
+            <button onclick="document.getElementById('modal_rejeitar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-2">
+              <i class="fas fa-times mr-2 text-red-600"></i>Rejeitar Proposta
+            </button>
+            <div class="border-t border-gray-200 my-2"></div>
+            {% elif cotacao and cotacao.status not in ['Aprovada', 'Rejeitada'] %}
+            <div class="px-3 py-2 text-xs bg-amber-50 border border-amber-200 rounded text-amber-700 mb-2">
+              <i class="fas fa-info-circle mr-1"></i>
+              Para aprovar ou rejeitar, a cotação precisa estar com status "Enviada" ou "Negociação".
+            </div>
+            <div class="border-t border-gray-200 my-2"></div>
+            {% endif %}
+          </div>
           <button onclick="adicionarComentarioRapido()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
             <i class="fas fa-comment mr-2 text-gray-400"></i>Adicionar Comentário
           </button>
-          {% if not cotacao.briefing_id %}
-          <button onclick="document.getElementById('modal_novo_briefing').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
-            <i class="fas fa-file-alt mr-2 text-gray-400"></i>Criar Briefing
-          </button>
-          {% endif %}
           <button onclick="duplicarCotacao()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left">
             <i class="fas fa-copy mr-2 text-gray-400"></i>Duplicar Cotação
           </button>
@@ -796,7 +830,7 @@ function renderizarAnexos(anexos) {
     </div>
     
     <div class="p-6">
-    <form id="form_nova_linha" class="grid grid-cols-12 gap-2">
+    <form id="form_nova_linha" class="grid grid-cols-12 gap-2" onsubmit="return false">
       
       <!-- Linha 1: Segmentação e Praça -->
       <div class="form-control col-span-8">
@@ -975,8 +1009,9 @@ function renderizarAnexos(anexos) {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="number" id="desconto_percentual" class="input input-bordered input-xs" placeholder="0" min="0" max="100"
-                   oninput="calcularValorNegociado()">
+            <input type="text" id="desconto_percentual" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraPercentual(this); calcularValorNegociado(); calcularInvestimentoLiquido()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
           </div>
 
           <div class="form-control">
@@ -1031,7 +1066,7 @@ function renderizarAnexos(anexos) {
     </div>
     
     <div class="p-6">
-    <form id="form_editar_linha" class="grid grid-cols-12 gap-2">
+    <form id="form_editar_linha" class="grid grid-cols-12 gap-2" onsubmit="return false">
       <input type="hidden" id="edit_linha_id">
       
       <!-- Linha 1: Segmentação e Praça -->
@@ -1204,7 +1239,9 @@ function renderizarAnexos(anexos) {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="number" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0" min="0" max="100">
+            <input type="text" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraPercentual(this); calcularValorNegociadoEdit(); calcularInvestLiquidoEdit()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
           </div>
 
           <div class="form-control">
@@ -1626,12 +1663,48 @@ async function alterarStatusCotacao(novoStatus) {
     const result = await response.json();
     if (result.success) {
       showToast(`Status alterado para "${novoStatus}"`, 'success');
+      // Atualizar dinamicamente os botões de Aprovar/Rejeitar
+      atualizarBotoesAprovarRejeitar(novoStatus);
     } else {
       showToast('Erro ao alterar status: ' + (result.message || 'Erro desconhecido'), 'error');
     }
   } catch (error) {
     console.error('Erro:', error);
     showToast('Erro ao alterar status', 'error');
+  }
+}
+
+// Função para atualizar dinamicamente os botões de Aprovar/Rejeitar baseado no status
+function atualizarBotoesAprovarRejeitar(status) {
+  const container = document.getElementById('acoes_aprovar_rejeitar');
+  if (!container) return;
+  
+  const statusPermiteAprovacao = ['Enviada', 'Negociação'];
+  const statusFinais = ['Aprovada', 'Rejeitada'];
+  
+  if (statusPermiteAprovacao.includes(status)) {
+    // Mostrar botões de Aprovar/Rejeitar
+    container.innerHTML = `
+      <button onclick="document.getElementById('modal_aprovar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-2">
+        <i class="fas fa-check mr-2 text-green-600"></i>Aprovar Proposta
+      </button>
+      <button onclick="document.getElementById('modal_rejeitar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-2">
+        <i class="fas fa-times mr-2 text-red-600"></i>Rejeitar Proposta
+      </button>
+      <div class="border-t border-gray-200 my-2"></div>
+    `;
+  } else if (statusFinais.includes(status)) {
+    // Status final - não mostrar nada
+    container.innerHTML = '';
+  } else {
+    // Status intermediário - mostrar mensagem informativa
+    container.innerHTML = `
+      <div class="px-3 py-2 text-xs bg-amber-50 border border-amber-200 rounded text-amber-700 mb-2">
+        <i class="fas fa-info-circle mr-1"></i>
+        Para aprovar ou rejeitar, a cotação precisa estar com status "Enviada" ou "Negociação".
+      </div>
+      <div class="border-t border-gray-200 my-2"></div>
+    `;
   }
 }
 
@@ -1979,7 +2052,7 @@ function calcularDiasLinha() {
 // Função para calcular valor negociado (após desconto)
 function calcularValorNegociado() {
   const valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
-  const desconto = parseFloat(document.getElementById('desconto_percentual').value) || 0;
+  const desconto = parsePercentual(document.getElementById('desconto_percentual').value);
   
   if (valorTabela > 0) {
     const valorNegociado = valorTabela * (1 - desconto / 100);
@@ -1991,9 +2064,11 @@ function calcularValorNegociado() {
 // Função para calcular investimento líquido
 function calcularInvestimentoLiquido() {
   const investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
+  const descontoItem = parsePercentual(document.getElementById('desconto_percentual').value);
   
   if (investBruto > 0) {
-    const investLiquido = investBruto * ((100 - percentualCliente) / 100);
+    // Aplicar desconto do item + comissão do cliente
+    const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
     document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
   } else {
     document.getElementById('investimento_liquido').value = '0,00';
@@ -2201,9 +2276,10 @@ document.addEventListener('DOMContentLoaded', function() {
     window.history.replaceState({}, '', url);
   }
   
-  // Carregar anexos se estiver em modo edição
+  // Carregar anexos e comentários se estiver em modo edição
   {% if modo == 'editar' %}
   carregarAnexos();
+  carregarComentarios();
   // Calcular dias de campanha ao carregar em modo edição
   calcularDiasCampanha();
   {% endif %}
@@ -2318,6 +2394,50 @@ function formatarMoeda(valor) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+}
+
+function aplicarMascaraPercentual(input) {
+  let valor = input.value.replace(/[^\d,]/g, '');
+  
+  // Permitir apenas uma vírgula
+  const partes = valor.split(',');
+  if (partes.length > 2) {
+    valor = partes[0] + ',' + partes.slice(1).join('');
+  }
+  
+  // Limitar casas decimais a 2
+  if (partes.length === 2 && partes[1].length > 2) {
+    valor = partes[0] + ',' + partes[1].substring(0, 2);
+  }
+  
+  // Limitar parte inteira a 3 dígitos (para permitir digitação de 100)
+  if (partes[0].length > 3) {
+    valor = partes[0].substring(0, 3) + (partes.length === 2 ? ',' + partes[1] : '');
+  }
+  
+  input.value = valor;
+  
+  // Adicionar onblur para validar o limite de 100 ao sair do campo
+  if (!input.dataset.blurAttached) {
+    input.dataset.blurAttached = 'true';
+    input.addEventListener('blur', function() {
+      const valorNumerico = parseFloat(this.value.replace(',', '.')) || 0;
+      if (valorNumerico > 100) {
+        this.value = '100,00';
+        // Disparar evento input para recalcular valores dependentes
+        this.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (this.value && !this.value.includes(',')) {
+        // Formatar com 2 casas decimais ao sair do campo
+        this.value = valorNumerico.toFixed(2).replace('.', ',');
+      }
+    });
+  }
+}
+
+function parsePercentual(valor) {
+  if (!valor) return 0;
+  if (typeof valor === 'number') return valor;
+  return parseFloat(valor.toString().replace(',', '.')) || 0;
 }
 
 function removerMascaraNumero(valor) {
@@ -2440,7 +2560,8 @@ async function salvarNovaLinha() {
   
   // Calcular investimento líquido
   const investBruto = parseMoeda(document.getElementById('investimento_bruto').value) || 0;
-  const investLiquido = investBruto * ((100 - percentualCliente) / 100);
+  const descontoItem = parsePercentual(document.getElementById('desconto_percentual').value);
+  const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
   
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) {
@@ -2467,7 +2588,7 @@ async function salvarNovaLinha() {
     // Novos campos
     praca: document.getElementById('praca').value,
     valor_unitario_tabela: parseMoeda(document.getElementById('valor_unitario_tabela').value) || 0,
-    desconto_percentual: parseFloat(document.getElementById('desconto_percentual').value) || 0,
+    desconto_percentual: parsePercentual(document.getElementById('desconto_percentual').value),
     valor_unitario_negociado: parseMoeda(document.getElementById('valor_unitario').value) || 0,
     investimento_liquido: investLiquido
   };
@@ -2552,7 +2673,7 @@ async function editarLinha(linhaId) {
     
     // Novos campos de valores
     document.getElementById('edit_valor_unitario_tabela').value = formatarMoeda(linha.valor_unitario_tabela || 0);
-    document.getElementById('edit_desconto_percentual').value = linha.desconto_percentual || 0;
+    document.getElementById('edit_desconto_percentual').value = (linha.desconto_percentual || 0).toString().replace('.', ',');
     document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario_negociado || linha.valor_unitario || 0);
     document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
     document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
@@ -2598,7 +2719,7 @@ function calcularDiasLinhaEdit() {
 
 function calcularValorNegociadoEdit() {
   const valorTabela = parseMoeda(document.getElementById('edit_valor_unitario_tabela').value) || 0;
-  const desconto = parseFloat(document.getElementById('edit_desconto_percentual').value) || 0;
+  const desconto = parsePercentual(document.getElementById('edit_desconto_percentual').value);
   const valorNegociado = valorTabela * (1 - desconto / 100);
   document.getElementById('edit_valor_unitario').value = formatarMoeda(valorNegociado);
   calcularVolumeEdit();
@@ -2615,7 +2736,9 @@ function calcularVolumeEdit() {
 
 function calcularInvestLiquidoEdit() {
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const investLiquido = investBruto * ((100 - percentualCliente) / 100);
+  const descontoItem = parsePercentual(document.getElementById('edit_desconto_percentual').value);
+  // Aplicar desconto do item + comissão do cliente
+  const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
   document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
 }
 
@@ -2630,7 +2753,8 @@ async function salvarEdicaoLinha() {
   
   // Calcular investimento líquido
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const investLiquido = investBruto * ((100 - percentualCliente) / 100);
+  const descontoItem = parsePercentual(document.getElementById('edit_desconto_percentual').value);
+  const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
   
   const data = {
     segmentacao: document.getElementById('edit_segmentacao').value,
@@ -2643,7 +2767,7 @@ async function salvarEdicaoLinha() {
     data_fim: document.getElementById('edit_data_fim').value,
     especificacoes: document.getElementById('edit_especificacoes').value,
     valor_unitario_tabela: parseMoeda(document.getElementById('edit_valor_unitario_tabela').value) || 0,
-    desconto_percentual: parseFloat(document.getElementById('edit_desconto_percentual').value) || 0,
+    desconto_percentual: parsePercentual(document.getElementById('edit_desconto_percentual').value),
     valor_unitario_negociado: parseMoeda(document.getElementById('edit_valor_unitario').value) || 0,
     valor_unitario: parseMoeda(document.getElementById('edit_valor_unitario').value) || 0,
     investimento_bruto: investBruto,
@@ -3398,7 +3522,8 @@ async function carregarComentarios() {
       }
       
       // Atualizar contador
-      document.getElementById('contador_comentarios').textContent = result.comentarios.length;
+      const contadorEl = document.getElementById('contador_comentarios_main');
+      if (contadorEl) contadorEl.textContent = result.comentarios.length;
     }
   } catch (error) {
     console.error('Erro:', error);
@@ -3589,11 +3714,26 @@ async function salvarComentarioComEmail() {
 
 // ==================== EDITAR DESCONTO ====================
 
+// Função para calcular desconto em reais quando o percentual muda
+function calcularDescontoEmReais() {
+  const subtotal = parseFloat(document.getElementById('desconto_subtotal_hidden').value) || 0;
+  const percentual = parsePercentual(document.getElementById('desconto_percentual_modal').value);
+  
+  const descontoReais = subtotal * (percentual / 100);
+  const valorLiquido = subtotal - descontoReais;
+  
+  // Atualizar displays
+  document.getElementById('desconto_valor_calculado').textContent = '-R$ ' + formatarMoeda(descontoReais);
+  document.getElementById('desconto_liquido_calculado').textContent = 'R$ ' + formatarMoeda(valorLiquido);
+}
+
 async function salvarDesconto() {
   const cotacaoId = getCotacaoId();
   if (!cotacaoId) return;
   
-  const valorDesconto = parseMoeda(document.getElementById('desconto_valor_modal').value) || 0;
+  const subtotal = parseFloat(document.getElementById('desconto_subtotal_hidden').value) || 0;
+  const percentualDesconto = parsePercentual(document.getElementById('desconto_percentual_modal').value);
+  const valorDescontoReais = subtotal * (percentualDesconto / 100);
   const justificativa = document.getElementById('desconto_justificativa').value.trim();
   
   try {
@@ -3601,7 +3741,8 @@ async function salvarDesconto() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        desconto_total: valorDesconto
+        desconto_percentual: percentualDesconto,
+        desconto_total: valorDescontoReais
       })
     });
     
@@ -3611,7 +3752,7 @@ async function salvarDesconto() {
         await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ comentario: `[DESCONTO] R$ ${valorDesconto.toFixed(2).replace('.', ',')} - ${justificativa}` })
+          body: JSON.stringify({ comentario: `[DESCONTO] ${percentualDesconto}% (R$ ${valorDescontoReais.toFixed(2).replace('.', ',')}) - ${justificativa}` })
         });
       }
       
@@ -3763,12 +3904,35 @@ async function recalcularValorTotalCotacao() {
     </div>
     
     <div class="p-6">
-      <form id="form_editar_desconto" class="space-y-4">
+      <form id="form_editar_desconto" class="space-y-4" onsubmit="return false">
+        <!-- Subtotal para referência (hidden) -->
+        <input type="hidden" id="desconto_subtotal_hidden" value="{{ subtotal }}">
+        
         <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Valor do Desconto (R$)</span></label>
-          <input type="text" id="desconto_valor_modal" class="input input-bordered w-full" placeholder="0,00" 
-                 value="{% if desconto %}{{ '{:,.2f}'.format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}{% else %}0,00{% endif %}"
-                 oninput="aplicarMascaraDinheiro(this)">
+          <label class="label"><span class="label-text font-semibold">Percentual de Desconto</span></label>
+          <div class="join w-full">
+            <input type="text" id="desconto_percentual_modal" class="input input-bordered join-item w-full text-right" placeholder="0,00" 
+                   value="{% if cotacao and cotacao.desconto_percentual %}{{ '{:.2f}'.format(cotacao.desconto_percentual|float).replace('.', ',') }}{% else %}0,00{% endif %}"
+                   oninput="aplicarMascaraPercentual(this); calcularDescontoEmReais()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
+            <span class="btn btn-disabled join-item bg-gray-200 text-gray-600 font-bold">%</span>
+          </div>
+          <label class="label"><span class="label-text-alt text-gray-500">Digite um valor entre 0 e 100</span></label>
+        </div>
+        
+        <div class="bg-gray-100 rounded p-3">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-600">Subtotal:</span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between text-sm mt-1">
+            <span class="text-gray-600">Desconto em R$:</span>
+            <span id="desconto_valor_calculado" class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
+          <div class="flex justify-between text-sm mt-1 pt-1 border-t border-gray-300">
+            <span class="text-gray-700 font-medium">Valor Líquido:</span>
+            <span id="desconto_liquido_calculado" class="font-bold text-green-600">R$ {{ "{:,.2f}".format(subtotal - desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+          </div>
         </div>
         
         <div class="form-control">

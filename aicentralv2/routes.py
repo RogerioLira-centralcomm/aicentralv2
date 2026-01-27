@@ -5121,10 +5121,10 @@ def init_routes(app):
             campos_permitidos = [
                 'nome_campanha', 'objetivo_campanha', 'responsavel_comercial',
                 'periodo_inicio', 'periodo_fim', 'expires_at',
-                'budget_estimado', 'valor_total_proposta',
+                'budget_estimado', 'valor_total_proposta', 'desconto_percentual', 'desconto_total',
                 'briefing_id', 'cliente_id', 'contato_id',
                 'client_user_id',
-                'observacoes', 'observacoes_internas', 'origem',
+                'observacoes', 'observacoes_internas', 'origem', 'condicoes_comerciais',
                 'status', 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'aprovada_em'
             ]
 
@@ -5730,7 +5730,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Obtém todos os comentários de uma cotação"""
         try:
             comentarios = db.obter_comentarios_cotacao(cotacao_id)
-            return jsonify({'success': True, 'comentarios': comentarios})
+            # Serializar para JSON (converter datetime para string)
+            comentarios_serializados = serializar_para_json(comentarios)
+            return jsonify({'success': True, 'comentarios': comentarios_serializados})
         except Exception as e:
             current_app.logger.error(f"Erro ao obter comentários: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
@@ -6397,22 +6399,26 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         try:
             total = db.calcular_valor_total_cotacao(cotacao_id)
             
+            # Garantir que total é um número válido para formatação
+            total_formatado = float(total) if total is not None else 0.0
+            
             registrar_auditoria(
                 acao='UPDATE',
                 modulo='cotacoes',
-                descricao=f'Valor total calculado para cotação {cotacao_id}: R$ {total:,.2f}',
+                descricao=f'Valor total calculado para cotação {cotacao_id}: R$ {total_formatado:,.2f}',
                 registro_id=cotacao_id,
                 registro_tipo='cadu_cotacoes'
             )
             
             return jsonify({
                 'success': True, 
-                'valor_total': total,
+                'valor_total': total_formatado,
                 'message': 'Valor total calculado com sucesso'
             })
                 
         except Exception as e:
-            current_app.logger.error(f"Erro ao calcular total da cotação: {e}")
+            import traceback
+            current_app.logger.error(f"Erro ao calcular total da cotação {cotacao_id}: {type(e).__name__} - {e}\n{traceback.format_exc()}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
 

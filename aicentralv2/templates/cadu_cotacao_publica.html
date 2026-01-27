@@ -356,7 +356,7 @@
                 {% endif %}
 
                 <!-- Card: Decisão do Cliente -->
-                {% if cotacao.status not in ['Aprovada', 'Rejeitada'] %}
+                {% if cotacao.status in ['Enviada', 'Negociação'] %}
                 <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
                     <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
                         <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
@@ -377,6 +377,17 @@
                             <i class="fas fa-times-circle"></i>
                             Rejeitar Proposta
                         </button>
+                    </div>
+                </div>
+                {% elif cotacao.status not in ['Aprovada', 'Rejeitada'] %}
+                <!-- Proposta em preparação/análise -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-4 text-center">
+                        <div class="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center bg-amber-50">
+                            <i class="fas fa-hourglass-half text-xl text-amber-500"></i>
+                        </div>
+                        <p class="font-semibold text-gray-800 text-sm">Proposta em Preparação</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Esta proposta ainda está sendo analisada.</p>
                     </div>
                 </div>
                 {% else %}

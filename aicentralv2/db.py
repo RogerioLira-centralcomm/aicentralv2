@@ -4407,8 +4407,11 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.ordem_exibicao,
                 ca.incluido_proposta,
                 ca.motivo_exclusao,
-                ca.added_at
+                ca.added_at,
+                a.id_audiencia_plataforma,
+                a.fonte
             FROM cadu_cotacao_audiencias ca
+            LEFT JOIN cadu_audiencias a ON ca.audiencia_id = a.id
             WHERE ca.cotacao_id = %s
             AND ca.incluido_proposta = TRUE
             ORDER BY ca.ordem_exibicao, ca.added_at
@@ -4566,7 +4569,7 @@ def obter_comentarios_cotacao(cotacao_id):
                     c.user_type,
                     c.comentario,
                     c.created_at,
-                    COALESCE(u.nome_completo, 'Usuário Desconhecido') as user_nome
+                    COALESCE(u.nome_completo, 'Usuário Desconhecido') as usuario_nome
                 FROM cadu_cotacao_comentarios c
                 LEFT JOIN tbl_contato_cliente u ON c.user_id = u.id_contato_cliente
                 WHERE c.cotacao_id = %s
@@ -5281,7 +5284,7 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
-                'aprovada_em', 'desconto_total', 'condicoes_comerciais', 'cliente_id', 'contato_id', 'expires_at',
+                'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'cliente_id', 'contato_id', 'expires_at',
                 'agencia_id', 'agencia_user_id'
             ]
             
@@ -5574,13 +5577,13 @@ def renovar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
 
 
 def calcular_valor_total_cotacao(cotacao_id):
-    """Calcula e atualiza o valor total da cotação baseado nas linhas"""
+    """Calcula e atualiza o valor total da cotação baseado nas linhas, audiências e desconto"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            # Calcular total das linhas (excluindo subtotais e headers)
+            # 1. Calcular total das linhas (investimento_bruto) - excluindo subtotais e headers
             cursor.execute('''
-                SELECT COALESCE(SUM(valor_total), 0)
+                SELECT COALESCE(SUM(investimento_bruto), 0) AS total_linhas
                 FROM cadu_cotacao_linhas
                 WHERE cotacao_id = %s 
                 AND is_subtotal = FALSE 
@@ -5588,21 +5591,51 @@ def calcular_valor_total_cotacao(cotacao_id):
                 AND (is_deleted IS NULL OR is_deleted = FALSE)
             ''', (cotacao_id,))
             
-            total = cursor.fetchone()[0]
+            result_linhas = cursor.fetchone()
+            total_linhas = float(result_linhas['total_linhas']) if result_linhas and result_linhas['total_linhas'] else 0.0
             
-            # Atualizar o valor na cotação
+            # 2. Calcular total das audiências (investimento_sugerido) - apenas as incluídas na proposta
+            cursor.execute('''
+                SELECT COALESCE(SUM(investimento_sugerido), 0) AS total_audiencias
+                FROM cadu_cotacao_audiencias
+                WHERE cotacao_id = %s 
+                AND incluido_proposta = TRUE
+            ''', (cotacao_id,))
+            
+            result_audiencias = cursor.fetchone()
+            total_audiencias = float(result_audiencias['total_audiencias']) if result_audiencias and result_audiencias['total_audiencias'] else 0.0
+            
+            # 3. Obter desconto total da cotação
+            cursor.execute('''
+                SELECT COALESCE(desconto_total, 0) AS desconto
+                FROM cadu_cotacoes
+                WHERE id = %s
+            ''', (cotacao_id,))
+            
+            result_desconto = cursor.fetchone()
+            desconto = float(result_desconto['desconto']) if result_desconto and result_desconto['desconto'] else 0.0
+            
+            # 4. Calcular valor total: subtotal - desconto
+            subtotal = total_linhas + total_audiencias
+            valor_total = subtotal - desconto
+            
+            # Garantir que não fique negativo
+            if valor_total < 0:
+                valor_total = 0.0
+            
+            # 5. Atualizar o valor na cotação
             cursor.execute('''
                 UPDATE cadu_cotacoes 
                 SET valor_total_proposta = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
-            ''', (total, cotacao_id))
+            ''', (valor_total, cotacao_id))
             
             conn.commit()
-            return float(total) if total else 0.0
+            return valor_total
     except Exception as e:
         conn.rollback()
-        raise e
+        raise Exception(f"Erro ao calcular total da cotação {cotacao_id}: {type(e).__name__} - {str(e)}")
 
 
 # =====================================================

@@ -318,13 +318,15 @@
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
           <div class="form-control col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
-            <div class="flex gap-2">
-              <label class="cursor-pointer flex items-center gap-1 px-2 py-1.5 border border-gray-300 rounded text-xs bg-white hover:bg-gray-50">
-                <input type="radio" name="pessoa" value="J" class="radio radio-xs" required checked>
+            <div class="flex gap-0 pessoa-toggle-group">
+              <label id="label_pessoa_j" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700">
+                <input type="radio" name="pessoa" value="J" class="hidden" required checked>
+                <svg class="w-3.5 h-3.5 pessoa-check-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                 <span>PJ</span>
               </label>
-              <label class="cursor-pointer flex items-center gap-1 px-2 py-1.5 border border-gray-300 rounded text-xs bg-white hover:bg-gray-50">
-                <input type="radio" name="pessoa" value="F" class="radio radio-xs" required>
+              <label id="label_pessoa_f" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+                <input type="radio" name="pessoa" value="F" class="hidden" required>
+                <svg class="w-3.5 h-3.5 pessoa-check-icon hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                 <span>PF</span>
               </label>
             </div>
@@ -954,19 +956,31 @@ function mascaraPercentual(input) {
 function togglePessoaFieldsModal() {
   const pessoa = document.querySelector('#form_cliente input[name="pessoa"]:checked')?.value || 'J';
   
-  // Atualizar estilos dos radio buttons
-  document.querySelectorAll('#form_cliente input[name="pessoa"]').forEach(radio => {
-    const label = radio.closest('label');
-    if (radio.checked) {
-      label.style.borderColor = '#72cd80';
-      label.style.backgroundColor = 'rgba(114, 205, 128, 0.1)';
-      label.classList.remove('border-base-300');
-    } else {
-      label.style.borderColor = '';
-      label.style.backgroundColor = '';
-      label.classList.add('border-base-300');
-    }
-  });
+  // Atualizar estilos dos toggle buttons
+  const labelJ = document.getElementById('label_pessoa_j');
+  const labelF = document.getElementById('label_pessoa_f');
+  const checkIconJ = labelJ?.querySelector('.pessoa-check-icon');
+  const checkIconF = labelF?.querySelector('.pessoa-check-icon');
+  
+  if (pessoa === 'J') {
+    // PJ selecionado
+    labelJ?.classList.remove('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+    labelJ?.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
+    checkIconJ?.classList.remove('hidden');
+    
+    labelF?.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
+    labelF?.classList.add('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+    checkIconF?.classList.add('hidden');
+  } else {
+    // PF selecionado
+    labelF?.classList.remove('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+    labelF?.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
+    checkIconF?.classList.remove('hidden');
+    
+    labelJ?.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
+    labelJ?.classList.add('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+    checkIconJ?.classList.add('hidden');
+  }
   
   // Campos específicos de PJ
   const tipoClienteField = document.getElementById('tipo_cliente_fields');

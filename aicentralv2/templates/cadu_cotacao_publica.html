@@ -54,6 +54,14 @@
                 </div>
                 {% endif %}
                 
+                <!-- Agência (hidden on mobile) -->
+                {% if agencia %}
+                <div class="hidden md:block border-l border-white/20 pl-3">
+                    <span class="text-white/60 text-[10px] uppercase tracking-wider">Agência</span>
+                    <p class="font-medium text-sm truncate max-w-[200px]">{{ agencia.nome_fantasia or agencia.razao_social }}</p>
+                </div>
+                {% endif %}
+                
                 <!-- Resumo Financeiro Compacto -->
                 {% set total_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
                 {% set total_audiencias = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
@@ -153,10 +161,17 @@
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                         <h1 class="text-lg md:text-xl font-bold">{{ cotacao.nome_campanha or 'Proposta Comercial' }}</h1>
-                        <!-- Cliente mobile -->
-                        {% if cliente %}
-                        <p class="text-white/70 text-sm md:hidden">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
-                        {% endif %}
+                        <!-- Cliente e Agência mobile -->
+                        <div class="md:hidden">
+                            {% if cliente %}
+                            <p class="text-white/70 text-sm">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
+                            {% endif %}
+                            {% if agencia %}
+                            <p class="text-white/50 text-xs">
+                                <i class="fas fa-building text-[10px] mr-1"></i>{{ agencia.nome_fantasia or agencia.razao_social }}
+                            </p>
+                            {% endif %}
+                        </div>
                     </div>
                     <!-- Valor Total Mobile -->
                     <div class="sm:hidden text-left">

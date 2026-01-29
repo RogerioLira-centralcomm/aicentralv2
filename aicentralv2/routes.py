@@ -4622,6 +4622,11 @@ def init_routes(app):
             if cotacao.get('client_id'):
                 cliente_info = db.obter_cliente_por_id(cotacao['client_id'])
             
+            # Buscar informações da agência
+            agencia_info = None
+            if cotacao.get('agencia_id'):
+                agencia_info = db.obter_cliente_por_id(cotacao['agencia_id'])
+            
             briefing_atual = None
             if cotacao.get('briefing_id'):
                 briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
@@ -4639,6 +4644,7 @@ def init_routes(app):
             return render_template('cadu_cotacao_publica.html', 
                                   cotacao=cotacao,
                                   cliente=cliente_info,
+                                  agencia=agencia_info,
                                   responsavel=responsavel_info,
                                   briefing=briefing_atual,
                                   linhas=linhas,

@@ -4520,6 +4520,7 @@ def init_routes(app):
             
             # Buscar contatos ativos do cliente da cotação
             contatos_cliente = []
+            contatos_agencia = []
             briefings = []
             briefing_atual = None
             if cotacao.get('client_id'):
@@ -4527,6 +4528,10 @@ def init_routes(app):
                 contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
                 app.logger.info(f"DEBUG: Encontrados {len(briefings)} briefings")
+            
+            # Buscar contatos da agência
+            if cotacao.get('agencia_id'):
+                contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
             
             # Buscar briefing selecionado
             if cotacao.get('briefing_id'):
@@ -4548,6 +4553,7 @@ def init_routes(app):
                                   clientes=clientes, 
                                   vendedores=vendedores,
                                   contatos_cliente=contatos_cliente,
+                                  contatos_agencia=contatos_agencia,
                                   briefings=briefings,
                                   briefing_atual=briefing_atual,
                                   linhas=linhas,
@@ -5122,8 +5128,8 @@ def init_routes(app):
                 'nome_campanha', 'objetivo_campanha', 'responsavel_comercial',
                 'periodo_inicio', 'periodo_fim', 'expires_at',
                 'budget_estimado', 'valor_total_proposta', 'desconto_percentual', 'desconto_total',
-                'briefing_id', 'cliente_id', 'contato_id',
-                'client_user_id',
+                'briefing_id', 'client_id', 'client_user_id',
+                'agencia_id', 'agencia_user_id',
                 'observacoes', 'observacoes_internas', 'origem', 'condicoes_comerciais',
                 'status', 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'aprovada_em'
             ]
@@ -6245,7 +6251,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'budget_estimado': cotacao_original.get('budget_estimado'),
                 'status': 'Rascunho',
                 'observacoes': cotacao_original.get('observacoes'),
-                'origem': cotacao_original.get('origem', 'Admin')
+                'observacoes_internas': cotacao_original.get('observacoes_internas'),
+                'origem': cotacao_original.get('origem', 'Admin'),
+                'meio': cotacao_original.get('meio'),
+                'tipo_peca': cotacao_original.get('tipo_peca'),
+                'valor_total_proposta': cotacao_original.get('valor_total_proposta'),
+                'agencia_id': cotacao_original.get('agencia_id'),
+                'agencia_user_id': cotacao_original.get('agencia_user_id')
             }
             
             # Criar nova cotação
@@ -6273,6 +6285,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         target=linha.get('target'),
                         veiculo=linha.get('veiculo'),
                         plataforma=linha.get('plataforma'),
+                        produto=converter_json(linha.get('produto')),
                         detalhamento=linha.get('detalhamento'),
                         formato=linha.get('formato'),
                         formato_compra=linha.get('formato_compra'),
@@ -6285,6 +6298,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         is_subtotal=linha.get('is_subtotal', False),
                         subtotal_label=linha.get('subtotal_label'),
                         is_header=linha.get('is_header', False),
+                        dados_extras=converter_json(linha.get('dados_extras')),
                         meio=linha.get('meio'),
                         tipo_peca=linha.get('tipo_peca'),
                         segmentacao=linha.get('segmentacao'),
@@ -6294,9 +6308,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         data_inicio=linha.get('data_inicio'),
                         data_fim=linha.get('data_fim'),
                         investimento_bruto=linha.get('investimento_bruto'),
-                        produto=converter_json(linha.get('produto')),
                         especificacoes=linha.get('especificacoes'),
-                        dados_extras=converter_json(linha.get('dados_extras'))
+                        praca=linha.get('praca'),
+                        desconto_percentual=linha.get('desconto_percentual'),
+                        valor_unitario_tabela=linha.get('valor_unitario_tabela'),
+                        valor_unitario_negociado=linha.get('valor_unitario_negociado'),
+                        investimento_liquido=linha.get('investimento_liquido')
                     )
                 
                 # Copiar audiências

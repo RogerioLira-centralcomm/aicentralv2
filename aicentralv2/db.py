@@ -5089,7 +5089,7 @@ def obter_cotacoes(cliente_id=None, status=None):
                     c.*,
                     cli.nome_fantasia as cliente_nome,
                     resp.nome_completo as responsavel_nome,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id), 0) as total_linhas,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) as total_linhas,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos
                 FROM cadu_cotacoes c
@@ -5125,7 +5125,7 @@ def obter_cotacoes_por_vendedor(vendedor_id):
                     c.*,
                     cli.nome_fantasia as cliente_nome,
                     resp.nome_completo as responsavel_nome,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id), 0) as total_linhas,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) as total_linhas,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos
                 FROM cadu_cotacoes c
@@ -5149,9 +5149,13 @@ def obter_cotacoes_filtradas(cliente_id=None, responsavel_id=None, mes=None, bus
                     c.*,
                     cli.nome_fantasia as cliente_nome,
                     resp.nome_completo as responsavel_nome,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id), 0) as total_linhas,
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) as total_linhas,
                     COALESCE((SELECT COUNT(*) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id), 0) as total_audiencias,
-                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos
+                    COALESCE((SELECT COUNT(*) FROM cadu_cotacao_anexos WHERE cotacao_id = c.id), 0) as total_anexos,
+                    COALESCE((SELECT SUM(COALESCE(investimento_bruto, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) 
+                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id AND incluido_proposta = true), 0) as valor_total_bruto,
+                    COALESCE((SELECT SUM(COALESCE(investimento_liquido, 0)) FROM cadu_cotacao_linhas WHERE cotacao_id = c.id AND is_deleted = false AND is_subtotal = false AND is_header = false), 0) 
+                        + COALESCE((SELECT SUM(COALESCE(investimento_sugerido, 0)) FROM cadu_cotacao_audiencias WHERE cotacao_id = c.id AND incluido_proposta = true), 0) as valor_total_liquido
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
@@ -5280,16 +5284,16 @@ def atualizar_cotacao(cotacao_id, **kwargs):
             # Campos permitidos para atualização
             campos_permitidos = [
                 'nome_campanha', 'objetivo_campanha', 'periodo_inicio', 'periodo_fim',
-                'status', 'client_user_id', 'responsavel_comercial', 'briefing_id',
+                'status', 'client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id',
                 'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
-                'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'cliente_id', 'contato_id', 'expires_at',
+                'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'expires_at',
                 'agencia_id', 'agencia_user_id'
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'contato_id', 'expires_at', 'agencia_id', 'agencia_user_id']
+            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']

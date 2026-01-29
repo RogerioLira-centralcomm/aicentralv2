@@ -98,16 +98,16 @@
   <!-- Tabela de Cotações -->
   <div class="bg-white rounded border border-gray-200 overflow-hidden">
     {% if cotacoes %}
-      <table class="table table-sm table-fixed w-full">
+      <table class="table table-sm w-full">
         <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
           <tr>
-            <th class="font-semibold py-3 w-32">Cotação</th>
-            <th class="font-semibold w-48">Cliente / Campanha</th>
-            <th class="font-semibold w-24">Executivo</th>
-            <th class="font-semibold text-center w-20">Período</th>
-            <th class="font-semibold text-right w-28">Valor</th>
-            <th class="font-semibold text-center w-20">Status</th>
-            <th class="font-semibold text-center w-24">Itens</th>
+            <th class="font-semibold py-3" style="width: 110px;">Cotação</th>
+            <th class="font-semibold">Cliente / Campanha</th>
+            <th class="font-semibold" style="width: 100px;">Executivo</th>
+            <th class="font-semibold text-center" style="width: 90px;">Período</th>
+            <th class="font-semibold text-right" style="width: 120px;">Valor</th>
+            <th class="font-semibold text-center" style="width: 80px;">Status</th>
+            <th class="font-semibold text-center" style="width: 100px;">Itens</th>
           </tr>
         </thead>
         <tbody class="text-sm">
@@ -179,8 +179,13 @@
             
             <!-- Valor -->
             <td class="text-right">
-              {% if cotacao.valor_total_proposta %}
-              <span class="font-semibold text-gray-800">R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+              {% set bruto = cotacao.valor_total_bruto|default(0, true)|float %}
+              {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
+              {% if bruto > 0 or liquido > 0 %}
+              <div class="flex flex-col">
+                <span class="font-semibold text-gray-800" title="Valor Bruto">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                <span class="text-xs text-green-600" title="Valor Líquido">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+              </div>
               {% else %}
               <span class="text-gray-400">-</span>
               {% endif %}

@@ -280,7 +280,7 @@
 
 <!-- Modal de Cliente -->
 <dialog id="modal_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg" style="height: 85vh; max-height: 85vh;">
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-[90vh]">
     <!-- Header fixo -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Cliente</h3>
@@ -308,8 +308,8 @@
       </button>
     </div>
     
-    <!-- Conteúdo com scroll -->
-    <div class="p-6 overflow-y-auto" style="height: calc(85vh - 130px);">
+    <!-- Conteúdo -->
+    <div class="p-6">
       <!-- Conteúdo Editar -->
       <form id="form_cliente" method="post" class="space-y-3 modal-tab-content" data-tab="editar">
         <input type="hidden" id="cliente_id" name="cliente_id" value="">
@@ -425,7 +425,7 @@
           <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
             <div class="form-control">
               <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
-              <input id="cep" name="cep" oninput="mascaraCep(this)" onblur="buscarEnderecoPorCep(this.value)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
+              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP (Enter para buscar)">
             </div>
             <div class="form-control">
               <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
@@ -1087,6 +1087,48 @@ async function buscarEmpresaPorCNPJ(cnpj) {
         inscMunicipal.value = data.inscricao_municipal;
       }
       
+      // Atualizar campos de endereço
+      if (data.cep) {
+        const cepInput = document.getElementById('cep');
+        if (cepInput) {
+          // Formatar CEP: 12345-678
+          let cepFormatado = data.cep.replace(/\D/g, '');
+          if (cepFormatado.length === 8) {
+            cepFormatado = cepFormatado.slice(0, 5) + '-' + cepFormatado.slice(5);
+          }
+          cepInput.value = cepFormatado;
+        }
+      }
+      if (data.uf) {
+        const estadoSelect = document.getElementById('estado');
+        if (estadoSelect) {
+          const estadoId = getEstadoIdBySigla(data.uf);
+          if (estadoId) {
+            estadoSelect.value = estadoId;
+          }
+        }
+      }
+      if (data.municipio) {
+        const cidadeInput = document.getElementById('cidade');
+        if (cidadeInput) cidadeInput.value = data.municipio;
+      }
+      if (data.bairro) {
+        const bairroInput = document.getElementById('bairro');
+        if (bairroInput) bairroInput.value = data.bairro;
+      }
+      if (data.logradouro) {
+        const logradouroInput = document.getElementById('logradouro');
+        if (logradouroInput) logradouroInput.value = data.logradouro;
+      }
+      if (data.numero) {
+        const numeroInput = document.getElementById('numero');
+        if (numeroInput) numeroInput.value = data.numero;
+      }
+      if (data.complemento) {
+        const complementoInput = document.getElementById('complemento');
+        if (complementoInput) complementoInput.value = data.complemento;
+      }
+      
       // Limpar mensagem de sucesso
       document.getElementById('cnpjcpf_msg').innerText = '';
       document.getElementById('cnpjcpf_msg').classList.remove('text-info');
@@ -1216,9 +1258,36 @@ function mascaraCnpjCpf(input) {
   input.value = v;
 }
 
+function buscarCepEnter(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    buscarEnderecoPorCep(event.target.value);
+  }
+}
+
 function buscarEnderecoPorCep(cep) {
   cep = cep.replace(/\D/g, '');
-  if (cep.length !== 8) return;
+  
+  // Validar tamanho do CEP
+  if (cep.length === 0) {
+    showToast('Digite um CEP para buscar', 'warning');
+    return;
+  }
+  
+  if (cep.length !== 8) {
+    showToast('CEP inválido! Deve ter 8 dígitos', 'error');
+    return;
+  }
+  
+  // Validar se não é um CEP com todos dígitos iguais (inválido)
+  if (/^(\d)\1{7}$/.test(cep)) {
+    showToast('CEP inválido!', 'error');
+    return;
+  }
+  
+  // Mostrar loading
+  showToast('Buscando endereço...', 'info');
+  
   fetch('https://viacep.com.br/ws/' + cep + '/json/')
     .then(response => response.json())
     .then(data => {
@@ -1227,9 +1296,15 @@ function buscarEnderecoPorCep(cep) {
         document.getElementById('cidade').value = data.localidade || '';
         document.getElementById('bairro').value = data.bairro || '';
         document.getElementById('logradouro').value = data.logradouro || '';
+        showToast('Endereço carregado com sucesso!', 'success');
+      } else {
+        showToast('CEP inválido ou não encontrado!', 'error');
       }
     })
-    .catch(e => console.error('Erro ao buscar CEP:', e));
+    .catch(e => {
+      console.error('Erro ao buscar CEP:', e);
+      showToast('Erro ao buscar CEP. Tente novamente.', 'error');
+    });
 }
 
 function getEstadoIdBySigla(sigla) {

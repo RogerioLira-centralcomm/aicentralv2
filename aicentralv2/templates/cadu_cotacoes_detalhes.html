@@ -242,6 +242,155 @@ function renderizarAnexos(anexos) {
   html += '</tbody></table>';
   container.innerHTML = html;
 }
+
+// ==================== FUNÇÕES DE MÁSCARA (definidas antes dos modais) ====================
+
+function aplicarMascaraDinheiro(input) {
+  // Salvar posição do cursor
+  var cursorPos = input.selectionStart;
+  var tamanhoAnterior = input.value.length;
+  
+  var valor = input.value.replace(/\D/g, '');
+  if (valor === '') {
+    input.value = '';
+    return;
+  }
+  
+  valor = (parseInt(valor, 10) / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  input.value = valor;
+  
+  // Ajustar posição do cursor
+  var tamanhoNovo = input.value.length;
+  var novaPosicao = cursorPos + (tamanhoNovo - tamanhoAnterior);
+  if (novaPosicao < 0) novaPosicao = 0;
+  if (novaPosicao > tamanhoNovo) novaPosicao = tamanhoNovo;
+  
+  // Definir cursor no final (comportamento padrão para máscaras monetárias)
+  input.setSelectionRange(tamanhoNovo, tamanhoNovo);
+}
+
+function aplicarMascaraPercentual(input) {
+  var valor = input.value.replace(/[^\d,]/g, '');
+  var partes = valor.split(',');
+  if (partes.length > 2) {
+    valor = partes[0] + ',' + partes.slice(1).join('');
+  }
+  if (partes.length === 2 && partes[1].length > 2) {
+    valor = partes[0] + ',' + partes[1].substring(0, 2);
+  }
+  if (partes[0].length > 3) {
+    valor = partes[0].substring(0, 3) + (partes.length === 2 ? ',' + partes[1] : '');
+  }
+  input.value = valor;
+}
+
+function parseMoeda(valor) {
+  if (!valor) return 0;
+  if (typeof valor === 'number') return valor;
+  return parseFloat(valor.toString().replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function parsePercentual(valor) {
+  if (!valor) return 0;
+  if (typeof valor === 'number') return valor;
+  return parseFloat(valor.toString().replace(',', '.')) || 0;
+}
+
+function formatarMoeda(valor) {
+  return parseFloat(valor).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatarPercentual(valor) {
+  return parseFloat(valor || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatarNumero(valor) {
+  return parseInt(valor).toLocaleString('pt-BR');
+}
+
+// Funções de cálculo para Nova Linha
+function calcularValorNegociado() {
+  var valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
+  var desconto = parsePercentual(document.getElementById('desconto_percentual').value);
+  if (valorTabela > 0) {
+    var valorNegociado = valorTabela * (1 - desconto / 100);
+    document.getElementById('valor_unitario').value = formatarMoeda(valorNegociado);
+    calcularVolume();
+  }
+}
+
+function calcularVolume() {
+  var investimento = parseMoeda(document.getElementById('investimento_bruto').value);
+  var valorUnitario = parseMoeda(document.getElementById('valor_unitario').value);
+  var objetivoEl = document.getElementById('objetivo_kpi');
+  var objetivo = objetivoEl ? objetivoEl.value : '';
+  
+  if (investimento > 0 && valorUnitario > 0) {
+    var volume;
+    if (objetivo === 'CPM') {
+      volume = (investimento / valorUnitario) * 1000;
+    } else {
+      volume = investimento / valorUnitario;
+    }
+    document.getElementById('volume_contratado').value = formatarNumero(Math.round(volume));
+  } else {
+    document.getElementById('volume_contratado').value = '';
+  }
+  calcularInvestimentoLiquido();
+}
+
+function calcularInvestimentoLiquido() {
+  var investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
+  var descontoItem = parsePercentual(document.getElementById('desconto_percentual').value);
+  if (investBruto > 0) {
+    var investLiquido = investBruto * (1 - descontoItem/100);
+    document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
+  }
+}
+
+// Funções de cálculo para Editar Linha
+function calcularValorNegociadoEdit() {
+  var valorTabela = parseMoeda(document.getElementById('edit_valor_unitario_tabela').value);
+  var desconto = parsePercentual(document.getElementById('edit_desconto_percentual').value);
+  var valorNegociado = valorTabela * (1 - desconto / 100);
+  document.getElementById('edit_valor_unitario').value = formatarMoeda(valorNegociado);
+  calcularVolumeEdit();
+}
+
+function calcularVolumeEdit() {
+  var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
+  var valorUnit = parseMoeda(document.getElementById('edit_valor_unitario').value);
+  var objetivoEl = document.getElementById('edit_objetivo_kpi');
+  var objetivo = objetivoEl ? objetivoEl.value : '';
+  
+  if (valorUnit > 0 && investBruto > 0) {
+    var volume;
+    if (objetivo === 'CPM') {
+      volume = (investBruto / valorUnit) * 1000;
+    } else {
+      volume = investBruto / valorUnit;
+    }
+    document.getElementById('edit_volume_contratado').value = formatarNumero(Math.round(volume));
+  } else {
+    document.getElementById('edit_volume_contratado').value = '';
+  }
+}
+
+function calcularInvestLiquidoEdit() {
+  var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
+  var descontoItem = parsePercentual(document.getElementById('edit_desconto_percentual').value);
+  var investLiquido = investBruto * (1 - descontoItem/100);
+  document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
+}
 </script>
 
 <div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}">
@@ -1015,30 +1164,29 @@ function renderizarAnexos(anexos) {
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Val. Unit. Tabela</span></label>
             <input type="text" id="valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00" 
-                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociado()">
+                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociado();">
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="text" id="desconto_percentual" class="input input-bordered input-xs" placeholder="0,00"
-                   oninput="aplicarMascaraPercentual(this); calcularValorNegociado(); calcularInvestimentoLiquido()"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
+            <input type="text" id="desconto_percentual" class="input input-bordered input-xs" placeholder="0,00" 
+                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociado(); calcularInvestimentoLiquido();">
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
-            <input type="text" id="valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" 
-                   readonly>
+            <input type="text" id="valor_unitario" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularVolume();">
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Invest. Bruto</span></label>
-            <input type="text" id="investimento_bruto" class="input input-bordered input-xs" placeholder="0,00" 
-                   oninput="aplicarMascaraDinheiro(this); calcularVolume()">
+            <input type="text" id="investimento_bruto" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularVolume();">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
+            <label class="label py-0"><span id="label_volume" class="label-text text-xs">Vol. Contratado</span></label>
             <input type="text" id="volume_contratado" class="input input-bordered input-xs bg-gray-100" placeholder="0" readonly>
           </div>
 
@@ -1167,7 +1315,7 @@ function renderizarAnexos(anexos) {
 
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
-        <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;">
+        <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="calcularVolumeEdit()">
           <option value="">Selecione...</option>
           <option value="CPM">CPM</option>
           <option value="CPC">CPC</option>
@@ -1245,24 +1393,26 @@ function renderizarAnexos(anexos) {
         <div class="grid grid-cols-6 gap-2">
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Val. Unit. Tabela</span></label>
-            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00">
+            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociadoEdit();">
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Desconto (%)</span></label>
-            <input type="text" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0,00"
-                   oninput="aplicarMascaraPercentual(this); calcularValorNegociadoEdit(); calcularInvestLiquidoEdit()"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
+            <input type="text" id="edit_desconto_percentual" class="input input-bordered input-xs" placeholder="0,00" 
+                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociadoEdit(); calcularInvestLiquidoEdit();">
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
-            <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
+            <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit();">
           </div>
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Invest. Bruto</span></label>
-            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00">
+            <input type="text" id="edit_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit(); calcularInvestLiquidoEdit();">
           </div>
 
           <div class="form-control">
@@ -1937,9 +2087,14 @@ const percentualCliente = {{ (cliente.percentual if cliente and cliente.percentu
 
 // Função para calcular quantidade de dias da campanha
 function calcularDiasCampanha() {
-  const dataInicio = document.getElementById('periodo_inicio').value;
-  const dataFim = document.getElementById('periodo_fim').value;
+  const dataInicioEl = document.getElementById('periodo_inicio');
+  const dataFimEl = document.getElementById('periodo_fim');
   const diasCampo = document.getElementById('dias_campanha');
+  
+  if (!dataInicioEl || !dataFimEl || !diasCampo) return;
+  
+  const dataInicio = dataInicioEl.value;
+  const dataFim = dataFimEl.value;
   
   if (dataInicio && dataFim) {
     const inicio = new Date(dataInicio);
@@ -2174,6 +2329,14 @@ function abrirModalNovaLinha() {
   document.getElementById('data_inicio').value = dataInicio.toISOString().split('T')[0];
   document.getElementById('data_fim').value = dataFim.toISOString().split('T')[0];
   
+  // Inicializar campos de valores com formato correto
+  document.getElementById('desconto_percentual').value = '0,00';
+  document.getElementById('valor_unitario_tabela').value = '';
+  document.getElementById('valor_unitario').value = '';
+  document.getElementById('investimento_bruto').value = '';
+  document.getElementById('volume_contratado').value = '';
+  document.getElementById('investimento_liquido').value = '';
+  
   calcularDiasLinha();
   document.getElementById('modal_nova_linha').showModal();
 }
@@ -2192,32 +2355,6 @@ function calcularDiasLinha() {
     diasCampo.value = diffDays;
   } else {
     diasCampo.value = '0';
-  }
-}
-
-// Função para calcular valor negociado (após desconto)
-function calcularValorNegociado() {
-  const valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
-  const desconto = parsePercentual(document.getElementById('desconto_percentual').value);
-  
-  if (valorTabela > 0) {
-    const valorNegociado = valorTabela * (1 - desconto / 100);
-    document.getElementById('valor_unitario').value = formatarMoeda(valorNegociado);
-    calcularVolume();
-  }
-}
-
-// Função para calcular investimento líquido
-function calcularInvestimentoLiquido() {
-  const investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
-  const descontoItem = parsePercentual(document.getElementById('desconto_percentual').value);
-  
-  if (investBruto > 0) {
-    // Aplicar desconto do item + comissão do cliente
-    const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
-    document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
-  } else {
-    document.getElementById('investimento_liquido').value = '0,00';
   }
 }
 
@@ -2508,136 +2645,23 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// ==================== FUNÇÕES DE MÁSCARA E FORMATAÇÃO ====================
-
-function aplicarMascaraDinheiro(input) {
-  let valor = input.value.replace(/\D/g, '');
-  if (valor === '') {
-    input.value = '';
-    return;
-  }
-  valor = (parseInt(valor, 10) / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  input.value = valor;
-}
-
-function removerMascaraDinheiro(valor) {
-  if (!valor) return 0;
-  return parseFloat(valor.replace(/\./g, '').replace(',', '.'));
-}
-
-// Alias para parseMoeda (mesmo que removerMascaraDinheiro)
-function parseMoeda(valor) {
-  if (!valor) return 0;
-  if (typeof valor === 'number') return valor;
-  return parseFloat(valor.toString().replace(/\./g, '').replace(',', '.')) || 0;
-}
-
-function formatarMoeda(valor) {
-  return parseFloat(valor).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-function aplicarMascaraPercentual(input) {
-  let valor = input.value.replace(/[^\d,]/g, '');
-  
-  // Permitir apenas uma vírgula
-  const partes = valor.split(',');
-  if (partes.length > 2) {
-    valor = partes[0] + ',' + partes.slice(1).join('');
-  }
-  
-  // Limitar casas decimais a 2
-  if (partes.length === 2 && partes[1].length > 2) {
-    valor = partes[0] + ',' + partes[1].substring(0, 2);
-  }
-  
-  // Limitar parte inteira a 3 dígitos (para permitir digitação de 100)
-  if (partes[0].length > 3) {
-    valor = partes[0].substring(0, 3) + (partes.length === 2 ? ',' + partes[1] : '');
-  }
-  
-  input.value = valor;
-  
-  // Adicionar onblur para validar o limite de 100 ao sair do campo
-  if (!input.dataset.blurAttached) {
-    input.dataset.blurAttached = 'true';
-    input.addEventListener('blur', function() {
-      const valorNumerico = parseFloat(this.value.replace(',', '.')) || 0;
-      if (valorNumerico > 100) {
-        this.value = '100,00';
-        // Disparar evento input para recalcular valores dependentes
-        this.dispatchEvent(new Event('input', { bubbles: true }));
-      } else if (this.value && !this.value.includes(',')) {
-        // Formatar com 2 casas decimais ao sair do campo
-        this.value = valorNumerico.toFixed(2).replace('.', ',');
-      }
-    });
-  }
-}
-
-function parsePercentual(valor) {
-  if (!valor) return 0;
-  if (typeof valor === 'number') return valor;
-  return parseFloat(valor.toString().replace(',', '.')) || 0;
-}
-
-function removerMascaraNumero(valor) {
-  if (!valor) return 0;
-  return parseInt(valor.replace(/\D/g, ''), 10);
-}
-
-function formatarNumero(valor) {
-  return parseInt(valor).toLocaleString('pt-BR');
-}
-
-// ==================== FUNÇÕES DE CÁLCULO ====================
-
 function atualizarLabelVolume() {
-  const objetivo = document.getElementById('objetivo_kpi').value;
+  const objetivoEl = document.getElementById('objetivo_kpi');
   const label = document.getElementById('label_volume');
   
-  if (objetivo === 'CPM') {
-    label.textContent = 'Volume Contratado (Impressões)';
-  } else {
-    label.textContent = 'Volume Contratado (Unidades)';
+  if (!objetivoEl) return;
+  
+  const objetivo = objetivoEl.value;
+  
+  if (label) {
+    if (objetivo === 'CPM') {
+      label.textContent = 'Volume Contratado (Impressões)';
+    } else {
+      label.textContent = 'Volume Contratado (Unidades)';
+    }
   }
   
   calcularVolume();
-}
-
-function calcularVolume() {
-  const investimentoInput = document.getElementById('investimento_bruto');
-  const valorUnitarioInput = document.getElementById('valor_unitario');
-  const volumeInput = document.getElementById('volume_contratado');
-  const objetivoSelect = document.getElementById('objetivo_kpi');
-  
-  const investimento = parseFloat(removerMascaraDinheiro(investimentoInput.value)) || 0;
-  const valorUnitario = parseFloat(removerMascaraDinheiro(valorUnitarioInput.value)) || 0;
-  const objetivo = objetivoSelect.value;
-  
-  if (investimento > 0 && valorUnitario > 0) {
-    let volume;
-    
-    if (objetivo === 'CPM') {
-      volume = (investimento / valorUnitario) * 1000;
-    } else {
-      volume = investimento / valorUnitario;
-    }
-    
-    volumeInput.value = formatarNumero(Math.round(volume));
-  } else {
-    volumeInput.value = '';
-  }
-  
-  // Calcular investimento líquido
-  calcularInvestimentoLiquido();
-  
-  validarCamposObrigatorios();
 }
 
 function validarCamposObrigatorios() {
@@ -2827,7 +2851,7 @@ async function editarLinha(linhaId) {
     
     // Novos campos de valores
     document.getElementById('edit_valor_unitario_tabela').value = formatarMoeda(linha.valor_unitario_tabela || 0);
-    document.getElementById('edit_desconto_percentual').value = (linha.desconto_percentual || 0).toString().replace('.', ',');
+    document.getElementById('edit_desconto_percentual').value = formatarPercentual(linha.desconto_percentual || 0);
     document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario_negociado || linha.valor_unitario || 0);
     document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
     document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
@@ -2869,31 +2893,6 @@ function calcularDiasLinhaEdit() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     document.getElementById('edit_dias_linha').value = diffDays > 0 ? diffDays : 0;
   }
-}
-
-function calcularValorNegociadoEdit() {
-  const valorTabela = parseMoeda(document.getElementById('edit_valor_unitario_tabela').value) || 0;
-  const desconto = parsePercentual(document.getElementById('edit_desconto_percentual').value);
-  const valorNegociado = valorTabela * (1 - desconto / 100);
-  document.getElementById('edit_valor_unitario').value = formatarMoeda(valorNegociado);
-  calcularVolumeEdit();
-}
-
-function calcularVolumeEdit() {
-  const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const valorUnit = parseMoeda(document.getElementById('edit_valor_unitario').value) || 0;
-  if (valorUnit > 0) {
-    const volume = Math.floor(investBruto / valorUnit * 1000);
-    document.getElementById('edit_volume_contratado').value = formatarNumero(volume);
-  }
-}
-
-function calcularInvestLiquidoEdit() {
-  const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const descontoItem = parsePercentual(document.getElementById('edit_desconto_percentual').value);
-  // Aplicar desconto do item + comissão do cliente
-  const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
-  document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
 }
 
 async function salvarEdicaoLinha() {

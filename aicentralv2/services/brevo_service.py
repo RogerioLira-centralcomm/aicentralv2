@@ -651,10 +651,29 @@ def enviar_email_cotacao_aprovada(
     link_proposta: str,
     data_aprovacao: str,
     cliente_empresa: str = None,
-    link_admin: str = None
+    link_admin: str = None,
+    tem_agencia: bool = False,
+    agencia_nome: str = None,
+    agencia_email: str = None
 ) -> Dict[str, Any]:
     """
     Envia email interno de cotação aprovada
+    
+    Args:
+        to_email: Email do destinatário interno (responsável comercial, apolo, etc.)
+        to_name: Nome do destinatário
+        numero_cotacao: Número da cotação
+        nome_campanha: Nome da campanha
+        cliente_nome: Nome do cliente
+        cliente_email: Email do cliente
+        valor_total: Valor formatado
+        link_proposta: Link para ver a proposta
+        data_aprovacao: Data da aprovação formatada
+        cliente_empresa: Nome da empresa cliente
+        link_admin: Link para o admin
+        tem_agencia: Se True, indica que a cotação tem uma agência vinculada
+        agencia_nome: Nome da agência (quando tem_agencia=True)
+        agencia_email: Email da agência (quando tem_agencia=True)
     """
     service = get_brevo_service()
     
@@ -667,7 +686,10 @@ def enviar_email_cotacao_aprovada(
         "VALOR_TOTAL": valor_total,
         "LINK_PROPOSTA": link_proposta,
         "LINK_ADMIN": link_admin or "",
-        "DATA_APROVACAO": data_aprovacao
+        "DATA_APROVACAO": data_aprovacao,
+        "TEM_AGENCIA": tem_agencia,
+        "AGENCIA_NOME": agencia_nome or "",
+        "AGENCIA_EMAIL": agencia_email or ""
     }
     
     return service.enviar_email_com_template(
@@ -688,10 +710,26 @@ def enviar_email_cotacao_rejeitada(
     cliente_nome: str,
     motivo: str = None,
     link_proposta: str = None,
-    data_rejeicao: str = None
+    data_rejeicao: str = None,
+    tem_agencia: bool = False,
+    agencia_nome: str = None,
+    agencia_email: str = None
 ) -> Dict[str, Any]:
     """
     Envia email interno de cotação rejeitada
+    
+    Args:
+        to_email: Email do destinatário interno (responsável comercial, apolo, etc.)
+        to_name: Nome do destinatário
+        numero_cotacao: Número da cotação
+        nome_campanha: Nome da campanha
+        cliente_nome: Nome do cliente
+        motivo: Motivo da rejeição
+        link_proposta: Link para ver a proposta
+        data_rejeicao: Data da rejeição formatada
+        tem_agencia: Se True, indica que a cotação tem uma agência vinculada
+        agencia_nome: Nome da agência (quando tem_agencia=True)
+        agencia_email: Email da agência (quando tem_agencia=True)
     """
     service = get_brevo_service()
     
@@ -701,7 +739,10 @@ def enviar_email_cotacao_rejeitada(
         "CLIENTE_NOME": cliente_nome,
         "MOTIVO": motivo or "Não informado",
         "LINK_PROPOSTA": link_proposta or "",
-        "DATA_REJEICAO": data_rejeicao or ""
+        "DATA_REJEICAO": data_rejeicao or "",
+        "TEM_AGENCIA": tem_agencia,
+        "AGENCIA_NOME": agencia_nome or "",
+        "AGENCIA_EMAIL": agencia_email or ""
     }
     
     return service.enviar_email_com_template(
@@ -801,10 +842,33 @@ def enviar_email_cotacao_enviada_cliente(
     audiencia_nome: str = None,
     audiencia_categoria: str = None,
     prazo_resposta: str = "até 24 horas úteis",
-    data_envio: str = None
+    data_envio: str = None,
+    tem_agencia: bool = False,
+    agencia_nome: str = None,
+    cliente_nome: str = None
 ) -> Dict[str, Any]:
     """
-    Envia email para cliente de cotação enviada
+    Envia email para cliente ou agência de cotação enviada
+    
+    Args:
+        to_email: Email do destinatário (cliente ou agência)
+        to_name: Nome do destinatário
+        numero_cotacao: Número da cotação
+        nome_campanha: Nome da campanha
+        valor_total: Valor formatado
+        link_proposta: Link para ver a proposta
+        validade: Data de validade da proposta
+        executivo_nome: Nome do executivo comercial
+        executivo_email: Email do executivo comercial
+        periodo: Período da campanha
+        objetivo: Objetivo da campanha
+        audiencia_nome: Nome da audiência
+        audiencia_categoria: Categoria da audiência
+        prazo_resposta: Prazo de resposta
+        data_envio: Data de envio formatada
+        tem_agencia: Se True, indica que o destinatário é uma agência
+        agencia_nome: Nome da agência (quando tem_agencia=True)
+        cliente_nome: Nome do cliente (usado quando tem agência para informar de qual cliente é a cotação)
     """
     from datetime import datetime
     
@@ -827,7 +891,10 @@ def enviar_email_cotacao_enviada_cliente(
         "AUDIENCIA_NOME": audiencia_nome or "",
         "AUDIENCIA_CATEGORIA": audiencia_categoria or "",
         "PRAZO_RESPOSTA": prazo_resposta,
-        "DATA_ENVIO": data_envio or datetime.now().strftime('%d/%m/%Y às %H:%M')
+        "DATA_ENVIO": data_envio or datetime.now().strftime('%d/%m/%Y às %H:%M'),
+        "TEM_AGENCIA": tem_agencia,
+        "AGENCIA_NOME": agencia_nome or "",
+        "CLIENTE_NOME": cliente_nome or ""
     }
     
     return service.enviar_email_com_template(
@@ -848,11 +915,33 @@ def enviar_email_cotacao_aprovada_cliente(
     valor_total: str,
     proximos_passos: str = None,
     executivo_nome: str = None,
-    executivo_email: str = None
+    executivo_email: str = None,
+    data_aprovacao: str = None,
+    link_proposta: str = None,
+    tem_agencia: bool = False,
+    agencia_nome: str = None,
+    cliente_nome: str = None
 ) -> Dict[str, Any]:
     """
-    Envia email para cliente de cotação aprovada
+    Envia email para cliente/agência de cotação aprovada
+    
+    Args:
+        to_email: Email do destinatário (cliente ou agência)
+        to_name: Nome do destinatário
+        numero_cotacao: Número da cotação
+        nome_campanha: Nome da campanha
+        valor_total: Valor formatado
+        proximos_passos: Próximos passos (opcional)
+        executivo_nome: Nome do executivo comercial
+        executivo_email: Email do executivo comercial
+        data_aprovacao: Data da aprovação formatada
+        link_proposta: Link para ver a proposta
+        tem_agencia: Se True, indica que o destinatário é uma agência
+        agencia_nome: Nome da agência (quando tem_agencia=True)
+        cliente_nome: Nome do cliente (usado quando tem agência para informar de qual cliente é a cotação)
     """
+    from datetime import datetime
+    
     service = get_brevo_service()
     
     primeiro_nome = to_name.split()[0] if to_name else "Cliente"
@@ -864,8 +953,13 @@ def enviar_email_cotacao_aprovada_cliente(
         "NOME_CAMPANHA": nome_campanha,
         "VALOR_TOTAL": valor_total,
         "PROXIMOS_PASSOS": proximos_passos or "",
-        "EXECUTIVO_NOME": executivo_nome or "",
-        "EXECUTIVO_EMAIL": executivo_email or ""
+        "CONTATO_COMERCIAL": executivo_nome or "",
+        "EMAIL_COMERCIAL": executivo_email or "",
+        "DATA_APROVACAO": data_aprovacao or datetime.now().strftime('%d/%m/%Y às %H:%M'),
+        "LINK_PROPOSTA": link_proposta or "",
+        "TEM_AGENCIA": tem_agencia,
+        "AGENCIA_NOME": agencia_nome or "",
+        "CLIENTE_NOME": cliente_nome or ""
     }
     
     return service.enviar_email_com_template(
@@ -885,11 +979,32 @@ def enviar_email_cotacao_rejeitada_cliente(
     nome_campanha: str,
     mensagem: str = None,
     executivo_nome: str = None,
-    executivo_email: str = None
+    executivo_email: str = None,
+    data_rejeicao: str = None,
+    link_nova_cotacao: str = None,
+    tem_agencia: bool = False,
+    agencia_nome: str = None,
+    cliente_nome: str = None
 ) -> Dict[str, Any]:
     """
-    Envia email para cliente de cotação rejeitada
+    Envia email para cliente/agência de cotação rejeitada/cancelada
+    
+    Args:
+        to_email: Email do destinatário (cliente ou agência)
+        to_name: Nome do destinatário
+        numero_cotacao: Número da cotação
+        nome_campanha: Nome da campanha
+        mensagem: Motivo da rejeição (opcional)
+        executivo_nome: Nome do executivo comercial
+        executivo_email: Email do executivo comercial
+        data_rejeicao: Data da rejeição formatada
+        link_nova_cotacao: Link para solicitar nova cotação
+        tem_agencia: Se True, indica que o destinatário é uma agência
+        agencia_nome: Nome da agência (quando tem_agencia=True)
+        cliente_nome: Nome do cliente (usado quando tem agência para informar de qual cliente é a cotação)
     """
+    from datetime import datetime
+    
     service = get_brevo_service()
     
     primeiro_nome = to_name.split()[0] if to_name else "Cliente"
@@ -899,9 +1014,14 @@ def enviar_email_cotacao_rejeitada_cliente(
         "PRIMEIRO_NOME": primeiro_nome,
         "NUMERO_COTACAO": numero_cotacao,
         "NOME_CAMPANHA": nome_campanha,
-        "MENSAGEM": mensagem or "",
-        "EXECUTIVO_NOME": executivo_nome or "",
-        "EXECUTIVO_EMAIL": executivo_email or ""
+        "MOTIVO_REJEICAO": mensagem or "",
+        "CONTATO_COMERCIAL": executivo_nome or "",
+        "EMAIL_COMERCIAL": executivo_email or "",
+        "DATA_REJEICAO": data_rejeicao or datetime.now().strftime('%d/%m/%Y às %H:%M'),
+        "LINK_NOVA_COTACAO": link_nova_cotacao or "",
+        "TEM_AGENCIA": tem_agencia,
+        "AGENCIA_NOME": agencia_nome or "",
+        "CLIENTE_NOME": cliente_nome or ""
     }
     
     return service.enviar_email_com_template(

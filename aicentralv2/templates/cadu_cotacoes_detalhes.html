@@ -975,6 +975,28 @@ function calcularInvestLiquidoEdit() {
           <button onclick="enviarCotacaoEmail()" class="w-full px-3 py-1.5 text-xs rounded text-white text-left" style="background-color: #72cd80;">
             <i class="fas fa-share mr-2"></i>Compartilhar Proposta
           </button>
+          
+          <!-- Envio de Email por Tipo -->
+          <div class="border-t border-gray-200 my-3 pt-3">
+            <label class="block text-xs font-semibold text-gray-600 mb-2">
+              <i class="fas fa-envelope mr-1 text-gray-400"></i>Enviar Email
+            </label>
+            <select id="select_tipo_email" class="w-full text-xs border border-gray-300 rounded px-2 py-1.5 mb-2 bg-white focus:border-gray-400 focus:outline-none">
+              <option value="">Selecione o tipo...</option>
+              <option value="cotacao_enviada" {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise'] %}disabled{% endif %}>
+                Cotação Enviada {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise'] %}(requer Rascunho/Em Análise){% endif %}
+              </option>
+              <option value="cotacao_aprovada" {% if cotacao and cotacao.status != 'Aprovada' %}disabled{% endif %}>
+                Cotação Aprovada {% if cotacao and cotacao.status != 'Aprovada' %}(requer Aprovada){% endif %}
+              </option>
+              <option value="cotacao_rejeitada" {% if cotacao and cotacao.status != 'Rejeitada' %}disabled{% endif %}>
+                Cotação Rejeitada {% if cotacao and cotacao.status != 'Rejeitada' %}(requer Rejeitada){% endif %}
+              </option>
+            </select>
+            <button onclick="enviarEmailPorTipo()" class="w-full px-3 py-1.5 text-xs rounded text-white text-left" style="background-color: #72cd80;">
+              <i class="fas fa-paper-plane mr-2"></i>Enviar Email
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2080,6 +2102,68 @@ const contatosCliente = {
   {% endif %}
 };
 
+// Dados dos contatos da agência para envio de email
+const contatosAgencia = {
+  {% if contatos_agencia %}
+    {% for contato in contatos_agencia %}
+    "{{ contato.id_contato_cliente }}": {
+      nome: "{{ contato.nome_completo }}",
+      email: "{{ contato.email or '' }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  {% endif %}
+};
+
+// Variáveis para lógica de envio de email
+const temAgencia = {{ 'true' if cotacao and cotacao.agencia_id else 'false' }};
+const agenciaNome = "{{ cotacao.agencia_nome if cotacao and cotacao.agencia_nome else '' }}";
+const clienteNome = "{{ cotacao.cliente_nome if cotacao and cotacao.cliente_nome else '' }}";
+
+// Variáveis do link público para validação de envio de email
+const linkPublicoInfo = {
+  existe: {{ 'true' if cotacao and cotacao.link_publico_token else 'false' }},
+  ativo: {{ 'true' if cotacao and cotacao.link_publico_ativo else 'false' }},
+  {% if cotacao and cotacao.link_publico_expires_at %}
+  expiresAt: new Date("{{ cotacao.link_publico_expires_at.strftime('%Y-%m-%dT%H:%M:%S') }}"),
+  expiresAtFormatado: "{{ cotacao.link_publico_expires_at.strftime('%d/%m/%Y às %H:%M') }}"
+  {% else %}
+  expiresAt: null,
+  expiresAtFormatado: null
+  {% endif %}
+};
+
+// Função para validar link público (mínimo 3 dias de validade)
+function validarLinkPublico() {
+  const erros = [];
+  
+  if (!linkPublicoInfo.existe) {
+    erros.push('O link público não foi criado. Crie o link público antes de enviar o email.');
+    return { valido: false, erros };
+  }
+  
+  if (!linkPublicoInfo.ativo) {
+    erros.push('O link público está INATIVO. Ative o link público antes de enviar o email.');
+  }
+  
+  if (!linkPublicoInfo.expiresAt) {
+    erros.push('O link público não possui data de expiração definida.');
+  } else {
+    const agora = new Date();
+    const diferencaMs = linkPublicoInfo.expiresAt - agora;
+    const diferencaDias = diferencaMs / (1000 * 60 * 60 * 24);
+    
+    if (diferencaMs <= 0) {
+      erros.push(`O link público já expirou em ${linkPublicoInfo.expiresAtFormatado}.`);
+    } else if (diferencaDias < 3) {
+      const diasRestantes = Math.floor(diferencaDias);
+      const horasRestantes = Math.floor((diferencaDias - diasRestantes) * 24);
+      erros.push(`O link público expira em ${diasRestantes} dia(s) e ${horasRestantes} hora(s) (${linkPublicoInfo.expiresAtFormatado}). É necessário pelo menos 3 dias de validade.`);
+    }
+  }
+  
+  return { valido: erros.length === 0, erros };
+}
+
 // Função para enviar cotação por email via Brevo
 async function enviarCotacaoEmail() {
   const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
@@ -2117,6 +2201,161 @@ async function enviarCotacaoEmail() {
       showToast('Cotação enviada por email com sucesso!', 'success');
       // Recarregar página para atualizar status
       setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast('Erro ao enviar email: ' + (data.message || 'Erro desconhecido'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao enviar email', 'error');
+  }
+}
+
+// Função para enviar email por tipo (cotação enviada, aprovada, rejeitada)
+async function enviarEmailPorTipo() {
+  const tipoEmail = document.getElementById('select_tipo_email').value;
+  const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
+  const status = '{{ cotacao.status if cotacao else "" }}';
+  
+  if (!tipoEmail) {
+    showToast('Selecione um tipo de email', 'warning');
+    return;
+  }
+  
+  // Validações de status
+  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Em Análise'].includes(status)) {
+    showToast('Email de cotação enviada só pode ser enviado para status Rascunho ou Em Análise', 'error');
+    return;
+  }
+  if (tipoEmail === 'cotacao_aprovada' && status !== 'Aprovada') {
+    showToast('Email de aprovação só pode ser enviado para cotações aprovadas', 'error');
+    return;
+  }
+  if (tipoEmail === 'cotacao_rejeitada' && status !== 'Rejeitada') {
+    showToast('Email de rejeição só pode ser enviado para cotações rejeitadas', 'error');
+    return;
+  }
+  
+  // Determinar destinatário baseado em se tem agência ou não
+  let destinatario, nomeDestinatario, tipoDestinatario;
+  
+  if (temAgencia) {
+    // Verificar se há contato de agência SELECIONADO na cotação
+    const contatoAgenciaId = document.getElementById('edit_contato_agencia_id')?.value;
+    
+    if (!contatoAgenciaId) {
+      showToast('Esta cotação não possui um contato de agência selecionado. Selecione um contato antes de enviar o email.', 'error');
+      return;
+    }
+    
+    if (!contatosAgencia[contatoAgenciaId]) {
+      showToast('Contato de agência não encontrado. Verifique se o contato está cadastrado.', 'error');
+      return;
+    }
+    
+    if (!contatosAgencia[contatoAgenciaId].email) {
+      showToast('O contato da agência selecionado não possui email cadastrado.', 'error');
+      return;
+    }
+    
+    destinatario = contatosAgencia[contatoAgenciaId].email;
+    nomeDestinatario = contatosAgencia[contatoAgenciaId].nome;
+    tipoDestinatario = 'Agência';
+  } else {
+    // Verificar se há contato de cliente SELECIONADO na cotação
+    const contatoId = document.getElementById('client_user_id')?.value;
+    
+    if (!contatoId) {
+      showToast('Esta cotação não possui um contato de cliente selecionado. Selecione um contato antes de enviar o email.', 'error');
+      return;
+    }
+    
+    if (!contatosCliente[contatoId]) {
+      showToast('Contato de cliente não encontrado. Verifique se o contato está cadastrado.', 'error');
+      return;
+    }
+    
+    if (!contatosCliente[contatoId].email) {
+      showToast('O contato do cliente selecionado não possui email cadastrado.', 'error');
+      return;
+    }
+    
+    destinatario = contatosCliente[contatoId].email;
+    nomeDestinatario = contatosCliente[contatoId].nome;
+    tipoDestinatario = 'Cliente';
+  }
+  
+  // Validar link público (necessário para emails que contêm link da proposta)
+  // Emails de cotação enviada e aprovada geralmente contêm link para a proposta
+  if (['cotacao_enviada', 'cotacao_aprovada'].includes(tipoEmail)) {
+    const validacaoLink = validarLinkPublico();
+    if (!validacaoLink.valido) {
+      let mensagemErro = 'ATENÇÃO: Problemas com o Link Público\n\n';
+      mensagemErro += 'Para enviar este email, o link público precisa estar configurado corretamente:\n\n';
+      validacaoLink.erros.forEach((erro, index) => {
+        mensagemErro += `${index + 1}. ${erro}\n`;
+      });
+      mensagemErro += '\nConfigure o link público antes de enviar o email.';
+      alert(mensagemErro);
+      return;
+    }
+  }
+  
+  // Labels para exibição
+  const tipoLabel = {
+    'cotacao_enviada': 'Cotação Enviada',
+    'cotacao_aprovada': 'Cotação Aprovada', 
+    'cotacao_rejeitada': 'Cotação Rejeitada'
+  };
+  
+  const tipoDescricao = {
+    'cotacao_enviada': 'informando que a proposta foi enviada para análise',
+    'cotacao_aprovada': 'confirmando a aprovação da proposta',
+    'cotacao_rejeitada': 'informando sobre o cancelamento/rejeição da proposta'
+  };
+  
+  // Montar mensagem de confirmação detalhada
+  let mensagemConfirmacao = `CONFIRMAÇÃO DE ENVIO DE EMAIL\n\n`;
+  mensagemConfirmacao += `Tipo de Email: ${tipoLabel[tipoEmail]}\n`;
+  mensagemConfirmacao += `Descrição: ${tipoDescricao[tipoEmail]}\n\n`;
+  mensagemConfirmacao += `DESTINATÁRIO:\n`;
+  mensagemConfirmacao += `• ${tipoDestinatario}: ${nomeDestinatario}\n`;
+  mensagemConfirmacao += `• Email: ${destinatario}\n`;
+  
+  if (temAgencia && clienteNome) {
+    mensagemConfirmacao += `• Cliente vinculado: ${clienteNome}\n`;
+  }
+  
+  mensagemConfirmacao += `\nDeseja realmente enviar este email?`;
+  
+  // Confirmar envio
+  if (!confirm(mensagemConfirmacao)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cotacoes/${cotacaoId}/enviar-email-tipo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tipo: tipoEmail,
+        destinatario: destinatario,
+        nome_destinatario: nomeDestinatario,
+        tem_agencia: temAgencia,
+        agencia_nome: agenciaNome,
+        cliente_nome: clienteNome
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast(`Email "${tipoLabel[tipoEmail]}" enviado com sucesso para ${nomeDestinatario}!`, 'success');
+      // Resetar select
+      document.getElementById('select_tipo_email').value = '';
+      // Se for cotação enviada, recarregar para atualizar status
+      if (tipoEmail === 'cotacao_enviada') {
+        setTimeout(() => location.reload(), 1500);
+      }
     } else {
       showToast('Erro ao enviar email: ' + (data.message || 'Erro desconhecido'), 'error');
     }

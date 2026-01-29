@@ -5294,6 +5294,219 @@ def init_routes(app):
             app.logger.error(f"Erro ao enviar email: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/cotacoes/<int:cotacao_id>/enviar-email-tipo', methods=['POST'])
+    @login_required
+    def enviar_email_cotacao_por_tipo(cotacao_id):
+        """
+        API para enviar email de cotação por tipo (enviada, aprovada, rejeitada)
+        
+        Regras:
+        - cotacao_enviada: só para status Rascunho ou Em Análise
+        - cotacao_aprovada: só para status Aprovada (email externo + interno)
+        - cotacao_rejeitada: só para status Rejeitada (email externo + interno)
+        
+        Se tem agência: envia para contato da agência
+        Se não tem agência: envia para contato do cliente
+        
+        Emails internos: responsável comercial + apolo@centralcomm.media
+        """
+        try:
+            data = request.get_json() or {}
+            
+            tipo = data.get('tipo')
+            destinatario = data.get('destinatario')
+            nome_destinatario = data.get('nome_destinatario')
+            tem_agencia = data.get('tem_agencia', False)
+            agencia_nome = data.get('agencia_nome', '')
+            cliente_nome = data.get('cliente_nome', '')
+            
+            if not tipo:
+                return jsonify({'success': False, 'message': 'Tipo de email não informado'}), 400
+            
+            if not destinatario:
+                return jsonify({'success': False, 'message': 'Email do destinatário não informado'}), 400
+            
+            # Buscar cotação com dados completos
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+            
+            status = cotacao.get('status', '')
+            
+            # Validar tipo x status
+            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Em Análise']:
+                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho ou Em Análise'}), 400
+            if tipo == 'cotacao_aprovada' and status != 'Aprovada':
+                return jsonify({'success': False, 'message': 'Email de aprovação só pode ser enviado para cotações aprovadas'}), 400
+            if tipo == 'cotacao_rejeitada' and status != 'Rejeitada':
+                return jsonify({'success': False, 'message': 'Email de rejeição só pode ser enviado para cotações rejeitadas'}), 400
+            
+            # Importar funções de email
+            from aicentralv2.services.brevo_service import (
+                enviar_email_cotacao_enviada_cliente,
+                enviar_email_cotacao_aprovada_cliente,
+                enviar_email_cotacao_rejeitada_cliente,
+                enviar_email_cotacao_aprovada,
+                enviar_email_cotacao_rejeitada
+            )
+            
+            # Dados comuns
+            numero_cotacao = cotacao.get('numero_cotacao', '')
+            nome_campanha = cotacao.get('nome_campanha', '')
+            responsavel_nome = cotacao.get('responsavel_nome', '')
+            responsavel_email = cotacao.get('responsavel_email', '')
+            
+            # Formatar valor
+            valor_total = cotacao.get('valor_total_proposta') or cotacao.get('budget_estimado') or 0
+            valor_formatado = f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            
+            # Gerar link público se ativo
+            link_cotacao = None
+            if cotacao.get('link_publico_ativo') and cotacao.get('link_publico_token'):
+                base_url = app.config.get('BASE_URL', 'http://localhost:5000')
+                link_cotacao = f"{base_url}/proposta/{cotacao['link_publico_token']}"
+            
+            # Nome a usar no email (agência ou cliente)
+            nome_para_email = agencia_nome if tem_agencia and agencia_nome else cliente_nome
+            if not nome_para_email:
+                nome_para_email = nome_destinatario
+            
+            resultado_externo = None
+            resultado_interno = None
+            
+            try:
+                if tipo == 'cotacao_enviada':
+                    # Email externo para cliente/agência
+                    resultado_externo = enviar_email_cotacao_enviada_cliente(
+                        to_email=destinatario,
+                        to_name=nome_destinatario,
+                        numero_cotacao=numero_cotacao,
+                        nome_campanha=nome_campanha,
+                        valor_total=valor_formatado,
+                        link_proposta=link_cotacao or '',
+                        executivo_nome=responsavel_nome,
+                        executivo_email=responsavel_email
+                    )
+                    
+                    if resultado_externo.get('success'):
+                        # Atualizar status para Enviada
+                        db.atualizar_cotacao(cotacao_id, status='Enviada', proposta_enviada_em=datetime.now())
+                
+                elif tipo == 'cotacao_aprovada':
+                    # Email externo para cliente/agência
+                    resultado_externo = enviar_email_cotacao_aprovada_cliente(
+                        to_email=destinatario,
+                        to_name=nome_destinatario,
+                        numero_cotacao=numero_cotacao,
+                        nome_campanha=nome_campanha,
+                        valor_total=valor_formatado,
+                        executivo_nome=responsavel_nome,
+                        executivo_email=responsavel_email
+                    )
+                    
+                    # Emails internos: responsável comercial + apolo
+                    destinatarios_internos = []
+                    if responsavel_email:
+                        destinatarios_internos.append((responsavel_email, responsavel_nome or 'Responsável'))
+                    destinatarios_internos.append(('apolo@centralcomm.media', 'Equipe Apolo'))
+                    
+                    # Link admin para cotação
+                    base_url = app.config.get('BASE_URL', 'http://localhost:5000')
+                    link_admin = f"{base_url}/cadastros/cotacoes/{cotacao_id}"
+                    
+                    for email_interno, nome_interno in destinatarios_internos:
+                        try:
+                            enviar_email_cotacao_aprovada(
+                                to_email=email_interno,
+                                to_name=nome_interno,
+                                numero_cotacao=numero_cotacao,
+                                nome_campanha=nome_campanha,
+                                cliente_nome=cliente_nome if not tem_agencia else f"{agencia_nome} (Agência) / {cliente_nome}",
+                                cliente_email=destinatario,
+                                valor_total=valor_formatado,
+                                link_proposta=link_cotacao or '',
+                                data_aprovacao=datetime.now().strftime('%d/%m/%Y às %H:%M'),
+                                link_admin=link_admin
+                            )
+                        except Exception as e:
+                            app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
+                    
+                    resultado_interno = {'success': True}
+                
+                elif tipo == 'cotacao_rejeitada':
+                    # Email externo para cliente/agência
+                    resultado_externo = enviar_email_cotacao_rejeitada_cliente(
+                        to_email=destinatario,
+                        to_name=nome_destinatario,
+                        numero_cotacao=numero_cotacao,
+                        nome_campanha=nome_campanha,
+                        executivo_nome=responsavel_nome,
+                        executivo_email=responsavel_email
+                    )
+                    
+                    # Emails internos: responsável comercial + apolo
+                    destinatarios_internos = []
+                    if responsavel_email:
+                        destinatarios_internos.append((responsavel_email, responsavel_nome or 'Responsável'))
+                    destinatarios_internos.append(('apolo@centralcomm.media', 'Equipe Apolo'))
+                    
+                    # Link admin para cotação
+                    base_url = app.config.get('BASE_URL', 'http://localhost:5000')
+                    link_admin = f"{base_url}/cadastros/cotacoes/{cotacao_id}"
+                    
+                    motivo_rejeicao = cotacao.get('comentarios_internos') or cotacao.get('motivo_rejeicao') or ''
+                    
+                    for email_interno, nome_interno in destinatarios_internos:
+                        try:
+                            enviar_email_cotacao_rejeitada(
+                                to_email=email_interno,
+                                to_name=nome_interno,
+                                numero_cotacao=numero_cotacao,
+                                nome_campanha=nome_campanha,
+                                cliente_nome=cliente_nome if not tem_agencia else f"{agencia_nome} (Agência) / {cliente_nome}",
+                                motivo=motivo_rejeicao,
+                                link_proposta=link_admin,
+                                data_rejeicao=datetime.now().strftime('%d/%m/%Y às %H:%M')
+                            )
+                        except Exception as e:
+                            app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
+                    
+                    resultado_interno = {'success': True}
+                
+                else:
+                    return jsonify({'success': False, 'message': 'Tipo de email inválido'}), 400
+                
+                # Verificar resultado do email externo
+                if resultado_externo and resultado_externo.get('success'):
+                    # Registrar auditoria
+                    registrar_auditoria(
+                        acao='EMAIL_SENT',
+                        modulo='cotacoes',
+                        descricao=f'Email {tipo} enviado para {destinatario} - Cotação {numero_cotacao}',
+                        registro_id=cotacao_id,
+                        registro_tipo='cadu_cotacoes',
+                        dados_novos={
+                            'tipo': tipo,
+                            'destinatario': destinatario,
+                            'tem_agencia': tem_agencia,
+                            'agencia_nome': agencia_nome,
+                            'cliente_nome': cliente_nome
+                        }
+                    )
+                    
+                    return jsonify({'success': True, 'message': 'Email enviado com sucesso'})
+                else:
+                    erro = resultado_externo.get('error', 'Falha ao enviar email') if resultado_externo else 'Nenhum email enviado'
+                    return jsonify({'success': False, 'message': erro}), 500
+                    
+            except Exception as e:
+                app.logger.error(f"Erro ao enviar email por tipo: {str(e)}", exc_info=True)
+                return jsonify({'success': False, 'message': f'Erro ao enviar email: {str(e)}'}), 500
+            
+        except Exception as e:
+            app.logger.error(f"Erro no endpoint enviar-email-tipo: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/api/briefings/cliente/<int:cliente_id>')
     @login_required
     def api_briefings_por_cliente(cliente_id):

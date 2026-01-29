@@ -350,9 +350,8 @@ function calcularVolume() {
 
 function calcularInvestimentoLiquido() {
   var investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
-  var descontoItem = parsePercentual(document.getElementById('desconto_percentual').value);
   if (investBruto > 0) {
-    var investLiquido = investBruto * (1 - descontoItem/100);
+    var investLiquido = investBruto * 0.8;
     document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
   }
 }
@@ -387,8 +386,7 @@ function calcularVolumeEdit() {
 
 function calcularInvestLiquidoEdit() {
   var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
-  var descontoItem = parsePercentual(document.getElementById('edit_desconto_percentual').value);
-  var investLiquido = investBruto * (1 - descontoItem/100);
+  var investLiquido = investBruto * 0.8;
   document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
 }
 </script>
@@ -1192,7 +1190,7 @@ function calcularInvestLiquidoEdit() {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
-            <input type="text" id="investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
+            <input type="text" id="investimento_liquido" class="input input-bordered input-xs" placeholder="0,00" oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
       </div>
@@ -1422,7 +1420,7 @@ function calcularInvestLiquidoEdit() {
 
           <div class="form-control">
             <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
-            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
+            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs" placeholder="0,00" oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
       </div>
@@ -2081,9 +2079,6 @@ function exportarPDF() {
   window.open(`/cotacoes/${cotacaoId}/pdf`, '_blank');
 }
 
-// Percentual do cliente (carregado do servidor) - usado para calcular o valor líquido
-// Fórmula: investLiquido = investBruto * (100 - percentualCliente) / 100
-const percentualCliente = {{ (cliente.percentual if cliente and cliente.percentual else 0)|default(0) }};
 
 // Função para calcular quantidade de dias da campanha
 function calcularDiasCampanha() {
@@ -2734,8 +2729,7 @@ async function salvarNovaLinha() {
   
   // Calcular investimento líquido
   const investBruto = parseMoeda(document.getElementById('investimento_bruto').value) || 0;
-  const descontoItem = parsePercentual(document.getElementById('desconto_percentual').value);
-  const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
+  const investLiquido = investBruto * 0.8;
   
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) {
@@ -2910,8 +2904,7 @@ async function salvarEdicaoLinha() {
   
   // Calcular investimento líquido
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const descontoItem = parsePercentual(document.getElementById('edit_desconto_percentual').value);
-  const investLiquido = investBruto * (1 - descontoItem/100) * (1 - percentualCliente/100);
+  const investLiquido = investBruto * 0.8;
   
   const data = {
     segmentacao: document.getElementById('edit_segmentacao').value,

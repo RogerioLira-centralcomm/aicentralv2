@@ -6530,8 +6530,14 @@ def obter_cotacoes_pipeline(filtros=None):
                 params.append(int(filtros['mes']))
             
             if filtros.get('status'):
-                sql += ' AND cot.status = %s'
-                params.append(filtros['status'])
+                status_filtro = filtros['status']
+                # Aceitar tanto 'Em Análise' quanto 'em_analise'
+                if status_filtro in ['Em Análise', 'em_analise']:
+                    sql += ' AND cot.status IN (%s, %s)'
+                    params.extend(['Em Análise', 'em_analise'])
+                else:
+                    sql += ' AND cot.status = %s'
+                    params.append(status_filtro)
             
             # Ordenar por data de atualização (mais recentes primeiro)
             sql += ' ORDER BY cot.updated_at DESC NULLS LAST'
@@ -6554,6 +6560,9 @@ def obter_cotacoes_pipeline(filtros=None):
                 # Tratar status antigo 'Pendente' como 'Rascunho'
                 if status == 'Pendente':
                     status = 'Rascunho'
+                # Tratar 'em_analise' como 'Em Análise'
+                if status == 'em_analise':
+                    status = 'Em Análise'
                 # Ignorar 'Expirada' no pipeline (opcional: pode adicionar coluna)
                 if status in colunas:
                     colunas[status].append(cot)

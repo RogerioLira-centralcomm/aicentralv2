@@ -16,77 +16,163 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
     
-    <!-- Header Fixo -->
+    <!-- Header Fixo Expandido -->
     <header class="gradient-header text-white sticky top-0 z-50">
-        <div class="max-w-5xl mx-auto px-3 py-2">
-            <div class="flex items-center justify-between">
-                <!-- Logo e Info -->
+        <div class="max-w-4xl mx-auto px-3 py-3">
+            <!-- Linha Principal -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <!-- Logo + Status + Cotação -->
                 <div class="flex items-center gap-3">
                     <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-8 brightness-0 invert">
-                    <div class="hidden sm:block border-l border-white/20 pl-3">
-                        <span class="text-white/60 text-[10px] uppercase tracking-wider">Link Público</span>
+                    <div class="border-l border-white/20 pl-3">
+                        {% set status_colors = {
+                            'Rascunho': 'bg-gray-500',
+                            'Pendente': 'bg-yellow-500',
+                            'Em Análise': 'bg-blue-500',
+                            'Enviada': 'bg-purple-500',
+                            'Negociação': 'bg-orange-500',
+                            'Aprovada': 'bg-green-500',
+                            'Rejeitada': 'bg-red-500',
+                            'Expirada': 'bg-gray-600'
+                        } %}
                         <div class="flex items-center gap-1.5">
-                            {% set status_colors = {
-                                'Rascunho': 'bg-gray-500',
-                                'Pendente': 'bg-yellow-500',
-                                'Em Análise': 'bg-blue-500',
-                                'Enviada': 'bg-purple-500',
-                                'Negociação': 'bg-orange-500',
-                                'Aprovada': 'bg-green-500',
-                                'Rejeitada': 'bg-red-500',
-                                'Expirada': 'bg-gray-600'
-                            } %}
                             <span class="w-1.5 h-1.5 rounded-full {{ status_colors.get(cotacao.status, 'bg-gray-500') }}"></span>
                             <span class="text-xs font-medium">{{ cotacao.status or 'Pendente' }}</span>
                         </div>
+                        <span class="inline-flex items-center gap-1 text-white/60 text-[10px]">
+                            <i class="fas fa-file-invoice-dollar text-[8px]"></i>
+                            {{ cotacao.numero_cotacao }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Cliente (hidden on mobile) -->
+                {% if cliente %}
+                <div class="hidden md:block border-l border-white/20 pl-3">
+                    <span class="text-white/60 text-[10px] uppercase tracking-wider">Cliente</span>
+                    <p class="font-medium text-sm truncate max-w-[200px]">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
+                </div>
+                {% endif %}
+                
+                <!-- Resumo Financeiro Compacto -->
+                {% set total_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
+                {% set total_audiencias = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
+                {% set subtotal = total_itens + total_audiencias %}
+                {% set desconto = cotacao.desconto_total or 0 if cotacao else 0 %}
+                {% set valor_final = cotacao.valor_total_proposta or subtotal %}
+                
+                <div class="hidden sm:flex items-center gap-4 border-l border-white/20 pl-3">
+                    <div class="text-right">
+                        <span class="text-white/60 text-[10px] uppercase tracking-wider">Itens</span>
+                        <p class="font-medium text-xs">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-white/60 text-[10px] uppercase tracking-wider">Total</span>
+                        <p class="font-bold text-lg" style="color:#72cd80">
+                            R$ {{ "{:,.2f}".format(valor_final).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                        </p>
                     </div>
                 </div>
                 
                 <!-- Ações -->
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <!-- Dropdown Anexos -->
+                    {% if anexos and anexos|length > 0 %}
+                    <div class="relative" id="anexos-dropdown-container">
+                        <button onclick="toggleAnexosDropdown()" 
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium transition-colors">
+                            <i class="fas fa-paperclip text-xs"></i>
+                            <span class="hidden sm:inline">Anexos</span>
+                            <span class="px-1 py-0.5 bg-white/20 rounded text-[10px]">{{ anexos|length }}</span>
+                            <i class="fas fa-chevron-down text-[8px] ml-1"></i>
+                        </button>
+                        <div id="anexos-dropdown" class="hidden absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                            {% for anexo in anexos %}
+                            <a href="{{ url_for('download_anexo', anexo_id=anexo['id']) }}" target="_blank"
+                               class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors">
+                                <div class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-500">
+                                    <i class="fas fa-file-alt text-xs"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs font-medium text-gray-700 truncate">{{ anexo['nome_original'] if anexo.get('nome_original') else 'Arquivo' }}</p>
+                                    {% if anexo.get('descricao') %}
+                                    <p class="text-[10px] text-gray-500 truncate">{{ anexo['descricao'] }}</p>
+                                    {% endif %}
+                                </div>
+                                <i class="fas fa-download text-gray-400 text-xs"></i>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- PDF -->
                     <a href="{{ url_for('cotacao_publica_pdf', token=token) }}" target="_blank" 
                        class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium transition-colors">
                         <i class="fas fa-file-pdf text-xs"></i>
-                        <span class="hidden sm:inline">Exportar PDF</span>
+                        <span class="hidden sm:inline">PDF</span>
                     </a>
+                    
+                    <!-- Imprimir -->
+                    <button onclick="window.print()" 
+                            class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs font-medium transition-colors">
+                        <i class="fas fa-print text-xs"></i>
+                        <span class="hidden sm:inline">Imprimir</span>
+                    </button>
+                    
+                    <!-- Botões Aprovar/Rejeitar -->
+                    {% if cotacao.status in ['Enviada', 'Negociação'] %}
+                    <button onclick="abrirModalAprovacao()" 
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs font-medium transition-all hover:scale-[1.02]"
+                            style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
+                        <i class="fas fa-check-circle text-xs"></i>
+                        <span class="hidden sm:inline">Aprovar</span>
+                    </button>
+                    <button onclick="abrirModalRejeicao()" 
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs font-medium transition-all hover:scale-[1.02]"
+                            style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <i class="fas fa-times-circle text-xs"></i>
+                        <span class="hidden sm:inline">Rejeitar</span>
+                    </button>
+                    {% elif cotacao.status == 'Aprovada' %}
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs font-medium" style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
+                        <i class="fas fa-check-circle text-xs"></i>
+                        <span>Aprovada</span>
+                    </span>
+                    {% elif cotacao.status == 'Rejeitada' %}
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs font-medium" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <i class="fas fa-times-circle text-xs"></i>
+                        <span>Rejeitada</span>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Linha Secundária (Mobile) - Nome da campanha e valor -->
+            <div class="mt-3 pt-3 border-t border-white/20">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                        <h1 class="text-lg md:text-xl font-bold">{{ cotacao.nome_campanha or 'Proposta Comercial' }}</h1>
+                        <!-- Cliente mobile -->
+                        {% if cliente %}
+                        <p class="text-white/70 text-sm md:hidden">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
+                        {% endif %}
+                    </div>
+                    <!-- Valor Total Mobile -->
+                    <div class="sm:hidden text-left">
+                        <span class="text-white/60 text-[10px] uppercase tracking-wider">Valor Total</span>
+                        <p class="font-bold text-xl" style="color:#72cd80">
+                            R$ {{ "{:,.2f}".format(valor_final).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="gradient-header text-white pb-10 pt-4">
-        <div class="max-w-5xl mx-auto px-3">
-            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-                <div>
-                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-full text-[10px] font-medium mb-2">
-                        <i class="fas fa-file-invoice-dollar text-[10px]"></i>
-                        {{ cotacao.numero_cotacao }}
-                    </span>
-                    <h1 class="text-xl md:text-2xl font-bold mb-1">{{ cotacao.nome_campanha or 'Proposta Comercial' }}</h1>
-                    {% if cliente %}
-                    <p class="text-white/70 text-sm">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
-                    {% endif %}
-                </div>
-                
-                {% if cotacao.valor_total_proposta %}
-                <div class="text-right">
-                    <p class="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Valor Total</p>
-                    <p class="text-2xl font-bold" style="color: #72cd80;">
-                        R$ {{ "{:,.2f}".format(cotacao.valor_total_proposta).replace(',', '_').replace('.', ',').replace('_', '.') }}
-                    </p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </section>
-
     <!-- Conteúdo Principal -->
-    <main class="max-w-5xl mx-auto px-3 -mt-6 pb-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            
-            <!-- Coluna Principal (2/3) -->
-            <div class="lg:col-span-2 space-y-4">
+    <main class="max-w-4xl mx-auto px-3 py-8">
+        <div class="space-y-4">
                 
                 <!-- Card: Informações da Campanha -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
@@ -255,186 +341,12 @@
                     {% endif %}
                 </div>
 
-            </div>
-
-            <!-- Sidebar (1/3) -->
-            <div class="space-y-4">
-                
-                <!-- Card: Resumo Financeiro -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
-                            <i class="fas fa-calculator text-gray-400 text-[10px]"></i>
-                            Resumo Financeiro
-                        </h3>
-                    </div>
-                    <div class="p-3 space-y-2">
-                        {% set total_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
-                        {% set total_audiencias = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
-                        {% set subtotal = total_itens + total_audiencias %}
-                        {% set desconto = cotacao.desconto_total or 0 if cotacao else 0 %}
-                        {% set valor_final = cotacao.valor_total_proposta or subtotal %}
-                        
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-500">Itens ({{ linhas|length if linhas else 0 }})</span>
-                            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-                        </div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-500">Audiências ({{ audiencias|length if audiencias else 0 }})</span>
-                            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-                        </div>
-                        {% if desconto > 0 %}
-                        <div class="flex justify-between text-xs border-t border-gray-100 pt-2">
-                            <span class="text-gray-500">Subtotal</span>
-                            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-                        </div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-gray-500">Desconto</span>
-                            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-                        </div>
-                        {% endif %}
-                        <div class="pt-2 mt-2 border-t border-gray-200">
-                            <div class="rounded p-3 text-center" style="background-color: #1a1a2e;">
-                                <p class="text-white/60 text-[10px] uppercase tracking-wider mb-0.5">Valor Total</p>
-                                <p class="text-xl font-bold" style="color: #72cd80;">
-                                    R$ {{ "{:,.2f}".format(valor_final).replace(',', '_').replace('.', ',').replace('_', '.') }}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Card: Cliente -->
-                {% if cliente %}
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
-                            <i class="fas fa-building text-gray-400 text-[10px]"></i>
-                            Cliente
-                        </h3>
-                    </div>
-                    <div class="p-3">
-                        <p class="font-semibold text-gray-800 text-sm">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
-                        {% if cliente.razao_social and cliente.nome_fantasia %}
-                        <p class="text-xs text-gray-500 mt-0.5">{{ cliente.razao_social }}</p>
-                        {% endif %}
-                        {% if cliente.cnpj %}
-                        <p class="text-[10px] text-gray-400 mt-1">CNPJ: {{ cliente.cnpj }}</p>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Card: Anexos -->
-                {% if anexos and anexos|length > 0 %}
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
-                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
-                            <i class="fas fa-paperclip text-gray-400 text-[10px]"></i>
-                            Anexos
-                            <span class="px-1 py-0.5 bg-gray-200 rounded text-[10px]">{{ anexos|length }}</span>
-                        </h3>
-                    </div>
-                    <div class="p-2 space-y-1.5">
-                        {% for anexo in anexos %}
-                        <a href="{{ url_for('download_anexo', anexo_id=anexo['id']) }}" target="_blank"
-                           class="flex items-center gap-2 p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors group">
-                            <div class="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-gray-500 group-hover:bg-gray-300">
-                                <i class="fas fa-file-alt text-xs"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-medium text-gray-700 truncate">{{ anexo['nome_original'] if anexo.get('nome_original') else 'Arquivo' }}</p>
-                                {% if anexo.get('descricao') %}
-                                <p class="text-[10px] text-gray-500 truncate">{{ anexo['descricao'] }}</p>
-                                {% endif %}
-                            </div>
-                            <i class="fas fa-download text-gray-400 group-hover:text-gray-600 text-xs"></i>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Card: Decisão do Cliente -->
-                {% if cotacao.status in ['Enviada', 'Negociação'] %}
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-                        <h3 class="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
-                            <i class="fas fa-gavel text-gray-400 text-[10px]"></i>
-                            Sua Decisão
-                        </h3>
-                    </div>
-                    <div class="p-3 space-y-2">
-                        <button onclick="abrirModalAprovacao()" 
-                                class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded text-white text-xs font-medium transition-all transform hover:scale-[1.02] shadow-sm hover:shadow-md"
-                                style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">
-                            <i class="fas fa-check-circle"></i>
-                            Aprovar Proposta
-                        </button>
-                        <button onclick="abrirModalRejeicao()" 
-                                class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded text-white text-xs font-medium transition-all transform hover:scale-[1.02] shadow-sm hover:shadow-md"
-                                style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                            <i class="fas fa-times-circle"></i>
-                            Rejeitar Proposta
-                        </button>
-                    </div>
-                </div>
-                {% elif cotacao.status not in ['Aprovada', 'Rejeitada'] %}
-                <!-- Proposta em preparação/análise -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-4 text-center">
-                        <div class="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center bg-amber-50">
-                            <i class="fas fa-hourglass-half text-xl text-amber-500"></i>
-                        </div>
-                        <p class="font-semibold text-gray-800 text-sm">Proposta em Preparação</p>
-                        <p class="text-xs text-gray-500 mt-0.5">Esta proposta ainda está sendo analisada.</p>
-                    </div>
-                </div>
-                {% else %}
-                <!-- Status já definido -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-4 text-center">
-                        {% if cotacao.status == 'Aprovada' %}
-                        <div class="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center" style="background-color: #dcfce7;">
-                            <i class="fas fa-check-circle text-xl" style="color: #72cd80;"></i>
-                        </div>
-                        <p class="font-semibold text-gray-800 text-sm">Proposta Aprovada</p>
-                        <p class="text-xs text-gray-500 mt-0.5">Obrigado pela confiança!</p>
-                        {% else %}
-                        <div class="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center bg-red-50">
-                            <i class="fas fa-times-circle text-xl text-red-500"></i>
-                        </div>
-                        <p class="font-semibold text-gray-800 text-sm">Proposta Rejeitada</p>
-                        <p class="text-xs text-gray-500 mt-0.5">Agradecemos seu feedback.</p>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Card: Ações -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-3 space-y-2">
-                        <a href="{{ url_for('cotacao_publica_pdf', token=token) }}" target="_blank"
-                           class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded text-white text-xs font-medium transition-colors"
-                           style="background-color: #72cd80;">
-                            <i class="fas fa-file-pdf"></i>
-                            Baixar PDF
-                        </a>
-                        <button onclick="window.print()" 
-                                class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors">
-                            <i class="fas fa-print"></i>
-                            Imprimir
-                        </button>
-                    </div>
-                </div>
-
-            </div>
         </div>
     </main>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 py-4 mt-auto">
-        <div class="max-w-5xl mx-auto px-3">
+        <div class="max-w-4xl mx-auto px-3">
             <div class="flex flex-col md:flex-row items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
                     <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralComm" class="h-6 opacity-50">
@@ -549,6 +461,23 @@
 const TOKEN = '{{ token }}';
 const COTACAO_ID = {{ cotacao.id }};
 
+// Dropdown de Anexos
+function toggleAnexosDropdown() {
+    const dropdown = document.getElementById('anexos-dropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+    }
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', function(e) {
+    const container = document.getElementById('anexos-dropdown-container');
+    const dropdown = document.getElementById('anexos-dropdown');
+    if (container && dropdown && !container.contains(e.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
+
 // Modal Aprovação
 function abrirModalAprovacao() {
     document.getElementById('modal_aprovacao').classList.remove('hidden');
@@ -654,11 +583,13 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 
-// Fechar modais com ESC
+// Fechar modais e dropdown com ESC
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         fecharModalAprovacao();
         fecharModalRejeicao();
+        const dropdown = document.getElementById('anexos-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
     }
 });
 </script>

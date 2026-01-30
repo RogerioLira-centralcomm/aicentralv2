@@ -900,7 +900,6 @@ def init_routes(app):
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
         vendedores_cc = db.obter_vendedores_centralcomm()
-        apresentacoes = db.obter_apresentacoes_executivo()
         cliente = db.obter_cliente_por_id(cliente_id)
 
         # Garante que o vendedor atualmente vinculado apareça na lista, mesmo que esteja inativo ou fora do filtro
@@ -953,25 +952,25 @@ def init_routes(app):
                 if pessoa == 'J':
                     if not razao_social or not nome_fantasia:
                         flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 else:
                     if not nome_fantasia:
                         flash('Nome Completo é obrigatório!', 'error')
-                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if not cnpj:
                     flash('CNPJ/CPF é obrigatório!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if not id_tipo_cliente:
                     flash('Tipo de Cliente é obrigatório!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados)
                 
                 # Validação de CPF quando Pessoa Física
                 if pessoa == 'F':
                     if not db.validar_cpf(cnpj):
                         flash('CPF inválido!', 'error')
-                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                     # Ajustes padrão para PF
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
@@ -982,17 +981,17 @@ def init_routes(app):
                 try:
                     if db.cliente_existe_por_cnpj(cnpj, excluir_id=cliente_id):
                         flash('CNPJ já cadastrado em outro cliente.', 'error')
-                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                     if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social, excluir_id=cliente_id):
                         flash('Razão Social já cadastrada em outro cliente.', 'error')
-                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                     if db.cliente_existe_por_nome_fantasia(nome_fantasia, excluir_id=cliente_id):
                         flash('Nome Fantasia já cadastrado em outro cliente.', 'error')
-                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                 except Exception as ve:
                     app.logger.error(f"Erro ao validar duplicidades: {ve}")
                     flash('Erro ao validar unicidade. Tente novamente.', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
@@ -1001,14 +1000,14 @@ def init_routes(app):
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 # Se for pessoa física, força agência 2
                 if pessoa == 'F':
                     pk_id_tbl_agencia = 2
                 elif not pk_id_tbl_agencia:
                     flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
 
                 # Converter percentual para float se fornecido
                 percentual_valor = None
@@ -1032,7 +1031,6 @@ def init_routes(app):
                     pk_id_aux_agencia=pk_id_tbl_agencia,
                     pk_id_aux_estado=pk_id_aux_estado,
                     vendas_central_comm=vendas_central_comm,
-                    id_apresentacao_executivo=request.form.get('id_apresentacao_executivo', type=int) or None,
                     percentual=percentual_valor,
                     id_centralx=id_centralx,
                     cep=cep,
@@ -1043,7 +1041,7 @@ def init_routes(app):
                     complemento=complemento
                 ):
                     flash('Cliente não encontrado!', 'error')
-                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 # Registro de auditoria
                 registrar_auditoria(
@@ -1061,9 +1059,9 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro ao atualizar cliente: {e}")
                 flash('Erro ao atualizar.', 'error')
-                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
         
-        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+        return render_template('cliente_form.html', cliente=cliente, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
 
     # ==================== CLIENTES ====================
 
@@ -1956,7 +1954,6 @@ def init_routes(app):
             agencias = db.obter_aux_agencia()
             tipos_cliente = db.obter_tipos_cliente()
             estados = db.obter_estados()
-            apresentacoes = db.obter_apresentacoes_executivo()
             setores = db.obter_setores()
 
             return render_template(
@@ -1971,7 +1968,6 @@ def init_routes(app):
                 agencias=agencias,
                 tipos_cliente=tipos_cliente,
                 estados=estados,
-                apresentacoes=apresentacoes,
                 setores=setores
             )
         except Exception as e:
@@ -2490,7 +2486,6 @@ def init_routes(app):
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
         vendedores_cc = db.obter_vendedores_centralcomm()
-        apresentacoes = db.obter_apresentacoes_executivo()
         
         if request.method == 'POST':
             try:
@@ -2516,26 +2511,26 @@ def init_routes(app):
                 if pessoa == 'J':
                     if not razao_social or not nome_fantasia:
                         flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                 else:
                     # Pessoa Física: Razão Social não é obrigatória, mas Nome Completo sim (usa campo nome_fantasia)
                     if not nome_fantasia:
                         flash('Nome Completo é obrigatório!', 'error')
-                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                 
                 if not cnpj:
                     flash('CNPJ/CPF é obrigatório!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                 
                 if not id_tipo_cliente:
                     flash('Tipo de Cliente é obrigatório!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 # Validação de CPF quando Pessoa Física
                 if pessoa == 'F':
                     if not db.validar_cpf(cnpj):
                         flash('CPF inválido!', 'error')
-                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                     # Ajustes padrão para PF
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
@@ -2546,40 +2541,39 @@ def init_routes(app):
                 try:
                     if db.cliente_existe_por_cnpj(cnpj):
                         flash('CNPJ já cadastrado em outro cliente.', 'error')
-                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                     # PF com Razão Social padrão não deve bloquear por duplicidade
                     if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social):
                         flash('Razão Social já cadastrada em outro cliente.', 'error')
-                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                     if db.cliente_existe_por_nome_fantasia(nome_fantasia):
                         flash('Nome Fantasia já cadastrado em outro cliente.', 'error')
-                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                        return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 except Exception as ve:
                     app.logger.error(f"Erro ao validar duplicidades: {ve}")
                     flash('Erro ao validar unicidade. Tente novamente.', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc)
                 
                 if pessoa not in ['F', 'J']:
                     flash('Tipo de pessoa inválido!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, apresentacoes=apresentacoes, percentuais=percentuais)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, percentuais=percentuais)
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
                 # Campo do form: vendas_central_comm (ID do contato executivo de vendas)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
-                id_apresentacao_executivo = request.form.get('id_apresentacao_executivo', type=int) or None
                 percentual = request.form.get('percentual', '').strip()
                 id_centralx = request.form.get('id_centralx', '').strip() or None
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
                 
                 # Se for pessoa física, força agência 2
                 if pessoa == 'F':
                     pk_id_tbl_agencia = 2
                 elif not pk_id_tbl_agencia:
                     flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                    return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
 
                 # Percentual obrigatório quando Agência = Sim (Pessoa Jurídica)
                 if pessoa == 'J' and pk_id_tbl_agencia:
@@ -2588,7 +2582,7 @@ def init_routes(app):
                     if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
                         if not percentual:
                             flash('Percentual é obrigatório quando Agência = Sim.', 'error')
-                            return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                            return render_template('cliente_form.html', planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
 
                 # Converter percentual para float se fornecido
                 percentual_valor = None
@@ -2618,7 +2612,6 @@ def init_routes(app):
                     rua=logradouro,
                     numero=numero,
                     complemento=complemento,
-                    id_apresentacao_executivo=id_apresentacao_executivo,
                     percentual=percentual_valor
                 )
                 
@@ -2679,9 +2672,9 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro: {e}")
                 flash('Erro ao criar.', 'error')
-                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+                return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
 
-        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, apresentacoes=apresentacoes, percentuais=percentuais)
+        return render_template('cliente_form.html', cliente=None, planos=planos, agencias=agencias, tipos_cliente=tipos_cliente, estados=estados, vendedores_cc=vendedores_cc, percentuais=percentuais)
     
     
     

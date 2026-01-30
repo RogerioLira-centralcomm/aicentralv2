@@ -393,17 +393,8 @@
           </div>
         </div>
 
-        <!-- Linha 3: Apresentação + ID CentralX (campos ocultos) -->
+        <!-- ID CentralX (campo oculto) -->
         <div class="hidden">
-          <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Apresentação Executivo</label>
-            <select name="id_apresentacao_executivo" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
-              <option value="">Selecione</option>
-              {% for apresentacao in apresentacoes %}
-                <option value="{{ apresentacao.id_tbl_apresentacao_executivo }}">{{ apresentacao.display }}</option>
-              {% endfor %}
-            </select>
-          </div>
           <div class="form-control">
             <label class="text-xs font-medium text-gray-600 mb-1">ID CentralX</label>
             <input id="input_id_centralx" name="id_centralx" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="ID CentralX">
@@ -896,8 +887,6 @@ async function abrirModalEditar(clienteId) {
     } else {
       document.querySelector('input[name="percentual"]').value = '';
     }
-    
-    document.querySelector('select[name="id_apresentacao_executivo"]').value = cliente.id_apresentacao_executivo || '';
     
     // ID CentralX
     document.getElementById('input_id_centralx').value = cliente.id_centralx || '';

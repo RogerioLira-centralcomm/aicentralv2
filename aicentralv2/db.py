@@ -669,7 +669,6 @@ def obter_cliente_por_id(id_cliente):
                 c.pk_id_aux_estado,
                 c.vendas_central_comm,
                 c.id_apresentacao_executivo,
-                c.id_fluxo_boas_vindas,
                 c.percentual,
                 c.data_cadastro,
                 c.data_modificacao,
@@ -679,14 +678,12 @@ def obter_cliente_por_id(id_cliente):
                 ag.key as agencia_key,
                 tc.display as tipo_cliente_display,
                 ae.display as apresentacao_executivo_display,
-                fb.display as fluxo_boas_vindas_display,
                 est.descricao as estado_nome,
                 vend.nome_completo as executivo_nome
             FROM tbl_cliente c
             LEFT JOIN tbl_agencia ag ON c.pk_id_tbl_agencia = ag.id_agencia
             LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente
             LEFT JOIN tbl_apresentacao_executivo ae ON c.id_apresentacao_executivo = ae.id_tbl_apresentacao_executivo
-            LEFT JOIN tbl_fluxo_boas_vindas fb ON c.id_fluxo_boas_vindas = fb.id_fluxo_boas_vindas
             LEFT JOIN tbl_estado est ON c.pk_id_aux_estado = est.id_estado
             LEFT JOIN tbl_contato_cliente vend ON c.vendas_central_comm = vend.id_contato_cliente
             WHERE c.id_cliente = %s
@@ -695,7 +692,7 @@ def obter_cliente_por_id(id_cliente):
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_aux_agencia=None,
-                pk_id_aux_estado=None, vendas_central_comm=None, id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, percentual=None):
+                pk_id_aux_estado=None, vendas_central_comm=None, id_apresentacao_executivo=None, percentual=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -706,16 +703,16 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, id_centralx, bairro, cidade, logradouro, numero, 
                     complemento, cep, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                    id_apresentacao_executivo, id_fluxo_boas_vindas, percentual
+                    id_apresentacao_executivo, percentual
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s
+                    %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                id_apresentacao_executivo, id_fluxo_boas_vindas, percentual
+                id_apresentacao_executivo, percentual
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -729,7 +726,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
                      numero=None, complemento=None, cep=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None,
-                     id_apresentacao_executivo=None, id_fluxo_boas_vindas=None, percentual=None):
+                     id_apresentacao_executivo=None, percentual=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -755,7 +752,6 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     pk_id_aux_estado = %s,
                     id_tipo_cliente = %s,
                     id_apresentacao_executivo = %s,
-                    id_fluxo_boas_vindas = %s,
                     percentual = %s,
                     vendas_central_comm = %s,
                     data_modificacao = NOW()
@@ -764,7 +760,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
-                id_apresentacao_executivo, id_fluxo_boas_vindas, percentual, vendas_central_comm, id_cliente
+                id_apresentacao_executivo, percentual, vendas_central_comm, id_cliente
             ))
             
             conn.commit()
@@ -1686,25 +1682,6 @@ def obter_apresentacoes_executivo():
                 FROM tbl_apresentacao_executivo
                 ORDER BY display
             ''')
-            return cur.fetchall()
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-# ==================== FLUXO DE BOAS-VINDAS - LEITURA ====================
-
-def obter_fluxos_boas_vindas():
-    """Retorna todas as opções de fluxo de boas-vindas."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                '''
-                SELECT id_fluxo_boas_vindas, display
-                FROM tbl_fluxo_boas_vindas
-                ORDER BY id_fluxo_boas_vindas
-                '''
-            )
             return cur.fetchall()
     except Exception as e:
         conn.rollback()

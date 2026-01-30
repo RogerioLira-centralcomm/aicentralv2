@@ -983,8 +983,8 @@ function calcularInvestLiquidoEdit() {
             </label>
             <select id="select_tipo_email" class="w-full text-xs border border-gray-300 rounded px-2 py-1.5 mb-2 bg-white focus:border-gray-400 focus:outline-none">
               <option value="">Selecione o tipo...</option>
-              <option value="cotacao_enviada" {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise'] %}disabled{% endif %}>
-                Cotação Enviada {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise'] %}(requer Rascunho/Em Análise){% endif %}
+              <option value="cotacao_enviada" {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada', 'Negociação'] %}disabled{% endif %}>
+                Cotação Enviada {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada', 'Negociação'] %}(requer Rascunho/Em Análise/Enviada/Negociação){% endif %}
               </option>
               <option value="cotacao_aprovada" {% if cotacao and cotacao.status != 'Aprovada' %}disabled{% endif %}>
                 Cotação Aprovada {% if cotacao and cotacao.status != 'Aprovada' %}(requer Aprovada){% endif %}
@@ -2047,6 +2047,8 @@ async function alterarStatusCotacao(novoStatus) {
       atualizarBotoesAprovarRejeitar(novoStatus);
       // Atualizar visibilidade dos elementos de edição
       atualizarElementosEdicao(novoStatus);
+      // Atualizar opções do select de tipo de email
+      atualizarSelectTipoEmail(novoStatus);
     } else {
       showToast('Erro ao alterar status: ' + (result.message || 'Erro desconhecido'), 'error');
     }
@@ -2088,6 +2090,44 @@ function atualizarBotoesAprovarRejeitar(status) {
       <div class="border-t border-gray-200 my-2"></div>
     `;
   }
+}
+
+// Função para atualizar dinamicamente o select de tipo de email baseado no status
+function atualizarSelectTipoEmail(status) {
+  const select = document.getElementById('select_tipo_email');
+  if (!select) return;
+  
+  // Definir quais status permitem cada tipo de email
+  const statusPermiteCotacaoEnviada = ['Rascunho', 'Em Análise', 'Enviada', 'Negociação'];
+  const statusPermiteCotacaoAprovada = ['Aprovada'];
+  const statusPermiteCotacaoRejeitada = ['Rejeitada'];
+  
+  // Atualizar cada opção do select
+  const options = select.querySelectorAll('option');
+  options.forEach(option => {
+    if (option.value === 'cotacao_enviada') {
+      const habilitado = statusPermiteCotacaoEnviada.includes(status);
+      option.disabled = !habilitado;
+      option.textContent = habilitado 
+        ? 'Cotação Enviada' 
+        : 'Cotação Enviada (requer Rascunho/Em Análise/Enviada/Negociação)';
+    } else if (option.value === 'cotacao_aprovada') {
+      const habilitado = statusPermiteCotacaoAprovada.includes(status);
+      option.disabled = !habilitado;
+      option.textContent = habilitado 
+        ? 'Cotação Aprovada' 
+        : 'Cotação Aprovada (requer Aprovada)';
+    } else if (option.value === 'cotacao_rejeitada') {
+      const habilitado = statusPermiteCotacaoRejeitada.includes(status);
+      option.disabled = !habilitado;
+      option.textContent = habilitado 
+        ? 'Cotação Rejeitada' 
+        : 'Cotação Rejeitada (requer Rejeitada)';
+    }
+  });
+  
+  // Resetar seleção para evitar que fique uma opção desabilitada selecionada
+  select.value = '';
 }
 
 // Dados dos contatos do cliente para envio de email
@@ -2167,7 +2207,7 @@ function validarLinkPublico() {
 // Função para enviar cotação por email via Brevo
 async function enviarCotacaoEmail() {
   const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
-  const contatoId = document.getElementById('client_user_id').value;
+  const contatoId = document.getElementById('edit_contato_id')?.value;
   
   if (!contatoId) {
     showToast('Selecione um contato do cliente para enviar o email', 'warning');
@@ -2222,8 +2262,8 @@ async function enviarEmailPorTipo() {
   }
   
   // Validações de status
-  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Em Análise'].includes(status)) {
-    showToast('Email de cotação enviada só pode ser enviado para status Rascunho ou Em Análise', 'error');
+  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Em Análise', 'Enviada', 'Negociação'].includes(status)) {
+    showToast('Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise, Enviada ou Negociação', 'error');
     return;
   }
   if (tipoEmail === 'cotacao_aprovada' && status !== 'Aprovada') {
@@ -2262,7 +2302,7 @@ async function enviarEmailPorTipo() {
     tipoDestinatario = 'Agência';
   } else {
     // Verificar se há contato de cliente SELECIONADO na cotação
-    const contatoId = document.getElementById('client_user_id')?.value;
+    const contatoId = document.getElementById('edit_contato_id')?.value;
     
     if (!contatoId) {
       showToast('Esta cotação não possui um contato de cliente selecionado. Selecione um contato antes de enviar o email.', 'error');
@@ -2313,17 +2353,31 @@ async function enviarEmailPorTipo() {
     'cotacao_rejeitada': 'informando sobre o cancelamento/rejeição da proposta'
   };
   
+  // Dados do responsável comercial
+  const responsavelNome = "{{ cotacao.responsavel_nome if cotacao and cotacao.responsavel_nome else '' }}";
+  const responsavelEmail = "{{ cotacao.responsavel_email if cotacao and cotacao.responsavel_email else '' }}";
+  
   // Montar mensagem de confirmação detalhada
   let mensagemConfirmacao = `CONFIRMAÇÃO DE ENVIO DE EMAIL\n\n`;
   mensagemConfirmacao += `Tipo de Email: ${tipoLabel[tipoEmail]}\n`;
   mensagemConfirmacao += `Descrição: ${tipoDescricao[tipoEmail]}\n\n`;
-  mensagemConfirmacao += `DESTINATÁRIO:\n`;
-  mensagemConfirmacao += `• ${tipoDestinatario}: ${nomeDestinatario}\n`;
+  
+  mensagemConfirmacao += `DESTINATÁRIO EXTERNO (${tipoDestinatario}):\n`;
+  mensagemConfirmacao += `• Nome: ${nomeDestinatario}\n`;
   mensagemConfirmacao += `• Email: ${destinatario}\n`;
   
   if (temAgencia && clienteNome) {
     mensagemConfirmacao += `• Cliente vinculado: ${clienteNome}\n`;
   }
+  
+  // Informar sobre emails internos (todos os tipos enviam para equipe interna)
+  mensagemConfirmacao += `\nDESTINATÁRIOS INTERNOS (cópia):\n`;
+  if (responsavelEmail) {
+    mensagemConfirmacao += `• Responsável Comercial: ${responsavelNome || 'N/A'} (${responsavelEmail})\n`;
+  } else {
+    mensagemConfirmacao += `• Responsável Comercial: Não definido\n`;
+  }
+  mensagemConfirmacao += `• Equipe Apolo: apolo@centralcomm.media\n`;
   
   mensagemConfirmacao += `\nDeseja realmente enviar este email?`;
   

@@ -5334,8 +5334,8 @@ def init_routes(app):
             status = cotacao.get('status', '')
             
             # Validar tipo x status
-            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Em Análise']:
-                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho ou Em Análise'}), 400
+            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Em Análise', 'Enviada', 'Negociação']:
+                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise, Enviada ou Negociação'}), 400
             if tipo == 'cotacao_aprovada' and status != 'Aprovada':
                 return jsonify({'success': False, 'message': 'Email de aprovação só pode ser enviado para cotações aprovadas'}), 400
             if tipo == 'cotacao_rejeitada' and status != 'Rejeitada':
@@ -5385,8 +5385,42 @@ def init_routes(app):
                         valor_total=valor_formatado,
                         link_proposta=link_cotacao or '',
                         executivo_nome=responsavel_nome,
-                        executivo_email=responsavel_email
+                        executivo_email=responsavel_email,
+                        tem_agencia=tem_agencia,
+                        agencia_nome=agencia_nome,
+                        cliente_nome=cliente_nome
                     )
+                    
+                    # Emails internos: responsável comercial + apolo
+                    destinatarios_internos = []
+                    if responsavel_email:
+                        destinatarios_internos.append((responsavel_email, responsavel_nome or 'Responsável'))
+                    destinatarios_internos.append(('apolo@centralcomm.media', 'Equipe Apolo'))
+                    
+                    # Link admin para cotação
+                    base_url = app.config.get('BASE_URL', 'http://localhost:5000')
+                    link_admin = f"{base_url}/cadastros/cotacoes/{cotacao_id}"
+                    
+                    for email_interno, nome_interno in destinatarios_internos:
+                        try:
+                            # Usar o mesmo template de email enviado para cliente, mas para equipe interna
+                            enviar_email_cotacao_enviada_cliente(
+                                to_email=email_interno,
+                                to_name=nome_interno,
+                                numero_cotacao=numero_cotacao,
+                                nome_campanha=nome_campanha,
+                                valor_total=valor_formatado,
+                                link_proposta=link_admin,
+                                executivo_nome=responsavel_nome,
+                                executivo_email=responsavel_email,
+                                tem_agencia=tem_agencia,
+                                agencia_nome=agencia_nome,
+                                cliente_nome=cliente_nome
+                            )
+                        except Exception as e:
+                            app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
+                    
+                    resultado_interno = {'success': True}
                     
                     if resultado_externo.get('success'):
                         # Atualizar status para Enviada
@@ -5401,7 +5435,10 @@ def init_routes(app):
                         nome_campanha=nome_campanha,
                         valor_total=valor_formatado,
                         executivo_nome=responsavel_nome,
-                        executivo_email=responsavel_email
+                        executivo_email=responsavel_email,
+                        tem_agencia=tem_agencia,
+                        agencia_nome=agencia_nome,
+                        cliente_nome=cliente_nome
                     )
                     
                     # Emails internos: responsável comercial + apolo
@@ -5421,12 +5458,15 @@ def init_routes(app):
                                 to_name=nome_interno,
                                 numero_cotacao=numero_cotacao,
                                 nome_campanha=nome_campanha,
-                                cliente_nome=cliente_nome if not tem_agencia else f"{agencia_nome} (Agência) / {cliente_nome}",
+                                cliente_nome=cliente_nome,
                                 cliente_email=destinatario,
                                 valor_total=valor_formatado,
                                 link_proposta=link_cotacao or '',
                                 data_aprovacao=datetime.now().strftime('%d/%m/%Y às %H:%M'),
-                                link_admin=link_admin
+                                link_admin=link_admin,
+                                tem_agencia=tem_agencia,
+                                agencia_nome=agencia_nome,
+                                agencia_email=destinatario if tem_agencia else None
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
@@ -5441,7 +5481,10 @@ def init_routes(app):
                         numero_cotacao=numero_cotacao,
                         nome_campanha=nome_campanha,
                         executivo_nome=responsavel_nome,
-                        executivo_email=responsavel_email
+                        executivo_email=responsavel_email,
+                        tem_agencia=tem_agencia,
+                        agencia_nome=agencia_nome,
+                        cliente_nome=cliente_nome
                     )
                     
                     # Emails internos: responsável comercial + apolo
@@ -5463,10 +5506,13 @@ def init_routes(app):
                                 to_name=nome_interno,
                                 numero_cotacao=numero_cotacao,
                                 nome_campanha=nome_campanha,
-                                cliente_nome=cliente_nome if not tem_agencia else f"{agencia_nome} (Agência) / {cliente_nome}",
+                                cliente_nome=cliente_nome,
                                 motivo=motivo_rejeicao,
                                 link_proposta=link_admin,
-                                data_rejeicao=datetime.now().strftime('%d/%m/%Y às %H:%M')
+                                data_rejeicao=datetime.now().strftime('%d/%m/%Y às %H:%M'),
+                                tem_agencia=tem_agencia,
+                                agencia_nome=agencia_nome,
+                                agencia_email=destinatario if tem_agencia else None
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")

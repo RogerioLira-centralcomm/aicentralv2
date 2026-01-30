@@ -43,7 +43,6 @@ def criar_estrutura():
                     (
                         id_cliente INTEGER NOT NULL DEFAULT nextval('cliente_id_seq'::regclass),
                         cnpj VARCHAR(40),
-                        pk_id_aux_status_sincronismo INTEGER,
                         inscricao_municipal VARCHAR(30),
                         inscricao_estadual VARCHAR(30),
                         nome_fantasia VARCHAR(300),
@@ -63,26 +62,8 @@ def criar_estrutura():
                 """)
                 print("   ✅ Tabela tbl_cliente criada!")
 
-                # 3. Adicionar FK para aux_status_sincronismo
-                print("\n3️⃣ Adicionando FK para aux_status_sincronismo...")
-                try:
-                    cursor.execute("""
-                        ALTER TABLE public.tbl_cliente
-                        ADD CONSTRAINT id_aux_status_sincronismo 
-                        FOREIGN KEY (pk_id_aux_status_sincronismo)
-                        REFERENCES public.aux_status_sincronismo (id_aux_status_sincronismo)
-                        ON UPDATE NO ACTION
-                        ON DELETE NO ACTION
-                    """)
-                    print("   ✅ FK aux_status_sincronismo adicionada!")
-                except Exception as e:
-                    if 'already exists' in str(e).lower():
-                        print("   ⚠️  FK aux_status_sincronismo já existe")
-                    else:
-                        raise
-
-                # 4. Adicionar FK para users (responsavel_centralcomm)
-                print("\n4️⃣ Adicionando FK para users (responsavel_centralcomm)...")
+                # 3. Adicionar FK para users (responsavel_centralcomm)
+                print("\n3️⃣ Adicionando FK para users (responsavel_centralcomm)...")
                 try:
                     cursor.execute("""
                         ALTER TABLE public.tbl_cliente
@@ -99,8 +80,8 @@ def criar_estrutura():
                     else:
                         raise
 
-                # 5. Adicionar coluna id_cliente na tabela users
-                print("\n5️⃣ Adicionando coluna id_cliente na tabela users...")
+                # 4. Adicionar coluna id_cliente na tabela users
+                print("\n4️⃣ Adicionando coluna id_cliente na tabela users...")
                 try:
                     cursor.execute("""
                         ALTER TABLE public.users
@@ -113,8 +94,8 @@ def criar_estrutura():
                     else:
                         raise
 
-                # 6. Adicionar FK de users para tbl_cliente
-                print("\n6️⃣ Adicionando FK de users para tbl_cliente...")
+                # 5. Adicionar FK de users para tbl_cliente
+                print("\n5️⃣ Adicionando FK de users para tbl_cliente...")
                 try:
                     cursor.execute("""
                         ALTER TABLE public.users
@@ -131,8 +112,8 @@ def criar_estrutura():
                     else:
                         raise
 
-                # 7. Criar índices
-                print("\n7️⃣ Criando índices...")
+                # 6. Criar índices
+                print("\n6️⃣ Criando índices...")
                 indices = [
                     ("idx_cliente_cnpj", "tbl_cliente", "cnpj"),
                     ("idx_cliente_status", "tbl_cliente", "status"),
@@ -153,8 +134,8 @@ def criar_estrutura():
                 # Commit
                 conn.commit()
 
-                # 8. Verificar estrutura criada
-                print("\n8️⃣ Verificando estrutura da tabela tbl_cliente...")
+                # 7. Verificar estrutura criada
+                print("\n7️⃣ Verificando estrutura da tabela tbl_cliente...")
                 cursor.execute("""
                     SELECT 
                         column_name,
@@ -182,8 +163,8 @@ def criar_estrutura():
 
                 print("   └──────────────────────────────┴──────────────┴─────────┴──────────┘")
 
-                # 9. Verificar FKs
-                print("\n9️⃣ Verificando Foreign Keys...")
+                # 8. Verificar FKs
+                print("\n8️⃣ Verificando Foreign Keys...")
                 cursor.execute("""
                     SELECT
                         tc.constraint_name,
@@ -217,8 +198,8 @@ def criar_estrutura():
                         print(f"   ✅ {fk['constraint_name']}")
                         print(f"      {fk['column_name']} -> {fk['foreign_table_name']}.{fk['foreign_column_name']}")
 
-                # 10. Contar registros
-                print("\n🔟 Contando registros...")
+                # 9. Contar registros
+                print("\n9️⃣ Contando registros...")
                 cursor.execute("SELECT COUNT(*) as total FROM tbl_cliente")
                 total = cursor.fetchone()['total']
                 print(f"   📊 Total de clientes: {total}")
@@ -230,7 +211,6 @@ def criar_estrutura():
             print("\n📋 Resumo:")
             print("   ✅ Sequence cliente_id_seq criada")
             print("   ✅ Tabela tbl_cliente criada")
-            print("   ✅ FK tbl_cliente -> aux_status_sincronismo")
             print("   ✅ FK tbl_cliente -> users (responsavel)")
             print("   ✅ Coluna id_cliente adicionada em users")
             print("   ✅ FK users -> tbl_cliente")

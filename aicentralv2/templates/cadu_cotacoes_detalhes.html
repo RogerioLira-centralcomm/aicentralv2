@@ -330,9 +330,13 @@ function calcularValorNegociado() {
 
 function calcularVolume() {
   var investimento = parseMoeda(document.getElementById('investimento_bruto').value);
-  var valorUnitario = parseMoeda(document.getElementById('valor_unitario').value);
+  var valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
+  var desconto = parsePercentual(document.getElementById('desconto_percentual').value);
   var objetivoEl = document.getElementById('objetivo_kpi');
   var objetivo = objetivoEl ? objetivoEl.value : '';
+  
+  // Usar valor com precisão total (sem arredondamento) para cálculo correto do volume
+  var valorUnitario = valorTabela * (1 - desconto / 100);
   
   if (investimento > 0 && valorUnitario > 0) {
     var volume;
@@ -367,16 +371,20 @@ function calcularValorNegociadoEdit() {
 
 function calcularVolumeEdit() {
   var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
-  var valorUnit = parseMoeda(document.getElementById('edit_valor_unitario').value);
+  var valorTabela = parseMoeda(document.getElementById('edit_valor_unitario_tabela').value);
+  var desconto = parsePercentual(document.getElementById('edit_desconto_percentual').value);
   var objetivoEl = document.getElementById('edit_objetivo_kpi');
   var objetivo = objetivoEl ? objetivoEl.value : '';
   
-  if (valorUnit > 0 && investBruto > 0) {
+  // Usar valor com precisão total (sem arredondamento) para cálculo correto do volume
+  var valorUnitario = valorTabela * (1 - desconto / 100);
+  
+  if (valorUnitario > 0 && investBruto > 0) {
     var volume;
     if (objetivo === 'CPM') {
-      volume = (investBruto / valorUnit) * 1000;
+      volume = (investBruto / valorUnitario) * 1000;
     } else {
-      volume = investBruto / valorUnit;
+      volume = investBruto / valorUnitario;
     }
     document.getElementById('edit_volume_contratado').value = formatarNumero(Math.round(volume));
   } else {

@@ -494,20 +494,8 @@ function calcularInvestLiquidoEdit() {
             </div>
           </div>
           <div>
-            <span class="text-xs text-gray-500 uppercase">Email</span>
-            <p class="font-medium text-gray-700 text-xs">{{ cotacao.contato_cliente_email if cotacao and cotacao.contato_cliente_email else '-' }}</p>
-          </div>
-          <div>
-            <span class="text-xs text-gray-500 uppercase">Telefone</span>
-            <p class="font-medium text-gray-700">{{ cotacao.contato_cliente_telefone if cotacao and cotacao.contato_cliente_telefone else '-' }}</p>
-          </div>
-          <div>
             <span class="text-xs text-gray-500 uppercase">Executivo Responsável</span>
             <p class="font-medium text-gray-700">{{ cotacao.responsavel_nome if cotacao else '-' }}</p>
-          </div>
-          <div>
-            <span class="text-xs text-gray-500 uppercase">CNPJ</span>
-            <p class="font-medium text-gray-700">{{ cliente.cnpj if cliente else '-' }}</p>
           </div>
         </div>
       </div>

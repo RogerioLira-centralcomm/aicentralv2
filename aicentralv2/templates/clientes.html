@@ -1637,19 +1637,17 @@ function preencherAbaDetalhes(cliente, contatos) {
             <tr>
               <th class="rounded-tl-lg">Nome</th>
               <th>Email</th>
-              <th>Telefone</th>
               <th>Setor/Cargo</th>
               <th>Status</th>
-              <th class="rounded-tr-lg"></th>
+              <th class="rounded-tr-lg text-center">Ações</th>
             </tr>
           </thead>
           <tbody>
             ${contatos.map(c => `
               <tr class="hover">
                 <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
-                <td>${c.email || '—'}</td>
-                <td>${c.telefone || '—'}</td>
-                <td>${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
+                <td class="text-xs">${c.email || '—'}</td>
+                <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                 <td>
                   <button type="button"
                           class="badge badge-xs cursor-pointer transition-all hover:scale-105"
@@ -1659,8 +1657,11 @@ function preencherAbaDetalhes(cliente, contatos) {
                     ${c.status ? 'Ativo' : 'Inativo'}
                   </button>
                 </td>
-                <td>
-                  <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
+                <td class="text-center">
+                  <div class="flex items-center justify-center gap-3">
+                    ${c.email ? `<i class="fas fa-envelope text-primary cursor-pointer hover:scale-110 transition-all" onclick="enviarEmailBoasVindas(${c.id_contato_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" title="Enviar email de boas-vindas"></i>` : '<i class="fas fa-envelope text-gray-300" title="Sem email cadastrado"></i>'}
+                    <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
+                  </div>
                 </td>
               </tr>
             `).join('')}
@@ -1699,19 +1700,17 @@ async function carregarContatosAba(clienteId) {
               <tr>
                 <th class="rounded-tl-lg">Nome</th>
                 <th>Email</th>
-                <th>Telefone</th>
                 <th>Setor/Cargo</th>
                 <th>Status</th>
-                <th class="rounded-tr-lg"></th>
+                <th class="rounded-tr-lg text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               ${contatos.map(c => `
                 <tr class="hover">
                   <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
-                  <td>${c.email || '—'}</td>
-                  <td>${c.telefone || '—'}</td>
-                  <td>${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
+                  <td class="text-xs">${c.email || '—'}</td>
+                  <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                   <td>
                     <button type="button"
                             class="badge badge-xs cursor-pointer transition-all hover:scale-105"
@@ -1721,8 +1720,11 @@ async function carregarContatosAba(clienteId) {
                       ${c.status ? 'Ativo' : 'Inativo'}
                     </button>
                   </td>
-                  <td>
-                    <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
+                  <td class="text-center">
+                    <div class="flex items-center justify-center gap-3">
+                      ${c.email ? `<i class="fas fa-envelope text-primary cursor-pointer hover:scale-110 transition-all" onclick="enviarEmailBoasVindas(${c.id_contato_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" title="Enviar email de boas-vindas"></i>` : '<i class="fas fa-envelope text-gray-300" title="Sem email cadastrado"></i>'}
+                      <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
+                    </div>
                   </td>
                 </tr>
               `).join('')}
@@ -2143,6 +2145,29 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
   } catch (error) {
     console.error('Erro ao deletar contato:', error);
     showToast('Erro ao deletar contato!', 'error');
+  }
+}
+
+// Função para enviar email de boas-vindas
+async function enviarEmailBoasVindas(contatoId, nomeContato, emailContato) {
+  if (!confirm(`Deseja enviar o email de boas-vindas para "${nomeContato}" (${emailContato})?`)) return;
+  
+  try {
+    const response = await fetch(`/api/contato/${contatoId}/enviar-boas-vindas`, {
+      method: 'POST'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message || 'Erro ao enviar email!', 'error');
+    }
+    
+  } catch (error) {
+    console.error('Erro ao enviar email de boas-vindas:', error);
+    showToast('Erro ao enviar email de boas-vindas!', 'error');
   }
 }
 

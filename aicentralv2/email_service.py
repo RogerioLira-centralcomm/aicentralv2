@@ -153,8 +153,8 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
     """
     base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
     
-    # Link de aceite do convite
-    invite_link = f"{base_url}/aceitar-convite/{invite_token}"
+    # Link de aceite do convite (usando query param conforme padrão documentado)
+    invite_link = f"{base_url}/aceitar-convite?token={invite_token}"
     
     logger.info(f"Link do convite gerado: {invite_link}")
     

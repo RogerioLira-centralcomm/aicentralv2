@@ -405,6 +405,7 @@ def enviar_email_boas_vindas(
         "EMAIL": to_email,
         "EMPRESA": cliente_nome,
         "ROLE_LABEL": role_label,
+        "LINK_DASHBOARD": login_link or "",
         "LINK_LOGIN": login_link or ""
     }
     

@@ -43,12 +43,12 @@
                             
                             <!-- Saudação -->
                             <p style="margin:0 0 20px;font-size:15px;color:#333842;line-height:1.6;">
-                                Olá, <strong style="color:#06F17B;">{{ params.PRIMEIRO_NOME }}</strong>!
+                                Olá, <strong style="color:#06F17B;">{{ primeiro_nome }}</strong>!
                             </p>
                             
                             <!-- Mensagem de Boas-vindas -->
                             <p style="margin:0 0 24px;font-size:13px;color:#6b7280;line-height:1.7;">
-                                Sua conta no Cadu foi criada com sucesso! Agora você faz parte da equipe da <strong style="color:#333842;">{{ params.EMPRESA }}</strong> e tem acesso a todas as ferramentas de inteligência em mídia programática.
+                                Sua conta no Cadu foi criada com sucesso! Agora você faz parte da equipe da <strong style="color:#333842;">{{ empresa }}</strong> e tem acesso a todas as ferramentas de inteligência em mídia programática.
                             </p>
                             
                             <!-- Card: Seus Dados -->
@@ -59,26 +59,26 @@
                                         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:12px;">
                                             <tr>
                                                 <td style="padding:6px 0;font-size:13px;color:#6b7280;">
-                                                    <strong style="color:#333842;">Nome:</strong> {{ params.NOME }}
+                                                    <strong style="color:#333842;">Nome:</strong> {{ nome }}
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td style="padding:6px 0;font-size:13px;color:#6b7280;">
-                                                    <strong style="color:#333842;">Email:</strong> {{ params.EMAIL }}
+                                                    <strong style="color:#333842;">Email:</strong> {{ email }}
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td style="padding:6px 0;font-size:13px;color:#6b7280;">
-                                                    <strong style="color:#333842;">Empresa:</strong> {{ params.EMPRESA }}
+                                                    <strong style="color:#333842;">Empresa:</strong> {{ empresa }}
                                                 </td>
                                             </tr>
-                                            {{ IF params.ROLE_LABEL }}
+                                            {% if role_label %}
                                             <tr>
                                                 <td style="padding:6px 0;font-size:13px;color:#6b7280;">
-                                                    <strong style="color:#333842;">Função:</strong> {{ params.ROLE_LABEL }}
+                                                    <strong style="color:#333842;">Função:</strong> {{ role_label }}
                                                 </td>
                                             </tr>
-                                            {{ ENDIF params.ROLE_LABEL }}
+                                            {% endif %}
                                         </table>
                                     </td>
                                 </tr>
@@ -125,7 +125,7 @@
                             
                             <!-- CTA Principal -->
                             <div style="text-align:center;margin:28px 0;">
-                                <a href="{{ params.LINK_DASHBOARD }}" style="display:inline-block;background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);color:#333842;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(6,241,123,0.3);">Acessar o Cadu</a>
+                                <a href="{{ link_dashboard }}" style="display:inline-block;background:linear-gradient(135deg,#06F17B 0%,#10b981 100%);color:#333842;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(6,241,123,0.3);">Acessar o Cadu</a>
                             </div>
                             
                             <!-- Links Úteis -->
@@ -133,12 +133,12 @@
                                 <tr>
                                     <td style="text-align:center;">
                                         <span style="font-size:11px;color:#9ca3af;">Links úteis: </span>
-                                        {{ IF params.LINK_PERFIL }}
-                                        <a href="{{ params.LINK_PERFIL }}" style="font-size:11px;color:#06F17B;text-decoration:none;margin:0 8px;">Meu Perfil</a>
-                                        {{ ENDIF params.LINK_PERFIL }}
-                                        {{ IF params.LINK_AJUDA }}
-                                        <a href="{{ params.LINK_AJUDA }}" style="font-size:11px;color:#06F17B;text-decoration:none;margin:0 8px;">Central de Ajuda</a>
-                                        {{ ENDIF params.LINK_AJUDA }}
+                                        {% if link_perfil %}
+                                        <a href="{{ link_perfil }}" style="font-size:11px;color:#06F17B;text-decoration:none;margin:0 8px;">Meu Perfil</a>
+                                        {% endif %}
+                                        {% if link_ajuda %}
+                                        <a href="{{ link_ajuda }}" style="font-size:11px;color:#06F17B;text-decoration:none;margin:0 8px;">Central de Ajuda</a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             </table>

@@ -1375,6 +1375,63 @@ def init_routes(app):
             app.logger.error(f"Erro ao deletar contato {contato_id}: {e}")
             return jsonify({'success': False, 'message': f'Erro ao deletar contato: {str(e)}'}), 500
 
+    @app.route('/api/contato/<int:contato_id>/enviar-boas-vindas', methods=['POST'])
+    @login_required
+    def api_enviar_boas_vindas_contato(contato_id):
+        """API para enviar email de boas-vindas para contato"""
+        try:
+            from aicentralv2.services.brevo_service import enviar_email_boas_vindas
+            
+            contato = db.obter_contato_por_id(contato_id)
+            
+            if not contato:
+                return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
+            
+            if not contato.get('email'):
+                return jsonify({'success': False, 'message': 'Contato não possui email cadastrado!'}), 400
+            
+            # Obter nome da empresa (cliente)
+            cliente_nome = contato.get('nome_fantasia') or contato.get('razao_social') or ''
+            
+            # Obter cargo/função
+            role_label = contato.get('cargo_descricao') or ''
+            
+            # URL do Cadu (produção)
+            cadu_url = 'https://cadu.centralcomm.media'
+            
+            # Enviar email de boas-vindas
+            resultado = enviar_email_boas_vindas(
+                to_email=contato['email'],
+                to_name=contato['nome_completo'],
+                cliente_nome=cliente_nome,
+                role_label=role_label,
+                login_link=cadu_url
+            )
+            
+            if resultado.get('success'):
+                # Registro de auditoria
+                registrar_auditoria(
+                    acao='EMAIL',
+                    modulo='CONTATOS',
+                    descricao=f'Email de boas-vindas enviado para: {contato["nome_completo"]} ({contato["email"]})',
+                    registro_id=contato_id,
+                    registro_tipo='contato'
+                )
+                
+                return jsonify({
+                    'success': True, 
+                    'message': f'Email de boas-vindas enviado com sucesso para {contato["email"]}!'
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'message': resultado.get('error', 'Erro ao enviar email')
+                }), 500
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao enviar email de boas-vindas para contato {contato_id}: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': f'Erro ao enviar email: {str(e)}'}), 500
+
     @app.route('/api/setor/<int:setor_id>/cargos')
     @login_required
     def api_cargos_por_setor(setor_id):
@@ -1589,9 +1646,24 @@ def init_routes(app):
             if not email:
                 return jsonify({'success': False, 'message': 'Email é obrigatório!'}), 400
             
+            # Validar formato do email
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, email):
+                return jsonify({'success': False, 'message': 'Formato de email inválido!'}), 400
+            
             # Validar se email já está cadastrado
             if db.email_existe(email):
                 return jsonify({'success': False, 'message': 'Este email já está cadastrado no sistema!'}), 400
+            
+            # Validar se já existe convite pendente para este email/cliente
+            convite_pendente = db.verificar_convite_pendente(email, cliente_id)
+            if convite_pendente:
+                return jsonify({'success': False, 'message': 'Já existe um convite pendente para este email!'}), 400
+            
+            # Validar role
+            if role not in ('member', 'admin'):
+                return jsonify({'success': False, 'message': 'Role inválido! Use "member" ou "admin".'}), 400
             
             # Pegar ID do usuário logado (garantido pelo @login_required)
             invited_by = session.get('user_id')
@@ -1715,6 +1787,16 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao cancelar invite {invite_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/aceitar-convite')
+    def aceitar_convite_query():
+        """Rota alternativa que aceita token via query param (?token=xxx)"""
+        token = request.args.get('token')
+        if not token:
+            return render_template('aceitar_convite.html', 
+                                   error='Token não fornecido.')
+        # Redireciona para a rota principal com path param para manter compatibilidade
+        return redirect(url_for('aceitar_convite_page', token=token))
 
     @app.route('/aceitar-convite/<token>')
     def aceitar_convite_page(token):

@@ -4027,6 +4027,42 @@ def obter_invites_cliente(id_cliente):
         return cursor.fetchall()
 
 
+def verificar_convite_pendente(email, id_cliente=None):
+    """
+    Verifica se já existe um convite pendente (não expirado) para o email
+    
+    Args:
+        email: Email a verificar
+        id_cliente: ID do cliente (opcional, para verificar convite específico)
+    
+    Returns:
+        dict: Dados do convite pendente se existir, None caso contrário
+    """
+    from datetime import datetime
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        if id_cliente:
+            cursor.execute('''
+                SELECT id, email, id_cliente, status, expires_at
+                FROM cadu_user_invites
+                WHERE email = %s 
+                  AND id_cliente = %s
+                  AND status = 'pending'
+                  AND expires_at > %s
+            ''', (email.lower().strip(), id_cliente, datetime.now()))
+        else:
+            cursor.execute('''
+                SELECT id, email, id_cliente, status, expires_at
+                FROM cadu_user_invites
+                WHERE email = %s 
+                  AND status = 'pending'
+                  AND expires_at > %s
+            ''', (email.lower().strip(), datetime.now()))
+        
+        return cursor.fetchone()
+
+
 def obter_invite_por_id(invite_id):
     """Retorna um invite por ID"""
     conn = get_db()
@@ -4103,8 +4139,8 @@ def criar_invite(id_cliente, invited_by, email, role='member'):
     conn = get_db()
     
     try:
-        # Gerar token único
-        invite_token = secrets.token_urlsafe(32)
+        # Gerar token único (64 caracteres hex)
+        invite_token = secrets.token_hex(32)
         
         # Convite expira em 7 dias
         expires_at = datetime.now() + timedelta(days=7)
@@ -4168,13 +4204,14 @@ def reenviar_invite(invite_id):
 
 
 def cancelar_invite(invite_id):
-    """Cancela um convite (deleta do banco)"""
+    """Cancela um convite (atualiza status para 'cancelled')"""
     conn = get_db()
     
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                DELETE FROM cadu_user_invites
+                UPDATE cadu_user_invites
+                SET status = 'cancelled'
                 WHERE id = %s AND status = 'pending'
                 RETURNING id
             ''', (invite_id,))

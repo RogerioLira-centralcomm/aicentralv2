@@ -2148,12 +2148,17 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
   }
 }
 
-// Função para enviar email de boas-vindas
+// Função para criar invite e enviar convite (marca contato com + LEG)
 async function enviarEmailBoasVindas(contatoId, nomeContato, emailContato) {
-  if (!confirm(`Deseja enviar o email de boas-vindas para "${nomeContato}" (${emailContato})?`)) return;
+  // Calcular novo nome e email com + LEG
+  const novoNome = `${nomeContato} + LEG`;
+  const emailParts = emailContato.split('@');
+  const novoEmail = `${emailParts[0]}+LEG@${emailParts[1]}`;
+  
+  if (!confirm(`Deseja criar invite e enviar convite?\n\nO convite será enviado para: ${emailContato}\n\nO contato será alterado para:\nNome: ${novoNome}\nEmail: ${novoEmail}`)) return;
   
   try {
-    const response = await fetch(`/api/contato/${contatoId}/enviar-boas-vindas`, {
+    const response = await fetch(`/api/contato/${contatoId}/criar-invite-boas-vindas`, {
       method: 'POST'
     });
     
@@ -2161,13 +2166,18 @@ async function enviarEmailBoasVindas(contatoId, nomeContato, emailContato) {
     
     if (result.success) {
       showToast(result.message, 'success');
+      // Recarregar dados do cliente para atualizar contatos na tabela
+      const clienteId = document.getElementById('cliente_id').value;
+      if (clienteId) {
+        abrirModalEditar(parseInt(clienteId));
+      }
     } else {
-      showToast(result.message || 'Erro ao enviar email!', 'error');
+      showToast(result.message || 'Erro ao processar!', 'error');
     }
     
   } catch (error) {
-    console.error('Erro ao enviar email de boas-vindas:', error);
-    showToast('Erro ao enviar email de boas-vindas!', 'error');
+    console.error('Erro ao criar invite:', error);
+    showToast('Erro ao processar solicitação!', 'error');
   }
 }
 

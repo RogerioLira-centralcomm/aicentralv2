@@ -1432,6 +1432,119 @@ def init_routes(app):
             app.logger.error(f"Erro ao enviar email de boas-vindas para contato {contato_id}: {e}", exc_info=True)
             return jsonify({'success': False, 'message': f'Erro ao enviar email: {str(e)}'}), 500
 
+    @app.route('/api/contato/<int:contato_id>/criar-invite-boas-vindas', methods=['POST'])
+    @login_required
+    def api_criar_invite_boas_vindas(contato_id):
+        """Cria invite com email +LEG, envia email de convite e atualiza nome do contato"""
+        try:
+            from aicentralv2.services.brevo_service import enviar_email_convite
+            
+            contato = db.obter_contato_por_id(contato_id)
+            if not contato:
+                return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
+            
+            if not contato.get('email'):
+                return jsonify({'success': False, 'message': 'Contato não possui email cadastrado!'}), 400
+            
+            email_original = contato['email']
+            nome_original = contato['nome_completo']
+            cliente_id = contato.get('pk_id_tbl_cliente')
+            
+            if not cliente_id:
+                return jsonify({'success': False, 'message': 'Cliente não identificado!'}), 400
+            
+            # Verificar se já existe invite pendente para este email
+            convite_pendente = db.verificar_convite_pendente(email_original, cliente_id)
+            if convite_pendente:
+                return jsonify({'success': False, 'message': f'Já existe um convite pendente para {email_original}!'}), 400
+            
+            # Criar invite com o email ORIGINAL (sem +LEG)
+            invited_by = session.get('user_id')
+            if not invited_by:
+                return jsonify({'success': False, 'message': 'Usuário não identificado. Faça login novamente.'}), 401
+            
+            invite_id = db.criar_invite(cliente_id, invited_by, email_original, 'member')
+            
+            if not invite_id:
+                return jsonify({'success': False, 'message': 'Erro ao criar invite!'}), 500
+            
+            # Buscar o token e dados do invite criado
+            invite = db.obter_invite_por_id(invite_id)
+            invite_token = invite.get('invite_token') if invite else None
+            expires_at = invite.get('expires_at') if invite else None
+            
+            if not invite_token:
+                app.logger.error(f"Token do invite não encontrado para invite_id={invite_id}")
+                return jsonify({'success': False, 'message': 'Erro ao obter token do invite!'}), 500
+            
+            # Obter nome da empresa (cliente)
+            cliente_nome = contato.get('nome_fantasia') or contato.get('razao_social') or ''
+            
+            # Obter cargo/função
+            role_label = contato.get('cargo_descricao') or 'Usuário'
+            
+            # Obter nome de quem está convidando
+            convidante = db.obter_contato_por_id(invited_by)
+            convidante_nome = convidante.get('nome_completo') if convidante else session.get('user_name', 'Equipe')
+            
+            # Gerar link do convite
+            invite_link = f"https://cadu.centralcomm.media/aceitar-convite?token={invite_token}"
+            
+            # Formatar data de expiração
+            expires_str = expires_at.strftime('%d/%m/%Y às %H:%M') if hasattr(expires_at, 'strftime') else str(expires_at)
+            
+            # Enviar email de convite para o email ORIGINAL
+            resultado = enviar_email_convite(
+                to_email=email_original,
+                to_name=nome_original,
+                invite_link=invite_link,
+                invited_by=convidante_nome,
+                cliente_nome=cliente_nome,
+                expires_at=expires_str,
+                role_label=role_label,
+                dias_validade=7
+            )
+            
+            if not resultado.get('success'):
+                app.logger.error(f"Erro ao enviar email de convite: {resultado.get('error')}")
+                return jsonify({'success': False, 'message': 'Erro ao enviar email de convite!'}), 500
+            
+            # Transformar email do contato: adicionar +LEG antes do @
+            email_parts = email_original.split('@')
+            email_modificado = f"{email_parts[0]}+LEG@{email_parts[1]}"
+            
+            # Atualizar nome E email do contato adicionando + LEG (para identificar que o invite foi enviado)
+            novo_nome = f"{nome_original} + LEG"
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    UPDATE tbl_contato_cliente
+                    SET nome_completo = %s, email = %s, data_modificacao = CURRENT_TIMESTAMP
+                    WHERE id_contato_cliente = %s
+                ''', (novo_nome, email_modificado, contato_id))
+            conn.commit()
+            
+            # Registro de auditoria
+            registrar_auditoria(
+                acao='CRIAR_INVITE_LEG',
+                modulo='CONTATOS',
+                descricao=f'Invite criado para {email_original}, email de convite enviado, contato alterado para: {novo_nome} / {email_modificado}',
+                registro_id=contato_id,
+                registro_tipo='contato',
+                dados_novos={'email_invite': email_original, 'nome_anterior': nome_original, 'novo_nome': novo_nome, 'email_anterior': email_original, 'novo_email': email_modificado, 'invite_id': invite_id}
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': f'Invite criado e email de convite enviado para {email_original}!',
+                'novo_nome': novo_nome,
+                'novo_email': email_modificado
+            })
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao criar invite LEG para contato {contato_id}: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': f'Erro: {str(e)}'}), 500
+
     @app.route('/api/setor/<int:setor_id>/cargos')
     @login_required
     def api_cargos_por_setor(setor_id):

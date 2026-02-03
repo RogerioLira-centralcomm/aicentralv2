@@ -379,7 +379,8 @@ def enviar_email_boas_vindas(
     to_name: str,
     cliente_nome: str = "",
     role_label: str = "",
-    login_link: str = None
+    login_link: str = None,
+    token: str = None
 ) -> Dict[str, Any]:
     """
     Envia email de boas-vindas após aceitar convite
@@ -390,6 +391,7 @@ def enviar_email_boas_vindas(
         cliente_nome: Nome da empresa
         role_label: Função do usuário
         login_link: Link de login (opcional)
+        token: Token do invite (opcional, para link de aceitar convite)
     
     Returns:
         Dict com resultado do envio
@@ -406,7 +408,8 @@ def enviar_email_boas_vindas(
         "EMPRESA": cliente_nome,
         "ROLE_LABEL": role_label,
         "LINK_DASHBOARD": login_link or "",
-        "LINK_LOGIN": login_link or ""
+        "LINK_LOGIN": login_link or "",
+        "TOKEN": token or ""
     }
     
     # Mover da lista de pendentes para ativos

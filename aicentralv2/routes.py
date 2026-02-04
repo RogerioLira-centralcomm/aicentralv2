@@ -4210,14 +4210,21 @@ def init_routes(app):
             # Dados para criar a cotação
             from datetime import datetime, timedelta
             
+            # Preparar objetivo incluindo plataforma se disponível
+            objetivo = briefing.get('objetivo') or ''
+            plataforma = briefing.get('plataforma')
+            if plataforma:
+                objetivo = f"Plataforma: {plataforma}\n\n{objetivo}" if objetivo else f"Plataforma: {plataforma}"
+            if not objetivo:
+                objetivo = briefing.get('briefing_original', '')[:500]
+            
             dados_cotacao = {
                 'client_id': briefing.get('id_cliente'),
                 'nome_campanha': briefing.get('titulo') or 'Campanha do Briefing',
                 'periodo_inicio': briefing.get('prazo') or datetime.now().date(),
-                'objetivo_campanha': briefing.get('objetivo') or briefing.get('briefing_original', '')[:500],
+                'objetivo_campanha': objetivo,
                 'briefing_id': briefing_id,
                 'budget_estimado': briefing.get('budget'),
-                'meio': briefing.get('plataforma'),
                 'status': 'Rascunho',
                 'responsavel_comercial': briefing.get('responsavel_centralcomm'),
                 'origem': 'briefing'
@@ -4237,8 +4244,8 @@ def init_routes(app):
                 
                 # Atualizar briefing com a cotação vinculada e status
                 db.atualizar_briefing(briefing_id, {
-                    'id_cotacao': cotacao_id,
-                    'status': 'em_andamento'
+                    'cotacao_id': cotacao_id,
+                    'status': 'aceito'
                 })
                 
                 # Registrar auditoria
@@ -4281,10 +4288,10 @@ def init_routes(app):
             if not motivo:
                 return jsonify({'success': False, 'error': 'Motivo da devolução é obrigatório'}), 400
             
-            # Atualizar briefing para status arquivado/devolvido
+            # Atualizar briefing para status rejeitado
             db.atualizar_briefing(briefing_id, {
-                'status': 'arquivado',
-                'observacoes': f"[DEVOLVIDO] {motivo}"
+                'status': 'rejeitado',
+                'observacoes': f"[REJEITADO] {motivo}"
             })
             
             # Registrar auditoria

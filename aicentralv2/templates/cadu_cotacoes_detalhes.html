@@ -497,6 +497,43 @@ function calcularInvestLiquidoEdit() {
             <span class="text-xs text-gray-500 uppercase">Executivo Responsável</span>
             <p class="font-medium text-gray-700">{{ cotacao.responsavel_nome if cotacao else '-' }}</p>
           </div>
+          <!-- Briefing Vinculado -->
+          <div>
+            <span class="text-xs text-gray-500 uppercase">Briefing</span>
+            {% if cotacao and cotacao.briefing_id %}
+              <div class="flex items-center gap-2">
+                <p class="font-medium text-gray-700">{{ cotacao.briefing_titulo if cotacao.briefing_titulo else 'Briefing #' ~ cotacao.briefing_id }}</p>
+                {% if cotacao.briefing_status %}
+                  {% if cotacao.briefing_status == 'rascunho' %}
+                    <span class="px-1.5 py-0.5 text-xs rounded bg-slate-100 text-slate-600">Rascunho</span>
+                  {% elif cotacao.briefing_status == 'pendente' %}
+                    <span class="px-1.5 py-0.5 text-xs rounded bg-amber-100 text-amber-600">Pendente</span>
+                  {% elif cotacao.briefing_status == 'aceito' %}
+                    <span class="px-1.5 py-0.5 text-xs rounded bg-green-100 text-green-600">Aceito</span>
+                  {% elif cotacao.briefing_status == 'rejeitado' %}
+                    <span class="px-1.5 py-0.5 text-xs rounded bg-red-100 text-red-600">Rejeitado</span>
+                  {% endif %}
+                {% endif %}
+                {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
+                <button onclick="desvincularBriefing()" class="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500" title="Desvincular briefing">
+                  <i class="fas fa-unlink text-xs"></i>
+                </button>
+                {% endif %}
+              </div>
+            {% else %}
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">Não vinculado</span>
+                {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
+                <button onclick="document.getElementById('modal_vincular_briefing').showModal()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-green-600" title="Vincular briefing">
+                  <i class="fas fa-link text-xs"></i>
+                </button>
+                <button onclick="document.getElementById('modal_novo_briefing').showModal()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600" title="Criar novo briefing">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
         </div>
       </div>
 
@@ -4099,6 +4136,66 @@ async function confirmarRejeicao() {
 
 // ==================== BRIEFING ====================
 
+// Carregar briefings quando o modal for aberto
+document.getElementById('modal_vincular_briefing').addEventListener('show', carregarBriefingsParaVincular);
+
+async function carregarBriefingsParaVincular() {
+  const clienteId = '{{ cotacao.client_id if cotacao else "" }}';
+  const select = document.getElementById('select_briefing_vincular');
+  
+  if (!clienteId) {
+    select.innerHTML = '<option value="">Nenhum cliente selecionado</option>';
+    return;
+  }
+  
+  select.innerHTML = '<option value="">Carregando...</option>';
+  
+  try {
+    const response = await fetch(`/api/briefings/cliente/${clienteId}`);
+    if (response.ok) {
+      const briefings = await response.json();
+      
+      if (briefings.length === 0) {
+        select.innerHTML = '<option value="">Nenhum briefing encontrado para este cliente</option>';
+        return;
+      }
+      
+      select.innerHTML = '<option value="">Selecione um briefing...</option>';
+      briefings.forEach(briefing => {
+        const statusLabel = {
+          'rascunho': 'Rascunho',
+          'pendente': 'Pendente',
+          'aceito': 'Aceito',
+          'rejeitado': 'Rejeitado'
+        }[briefing.status] || briefing.status;
+        
+        const option = document.createElement('option');
+        option.value = briefing.id;
+        option.textContent = `${briefing.titulo} (${statusLabel})`;
+        select.appendChild(option);
+      });
+    } else {
+      select.innerHTML = '<option value="">Erro ao carregar briefings</option>';
+    }
+  } catch (error) {
+    console.error('Erro ao carregar briefings:', error);
+    select.innerHTML = '<option value="">Erro ao carregar briefings</option>';
+  }
+}
+
+// Carregar briefings ao abrir o modal
+const modalVincularBriefing = document.getElementById('modal_vincular_briefing');
+if (modalVincularBriefing) {
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'open' && modalVincularBriefing.hasAttribute('open')) {
+        carregarBriefingsParaVincular();
+      }
+    });
+  });
+  observer.observe(modalVincularBriefing, { attributes: true });
+}
+
 async function vincularBriefing() {
   const cotacaoId = getCotacaoId();
   const briefingId = document.getElementById('select_briefing_vincular').value;
@@ -4468,6 +4565,40 @@ async function recalcularValorTotalCotacao() {
   }
 }
 </script>
+
+<!-- Modal Vincular Briefing Existente -->
+<dialog id="modal_vincular_briefing" class="modal">
+  <div class="modal-box max-w-lg bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+      <h3 class="font-semibold text-lg text-gray-800">Vincular Briefing Existente</h3>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
+    
+    <div class="p-6">
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Selecione um Briefing</span></label>
+        <select id="select_briefing_vincular" class="select select-bordered w-full">
+          <option value="">Carregando briefings...</option>
+        </select>
+        <span class="text-xs text-gray-500 mt-1">Briefings do cliente: {{ cotacao.cliente_nome if cotacao else '' }}</span>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+      <button type="button" onclick="vincularBriefing()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <i class="fas fa-link mr-1"></i>Vincular
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
 
 <!-- Modal Novo Briefing Simplificado -->
 <dialog id="modal_novo_briefing" class="modal">

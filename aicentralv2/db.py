@@ -5207,7 +5207,8 @@ def obter_cotacao_por_id(cotacao_id):
                     cont.telefone as contato_cliente_telefone,
                     ag.nome_fantasia as agencia_nome,
                     cont_ag.nome_completo as agencia_user_nome,
-                    br.titulo as briefing_titulo
+                    br.titulo as briefing_titulo,
+                    br.status as briefing_status
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
@@ -5239,7 +5240,7 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
             # Adicionar campos opcionais
             campos_opcionais = [
                 'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id', 
-                'responsavel_comercial', 'briefing_id', 'meio', 'tipo_peca', 
+                'responsavel_comercial', 'briefing_id', 'tipo_peca', 
                 'budget_estimado', 'valor_total_proposta', 
                 'observacoes', 'observacoes_internas', 'origem',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at',
@@ -5276,7 +5277,7 @@ def atualizar_cotacao(cotacao_id, **kwargs):
             campos_permitidos = [
                 'nome_campanha', 'objetivo_campanha', 'periodo_inicio', 'periodo_fim',
                 'status', 'client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id',
-                'meio', 'tipo_peca', 'budget_estimado', 'valor_total_proposta',
+                'tipo_peca', 'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
                 'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'expires_at',

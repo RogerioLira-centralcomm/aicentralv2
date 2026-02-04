@@ -701,11 +701,10 @@ function renderizarSugestoesBriefing(briefings, termo) {
 
 function getStatusClassBriefing(status) {
   const classes = {
-    'Rascunho': 'bg-gray-100 text-gray-600',
-    'Enviado': 'bg-blue-100 text-blue-600',
-    'Em Análise': 'bg-yellow-100 text-yellow-600',
-    'Aprovado': 'bg-green-100 text-green-600',
-    'Rejeitado': 'bg-red-100 text-red-600'
+    'rascunho': 'bg-slate-100 text-slate-600',
+    'pendente': 'bg-amber-100 text-amber-600',
+    'aceito': 'bg-green-100 text-green-600',
+    'rejeitado': 'bg-red-100 text-red-600'
   };
   return classes[status] || 'bg-gray-100 text-gray-600';
 }

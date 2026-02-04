@@ -43,10 +43,8 @@
                         <select name="status" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
                             <option value="rascunho" {% if not briefing or briefing.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
                             <option value="pendente" {% if briefing and briefing.status == 'pendente' %}selected{% endif %}>Pendente</option>
-                            <option value="em_andamento" {% if briefing and briefing.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
-                            <option value="em_revisao" {% if briefing and briefing.status == 'em_revisao' %}selected{% endif %}>Em Revisao</option>
-                            <option value="completo" {% if briefing and briefing.status == 'completo' %}selected{% endif %}>Completo</option>
-                            <option value="arquivado" {% if briefing and briefing.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
+                            <option value="aceito" {% if briefing and briefing.status == 'aceito' %}selected{% endif %}>Aceito</option>
+                            <option value="rejeitado" {% if briefing and briefing.status == 'rejeitado' %}selected{% endif %}>Rejeitado</option>
                         </select>
                     </div>
                     <div class="form-control">

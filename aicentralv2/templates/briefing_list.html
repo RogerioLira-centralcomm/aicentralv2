@@ -18,12 +18,11 @@
                 <!-- Status -->
                 <select name="status" onchange="this.form.submit()"
                         class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
-                    <option value="">Todos status</option>
+                    <option value="">Todos</option>
+                    <option value="rascunho" {% if filtros.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
                     <option value="pendente" {% if filtros.status == 'pendente' %}selected{% endif %}>Pendente</option>
-                    <option value="em_andamento" {% if filtros.status == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
-                    <option value="em_revisao" {% if filtros.status == 'em_revisao' %}selected{% endif %}>Em Revisão</option>
-                    <option value="completo" {% if filtros.status == 'completo' %}selected{% endif %}>Completo</option>
-                    <option value="arquivado" {% if filtros.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
+                    <option value="aceito" {% if filtros.status == 'aceito' %}selected{% endif %}>Aceito</option>
+                    <option value="rejeitado" {% if filtros.status == 'rejeitado' %}selected{% endif %}>Rejeitado</option>
                 </select>
                 
                 <!-- Cliente Autocomplete -->
@@ -102,14 +101,10 @@
                                 <span class="badge badge-sm bg-slate-200 text-slate-700 border-0">Rascunho</span>
                             {% elif briefing.status == 'pendente' %}
                                 <span class="badge badge-sm bg-amber-100 text-amber-700 border-0">Pendente</span>
-                            {% elif briefing.status == 'em_andamento' %}
-                                <span class="badge badge-sm bg-blue-100 text-blue-700 border-0">Andamento</span>
-                            {% elif briefing.status == 'em_revisao' %}
-                                <span class="badge badge-sm bg-purple-100 text-purple-700 border-0">Revisão</span>
-                            {% elif briefing.status == 'completo' %}
-                                <span class="badge badge-sm bg-green-100 text-green-700 border-0">Completo</span>
-                            {% elif briefing.status == 'arquivado' %}
-                                <span class="badge badge-sm bg-gray-100 text-gray-500 border-0">Arquivado</span>
+                            {% elif briefing.status == 'aceito' %}
+                                <span class="badge badge-sm bg-green-100 text-green-700 border-0">Aceito</span>
+                            {% elif briefing.status == 'rejeitado' %}
+                                <span class="badge badge-sm bg-red-100 text-red-700 border-0">Rejeitado</span>
                             {% endif %}
                         </td>
                         <td class="py-2 px-3 text-sm text-gray-600">{{ briefing.cliente_nome or '-' }}</td>
@@ -159,14 +154,14 @@
                         {% endif %}
                         <span class="font-medium text-gray-800">{{ briefing.titulo }}</span>
                     </div>
-                    {% if briefing.status == 'pendente' %}
+                    {% if briefing.status == 'rascunho' %}
+                        <span class="badge badge-xs bg-slate-200 text-slate-700 border-0">Rascunho</span>
+                    {% elif briefing.status == 'pendente' %}
                         <span class="badge badge-xs bg-amber-100 text-amber-700 border-0">Pendente</span>
-                    {% elif briefing.status == 'em_andamento' %}
-                        <span class="badge badge-xs bg-blue-100 text-blue-700 border-0">Andamento</span>
-                    {% elif briefing.status == 'completo' %}
-                        <span class="badge badge-xs bg-green-100 text-green-700 border-0">Completo</span>
-                    {% else %}
-                        <span class="badge badge-xs bg-gray-100 text-gray-500 border-0">{{ briefing.status }}</span>
+                    {% elif briefing.status == 'aceito' %}
+                        <span class="badge badge-xs bg-green-100 text-green-700 border-0">Aceito</span>
+                    {% elif briefing.status == 'rejeitado' %}
+                        <span class="badge badge-xs bg-red-100 text-red-700 border-0">Rejeitado</span>
                     {% endif %}
                 </div>
                 <div class="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-3">
@@ -431,10 +426,8 @@ async function abrirModalBriefing(briefingId) {
     const statusConfig = {
       'rascunho': { bg: 'bg-slate-200', text: 'text-slate-700', label: 'Rascunho' },
       'pendente': { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Pendente' },
-      'em_andamento': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Em Andamento' },
-      'em_revisao': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Em Revisão' },
-      'completo': { bg: 'bg-green-100', text: 'text-green-700', label: 'Completo' },
-      'arquivado': { bg: 'bg-gray-100', text: 'text-gray-500', label: 'Arquivado' }
+      'aceito': { bg: 'bg-green-100', text: 'text-green-700', label: 'Aceito' },
+      'rejeitado': { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejeitado' }
     };
     const status = statusConfig[briefingAtual.status] || statusConfig['rascunho'];
     statusEl.className = `badge badge-sm ${status.bg} ${status.text} border-0`;
@@ -471,12 +464,13 @@ async function abrirModalBriefing(briefingId) {
     const btnAceitar = document.getElementById('btn_aceitar_briefing');
     const btnDevolver = document.getElementById('btn_devolver_briefing');
     
-    if (briefingAtual.status === 'arquivado' || briefingAtual.status === 'completo') {
-      btnAceitar.classList.add('hidden');
-      btnDevolver.classList.add('hidden');
-    } else {
+    // Só mostrar botões de ação se o briefing estiver pendente
+    if (briefingAtual.status === 'pendente') {
       btnAceitar.classList.remove('hidden');
       btnDevolver.classList.remove('hidden');
+    } else {
+      btnAceitar.classList.add('hidden');
+      btnDevolver.classList.add('hidden');
     }
     
     // Abrir modal

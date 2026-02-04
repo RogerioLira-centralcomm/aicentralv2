@@ -4718,6 +4718,14 @@ def obter_todos_briefings(filtros=None):
                     query += ' AND (b.titulo ILIKE %s OR b.objetivo ILIKE %s OR b.briefing_original ILIKE %s)'
                     busca = f"%{filtros['busca']}%"
                     params.extend([busca, busca, busca])
+                
+                if 'mes' in filtros and filtros['mes']:
+                    query += ' AND EXTRACT(MONTH FROM b.created_at) = %s'
+                    params.append(filtros['mes'])
+                
+                if 'ano' in filtros and filtros['ano']:
+                    query += ' AND EXTRACT(YEAR FROM b.created_at) = %s'
+                    params.append(filtros['ano'])
             
             query += ' ORDER BY b.created_at DESC'
             

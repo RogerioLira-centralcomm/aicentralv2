@@ -3841,6 +3841,8 @@ def init_routes(app):
             projeto_id = request.args.get('projeto_id', '').strip()
             busca = request.args.get('busca', '').strip()
             responsavel_id = request.args.get('responsavel_id', '').strip()
+            mes = request.args.get('mes', '').strip()
+            ano = request.args.get('ano', '').strip()
             
             filtros = {}
             if status:
@@ -3856,6 +3858,10 @@ def init_routes(app):
                     filtros['sem_responsavel'] = True
                 else:
                     filtros['responsavel_id'] = int(responsavel_id)
+            if mes:
+                filtros['mes'] = int(mes)
+            if ano:
+                filtros['ano'] = int(ano)
             
             # Buscar briefings - com tratamento de erro
             try:
@@ -3927,7 +3933,7 @@ def init_routes(app):
                                  cliente_selecionado=cliente_selecionado,
                                  projeto_selecionado=projeto_selecionado,
                                  stats=stats,
-                                 filtros={'status': status, 'cliente_id': cliente_id, 'projeto_id': projeto_id, 'busca': busca, 'responsavel_id': responsavel_id})
+                                 filtros={'status': status, 'cliente_id': cliente_id, 'projeto_id': projeto_id, 'busca': busca, 'responsavel_id': responsavel_id, 'mes': mes, 'ano': ano})
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()

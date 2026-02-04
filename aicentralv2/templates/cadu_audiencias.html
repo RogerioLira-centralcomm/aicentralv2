@@ -3,26 +3,90 @@
 {% block title %}Audiências Cadastradas - CentralComm AI{% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-2">
+<style>
+/* Prevenir scroll horizontal */
+body, html {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Container principal */
+.max-w-full {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Grid responsivo para cards */
+#cards-view .grid {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Garantir que cards não ultrapassem o container */
+.card-item {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Line clamp para textos longos */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Melhorar visibilidade dos selects */
+select.select {
+  background-color: white !important;
+  color: #1f2937 !important;
+  font-weight: 500;
+}
+
+select.select option {
+  background-color: white;
+  color: #1f2937;
+  padding: 8px;
+}
+
+select.select:focus {
+  outline: 2px solid #72cd80;
+  outline-offset: 2px;
+}
+</style>
+
+<div class="max-w-full mx-auto px-2 overflow-x-hidden">
   <!-- Header Compacto Sticky com Filtros Inline -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
+  <div class="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 mb-3 sticky top-0 z-40">
+    <div class="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
       <!-- Título -->
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold text-gray-800">Audiências</h1>
-        <span class="text-xs text-gray-500">(<span id="contador-header">{{ audiencias|length }}</span> registros)</span>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <h1 class="text-base sm:text-lg font-semibold text-gray-800">Audiências</h1>
+        <span class="text-xs text-gray-500 hidden sm:inline">(<span id="contador-header">{{ audiencias|length }}</span>)</span>
       </div>
       
       <!-- Filtros Inline -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center overflow-x-auto">
         <!-- ID -->
-        <input type="text" id="filtro-id" placeholder="Buscar ID..."
-               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
+        <input type="text" id="filtro-id" placeholder="ID..."
+               class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 80px; min-width: 80px;">
         
         <!-- Categoria -->
         <select id="filtro-categoria" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
-          <option value="" selected>Todas categorias</option>
+                class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 110px; min-width: 110px;">
+          <option value="" selected>Categorias</option>
           {% for categoria in categorias %}
             <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
           {% endfor %}
@@ -30,42 +94,56 @@
         
         <!-- Subcategoria -->
         <select id="filtro-subcategoria" disabled
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 disabled:opacity-50" style="min-width: 160px;">
-          <option value="" selected>Todas subcategorias</option>
+                class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 disabled:opacity-50" style="width: 110px; min-width: 110px;">
+          <option value="" selected>Subcategorias</option>
         </select>
         
         <!-- Status Icons -->
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-1.5">
           <button type="button" id="filtro-status-ativa"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1 rounded hover:bg-gray-100 transition-colors" 
                   title="Ativas">
-            <i class="fa-solid fa-circle-check text-sm text-gray-400"></i>
+            <i class="fa-solid fa-circle-check text-xs sm:text-sm text-gray-400"></i>
           </button>
           <button type="button" id="filtro-status-inativa"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1 rounded hover:bg-gray-100 transition-colors" 
                   title="Inativas">
-            <i class="fa-solid fa-circle-xmark text-sm text-gray-400"></i>
+            <i class="fa-solid fa-circle-xmark text-xs sm:text-sm text-gray-400"></i>
           </button>
           <button type="button" id="filtro-status-todos"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  class="p-1 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
                   title="Todas">
-            <i class="fa-solid fa-list text-sm text-gray-800"></i>
+            <i class="fa-solid fa-list text-xs sm:text-sm text-gray-800"></i>
           </button>
         </div>
         
         <!-- Limpar Filtros -->
         <button type="button" id="btn-limpar-filtros" 
-                class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600" 
+                class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600" 
                 title="Limpar Filtros">
-          <i class="fas fa-times text-sm"></i>
+          <i class="fas fa-times text-xs sm:text-sm"></i>
         </button>
       </div>
       
-      <!-- Botão Nova Audiência -->
-      <div class="flex gap-2">
+      <!-- Botões de Visualização e Nova Audiência -->
+      <div class="flex gap-1 sm:gap-2 flex-shrink-0">
+        <!-- Toggle Visualização -->
+        <div class="flex items-center gap-0.5 border-r border-gray-200 pr-1 sm:pr-2">
+          <button type="button" id="btn-view-table"
+                  class="p-1 sm:p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  title="Visualização em Tabela">
+            <i class="fa-solid fa-table text-xs sm:text-sm text-gray-800"></i>
+          </button>
+          <button type="button" id="btn-view-cards"
+                  class="p-1 sm:p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  title="Visualização em Cards">
+            <i class="fa-solid fa-grip text-xs sm:text-sm text-gray-400"></i>
+          </button>
+        </div>
+        
         <button onclick="modal_audiencia.showModal(); document.getElementById('modal_audiencia_title').textContent='Nova Audiência'; document.getElementById('audiencia_id').value=''; document.getElementById('btn_submit_audiencia_text').textContent='Cadastrar'; document.getElementById('form_audiencia').reset();" 
-                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-          <i class="fas fa-plus mr-1"></i>Nova Audiência
+                class="px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors whitespace-nowrap">
+          <i class="fas fa-plus mr-0.5 sm:mr-1"></i><span class="hidden sm:inline">Nova</span>
         </button>
       </div>
     </div>
@@ -204,6 +282,124 @@
       </div>
     {% else %}
       <div class="text-center py-8">
+        <p class="text-gray-500 text-sm">Nenhuma audiência cadastrada.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Desktop Cards View (com imagem) -->
+  <div id="cards-view" class="hidden md:hidden">
+    {% if audiencias %}
+      <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+        {% for audiencia in audiencias %}
+        <div class="card-item bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden" 
+             data-audiencia-id="{{ audiencia.id }}"
+             data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
+             data-categoria-id="{{ audiencia.categoria_id or '' }}"
+             data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
+          
+          <!-- Imagem -->
+          <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
+            <div class="relative w-full bg-gray-100" style="aspect-ratio: 16/9;">
+              {% if audiencia.imagem_url %}
+                <img src="{{ audiencia.imagem_url }}" 
+                     alt="{{ audiencia.nome }}"
+                     class="w-full h-full object-cover"
+                     onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22225%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22400%22 height=%22225%22/%3E%3Ctext fill=%22%239ca3af%22 font-family=%22sans-serif%22 font-size=%2218%22 text-anchor=%22middle%22 x=%22200%22 y=%22112.5%22%3ESem imagem%3C/text%3E%3C/svg%3E';">
+              {% else %}
+                <div class="w-full h-full flex items-center justify-center">
+                  <i class="fas fa-image text-4xl text-gray-300"></i>
+                </div>
+              {% endif %}
+              
+              <!-- Status Badge -->
+              <div class="absolute top-2 right-2">
+                <span class="text-xs px-2 py-0.5 rounded shadow-sm {% if audiencia.is_active %}bg-green-500{% else %}bg-red-500{% endif %} text-white">
+                  {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
+                </span>
+              </div>
+              
+              <!-- Aspect Ratio Badge -->
+              <div class="absolute bottom-2 left-2">
+                <span class="text-xs px-2 py-0.5 rounded shadow-sm bg-black bg-opacity-60 text-white font-mono">
+                  16:9
+                </span>
+              </div>
+            </div>
+          </a>
+          
+          <!-- Conteúdo -->
+          <div class="p-3">
+            <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block mb-2">
+              <h3 class="font-semibold text-sm text-gray-800 hover:text-gray-600 line-clamp-2 mb-1" style="min-height: 2.5rem;">
+                {{ audiencia.nome }}
+              </h3>
+            </a>
+            
+            <!-- ID -->
+            <div class="mb-2">
+              <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+                {{ audiencia.id_audiencia_plataforma }}
+              </code>
+            </div>
+            
+            <!-- Categoria e Subcategoria -->
+            <div class="space-y-1 text-xs mb-3">
+              <div class="flex items-start gap-1">
+                <i class="fas fa-folder text-gray-400 mt-0.5"></i>
+                <span class="text-gray-600 line-clamp-1">
+                  {{ audiencia.categoria_nome or '-' }}
+                </span>
+              </div>
+              {% if audiencia.subcategoria_nome %}
+              <div class="flex items-start gap-1">
+                <i class="fas fa-folder-open text-gray-400 mt-0.5"></i>
+                <span class="text-gray-500 line-clamp-1">
+                  {{ audiencia.subcategoria_nome }}
+                </span>
+              </div>
+              {% endif %}
+            </div>
+            
+            <!-- Ações -->
+            <div class="flex gap-1.5 pt-2 border-t border-gray-100">
+              <button type="button" 
+                      class="flex-1 p-1.5 rounded transition-colors duration-200 btn-gerar-imagem {% if audiencia.imagem_url %}text-green-600 hover:bg-green-50{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                      data-audiencia-id="{{ audiencia.id }}"
+                      data-audiencia-nome="{{ audiencia.nome }}"
+                      data-audiencia-categoria="{{ audiencia.categoria_nome or '' }}"
+                      data-audiencia-descricao="{{ (audiencia.descricao or '')[:200] }}"
+                      data-audiencia-imagem="{{ audiencia.imagem_url or '' }}"
+                      title="{% if audiencia.imagem_url %}Editar Imagem{% else %}Gerar Imagem{% endif %}">
+                <i class="fas fa-image text-sm"></i>
+              </button>
+              <button type="button"
+                      class="flex-1 p-1.5 rounded transition-colors duration-200 btn-toggle-status {% if audiencia.is_active %}text-green-600 hover:bg-green-50{% else %}text-red-600 hover:bg-red-50{% endif %}"
+                      data-audiencia-id="{{ audiencia.id }}"
+                      title="{% if audiencia.is_active %}Desativar{% else %}Ativar{% endif %}">
+                <i class="fas fa-power-off text-sm"></i>
+              </button>
+              <button type="button" 
+                      class="flex-1 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors duration-200 btn-delete"
+                      data-audiencia-id="{{ audiencia.id }}"
+                      data-audiencia-nome="{{ audiencia.nome }}"
+                      title="Deletar">
+                <i class="fas fa-trash text-sm"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      
+      <div class="mt-4 p-3 bg-white rounded-lg border border-gray-200">
+        <p class="text-xs text-gray-500">
+          Exibindo <strong class="text-gray-700" id="contador-visiveis-cards">{{ audiencias|length }}</strong> de <strong class="text-gray-700">{{ audiencias|length }}</strong> audiências
+        </p>
+      </div>
+    {% else %}
+      <div class="text-center py-12 bg-white rounded-lg border border-gray-200">
+        <i class="fas fa-image text-4xl text-gray-300 mb-3"></i>
         <p class="text-gray-500 text-sm">Nenhuma audiência cadastrada.</p>
       </div>
     {% endif %}
@@ -432,6 +628,64 @@ document.addEventListener('DOMContentLoaded', function() {
     btnStatusInativa: !!btnStatusInativa,
     btnStatusTodos: !!btnStatusTodos
   });
+  
+  // ==================== TOGGLE VIEW (TABLE / CARDS) ====================
+  let currentView = 'table'; // 'table' ou 'cards'
+  
+  const btnViewTable = document.getElementById('btn-view-table');
+  const btnViewCards = document.getElementById('btn-view-cards');
+  const tableView = document.querySelector('.bg-white.rounded-lg.border.border-gray-200.overflow-hidden.hidden.md\\:block');
+  const cardsView = document.getElementById('cards-view');
+  
+  function switchView(view) {
+    currentView = view;
+    
+    if (view === 'table') {
+      // Mostrar tabela, esconder cards
+      tableView.classList.remove('md:hidden');
+      tableView.classList.add('md:block');
+      cardsView.classList.add('md:hidden');
+      cardsView.classList.remove('md:block');
+      
+      // Atualizar botões
+      btnViewTable.classList.add('bg-gray-200');
+      btnViewTable.querySelector('i').classList.remove('text-gray-400');
+      btnViewTable.querySelector('i').classList.add('text-gray-800');
+      
+      btnViewCards.classList.remove('bg-gray-200');
+      btnViewCards.querySelector('i').classList.add('text-gray-400');
+      btnViewCards.querySelector('i').classList.remove('text-gray-800');
+    } else {
+      // Mostrar cards, esconder tabela
+      tableView.classList.add('md:hidden');
+      tableView.classList.remove('md:block');
+      cardsView.classList.remove('md:hidden');
+      cardsView.classList.add('md:block');
+      
+      // Atualizar botões
+      btnViewCards.classList.add('bg-gray-200');
+      btnViewCards.querySelector('i').classList.remove('text-gray-400');
+      btnViewCards.querySelector('i').classList.add('text-gray-800');
+      
+      btnViewTable.classList.remove('bg-gray-200');
+      btnViewTable.querySelector('i').classList.add('text-gray-400');
+      btnViewTable.querySelector('i').classList.remove('text-gray-800');
+    }
+    
+    // Salvar preferência no localStorage
+    localStorage.setItem('audiencias_view', view);
+  }
+  
+  // Restaurar visualização salva
+  const savedView = localStorage.getItem('audiencias_view');
+  if (savedView === 'cards') {
+    switchView('cards');
+  }
+  
+  // Event listeners dos botões
+  btnViewTable.addEventListener('click', () => switchView('table'));
+  btnViewCards.addEventListener('click', () => switchView('cards'));
+  // ====================================================================
   
   // Função para atualizar visual dos botões de status
   function atualizarBotoesStatus(status) {
@@ -662,6 +916,46 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log(`Linhas visíveis: ${visibleCount} de ${tableRows.length}`);
 
+    // Filtrar cards desktop (nova visualização)
+    const desktopCards = document.querySelectorAll('#cards-view .card-item');
+    let visibleCardsCount = 0;
+    desktopCards.forEach(card => {
+      const cardCategoriaId = card.getAttribute('data-categoria-id');
+      const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
+      const statusAttr = card.getAttribute('data-status');
+      const cardIdElement = card.querySelector('code');
+      const cardId = cardIdElement ? cardIdElement.textContent.trim().toLowerCase() : '';
+
+      let showCard = true;
+
+      if (idFiltro) {
+        if (!cardId.includes(idFiltro)) {
+          showCard = false;
+        }
+      }
+
+      if (categoriaId && showCard) {
+        if (String(cardCategoriaId) !== String(categoriaId)) {
+          showCard = false;
+        }
+      }
+
+      if (subcategoriaId && showCard) {
+        if (String(cardSubcategoriaId) !== String(subcategoriaId)) {
+          showCard = false;
+        }
+      }
+
+      if (statusFiltro && showCard) {
+        if (statusAttr !== statusFiltro) {
+          showCard = false;
+        }
+      }
+
+      card.style.display = showCard ? '' : 'none';
+      if (showCard) visibleCardsCount++;
+    });
+
     // Filtrar cards mobile
     const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
     mobileCards.forEach(card => {
@@ -711,22 +1005,38 @@ document.addEventListener('DOMContentLoaded', function() {
       return display !== 'none';
     });
     
+    const desktopCards = document.querySelectorAll('#cards-view .card-item');
+    const visibleDesktopCards = Array.from(desktopCards).filter(card => {
+      const display = card.style.display;
+      return display !== 'none';
+    });
+    
     const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
     const visibleCards = Array.from(mobileCards).filter(card => {
       const display = card.style.display;
       return display !== 'none';
     });
 
-    // Atualizar contador
+    // Atualizar contador da tabela
     const contadorElement = document.getElementById('contador-visiveis');
     if (contadorElement) {
       contadorElement.textContent = visibleRows.length;
     }
     
-    // Atualizar contador do header
+    // Atualizar contador dos cards
+    const contadorCardsElement = document.getElementById('contador-visiveis-cards');
+    if (contadorCardsElement) {
+      contadorCardsElement.textContent = visibleDesktopCards.length;
+    }
+    
+    // Atualizar contador do header (usa a visão atual)
     const contadorHeader = document.getElementById('contador-header');
     if (contadorHeader) {
-      contadorHeader.textContent = visibleRows.length;
+      if (currentView === 'cards') {
+        contadorHeader.textContent = visibleDesktopCards.length;
+      } else {
+        contadorHeader.textContent = visibleRows.length;
+      }
     }
   }
 
@@ -804,13 +1114,40 @@ document.addEventListener('DOMContentLoaded', function() {
       const data = await response.json();
 
       if (data.success) {
-        window.location.reload();
+        // Remover linha da tabela
+        const tableRow = document.querySelector(`table tbody tr[id="audiencia-${audienciaIdToDelete}"]`);
+        if (tableRow) {
+          tableRow.remove();
+        }
+        
+        // Remover card desktop
+        const desktopCard = document.querySelector(`#cards-view .card-item[data-audiencia-id="${audienciaIdToDelete}"]`);
+        if (desktopCard) {
+          desktopCard.remove();
+        }
+        
+        // Remover card mobile
+        const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
+        mobileCards.forEach(card => {
+          const btnDelete = card.querySelector('.btn-delete');
+          if (btnDelete && btnDelete.dataset.audienciaId == audienciaIdToDelete) {
+            card.remove();
+          }
+        });
+        
+        // Atualizar contadores
+        atualizarMensagemVazia();
+        
+        // Fechar modal
+        document.getElementById('modal-delete').close();
+        
+        mostrarToast('Audiência excluída com sucesso!', 'success');
       } else {
-        showToast('Erro ao excluir: ' + (data.message || 'Erro desconhecido'), 'error');
+        mostrarToast('Erro ao excluir: ' + (data.message || 'Erro desconhecido'), 'error');
       }
     } catch (error) {
       console.error('Erro:', error);
-      showToast('Erro ao excluir audiência', 'error');
+      mostrarToast('Erro ao excluir audiência', 'error');
     }
   });
 
@@ -1087,8 +1424,63 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (data.success) {
         mostrarToast('Imagem salva com sucesso!', 'success');
+        
+        // Atualizar imagem na tabela (linha desktop)
+        const tableRow = document.querySelector(`table tbody tr[id="audiencia-${audienciaAtualId}"]`);
+        if (tableRow) {
+          const btnImagem = tableRow.querySelector('.btn-gerar-imagem');
+          if (btnImagem) {
+            btnImagem.classList.remove('text-gray-400', 'hover:text-gray-600', 'hover:bg-gray-100');
+            btnImagem.classList.add('text-green-600', 'hover:text-green-800', 'hover:bg-green-50');
+            btnImagem.dataset.audienciaImagem = imagemAtualUrl;
+            btnImagem.title = 'Editar Imagem';
+          }
+        }
+        
+        // Atualizar imagem nos cards desktop (nova visualização)
+        const desktopCard = document.querySelector(`#cards-view .card-item[data-audiencia-id="${audienciaAtualId}"]`);
+        if (desktopCard) {
+          const imgContainer = desktopCard.querySelector('a > div');
+          const imgElement = imgContainer.querySelector('img');
+          const placeholderDiv = imgContainer.querySelector('div.flex');
+          
+          if (imgElement) {
+            imgElement.src = imagemAtualUrl;
+          } else if (placeholderDiv) {
+            // Substituir placeholder por imagem
+            imgContainer.innerHTML = `
+              <img src="${imagemAtualUrl}" 
+                   alt="Audiência" 
+                   class="w-full h-full object-cover"
+                   onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22225%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22400%22 height=%22225%22/%3E%3Ctext fill=%22%239ca3af%22 font-family=%22sans-serif%22 font-size=%2218%22 text-anchor=%22middle%22 x=%22200%22 y=%22112.5%22%3ESem imagem%3C/text%3E%3C/svg%3E';">
+              ${imgContainer.querySelector('.absolute.top-2')?.outerHTML || ''}
+              ${imgContainer.querySelector('.absolute.bottom-2')?.outerHTML || ''}
+            `;
+          }
+          
+          // Atualizar botão
+          const btnImagem = desktopCard.querySelector('.btn-gerar-imagem');
+          if (btnImagem) {
+            btnImagem.classList.remove('text-gray-400', 'hover:bg-gray-100');
+            btnImagem.classList.add('text-green-600', 'hover:bg-green-50');
+            btnImagem.dataset.audienciaImagem = imagemAtualUrl;
+            btnImagem.title = 'Editar Imagem';
+          }
+        }
+        
+        // Atualizar imagem nos cards mobile
+        const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
+        mobileCards.forEach(card => {
+          const btnImagem = card.querySelector('.btn-gerar-imagem');
+          if (btnImagem && btnImagem.dataset.audienciaId == audienciaAtualId) {
+            btnImagem.dataset.audienciaImagem = imagemAtualUrl;
+            btnImagem.innerHTML = '<i class="fas fa-image mr-1"></i>Editar';
+            btnImagem.style.color = '#22c55e';
+            btnImagem.style.borderColor = '#22c55e';
+          }
+        });
+        
         fecharModalImagem();
-        setTimeout(() => location.reload(), 1000);
       } else {
         throw new Error(data.error || 'Erro ao salvar');
       }
@@ -1145,12 +1537,11 @@ document.addEventListener('DOMContentLoaded', function() {
           <label class="label py-0">
             <span class="label-text text-xs font-semibold">Modelo de Geração</span>
           </label>
-          <select id="modelo-imagem" class="select select-bordered select-sm w-full">
-            <option value="google/gemini-2.5-flash-image">Gemini 2.5 Flash Image (Base64)</option>
-            <option value="google/gemini-exp-1206:free">Gemini Experimental 1206 (Gratuito)</option>
-            <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Gratuito)</option>
-            <option value="openai/gpt-4o">GPT-4o (Multimodal)</option>
-            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Multimodal)</option>
+          <select id="modelo-imagem" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500" style="background-color: #ffffff !important; color: #1f2937 !important; font-weight: 500 !important;">
+            <option value="google/gemini-2.5-flash-image" style="background-color: #ffffff; color: #1f2937;">Gemini 2.5 Flash Image (Recomendado)</option>
+            <option value="google/gemini-exp-1206:free" style="background-color: #ffffff; color: #1f2937;">Gemini Experimental 1206 (Gratuito)</option>
+            <option value="openai/gpt-4o" style="background-color: #ffffff; color: #1f2937;">GPT-4o (Multimodal)</option>
+            <option value="anthropic/claude-3.5-sonnet" style="background-color: #ffffff; color: #1f2937;">Claude 3.5 Sonnet (Multimodal)</option>
           </select>
         </div>
         

@@ -303,9 +303,6 @@
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
         <i class="fas fa-file-contract mr-2"></i>Contratos
       </button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="invites" onclick="trocarAba('invites')">
-        <i class="fas fa-envelope mr-2"></i>Invites
-      </button>
     </div>
     
     <!-- Conteúdo -->
@@ -509,47 +506,6 @@
         </div>
       </div>
       
-      <!-- Conteúdo Invites -->
-      <div id="invites_aba_content" class="modal-tab-content hidden" data-tab="invites">
-        <div class="flex justify-between items-center mb-4">
-          <h4 class="text-sm font-medium text-gray-700">Convites de Usuários</h4>
-        </div>
-        
-        <!-- Formulário de Novo Convite -->
-        <div class="bg-gray-50 rounded-lg p-4 mb-4">
-          <h5 class="text-xs font-medium text-gray-500 uppercase mb-3">Enviar Novo Convite</h5>
-          <div class="flex gap-3">
-            <div class="flex-1 relative">
-              <input 
-                type="email" 
-                id="invite_email" 
-                placeholder="Digite o email do convidado" 
-                class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400"
-                onblur="verificarEmailInvite(this)"
-              >
-              <span id="invite_email_status" class="text-xs absolute -bottom-5 left-0"></span>
-            </div>
-            <select id="invite_role" class="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
-              <option value="member">Membro</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button 
-              type="button" 
-              onclick="enviarConvite()" 
-              class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-              <i class="fas fa-paper-plane mr-2"></i>Enviar
-            </button>
-          </div>
-        </div>
-        
-        <!-- Lista de Convites -->
-        <div class="bg-gray-50 rounded-lg p-4">
-          <h5 class="text-xs font-medium text-gray-500 uppercase mb-3">Convites Enviados</h5>
-          <div id="lista_invites_aba">
-            <!-- Conteúdo via JavaScript -->
-          </div>
-        </div>
-      </div>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50">
@@ -644,8 +600,8 @@
       <!-- Linha 2: Setor, Cargo, Tipo Usuário -->
       <div class="grid grid-cols-12 gap-2">
         <div class="form-control col-span-4">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Setor <span class="text-error">*</span></span></label>
-          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required onchange="carregarCargosPorSetor(this.value)">
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Setor</span></label>
+          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" onchange="carregarCargosPorSetor(this.value)">
             <option value="">Selecione</option>
             {% for setor in setores %}
             <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
@@ -653,8 +609,8 @@
           </select>
         </div>
         <div class="form-control col-span-4">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cargo <span class="text-error">*</span></span></label>
-          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" required>
+          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cargo</span></label>
+          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
             <option value="">Selecione setor</option>
           </select>
         </div>
@@ -664,13 +620,8 @@
         <input type="hidden" id="contato_cohorts" name="cohorts" value="1">
       </div>
 
-      <!-- Linha 3: Senha -->
-      <div class="grid grid-cols-12 gap-2">
-        <div class="form-control col-span-4">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold" id="senha_label">Senha <span class="text-error">*</span></span></label>
-          <input type="password" id="contato_senha" name="senha" class="input input-bordered input-sm w-full" placeholder="Mín. 6 caracteres" autocomplete="new-password">
-        </div>
-      </div>
+      <!-- Senha (hidden) -->
+      <input type="hidden" id="contato_senha" name="senha" value="">
 
       <div class="modal-action mt-3 pt-2 border-t">
         <button type="button" onclick="modal_contato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
@@ -1584,9 +1535,7 @@ function trocarAba(aba) {
   });
   
   // Carregar dados específicos da aba
-  if (aba === 'invites') {
-    carregarInvites();
-  } else if (aba === 'contratos') {
+  if (aba === 'contratos') {
     const clienteId = document.getElementById('cliente_id').value;
     if (clienteId) {
       carregarContratosCliente(clienteId);
@@ -1658,7 +1607,6 @@ function preencherAbaDetalhes(cliente, contatos) {
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-3">
                     ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato('${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
-                    ${c.email ? `<i class="fas fa-envelope text-primary cursor-pointer hover:scale-110 transition-all" onclick="enviarEmailBoasVindas(${c.id_contato_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" title="Enviar email de boas-vindas"></i>` : '<i class="fas fa-envelope text-gray-300" title="Sem email cadastrado"></i>'}
                     <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                   </div>
                 </td>
@@ -1722,7 +1670,6 @@ async function carregarContatosAba(clienteId) {
                   <td class="text-center">
                     <div class="flex items-center justify-center gap-3">
                       ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato('${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
-                      ${c.email ? `<i class="fas fa-envelope text-primary cursor-pointer hover:scale-110 transition-all" onclick="enviarEmailBoasVindas(${c.id_contato_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" title="Enviar email de boas-vindas"></i>` : '<i class="fas fa-envelope text-gray-300" title="Sem email cadastrado"></i>'}
                       <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                     </div>
                   </td>
@@ -1873,11 +1820,6 @@ function abrirModalNovoContato() {
     document.getElementById('contato_modal_title').textContent = 'Novo Contato';
     document.getElementById('contato_btn_text').textContent = 'Criar Contato';
     
-    // Tornar senha obrigatória
-    document.getElementById('contato_senha').required = true;
-    document.getElementById('contato_senha').placeholder = 'Mín. 6 caracteres';
-    document.getElementById('senha_label').innerHTML = 'Senha <span class="text-error">*</span>';
-    
     // Limpar select de cargos
     const cargoSelect = document.getElementById('contato_cargo');
     cargoSelect.innerHTML = '<option value="">Selecione setor</option>';
@@ -1919,12 +1861,6 @@ async function abrirModalEditarContato(contatoId) {
     // Atualizar título e botão
     document.getElementById('contato_modal_title').textContent = 'Editar Contato';
     document.getElementById('contato_btn_text').textContent = 'Atualizar Contato';
-    
-    // Tornar senha opcional na edição
-    document.getElementById('contato_senha').required = false;
-    document.getElementById('contato_senha').value = '';
-    document.getElementById('contato_senha').placeholder = 'Deixe em branco para manter';
-    document.getElementById('senha_label').innerHTML = 'Nova Senha';
     
     // Abrir modal
     modal_contato.showModal();
@@ -2026,13 +1962,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const contatoId = document.getElementById('contato_id').value;
       const clienteId = document.getElementById('contato_cliente_id').value;
-      
-      // Validar senha no modo criação
       const senha = document.getElementById('contato_senha').value;
-      if (!contatoId && senha.length < 6) {
-        showToast('A senha deve ter no mínimo 6 caracteres!', 'warning');
-        return;
-      }
       
       // Preparar dados
       const formData = new FormData(formContato);
@@ -2148,39 +2078,6 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
   }
 }
 
-// Função para criar invite e enviar convite (marca contato com + LEG)
-async function enviarEmailBoasVindas(contatoId, nomeContato, emailContato) {
-  // Calcular novo nome e email com + LEG
-  const novoNome = `${nomeContato} + LEG`;
-  const emailParts = emailContato.split('@');
-  const novoEmail = `${emailParts[0]}+LEG@${emailParts[1]}`;
-  
-  if (!confirm(`Deseja criar invite e enviar convite?\n\nO convite será enviado para: ${emailContato}\n\nO contato será alterado para:\nNome: ${novoNome}\nEmail: ${novoEmail}`)) return;
-  
-  try {
-    const response = await fetch(`/api/contato/${contatoId}/criar-invite-boas-vindas`, {
-      method: 'POST'
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showToast(result.message, 'success');
-      // Recarregar dados do cliente para atualizar contatos na tabela
-      const clienteId = document.getElementById('cliente_id').value;
-      if (clienteId) {
-        abrirModalEditar(parseInt(clienteId));
-      }
-    } else {
-      showToast(result.message || 'Erro ao processar!', 'error');
-    }
-    
-  } catch (error) {
-    console.error('Erro ao criar invite:', error);
-    showToast('Erro ao processar solicitação!', 'error');
-  }
-}
-
 // Abrir modal automaticamente via URL params
 document.addEventListener('DOMContentLoaded', function() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -2206,176 +2103,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==================== FUNÇÕES DE INVITES ====================
-
-async function carregarInvites() {
-  const clienteId = document.getElementById('cliente_id').value;
-  if (!clienteId) return;
-  
-  try {
-    const response = await fetch(`/api/cliente/${clienteId}/invites`);
-    const invites = await response.json();
-    
-    const container = document.getElementById('lista_invites_aba');
-    
-    if (!invites || invites.length === 0) {
-      container.innerHTML = '<p class="text-sm text-base-content/60 text-center py-4">Sem invites.</p>';
-      return;
-    }
-    
-    let html = '<div class="overflow-x-auto"><table class="table table-xs w-full"><thead class="text-white rounded-lg" style="background-color: #72cd80;"><tr>';
-    html += '<th class="rounded-tl-lg">Email</th><th>Role</th><th>Status</th><th>Enviado em</th><th>Expira em</th><th class="rounded-tr-lg">Ações</th>';
-    html += '</tr></thead><tbody>';
-    
-    invites.forEach(invite => {
-      let statusStyle = '';
-      let statusText = '';
-      
-      if (invite.status === 'accepted') {
-        statusStyle = 'background-color: #72cd80; color: white; border-color: #72cd80;';
-        statusText = 'Aceito';
-      } else if (invite.status === 'expired') {
-        statusStyle = 'background-color: #ef4444; color: white; border-color: #ef4444;';
-        statusText = 'Expirado';
-      } else {
-        statusStyle = 'background-color: #fbbf24; color: white; border-color: #fbbf24;';
-        statusText = 'Pendente';
-      }
-      
-      const createdAt = new Date(invite.created_at).toLocaleDateString('pt-BR');
-      const expiresAt = new Date(invite.expires_at).toLocaleDateString('pt-BR');
-      
-      html += `<tr>
-        <td>${invite.email}</td>
-        <td><span class="badge badge-sm">${invite.role}</span></td>
-        <td><span class="badge badge-sm" style="${statusStyle}">${statusText}</span></td>
-        <td>${createdAt}</td>
-        <td>${expiresAt}</td>
-        <td>`;
-      
-      if (invite.status === 'pending') {
-        html += `
-          <button onclick="reenviarConvite(${invite.id})" class="btn btn-xs btn-ghost" title="Reenviar">
-            <i class="fas fa-redo"></i>
-          </button>
-          <button onclick="cancelarConvite(${invite.id})" class="btn btn-xs btn-ghost text-error" title="Cancelar">
-            <i class="fas fa-times"></i>
-          </button>`;
-      }
-      
-      html += '</td></tr>';
-    });
-    
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-    
-  } catch (error) {
-    console.error('Erro ao carregar invites:', error);
-    document.getElementById('lista_invites_aba').innerHTML = 
-      '<p class="text-sm text-base-content/60 text-center py-4">Sem invites.</p>';
-  }
-}
-
-// Variável para controlar se email é válido para invite
-let emailInviteValido = true;
-
-async function verificarEmailInvite(input) {
-  const email = input.value.trim().toLowerCase();
-  const statusSpan = document.getElementById('invite_email_status');
-  
-  if (!email) {
-    statusSpan.textContent = '';
-    input.classList.remove('input-error', 'input-success');
-    emailInviteValido = true;
-    return;
-  }
-  
-  if (!validateEmail(email)) {
-    statusSpan.textContent = 'Email inválido';
-    statusSpan.className = 'text-xs absolute -bottom-5 left-0 text-error';
-    input.classList.add('input-error');
-    input.classList.remove('input-success');
-    emailInviteValido = false;
-    return;
-  }
-  
-  try {
-    const response = await fetch('/api/verificar-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    
-    const result = await response.json();
-    
-    if (result.existe) {
-      statusSpan.textContent = 'Este email já está cadastrado no sistema';
-      statusSpan.className = 'text-xs absolute -bottom-5 left-0 text-error';
-      input.classList.add('input-error');
-      input.classList.remove('input-success');
-      emailInviteValido = false;
-    } else {
-      statusSpan.textContent = 'Email disponível';
-      statusSpan.className = 'text-xs absolute -bottom-5 left-0 text-success';
-      input.classList.add('input-success');
-      input.classList.remove('input-error');
-      emailInviteValido = true;
-    }
-  } catch (error) {
-    console.error('Erro ao verificar email:', error);
-    statusSpan.textContent = '';
-    input.classList.remove('input-error', 'input-success');
-    emailInviteValido = true;
-  }
-}
-
-async function enviarConvite() {
-  const clienteId = document.getElementById('cliente_id').value;
-  const email = document.getElementById('invite_email').value.trim();
-  const role = document.getElementById('invite_role').value;
-  
-  if (!clienteId) {
-    showToast('Erro: Cliente não identificado.', 'error');
-    return;
-  }
-  
-  if (!email) {
-    showToast('Por favor, digite um email válido.', 'warning');
-    return;
-  }
-  
-  // Verificar se email é válido antes de enviar
-  if (!emailInviteValido) {
-    showToast('Este email já está cadastrado no sistema!', 'error');
-    return;
-  }
-  
-  if (!validateEmail(email)) {
-    showToast('Email inválido!', 'warning');
-    return;
-  }
-  
-  try {
-    const response = await fetch(`/api/cliente/${clienteId}/invites`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role })
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showToast(result.message || 'Convite enviado com sucesso!', 'success');
-      document.getElementById('invite_email').value = '';
-      document.getElementById('invite_role').value = 'member';
-      carregarInvites();
-    } else {
-      showToast(result.message || 'Erro ao enviar convite!', 'error');
-    }
-  } catch (error) {
-    console.error('Erro ao enviar convite:', error);
-    showToast('Erro ao enviar convite!', 'error');
-  }
-}
 
 async function enviarConviteContato(email, nomeContato) {
   if (!confirm(`Enviar convite para ${nomeContato} (${email})?`)) return;
@@ -2403,57 +2130,12 @@ async function enviarConviteContato(email, nomeContato) {
     
     if (result.success) {
       showToast(result.message || `Convite enviado para ${nomeContato}!`, 'success');
-      carregarInvites();
     } else {
       showToast(result.message || 'Erro ao enviar convite!', 'error');
     }
   } catch (error) {
     console.error('Erro ao enviar convite:', error);
     showToast('Erro ao enviar convite!', 'error');
-  }
-}
-
-async function reenviarConvite(inviteId) {
-  if (!confirm('Deseja reenviar este convite?')) return;
-  
-  try {
-    const response = await fetch(`/api/invites/${inviteId}/resend`, {
-      method: 'POST'
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showToast(result.message || 'Convite reenviado com sucesso!', 'success');
-      carregarInvites();
-    } else {
-      showToast(result.message || 'Erro ao reenviar convite!', 'error');
-    }
-  } catch (error) {
-    console.error('Erro ao reenviar convite:', error);
-    showToast('Erro ao reenviar convite!', 'error');
-  }
-}
-
-async function cancelarConvite(inviteId) {
-  if (!confirm('Deseja cancelar este convite?')) return;
-  
-  try {
-    const response = await fetch(`/api/invites/${inviteId}`, {
-      method: 'DELETE'
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      showToast(result.message || 'Convite cancelado com sucesso!', 'success');
-      carregarInvites();
-    } else {
-      showToast(result.message || 'Erro ao cancelar convite!', 'error');
-    }
-  } catch (error) {
-    console.error('Erro ao cancelar convite:', error);
-    showToast('Erro ao cancelar convite!', 'error');
   }
 }
 

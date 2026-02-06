@@ -1126,17 +1126,18 @@ def init_routes(app):
             if pk_id_tbl_cargo:
                 pk_id_tbl_cargo = int(pk_id_tbl_cargo)
             
-            # Validação de campos obrigatórios
-            if not all([nome_completo, email, senha, pk_id_aux_setor, pk_id_tbl_cargo]):
-                return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
+            # Validação de campos obrigatórios (apenas nome e email)
+            if not all([nome_completo, email]):
+                return jsonify({'success': False, 'message': 'Preencha nome e email!'}), 400
             
-            # Validar se cargo pertence ao setor
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
-                             (pk_id_tbl_cargo, pk_id_aux_setor))
-                if cursor.fetchone() is None:
-                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+            # Validar se cargo pertence ao setor (apenas se ambos foram informados)
+            if pk_id_tbl_cargo and pk_id_aux_setor:
+                conn = db.get_db()
+                with conn.cursor() as cursor:
+                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
+                                 (pk_id_tbl_cargo, pk_id_aux_setor))
+                    if cursor.fetchone() is None:
+                        return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
             
             # Criar contato
             contato_id = db.criar_contato(
@@ -1228,17 +1229,18 @@ def init_routes(app):
             cohorts = data.get('cohorts', 1)
             user_type = data.get('user_type', 'client')
             
-            # Validação de campos obrigatórios
-            if not all([nome_completo, email, pk_id_aux_setor, pk_id_tbl_cargo]):
-                return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
+            # Validação de campos obrigatórios (apenas nome e email)
+            if not all([nome_completo, email]):
+                return jsonify({'success': False, 'message': 'Preencha nome e email!'}), 400
             
-            # Validar se cargo pertence ao setor
             conn = db.get_db()
             with conn.cursor() as cursor:
-                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
-                             (pk_id_tbl_cargo, pk_id_aux_setor))
-                if cursor.fetchone() is None:
-                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+                # Validar se cargo pertence ao setor (apenas se ambos foram informados)
+                if pk_id_tbl_cargo and pk_id_aux_setor:
+                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
+                                 (pk_id_tbl_cargo, pk_id_aux_setor))
+                    if cursor.fetchone() is None:
+                        return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
                 
                 # Verificar duplicação de email
                 cursor.execute('''
@@ -1765,11 +1767,6 @@ def init_routes(app):
             if not re.match(email_pattern, email):
                 return jsonify({'success': False, 'message': 'Formato de email inválido!'}), 400
             
-            # Validar se já existe convite pendente para este email/cliente
-            convite_pendente = db.verificar_convite_pendente(email, cliente_id)
-            if convite_pendente:
-                return jsonify({'success': False, 'message': 'Já existe um convite pendente para este email!'}), 400
-            
             # Validar role
             if role not in ('member', 'admin'):
                 return jsonify({'success': False, 'message': 'Role inválido! Use "member" ou "admin".'}), 400
@@ -1781,9 +1778,18 @@ def init_routes(app):
             if not invited_by:
                 return jsonify({'success': False, 'message': 'Usuário não identificado. Faça login novamente.'}), 401
             
-            # Criar convite
-            invite_id = db.criar_invite(cliente_id, invited_by, email, role)
-            app.logger.info(f"DEBUG criar_invite: invite_id={invite_id}")
+            # Verificar se já existe convite pendente para este email/cliente
+            convite_pendente = db.verificar_convite_pendente(email, cliente_id)
+            
+            if convite_pendente:
+                # Reenviar convite existente
+                invite_id = convite_pendente.get('id')
+                db.reenviar_invite(invite_id)
+                app.logger.info(f"DEBUG criar_invite: reenviando invite existente id={invite_id}")
+            else:
+                # Criar novo convite
+                invite_id = db.criar_invite(cliente_id, invited_by, email, role)
+                app.logger.info(f"DEBUG criar_invite: novo invite_id={invite_id}")
             
             if invite_id:
                 # Registro de auditoria

@@ -770,10 +770,10 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
 
 # ==================== CONTATOS - CRIAR/ATUALIZAR ====================
 
-def criar_contato(nome_completo, email, senha, pk_id_tbl_cliente, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1, user_type='client'):
+def criar_contato(nome_completo, email, senha=None, pk_id_tbl_cliente=None, telefone=None, id_centralx=None, status=True, pk_id_tbl_cargo=None, pk_id_tbl_setor=None, cohorts=1, user_type='client'):
     """Cria um novo contato"""
     conn = get_db()
-    senha_hash = gerar_senha_hash(senha)
+    senha_hash = gerar_senha_hash(senha) if senha else None
 
     try:
         if email_existe(email):

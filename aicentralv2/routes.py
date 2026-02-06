@@ -1765,10 +1765,6 @@ def init_routes(app):
             if not re.match(email_pattern, email):
                 return jsonify({'success': False, 'message': 'Formato de email inválido!'}), 400
             
-            # Validar se email já está cadastrado
-            if db.email_existe(email):
-                return jsonify({'success': False, 'message': 'Este email já está cadastrado no sistema!'}), 400
-            
             # Validar se já existe convite pendente para este email/cliente
             convite_pendente = db.verificar_convite_pendente(email, cliente_id)
             if convite_pendente:

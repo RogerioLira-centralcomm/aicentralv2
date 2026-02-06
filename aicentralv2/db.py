@@ -1078,6 +1078,19 @@ def email_existe(email, excluir_id=None):
         return cursor.fetchone()['total'] > 0
 
 
+def email_tem_acesso(email):
+    """Verifica se email já tem acesso ao sistema (tem senha cadastrada)"""
+    conn = get_db()
+    
+    with conn.cursor() as cursor:
+        cursor.execute(
+            'SELECT COUNT(*) as total FROM tbl_contato_cliente WHERE email = %s AND senha IS NOT NULL',
+            (email.lower().strip(),)
+        )
+        
+        return cursor.fetchone()['total'] > 0
+
+
 def validar_senha_atual(contato_id, senha_atual):
     """Valida se a senha atual está correta"""
     conn = get_db()

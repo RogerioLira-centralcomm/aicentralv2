@@ -478,6 +478,9 @@
       <div id="contatos_aba_content" class="modal-tab-content hidden" data-tab="contatos">
         <div class="flex justify-between items-center mb-4">
           <h4 class="text-sm font-medium text-gray-700">Contatos Vinculados</h4>
+          <button type="button" onclick="abrirModalNovoContato()" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-plus mr-2"></i>Novo Contato
+          </button>
         </div>
         
         <div class="bg-gray-50 rounded-lg p-4">
@@ -655,13 +658,8 @@
             <option value="">Selecione setor</option>
           </select>
         </div>
-        <div class="form-control col-span-4">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Tipo Usuário</span></label>
-          <select id="contato_user_type" name="user_type" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
-            <option value="client">Cliente</option>
-            <option value="admin">Administrador</option>
-          </select>
-        </div>
+        <!-- Tipo Usuário hidden com valor fixo -->
+        <input type="hidden" id="contato_user_type" name="user_type" value="client">
         <!-- Cohorts fixo em 1 -->
         <input type="hidden" id="contato_cohorts" name="cohorts" value="1">
       </div>
@@ -1659,6 +1657,7 @@ function preencherAbaDetalhes(cliente, contatos) {
                 </td>
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-3">
+                    ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato('${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
                     ${c.email ? `<i class="fas fa-envelope text-primary cursor-pointer hover:scale-110 transition-all" onclick="enviarEmailBoasVindas(${c.id_contato_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" title="Enviar email de boas-vindas"></i>` : '<i class="fas fa-envelope text-gray-300" title="Sem email cadastrado"></i>'}
                     <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                   </div>
@@ -1722,6 +1721,7 @@ async function carregarContatosAba(clienteId) {
                   </td>
                   <td class="text-center">
                     <div class="flex items-center justify-center gap-3">
+                      ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato('${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
                       ${c.email ? `<i class="fas fa-envelope text-primary cursor-pointer hover:scale-110 transition-all" onclick="enviarEmailBoasVindas(${c.id_contato_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}', '${(c.email || '').replace(/'/g, "\\'")}')" title="Enviar email de boas-vindas"></i>` : '<i class="fas fa-envelope text-gray-300" title="Sem email cadastrado"></i>'}
                       <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                     </div>
@@ -2367,6 +2367,42 @@ async function enviarConvite() {
       showToast(result.message || 'Convite enviado com sucesso!', 'success');
       document.getElementById('invite_email').value = '';
       document.getElementById('invite_role').value = 'member';
+      carregarInvites();
+    } else {
+      showToast(result.message || 'Erro ao enviar convite!', 'error');
+    }
+  } catch (error) {
+    console.error('Erro ao enviar convite:', error);
+    showToast('Erro ao enviar convite!', 'error');
+  }
+}
+
+async function enviarConviteContato(email, nomeContato) {
+  if (!confirm(`Enviar convite para ${nomeContato} (${email})?`)) return;
+  
+  const clienteId = document.getElementById('cliente_id').value;
+  
+  if (!clienteId) {
+    showToast('Erro: Cliente não identificado.', 'error');
+    return;
+  }
+  
+  if (!email) {
+    showToast('Erro: Email do contato não encontrado.', 'error');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role: 'member' })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(result.message || `Convite enviado para ${nomeContato}!`, 'success');
       carregarInvites();
     } else {
       showToast(result.message || 'Erro ao enviar convite!', 'error');

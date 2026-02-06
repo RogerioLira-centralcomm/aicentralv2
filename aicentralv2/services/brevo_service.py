@@ -347,12 +347,16 @@ def enviar_email_convite(
     """
     service = get_brevo_service()
     
+    # Extrair token do link (formato: .../aceitar-convite?token=XXX)
+    token = invite_link.split('token=')[-1] if 'token=' in invite_link else ''
+    
     params = {
         "CONVIDADO_POR": invited_by,
         "EMPRESA": cliente_nome,
         "ROLE_LABEL": role_label,
         "DIAS_VALIDADE": dias_validade,
         "LINK_CONVITE": invite_link,
+        "TOKEN": token,
         "EXPIRA_EM": expires_at
     }
     

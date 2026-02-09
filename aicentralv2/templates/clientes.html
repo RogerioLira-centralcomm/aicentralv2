@@ -582,18 +582,18 @@
       <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
       
       <!-- Linha 1: Nome, Email, Telefone -->
-      <div class="grid grid-cols-12 gap-2">
-        <div class="form-control col-span-4">
+      <div id="contato_linha1" class="grid grid-cols-12 gap-2">
+        <div class="form-control col-span-6" id="contato_nome_container">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nome Completo <span class="text-error">*</span></span></label>
           <input type="text" id="contato_nome_completo" name="nome_completo" class="input input-bordered input-sm w-full" required placeholder="Nome completo">
         </div>
-        <div class="form-control col-span-4">
+        <div class="form-control col-span-6" id="contato_email_container">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold">Email <span class="text-error">*</span></span></label>
           <input type="email" id="contato_email" name="email" class="input input-bordered input-sm w-full" required placeholder="email@exemplo.com">
         </div>
-        <div class="form-control col-span-4">
+        <div class="form-control col-span-4 hidden" id="contato_telefone_container">
           <label class="label py-0.5"><span class="label-text text-xs font-semibold">Telefone</span></label>
-          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-sm w-full" placeholder="(00) 00000-0000">
+          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-sm w-full" placeholder="(00) 00000-0000" maxlength="15">
         </div>
       </div>
 
@@ -1586,6 +1586,7 @@ function preencherAbaDetalhes(cliente, contatos) {
               <th>Email</th>
               <th>Setor/Cargo</th>
               <th>Status</th>
+              <th>Convite</th>
               <th class="rounded-tr-lg text-center">Ações</th>
             </tr>
           </thead>
@@ -1603,6 +1604,9 @@ function preencherAbaDetalhes(cliente, contatos) {
                           title="Clique para ${c.status ? 'desativar' : 'ativar'}">
                     ${c.status ? 'Ativo' : 'Inativo'}
                   </button>
+                </td>
+                <td>
+                  ${getInviteStatusBadge(c.invite_status, c.invite_expires_at)}
                 </td>
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-3">
@@ -1649,6 +1653,7 @@ async function carregarContatosAba(clienteId) {
                 <th>Email</th>
                 <th>Setor/Cargo</th>
                 <th>Status</th>
+                <th>Convite</th>
                 <th class="rounded-tr-lg text-center">Ações</th>
               </tr>
             </thead>
@@ -1666,6 +1671,9 @@ async function carregarContatosAba(clienteId) {
                             title="Clique para ${c.status ? 'desativar' : 'ativar'}">
                       ${c.status ? 'Ativo' : 'Inativo'}
                     </button>
+                  </td>
+                  <td>
+                    ${getInviteStatusBadge(c.invite_status, c.invite_expires_at)}
                   </td>
                   <td class="text-center">
                     <div class="flex items-center justify-center gap-3">
@@ -1820,6 +1828,14 @@ function abrirModalNovoContato() {
     document.getElementById('contato_modal_title').textContent = 'Novo Contato';
     document.getElementById('contato_btn_text').textContent = 'Criar Contato';
     
+    // Ocultar campo telefone em novo contato
+    document.getElementById('contato_telefone_container').classList.add('hidden');
+    // Ajustar largura dos campos nome e email para ocupar todo o espaço
+    document.getElementById('contato_nome_container').classList.remove('col-span-4');
+    document.getElementById('contato_nome_container').classList.add('col-span-6');
+    document.getElementById('contato_email_container').classList.remove('col-span-4');
+    document.getElementById('contato_email_container').classList.add('col-span-6');
+    
     // Limpar select de cargos
     const cargoSelect = document.getElementById('contato_cargo');
     cargoSelect.innerHTML = '<option value="">Selecione setor</option>';
@@ -1845,17 +1861,31 @@ async function abrirModalEditarContato(contatoId) {
     document.getElementById('contato_cliente_id').value = contato.pk_id_tbl_cliente;
     document.getElementById('contato_nome_completo').value = contato.nome_completo;
     document.getElementById('contato_email').value = contato.email;
-    document.getElementById('contato_telefone').value = contato.telefone || '';
+    document.getElementById('contato_telefone').value = formatarTelefone(contato.telefone || '');
     document.getElementById('contato_cohorts').value = contato.cohorts || 1;
     document.getElementById('contato_user_type').value = contato.user_type || 'client';
     
+    // Mostrar campo telefone em edição
+    document.getElementById('contato_telefone_container').classList.remove('hidden');
+    // Ajustar largura dos campos para acomodar o telefone
+    document.getElementById('contato_nome_container').classList.remove('col-span-6');
+    document.getElementById('contato_nome_container').classList.add('col-span-4');
+    document.getElementById('contato_email_container').classList.remove('col-span-6');
+    document.getElementById('contato_email_container').classList.add('col-span-4');
+    
     // Setor e cargo
     const setorId = contato.pk_id_tbl_setor;
+    const cargoSelect = document.getElementById('contato_cargo');
+    
     if (setorId) {
       document.getElementById('contato_setor').value = setorId;
       // Carregar cargos do setor e depois selecionar o cargo
       await carregarCargosPorSetor(setorId);
       document.getElementById('contato_cargo').value = contato.pk_id_tbl_cargo || '';
+    } else {
+      // Se não tem setor, resetar para "Selecione"
+      document.getElementById('contato_setor').value = '';
+      cargoSelect.innerHTML = '<option value="">Selecione o setor primeiro</option>';
     }
     
     // Atualizar título e botão
@@ -1900,6 +1930,31 @@ async function carregarCargosPorSetor(setorId) {
   }
 }
 
+// Função para formatar telefone
+function formatarTelefone(valor) {
+  // Remove tudo que não é dígito
+  const digits = valor.replace(/\D/g, '');
+  
+  if (digits.length === 0) return '';
+  
+  // Limita a 11 dígitos
+  const limited = digits.slice(0, 11);
+  
+  // Formatar conforme quantidade de dígitos
+  if (limited.length <= 2) {
+    return '(' + limited;
+  } else if (limited.length <= 6) {
+    // Telefone fixo parcial: (XX) XXXX
+    return '(' + limited.slice(0, 2) + ') ' + limited.slice(2);
+  } else if (limited.length <= 10) {
+    // Telefone fixo: (XX) XXXX-XXXX
+    return '(' + limited.slice(0, 2) + ') ' + limited.slice(2, 6) + '-' + limited.slice(6);
+  } else {
+    // Celular: (XX) XXXXX-XXXX
+    return '(' + limited.slice(0, 2) + ') ' + limited.slice(2, 7) + '-' + limited.slice(7);
+  }
+}
+
 // Handler para submit do formulário de contato
 document.addEventListener('DOMContentLoaded', function() {
   const formContato = document.getElementById('form_contato');
@@ -1907,52 +1962,30 @@ document.addEventListener('DOMContentLoaded', function() {
   // Máscara de telefone para contato
   const telefoneInput = document.getElementById('contato_telefone');
   if (telefoneInput) {
-    telefoneInput.addEventListener('keydown', function(e) {
-      // Permitir backspace, delete, tab, escape, enter, setas
-      if ([8, 9, 27, 13, 46, 37, 38, 39, 40].includes(e.keyCode) ||
-          // Permitir Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-          (e.keyCode === 65 && e.ctrlKey) ||
-          (e.keyCode === 67 && e.ctrlKey) ||
-          (e.keyCode === 86 && e.ctrlKey) ||
-          (e.keyCode === 88 && e.ctrlKey)) {
-        return;
-      }
-      // Bloquear se não for número
-      if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
-        e.preventDefault();
-      }
-    });
-    
     telefoneInput.addEventListener('input', function(e) {
-      let cursorPos = e.target.selectionStart;
-      let oldValue = e.target.value;
-      let value = oldValue.replace(/\D/g, '');
-      
-      if (value.length > 11) value = value.slice(0, 11);
-      
-      let formatted = '';
-      if (value.length > 0) {
-        formatted = '(' + value.substring(0, 2);
-      }
-      if (value.length >= 2) {
-        formatted += ') ' + value.substring(2, 7);
-      }
-      if (value.length >= 7) {
-        formatted += '-' + value.substring(7, 11);
-      }
+      const formatted = formatarTelefone(e.target.value);
       
       // Só atualiza se o valor mudou
       if (e.target.value !== formatted) {
+        // Guardar posição do cursor
+        const cursorPos = e.target.selectionStart;
+        const oldLen = e.target.value.length;
+        
         e.target.value = formatted;
         
-        // Ajustar posição do cursor após formatação
-        let newCursorPos = cursorPos;
-        if (cursorPos === 1 && formatted.length > 0) newCursorPos = 1;
-        else if (cursorPos <= 3 && value.length >= 2) newCursorPos = Math.min(cursorPos + 1, formatted.length);
-        else if (cursorPos <= 10 && value.length >= 7) newCursorPos = Math.min(cursorPos, formatted.length);
-        
-        e.target.setSelectionRange(newCursorPos, newCursorPos);
+        // Ajustar posição do cursor
+        const newLen = formatted.length;
+        const diff = newLen - oldLen;
+        const newPos = Math.max(0, Math.min(cursorPos + diff, newLen));
+        e.target.setSelectionRange(newPos, newPos);
       }
+    });
+    
+    // Formatar ao colar
+    telefoneInput.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+      e.target.value = formatarTelefone(pastedText);
     });
   }
   
@@ -2103,6 +2136,40 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==================== FUNÇÕES DE INVITES ====================
+
+// Função para formatar o badge de status do convite
+function getInviteStatusBadge(inviteStatus, inviteExpiresAt) {
+  // Se não há convite
+  if (!inviteStatus) {
+    return '<span class="badge badge-xs" style="background-color: #e5e7eb; color: #6b7280; border-color: #e5e7eb;">Sem convite</span>';
+  }
+  
+  // Verificar se o convite expirou
+  const isExpired = inviteExpiresAt ? new Date(inviteExpiresAt) < new Date() : false;
+  
+  // Status aceito
+  if (inviteStatus === 'accepted') {
+    return '<span class="badge badge-xs" style="background-color: #10b981; color: white; border-color: #10b981;">Aceito</span>';
+  }
+  
+  // Status pendente mas expirado
+  if (inviteStatus === 'pending' && isExpired) {
+    return '<span class="badge badge-xs" style="background-color: #ef4444; color: white; border-color: #ef4444;">Expirado</span>';
+  }
+  
+  // Status pendente não expirado
+  if (inviteStatus === 'pending') {
+    return '<span class="badge badge-xs" style="background-color: #f59e0b; color: white; border-color: #f59e0b;">Pendente</span>';
+  }
+  
+  // Status cancelado
+  if (inviteStatus === 'cancelled') {
+    return '<span class="badge badge-xs" style="background-color: #9ca3af; color: white; border-color: #9ca3af;">Cancelado</span>';
+  }
+  
+  // Fallback para outros status
+  return '<span class="badge badge-xs" style="background-color: #e5e7eb; color: #6b7280; border-color: #e5e7eb;">—</span>';
+}
 
 async function enviarConviteContato(email, nomeContato) {
   if (!confirm(`Enviar convite para ${nomeContato} (${email})?`)) return;

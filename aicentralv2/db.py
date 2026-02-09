@@ -597,7 +597,7 @@ def obter_contato_por_email(email):
 
 
 def obter_contatos_por_cliente(id_cliente):
-    """Retorna todos os contatos de um cliente específico"""
+    """Retorna todos os contatos de um cliente específico, incluindo status de convite"""
     conn = get_db()
 
     with conn.cursor() as cursor:
@@ -612,13 +612,21 @@ def obter_contatos_por_cliente(id_cliente):
                 c.pk_id_tbl_setor,
                 c.pk_id_tbl_cargo,
                 s.display as setor,
-                cg.descricao as cargo
+                cg.descricao as cargo,
+                inv.status as invite_status,
+                inv.expires_at as invite_expires_at
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
             LEFT JOIN tbl_cargo_contato cg ON c.pk_id_tbl_cargo = cg.id_cargo_contato
+            LEFT JOIN (
+                SELECT email, status, expires_at,
+                       ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC) as rn
+                FROM cadu_user_invites
+                WHERE id_cliente = %s
+            ) inv ON inv.email = c.email AND inv.rn = 1
             WHERE c.pk_id_tbl_cliente = %s
             ORDER BY c.nome_completo
-        ''', (id_cliente,))
+        ''', (id_cliente, id_cliente))
         return cursor.fetchall()
 
 

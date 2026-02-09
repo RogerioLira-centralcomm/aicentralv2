@@ -68,9 +68,6 @@
 
         // Função global de Toast
         function showToast(message, type = 'success', duration = 3000) {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-            
             const alertClass = {
                 'success': 'alert-success',
                 'error': 'alert-error',
@@ -88,6 +85,27 @@
             const toast = document.createElement('div');
             toast.className = `alert ${alertClass} shadow-lg animate-slide-up`;
             toast.innerHTML = `<i class="fas ${iconClass}"></i><span>${message}</span>`;
+            
+            // Verificar se há um dialog modal aberto e adicionar o toast dentro dele
+            const openDialog = document.querySelector('dialog[open]');
+            let container;
+            
+            if (openDialog) {
+                // Se há um dialog aberto, criar/usar container dentro do dialog
+                let dialogToastContainer = openDialog.querySelector('.dialog-toast-container');
+                if (!dialogToastContainer) {
+                    dialogToastContainer = document.createElement('div');
+                    dialogToastContainer.className = 'dialog-toast-container toast toast-top toast-end';
+                    dialogToastContainer.style.cssText = 'position: fixed !important; top: 1rem !important; right: 1rem !important; z-index: 9999 !important;';
+                    openDialog.appendChild(dialogToastContainer);
+                }
+                container = dialogToastContainer;
+            } else {
+                // Usar o container global
+                container = document.getElementById('toast-container');
+            }
+            
+            if (!container) return;
             
             container.appendChild(toast);
             
@@ -233,11 +251,25 @@
                 padding: 0.625rem 0.875rem;
             }
         }
+        
+        /* Garantir que toasts apareçam acima de modals/dialogs */
+        #toast-container {
+            position: fixed !important;
+            top: 1rem !important;
+            right: 1rem !important;
+            z-index: 2147483647 !important;
+        }
+        
+        /* Para navegadores que suportam popover/top-layer, usar CSS de contenção */
+        #toast-container .alert {
+            position: relative;
+            z-index: inherit;
+        }
     </style>
 </head>
 <body class="bg-base-100 font-sans no-fouc">
-    <!-- Toast Container Global -->
-    <div id="toast-container" class="toast toast-top toast-end" style="z-index: 99999 !important;"></div>
+    <!-- Toast Container Global - positioned above modals/dialogs -->
+    <div id="toast-container" class="toast toast-top toast-end" style="position: fixed !important; top: 1rem !important; right: 1rem !important; z-index: 2147483647 !important;"></div>
 
     <!-- Mobile Drawer -->
     <div class="drawer lg:drawer-open">

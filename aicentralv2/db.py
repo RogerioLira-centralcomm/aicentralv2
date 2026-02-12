@@ -5237,7 +5237,11 @@ def obter_cotacao_por_id(cotacao_id):
                     ag.nome_fantasia as agencia_nome,
                     cont_ag.nome_completo as agencia_user_nome,
                     br.titulo as briefing_titulo,
-                    br.status as briefing_status
+                    br.status as briefing_status,
+                    parc.nome_fantasia as parceiro_nome,
+                    cont_parc.nome_completo as parceiro_user_nome,
+                    ag.percentual as agencia_percentual,
+                    parc.percentual as parceiro_percentual
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
@@ -5245,6 +5249,8 @@ def obter_cotacao_por_id(cotacao_id):
                 LEFT JOIN tbl_cliente ag ON c.agencia_id = ag.id_cliente
                 LEFT JOIN tbl_contato_cliente cont_ag ON c.agencia_user_id = cont_ag.id_contato_cliente
                 LEFT JOIN cadu_briefings br ON c.briefing_id = br.id
+                LEFT JOIN tbl_cliente parc ON c.id_parceiro = parc.id_cliente
+                LEFT JOIN tbl_contato_cliente cont_parc ON c.parceiro_user_id = cont_parc.id_contato_cliente
                 WHERE c.id = %s AND c.deleted_at IS NULL
             ''', (cotacao_id,))
             return cursor.fetchone()
@@ -5273,7 +5279,8 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'budget_estimado', 'valor_total_proposta', 
                 'observacoes', 'observacoes_internas', 'origem',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at',
-                'agencia_id', 'agencia_user_id'
+                'agencia_id', 'agencia_user_id',
+                'id_parceiro', 'parceiro_user_id'
             ]
             
             for campo in campos_opcionais:
@@ -5310,11 +5317,12 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
                 'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'expires_at',
-                'agencia_id', 'agencia_user_id'
+                'agencia_id', 'agencia_user_id',
+                'id_parceiro', 'parceiro_user_id'
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id']
+            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']

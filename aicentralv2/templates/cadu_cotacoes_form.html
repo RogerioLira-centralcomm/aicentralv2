@@ -81,7 +81,7 @@
           </div>
 
           <!-- Agência e Contato Agência (empilhados) -->
-          <div class="space-y-2">
+          <div id="bloco_agencia" class="space-y-2">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
               <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
@@ -104,6 +104,36 @@
                 {% if cotacao and contatos_agencia %}
                   {% for contato in contatos_agencia %}
                   <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Parceiro e Contato Parceiro (empilhados) -->
+          <div id="bloco_parceiro" class="space-y-2">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Parceiro</label>
+              <input type="hidden" name="id_parceiro" id="id_parceiro" value="{% if modo == 'editar' and cotacao and cotacao.id_parceiro %}{{ cotacao.id_parceiro }}{% endif %}">
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-3 py-1.5 border border-gray-200 rounded bg-white text-sm truncate h-8 flex items-center text-gray-700">
+                  <span id="nome_parceiro_selecionado">{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %}{{ cotacao.parceiro_nome }}{% else %}Nenhum{% endif %}</span>
+                </div>
+                <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
+                  <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="limparParceiroSelecionado()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
+                  <i class="fas fa-times text-xs"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Contato Parceiro</label>
+              <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+                <option value="">Selecione...</option>
+                {% if cotacao and contatos_parceiro %}
+                  {% for contato in contatos_parceiro %}
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.parceiro_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
                   {% endfor %}
                 {% endif %}
               </select>
@@ -294,6 +324,43 @@
 
       <div id="resultados_agencia_modal" class="max-h-96 overflow-y-auto">
         <p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal de Busca de Parceiro Regional -->
+<dialog id="modal_escolher_parceiro" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Parceiro</h3>
+    </div>
+    
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_parceiro_modal" 
+          placeholder="Digite nome do parceiro regional..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarParceirosModal()"
+        >
+        <button onclick="limparBuscaParceiroModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_parceiro_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>
       </div>
     </div>
 
@@ -505,6 +572,9 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  // Estado inicial: esconder bloco oposto se já houver agência ou parceiro preenchido
+  toggleAgenciaParceiro();
 });
 
 // ============================================
@@ -564,11 +634,33 @@ function limparBuscaAgenciaModal() {
   document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
 }
 
+// ============================================
+// TOGGLE AGÊNCIA / PARCEIRO (mutuamente exclusivos)
+// ============================================
+function toggleAgenciaParceiro() {
+  const agenciaId = document.getElementById('agencia_id').value;
+  const parceiroId = document.getElementById('id_parceiro').value;
+  const blocoAgencia = document.getElementById('bloco_agencia');
+  const blocoParceiro = document.getElementById('bloco_parceiro');
+
+  if (agenciaId) {
+    blocoAgencia.style.display = '';
+    blocoParceiro.style.display = 'none';
+  } else if (parceiroId) {
+    blocoAgencia.style.display = 'none';
+    blocoParceiro.style.display = '';
+  } else {
+    blocoAgencia.style.display = '';
+    blocoParceiro.style.display = '';
+  }
+}
+
 async function selecionarAgenciaForm(agenciaId, nomeAgencia) {
   document.getElementById('agencia_id').value = agenciaId;
   document.getElementById('nome_agencia_selecionada').textContent = nomeAgencia;
   document.getElementById('modal_escolher_agencia').close();
   limparBuscaAgenciaModal();
+  toggleAgenciaParceiro();
   
   // Carregar contatos da agência
   await carregarContatosAgencia(agenciaId);
@@ -600,6 +692,104 @@ function limparAgenciaSelecionada() {
   document.getElementById('agencia_id').value = '';
   document.getElementById('nome_agencia_selecionada').textContent = 'Nenhuma';
   document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
+  toggleAgenciaParceiro();
+}
+
+// ============================================
+// BUSCA DE PARCEIRO REGIONAL
+// ============================================
+
+async function buscarParceirosModal() {
+  const termo = document.getElementById('busca_parceiro_modal').value.trim();
+  const resultados = document.getElementById('resultados_parceiro_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo,
+        tipo_cliente: 'Parceiro Regional'
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
+        html += `
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+               onclick="selecionarParceiroForm('${clienteId}', '${nomeEscapado}')">
+            <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
+          </div>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum parceiro regional encontrado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar parceiros regionais:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar parceiros regionais</p>';
+  }
+}
+
+function limparBuscaParceiroModal() {
+  document.getElementById('busca_parceiro_modal').value = '';
+  document.getElementById('resultados_parceiro_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>';
+}
+
+async function selecionarParceiroForm(parceiroId, nomeParceiro) {
+  document.getElementById('id_parceiro').value = parceiroId;
+  document.getElementById('nome_parceiro_selecionado').textContent = nomeParceiro;
+  document.getElementById('modal_escolher_parceiro').close();
+  limparBuscaParceiroModal();
+  toggleAgenciaParceiro();
+
+  // Carregar contatos do parceiro
+  await carregarContatosParceiro(parceiroId);
+}
+
+function limparParceiroSelecionado() {
+  document.getElementById('id_parceiro').value = '';
+  document.getElementById('nome_parceiro_selecionado').textContent = 'Nenhum';
+  document.getElementById('parceiro_user_id').innerHTML = '<option value="">Selecione...</option>';
+  toggleAgenciaParceiro();
+}
+
+async function carregarContatosParceiro(parceiroId) {
+  const contatoParceiroSelect = document.getElementById('parceiro_user_id');
+  contatoParceiroSelect.innerHTML = '<option value="">Selecione...</option>';
+
+  if (parceiroId) {
+    try {
+      const response = await fetch(`/api/clientes/${parceiroId}/todos-contatos`);
+      if (response.ok) {
+        const contatos = await response.json();
+        contatos.forEach(contato => {
+          const option = document.createElement('option');
+          option.value = contato.id_contato_cliente;
+          option.textContent = contato.nome_completo + (contato.email ? ` - ${contato.email}` : '');
+          contatoParceiroSelect.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contatos do parceiro:', error);
+    }
+  }
 }
 
 // ============================================

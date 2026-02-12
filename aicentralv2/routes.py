@@ -1126,18 +1126,17 @@ def init_routes(app):
             if pk_id_tbl_cargo:
                 pk_id_tbl_cargo = int(pk_id_tbl_cargo)
             
-            # Validação de campos obrigatórios (apenas nome e email)
-            if not all([nome_completo, email]):
-                return jsonify({'success': False, 'message': 'Preencha nome e email!'}), 400
+            # Validação de campos obrigatórios
+            if not all([nome_completo, email, senha, pk_id_aux_setor, pk_id_tbl_cargo]):
+                return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
             
-            # Validar se cargo pertence ao setor (apenas se ambos foram informados)
-            if pk_id_tbl_cargo and pk_id_aux_setor:
-                conn = db.get_db()
-                with conn.cursor() as cursor:
-                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
-                                 (pk_id_tbl_cargo, pk_id_aux_setor))
-                    if cursor.fetchone() is None:
-                        return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+            # Validar se cargo pertence ao setor
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
+                             (pk_id_tbl_cargo, pk_id_aux_setor))
+                if cursor.fetchone() is None:
+                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
             
             # Criar contato
             contato_id = db.criar_contato(
@@ -1229,18 +1228,17 @@ def init_routes(app):
             cohorts = data.get('cohorts', 1)
             user_type = data.get('user_type', 'client')
             
-            # Validação de campos obrigatórios (apenas nome e email)
-            if not all([nome_completo, email]):
-                return jsonify({'success': False, 'message': 'Preencha nome e email!'}), 400
+            # Validação de campos obrigatórios
+            if not all([nome_completo, email, pk_id_aux_setor, pk_id_tbl_cargo]):
+                return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
             
+            # Validar se cargo pertence ao setor
             conn = db.get_db()
             with conn.cursor() as cursor:
-                # Validar se cargo pertence ao setor (apenas se ambos foram informados)
-                if pk_id_tbl_cargo and pk_id_aux_setor:
-                    cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
-                                 (pk_id_tbl_cargo, pk_id_aux_setor))
-                    if cursor.fetchone() is None:
-                        return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
+                cursor.execute('SELECT 1 FROM tbl_cargo_contato WHERE id_cargo_contato = %s AND pk_id_aux_setor = %s', 
+                             (pk_id_tbl_cargo, pk_id_aux_setor))
+                if cursor.fetchone() is None:
+                    return jsonify({'success': False, 'message': 'Cargo não pertence ao setor selecionado!'}), 400
                 
                 # Verificar duplicação de email
                 cursor.execute('''
@@ -1767,6 +1765,15 @@ def init_routes(app):
             if not re.match(email_pattern, email):
                 return jsonify({'success': False, 'message': 'Formato de email inválido!'}), 400
             
+            # Validar se email já está cadastrado
+            if db.email_existe(email):
+                return jsonify({'success': False, 'message': 'Este email já está cadastrado no sistema!'}), 400
+            
+            # Validar se já existe convite pendente para este email/cliente
+            convite_pendente = db.verificar_convite_pendente(email, cliente_id)
+            if convite_pendente:
+                return jsonify({'success': False, 'message': 'Já existe um convite pendente para este email!'}), 400
+            
             # Validar role
             if role not in ('member', 'admin'):
                 return jsonify({'success': False, 'message': 'Role inválido! Use "member" ou "admin".'}), 400
@@ -1778,18 +1785,9 @@ def init_routes(app):
             if not invited_by:
                 return jsonify({'success': False, 'message': 'Usuário não identificado. Faça login novamente.'}), 401
             
-            # Verificar se já existe convite pendente para este email/cliente
-            convite_pendente = db.verificar_convite_pendente(email, cliente_id)
-            
-            if convite_pendente:
-                # Reenviar convite existente
-                invite_id = convite_pendente.get('id')
-                db.reenviar_invite(invite_id)
-                app.logger.info(f"DEBUG criar_invite: reenviando invite existente id={invite_id}")
-            else:
-                # Criar novo convite
-                invite_id = db.criar_invite(cliente_id, invited_by, email, role)
-                app.logger.info(f"DEBUG criar_invite: novo invite_id={invite_id}")
+            # Criar convite
+            invite_id = db.criar_invite(cliente_id, invited_by, email, role)
+            app.logger.info(f"DEBUG criar_invite: invite_id={invite_id}")
             
             if invite_id:
                 # Registro de auditoria
@@ -4512,6 +4510,8 @@ def init_routes(app):
                     'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
                     'agencia_id': request.form.get('agencia_id', type=int) if request.form.get('agencia_id') else None,
                     'agencia_user_id': request.form.get('agencia_user_id', type=int) if request.form.get('agencia_user_id') else None,
+                    'id_parceiro': request.form.get('id_parceiro', type=int) if request.form.get('id_parceiro') else None,
+                    'parceiro_user_id': request.form.get('parceiro_user_id', type=int) if request.form.get('parceiro_user_id') else None,
                 }
 
                 # Remover None values para evitar conflitos
@@ -4596,6 +4596,8 @@ def init_routes(app):
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'agencia_id': request.form.get('agencia_id', type=int) if request.form.get('agencia_id') else None,
                     'agencia_user_id': request.form.get('agencia_user_id', type=int) if request.form.get('agencia_user_id') else None,
+                    'id_parceiro': request.form.get('id_parceiro', type=int) if request.form.get('id_parceiro') else None,
+                    'parceiro_user_id': request.form.get('parceiro_user_id', type=int) if request.form.get('parceiro_user_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
                     'observacoes': request.form.get('observacoes', '').strip(),
                     'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
@@ -4629,13 +4631,16 @@ def init_routes(app):
             briefings = []
             contatos_cliente = []
             contatos_agencia = []
+            contatos_parceiro = []
             if cotacao.get('client_id'):
                 briefings = db.obter_briefings_por_cliente(cotacao['client_id'])
                 contatos_cliente = db.obter_contatos_comerciais_por_cliente(cotacao['client_id'])
             if cotacao.get('agencia_id'):
                 contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
+            if cotacao.get('id_parceiro'):
+                contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
             return render_template('cadu_cotacoes_form.html', 
-                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, modo='editar')
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, contatos_parceiro=contatos_parceiro, modo='editar')
 
         except Exception as e:
             app.logger.error(f"Erro ao editar cotação: {str(e)}", exc_info=True)
@@ -4707,6 +4712,7 @@ def init_routes(app):
             # Buscar contatos ativos do cliente da cotação
             contatos_cliente = []
             contatos_agencia = []
+            contatos_parceiro = []
             briefings = []
             briefing_atual = None
             if cotacao.get('client_id'):
@@ -4718,6 +4724,10 @@ def init_routes(app):
             # Buscar contatos da agência
             if cotacao.get('agencia_id'):
                 contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
+            
+            # Buscar contatos do parceiro
+            if cotacao.get('id_parceiro'):
+                contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
             
             # Buscar briefing selecionado
             if cotacao.get('briefing_id'):
@@ -4740,6 +4750,7 @@ def init_routes(app):
                                   vendedores=vendedores,
                                   contatos_cliente=contatos_cliente,
                                   contatos_agencia=contatos_agencia,
+                                  contatos_parceiro=contatos_parceiro,
                                   briefings=briefings,
                                   briefing_atual=briefing_atual,
                                   linhas=linhas,
@@ -5322,6 +5333,7 @@ def init_routes(app):
                 'budget_estimado', 'valor_total_proposta', 'desconto_percentual', 'desconto_total',
                 'briefing_id', 'client_id', 'client_user_id',
                 'agencia_id', 'agencia_user_id',
+                'id_parceiro', 'parceiro_user_id',
                 'observacoes', 'observacoes_internas', 'origem', 'condicoes_comerciais',
                 'status', 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'aprovada_em'
             ]
@@ -5382,6 +5394,11 @@ def init_routes(app):
             tipo = data.get('tipo', 'enviar_cotacao')
             destinatario = data.get('destinatario')
             nome_destinatario = data.get('nome_destinatario')
+            tem_agencia = data.get('tem_agencia', False)
+            tem_parceiro = data.get('tem_parceiro', False)
+            agencia_nome = data.get('agencia_nome', '')
+            parceiro_nome = data.get('parceiro_nome', '')
+            cliente_nome_param = data.get('cliente_nome', '')
             
             if not destinatario:
                 return jsonify({'success': False, 'message': 'Email do destinatário não informado'}), 400
@@ -5397,6 +5414,10 @@ def init_routes(app):
             
             # Preparar dados para o template
             cliente_nome = nome_destinatario or cotacao.get('cliente_nome', 'Cliente')
+            
+            # Para templates: tratar parceiro como intermediário (mesmo conceito de agência)
+            email_tem_agencia = tem_agencia or tem_parceiro
+            email_agencia_nome = agencia_nome if tem_agencia else (parceiro_nome if tem_parceiro else '')
             primeiro_nome = cliente_nome.split()[0] if cliente_nome else 'Cliente'
             
             # Formatar valor
@@ -5440,14 +5461,17 @@ def init_routes(app):
                 # Usar o serviço Brevo com template
                 resultado = enviar_email_cotacao_enviada_cliente(
                     to_email=destinatario,
-                    to_name=cliente_nome,
+                    to_name=nome_destinatario or cliente_nome,
                     numero_cotacao=cotacao.get('numero_cotacao', ''),
                     nome_campanha=cotacao.get('nome_campanha', ''),
                     valor_total=valor_formatado,
                     link_proposta=link_cotacao or '',
                     validade=validade,
                     executivo_nome=cotacao.get('responsavel_nome', ''),
-                    executivo_email=cotacao.get('responsavel_email', '')
+                    executivo_email=cotacao.get('responsavel_email', ''),
+                    tem_agencia=email_tem_agencia,
+                    agencia_nome=email_agencia_nome,
+                    cliente_nome=cliente_nome_param or cotacao.get('cliente_nome', '')
                 )
                 
                 if resultado.get('success'):
@@ -5492,7 +5516,8 @@ def init_routes(app):
         - cotacao_rejeitada: só para status Rejeitada (email externo + interno)
         
         Se tem agência: envia para contato da agência
-        Se não tem agência: envia para contato do cliente
+        Se tem parceiro: envia para contato do parceiro
+        Se não tem agência nem parceiro: envia para contato do cliente
         
         Emails internos: responsável comercial + apolo@centralcomm.media
         """
@@ -5503,7 +5528,9 @@ def init_routes(app):
             destinatario = data.get('destinatario')
             nome_destinatario = data.get('nome_destinatario')
             tem_agencia = data.get('tem_agencia', False)
+            tem_parceiro = data.get('tem_parceiro', False)
             agencia_nome = data.get('agencia_nome', '')
+            parceiro_nome = data.get('parceiro_nome', '')
             cliente_nome = data.get('cliente_nome', '')
             
             if not tipo:
@@ -5552,17 +5579,26 @@ def init_routes(app):
                 base_url = app.config.get('BASE_URL', 'http://localhost:5000')
                 link_cotacao = f"{base_url}/proposta/{cotacao['link_publico_token']}"
             
-            # Nome a usar no email (agência ou cliente)
-            nome_para_email = agencia_nome if tem_agencia and agencia_nome else cliente_nome
+            # Nome a usar no email (agência, parceiro ou cliente)
+            if tem_agencia and agencia_nome:
+                nome_para_email = agencia_nome
+            elif tem_parceiro and parceiro_nome:
+                nome_para_email = parceiro_nome
+            else:
+                nome_para_email = cliente_nome
             if not nome_para_email:
                 nome_para_email = nome_destinatario
             
             resultado_externo = None
             resultado_interno = None
             
+            # Para templates de email: tratar parceiro como intermediário (mesmo conceito de agência)
+            email_tem_agencia = tem_agencia or tem_parceiro
+            email_agencia_nome = agencia_nome if tem_agencia else (parceiro_nome if tem_parceiro else '')
+            
             try:
                 if tipo == 'cotacao_enviada':
-                    # Email externo para cliente/agência
+                    # Email externo para cliente/agência/parceiro
                     resultado_externo = enviar_email_cotacao_enviada_cliente(
                         to_email=destinatario,
                         to_name=nome_destinatario,
@@ -5572,8 +5608,8 @@ def init_routes(app):
                         link_proposta=link_cotacao or '',
                         executivo_nome=responsavel_nome,
                         executivo_email=responsavel_email,
-                        tem_agencia=tem_agencia,
-                        agencia_nome=agencia_nome,
+                        tem_agencia=email_tem_agencia,
+                        agencia_nome=email_agencia_nome,
                         cliente_nome=cliente_nome
                     )
                     
@@ -5599,8 +5635,8 @@ def init_routes(app):
                                 link_proposta=link_admin,
                                 executivo_nome=responsavel_nome,
                                 executivo_email=responsavel_email,
-                                tem_agencia=tem_agencia,
-                                agencia_nome=agencia_nome,
+                                tem_agencia=email_tem_agencia,
+                                agencia_nome=email_agencia_nome,
                                 cliente_nome=cliente_nome
                             )
                         except Exception as e:
@@ -5613,7 +5649,7 @@ def init_routes(app):
                         db.atualizar_cotacao(cotacao_id, status='Enviada', proposta_enviada_em=datetime.now())
                 
                 elif tipo == 'cotacao_aprovada':
-                    # Email externo para cliente/agência
+                    # Email externo para cliente/agência/parceiro
                     resultado_externo = enviar_email_cotacao_aprovada_cliente(
                         to_email=destinatario,
                         to_name=nome_destinatario,
@@ -5622,8 +5658,8 @@ def init_routes(app):
                         valor_total=valor_formatado,
                         executivo_nome=responsavel_nome,
                         executivo_email=responsavel_email,
-                        tem_agencia=tem_agencia,
-                        agencia_nome=agencia_nome,
+                        tem_agencia=email_tem_agencia,
+                        agencia_nome=email_agencia_nome,
                         cliente_nome=cliente_nome
                     )
                     
@@ -5650,9 +5686,9 @@ def init_routes(app):
                                 link_proposta=link_cotacao or '',
                                 data_aprovacao=datetime.now().strftime('%d/%m/%Y às %H:%M'),
                                 link_admin=link_admin,
-                                tem_agencia=tem_agencia,
-                                agencia_nome=agencia_nome,
-                                agencia_email=destinatario if tem_agencia else None
+                                tem_agencia=email_tem_agencia,
+                                agencia_nome=email_agencia_nome,
+                                agencia_email=destinatario if email_tem_agencia else None
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
@@ -5660,7 +5696,7 @@ def init_routes(app):
                     resultado_interno = {'success': True}
                 
                 elif tipo == 'cotacao_rejeitada':
-                    # Email externo para cliente/agência
+                    # Email externo para cliente/agência/parceiro
                     resultado_externo = enviar_email_cotacao_rejeitada_cliente(
                         to_email=destinatario,
                         to_name=nome_destinatario,
@@ -5668,8 +5704,8 @@ def init_routes(app):
                         nome_campanha=nome_campanha,
                         executivo_nome=responsavel_nome,
                         executivo_email=responsavel_email,
-                        tem_agencia=tem_agencia,
-                        agencia_nome=agencia_nome,
+                        tem_agencia=email_tem_agencia,
+                        agencia_nome=email_agencia_nome,
                         cliente_nome=cliente_nome
                     )
                     
@@ -5696,9 +5732,9 @@ def init_routes(app):
                                 motivo=motivo_rejeicao,
                                 link_proposta=link_admin,
                                 data_rejeicao=datetime.now().strftime('%d/%m/%Y às %H:%M'),
-                                tem_agencia=tem_agencia,
-                                agencia_nome=agencia_nome,
-                                agencia_email=destinatario if tem_agencia else None
+                                tem_agencia=email_tem_agencia,
+                                agencia_nome=email_agencia_nome,
+                                agencia_email=destinatario if email_tem_agencia else None
                             )
                         except Exception as e:
                             app.logger.warning(f"Erro ao enviar email interno para {email_interno}: {e}")
@@ -5721,7 +5757,9 @@ def init_routes(app):
                             'tipo': tipo,
                             'destinatario': destinatario,
                             'tem_agencia': tem_agencia,
+                            'tem_parceiro': tem_parceiro,
                             'agencia_nome': agencia_nome,
+                            'parceiro_nome': parceiro_nome,
                             'cliente_nome': cliente_nome
                         }
                     )
@@ -7056,22 +7094,40 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             nome = data.get('nome') or ''
             razao = data.get('razao') or ''
             agencia_filter = data.get('agencia')  # True = só agências, False = só não-agências, None = todos
+            tipo_cliente_filter = data.get('tipo_cliente')  # String para filtrar por tipo de cliente (ex: "Parceiro Regional")
             
             # Limpar espaços
             nome = nome.strip() if nome else ''
             razao = razao.strip() if razao else ''
+            tipo_cliente_filter = tipo_cliente_filter.strip() if tipo_cliente_filter else ''
             
-            app.logger.info(f"Filtros processados: nome='{nome}', razao='{razao}', agencia={agencia_filter}")
+            app.logger.info(f"Filtros processados: nome='{nome}', razao='{razao}', agencia={agencia_filter}, tipo_cliente='{tipo_cliente_filter}'")
             
             # Construir query com filtros - buscar em nome_fantasia OU razao_social
             # JOIN com tbl_agencia para filtrar por tipo de agência
             query = '''
-                SELECT c.id_cliente, c.nome_fantasia, c.razao_social, c.cnpj, c.pessoa, c.pk_id_tbl_agencia, a.key as is_agencia
+                SELECT c.id_cliente, c.nome_fantasia, c.razao_social, c.cnpj, c.pessoa, c.pk_id_tbl_agencia, a.key as is_agencia, c.percentual
                 FROM tbl_cliente c
                 LEFT JOIN tbl_agencia a ON c.pk_id_tbl_agencia = a.id_agencia
-                WHERE c.status = true
             '''
+            
+            # JOIN com tbl_tipo_cliente para filtrar por tipo de cliente
+            query += ' LEFT JOIN tbl_tipo_cliente tc ON c.id_tipo_cliente = tc.id_tipo_cliente'
+            
+            query += ' WHERE c.status = true'
             params = []
+            
+            # Filtro por tipo de cliente
+            if tipo_cliente_filter:
+                # Busca específica por tipo (ex: "Parceiro Regional")
+                query += ' AND tc.display ILIKE %s'
+                params.append(f'%{tipo_cliente_filter}%')
+                app.logger.info(f"Filtrando: tipo_cliente ILIKE %{tipo_cliente_filter}%")
+            else:
+                # Busca normal de clientes: excluir Parceiros Regionais
+                query += " AND (tc.display IS NULL OR tc.display NOT ILIKE %s)"
+                params.append('%Parceiro Regional%')
+                app.logger.info("Filtrando: excluindo Parceiro Regional")
             
             # Filtro de agência - key = true significa "Sim" (é agência), key = false significa "Não" (é cliente)
             if agencia_filter is False:
@@ -7130,7 +7186,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         'nome_fantasia': cliente['nome_fantasia'],
                         'razao_social': cliente['razao_social'],
                         'cnpj': cliente['cnpj'],
-                        'tipo_pessoa': cliente['pessoa']
+                        'tipo_pessoa': cliente['pessoa'],
+                        'percentual': float(cliente['percentual']) if cliente.get('percentual') else None
                     })
             
             app.logger.info(f"Resultado final: {resultado}")

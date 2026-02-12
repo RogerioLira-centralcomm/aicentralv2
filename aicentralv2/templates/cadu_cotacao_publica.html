@@ -250,6 +250,7 @@
                                     <th class="px-3 py-2 text-right font-medium">Volume</th>
                                     <th class="px-3 py-2 text-left font-medium">Formato</th>
                                     <th class="px-3 py-2 text-right font-medium">Val. Unit.</th>
+                                    <th class="px-3 py-2 text-right font-medium">Desc.</th>
                                     <th class="px-3 py-2 text-right font-medium">Total</th>
                                 </tr>
                             </thead>
@@ -277,6 +278,11 @@
                                             R$ {{ "{:,.2f}".format(linha.valor_unitario).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                         {% else %}-{% endif %}
                                     </td>
+                                    <td class="px-3 py-2.5 text-xs text-gray-700 text-right">
+                                        {% if linha.desconto_percentual %}
+                                            <span class="text-red-500 font-medium">{{ "{:,.2f}".format(linha.desconto_percentual).replace(',', '_').replace('.', ',').replace('_', '.') }}%</span>
+                                        {% else %}-{% endif %}
+                                    </td>
                                     <td class="px-3 py-2.5 text-xs font-semibold text-gray-800 text-right">
                                         {% if linha.valor_total or linha.investimento_bruto %}
                                             R$ {{ "{:,.2f}".format(linha.valor_total or linha.investimento_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}
@@ -287,7 +293,7 @@
                             </tbody>
                             <tfoot class="bg-gray-800 text-white">
                                 <tr>
-                                    <td colspan="5" class="px-3 py-2.5 text-right font-semibold text-xs">Total Itens</td>
+                                    <td colspan="6" class="px-3 py-2.5 text-right font-semibold text-xs">Total Itens</td>
                                     <td class="px-3 py-2.5 text-right font-bold text-sm">
                                         R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or linhas|sum(attribute='valor_total') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                     </td>

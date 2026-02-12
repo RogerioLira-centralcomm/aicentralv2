@@ -317,6 +317,45 @@ function formatarNumero(valor) {
   return parseInt(valor).toLocaleString('pt-BR');
 }
 
+// ============================================
+// PERCENTUAL DE COMISSÃO (AGÊNCIA / PARCEIRO)
+// ============================================
+// Determinar percentual de comissão da agência ou parceiro vinculado à cotação.
+// Se não houver agência nem parceiro, fator = 1 (bruto = líquido).
+var _comissaoPercentual = null;
+var _temAgenciaOuParceiro = false;
+{% if cotacao and cotacao.agencia_id %}
+  _temAgenciaOuParceiro = true;
+  _comissaoPercentual = {{ cotacao.agencia_percentual|default('null', true) }};
+{% elif cotacao and cotacao.id_parceiro %}
+  _temAgenciaOuParceiro = true;
+  _comissaoPercentual = {{ cotacao.parceiro_percentual|default('null', true) }};
+{% endif %}
+
+var _comissaoAvisado = false;
+
+function obterFatorLiquido() {
+  if (!_temAgenciaOuParceiro) {
+    // Sem agência nem parceiro: bruto = líquido
+    return 1;
+  }
+  if (_comissaoPercentual === null || _comissaoPercentual === 0) {
+    if (!_comissaoAvisado) {
+      _comissaoAvisado = true;
+      showToast('Atenção: o percentual de comissão da agência/parceiro está zerado ou não informado. O valor líquido será igual ao bruto.', 'warning', 8000);
+    }
+    return 1;
+  }
+  return 1 - (_comissaoPercentual / 100);
+}
+
+// Atualiza o percentual em tempo real (chamado ao selecionar agência/parceiro no modal de edição)
+function atualizarComissaoPercentual(percentual, temAgenciaOuParceiro) {
+  _comissaoPercentual = percentual;
+  _temAgenciaOuParceiro = temAgenciaOuParceiro;
+  _comissaoAvisado = false;
+}
+
 // Funções de cálculo para Nova Linha
 function calcularValorNegociado() {
   var valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
@@ -355,7 +394,7 @@ function calcularVolume() {
 function calcularInvestimentoLiquido() {
   var investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
   if (investBruto > 0) {
-    var investLiquido = investBruto * 0.8;
+    var investLiquido = investBruto * obterFatorLiquido();
     document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
   }
 }
@@ -394,7 +433,7 @@ function calcularVolumeEdit() {
 
 function calcularInvestLiquidoEdit() {
   var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
-  var investLiquido = investBruto * 0.8;
+  var investLiquido = investBruto * obterFatorLiquido();
   document.getElementById('edit_investimento_liquido').value = formatarMoeda(investLiquido);
 }
 </script>
@@ -470,7 +509,7 @@ function calcularInvestLiquidoEdit() {
           </button>
           {% endif %}
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
           <!-- Cliente e Contato (empilhados) -->
           <div class="space-y-2">
             <div>
@@ -483,7 +522,7 @@ function calcularInvestLiquidoEdit() {
             </div>
           </div>
           <!-- Agência e Contato Agência (empilhados) -->
-          <div class="space-y-2">
+          <div id="det_bloco_agencia" class="space-y-2" {% if not cotacao or not cotacao.agencia_id %}style="display:none"{% endif %}>
             <div>
               <span class="text-xs text-gray-500 uppercase">Agência</span>
               <p class="font-medium text-gray-800">{{ cotacao.agencia_nome if cotacao and cotacao.agencia_nome else '-' }}</p>
@@ -491,6 +530,17 @@ function calcularInvestLiquidoEdit() {
             <div>
               <span class="text-xs text-gray-500 uppercase">Contato Agência</span>
               <p class="font-medium text-gray-700">{{ cotacao.agencia_user_nome if cotacao and cotacao.agencia_user_nome else '-' }}</p>
+            </div>
+          </div>
+          <!-- Parceiro e Contato Parceiro (empilhados) -->
+          <div id="det_bloco_parceiro" class="space-y-2" {% if not cotacao or not cotacao.id_parceiro %}style="display:none"{% endif %}>
+            <div>
+              <span class="text-xs text-gray-500 uppercase">Parceiro</span>
+              <p class="font-medium text-gray-800">{{ cotacao.parceiro_nome if cotacao and cotacao.parceiro_nome else '-' }}</p>
+            </div>
+            <div>
+              <span class="text-xs text-gray-500 uppercase">Contato Parceiro</span>
+              <p class="font-medium text-gray-700">{{ cotacao.parceiro_user_nome if cotacao and cotacao.parceiro_user_nome else '-' }}</p>
             </div>
           </div>
           <div>
@@ -1544,12 +1594,12 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Editar Cliente -->
 <dialog id="modal_editar_cliente" class="modal">
-  <div class="modal-box max-w-2xl">
+  <div class="modal-box max-w-4xl">
     <h3 class="font-bold text-lg mb-4">Editar Informações do Cliente</h3>
     
     <form id="form_editar_cliente" class="space-y-4">
       <!-- Cliente e Contato (empilhados) -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="space-y-3">
           <div class="form-control">
             <label class="label"><span class="label-text font-semibold">Cliente *</span></label>
@@ -1579,7 +1629,7 @@ function calcularInvestLiquidoEdit() {
         </div>
         
         <!-- Agência e Contato Agência (empilhados) -->
-        <div class="space-y-3">
+        <div id="edit_bloco_agencia" class="space-y-3">
           <div class="form-control">
             <label class="label"><span class="label-text font-semibold">Agência</span></label>
             <div class="relative">
@@ -1606,6 +1656,40 @@ function calcularInvestLiquidoEdit() {
               {% if contatos_agencia %}
                 {% for cont in contatos_agencia %}
                 <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.agencia_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Parceiro e Contato Parceiro (empilhados) -->
+        <div id="edit_bloco_parceiro" class="space-y-3">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Parceiro</span></label>
+            <div class="relative">
+              <input type="hidden" id="edit_parceiro_id" value="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}">
+              <div class="flex gap-1">
+                <input type="text" id="edit_parceiro_busca" class="input input-bordered flex-1" 
+                       placeholder="Digite para buscar parceiro..." 
+                       value="{{ cotacao.parceiro_nome if cotacao and cotacao.parceiro_nome else '' }}"
+                       autocomplete="off" 
+                       oninput="buscarParceirosEditModal(this.value)" 
+                       onfocus="mostrarResultadosParceiroEditModal()">
+                <button type="button" onclick="limparParceiroEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
+                  <i class="fas fa-times text-gray-400"></i>
+                </button>
+              </div>
+              <div id="resultados_parceiros_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
+            </div>
+          </div>
+          
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Contato do Parceiro</span></label>
+            <select id="edit_contato_parceiro_id" class="select select-bordered w-full">
+              <option value="">Selecione um contato...</option>
+              {% if contatos_parceiro %}
+                {% for cont in contatos_parceiro %}
+                <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.parceiro_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
                 {% endfor %}
               {% endif %}
             </select>
@@ -2187,9 +2271,23 @@ const contatosAgencia = {
   {% endif %}
 };
 
+// Dados dos contatos do parceiro para envio de email
+const contatosParceiro = {
+  {% if contatos_parceiro %}
+    {% for contato in contatos_parceiro %}
+    "{{ contato.id_contato_cliente }}": {
+      nome: "{{ contato.nome_completo }}",
+      email: "{{ contato.email or '' }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  {% endif %}
+};
+
 // Variáveis para lógica de envio de email
 const temAgencia = {{ 'true' if cotacao and cotacao.agencia_id else 'false' }};
+const temParceiro = {{ 'true' if cotacao and cotacao.id_parceiro else 'false' }};
 const agenciaNome = "{{ cotacao.agencia_nome if cotacao and cotacao.agencia_nome else '' }}";
+const parceiroNome = "{{ cotacao.parceiro_nome if cotacao and cotacao.parceiro_nome else '' }}";
 const clienteNome = "{{ cotacao.cliente_nome if cotacao and cotacao.cliente_nome else '' }}";
 
 // Variáveis do link público para validação de envio de email
@@ -2240,20 +2338,42 @@ function validarLinkPublico() {
 // Função para enviar cotação por email via Brevo
 async function enviarCotacaoEmail() {
   const cotacaoId = {{ cotacao.id if cotacao else 'null' }};
-  const contatoId = document.getElementById('edit_contato_id')?.value;
   
-  if (!contatoId) {
-    showToast('Selecione um contato do cliente para enviar o email', 'warning');
-    return;
+  // Determinar destinatário: prioridade agência > parceiro > cliente
+  let contato, tipoDestinatario;
+  
+  if (temAgencia) {
+    const contatoAgenciaId = document.getElementById('edit_contato_agencia_id')?.value;
+    if (!contatoAgenciaId) {
+      showToast('Selecione um contato da agência para enviar o email', 'warning');
+      return;
+    }
+    contato = contatosAgencia[contatoAgenciaId];
+    tipoDestinatario = 'Agência';
+  } else if (temParceiro) {
+    const contatoParceiroId = document.getElementById('edit_contato_parceiro_id')?.value;
+    if (!contatoParceiroId) {
+      showToast('Selecione um contato do parceiro para enviar o email', 'warning');
+      return;
+    }
+    contato = contatosParceiro[contatoParceiroId];
+    tipoDestinatario = 'Parceiro';
+  } else {
+    const contatoId = document.getElementById('edit_contato_id')?.value;
+    if (!contatoId) {
+      showToast('Selecione um contato do cliente para enviar o email', 'warning');
+      return;
+    }
+    contato = contatosCliente[contatoId];
+    tipoDestinatario = 'Cliente';
   }
   
-  const contato = contatosCliente[contatoId];
   if (!contato || !contato.email) {
-    showToast('O contato selecionado não possui email cadastrado', 'error');
+    showToast(`O contato selecionado (${tipoDestinatario}) não possui email cadastrado`, 'error');
     return;
   }
   
-  if (!confirm(`Deseja enviar esta cotação por email para ${contato.nome} (${contato.email})?`)) {
+  if (!confirm(`Deseja enviar esta cotação por email para ${contato.nome} (${contato.email})?\n\nDestinatário: ${tipoDestinatario}`)) {
     return;
   }
   
@@ -2264,7 +2384,12 @@ async function enviarCotacaoEmail() {
       body: JSON.stringify({ 
         tipo: 'enviar_cotacao',
         destinatario: contato.email,
-        nome_destinatario: contato.nome
+        nome_destinatario: contato.nome,
+        tem_agencia: temAgencia,
+        tem_parceiro: temParceiro,
+        agencia_nome: agenciaNome,
+        parceiro_nome: parceiroNome,
+        cliente_nome: clienteNome
       })
     });
     
@@ -2308,7 +2433,7 @@ async function enviarEmailPorTipo() {
     return;
   }
   
-  // Determinar destinatário baseado em se tem agência ou não
+  // Determinar destinatário: prioridade agência > parceiro > cliente
   let destinatario, nomeDestinatario, tipoDestinatario;
   
   if (temAgencia) {
@@ -2333,6 +2458,28 @@ async function enviarEmailPorTipo() {
     destinatario = contatosAgencia[contatoAgenciaId].email;
     nomeDestinatario = contatosAgencia[contatoAgenciaId].nome;
     tipoDestinatario = 'Agência';
+  } else if (temParceiro) {
+    // Verificar se há contato de parceiro SELECIONADO na cotação
+    const contatoParceiroId = document.getElementById('edit_contato_parceiro_id')?.value;
+    
+    if (!contatoParceiroId) {
+      showToast('Esta cotação não possui um contato de parceiro selecionado. Selecione um contato antes de enviar o email.', 'error');
+      return;
+    }
+    
+    if (!contatosParceiro[contatoParceiroId]) {
+      showToast('Contato de parceiro não encontrado. Verifique se o contato está cadastrado.', 'error');
+      return;
+    }
+    
+    if (!contatosParceiro[contatoParceiroId].email) {
+      showToast('O contato do parceiro selecionado não possui email cadastrado.', 'error');
+      return;
+    }
+    
+    destinatario = contatosParceiro[contatoParceiroId].email;
+    nomeDestinatario = contatosParceiro[contatoParceiroId].nome;
+    tipoDestinatario = 'Parceiro';
   } else {
     // Verificar se há contato de cliente SELECIONADO na cotação
     const contatoId = document.getElementById('edit_contato_id')?.value;
@@ -2399,7 +2546,7 @@ async function enviarEmailPorTipo() {
   mensagemConfirmacao += `• Nome: ${nomeDestinatario}\n`;
   mensagemConfirmacao += `• Email: ${destinatario}\n`;
   
-  if (temAgencia && clienteNome) {
+  if ((temAgencia || temParceiro) && clienteNome) {
     mensagemConfirmacao += `• Cliente vinculado: ${clienteNome}\n`;
   }
   
@@ -2428,7 +2575,9 @@ async function enviarEmailPorTipo() {
         destinatario: destinatario,
         nome_destinatario: nomeDestinatario,
         tem_agencia: temAgencia,
+        tem_parceiro: temParceiro,
         agencia_nome: agenciaNome,
+        parceiro_nome: parceiroNome,
         cliente_nome: clienteNome
       })
     });
@@ -2527,6 +2676,7 @@ function abrirModalEditarCliente() {
     return;
   }
   document.getElementById('modal_editar_cliente').showModal();
+  toggleAgenciaParceiroEdit();
 }
 
 async function carregarContatosCliente(clienteId, selectId) {
@@ -2630,6 +2780,13 @@ document.addEventListener('click', function(e) {
   if (resultadosAgencia && inputAgencia && !resultadosAgencia.contains(e.target) && e.target !== inputAgencia) {
     resultadosAgencia.classList.add('hidden');
   }
+  
+  // Fechar resultados de parceiro também
+  const resultadosParceiro = document.getElementById('resultados_parceiros_edit');
+  const inputParceiro = document.getElementById('edit_parceiro_busca');
+  if (resultadosParceiro && inputParceiro && !resultadosParceiro.contains(e.target) && e.target !== inputParceiro) {
+    resultadosParceiro.classList.add('hidden');
+  }
 });
 
 // ============================================
@@ -2672,7 +2829,7 @@ function renderizarResultadosAgenciasEdit(agencias) {
   
   resultadosDiv.innerHTML = agencias.map(agencia => `
     <div class="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0" 
-         onclick="selecionarAgenciaEdit(${agencia.pk_id_tbl_cliente}, '${(agencia.nome_fantasia || agencia.razao_social || '').replace(/'/g, "\\'")}')">
+         onclick="selecionarAgenciaEdit(${agencia.pk_id_tbl_cliente}, '${(agencia.nome_fantasia || agencia.razao_social || '').replace(/'/g, "\\'")}', ${agencia.percentual !== null && agencia.percentual !== undefined ? agencia.percentual : 'null'})">
       <div class="font-semibold text-xs">${agencia.nome_fantasia || agencia.razao_social}</div>
       <div class="text-xs text-gray-500">${agencia.razao_social || ''}</div>
     </div>
@@ -2681,13 +2838,19 @@ function renderizarResultadosAgenciasEdit(agencias) {
   resultadosDiv.classList.remove('hidden');
 }
 
-function selecionarAgenciaEdit(agenciaId, agenciaNome) {
+function selecionarAgenciaEdit(agenciaId, agenciaNome, percentual) {
   document.getElementById('edit_agencia_id').value = agenciaId;
   document.getElementById('edit_agencia_busca').value = agenciaNome;
   document.getElementById('resultados_agencias_edit').classList.add('hidden');
   
   // Carregar contatos da agência selecionada
   carregarContatosAgenciaEdit(agenciaId);
+  
+  // Atualizar percentual de comissão (agência selecionada = tem agência)
+  atualizarComissaoPercentual(percentual, true);
+  
+  // Atualizar visibilidade mútua
+  toggleAgenciaParceiroEdit();
 }
 
 async function carregarContatosAgenciaEdit(agenciaId) {
@@ -2721,12 +2884,159 @@ function limparAgenciaEditModal() {
   document.getElementById('edit_agencia_id').value = '';
   document.getElementById('edit_agencia_busca').value = '';
   document.getElementById('edit_contato_agencia_id').innerHTML = '<option value="">Selecione um contato...</option>';
+  
+  // Sem agência: verificar se há parceiro; se não, sem comissão
+  var parceiroId = document.getElementById('edit_parceiro_id').value;
+  if (!parceiroId) {
+    atualizarComissaoPercentual(null, false);
+  }
+  
+  // Atualizar visibilidade mútua
+  toggleAgenciaParceiroEdit();
 }
 
 function mostrarResultadosAgenciaEditModal() {
   const termo = document.getElementById('edit_agencia_busca').value;
   if (termo.length >= 2) {
     buscarAgenciasEditModal(termo);
+  }
+}
+
+// ============================================
+// BUSCA DE PARCEIRO PARA MODAL DE EDIÇÃO
+// ============================================
+
+let timeoutBuscaParceiroEdit = null;
+
+function buscarParceirosEditModal(termo) {
+  clearTimeout(timeoutBuscaParceiroEdit);
+  
+  if (termo.length < 2) {
+    document.getElementById('resultados_parceiros_edit').classList.add('hidden');
+    return;
+  }
+  
+  timeoutBuscaParceiroEdit = setTimeout(async () => {
+    try {
+      const response = await fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: termo, razao: termo, tipo_cliente: 'Parceiro Regional' })
+      });
+      const data = await response.json();
+      renderizarResultadosParceirosEdit(data.clientes || []);
+    } catch (error) {
+      console.error('Erro ao buscar parceiros:', error);
+    }
+  }, 300);
+}
+
+function renderizarResultadosParceirosEdit(parceiros) {
+  const resultadosDiv = document.getElementById('resultados_parceiros_edit');
+  
+  if (parceiros.length === 0) {
+    resultadosDiv.innerHTML = '<div class="p-2 text-xs text-gray-500">Nenhum parceiro encontrado</div>';
+    resultadosDiv.classList.remove('hidden');
+    return;
+  }
+  
+  resultadosDiv.innerHTML = parceiros.map(parceiro => `
+    <div class="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0" 
+         onclick="selecionarParceiroEdit(${parceiro.pk_id_tbl_cliente}, '${(parceiro.nome_fantasia || parceiro.razao_social || '').replace(/'/g, "\\'")}', ${parceiro.percentual !== null && parceiro.percentual !== undefined ? parceiro.percentual : 'null'})">
+      <div class="font-semibold text-xs">${parceiro.nome_fantasia || parceiro.razao_social}</div>
+      <div class="text-xs text-gray-500">${parceiro.razao_social || ''}</div>
+    </div>
+  `).join('');
+  
+  resultadosDiv.classList.remove('hidden');
+}
+
+function selecionarParceiroEdit(parceiroId, parceiroNome, percentual) {
+  document.getElementById('edit_parceiro_id').value = parceiroId;
+  document.getElementById('edit_parceiro_busca').value = parceiroNome;
+  document.getElementById('resultados_parceiros_edit').classList.add('hidden');
+  
+  // Carregar contatos do parceiro selecionado
+  carregarContatosParceiroEdit(parceiroId);
+  
+  // Atualizar percentual de comissão (parceiro selecionado = tem parceiro)
+  atualizarComissaoPercentual(percentual, true);
+  
+  // Atualizar visibilidade mútua
+  toggleAgenciaParceiroEdit();
+}
+
+async function carregarContatosParceiroEdit(parceiroId) {
+  const select = document.getElementById('edit_contato_parceiro_id');
+  select.innerHTML = '<option value="">Carregando...</option>';
+  
+  if (!parceiroId) {
+    select.innerHTML = '<option value="">Selecione um contato...</option>';
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/clientes/${parceiroId}/todos-contatos`);
+    if (response.ok) {
+      const contatos = await response.json();
+      select.innerHTML = '<option value="">Selecione um contato...</option>';
+      contatos.forEach(contato => {
+        const option = document.createElement('option');
+        option.value = contato.id_contato_cliente;
+        option.textContent = `${contato.nome_completo} (${contato.email || '-'})`;
+        select.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao carregar contatos do parceiro:', error);
+    select.innerHTML = '<option value="">Erro ao carregar contatos</option>';
+  }
+}
+
+function limparParceiroEditModal() {
+  document.getElementById('edit_parceiro_id').value = '';
+  document.getElementById('edit_parceiro_busca').value = '';
+  document.getElementById('edit_contato_parceiro_id').innerHTML = '<option value="">Selecione um contato...</option>';
+  
+  // Sem parceiro: verificar se há agência; se não, sem comissão
+  var agenciaId = document.getElementById('edit_agencia_id').value;
+  if (!agenciaId) {
+    atualizarComissaoPercentual(null, false);
+  }
+  
+  // Atualizar visibilidade mútua
+  toggleAgenciaParceiroEdit();
+}
+
+function mostrarResultadosParceiroEditModal() {
+  const termo = document.getElementById('edit_parceiro_busca').value;
+  if (termo.length >= 2) {
+    buscarParceirosEditModal(termo);
+  }
+}
+
+// ============================================
+// TOGGLE AGÊNCIA / PARCEIRO NO MODAL DE EDIÇÃO
+// ============================================
+
+function toggleAgenciaParceiroEdit() {
+  const agenciaId = document.getElementById('edit_agencia_id').value;
+  const parceiroId = document.getElementById('edit_parceiro_id').value;
+  const blocoAgencia = document.getElementById('edit_bloco_agencia');
+  const blocoParceiro = document.getElementById('edit_bloco_parceiro');
+  
+  if (agenciaId) {
+    // Agência selecionada: mostra agência, esconde parceiro
+    blocoAgencia.style.display = '';
+    blocoParceiro.style.display = 'none';
+  } else if (parceiroId) {
+    // Parceiro selecionado: mostra parceiro, esconde agência
+    blocoAgencia.style.display = 'none';
+    blocoParceiro.style.display = '';
+  } else {
+    // Nenhum selecionado: mostra ambos
+    blocoAgencia.style.display = '';
+    blocoParceiro.style.display = '';
   }
 }
 
@@ -2742,6 +3052,8 @@ async function salvarEdicaoCliente() {
     client_user_id: parseInt(document.getElementById('edit_contato_id').value) || null,
     agencia_id: parseInt(document.getElementById('edit_agencia_id').value) || null,
     agencia_user_id: parseInt(document.getElementById('edit_contato_agencia_id').value) || null,
+    id_parceiro: parseInt(document.getElementById('edit_parceiro_id').value) || null,
+    parceiro_user_id: parseInt(document.getElementById('edit_contato_parceiro_id').value) || null,
     responsavel_comercial: parseInt(document.getElementById('edit_responsavel_comercial').value) || null
   };
   
@@ -3217,9 +3529,9 @@ async function salvarNovaLinha() {
   const produtosSelecionados = Array.from(document.querySelectorAll('input[name="produto"]:checked'))
     .map(cb => cb.value);
   
-  // Calcular investimento líquido
+  // Calcular investimento líquido usando fator da agência/parceiro
   const investBruto = parseMoeda(document.getElementById('investimento_bruto').value) || 0;
-  const investLiquido = investBruto * 0.8;
+  const investLiquido = investBruto * obterFatorLiquido();
   
   var cotacaoId = getCotacaoId();
   if (!cotacaoId) {
@@ -3392,9 +3704,9 @@ async function salvarEdicaoLinha() {
   const produtosSelecionados = Array.from(document.querySelectorAll('input[name="edit_produto"]:checked'))
     .map(cb => cb.value);
   
-  // Calcular investimento líquido
+  // Calcular investimento líquido usando fator da agência/parceiro
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
-  const investLiquido = investBruto * 0.8;
+  const investLiquido = investBruto * obterFatorLiquido();
   
   const data = {
     segmentacao: document.getElementById('edit_segmentacao').value,

@@ -81,7 +81,15 @@ select.select:focus {
       <div class="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center overflow-x-auto">
         <!-- ID -->
         <input type="text" id="filtro-id" placeholder="ID..."
-               class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 80px; min-width: 80px;">
+               class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 70px; min-width: 70px;">
+        
+        <!-- Plataforma -->
+        <select id="filtro-plataforma" 
+                class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 110px; min-width: 110px;">
+          {% for plataforma in plataformas %}
+            <option value="{{ plataforma.id }}" {% if loop.first %}selected{% endif %}>{{ plataforma.nome }}</option>
+          {% endfor %}
+        </select>
         
         <!-- Categoria -->
         <select id="filtro-categoria" 
@@ -192,7 +200,8 @@ select.select:focus {
                 id="audiencia-{{ audiencia.id }}"
                 data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
                 data-categoria-id="{{ audiencia.categoria_id or '' }}"
-                data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
+                data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
+                data-plataforma-id="{{ audiencia.plataforma_id or '' }}">
               <td class="py-2 px-3">
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
                   <code class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">{{ audiencia.id_audiencia_plataforma }}</code>
@@ -296,7 +305,8 @@ select.select:focus {
              data-audiencia-id="{{ audiencia.id }}"
              data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
              data-categoria-id="{{ audiencia.categoria_id or '' }}"
-             data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
+             data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
+             data-plataforma-id="{{ audiencia.plataforma_id or '' }}">
           
           <!-- Imagem -->
           <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
@@ -412,7 +422,8 @@ select.select:focus {
       <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow" 
            data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
            data-categoria-id="{{ audiencia.categoria_id or '' }}"
-           data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}">
+           data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
+           data-plataforma-id="{{ audiencia.plataforma_id or '' }}">
         <div class="card-body p-4">
           <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block mb-3">
             <div class="flex items-start justify-between">
@@ -608,6 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let statusFiltroAtual = ''; // '', 'ativa', 'inativa'
   
   const filtroId = document.getElementById('filtro-id');
+  const filtroPlataforma = document.getElementById('filtro-plataforma');
   const filtroCategoria = document.getElementById('filtro-categoria');
   const filtroSubcategoria = document.getElementById('filtro-subcategoria');
   const filtroStatus = document.getElementById('filtro-status');
@@ -853,9 +865,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Aplicar filtro ao digitar ID
   filtroId.addEventListener('input', aplicarFiltros);
 
+  // Aplicar filtro ao trocar plataforma
+  filtroPlataforma.addEventListener('change', aplicarFiltros);
+
   // Limpar filtros
   btnLimparFiltros.addEventListener('click', function() {
     filtroId.value = '';
+    filtroPlataforma.selectedIndex = 0;
     filtroCategoria.value = '';
     filtroSubcategoria.innerHTML = '<option value="" selected>Todas subcategorias</option>';
     filtroSubcategoria.disabled = true;
@@ -863,17 +879,18 @@ document.addEventListener('DOMContentLoaded', function() {
     aplicarFiltros();
   });
 
-  // Inicializar contador na carga da página
-  atualizarMensagemVazia();
+  // Inicializar filtros na carga da página (plataforma já vem pré-selecionada)
+  aplicarFiltros();
 
   // Função para aplicar filtros
   function aplicarFiltros() {
     const idFiltro = filtroId.value.trim().toLowerCase();
+    const plataformaFiltro = filtroPlataforma.value;
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
     const statusFiltro = statusFiltroAtual;
 
-    console.log('Filtros aplicados:', { idFiltro, categoriaId, subcategoriaId, statusFiltro });
+    console.log('Filtros aplicados:', { idFiltro, plataformaFiltro, categoriaId, subcategoriaId, statusFiltro });
 
     // Filtrar linhas da tabela desktop
     const tableRows = document.querySelectorAll('table tbody tr');
@@ -882,12 +899,19 @@ document.addEventListener('DOMContentLoaded', function() {
       const rowCategoriaId = row.getAttribute('data-categoria-id');
       const rowSubcategoriaId = row.getAttribute('data-subcategoria-id');
       const statusAttr = row.getAttribute('data-status');
+      const rowPlataformaId = row.getAttribute('data-plataforma-id') || '';
       const rowId = row.cells[0]?.textContent.trim().toLowerCase() || '';
       
       let showRow = true;
 
       if (idFiltro) {
         if (!rowId.includes(idFiltro)) {
+          showRow = false;
+        }
+      }
+
+      if (plataformaFiltro && showRow) {
+        if (String(rowPlataformaId) !== String(plataformaFiltro)) {
           showRow = false;
         }
       }
@@ -923,6 +947,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const cardCategoriaId = card.getAttribute('data-categoria-id');
       const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
       const statusAttr = card.getAttribute('data-status');
+      const cardPlataformaId = card.getAttribute('data-plataforma-id') || '';
       const cardIdElement = card.querySelector('code');
       const cardId = cardIdElement ? cardIdElement.textContent.trim().toLowerCase() : '';
 
@@ -930,6 +955,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (idFiltro) {
         if (!cardId.includes(idFiltro)) {
+          showCard = false;
+        }
+      }
+
+      if (plataformaFiltro && showCard) {
+        if (String(cardPlataformaId) !== String(plataformaFiltro)) {
           showCard = false;
         }
       }
@@ -962,6 +993,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const cardCategoriaId = card.getAttribute('data-categoria-id');
       const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
       const statusAttr = card.getAttribute('data-status');
+      const cardPlataformaId = card.getAttribute('data-plataforma-id') || '';
       const cardIdElement = card.querySelector('.badge-neutral');
       const cardId = cardIdElement ? cardIdElement.textContent.replace('#', '').trim().toLowerCase() : '';
 
@@ -969,6 +1001,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (idFiltro) {
         if (!cardId.includes(idFiltro)) {
+          showCard = false;
+        }
+      }
+
+      if (plataformaFiltro && showCard) {
+        if (String(cardPlataformaId) !== String(plataformaFiltro)) {
           showCard = false;
         }
       }

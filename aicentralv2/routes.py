@@ -2615,13 +2615,20 @@ def init_routes(app):
             categorias = db.obter_cadu_categorias() or []
         except Exception as e:
             app.logger.error(f"Erro ao buscar categorias: {e}")
+
+        plataformas = []
+        try:
+            plataformas = db.obter_cadu_plataformas() or []
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar plataformas: {e}")
         
         return render_template('up_audiencia.html', 
                              result=result, 
                              prompt=prompt_text, 
                              models=models, 
                              selected_model_id=selected_model_id,
-                             categorias=categorias)
+                             categorias=categorias,
+                             plataformas=plataformas)
 
     @app.route('/api/webhook-proxy', methods=['POST'])
     @login_required
@@ -3242,6 +3249,7 @@ def init_routes(app):
         try:
             audiencias = db.obter_cadu_audiencias()
             categorias = db.obter_cadu_categorias()
+            plataformas = db.obter_cadu_plataformas()
             
             # Calcular estatísticas
             total = len(audiencias)
@@ -3257,6 +3265,7 @@ def init_routes(app):
             return render_template('cadu_audiencias.html', 
                                  audiencias=audiencias,
                                  categorias=categorias,
+                                 plataformas=plataformas,
                                  stats=stats)
         except Exception as e:
             app.logger.error(f"Erro ao listar audiências: {str(e)}")
@@ -3264,6 +3273,7 @@ def init_routes(app):
             return render_template('cadu_audiencias.html', 
                                  audiencias=[],
                                  categorias=[],
+                                 plataformas=[],
                                  stats={'total': 0, 'ativos': 0, 'inativos': 0})
     
     @app.route('/cadu-audiencias/nova', methods=['GET', 'POST'])

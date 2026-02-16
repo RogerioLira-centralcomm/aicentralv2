@@ -2159,6 +2159,7 @@ def obter_cadu_audiencias():
                 SELECT 
                     a.id,
                     a.id_audiencia_plataforma,
+                    a.plataforma_id,
                     a.fonte,
                     a.nome,
                     a.slug,
@@ -7079,3 +7080,18 @@ def obter_executivos_ativos():
     except Exception as e:
         current_app.logger.error(f"Erro ao obter executivos ativos: {e}")
         return []
+
+
+def obter_cadu_plataformas():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, nome
+                FROM cadu_audiencias_plataformas
+                ORDER BY ordem
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e

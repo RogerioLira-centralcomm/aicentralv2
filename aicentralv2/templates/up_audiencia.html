@@ -42,11 +42,9 @@
             <div class="form-control">
               <label class="label py-0 text-xs font-semibold">Plataforma</label>
               <select id="platform" name="platform" class="select select-bordered h-8 min-h-8 text-xs w-full">
-                <option value="google-dv360">Google DV360</option>
-                <option value="meta-ads">Meta Ads Manager</option>
-                <option value="google-ads">Google Ads</option>
-                <option value="linkedin-ads">LinkedIn Ads</option>
-                <option value="tiktok-ads">TikTok Ads</option>
+                {% for plat in plataformas %}
+                  <option value="{{ plat.nome }}">{{ plat.nome }}</option>
+                {% endfor %}
               </select>
             </div>
             <div class="form-control">

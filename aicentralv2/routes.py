@@ -1127,7 +1127,7 @@ def init_routes(app):
                 pk_id_tbl_cargo = int(pk_id_tbl_cargo)
             
             # Validação de campos obrigatórios
-            if not all([nome_completo, email, senha, pk_id_aux_setor, pk_id_tbl_cargo]):
+            if not all([nome_completo, email, pk_id_aux_setor, pk_id_tbl_cargo]):
                 return jsonify({'success': False, 'message': 'Preencha todos os campos obrigatórios!'}), 400
             
             # Validar se cargo pertence ao setor

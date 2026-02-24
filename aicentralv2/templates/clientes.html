@@ -1592,7 +1592,7 @@ function preencherAbaDetalhes(cliente, contatos) {
           </thead>
           <tbody>
             ${contatos.map(c => `
-              <tr class="hover">
+              <tr class="hover" data-contato-id="${c.id_contato_cliente}">
                 <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
                 <td class="text-xs">${c.email || '—'}</td>
                 <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
@@ -1610,7 +1610,7 @@ function preencherAbaDetalhes(cliente, contatos) {
                 </td>
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-3">
-                    ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato('${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
+                    ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato(${c.id_contato_cliente}, '${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
                     <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                   </div>
                 </td>
@@ -1659,7 +1659,7 @@ async function carregarContatosAba(clienteId) {
             </thead>
             <tbody>
               ${contatos.map(c => `
-                <tr class="hover">
+                <tr class="hover" data-contato-id="${c.id_contato_cliente}">
                   <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
                   <td class="text-xs">${c.email || '—'}</td>
                   <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
@@ -1677,7 +1677,7 @@ async function carregarContatosAba(clienteId) {
                   </td>
                   <td class="text-center">
                     <div class="flex items-center justify-center gap-3">
-                      ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato('${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
+                      ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato(${c.id_contato_cliente}, '${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
                       <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                     </div>
                   </td>
@@ -2171,7 +2171,7 @@ function getInviteStatusBadge(inviteStatus, inviteExpiresAt) {
   return '<span class="badge badge-xs" style="background-color: #e5e7eb; color: #6b7280; border-color: #e5e7eb;">—</span>';
 }
 
-async function enviarConviteContato(email, nomeContato) {
+async function enviarConviteContato(contatoId, email, nomeContato) {
   if (!confirm(`Enviar convite para ${nomeContato} (${email})?`)) return;
   
   const clienteId = document.getElementById('cliente_id').value;
@@ -2197,6 +2197,14 @@ async function enviarConviteContato(email, nomeContato) {
     
     if (result.success) {
       showToast(result.message || `Convite enviado para ${nomeContato}!`, 'success');
+      await carregarContatosAba(clienteId);
+      const row = document.querySelector(`tr[data-contato-id="${contatoId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.transition = 'background-color 0.3s ease';
+        row.style.backgroundColor = '#d1fae5';
+        setTimeout(() => { row.style.backgroundColor = ''; }, 3000);
+      }
     } else {
       showToast(result.message || 'Erro ao enviar convite!', 'error');
     }

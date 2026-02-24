@@ -48,13 +48,11 @@
         <label class="label">
           <span class="label-text font-semibold">Tipo de Plano <span class="text-error">*</span></span>
         </label>
-        <select name="plan_type" class="select select-bordered w-full" required>
+        <select name="id_plan_definition" class="select select-bordered w-full" required>
           <option value="">Selecione o tipo</option>
-          <option value="Beta Tester">Beta Tester</option>
-          <option value="Básico">Básico</option>
-          <option value="Profissional">Profissional</option>
-          <option value="Enterprise">Enterprise</option>
-          <option value="Personalizado">Personalizado</option>
+          {% for pd in plan_definitions %}
+            <option value="{{ pd.id }}">{{ pd.plan_name }}</option>
+          {% endfor %}
         </select>
       </div>
 

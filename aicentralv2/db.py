@@ -831,6 +831,22 @@ def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl
         raise
 
 
+def atualizar_contato_com_senha(contato_id, nome_completo, senha_hash):
+    """Atualiza contato existente com nome e senha ao aceitar invite"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET nome_completo = %s, senha = %s, data_modificacao = CURRENT_TIMESTAMP
+                WHERE id_contato_cliente = %s
+            ''', (nome_completo, senha_hash, contato_id))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise
+
+
 def atualizar_senha_contato(contato_id, nova_senha):
     """Atualiza a senha de um contato"""
     conn = get_db()
@@ -2969,12 +2985,27 @@ def atualizar_system_setting(key, value, updated_by=None):
         raise e
 
 
+def obter_plan_definitions(apenas_ativos=True):
+    """Retorna todas as definições de plano da tabela cadu_plan_definitions"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = 'SELECT * FROM cadu_plan_definitions'
+            if apenas_ativos:
+                query += ' WHERE is_active = true'
+            query += ' ORDER BY display_order'
+            cursor.execute(query)
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
 def obter_planos_clientes(filtros=None):
     """
     Retorna planos de todos os clientes
     
     Args:
-        filtros (dict): Filtros opcionais (plan_status, plan_type, cliente_id)
+        filtros (dict): Filtros opcionais (plan_status, id_plan_definition, cliente_id)
     
     Returns:
         list: Lista de planos
@@ -2987,18 +3018,23 @@ def obter_planos_clientes(filtros=None):
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
+                pd.plan_name as plan_definition_name,
+                pd.max_users as pd_max_users,
+                pd.tokens_monthly_limit as pd_tokens_monthly_limit,
+                pd.limit_image_generation as pd_limit_image_generation,
                 CASE 
-                    WHEN p.tokens_monthly_limit > 0 THEN 
-                        ROUND((p.tokens_used_current_month::decimal / p.tokens_monthly_limit) * 100, 1)
+                    WHEN COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit) > 0 THEN 
+                        ROUND((p.tokens_used_current_month::decimal / COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit)) * 100, 1)
                     ELSE 0 
                 END as tokens_usage_percentage,
                 CASE 
-                    WHEN p.image_credits_monthly > 0 THEN 
-                        ROUND((p.image_credits_used_current_month::decimal / p.image_credits_monthly) * 100, 1)
+                    WHEN COALESCE(pd.limit_image_generation, p.image_credits_monthly) > 0 THEN 
+                        ROUND((p.image_credits_used_current_month::decimal / COALESCE(pd.limit_image_generation, p.image_credits_monthly)) * 100, 1)
                     ELSE 0 
                 END as images_usage_percentage
             FROM cadu_client_plans p
             INNER JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+            LEFT JOIN cadu_plan_definitions pd ON p.id_plan_definition = pd.id
             WHERE 1=1
         '''
         
@@ -3009,9 +3045,9 @@ def obter_planos_clientes(filtros=None):
                 query += ' AND p.plan_status = %s'
                 params.append(filtros['plan_status'])
             
-            if filtros.get('plan_type'):
-                query += ' AND p.plan_type = %s'
-                params.append(filtros['plan_type'])
+            if filtros.get('id_plan_definition'):
+                query += ' AND p.id_plan_definition = %s'
+                params.append(filtros['id_plan_definition'])
             
             if filtros.get('cliente_id'):
                 query += ' AND p.id_cliente = %s'
@@ -3036,10 +3072,12 @@ def obter_plano_por_id(plan_id):
                     p.*,
                     cli.nome_fantasia,
                     cli.razao_social,
-                    u.nome_completo as created_by_name
+                    u.nome_completo as created_by_name,
+                    pd.plan_name as plan_definition_name
                 FROM cadu_client_plans p
                 INNER JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente u ON p.created_by = u.id_contato_cliente
+                LEFT JOIN cadu_plan_definitions pd ON p.id_plan_definition = pd.id
                 WHERE p.id = %s
             ''', (plan_id,))
             return cursor.fetchone()
@@ -3062,7 +3100,7 @@ def criar_client_plan(dados):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_client_plans (
-                    id_cliente, plan_type,
+                    id_cliente, id_plan_definition,
                     tokens_monthly_limit, image_credits_monthly, max_users,
                     features, plan_status, plan_start_date, plan_end_date,
                     valid_from, valid_until
@@ -3071,7 +3109,7 @@ def criar_client_plan(dados):
                 ) RETURNING id
             ''', (
                 dados['id_cliente'],
-                dados['plan_type'],
+                dados['id_plan_definition'],
                 dados.get('tokens_monthly_limit', 100000),
                 dados.get('image_credits_monthly', 50),
                 dados.get('max_users', 5),
@@ -3098,8 +3136,7 @@ def atualizar_client_plan(plan_id, dados):
         with conn.cursor() as cursor:
             cursor.execute('''
                 UPDATE cadu_client_plans
-                SET plan_type = %s,
-                    plan_name = %s,
+                SET id_plan_definition = %s,
                     tokens_monthly_limit = %s,
                     image_credits_monthly = %s,
                     max_users = %s,
@@ -3111,8 +3148,7 @@ def atualizar_client_plan(plan_id, dados):
                 WHERE id = %s
                 RETURNING id
             ''', (
-                dados['plan_type'],
-                dados.get('plan_name'),
+                dados['id_plan_definition'],
                 dados['tokens_monthly_limit'],
                 dados['image_credits_monthly'],
                 dados['max_users'],
@@ -3210,12 +3246,21 @@ def criar_plano_beta_tester(cliente_id, created_by=None, valid_until=None):
     from datetime import datetime, timedelta
     import json
     
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT id FROM cadu_plan_definitions WHERE plan_type = %s LIMIT 1",
+            ('Beta Tester',)
+        )
+        row = cursor.fetchone()
+        id_plan_definition = row['id'] if row else None
+    
     plan_start_date = datetime.now()
-    plan_end_date = plan_start_date + timedelta(days=90)  # 3 meses
+    plan_end_date = plan_start_date + timedelta(days=90)
     
     dados = {
         'id_cliente': cliente_id,
-        'plan_type': 'Plano Beta Tester',
+        'id_plan_definition': id_plan_definition,
         'plan_status': 'active',
         'tokens_monthly_limit': 100000,
         'image_credits_monthly': 50,

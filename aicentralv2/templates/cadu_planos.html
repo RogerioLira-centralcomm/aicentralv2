@@ -41,12 +41,11 @@
         <label class="label">
           <span class="label-text">Tipo de Plano</span>
         </label>
-        <select name="plan_type" class="select select-bordered w-full">
-          <option value="" {% if not filtros.get('plan_type') %}selected{% endif %}>Todos</option>
-          <option value="Plano Beta Tester" {% if filtros.get('plan_type') == 'Plano Beta Tester' %}selected{% endif %}>Plano Beta Tester</option>
-          <option value="Básico" {% if filtros.get('plan_type') == 'Básico' %}selected{% endif %}>Básico</option>
-          <option value="Profissional" {% if filtros.get('plan_type') == 'Profissional' %}selected{% endif %}>Profissional</option>
-          <option value="Empresarial" {% if filtros.get('plan_type') == 'Empresarial' %}selected{% endif %}>Empresarial</option>
+        <select name="id_plan_definition" class="select select-bordered w-full">
+          <option value="" {% if not filtros.get('id_plan_definition') %}selected{% endif %}>Todos</option>
+          {% for pd in plan_definitions %}
+            <option value="{{ pd.id }}" {% if filtros.get('id_plan_definition')|string == pd.id|string %}selected{% endif %}>{{ pd.plan_name }}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="form-control flex flex-row gap-2 items-end">
@@ -88,7 +87,7 @@
                 </a>
               </td>
               <td>
-                <span class="badge badge-sm badge-ghost">{{ plano.plan_type }}</span>
+                <span class="badge badge-sm badge-ghost">{{ plano.plan_definition_name or plano.plan_type or '—' }}</span>
               </td>
               <td class="text-center">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold

@@ -141,17 +141,19 @@ def init_routes(app):
             if request.args.get('plan_status'):
                 filtros['plan_status'] = request.args.get('plan_status')
             
-            if request.args.get('plan_type'):
-                filtros['plan_type'] = request.args.get('plan_type')
+            if request.args.get('id_plan_definition'):
+                filtros['id_plan_definition'] = int(request.args.get('id_plan_definition'))
             
             if request.args.get('cliente_id'):
                 filtros['cliente_id'] = int(request.args.get('cliente_id'))
             
             planos = db.obter_planos_clientes(filtros)
+            plan_definitions = db.obter_plan_definitions()
             
             return render_template('cadu_planos.html',
                                  planos=planos,
                                  filtros=filtros,
+                                 plan_definitions=plan_definitions,
                                  today=date.today())
         except Exception as e:
             flash('Erro ao carregar lista de planos.', 'error')
@@ -178,10 +180,12 @@ def init_routes(app):
             
             # Cliente pré-selecionado via query string
             cliente_id = request.args.get('cliente_id', '')
+            plan_definitions = db.obter_plan_definitions()
             
             return render_template('plano_form.html',
                                  clientes=clientes,
                                  cliente_id=cliente_id,
+                                 plan_definitions=plan_definitions,
                                  modo='novo')
         except Exception as e:
             import logging
@@ -1269,6 +1273,21 @@ def init_routes(app):
             if nova_senha:
                 db.atualizar_senha_contato(contato_id, nova_senha)
             
+            # Se o email mudou, recriar invites com novo token e nova expiração
+            email_anterior = contato_anterior.get('email', '').lower().strip() if contato_anterior else ''
+            if email_anterior and email_anterior != email:
+                with conn.cursor() as cursor_inv:
+                    cursor_inv.execute('''
+                        SELECT id, id_cliente, invited_by, role
+                        FROM cadu_user_invites
+                        WHERE email = %s AND id_cliente = %s
+                    ''', (email_anterior, contato_anterior.get('pk_id_tbl_cliente')))
+                    invites_antigos = cursor_inv.fetchall()
+
+                    for inv in invites_antigos:
+                        cursor_inv.execute('DELETE FROM cadu_user_invites WHERE id = %s', (inv['id'],))
+                        db.criar_invite(inv['id_cliente'], inv['invited_by'], email, inv['role'])
+            
             conn.commit()
             
             # Registro de auditoria
@@ -1356,6 +1375,35 @@ def init_routes(app):
             
             conn = db.get_db()
             with conn.cursor() as cursor:
+                vinculos = []
+
+                cursor.execute('''
+                    SELECT COUNT(*) as total FROM cadu_briefings
+                    WHERE deleted_at IS NULL
+                      AND (id_contato_cliente = %s OR responsavel_centralcomm::text = %s)
+                ''', (contato_id, str(contato_id)))
+                total_briefings = cursor.fetchone()['total']
+                if total_briefings:
+                    vinculos.append(f'{total_briefings} briefing(s)')
+
+                cursor.execute('''
+                    SELECT COUNT(*) as total FROM cadu_cotacoes
+                    WHERE deleted_at IS NULL
+                      AND (client_user_id = %s OR agencia_user_id = %s
+                           OR parceiro_user_id = %s OR responsavel_comercial = %s)
+                ''', (contato_id, contato_id, contato_id, contato_id))
+                total_cotacoes = cursor.fetchone()['total']
+                if total_cotacoes:
+                    vinculos.append(f'{total_cotacoes} cotação(ões)')
+
+                if vinculos:
+                    detalhe = ', '.join(vinculos)
+                    return jsonify({
+                        'success': False,
+                        'has_vinculos': True,
+                        'message': f'Este contato está vinculado a {detalhe}. Inative o contato ao invés de apagar.'
+                    }), 409
+
                 cursor.execute('DELETE FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (contato_id,))
             conn.commit()
             
@@ -1576,30 +1624,30 @@ def init_routes(app):
                 return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
             
             # Extrair dados do plano
-            plan_type = data.get('plan_type')
+            id_plan_definition = data.get('id_plan_definition')
             tokens_monthly = data.get('tokens_monthly_limit')
             image_credits = data.get('image_credits_monthly')
             max_users = data.get('max_users')
             valid_months = data.get('valid_months', 3)
             
-            if not all([plan_type, tokens_monthly, image_credits, max_users]):
+            if not all([id_plan_definition, tokens_monthly, image_credits, max_users]):
                 return jsonify({'success': False, 'error': 'Dados incompletos'}), 400
             
-            # Verificar se já existe plano ativo com o mesmo tipo para este cliente
+            # Verificar se já existe plano ativo com a mesma definição para este cliente
             conn = db.get_db()
             with conn.cursor() as cursor:
                 cursor.execute('''
                     SELECT id FROM cadu_client_plans 
                     WHERE id_cliente = %s 
-                    AND plan_type = %s 
+                    AND id_plan_definition = %s 
                     AND plan_status = 'active'
-                ''', (cliente_id, plan_type))
+                ''', (cliente_id, id_plan_definition))
                 plano_existente = cursor.fetchone()
                 
                 if plano_existente:
                     return jsonify({
                         'success': False, 
-                        'error': f'Já existe um plano {plan_type} ativo para este cliente'
+                        'error': 'Já existe um plano ativo com esta definição para este cliente'
                     }), 400
             
             # Calcular data de validade
@@ -1609,7 +1657,7 @@ def init_routes(app):
             # Preparar dados do plano
             plan_data = {
                 'id_cliente': cliente_id,
-                'plan_type': plan_type,
+                'id_plan_definition': id_plan_definition,
                 'tokens_monthly_limit': tokens_monthly,
                 'image_credits_monthly': image_credits,
                 'max_users': max_users,
@@ -1629,12 +1677,12 @@ def init_routes(app):
                 registrar_auditoria(
                     acao='CREATE',
                     modulo='PLANOS',
-                    descricao=f'Criado plano {plan_type} para cliente {cliente_id}',
+                    descricao=f'Criado plano (def {id_plan_definition}) para cliente {cliente_id}',
                     registro_id=plano_id,
                     registro_tipo='client_plan',
                     dados_novos={
                         'cliente_id': cliente_id,
-                        'plan_type': plan_type,
+                        'id_plan_definition': id_plan_definition,
                         'tokens_monthly_limit': tokens_monthly,
                         'image_credits_monthly': image_credits,
                         'max_users': max_users,
@@ -1663,15 +1711,16 @@ def init_routes(app):
             for plano in planos:
                 planos_formatados.append({
                     'id': plano.get('id'),
-                    'plan_type': plano.get('plan_type'),
+                    'plan_name': plano.get('plan_definition_name') or plano.get('plan_type') or '—',
+                    'id_plan_definition': plano.get('id_plan_definition'),
                     'plan_status': plano.get('plan_status'),
-                    'tokens_monthly_limit': plano.get('tokens_monthly_limit'),
+                    'tokens_monthly_limit': plano.get('pd_tokens_monthly_limit') or plano.get('tokens_monthly_limit'),
                     'tokens_used_current_month': plano.get('tokens_used_current_month') or 0,
                     'tokens_usage_percentage': plano.get('tokens_usage_percentage') or 0,
-                    'image_credits_monthly': plano.get('image_credits_monthly'),
+                    'image_credits_monthly': plano.get('pd_limit_image_generation') or plano.get('image_credits_monthly'),
                     'image_credits_used_current_month': plano.get('image_credits_used_current_month') or 0,
                     'images_usage_percentage': plano.get('images_usage_percentage') or 0,
-                    'max_users': plano.get('max_users'),
+                    'max_users': plano.get('pd_max_users') or plano.get('max_users'),
                     'valid_until': plano.get('valid_until').isoformat() if plano.get('valid_until') else None,
                     'valid_from': plano.get('valid_from').isoformat() if plano.get('valid_from') else None
                 })
@@ -1764,6 +1813,11 @@ def init_routes(app):
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             if not re.match(email_pattern, email):
                 return jsonify({'success': False, 'message': 'Formato de email inválido!'}), 400
+            
+            # Validar se contato está ativo
+            contato = db.obter_contato_por_email(email)
+            if contato and not contato.get('status'):
+                return jsonify({'success': False, 'message': 'Não é possível enviar convite para contato inativo!'}), 400
             
             # Validar se já existe convite pendente para este email/cliente (verifica cadu_user_invites)
             convite_pendente = db.verificar_convite_pendente(email, cliente_id)
@@ -1992,10 +2046,8 @@ def init_routes(app):
                                    nome=nome)
         
         try:
-            # Criar o contato/usuário
             senha_hash = hashlib.sha256(senha.encode()).hexdigest()
             
-            # Mapear role do invite para user_type válido (client, admin, superadmin, readonly)
             role_mapping = {
                 'member': 'client',
                 'admin': 'admin',
@@ -2005,19 +2057,22 @@ def init_routes(app):
             }
             user_type = role_mapping.get(invite['role'], 'client')
             
-            contato_id = db.criar_contato(
-                nome_completo=nome,
-                email=invite['email'],
-                senha=senha_hash,
-                pk_id_tbl_cliente=invite['id_cliente'],
-                user_type=user_type
-            )
+            contato_existente = db.obter_contato_por_email(invite['email'])
+            if contato_existente:
+                db.atualizar_contato_com_senha(contato_existente['id_contato_cliente'], nome, senha_hash)
+                contato_id = contato_existente['id_contato_cliente']
+            else:
+                contato_id = db.criar_contato(
+                    nome_completo=nome,
+                    email=invite['email'],
+                    senha=senha_hash,
+                    pk_id_tbl_cliente=invite['id_cliente'],
+                    user_type=user_type
+                )
             
             if contato_id:
-                # Marcar convite como aceito
                 db.aceitar_invite(invite['id'], contato_id)
                 
-                # Fazer login automático
                 session['user_id'] = contato_id
                 session['user_name'] = nome
                 session['user_email'] = invite['email']
@@ -2823,14 +2878,14 @@ def init_routes(app):
                     dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
                 )
                 
-                # Criar plano Beta Tester automaticamente
+                # Criar plano padrão (id_plan_definition=1) automaticamente
                 try:
                     valid_from = datetime.now()
-                    valid_until = datetime.now() + timedelta(days=90)  # 3 meses
+                    valid_until = datetime.now() + timedelta(days=90)
                     
                     plan_data = {
                         'id_cliente': id_cliente,
-                        'plan_type': 'Plano Beta Tester',
+                        'id_plan_definition': 1,
                         'tokens_monthly_limit': 100000,
                         'image_credits_monthly': 50,
                         'max_users': 10,
@@ -2845,16 +2900,15 @@ def init_routes(app):
                     plano_id = db.criar_client_plan(plan_data)
                     
                     if plano_id:
-                        # Registrar auditoria do plano
                         registrar_auditoria(
                             acao='CREATE',
                             modulo='PLANOS',
-                            descricao=f'Criado plano Beta Tester automaticamente para cliente {nome_fantasia}',
+                            descricao=f'Criado plano automaticamente para cliente {nome_fantasia}',
                             registro_id=plano_id,
                             registro_tipo='client_plan',
                             dados_novos={
                                 'cliente_id': id_cliente,
-                                'plan_type': 'Plano Beta Tester',
+                                'id_plan_definition': 1,
                                 'tokens_monthly_limit': 100000,
                                 'image_credits_monthly': 50,
                                 'max_users': 10,
@@ -2862,10 +2916,9 @@ def init_routes(app):
                             }
                         )
                 except Exception as e:
-                    app.logger.warning(f"Erro ao criar plano Beta Tester para cliente {id_cliente}: {e}")
-                    # Não falha a criação do cliente se o plano falhar
+                    app.logger.warning(f"Erro ao criar plano para cliente {id_cliente}: {e}")
                 
-                flash(f'Cliente "{nome_fantasia}" criado com plano Beta Tester!', 'success')
+                flash(f'Cliente "{nome_fantasia}" criado com sucesso!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro: {e}")

@@ -301,7 +301,7 @@
         <i class="fas fa-address-book mr-2"></i>Contatos
       </button>
       <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
-        <i class="fas fa-file-contract mr-2"></i>Contratos
+        <i class="fas fa-file-contract mr-2"></i>Assinaturas
       </button>
     </div>
     
@@ -490,7 +490,7 @@
       <!-- Conteúdo Contratos -->
       <div id="contratos_aba_content" class="modal-tab-content hidden" data-tab="contratos">
         <div class="flex justify-between items-center mb-4">
-          <h4 class="text-sm font-medium text-gray-700">Contratos do Cliente</h4>
+          <h4 class="text-sm font-medium text-gray-700">Assinaturas do Cliente</h4>
         </div>
         
         <div class="bg-gray-50 rounded-lg p-4 mb-4">
@@ -1610,7 +1610,7 @@ function preencherAbaDetalhes(cliente, contatos) {
                 </td>
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-3">
-                    ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato(${c.id_contato_cliente}, '${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
+                    ${c.email && c.status ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato(${c.id_contato_cliente}, '${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : `<i class="fas fa-paper-plane text-gray-300" title="${!c.email ? 'Sem email cadastrado' : 'Contato inativo'}"></i>`}
                     <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${cliente.id_cliente}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                   </div>
                 </td>
@@ -1677,7 +1677,7 @@ async function carregarContatosAba(clienteId) {
                   </td>
                   <td class="text-center">
                     <div class="flex items-center justify-center gap-3">
-                      ${c.email ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato(${c.id_contato_cliente}, '${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : '<i class="fas fa-paper-plane text-gray-300" title="Sem email cadastrado"></i>'}
+                      ${c.email && c.status ? `<i class="fas fa-paper-plane text-success cursor-pointer hover:scale-110 transition-all" onclick="enviarConviteContato(${c.id_contato_cliente}, '${(c.email || '').replace(/'/g, "\\'")}', '${c.nome_completo.replace(/'/g, "\\'")}')" title="Enviar convite"></i>` : `<i class="fas fa-paper-plane text-gray-300" title="${!c.email ? 'Sem email cadastrado' : 'Contato inativo'}"></i>`}
                       <i class="fas fa-trash text-error cursor-pointer hover:scale-110 transition-all" onclick="deletarContato(${c.id_contato_cliente}, ${clienteId}, '${c.nome_completo.replace(/'/g, "\\'")}')" title="Deletar"></i>
                     </div>
                   </td>
@@ -1729,7 +1729,7 @@ async function carregarContratosCliente(clienteId) {
             <tbody>
               ${data.planos.map(p => `
                 <tr class="hover">
-                  <td class="font-semibold">${p.plan_type || '—'}</td>
+                  <td class="font-semibold">${p.plan_name || '—'}</td>
                   <td>
                     <button type="button"
                             class="badge badge-xs cursor-pointer transition-all hover:scale-105"
@@ -1760,11 +1760,11 @@ async function carregarContratosCliente(clienteId) {
         </div>
       `;
     } else {
-      listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhum contrato encontrado</p>';
+      listaContratos.innerHTML = '<p class="text-center text-base-content/60 text-sm py-4">Nenhuma assinatura encontrada</p>';
     }
   } catch (error) {
-    console.error('Erro ao carregar contratos:', error);
-    listaContratos.innerHTML = '<p class="text-center text-error text-sm py-4">Erro ao carregar contratos</p>';
+    console.error('Erro ao carregar assinaturas:', error);
+    listaContratos.innerHTML = '<p class="text-center text-error text-sm py-4">Erro ao carregar assinaturas</p>';
   }
 }
 
@@ -2099,8 +2099,19 @@ async function deletarContato(contatoId, clienteId, nomeContato) {
     
     if (result.success) {
       showToast(result.message, 'success');
-      // Recarregar lista de contatos
       await carregarContatosAba(clienteId);
+    } else if (result.has_vinculos) {
+      const inativar = confirm(`${result.message}\n\nDeseja inativar o contato?`);
+      if (inativar) {
+        const resp = await fetch(`/api/contato/${contatoId}/toggle-status`, { method: 'POST' });
+        const res = await resp.json();
+        if (res.success) {
+          showToast('Contato inativado com sucesso!', 'success');
+          await carregarContatosAba(clienteId);
+        } else {
+          showToast(res.message || 'Erro ao inativar contato!', 'error');
+        }
+      }
     } else {
       showToast(result.message || 'Erro ao deletar contato!', 'error');
     }

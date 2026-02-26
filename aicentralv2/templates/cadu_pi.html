@@ -1,0 +1,207 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}PIs - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <h1 class="text-lg font-semibold text-gray-800">PIs</h1>
+
+      <form id="filtros_form" class="flex items-center gap-3">
+        <select name="resp_comercial" id="filtro_executivo" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todos executivos</option>
+          {% for v in vendedores %}
+            <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
+              {{ v.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <select name="id_cliente" id="filtro_cliente" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+          <option value="">Todos clientes</option>
+          {% for c in clientes %}
+            <option value="{{ c.id_cliente }}" {% if filtros.get('id_cliente')|string == c.id_cliente|string %}selected{% endif %}>
+              {{ c.nome_fantasia }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <select name="id_status_pi" id="filtro_status" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 130px;">
+          <option value="">Todos status</option>
+          {% for s in status_pi %}
+            <option value="{{ s.id }}" {% if filtros.get('id_status_pi')|string == s.id|string %}selected{% endif %}>
+              {{ s.descricao }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <input type="month" name="mes_ref" id="filtro_mes_ref"
+               value="{{ filtros.get('mes_ref', '') }}"
+               onchange="aplicarFiltros()"
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
+
+        <div class="relative">
+          <input type="text" name="busca" id="filtro_busca"
+                 value="{{ filtros.get('search', '') }}"
+                 placeholder="Buscar título/código..."
+                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+                 style="min-width: 180px;"
+                 onkeyup="debounceAplicarFiltros()">
+          <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+        </div>
+      </form>
+
+      <a href="{{ url_for('cadu_pi_novo') }}" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
+        <i class="fas fa-plus mr-1"></i>Novo PI
+      </a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span class="text-sm">{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-white rounded border border-gray-200 overflow-hidden">
+    {% if pis %}
+      <table class="table table-sm w-full">
+        <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
+          <tr>
+            <th class="font-semibold py-3" style="width: 130px;">Código PI CC</th>
+            <th class="font-semibold" style="max-width: 250px;">Título</th>
+            <th class="font-semibold">Cliente</th>
+            <th class="font-semibold">Agência</th>
+            <th class="font-semibold text-center" style="width: 110px;">Status</th>
+            <th class="font-semibold text-center" style="width: 140px;">Período</th>
+            <th class="font-semibold text-right" style="width: 130px;">Valor Bruto</th>
+            <th class="font-semibold text-center" style="width: 100px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="text-sm">
+          {% for pi in pis %}
+          <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="py-3">
+              <span class="font-mono text-xs font-semibold text-gray-700">{{ pi.codigo_pi_cc or '-' }}</span>
+            </td>
+            <td style="max-width: 250px;">
+              <div class="flex flex-col max-w-[240px]">
+                <span class="font-medium text-gray-800 truncate">{{ pi.titulo_pi or '-' }}</span>
+                <span class="text-xs text-gray-400">{{ pi.created_at.strftime('%d/%m/%Y') if pi.created_at else '' }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="text-sm text-gray-700">{{ pi.cliente_nome or '-' }}</span>
+            </td>
+            <td>
+              <span class="text-sm text-gray-700">{{ pi.agencia_nome or '-' }}</span>
+            </td>
+            <td class="text-center">
+              {% if pi.status_descricao %}
+              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700">
+                {{ pi.status_descricao }}
+              </span>
+              {% else %}
+              <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if pi.periodo_inicio %}
+              <span class="text-xs text-gray-600">
+                {{ pi.periodo_inicio.strftime('%d/%m/%y') if pi.periodo_inicio else '' }}
+                {% if pi.periodo_fim %} - {{ pi.periodo_fim.strftime('%d/%m/%y') }}{% endif %}
+              </span>
+              {% else %}
+              <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
+            <td class="text-right">
+              {% if pi.valor_bruto %}
+              <span class="font-semibold text-gray-800">R$ {{ "{:,.2f}".format(pi.valor_bruto|float).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+              {% else %}
+              <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="flex items-center justify-center gap-2">
+                <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors" title="Editar">
+                  <i class="fa-solid fa-pen-to-square text-sm text-gray-500 hover:text-gray-700"></i>
+                </a>
+                <button onclick="excluirPI({{ pi.id_pi }}, '{{ pi.titulo_pi|e }}')" class="p-1.5 rounded hover:bg-red-50 transition-colors" title="Excluir">
+                  <i class="fa-solid fa-trash text-sm text-gray-400 hover:text-red-600"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <p class="text-sm text-gray-600">
+          <strong>{{ pis|length }}</strong> PI(s) encontrado(s)
+        </p>
+      </div>
+    {% else %}
+      <div class="p-8 text-center">
+        <i class="fas fa-file-contract text-4xl text-gray-300 mb-3"></i>
+        <p class="text-gray-500">Nenhum PI encontrado.</p>
+        <a href="{{ url_for('cadu_pi_novo') }}" class="btn btn-sm mt-4 text-white" style="background-color: #72cd80;">
+          <i class="fas fa-plus mr-2"></i>Novo PI
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+let debounceTimer;
+
+function debounceAplicarFiltros() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(aplicarFiltros, 500);
+}
+
+function aplicarFiltros() {
+  const params = new URLSearchParams();
+  const exec = document.getElementById('filtro_executivo').value;
+  const cli = document.getElementById('filtro_cliente').value;
+  const st = document.getElementById('filtro_status').value;
+  const mes = document.getElementById('filtro_mes_ref').value;
+  const busca = document.getElementById('filtro_busca').value.trim();
+
+  if (exec) params.set('resp_comercial', exec);
+  if (cli) params.set('id_cliente', cli);
+  if (st) params.set('id_status_pi', st);
+  if (mes) params.set('mes_ref', mes);
+  if (busca) params.set('busca', busca);
+
+  window.location.href = '/cadu_pi' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function excluirPI(id, titulo) {
+  if (!confirm('Deseja excluir o PI "' + titulo + '"?')) return;
+
+  fetch('/api/cadu_pi/' + id + '/excluir', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.message || 'Erro ao excluir PI');
+      }
+    })
+    .catch(() => alert('Erro ao excluir PI'));
+}
+</script>
+{% endblock %}

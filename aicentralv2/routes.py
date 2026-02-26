@@ -7777,4 +7777,197 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao recategorizar clientes: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    # ==================== CADU PI ====================
+
+    @app.route('/cadu_pi')
+    @login_required
+    def cadu_pi_lista():
+        """Lista PIs com filtros"""
+        try:
+            filtros = {}
+
+            if request.args.get('resp_comercial'):
+                filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
+            if request.args.get('id_cliente'):
+                filtros['id_cliente'] = int(request.args.get('id_cliente'))
+            if request.args.get('id_status_pi'):
+                filtros['id_status_pi'] = int(request.args.get('id_status_pi'))
+            if request.args.get('id_agencia'):
+                filtros['id_agencia'] = int(request.args.get('id_agencia'))
+            if request.args.get('mes_ref'):
+                filtros['mes_ref'] = request.args.get('mes_ref')
+            if request.args.get('busca', '').strip():
+                filtros['search'] = request.args.get('busca').strip()
+
+            pis = db.obter_cadu_pi_lista(filtros)
+            status_pi = db.obter_status_pi()
+            agencias = db.obter_aux_agencia()
+            vendedores = db.obter_vendedores_centralcomm()
+            clientes = db.obter_clientes_simples()
+
+            return render_template('cadu_pi.html',
+                                   pis=pis or [],
+                                   status_pi=status_pi,
+                                   agencias=agencias,
+                                   vendedores=vendedores,
+                                   clientes=clientes,
+                                   filtros=filtros)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
+            flash('Erro ao carregar lista de PIs.', 'error')
+            return render_template('cadu_pi.html',
+                                   pis=[],
+                                   status_pi=[],
+                                   agencias=[],
+                                   vendedores=[],
+                                   clientes=[],
+                                   filtros={})
+
+    @app.route('/cadu_pi/novo', methods=['GET', 'POST'])
+    @login_required
+    def cadu_pi_novo():
+        """Criar novo PI"""
+        if request.method == 'POST':
+            try:
+                data = _coletar_dados_pi_form()
+                id_pi = db.criar_cadu_pi(data)
+
+                registrar_auditoria(
+                    acao='INSERT',
+                    modulo='cadu_pi',
+                    descricao=f'PI criado: {data.get("titulo_pi", "")}',
+                    registro_id=id_pi,
+                    registro_tipo='cadu_pi',
+                    dados_novos=data
+                )
+
+                flash('PI criado com sucesso!', 'success')
+                return redirect(url_for('cadu_pi_lista'))
+            except Exception as e:
+                app.logger.error(f"Erro ao criar PI: {e}", exc_info=True)
+                flash(f'Erro ao criar PI: {str(e)}', 'error')
+
+        auxiliares = _carregar_auxiliares_pi()
+        return render_template('cadu_pi_form.html', modo='novo', pi=None, **auxiliares)
+
+    @app.route('/cadu_pi/editar/<int:id_pi>', methods=['GET', 'POST'])
+    @login_required
+    def cadu_pi_editar(id_pi):
+        """Editar PI existente"""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                flash('PI não encontrado.', 'error')
+                return redirect(url_for('cadu_pi_lista'))
+
+            if request.method == 'POST':
+                data = _coletar_dados_pi_form()
+                db.atualizar_cadu_pi(id_pi, data)
+
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='cadu_pi',
+                    descricao=f'PI atualizado: {data.get("titulo_pi", "")}',
+                    registro_id=id_pi,
+                    registro_tipo='cadu_pi',
+                    dados_anteriores=dict(pi),
+                    dados_novos=data
+                )
+
+                flash('PI atualizado com sucesso!', 'success')
+                return redirect(url_for('cadu_pi_lista'))
+
+            auxiliares = _carregar_auxiliares_pi()
+            return render_template('cadu_pi_form.html', modo='editar', pi=pi, **auxiliares)
+        except Exception as e:
+            app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
+            flash(f'Erro ao editar PI: {str(e)}', 'error')
+            return redirect(url_for('cadu_pi_lista'))
+
+    @app.route('/api/cadu_pi/<int:id_pi>/excluir', methods=['POST', 'DELETE'])
+    @login_required
+    def cadu_pi_excluir(id_pi):
+        """API para excluir PI"""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            db.excluir_cadu_pi(id_pi)
+
+            registrar_auditoria(
+                acao='DELETE',
+                modulo='cadu_pi',
+                descricao=f'PI excluído: {pi.get("titulo_pi", "")}',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_anteriores=dict(pi)
+            )
+
+            return jsonify({'success': True, 'message': 'PI excluído com sucesso'})
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir PI: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    def _parse_decimal(value):
+        """Converte string de valor monetário brasileiro para float"""
+        if not value:
+            return None
+        value = str(value).strip()
+        if not value:
+            return None
+        value = value.replace('.', '').replace(',', '.')
+        try:
+            return float(value)
+        except ValueError:
+            return None
+
+    def _coletar_dados_pi_form():
+        """Coleta dados do formulário de PI"""
+        return {
+            'id_cliente': request.form.get('id_cliente', type=int),
+            'titulo_pi': request.form.get('titulo_pi', '').strip(),
+            'codigo_pi_ag': request.form.get('codigo_pi_ag', '').strip() or None,
+            'codigo_pi_cc': request.form.get('codigo_pi_cc', '').strip() or None,
+            'tipo_pi': request.form.get('tipo_pi', '').strip() or None,
+            'tem_agencia': request.form.get('tem_agencia') == 'on',
+            'id_agencia': request.form.get('id_agencia', type=int),
+            'perc_comissao_agencia': _parse_decimal(request.form.get('perc_comissao_agencia')),
+            'id_parceiro': request.form.get('id_parceiro', type=int),
+            'perc_comissao_parceiro': _parse_decimal(request.form.get('perc_comissao_parceiro')),
+            'valor_bruto': _parse_decimal(request.form.get('valor_bruto')),
+            'valor_liquido': _parse_decimal(request.form.get('valor_liquido')),
+            'comissao_agencia': _parse_decimal(request.form.get('comissao_agencia')),
+            'comissao_parceiro': _parse_decimal(request.form.get('comissao_parceiro')),
+            'valor_liquido_pr': _parse_decimal(request.form.get('valor_liquido_pr')),
+            'total_plataformas': request.form.get('total_plataformas', type=int),
+            'valor_plataformas': _parse_decimal(request.form.get('valor_plataformas')),
+            'periodo_inicio': request.form.get('periodo_inicio') or None,
+            'periodo_fim': request.form.get('periodo_fim') or None,
+            'mes_ref': request.form.get('mes_ref', '').strip() or None,
+            'resp_comercial': request.form.get('resp_comercial', type=int),
+            'contato_fin_cliente': request.form.get('contato_fin_cliente', '').strip() or None,
+            'contato_midia_cliente': request.form.get('contato_midia_cliente', '').strip() or None,
+            'contato_fin_agencia': request.form.get('contato_fin_agencia', '').strip() or None,
+            'contato_midia_agencia': request.form.get('contato_midia_agencia', '').strip() or None,
+            'id_status_pi': request.form.get('id_status_pi', type=int),
+            'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int),
+            'link_pi_principal': request.form.get('link_pi_principal', '').strip() or None,
+            'link_financeiro': request.form.get('link_financeiro', '').strip() or None,
+            'link_pecas': request.form.get('link_pecas', '').strip() or None,
+            'link_arquivo_assinado': request.form.get('link_arquivo_assinado', '').strip() or None,
+            'obs_financeiro': request.form.get('obs_financeiro', '').strip() or None,
+            'obs_operacao': request.form.get('obs_operacao', '').strip() or None,
+        }
+
+    def _carregar_auxiliares_pi():
+        """Carrega dados auxiliares para selects do formulário de PI"""
+        return {
+            'clientes': db.obter_clientes_simples(),
+            'agencias': db.obter_aux_agencia(),
+            'vendedores': db.obter_vendedores_centralcomm(),
+            'status_pi': db.obter_status_pi(),
+            'sub_status_pi': db.obter_sub_status_pi(),
+        }
+
     # ==================== UP AUDIÊNCIA ====================

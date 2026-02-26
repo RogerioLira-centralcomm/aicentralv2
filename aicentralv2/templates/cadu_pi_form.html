@@ -1,0 +1,307 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{{ 'Novo PI' if modo == 'novo' else 'Editar PI' }} - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold">{{ 'Novo PI' if modo == 'novo' else 'Editar PI' }}</h1>
+    <p class="text-sm text-base-content/70">Preencha os dados do PI.</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-base-100 rounded-xl shadow-lg p-6">
+    <form method="POST" action="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) if modo == 'editar' else url_for('cadu_pi_novo') }}" class="space-y-8">
+
+      <!-- Dados Principais -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Dados Principais</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control md:col-span-2">
+            <label class="label"><span class="label-text font-semibold">Cliente <span class="text-error">*</span></span></label>
+            <select name="id_cliente" class="select select-bordered w-full" required>
+              <option value="">Selecione o cliente</option>
+              {% for c in clientes %}
+                <option value="{{ c.id_cliente }}" {% if pi and pi.id_cliente == c.id_cliente %}selected{% endif %}>
+                  {{ c.nome_fantasia }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control md:col-span-2">
+            <label class="label"><span class="label-text font-semibold">Título <span class="text-error">*</span></span></label>
+            <input type="text" name="titulo_pi" class="input input-bordered w-full" value="{{ pi.titulo_pi if pi else '' }}" required>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Código PI AG</span></label>
+            <input type="text" name="codigo_pi_ag" class="input input-bordered w-full" value="{{ pi.codigo_pi_ag if pi and pi.codigo_pi_ag else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Código PI CC</span></label>
+            <input type="text" name="codigo_pi_cc" class="input input-bordered w-full" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Tipo PI</span></label>
+            <input type="text" name="tipo_pi" class="input input-bordered w-full" value="{{ pi.tipo_pi if pi and pi.tipo_pi else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Agência -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Agência</legend>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-3">
+              <input type="checkbox" name="tem_agencia" class="toggle toggle-sm" id="toggle_agencia"
+                     {% if pi and pi.tem_agencia %}checked{% endif %}
+                     onchange="toggleAgenciaFields()">
+              <span class="label-text font-semibold">Tem Agência</span>
+            </label>
+          </div>
+          <div class="form-control" id="field_agencia">
+            <label class="label"><span class="label-text font-semibold">Agência</span></label>
+            <select name="id_agencia" class="select select-bordered w-full">
+              <option value="">Selecione</option>
+              {% for a in agencias %}
+                <option value="{{ a.id_agencia }}" {% if pi and pi.id_agencia == a.id_agencia %}selected{% endif %}>
+                  {{ a.display }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control" id="field_perc_agencia">
+            <label class="label"><span class="label-text font-semibold">% Comissão Agência</span></label>
+            <input type="text" name="perc_comissao_agencia" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.perc_comissao_agencia if pi and pi.perc_comissao_agencia else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Parceiro Regional -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Parceiro Regional</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Parceiro</span></label>
+            <select name="id_parceiro" class="select select-bordered w-full">
+              <option value="">Selecione</option>
+              {% for c in clientes %}
+                <option value="{{ c.id_cliente }}" {% if pi and pi.id_parceiro == c.id_cliente %}selected{% endif %}>
+                  {{ c.nome_fantasia }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">% Comissão Parceiro</span></label>
+            <input type="text" name="perc_comissao_parceiro" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.perc_comissao_parceiro if pi and pi.perc_comissao_parceiro else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Valores -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Valores</legend>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Valor Bruto</span></label>
+            <input type="text" name="valor_bruto" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Valor Líquido</span></label>
+            <input type="text" name="valor_liquido" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Comissão Agência</span></label>
+            <input type="text" name="comissao_agencia" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Comissão Parceiro</span></label>
+            <input type="text" name="comissao_parceiro" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Valor Líquido PR</span></label>
+            <input type="text" name="valor_liquido_pr" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Total Plataformas</span></label>
+            <input type="number" name="total_plataformas" class="input input-bordered w-full"
+                   value="{{ pi.total_plataformas if pi and pi.total_plataformas else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Valor Plataformas</span></label>
+            <input type="text" name="valor_plataformas" class="input input-bordered w-full" placeholder="0,00"
+                   value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Período -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Período</legend>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Período Início</span></label>
+            <input type="date" name="periodo_inicio" class="input input-bordered w-full"
+                   value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Período Fim</span></label>
+            <input type="date" name="periodo_fim" class="input input-bordered w-full"
+                   value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Mês Referência</span></label>
+            <input type="month" name="mes_ref" class="input input-bordered w-full"
+                   value="{{ pi.mes_ref if pi and pi.mes_ref else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Responsáveis e Contatos -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Responsáveis e Contatos</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control md:col-span-2">
+            <label class="label"><span class="label-text font-semibold">Resp. Comercial</span></label>
+            <select name="resp_comercial" class="select select-bordered w-full">
+              <option value="">Selecione</option>
+              {% for v in vendedores %}
+                <option value="{{ v.id_contato_cliente }}" {% if pi and pi.resp_comercial == v.id_contato_cliente %}selected{% endif %}>
+                  {{ v.nome_completo }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Contato Financeiro Cliente</span></label>
+            <input type="text" name="contato_fin_cliente" class="input input-bordered w-full"
+                   value="{{ pi.contato_fin_cliente if pi and pi.contato_fin_cliente else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Contato Mídia Cliente</span></label>
+            <input type="text" name="contato_midia_cliente" class="input input-bordered w-full"
+                   value="{{ pi.contato_midia_cliente if pi and pi.contato_midia_cliente else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Contato Financeiro Agência</span></label>
+            <input type="text" name="contato_fin_agencia" class="input input-bordered w-full"
+                   value="{{ pi.contato_fin_agencia if pi and pi.contato_fin_agencia else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Contato Mídia Agência</span></label>
+            <input type="text" name="contato_midia_agencia" class="input input-bordered w-full"
+                   value="{{ pi.contato_midia_agencia if pi and pi.contato_midia_agencia else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Status -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Status</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Status PI</span></label>
+            <select name="id_status_pi" class="select select-bordered w-full">
+              <option value="">Selecione</option>
+              {% for s in status_pi %}
+                <option value="{{ s.id }}" {% if pi and pi.id_status_pi == s.id %}selected{% endif %}>
+                  {{ s.descricao }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Sub-status</span></label>
+            <select name="id_sub_status_pi" class="select select-bordered w-full">
+              <option value="">Selecione</option>
+              {% for ss in sub_status_pi %}
+                <option value="{{ ss.id }}" {% if pi and pi.id_sub_status_pi == ss.id %}selected{% endif %}>
+                  {{ ss.descricao }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Google Drive -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Google Drive</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">PI Principal</span></label>
+            <input type="url" name="link_pi_principal" class="input input-bordered w-full" placeholder="https://..."
+                   value="{{ pi.link_pi_principal if pi and pi.link_pi_principal else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Financeiro</span></label>
+            <input type="url" name="link_financeiro" class="input input-bordered w-full" placeholder="https://..."
+                   value="{{ pi.link_financeiro if pi and pi.link_financeiro else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Peças</span></label>
+            <input type="url" name="link_pecas" class="input input-bordered w-full" placeholder="https://..."
+                   value="{{ pi.link_pecas if pi and pi.link_pecas else '' }}">
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Arquivo Assinado</span></label>
+            <input type="url" name="link_arquivo_assinado" class="input input-bordered w-full" placeholder="https://..."
+                   value="{{ pi.link_arquivo_assinado if pi and pi.link_arquivo_assinado else '' }}">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Observações -->
+      <fieldset>
+        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Observações</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Obs. Financeiro</span></label>
+            <textarea name="obs_financeiro" class="textarea textarea-bordered w-full" rows="3">{{ pi.obs_financeiro if pi and pi.obs_financeiro else '' }}</textarea>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Obs. Operação</span></label>
+            <textarea name="obs_operacao" class="textarea textarea-bordered w-full" rows="3">{{ pi.obs_operacao if pi and pi.obs_operacao else '' }}</textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Botões -->
+      <div class="flex justify-end gap-3 pt-4">
+        <a href="{{ url_for('cadu_pi_lista') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save mr-2"></i>{{ 'Criar PI' if modo == 'novo' else 'Atualizar PI' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleAgenciaFields() {
+  const checked = document.getElementById('toggle_agencia').checked;
+  document.getElementById('field_agencia').style.display = checked ? '' : 'none';
+  document.getElementById('field_perc_agencia').style.display = checked ? '' : 'none';
+}
+document.addEventListener('DOMContentLoaded', toggleAgenciaFields);
+</script>
+{% endblock %}

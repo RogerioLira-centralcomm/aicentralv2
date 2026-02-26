@@ -7140,3 +7140,287 @@ def obter_cadu_plataformas():
     except Exception as e:
         conn.rollback()
         raise e
+
+
+# ==================== CADU PI ====================
+
+def obter_status_pi():
+    """Retorna todos os status de PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT * FROM cadu_pi_aux_status ORDER BY id')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_sub_status_pi():
+    """Retorna todos os sub-status de PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT * FROM cadu_pi_sub_status ORDER BY key')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cadu_pi_lista(filtros=None):
+    """Retorna PIs com filtros opcionais e JOINs para nomes relacionados"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT 
+                    p.*,
+                    cli.nome_fantasia as cliente_nome,
+                    ag.display as agencia_nome,
+                    sp.descricao as status_descricao,
+                    ssp.display as sub_status_descricao,
+                    rc.nome_completo as resp_comercial_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_agencia ag ON p.id_agencia = ag.id_agencia
+                LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
+                LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
+                LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
+                WHERE 1=1
+            '''
+            params = []
+
+            if filtros:
+                if filtros.get('id_cliente'):
+                    query += ' AND p.id_cliente = %s'
+                    params.append(filtros['id_cliente'])
+
+                if filtros.get('id_status_pi'):
+                    query += ' AND p.id_status_pi = %s'
+                    params.append(filtros['id_status_pi'])
+
+                if filtros.get('id_agencia'):
+                    query += ' AND p.id_agencia = %s'
+                    params.append(filtros['id_agencia'])
+
+                if filtros.get('mes_ref'):
+                    query += ' AND p.mes_ref = %s'
+                    params.append(filtros['mes_ref'])
+
+                if filtros.get('resp_comercial'):
+                    query += ' AND p.id_resp_comercial = %s'
+                    params.append(filtros['resp_comercial'])
+
+                if filtros.get('search'):
+                    query += ' AND (p.titulo_pi ILIKE %s OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s)'
+                    search_term = f"%{filtros['search']}%"
+                    params.extend([search_term, search_term, search_term])
+
+            query += ' ORDER BY p.created_at DESC'
+
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cadu_pi_por_id(id_pi):
+    """Retorna um PI pelo ID com JOINs"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    p.*,
+                    cli.nome_fantasia as cliente_nome,
+                    ag.display as agencia_nome,
+                    sp.descricao as status_descricao,
+                    ssp.display as sub_status_descricao,
+                    rc.nome_completo as resp_comercial_nome
+                FROM cadu_pi p
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_agencia ag ON p.id_agencia = ag.id_agencia
+                LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
+                LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
+                LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
+                WHERE p.id_pi = %s
+            ''', (id_pi,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_cadu_pi(data):
+    """Cria um novo PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi (
+                    id_cliente, titulo_pi, codigo_pi_ag, codigo_pi_cc, tipo_pi,
+                    tem_agencia, id_agencia, perc_comissao_agencia,
+                    id_parceiro, perc_comissao_parceiro,
+                    valor_bruto, valor_liquido, comissao_agencia, comissao_parceiro,
+                    valor_liquido_pr, total_plataformas, valor_plataformas,
+                    periodo_inicio, periodo_fim, mes_ref,
+                    id_resp_comercial, contato_fin_cliente, contato_midia_cliente,
+                    contato_fin_agencia, contato_midia_agencia,
+                    id_status_pi, id_sub_status_pi,
+                    link_pi_principal, link_financeiro, link_pecas, link_arquivo_assinado,
+                    obs_financeiro, obs_operacao
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s
+                ) RETURNING id_pi
+            ''', (
+                data.get('id_cliente'),
+                data.get('titulo_pi'),
+                data.get('codigo_pi_ag'),
+                data.get('codigo_pi_cc'),
+                data.get('tipo_pi'),
+                data.get('tem_agencia', False),
+                data.get('id_agencia'),
+                data.get('perc_comissao_agencia'),
+                data.get('id_parceiro'),
+                data.get('perc_comissao_parceiro'),
+                data.get('valor_bruto'),
+                data.get('valor_liquido'),
+                data.get('comissao_agencia'),
+                data.get('comissao_parceiro'),
+                data.get('valor_liquido_pr'),
+                data.get('total_plataformas'),
+                data.get('valor_plataformas'),
+                data.get('periodo_inicio'),
+                data.get('periodo_fim'),
+                data.get('mes_ref'),
+                data.get('resp_comercial'),
+                data.get('contato_fin_cliente'),
+                data.get('contato_midia_cliente'),
+                data.get('contato_fin_agencia'),
+                data.get('contato_midia_agencia'),
+                data.get('id_status_pi'),
+                data.get('id_sub_status_pi'),
+                data.get('link_pi_principal'),
+                data.get('link_financeiro'),
+                data.get('link_pecas'),
+                data.get('link_arquivo_assinado'),
+                data.get('obs_financeiro'),
+                data.get('obs_operacao'),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_pi'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cadu_pi(id_pi, data):
+    """Atualiza um PI existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi SET
+                    id_cliente = %s,
+                    titulo_pi = %s,
+                    codigo_pi_ag = %s,
+                    codigo_pi_cc = %s,
+                    tipo_pi = %s,
+                    tem_agencia = %s,
+                    id_agencia = %s,
+                    perc_comissao_agencia = %s,
+                    id_parceiro = %s,
+                    perc_comissao_parceiro = %s,
+                    valor_bruto = %s,
+                    valor_liquido = %s,
+                    comissao_agencia = %s,
+                    comissao_parceiro = %s,
+                    valor_liquido_pr = %s,
+                    total_plataformas = %s,
+                    valor_plataformas = %s,
+                    periodo_inicio = %s,
+                    periodo_fim = %s,
+                    mes_ref = %s,
+                    id_resp_comercial = %s,
+                    contato_fin_cliente = %s,
+                    contato_midia_cliente = %s,
+                    contato_fin_agencia = %s,
+                    contato_midia_agencia = %s,
+                    id_status_pi = %s,
+                    id_sub_status_pi = %s,
+                    link_pi_principal = %s,
+                    link_financeiro = %s,
+                    link_pecas = %s,
+                    link_arquivo_assinado = %s,
+                    obs_financeiro = %s,
+                    obs_operacao = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id_pi = %s
+                RETURNING id_pi
+            ''', (
+                data.get('id_cliente'),
+                data.get('titulo_pi'),
+                data.get('codigo_pi_ag'),
+                data.get('codigo_pi_cc'),
+                data.get('tipo_pi'),
+                data.get('tem_agencia', False),
+                data.get('id_agencia'),
+                data.get('perc_comissao_agencia'),
+                data.get('id_parceiro'),
+                data.get('perc_comissao_parceiro'),
+                data.get('valor_bruto'),
+                data.get('valor_liquido'),
+                data.get('comissao_agencia'),
+                data.get('comissao_parceiro'),
+                data.get('valor_liquido_pr'),
+                data.get('total_plataformas'),
+                data.get('valor_plataformas'),
+                data.get('periodo_inicio'),
+                data.get('periodo_fim'),
+                data.get('mes_ref'),
+                data.get('resp_comercial'),
+                data.get('contato_fin_cliente'),
+                data.get('contato_midia_cliente'),
+                data.get('contato_fin_agencia'),
+                data.get('contato_midia_agencia'),
+                data.get('id_status_pi'),
+                data.get('id_sub_status_pi'),
+                data.get('link_pi_principal'),
+                data.get('link_financeiro'),
+                data.get('link_pecas'),
+                data.get('link_arquivo_assinado'),
+                data.get('obs_financeiro'),
+                data.get('obs_operacao'),
+                id_pi,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_cadu_pi(id_pi):
+    """Exclui um PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_pi WHERE id_pi = %s', (id_pi,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e

@@ -351,6 +351,11 @@
                                         </a>
                                     </li>
                                     <li>
+                                        <a href="{{ url_for('cadu_pi_lista') }}" class="{% if request.endpoint == 'cadu_pi_lista' %}active{% endif %}">
+                                            <span class="sidebar-text">PIs</span>
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
                                             <span class="sidebar-text">Métricas Semanais</span>
                                         </a>
@@ -405,6 +410,22 @@
                                     <li>
                                         <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
                                             <span class="sidebar-text">Métricas Plataforma</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
+                        <!-- Operação (colapsível) -->
+                        <li class="mt-2">
+                            <details data-group="operacao">
+                                <summary>
+                                    <span class="sidebar-text">Operação</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista') }}" class="{% if request.endpoint == 'cadu_pi_lista' %}active{% endif %}">
+                                            <span class="sidebar-text">PIs</span>
                                         </a>
                                     </li>
                                 </ul>

@@ -364,6 +364,55 @@
                             </details>
                         </li>
 
+                        <!-- Operação (colapsível) -->
+                        <li class="mt-2">
+                            <details data-group="operacao" {% if request.endpoint == 'cadu_pi_lista' %}open{% endif %}>
+                                <summary>
+                                    <span class="sidebar-text">Operação</span>
+                                </summary>
+                                <ul>
+                                    <li>
+                                        <details {% if request.endpoint == 'cadu_pi_lista' %}open{% endif %}>
+                                            <summary>
+                                                <span class="sidebar-text">PIs</span>
+                                            </summary>
+                                            <ul>
+                                                <li>
+                                                    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">
+                                                        <span class="sidebar-text">Em configuração</span>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">
+                                                        <span class="sidebar-text">Em andamento</span>
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
+                                                        <span class="sidebar-text">Em faturamento</span>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </details>
+                                    </li>
+                                    <li>
+                                        <details>
+                                            <summary>
+                                                <span class="sidebar-text">Campanhas</span>
+                                            </summary>
+                                            <ul>
+                                                <li>
+                                                    <a href="#">
+                                                        <span class="sidebar-text">Acompanhamento</span>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </details>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
                         <!-- Audiências (colapsível) -->
                         <li class="mt-2">
                             <details data-group="audiencias" open>
@@ -410,22 +459,6 @@
                                     <li>
                                         <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
                                             <span class="sidebar-text">Métricas Plataforma</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
-                        <!-- Operação (colapsível) -->
-                        <li class="mt-2">
-                            <details data-group="operacao">
-                                <summary>
-                                    <span class="sidebar-text">Operação</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_lista') }}" class="{% if request.endpoint == 'cadu_pi_lista' %}active{% endif %}">
-                                            <span class="sidebar-text">PIs</span>
                                         </a>
                                     </li>
                                 </ul>

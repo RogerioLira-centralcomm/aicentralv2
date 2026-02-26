@@ -7200,6 +7200,10 @@ def obter_cadu_pi_lista(filtros=None):
                     query += ' AND p.id_status_pi = %s'
                     params.append(filtros['id_status_pi'])
 
+                if filtros.get('id_sub_status_pi'):
+                    query += ' AND p.id_sub_status_pi = %s'
+                    params.append(filtros['id_sub_status_pi'])
+
                 if filtros.get('id_agencia'):
                     query += ' AND p.id_agencia = %s'
                     params.append(filtros['id_agencia'])

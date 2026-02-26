@@ -7792,6 +7792,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['id_cliente'] = int(request.args.get('id_cliente'))
             if request.args.get('id_status_pi'):
                 filtros['id_status_pi'] = int(request.args.get('id_status_pi'))
+            if request.args.get('id_sub_status_pi'):
+                filtros['id_sub_status_pi'] = int(request.args.get('id_sub_status_pi'))
             if request.args.get('id_agencia'):
                 filtros['id_agencia'] = int(request.args.get('id_agencia'))
             if request.args.get('mes_ref'):

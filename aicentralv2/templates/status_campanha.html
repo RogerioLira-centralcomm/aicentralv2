@@ -1,0 +1,183 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Status de Campanha - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Status de Campanha</h1>
+        {% if statuses %}<span class="text-xs text-gray-500">({{ statuses|length }} registros)</span>{% endif %}
+      </div>
+
+      <div class="flex items-center gap-3">
+        <input type="text" id="searchInput" placeholder="Buscar status..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Novo Status
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Tabela -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {% if statuses and statuses|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tabela_statuses">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Descrição</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100" id="statusesTableBody">
+            {% for s in statuses %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3 text-gray-600">#{{ s.id }}</td>
+              <td class="py-2 px-3">
+                <span class="font-medium text-gray-800">{{ s.descricao or '—' }}</span>
+              </td>
+              <td class="py-2 px-3">
+                <div class="flex items-center justify-center gap-2">
+                  <button onclick="abrirModalEditar({{ s.id }}, '{{ s.descricao|e }}')"
+                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <form method="POST"
+                        action="{{ url_for('status_campanha_excluir', id_st=s.id) }}"
+                        onsubmit="return confirm('Tem certeza que deseja excluir este status?');"
+                        class="inline">
+                    <button type="submit"
+                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-12">
+        <i class="fas fa-flag text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">Nenhum status de campanha cadastrado.</p>
+        <button onclick="abrirModalNovo()"
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Cadastrar Primeiro Status
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal de Criação/Edição -->
+<dialog id="modal_status" class="modal">
+  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Status</h3>
+      <button onclick="modal_status.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <form id="statusForm" method="POST" action="{{ url_for('status_campanha_novo') }}">
+        <div id="campo_id" class="mb-4">
+          <label for="id" class="block text-sm font-medium text-gray-700 mb-1">
+            ID <span class="text-red-500">*</span>
+          </label>
+          <input type="number" id="id" name="id" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+
+        <div class="mb-4">
+          <label for="descricao" class="block text-sm font-medium text-gray-700 mb-1">
+            Descrição <span class="text-red-500">*</span>
+          </label>
+          <input type="text" id="descricao" name="descricao" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" onclick="modal_status.close()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#statusesTableBody tr');
+
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+
+  function abrirModalNovo() {
+    document.getElementById('modal_title').textContent = 'Novo Status';
+    document.getElementById('statusForm').action = "{{ url_for('status_campanha_novo') }}";
+    document.getElementById('id').value = '';
+    document.getElementById('id').readOnly = false;
+    document.getElementById('descricao').value = '';
+    modal_status.showModal();
+  }
+
+  function abrirModalEditar(id, descricao) {
+    document.getElementById('modal_title').textContent = 'Editar Status';
+    document.getElementById('statusForm').action = "{{ url_for('status_campanha_editar', id_st=0) }}".replace('0', id);
+    document.getElementById('id').value = id;
+    document.getElementById('id').readOnly = true;
+    document.getElementById('descricao').value = descricao;
+    modal_status.showModal();
+  }
+
+  document.getElementById('modal_status').addEventListener('close', function() {
+    document.getElementById('modal_title').textContent = 'Novo Status';
+    document.getElementById('statusForm').action = "{{ url_for('status_campanha_novo') }}";
+    document.getElementById('id').value = '';
+    document.getElementById('id').readOnly = false;
+    document.getElementById('descricao').value = '';
+  });
+</script>
+{% endblock %}

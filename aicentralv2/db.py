@@ -7168,6 +7168,26 @@ def obter_sub_status_pi():
         raise e
 
 
+def obter_meses_ref_pi():
+    """Retorna valores distintos de mes_ref_comp ordenados por ano e mês (desc)"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT mes_ref_comp,
+                    CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) as ano,
+                    CAST(SPLIT_PART(mes_ref_comp, '/', 1) AS INTEGER) as mes
+                FROM cadu_pi
+                WHERE mes_ref_comp IS NOT NULL AND mes_ref_comp != ''
+                GROUP BY mes_ref_comp
+                ORDER BY ano DESC, mes DESC
+            ''')
+            return [r['mes_ref_comp'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_cadu_pi_lista(filtros=None):
     """Retorna PIs com filtros opcionais e JOINs para nomes relacionados"""
     conn = get_db()
@@ -7177,13 +7197,15 @@ def obter_cadu_pi_lista(filtros=None):
                 SELECT 
                     p.*,
                     cli.nome_fantasia as cliente_nome,
-                    ag.display as agencia_nome,
+                    cli_ag.nome_fantasia as agencia_nome,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
-                    rc.nome_completo as resp_comercial_nome
+                    rc.nome_completo as resp_comercial_nome,
+                    (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links,
+                    (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
-                LEFT JOIN tbl_agencia ag ON p.id_agencia = ag.id_agencia
+                LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
@@ -7208,18 +7230,18 @@ def obter_cadu_pi_lista(filtros=None):
                     query += ' AND p.id_agencia = %s'
                     params.append(filtros['id_agencia'])
 
-                if filtros.get('mes_ref'):
-                    query += ' AND p.mes_ref = %s'
-                    params.append(filtros['mes_ref'])
+                if filtros.get('mes_ref_comp'):
+                    query += ' AND p.mes_ref_comp = %s'
+                    params.append(filtros['mes_ref_comp'])
 
                 if filtros.get('resp_comercial'):
                     query += ' AND p.id_resp_comercial = %s'
                     params.append(filtros['resp_comercial'])
 
                 if filtros.get('search'):
-                    query += ' AND (p.titulo_pi ILIKE %s OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s)'
+                    query += ' AND (p.titulo_pi ILIKE %s OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s OR cli.nome_fantasia ILIKE %s OR cli_ag.nome_fantasia ILIKE %s)'
                     search_term = f"%{filtros['search']}%"
-                    params.extend([search_term, search_term, search_term])
+                    params.extend([search_term, search_term, search_term, search_term, search_term])
 
             query += ' ORDER BY p.created_at DESC'
 
@@ -7239,13 +7261,13 @@ def obter_cadu_pi_por_id(id_pi):
                 SELECT 
                     p.*,
                     cli.nome_fantasia as cliente_nome,
-                    ag.display as agencia_nome,
+                    cli_ag.nome_fantasia as agencia_nome,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
-                LEFT JOIN tbl_agencia ag ON p.id_agencia = ag.id_agencia
+                LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
@@ -7423,6 +7445,822 @@ def excluir_cadu_pi(id_pi):
     try:
         with conn.cursor() as cursor:
             cursor.execute('DELETE FROM cadu_pi WHERE id_pi = %s', (id_pi,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== OBJETIVOS CAMPANHA PI - CRUD ====================
+
+def obter_objetivos_campanha():
+    """Retorna todos os objetivos de campanha ordenados por índice"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    id_objetivos_campanha,
+                    descricao,
+                    indice,
+                    id_centralx,
+                    cor,
+                    status
+                FROM cadu_pi_camp_objetivos
+                ORDER BY indice
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_objetivo_campanha_por_id(id_objetivos_campanha):
+    """Retorna um objetivo de campanha específico por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    id_objetivos_campanha,
+                    descricao,
+                    indice,
+                    id_centralx,
+                    cor,
+                    status
+                FROM cadu_pi_camp_objetivos
+                WHERE id_objetivos_campanha = %s
+            ''', (id_objetivos_campanha,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_objetivo_campanha(data):
+    """Cria um novo objetivo de campanha"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_camp_objetivos (descricao, indice, id_centralx, cor, status)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id_objetivos_campanha
+            ''', (
+                data.get('descricao'),
+                data.get('indice'),
+                data.get('id_centralx'),
+                data.get('cor'),
+                data.get('status', True),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_objetivos_campanha'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_objetivo_campanha(id_objetivos_campanha, data):
+    """Atualiza um objetivo de campanha existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_camp_objetivos
+                SET descricao = %s,
+                    indice = %s,
+                    id_centralx = %s,
+                    cor = %s,
+                    status = %s
+                WHERE id_objetivos_campanha = %s
+            ''', (
+                data.get('descricao'),
+                data.get('indice'),
+                data.get('id_centralx'),
+                data.get('cor'),
+                data.get('status', True),
+                id_objetivos_campanha,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_objetivo_campanha(id_objetivos_campanha):
+    """Exclui um objetivo de campanha"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_camp_objetivos
+                WHERE id_objetivos_campanha = %s
+            ''', (id_objetivos_campanha,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== PLATAFORMA CAMPANHA PI - CRUD ====================
+
+def obter_plataformas_campanha():
+    """Retorna todas as plataformas de campanha ordenadas por índice"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    id_plataforma,
+                    descricao,
+                    indice,
+                    id_centralx,
+                    cor,
+                    status
+                FROM cadu_pi_camp_plataforma
+                ORDER BY indice
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_plataforma_campanha_por_id(id_plataforma):
+    """Retorna uma plataforma de campanha específica por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    id_plataforma,
+                    descricao,
+                    indice,
+                    id_centralx,
+                    cor,
+                    status
+                FROM cadu_pi_camp_plataforma
+                WHERE id_plataforma = %s
+            ''', (id_plataforma,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_plataforma_campanha(data):
+    """Cria uma nova plataforma de campanha"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_camp_plataforma (descricao, indice, id_centralx, cor, status)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id_plataforma
+            ''', (
+                data.get('descricao'),
+                data.get('indice'),
+                data.get('id_centralx'),
+                data.get('cor'),
+                data.get('status', True),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_plataforma'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_plataforma_campanha(id_plataforma, data):
+    """Atualiza uma plataforma de campanha existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_camp_plataforma
+                SET descricao = %s,
+                    indice = %s,
+                    id_centralx = %s,
+                    cor = %s,
+                    status = %s
+                WHERE id_plataforma = %s
+            ''', (
+                data.get('descricao'),
+                data.get('indice'),
+                data.get('id_centralx'),
+                data.get('cor'),
+                data.get('status', True),
+                id_plataforma,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_plataforma_campanha(id_plataforma):
+    """Exclui uma plataforma de campanha"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_camp_plataforma
+                WHERE id_plataforma = %s
+            ''', (id_plataforma,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== LINK DESTINOS PI - CRUD ====================
+
+def obter_link_destinos():
+    """Retorna todos os links de destino com nomes de PI e cliente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    ld.id_link_destino,
+                    ld.id_pi,
+                    ld.link,
+                    ld.status,
+                    ld.created_at,
+                    ld.updated_at,
+                    ld.id_cliente,
+                    cli.nome_fantasia AS cliente_nome
+                FROM cadu_pi_link_destinos ld
+                LEFT JOIN tbl_cliente cli ON ld.id_cliente = cli.id_cliente
+                ORDER BY ld.id_link_destino DESC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_link_destino_por_id(id_link_destino):
+    """Retorna um link de destino específico por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    ld.id_link_destino,
+                    ld.id_pi,
+                    ld.link,
+                    ld.status,
+                    ld.created_at,
+                    ld.updated_at,
+                    ld.id_cliente,
+                    cli.nome_fantasia AS cliente_nome
+                FROM cadu_pi_link_destinos ld
+                LEFT JOIN tbl_cliente cli ON ld.id_cliente = cli.id_cliente
+                WHERE ld.id_link_destino = %s
+            ''', (id_link_destino,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_link_destino(data):
+    """Cria um novo link de destino"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_link_destinos
+                    (id_pi, link, status, created_at, updated_at, id_cliente)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s)
+                RETURNING id_link_destino
+            ''', (
+                data.get('id_pi'),
+                data.get('link'),
+                data.get('status', True),
+                data.get('id_cliente'),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_link_destino'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_link_destino(id_link_destino, data):
+    """Atualiza um link de destino existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_link_destinos
+                SET id_pi = %s,
+                    link = %s,
+                    status = %s,
+                    updated_at = CURRENT_TIMESTAMP,
+                    id_cliente = %s
+                WHERE id_link_destino = %s
+            ''', (
+                data.get('id_pi'),
+                data.get('link'),
+                data.get('status', True),
+                data.get('id_cliente'),
+                id_link_destino,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_link_destino(id_link_destino):
+    """Exclui um link de destino"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_link_destinos
+                WHERE id_link_destino = %s
+            ''', (id_link_destino,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== STATUS CAMPANHA PI - CRUD ====================
+
+def obter_status_campanha():
+    """Retorna todos os status de campanha ordenados por descrição"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, descricao
+                FROM cadu_pi_camp_status
+                ORDER BY descricao
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_status_campanha_por_id(id_status):
+    """Retorna um status de campanha específico por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, descricao
+                FROM cadu_pi_camp_status
+                WHERE id = %s
+            ''', (id_status,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_status_campanha(data):
+    """Cria um novo status de campanha"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_camp_status (id, descricao)
+                VALUES (%s, %s)
+                RETURNING id
+            ''', (
+                data.get('id'),
+                data.get('descricao'),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_status_campanha(id_status, data):
+    """Atualiza um status de campanha existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_camp_status
+                SET descricao = %s
+                WHERE id = %s
+            ''', (
+                data.get('descricao'),
+                id_status,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_status_campanha(id_status):
+    """Exclui um status de campanha"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_camp_status
+                WHERE id = %s
+            ''', (id_status,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== CAMPANHA PI - CRUD ====================
+
+def obter_campanhas_pi(filtros=None):
+    """Retorna campanhas PI com JOINs para nomes relacionados"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT
+                    c.id_campanha,
+                    c.id_pi,
+                    c.id_cliente,
+                    c.link_dash,
+                    c.mes_ref,
+                    c.mes_ref_comp,
+                    c.nome_campanha,
+                    c.obj_contratados,
+                    c.id_centralx,
+                    c.created_at,
+                    c.updated_at,
+                    c.under,
+                    c.id_objetivos_campanha,
+                    c.periodo_inicio,
+                    c.periodo_fim,
+                    c.id_status,
+                    c.totalizador_atingido,
+                    c.totalizador_gasto,
+                    c.valor_plataforma,
+                    c.valor_total_plataforma,
+                    c.id_plataforma,
+                    cli.nome_fantasia AS cliente_nome,
+                    obj.descricao AS objetivo_nome,
+                    st.descricao AS status_nome,
+                    plt.descricao AS plataforma_nome,
+                    pi.codigo_pi_cc AS codigo_pi,
+                    vend.nome_completo AS executivo_nome,
+                    (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = c.id_pi) AS total_links
+                FROM cadu_pi_campanha c
+                LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
+                LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
+                LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
+                LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
+                LEFT JOIN cadu_pi pi ON c.id_pi = pi.id_pi
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE 1=1
+            '''
+            params = []
+
+            if filtros:
+                if filtros.get('id_cliente'):
+                    query += ' AND c.id_cliente = %s'
+                    params.append(filtros['id_cliente'])
+                if filtros.get('id_status'):
+                    query += ' AND c.id_status = %s'
+                    params.append(filtros['id_status'])
+                if filtros.get('id_plataforma'):
+                    query += ' AND c.id_plataforma = %s'
+                    params.append(filtros['id_plataforma'])
+                if filtros.get('id_pi'):
+                    query += ' AND c.id_pi = %s'
+                    params.append(filtros['id_pi'])
+                if filtros.get('mes_ref_comp'):
+                    query += ' AND c.mes_ref_comp = %s'
+                    params.append(filtros['mes_ref_comp'])
+
+            query += ' ORDER BY c.id_campanha DESC'
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_campanha_pi_por_id(id_campanha):
+    """Retorna uma campanha PI específica por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    c.id_campanha,
+                    c.id_pi,
+                    c.id_cliente,
+                    c.link_dash,
+                    c.mes_ref,
+                    c.mes_ref_comp,
+                    c.nome_campanha,
+                    c.obj_contratados,
+                    c.id_centralx,
+                    c.created_at,
+                    c.updated_at,
+                    c.under,
+                    c.id_objetivos_campanha,
+                    c.periodo_inicio,
+                    c.periodo_fim,
+                    c.id_status,
+                    c.totalizador_atingido,
+                    c.totalizador_gasto,
+                    c.valor_plataforma,
+                    c.valor_total_plataforma,
+                    c.id_plataforma,
+                    cli.nome_fantasia AS cliente_nome,
+                    obj.descricao AS objetivo_nome,
+                    st.descricao AS status_nome,
+                    plt.descricao AS plataforma_nome,
+                    pi.codigo_pi_cc AS codigo_pi
+                FROM cadu_pi_campanha c
+                LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
+                LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
+                LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
+                LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
+                LEFT JOIN cadu_pi pi ON c.id_pi = pi.id_pi
+                WHERE c.id_campanha = %s
+            ''', (id_campanha,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_campanha_pi(data):
+    """Cria uma nova campanha PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_campanha (
+                    id_pi, id_cliente, link_dash, mes_ref, mes_ref_comp,
+                    nome_campanha, obj_contratados, id_centralx,
+                    created_at, updated_at, under, id_objetivos_campanha,
+                    periodo_inicio, periodo_fim, id_status,
+                    totalizador_atingido, totalizador_gasto,
+                    valor_plataforma, valor_total_plataforma, id_plataforma
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s,
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s
+                )
+                RETURNING id_campanha
+            ''', (
+                data.get('id_pi'),
+                data.get('id_cliente'),
+                data.get('link_dash'),
+                data.get('mes_ref'),
+                data.get('mes_ref_comp'),
+                data.get('nome_campanha'),
+                data.get('obj_contratados'),
+                data.get('id_centralx'),
+                data.get('under', False),
+                data.get('id_objetivos_campanha'),
+                data.get('periodo_inicio'),
+                data.get('periodo_fim'),
+                data.get('id_status'),
+                data.get('totalizador_atingido'),
+                data.get('totalizador_gasto'),
+                data.get('valor_plataforma'),
+                data.get('valor_total_plataforma'),
+                data.get('id_plataforma'),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id_campanha'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_campanha_pi(id_campanha, data):
+    """Atualiza uma campanha PI existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_campanha
+                SET id_pi = %s,
+                    id_cliente = %s,
+                    link_dash = %s,
+                    mes_ref = %s,
+                    mes_ref_comp = %s,
+                    nome_campanha = %s,
+                    obj_contratados = %s,
+                    id_centralx = %s,
+                    updated_at = CURRENT_TIMESTAMP,
+                    under = %s,
+                    id_objetivos_campanha = %s,
+                    periodo_inicio = %s,
+                    periodo_fim = %s,
+                    id_status = %s,
+                    totalizador_atingido = %s,
+                    totalizador_gasto = %s,
+                    valor_plataforma = %s,
+                    valor_total_plataforma = %s,
+                    id_plataforma = %s
+                WHERE id_campanha = %s
+            ''', (
+                data.get('id_pi'),
+                data.get('id_cliente'),
+                data.get('link_dash'),
+                data.get('mes_ref'),
+                data.get('mes_ref_comp'),
+                data.get('nome_campanha'),
+                data.get('obj_contratados'),
+                data.get('id_centralx'),
+                data.get('under', False),
+                data.get('id_objetivos_campanha'),
+                data.get('periodo_inicio'),
+                data.get('periodo_fim'),
+                data.get('id_status'),
+                data.get('totalizador_atingido'),
+                data.get('totalizador_gasto'),
+                data.get('valor_plataforma'),
+                data.get('valor_total_plataforma'),
+                data.get('id_plataforma'),
+                id_campanha,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_campanha_pi(id_campanha):
+    """Exclui uma campanha PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_campanha
+                WHERE id_campanha = %s
+            ''', (id_campanha,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_meses_ref_campanha_pi():
+    """Retorna valores distintos de mes_ref_comp das campanhas PI ordenados desc"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT mes_ref_comp,
+                    CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) as ano,
+                    CAST(SPLIT_PART(mes_ref_comp, '/', 1) AS INTEGER) as mes
+                FROM cadu_pi_campanha
+                WHERE mes_ref_comp IS NOT NULL
+                  AND mes_ref_comp != ''
+                  AND mes_ref_comp LIKE '%%/%%'
+                GROUP BY mes_ref_comp
+                ORDER BY ano DESC, mes DESC
+            ''')
+            return [r['mes_ref_comp'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== DIÁRIOS DE CAMPANHA PI ====================
+
+
+def obter_diarios_campanha(id_campanha):
+    """Retorna diários de uma campanha PI ordenados por data_evento DESC"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, id_pi, id_campanha, atingido, gasto,
+                       dif_atingido, dif_gasto, data_evento,
+                       created_at, updated_at
+                FROM cadu_pi_camp_diarios
+                WHERE id_campanha = %s
+                ORDER BY data_evento DESC
+            ''', (id_campanha,))
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_diario_por_id(id_diario):
+    """Retorna um diário por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, id_pi, id_campanha, atingido, gasto,
+                       dif_atingido, dif_gasto, data_evento,
+                       created_at, updated_at
+                FROM cadu_pi_camp_diarios
+                WHERE id = %s
+            ''', (id_diario,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_diario_campanha(data):
+    """Cria um novo diário de campanha PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_camp_diarios (
+                    id_pi, id_campanha, atingido, gasto,
+                    dif_atingido, dif_gasto, data_evento, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                RETURNING id
+            ''', (
+                data.get('id_pi'),
+                data.get('id_campanha'),
+                data.get('atingido'),
+                data.get('gasto'),
+                data.get('dif_atingido'),
+                data.get('dif_gasto'),
+                data.get('data_evento'),
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_diario_campanha(id_diario, data):
+    """Atualiza um diário de campanha PI existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_camp_diarios
+                SET atingido = %s,
+                    gasto = %s,
+                    dif_atingido = %s,
+                    dif_gasto = %s,
+                    data_evento = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (
+                data.get('atingido'),
+                data.get('gasto'),
+                data.get('dif_atingido'),
+                data.get('dif_gasto'),
+                data.get('data_evento'),
+                id_diario,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_diario_campanha(id_diario):
+    """Exclui um diário de campanha PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_camp_diarios
+                WHERE id = %s
+            ''', (id_diario,))
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:

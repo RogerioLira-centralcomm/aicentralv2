@@ -1,0 +1,228 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Links de Destino - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Links de Destino</h1>
+        {% if links %}<span class="text-xs text-gray-500">({{ links|length }} registros)</span>{% endif %}
+      </div>
+
+      <div class="flex items-center gap-3">
+        <input type="text" id="searchInput" placeholder="Buscar link..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Novo Link
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Tabela -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {% if links and links|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tabela_links">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">PI</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Link</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Cliente</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase">Status</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Criado em</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Atualizado em</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100" id="linksTableBody">
+            {% for l in links %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3 text-gray-600">#{{ l.id_link_destino }}</td>
+              <td class="py-2 px-3 text-gray-600">{{ l.id_pi if l.id_pi else '—' }}</td>
+              <td class="py-2 px-3 max-w-xs truncate" title="{{ l.link or '' }}">
+                {% if l.link %}
+                  <a href="{{ l.link }}" target="_blank" class="text-blue-600 hover:underline">{{ l.link[:60] }}{% if l.link|length > 60 %}…{% endif %}</a>
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              <td class="py-2 px-3 text-gray-600">{{ l.cliente_nome or '—' }}</td>
+              <td class="py-2 px-3 text-center">
+                {% if l.status %}
+                  <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Ativo</span>
+                {% else %}
+                  <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Inativo</span>
+                {% endif %}
+              </td>
+              <td class="py-2 px-3 text-gray-500">
+                {{ l.created_at.strftime('%d/%m/%Y %H:%M') if l.created_at else '—' }}
+              </td>
+              <td class="py-2 px-3 text-gray-500">
+                {{ l.updated_at.strftime('%d/%m/%Y %H:%M') if l.updated_at else '—' }}
+              </td>
+              <td class="py-2 px-3">
+                <div class="flex items-center justify-center gap-2">
+                  <button onclick="abrirModalEditar({{ l.id_link_destino }}, {{ l.id_pi if l.id_pi else 'null' }}, '{{ l.link|e if l.link else '' }}', {{ 'true' if l.status else 'false' }}, {{ l.id_cliente if l.id_cliente else 'null' }})"
+                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <form method="POST"
+                        action="{{ url_for('link_destino_excluir', id_ld=l.id_link_destino) }}"
+                        onsubmit="return confirm('Tem certeza que deseja excluir este link?');"
+                        class="inline">
+                    <button type="submit"
+                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-12">
+        <i class="fas fa-link text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">Nenhum link de destino cadastrado.</p>
+        <button onclick="abrirModalNovo()"
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Cadastrar Primeiro Link
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal de Criação/Edição -->
+<dialog id="modal_link" class="modal">
+  <div class="modal-box w-11/12 max-w-lg bg-white p-0 rounded-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Link de Destino</h3>
+      <button onclick="modal_link.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <form id="linkForm" method="POST" action="{{ url_for('link_destino_novo') }}">
+        <div class="mb-4">
+          <label for="link" class="block text-sm font-medium text-gray-700 mb-1">
+            Link <span class="text-red-500">*</span>
+          </label>
+          <input type="url" id="link" name="link" required maxlength="600" placeholder="https://..."
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="id_pi" class="block text-sm font-medium text-gray-700 mb-1">ID PI</label>
+            <input type="number" id="id_pi" name="id_pi"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="id_cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+            <select id="id_cliente" name="id_cliente"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+              <option value="">Selecione...</option>
+              {% for c in clientes %}
+                <option value="{{ c.id_cliente }}">{{ c.nome_fantasia or c.razao_social }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="status" name="status" checked
+                   class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
+            <span class="text-sm font-medium text-gray-700">Ativo</span>
+          </label>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button type="button" onclick="modal_link.close()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#linksTableBody tr');
+
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+
+  function abrirModalNovo() {
+    document.getElementById('modal_title').textContent = 'Novo Link de Destino';
+    document.getElementById('linkForm').action = "{{ url_for('link_destino_novo') }}";
+    document.getElementById('link').value = '';
+    document.getElementById('id_pi').value = '';
+    document.getElementById('id_cliente').value = '';
+    document.getElementById('status').checked = true;
+    modal_link.showModal();
+  }
+
+  function abrirModalEditar(id, id_pi, link, status, id_cliente) {
+    document.getElementById('modal_title').textContent = 'Editar Link de Destino';
+    document.getElementById('linkForm').action = "{{ url_for('link_destino_editar', id_ld=0) }}".replace('0', id);
+    document.getElementById('link').value = link;
+    document.getElementById('id_pi').value = id_pi !== null ? id_pi : '';
+    document.getElementById('id_cliente').value = id_cliente !== null ? id_cliente : '';
+    document.getElementById('status').checked = status;
+    modal_link.showModal();
+  }
+
+  document.getElementById('modal_link').addEventListener('close', function() {
+    document.getElementById('modal_title').textContent = 'Novo Link de Destino';
+    document.getElementById('linkForm').action = "{{ url_for('link_destino_novo') }}";
+    document.getElementById('link').value = '';
+    document.getElementById('id_pi').value = '';
+    document.getElementById('id_cliente').value = '';
+    document.getElementById('status').checked = true;
+  });
+</script>
+{% endblock %}

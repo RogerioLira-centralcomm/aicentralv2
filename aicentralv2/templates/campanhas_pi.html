@@ -1,0 +1,422 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Acompanhamento de Campanhas - CentralComm AI{% endblock %}
+
+{% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Acompanhamento de Campanhas</h1>
+        {% if campanhas %}<span class="text-xs text-gray-500">({{ campanhas|length }})</span>{% endif %}
+      </div>
+
+      <div class="flex items-center gap-3">
+        <select id="filtroStatus" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
+          <option value="">Todos os Status</option>
+          {% for st in statuses %}
+            <option value="{{ st.id }}" {% if filtros.get('id_status') == st.id %}selected{% endif %}>{{ st.descricao }}</option>
+          {% endfor %}
+        </select>
+        <select id="filtroMesRef" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
+          <option value="">Todos meses</option>
+          {% for m in meses_ref %}
+            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" id="searchInput" placeholder="Buscar campanha..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      </div>
+
+      <div class="flex gap-2"></div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Tabela -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {% if campanhas and campanhas|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tabela_campanhas">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Período</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Campanha</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase">Links</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Contratado</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Atingido</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Gasto</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Previsto</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
+            {% for c in campanhas %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3">
+                <div class="text-gray-700 font-medium">{{ c.codigo_pi or '—' }}</div>
+                <div class="text-gray-400 text-xs">
+                  {% if c.periodo_inicio and c.periodo_fim %}
+                    {{ c.periodo_inicio.strftime('%d/%m/%y') }} - {{ c.periodo_fim.strftime('%d/%m/%y') }}
+                  {% elif c.periodo_inicio %}
+                    {{ c.periodo_inicio.strftime('%d/%m/%y') }} -
+                  {% else %}
+                    —
+                  {% endif %}
+                </div>
+                <div class="text-gray-400 text-xs">
+                  {% if c.mes_ref_comp %}
+                    {{ nomes_meses.get(c.mes_ref_comp.split('/')[0], c.mes_ref_comp.split('/')[0]) }}/{{ c.mes_ref_comp.split('/')[1] }}
+                  {% elif c.mes_ref %}
+                    {{ c.mes_ref.strftime('%m/%Y') }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </div>
+              </td>
+              <td class="py-2 px-3">
+                <div class="font-medium text-gray-800">{{ c.nome_campanha or '—' }}</div>
+                <div class="text-gray-400 text-xs">{{ c.executivo_nome or '—' }}</div>
+              </td>
+              <td class="py-2 px-3 text-center">
+                <span class="text-xs {% if c.total_links > 0 %}font-semibold text-gray-700{% else %}text-gray-400{% endif %}">{{ c.total_links }}</span>
+              </td>
+              <td class="py-2 px-3">
+                <div class="text-gray-700 font-medium">
+                  {% if c.obj_contratados is not none %}
+                    {{ '{:,.0f}'.format(c.obj_contratados|float).replace(',', '.') }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </div>
+                <div class="text-gray-400 text-xs">{{ c.plataforma_nome or '—' }}</div>
+                <div class="text-gray-400 text-xs">{{ c.objetivo_nome or '—' }}</div>
+              </td>
+              <td class="py-2 px-3 text-right text-gray-600">
+                {% if c.totalizador_atingido %}
+                  {{ '{:,.0f}'.format(c.totalizador_atingido|int).replace(',', '.') }}
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              <td class="py-2 px-3 text-right text-gray-600 whitespace-nowrap">
+                {% if c.totalizador_gasto %}
+                  R$ {{ c.totalizador_gasto }}
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              <td class="py-2 px-3 text-right text-gray-600 whitespace-nowrap">
+                {% if c.valor_plataforma and c.valor_plataforma.strip() not in ('', 'R$', 'R$ ') %}
+                  {% if c.valor_plataforma.startswith('R$') %}
+                    {{ c.valor_plataforma }}
+                  {% else %}
+                    R$ {{ c.valor_plataforma }}
+                  {% endif %}
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              <td class="py-2 px-3">
+                <div class="flex items-center justify-center gap-2">
+                  <a href="{{ url_for('diarios_campanha', id_camp=c.id_campanha) }}"
+                     class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                     title="Diários">
+                    <i class="fas fa-calendar-day"></i>
+                  </a>
+                  <button onclick='abrirModalEditar({{ c | tojson }})'
+                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <form method="POST"
+                        action="{{ url_for('campanha_pi_excluir', id_camp=c.id_campanha) }}"
+                        onsubmit="return confirm('Tem certeza que deseja excluir esta campanha?');"
+                        class="inline">
+                    <button type="submit"
+                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-12">
+        <i class="fas fa-bullhorn text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">Nenhuma campanha encontrada.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal de Criação/Edição -->
+<dialog id="modal_campanha" class="modal">
+  <div class="modal-box w-11/12 max-w-4xl bg-white p-0 rounded-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Nova Campanha</h3>
+      <button onclick="modal_campanha.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6 max-h-[75vh] overflow-y-auto">
+      <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
+
+        <!-- Linha 1: Nome + ID PI -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="col-span-2">
+            <label for="nome_campanha" class="block text-sm font-medium text-gray-700 mb-1">
+              Nome da Campanha <span class="text-red-500">*</span>
+            </label>
+            <input type="text" id="nome_campanha" name="nome_campanha" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="id_pi" class="block text-sm font-medium text-gray-700 mb-1">ID PI</label>
+            <input type="number" id="id_pi" name="id_pi"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+        </div>
+
+        <!-- Linha 2: Cliente + Objetivo + Plataforma -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label for="id_cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+            <select id="id_cliente" name="id_cliente"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+              <option value="">Selecione...</option>
+              {% for cli in clientes %}
+                <option value="{{ cli.id_cliente }}">{{ cli.nome_fantasia or cli.razao_social }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="id_objetivos_campanha" class="block text-sm font-medium text-gray-700 mb-1">Objetivo</label>
+            <select id="id_objetivos_campanha" name="id_objetivos_campanha"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+              <option value="">Selecione...</option>
+              {% for obj in objetivos %}
+                <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="id_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Plataforma</label>
+            <select id="id_plataforma" name="id_plataforma"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+              <option value="">Selecione...</option>
+              {% for plt in plataformas %}
+                <option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Linha 3: Status + ID CentralX + Obj Contratados -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label for="id_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select id="id_status" name="id_status"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+              <option value="">Selecione...</option>
+              {% for st in statuses %}
+                <option value="{{ st.id }}">{{ st.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="id_centralx" class="block text-sm font-medium text-gray-700 mb-1">ID CentralX</label>
+            <input type="text" id="id_centralx" name="id_centralx"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="obj_contratados" class="block text-sm font-medium text-gray-700 mb-1">Obj. Contratados</label>
+            <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+        </div>
+
+        <!-- Linha 4: Mês Ref + Mês Ref Comp + Link Dash -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label for="mes_ref" class="block text-sm font-medium text-gray-700 mb-1">Mês Referência</label>
+            <input type="date" id="mes_ref" name="mes_ref"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="mes_ref_comp" class="block text-sm font-medium text-gray-700 mb-1">Mês Ref Comp</label>
+            <input type="text" id="mes_ref_comp" name="mes_ref_comp"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="link_dash" class="block text-sm font-medium text-gray-700 mb-1">Link Dashboard</label>
+            <input type="url" id="link_dash" name="link_dash" placeholder="https://..."
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+        </div>
+
+        <!-- Linha 5: Período Início + Período Fim + Under -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label for="periodo_inicio" class="block text-sm font-medium text-gray-700 mb-1">Período Início</label>
+            <input type="datetime-local" id="periodo_inicio" name="periodo_inicio"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="periodo_fim" class="block text-sm font-medium text-gray-700 mb-1">Período Fim</label>
+            <input type="datetime-local" id="periodo_fim" name="periodo_fim"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="under" name="under"
+                     class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
+              <span class="text-sm font-medium text-gray-700">Under</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Linha 6: Totalizadores + Valores Plataforma -->
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="totalizador_atingido" class="block text-sm font-medium text-gray-700 mb-1">Totalizador Atingido</label>
+            <input type="text" id="totalizador_atingido" name="totalizador_atingido"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="totalizador_gasto" class="block text-sm font-medium text-gray-700 mb-1">Totalizador Gasto</label>
+            <input type="text" id="totalizador_gasto" name="totalizador_gasto"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label for="valor_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Valor Plataforma</label>
+            <input type="text" id="valor_plataforma" name="valor_plataforma"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+          <div>
+            <label for="valor_total_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Valor Total Plataforma</label>
+            <input type="text" id="valor_total_plataforma" name="valor_total_plataforma"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
+          <button type="button" onclick="modal_campanha.close()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function aplicarFiltros() {
+    const params = new URLSearchParams();
+    const status = document.getElementById('filtroStatus').value;
+    const mes = document.getElementById('filtroMesRef').value;
+    if (status) params.set('id_status', status);
+    if (mes) params.set('mes_ref_comp', mes);
+    window.location.href = '{{ url_for("campanhas_pi") }}' + (params.toString() ? '?' + params.toString() : '');
+  }
+
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#campanhasTableBody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+
+  function formatDateForInput(val) {
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d)) return '';
+    return d.toISOString().slice(0, 10);
+  }
+
+  function formatDatetimeForInput(val) {
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d)) return '';
+    return d.toISOString().slice(0, 16);
+  }
+
+  function resetForm() {
+    document.getElementById('modal_title').textContent = 'Nova Campanha';
+    document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_nova') }}";
+    document.getElementById('campanhaForm').reset();
+  }
+
+  function abrirModalNovo() {
+    resetForm();
+    modal_campanha.showModal();
+  }
+
+  function abrirModalEditar(c) {
+    document.getElementById('modal_title').textContent = 'Editar Campanha';
+    document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_editar', id_camp=0) }}".replace('0', c.id_campanha);
+
+    document.getElementById('nome_campanha').value = c.nome_campanha || '';
+    document.getElementById('id_pi').value = c.id_pi || '';
+    document.getElementById('id_cliente').value = c.id_cliente || '';
+    document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
+    document.getElementById('id_plataforma').value = c.id_plataforma || '';
+    document.getElementById('id_status').value = c.id_status || '';
+    document.getElementById('id_centralx').value = c.id_centralx || '';
+    document.getElementById('obj_contratados').value = c.obj_contratados || '';
+    document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
+    document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
+    document.getElementById('link_dash').value = c.link_dash || '';
+    document.getElementById('periodo_inicio').value = formatDatetimeForInput(c.periodo_inicio);
+    document.getElementById('periodo_fim').value = formatDatetimeForInput(c.periodo_fim);
+    document.getElementById('under').checked = !!c.under;
+    document.getElementById('totalizador_atingido').value = c.totalizador_atingido || '';
+    document.getElementById('totalizador_gasto').value = c.totalizador_gasto || '';
+    document.getElementById('valor_plataforma').value = c.valor_plataforma || '';
+    document.getElementById('valor_total_plataforma').value = c.valor_total_plataforma || '';
+
+    modal_campanha.showModal();
+  }
+
+  document.getElementById('modal_campanha').addEventListener('close', resetForm);
+</script>
+{% endblock %}

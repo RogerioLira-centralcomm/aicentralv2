@@ -1,0 +1,269 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Diários — {{ campanha.nome_campanha or 'Campanha' }} - CentralComm AI{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/light.css">
+<style>
+  .flatpickr-calendar {
+    position: fixed !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <!-- Header Compacto -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <a href="{{ url_for('campanhas_pi') }}" class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Voltar">
+          <i class="fas fa-arrow-left"></i>
+        </a>
+        <h1 class="text-lg font-semibold text-gray-800">Diários — {{ campanha.nome_campanha or 'Campanha' }}</h1>
+        {% if diarios %}<span class="text-xs text-gray-500">({{ diarios|length }} registros)</span>{% endif %}
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Novo Diário
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info da Campanha -->
+  <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 mb-3 flex items-center gap-6 text-sm text-gray-600">
+    <span><strong class="text-gray-700">PI:</strong> {{ campanha.codigo_pi or '—' }}</span>
+    <span><strong class="text-gray-700">Cliente:</strong> {{ campanha.cliente_nome or '—' }}</span>
+    <span><strong class="text-gray-700">Plataforma:</strong> {{ campanha.plataforma_nome or '—' }}</span>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Tabela -->
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {% if diarios and diarios|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tabela_diarios">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Data Evento</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Valor Gasto</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Valor Atingido</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Dif. Atingido</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Dif. Gasto</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for d in diarios %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-3 text-gray-700">
+                {{ d.data_evento.strftime('%d/%m/%Y') if d.data_evento else '—' }}
+              </td>
+              <td class="py-2 px-3 text-right text-gray-600">{{ d.gasto if d.gasto is not none else '—' }}</td>
+              <td class="py-2 px-3 text-right text-gray-600">{{ d.atingido if d.atingido is not none else '—' }}</td>
+              <td class="py-2 px-3 text-right text-gray-600">{{ d.dif_atingido if d.dif_atingido is not none else '—' }}</td>
+              <td class="py-2 px-3 text-right text-gray-600">{{ d.dif_gasto if d.dif_gasto is not none else '—' }}</td>
+              <td class="py-2 px-3">
+                <div class="flex items-center justify-center gap-2">
+                  <button onclick='abrirModalEditar({{ d | tojson }})'
+                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <form method="POST"
+                        action="{{ url_for('diario_campanha_excluir', id_diario=d.id) }}"
+                        onsubmit="return confirm('Tem certeza que deseja excluir este diário?');"
+                        class="inline">
+                    <button type="submit"
+                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-12">
+        <i class="fas fa-calendar-day text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">Nenhum diário cadastrado para esta campanha.</p>
+        <button onclick="abrirModalNovo()"
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Cadastrar Primeiro Diário
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal de Criação/Edição -->
+<dialog id="modal_diario" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Diário</h3>
+      <button onclick="modal_diario.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6 overflow-visible">
+      <form id="diarioForm" method="POST" action="{{ url_for('diario_campanha_novo', id_camp=campanha.id_campanha) }}">
+
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Código PI</label>
+            <input type="text" value="{{ campanha.codigo_pi or '—' }}" readonly
+                   class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm bg-gray-100 text-gray-600 cursor-not-allowed">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Campanha</label>
+            <input type="text" value="{{ campanha.nome_campanha or '—' }}" readonly
+                   class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm bg-gray-100 text-gray-600 cursor-not-allowed">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <label for="data_evento" class="block text-sm font-medium text-gray-700 mb-1">
+              Data do Evento <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <input type="text" id="data_evento" name="data_evento" required placeholder="dd/mm/aaaa"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+              <i class="fas fa-calendar-alt absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+            </div>
+          </div>
+          <div>
+            <label for="gasto" class="block text-sm font-medium text-gray-700 mb-1">Valor Gasto</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">R$</span>
+              <input type="text" id="gasto" name="gasto" inputmode="decimal" placeholder="0,00"
+                     class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            </div>
+          </div>
+          <div>
+            <label for="atingido" class="block text-sm font-medium text-gray-700 mb-1">Valor Atingido</label>
+            <input type="text" id="atingido" name="atingido" inputmode="numeric" placeholder="0"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
+          <button type="button" onclick="modal_diario.close()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+<script>
+  let fpInstance = null;
+
+  function initFlatpickr() {
+    if (fpInstance) fpInstance.destroy();
+    fpInstance = flatpickr('#data_evento', {
+      locale: 'pt',
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      allowInput: true,
+      appendTo: document.getElementById('modal_diario'),
+    });
+  }
+
+  // Máscara de número inteiro com separador de milhar (1.234.567)
+  function mascaraNumero(input) {
+    input.addEventListener('input', function () {
+      let v = this.value.replace(/\D/g, '');
+      if (!v) { this.value = ''; return; }
+      this.value = Number(v).toLocaleString('pt-BR');
+    });
+  }
+
+  // Máscara de moeda BRL (1.234,56)
+  function mascaraMoeda(input) {
+    input.addEventListener('input', function () {
+      let v = this.value.replace(/\D/g, '');
+      if (!v) { this.value = ''; return; }
+      v = (parseInt(v, 10) / 100).toFixed(2);
+      this.value = Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    });
+  }
+
+  const atingidoEl = document.getElementById('atingido');
+  const gastoEl = document.getElementById('gasto');
+  mascaraNumero(atingidoEl);
+  mascaraMoeda(gastoEl);
+
+  function parseNumero(val) {
+    if (val == null || val === '') return '';
+    return Number(val).toLocaleString('pt-BR');
+  }
+
+  function parseMoeda(val) {
+    if (val == null || val === '') return '';
+    return Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function resetForm() {
+    document.getElementById('modal_title').textContent = 'Novo Diário';
+    document.getElementById('diarioForm').action = "{{ url_for('diario_campanha_novo', id_camp=campanha.id_campanha) }}";
+    document.getElementById('diarioForm').reset();
+    if (fpInstance) fpInstance.clear();
+  }
+
+  function abrirModalNovo() {
+    resetForm();
+    modal_diario.showModal();
+    initFlatpickr();
+  }
+
+  function abrirModalEditar(d) {
+    document.getElementById('modal_title').textContent = 'Editar Diário';
+    document.getElementById('diarioForm').action = "{{ url_for('diario_campanha_editar', id_diario=0) }}".replace('0', d.id);
+
+    atingidoEl.value = parseNumero(d.atingido);
+    gastoEl.value = parseMoeda(d.gasto);
+
+    modal_diario.showModal();
+    initFlatpickr();
+    if (d.data_evento) fpInstance.setDate(d.data_evento, true);
+  }
+
+  document.getElementById('modal_diario').addEventListener('close', resetForm);
+</script>
+{% endblock %}

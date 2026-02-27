@@ -7796,23 +7796,26 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['id_sub_status_pi'] = int(request.args.get('id_sub_status_pi'))
             if request.args.get('id_agencia'):
                 filtros['id_agencia'] = int(request.args.get('id_agencia'))
-            if request.args.get('mes_ref'):
-                filtros['mes_ref'] = request.args.get('mes_ref')
+            if request.args.get('mes_ref_comp'):
+                filtros['mes_ref_comp'] = request.args.get('mes_ref_comp')
             if request.args.get('busca', '').strip():
                 filtros['search'] = request.args.get('busca').strip()
 
+            if filtros.get('id_cliente'):
+                cli_info = db.obter_cliente_por_id(filtros['id_cliente'])
+                if cli_info:
+                    filtros['cliente_nome'] = cli_info.get('nome_fantasia', '')
+
             pis = db.obter_cadu_pi_lista(filtros)
             status_pi = db.obter_status_pi()
-            agencias = db.obter_aux_agencia()
             vendedores = db.obter_vendedores_centralcomm()
-            clientes = db.obter_clientes_simples()
+            meses_ref = db.obter_meses_ref_pi()
 
             return render_template('cadu_pi.html',
                                    pis=pis or [],
                                    status_pi=status_pi,
-                                   agencias=agencias,
                                    vendedores=vendedores,
-                                   clientes=clientes,
+                                   meses_ref=meses_ref,
                                    filtros=filtros)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
@@ -7820,9 +7823,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return render_template('cadu_pi.html',
                                    pis=[],
                                    status_pi=[],
-                                   agencias=[],
                                    vendedores=[],
-                                   clientes=[],
                                    filtros={})
 
     @app.route('/cadu_pi/novo', methods=['GET', 'POST'])
@@ -7971,5 +7972,713 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'status_pi': db.obter_status_pi(),
             'sub_status_pi': db.obter_sub_status_pi(),
         }
+
+    # ==================== OBJETIVOS CAMPANHA PI - ROTAS ====================
+
+    @app.route('/objetivos-campanha')
+    @login_required
+    def objetivos_campanha():
+        """Lista todos os objetivos de campanha"""
+        try:
+            objetivos = db.obter_objetivos_campanha()
+            return render_template('objetivos_campanha.html', objetivos=objetivos)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar objetivos de campanha: {str(e)}")
+            flash('Erro ao carregar objetivos de campanha.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/objetivos-campanha/novo', methods=['POST'])
+    @login_required
+    def objetivo_campanha_novo():
+        """Criar novo objetivo de campanha"""
+        try:
+            data = {
+                'descricao': request.form.get('descricao', '').strip(),
+                'indice': request.form.get('indice', type=int),
+                'id_centralx': request.form.get('id_centralx', '').strip() or None,
+                'cor': request.form.get('cor', '').strip() or None,
+                'status': request.form.get('status') == 'on',
+            }
+
+            if not data['descricao']:
+                flash('A descrição do objetivo é obrigatória!', 'error')
+                return redirect(url_for('objetivos_campanha'))
+
+            id_obj = db.criar_objetivo_campanha(data)
+
+            if id_obj:
+                flash(f'Objetivo "{data["descricao"]}" criado com sucesso!', 'success')
+            else:
+                flash('Erro ao criar objetivo de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao criar objetivo de campanha: {str(e)}")
+            flash('Erro ao criar objetivo de campanha.', 'error')
+
+        return redirect(url_for('objetivos_campanha'))
+
+    @app.route('/objetivos-campanha/<int:id_obj>/editar', methods=['POST'])
+    @login_required
+    def objetivo_campanha_editar(id_obj):
+        """Editar objetivo de campanha"""
+        try:
+            objetivo = db.obter_objetivo_campanha_por_id(id_obj)
+
+            if not objetivo:
+                flash('Objetivo de campanha não encontrado!', 'error')
+                return redirect(url_for('objetivos_campanha'))
+
+            data = {
+                'descricao': request.form.get('descricao', '').strip(),
+                'indice': request.form.get('indice', type=int),
+                'id_centralx': request.form.get('id_centralx', '').strip() or None,
+                'cor': request.form.get('cor', '').strip() or None,
+                'status': request.form.get('status') == 'on',
+            }
+
+            if not data['descricao']:
+                flash('A descrição do objetivo é obrigatória!', 'error')
+                return redirect(url_for('objetivos_campanha'))
+
+            if db.atualizar_objetivo_campanha(id_obj, data):
+                flash(f'Objetivo "{data["descricao"]}" atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar objetivo de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar objetivo de campanha: {str(e)}")
+            flash('Erro ao atualizar objetivo de campanha.', 'error')
+
+        return redirect(url_for('objetivos_campanha'))
+
+    @app.route('/objetivos-campanha/<int:id_obj>/excluir', methods=['POST'])
+    @login_required
+    def objetivo_campanha_excluir(id_obj):
+        """Excluir objetivo de campanha"""
+        try:
+            objetivo = db.obter_objetivo_campanha_por_id(id_obj)
+
+            if not objetivo:
+                flash('Objetivo de campanha não encontrado!', 'error')
+                return redirect(url_for('objetivos_campanha'))
+
+            if db.excluir_objetivo_campanha(id_obj):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='objetivos_campanha',
+                    descricao=f'Objetivo de campanha deletado: {objetivo["descricao"]}',
+                    registro_id=id_obj,
+                    registro_tipo='objetivo_campanha',
+                    dados_anteriores=dict(objetivo)
+                )
+                flash(f'Objetivo "{objetivo["descricao"]}" excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir objetivo de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir objetivo de campanha: {str(e)}")
+            flash('Não é possível excluir este objetivo pois está em uso.', 'error')
+
+        return redirect(url_for('objetivos_campanha'))
+
+    # ==================== PLATAFORMA CAMPANHA PI - ROTAS ====================
+
+    @app.route('/plataformas-campanha')
+    @login_required
+    def plataformas_campanha():
+        """Lista todas as plataformas de campanha"""
+        try:
+            plataformas = db.obter_plataformas_campanha()
+            return render_template('plataformas_campanha.html', plataformas=plataformas)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar plataformas de campanha: {str(e)}")
+            flash('Erro ao carregar plataformas de campanha.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/plataformas-campanha/novo', methods=['POST'])
+    @login_required
+    def plataforma_campanha_nova():
+        """Criar nova plataforma de campanha"""
+        try:
+            data = {
+                'descricao': request.form.get('descricao', '').strip(),
+                'indice': request.form.get('indice', type=int),
+                'id_centralx': request.form.get('id_centralx', '').strip() or None,
+                'cor': request.form.get('cor', '').strip() or None,
+                'status': request.form.get('status') == 'on',
+            }
+
+            if not data['descricao']:
+                flash('A descrição da plataforma é obrigatória!', 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            id_plat = db.criar_plataforma_campanha(data)
+
+            if id_plat:
+                flash(f'Plataforma "{data["descricao"]}" criada com sucesso!', 'success')
+            else:
+                flash('Erro ao criar plataforma de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao criar plataforma de campanha: {str(e)}")
+            flash('Erro ao criar plataforma de campanha.', 'error')
+
+        return redirect(url_for('plataformas_campanha'))
+
+    @app.route('/plataformas-campanha/<int:id_plat>/editar', methods=['POST'])
+    @login_required
+    def plataforma_campanha_editar(id_plat):
+        """Editar plataforma de campanha"""
+        try:
+            plataforma = db.obter_plataforma_campanha_por_id(id_plat)
+
+            if not plataforma:
+                flash('Plataforma de campanha não encontrada!', 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            data = {
+                'descricao': request.form.get('descricao', '').strip(),
+                'indice': request.form.get('indice', type=int),
+                'id_centralx': request.form.get('id_centralx', '').strip() or None,
+                'cor': request.form.get('cor', '').strip() or None,
+                'status': request.form.get('status') == 'on',
+            }
+
+            if not data['descricao']:
+                flash('A descrição da plataforma é obrigatória!', 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            if db.atualizar_plataforma_campanha(id_plat, data):
+                flash(f'Plataforma "{data["descricao"]}" atualizada com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar plataforma de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar plataforma de campanha: {str(e)}")
+            flash('Erro ao atualizar plataforma de campanha.', 'error')
+
+        return redirect(url_for('plataformas_campanha'))
+
+    @app.route('/plataformas-campanha/<int:id_plat>/excluir', methods=['POST'])
+    @login_required
+    def plataforma_campanha_excluir(id_plat):
+        """Excluir plataforma de campanha"""
+        try:
+            plataforma = db.obter_plataforma_campanha_por_id(id_plat)
+
+            if not plataforma:
+                flash('Plataforma de campanha não encontrada!', 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            if db.excluir_plataforma_campanha(id_plat):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='plataformas_campanha',
+                    descricao=f'Plataforma de campanha deletada: {plataforma["descricao"]}',
+                    registro_id=id_plat,
+                    registro_tipo='plataforma_campanha',
+                    dados_anteriores=dict(plataforma)
+                )
+                flash(f'Plataforma "{plataforma["descricao"]}" excluída com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir plataforma de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir plataforma de campanha: {str(e)}")
+            flash('Não é possível excluir esta plataforma pois está em uso.', 'error')
+
+        return redirect(url_for('plataformas_campanha'))
+
+    # ==================== LINK DESTINOS PI - ROTAS ====================
+
+    @app.route('/link-destinos')
+    @login_required
+    def link_destinos():
+        """Lista todos os links de destino"""
+        try:
+            links = db.obter_link_destinos()
+            clientes = db.obter_clientes_simples()
+            return render_template('link_destinos.html', links=links, clientes=clientes)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar links de destino: {str(e)}")
+            flash('Erro ao carregar links de destino.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/link-destinos/novo', methods=['POST'])
+    @login_required
+    def link_destino_novo():
+        """Criar novo link de destino"""
+        try:
+            data = {
+                'id_pi': request.form.get('id_pi', type=int),
+                'link': request.form.get('link', '').strip(),
+                'status': request.form.get('status') == 'on',
+                'id_cliente': request.form.get('id_cliente', type=int),
+            }
+
+            if not data['link']:
+                flash('O link é obrigatório!', 'error')
+                return redirect(url_for('link_destinos'))
+
+            id_ld = db.criar_link_destino(data)
+
+            if id_ld:
+                flash('Link de destino criado com sucesso!', 'success')
+            else:
+                flash('Erro ao criar link de destino.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao criar link de destino: {str(e)}")
+            flash('Erro ao criar link de destino.', 'error')
+
+        return redirect(url_for('link_destinos'))
+
+    @app.route('/link-destinos/<int:id_ld>/editar', methods=['POST'])
+    @login_required
+    def link_destino_editar(id_ld):
+        """Editar link de destino"""
+        try:
+            link_dest = db.obter_link_destino_por_id(id_ld)
+
+            if not link_dest:
+                flash('Link de destino não encontrado!', 'error')
+                return redirect(url_for('link_destinos'))
+
+            data = {
+                'id_pi': request.form.get('id_pi', type=int),
+                'link': request.form.get('link', '').strip(),
+                'status': request.form.get('status') == 'on',
+                'id_cliente': request.form.get('id_cliente', type=int),
+            }
+
+            if not data['link']:
+                flash('O link é obrigatório!', 'error')
+                return redirect(url_for('link_destinos'))
+
+            if db.atualizar_link_destino(id_ld, data):
+                flash('Link de destino atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar link de destino.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar link de destino: {str(e)}")
+            flash('Erro ao atualizar link de destino.', 'error')
+
+        return redirect(url_for('link_destinos'))
+
+    @app.route('/link-destinos/<int:id_ld>/excluir', methods=['POST'])
+    @login_required
+    def link_destino_excluir(id_ld):
+        """Excluir link de destino"""
+        try:
+            link_dest = db.obter_link_destino_por_id(id_ld)
+
+            if not link_dest:
+                flash('Link de destino não encontrado!', 'error')
+                return redirect(url_for('link_destinos'))
+
+            if db.excluir_link_destino(id_ld):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='link_destinos',
+                    descricao=f'Link de destino deletado: {link_dest["link"][:80]}',
+                    registro_id=id_ld,
+                    registro_tipo='link_destino',
+                    dados_anteriores=dict(link_dest)
+                )
+                flash('Link de destino excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir link de destino.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir link de destino: {str(e)}")
+            flash('Não é possível excluir este link pois está em uso.', 'error')
+
+        return redirect(url_for('link_destinos'))
+
+    # ==================== STATUS CAMPANHA PI - ROTAS ====================
+
+    @app.route('/status-campanha')
+    @login_required
+    def status_campanha():
+        """Lista todos os status de campanha"""
+        try:
+            statuses = db.obter_status_campanha()
+            return render_template('status_campanha.html', statuses=statuses)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar status de campanha: {str(e)}")
+            flash('Erro ao carregar status de campanha.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/status-campanha/novo', methods=['POST'])
+    @login_required
+    def status_campanha_novo():
+        """Criar novo status de campanha"""
+        try:
+            data = {
+                'id': request.form.get('id', type=int),
+                'descricao': request.form.get('descricao', '').strip(),
+            }
+
+            if data['id'] is None:
+                flash('O ID é obrigatório!', 'error')
+                return redirect(url_for('status_campanha'))
+
+            if not data['descricao']:
+                flash('A descrição é obrigatória!', 'error')
+                return redirect(url_for('status_campanha'))
+
+            id_st = db.criar_status_campanha(data)
+
+            if id_st is not None:
+                flash(f'Status "{data["descricao"]}" criado com sucesso!', 'success')
+            else:
+                flash('Erro ao criar status de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao criar status de campanha: {str(e)}")
+            flash('Erro ao criar status de campanha.', 'error')
+
+        return redirect(url_for('status_campanha'))
+
+    @app.route('/status-campanha/<int:id_st>/editar', methods=['POST'])
+    @login_required
+    def status_campanha_editar(id_st):
+        """Editar status de campanha"""
+        try:
+            status_obj = db.obter_status_campanha_por_id(id_st)
+
+            if not status_obj:
+                flash('Status de campanha não encontrado!', 'error')
+                return redirect(url_for('status_campanha'))
+
+            data = {
+                'descricao': request.form.get('descricao', '').strip(),
+            }
+
+            if not data['descricao']:
+                flash('A descrição é obrigatória!', 'error')
+                return redirect(url_for('status_campanha'))
+
+            if db.atualizar_status_campanha(id_st, data):
+                flash(f'Status "{data["descricao"]}" atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar status de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar status de campanha: {str(e)}")
+            flash('Erro ao atualizar status de campanha.', 'error')
+
+        return redirect(url_for('status_campanha'))
+
+    @app.route('/status-campanha/<int:id_st>/excluir', methods=['POST'])
+    @login_required
+    def status_campanha_excluir(id_st):
+        """Excluir status de campanha"""
+        try:
+            status_obj = db.obter_status_campanha_por_id(id_st)
+
+            if not status_obj:
+                flash('Status de campanha não encontrado!', 'error')
+                return redirect(url_for('status_campanha'))
+
+            if db.excluir_status_campanha(id_st):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='status_campanha',
+                    descricao=f'Status de campanha deletado: {status_obj["descricao"]}',
+                    registro_id=id_st,
+                    registro_tipo='status_campanha',
+                    dados_anteriores=dict(status_obj)
+                )
+                flash(f'Status "{status_obj["descricao"]}" excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir status de campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir status de campanha: {str(e)}")
+            flash('Não é possível excluir este status pois está em uso.', 'error')
+
+        return redirect(url_for('status_campanha'))
+
+    # ==================== CAMPANHA PI - ROTAS ====================
+
+    def _parse_decimal(value):
+        """Converte string para Decimal, retornando None se vazio"""
+        if not value or not str(value).strip():
+            return None
+        try:
+            from decimal import Decimal
+            return Decimal(str(value).strip().replace(',', '.'))
+        except Exception:
+            return None
+
+    def _extrair_dados_campanha():
+        """Extrai dados do formulário de campanha PI"""
+        return {
+            'id_pi': request.form.get('id_pi', type=int),
+            'id_cliente': request.form.get('id_cliente', type=int),
+            'link_dash': request.form.get('link_dash', '').strip() or None,
+            'mes_ref': request.form.get('mes_ref') or None,
+            'mes_ref_comp': request.form.get('mes_ref_comp', '').strip() or None,
+            'nome_campanha': request.form.get('nome_campanha', '').strip() or None,
+            'obj_contratados': _parse_decimal(request.form.get('obj_contratados')),
+            'id_centralx': request.form.get('id_centralx', '').strip() or None,
+            'under': request.form.get('under') == 'on',
+            'id_objetivos_campanha': request.form.get('id_objetivos_campanha', type=int),
+            'periodo_inicio': request.form.get('periodo_inicio') or None,
+            'periodo_fim': request.form.get('periodo_fim') or None,
+            'id_status': request.form.get('id_status', type=int),
+            'totalizador_atingido': request.form.get('totalizador_atingido', '').strip() or None,
+            'totalizador_gasto': request.form.get('totalizador_gasto', '').strip() or None,
+            'valor_plataforma': request.form.get('valor_plataforma', '').strip() or None,
+            'valor_total_plataforma': request.form.get('valor_total_plataforma', '').strip() or None,
+            'id_plataforma': request.form.get('id_plataforma', type=int),
+        }
+
+    def _carregar_auxiliares_campanha():
+        """Carrega dados auxiliares para selects do formulário de campanha"""
+        return {
+            'clientes': db.obter_clientes_simples(),
+            'objetivos': db.obter_objetivos_campanha(),
+            'statuses': db.obter_status_campanha(),
+            'plataformas': db.obter_plataformas_campanha(),
+        }
+
+    @app.route('/campanhas-pi')
+    @login_required
+    def campanhas_pi():
+        """Lista todas as campanhas PI"""
+        try:
+            filtros = {
+                'id_cliente': request.args.get('id_cliente', type=int),
+                'id_status': request.args.get('id_status', type=int),
+                'id_plataforma': request.args.get('id_plataforma', type=int),
+                'id_pi': request.args.get('id_pi', type=int),
+                'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
+            }
+            filtros = {k: v for k, v in filtros.items() if v is not None}
+
+            campanhas = db.obter_campanhas_pi(filtros or None)
+            auxiliares = _carregar_auxiliares_campanha()
+            meses_ref = db.obter_meses_ref_campanha_pi()
+            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
+            flash('Erro ao carregar campanhas PI.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/campanhas-pi/novo', methods=['POST'])
+    @login_required
+    def campanha_pi_nova():
+        """Criar nova campanha PI"""
+        try:
+            data = _extrair_dados_campanha()
+
+            if not data['nome_campanha']:
+                flash('O nome da campanha é obrigatório!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            id_camp = db.criar_campanha_pi(data)
+
+            if id_camp:
+                flash(f'Campanha "{data["nome_campanha"]}" criada com sucesso!', 'success')
+            else:
+                flash('Erro ao criar campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao criar campanha PI: {str(e)}")
+            flash('Erro ao criar campanha.', 'error')
+
+        return redirect(url_for('campanhas_pi'))
+
+    @app.route('/campanhas-pi/<int:id_camp>/editar', methods=['POST'])
+    @login_required
+    def campanha_pi_editar(id_camp):
+        """Editar campanha PI"""
+        try:
+            campanha = db.obter_campanha_pi_por_id(id_camp)
+
+            if not campanha:
+                flash('Campanha não encontrada!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            data = _extrair_dados_campanha()
+
+            if not data['nome_campanha']:
+                flash('O nome da campanha é obrigatório!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            if db.atualizar_campanha_pi(id_camp, data):
+                flash(f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar campanha PI: {str(e)}")
+            flash('Erro ao atualizar campanha.', 'error')
+
+        return redirect(url_for('campanhas_pi'))
+
+    @app.route('/campanhas-pi/<int:id_camp>/excluir', methods=['POST'])
+    @login_required
+    def campanha_pi_excluir(id_camp):
+        """Excluir campanha PI"""
+        try:
+            campanha = db.obter_campanha_pi_por_id(id_camp)
+
+            if not campanha:
+                flash('Campanha não encontrada!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            if db.excluir_campanha_pi(id_camp):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='campanhas_pi',
+                    descricao=f'Campanha PI deletada: {campanha["nome_campanha"]}',
+                    registro_id=id_camp,
+                    registro_tipo='campanha_pi',
+                    dados_anteriores=dict(campanha)
+                )
+                flash(f'Campanha "{campanha["nome_campanha"]}" excluída com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir campanha.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir campanha PI: {str(e)}")
+            flash('Não é possível excluir esta campanha pois está em uso.', 'error')
+
+        return redirect(url_for('campanhas_pi'))
+
+    # ==================== DIÁRIOS DE CAMPANHA PI ====================
+
+    @app.route('/campanhas-pi/<int:id_camp>/diarios')
+    @login_required
+    def diarios_campanha(id_camp):
+        """Lista diários de uma campanha PI"""
+        try:
+            campanha = db.obter_campanha_pi_por_id(id_camp)
+
+            if not campanha:
+                flash('Campanha não encontrada!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            diarios = db.obter_diarios_campanha(id_camp)
+            return render_template('diarios_campanha.html', diarios=diarios, campanha=campanha)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar diários da campanha: {str(e)}")
+            flash('Erro ao carregar diários da campanha.', 'error')
+            return redirect(url_for('campanhas_pi'))
+
+    def _parse_decimal_br(value):
+        """Converte string formatada em pt-BR (1.234,56) para Decimal"""
+        if not value or not str(value).strip():
+            return None
+        try:
+            from decimal import Decimal
+            cleaned = str(value).strip().replace('.', '').replace(',', '.')
+            return Decimal(cleaned)
+        except Exception:
+            return None
+
+    @app.route('/campanhas-pi/<int:id_camp>/diarios/novo', methods=['POST'])
+    @login_required
+    def diario_campanha_novo(id_camp):
+        """Criar novo diário de campanha PI"""
+        try:
+            campanha = db.obter_campanha_pi_por_id(id_camp)
+
+            if not campanha:
+                flash('Campanha não encontrada!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            data = {
+                'id_pi': campanha['id_pi'],
+                'id_campanha': id_camp,
+                'data_evento': request.form.get('data_evento') or None,
+                'atingido': _parse_decimal_br(request.form.get('atingido')),
+                'gasto': _parse_decimal_br(request.form.get('gasto')),
+                'dif_atingido': None,
+                'dif_gasto': None,
+            }
+
+            if not data['data_evento']:
+                flash('A data do evento é obrigatória!', 'error')
+                return redirect(url_for('diarios_campanha', id_camp=id_camp))
+
+            id_diario = db.criar_diario_campanha(data)
+
+            if id_diario:
+                flash('Diário criado com sucesso!', 'success')
+            else:
+                flash('Erro ao criar diário.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao criar diário de campanha: {str(e)}")
+            flash('Erro ao criar diário.', 'error')
+
+        return redirect(url_for('diarios_campanha', id_camp=id_camp))
+
+    @app.route('/campanhas-pi/diarios/<int:id_diario>/editar', methods=['POST'])
+    @login_required
+    def diario_campanha_editar(id_diario):
+        """Editar diário de campanha PI"""
+        try:
+            diario = db.obter_diario_por_id(id_diario)
+
+            if not diario:
+                flash('Diário não encontrado!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            id_camp = diario['id_campanha']
+
+            data = {
+                'data_evento': request.form.get('data_evento') or None,
+                'atingido': _parse_decimal_br(request.form.get('atingido')),
+                'gasto': _parse_decimal_br(request.form.get('gasto')),
+                'dif_atingido': None,
+                'dif_gasto': None,
+            }
+
+            if not data['data_evento']:
+                flash('A data do evento é obrigatória!', 'error')
+                return redirect(url_for('diarios_campanha', id_camp=id_camp))
+
+            if db.atualizar_diario_campanha(id_diario, data):
+                flash('Diário atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar diário.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar diário de campanha: {str(e)}")
+            flash('Erro ao atualizar diário.', 'error')
+            return redirect(url_for('campanhas_pi'))
+
+        return redirect(url_for('diarios_campanha', id_camp=id_camp))
+
+    @app.route('/campanhas-pi/diarios/<int:id_diario>/excluir', methods=['POST'])
+    @login_required
+    def diario_campanha_excluir(id_diario):
+        """Excluir diário de campanha PI"""
+        try:
+            diario = db.obter_diario_por_id(id_diario)
+
+            if not diario:
+                flash('Diário não encontrado!', 'error')
+                return redirect(url_for('campanhas_pi'))
+
+            id_camp = diario['id_campanha']
+
+            if db.excluir_diario_campanha(id_diario):
+                flash('Diário excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir diário.', 'error')
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir diário de campanha: {str(e)}")
+            flash('Erro ao excluir diário.', 'error')
+            return redirect(url_for('campanhas_pi'))
+
+        return redirect(url_for('diarios_campanha', id_camp=id_camp))
 
     # ==================== UP AUDIÊNCIA ====================

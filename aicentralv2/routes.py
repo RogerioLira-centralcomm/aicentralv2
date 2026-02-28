@@ -7926,6 +7926,79 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao excluir PI: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/cadu_pi/<int:id_pi>/gerar-pastas', methods=['POST'])
+    @login_required
+    def cadu_pi_gerar_pastas(id_pi):
+        """Chama webhook Make.com para criar pastas no Google Drive e salva os links"""
+        try:
+            import requests
+            import os
+
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            if pi.get('googled_pi_princ'):
+                return jsonify({'success': False, 'message': 'Pastas já foram geradas para este PI'}), 400
+
+            numero = pi.get('codigo_pi_cc') or ''
+            if not numero:
+                return jsonify({'success': False, 'message': 'PI sem código (codigo_pi_cc)'}), 400
+
+            ref_id = pi.get('id_agencia') or pi.get('id_cliente')
+            prefixo = 'AG' if pi.get('id_agencia') else 'CL'
+            razao_social = ''
+            if ref_id:
+                cli_info = db.obter_cliente_por_id(ref_id)
+                if cli_info:
+                    razao_social = cli_info.get('razao_social') or cli_info.get('nome_fantasia') or ''
+
+            nomeagencia = f'{prefixo} | {razao_social}'
+
+            webhook_url = os.getenv('MAKE_WEBHOOK_GDRIVE')
+            if not webhook_url:
+                return jsonify({'success': False, 'message': 'Webhook de criação de pastas não configurado (MAKE_WEBHOOK_GDRIVE)'}), 500
+
+            resp = requests.get(webhook_url, params={'numero': numero, 'nomeagencia': nomeagencia}, timeout=60)
+            resp.raise_for_status()
+
+            partes = resp.text.strip().split('*****')
+            if len(partes) < 4:
+                app.logger.error(f"Webhook retornou resposta inesperada ({len(partes)} partes): {resp.text[:200]}")
+                return jsonify({'success': False, 'message': 'Resposta do webhook com formato inesperado'}), 502
+
+            princ, financ, pecas, arq_ass = partes[0], partes[1], partes[2], partes[3]
+
+            db.atualizar_cadu_pi_gdrive(id_pi, princ, financ, pecas, arq_ass)
+
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'Pastas Google Drive geradas para PI {numero}',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_novos={
+                    'googled_pi_princ': princ,
+                    'googled_pi_financ': financ,
+                    'googled_pi_pecas': pecas,
+                    'googled_pi_arq_ass': arq_ass,
+                }
+            )
+
+            return jsonify({
+                'success': True,
+                'googled_pi_princ': princ,
+                'googled_pi_financ': financ,
+                'googled_pi_pecas': pecas,
+                'googled_pi_arq_ass': arq_ass,
+            })
+        except requests.RequestException as re:
+            app.logger.error(f"Erro ao chamar webhook de pastas: {re}")
+            return jsonify({'success': False, 'message': f'Erro ao comunicar com o webhook: {str(re)}'}), 502
+        except Exception as e:
+            app.logger.error(f"Erro ao gerar pastas Google Drive: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     def _parse_decimal(value):
         """Converte string de valor monetário brasileiro para float"""
         if not value:

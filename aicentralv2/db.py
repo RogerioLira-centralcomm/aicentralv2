@@ -7479,6 +7479,27 @@ def excluir_cadu_pi(id_pi):
         raise e
 
 
+def atualizar_cadu_pi_gdrive(id_pi, princ, financ, pecas, arq_ass):
+    """Atualiza os 4 campos de Google Drive do PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi
+                SET googled_pi_princ = %s,
+                    googled_pi_financ = %s,
+                    googled_pi_pecas = %s,
+                    googled_pi_arq_ass = %s,
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                WHERE id_pi = %s
+            ''', (princ, financ, pecas, arq_ass, id_pi))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 # ==================== OBJETIVOS CAMPANHA PI - CRUD ====================
 
 def obter_objetivos_campanha():

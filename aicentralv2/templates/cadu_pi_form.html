@@ -18,6 +18,17 @@
       </div>
       <div class="flex items-center gap-2">
         <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
+        {% if modo == 'editar' and pi %}
+          {% if pi.googled_pi_princ %}
+            <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
+              <i class="fab fa-google-drive mr-1"></i>Abrir Pastas
+            </a>
+          {% else %}
+            <button type="button" id="btn_gerar_pastas" class="px-3 py-1.5 text-sm border border-yellow-400 rounded hover:bg-yellow-50 text-yellow-700">
+              <i class="fab fa-google-drive mr-1"></i>Gerar Pastas
+            </button>
+          {% endif %}
+        {% endif %}
         <button type="submit" form="pi_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
         </button>
@@ -158,8 +169,11 @@
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
           <!-- Linha 1: Bruto | %Ag | ComissãoAg | Líquido PR | Início -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Bruto (R$)</label>
-            <input type="text" name="valor_bruto" id="input_valor_bruto" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_bruto|float) if pi and pi.valor_bruto else '' }}">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Bruto</label>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_bruto" id="input_valor_bruto" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_bruto|float) if pi and pi.valor_bruto else '' }}">
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Agência</label>
@@ -167,11 +181,17 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Agência</label>
-            <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.comissao_agencia|float) if pi and pi.comissao_agencia else '' }}" readonly>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.comissao_agencia|float) if pi and pi.comissao_agencia else '' }}" readonly>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido PR</label>
-            <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_liquido_pr|float) if pi and pi.valor_liquido_pr else '' }}" readonly>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_liquido_pr|float) if pi and pi.valor_liquido_pr else '' }}" readonly>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Início</label>
@@ -185,7 +205,10 @@
           <!-- Linha 2: Líquido | %Parc | ComissãoParc | Plataformas | Término -->
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido</label>
-            <input type="text" name="valor_liquido" id="input_valor_liquido" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_liquido|float) if pi and pi.valor_liquido else '' }}" readonly>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_liquido" id="input_valor_liquido" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_liquido|float) if pi and pi.valor_liquido else '' }}" readonly>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Parceiro</label>
@@ -193,11 +216,17 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Parceiro</label>
-            <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.comissao_parceiro|float) if pi and pi.comissao_parceiro else '' }}" readonly>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.comissao_parceiro|float) if pi and pi.comissao_parceiro else '' }}" readonly>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Valor Plataforma Max.</label>
-            <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_plataformas|float) if pi and pi.valor_plataformas else '' }}" readonly>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_plataformas|float) if pi and pi.valor_plataformas else '' }}" readonly>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
@@ -554,6 +583,41 @@
       if (typeof showToast === 'function') showToast('Selecione um cliente', 'error');
     }
   });
+
+  var btnGerarPastas = document.getElementById('btn_gerar_pastas');
+  if (btnGerarPastas) {
+    btnGerarPastas.addEventListener('click', async function() {
+      var btn = this;
+      var originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Gerando...';
+
+      try {
+        var piId = {{ (pi.id_pi if pi else 0)|tojson }};
+        var resp = await fetch('/api/cadu_pi/' + piId + '/gerar-pastas', { method: 'POST' });
+        var data = await resp.json();
+
+        if (data.success) {
+          var link = document.createElement('a');
+          link.href = data.googled_pi_princ;
+          link.target = '_blank';
+          link.className = 'px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600';
+          link.innerHTML = '<i class="fab fa-google-drive mr-1"></i>Abrir Pastas';
+          btn.parentNode.replaceChild(link, btn);
+          if (typeof showToast === 'function') showToast('Pastas criadas com sucesso!', 'success');
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          if (typeof showToast === 'function') showToast(data.message || 'Erro ao gerar pastas', 'error');
+        }
+      } catch (err) {
+        console.error('Erro ao gerar pastas:', err);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        if (typeof showToast === 'function') showToast('Erro ao gerar pastas. Tente novamente.', 'error');
+      }
+    });
+  }
 
   document.addEventListener('DOMContentLoaded', async function() {
     var execId = getExecutivoId();

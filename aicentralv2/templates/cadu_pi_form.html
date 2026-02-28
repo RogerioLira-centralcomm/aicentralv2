@@ -96,71 +96,13 @@
         </div>
       </div>
 
-      <!-- LINHA 3: Valores + Período (tudo visível, sem fieldset) -->
-      <div class="mb-4">
-        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Valores e Período</h2>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Bruto (R$)</label>
-            <input type="text" name="valor_bruto" id="input_valor_bruto" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Agência</label>
-            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_comissao_agencia if pi and pi.perc_comissao_agencia else '' }}">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Agência</label>
-            <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}" readonly>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido</label>
-            <input type="text" name="valor_liquido" id="input_valor_liquido" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Início</label>
-            <div class="flex">
-              <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_inicio').showPicker()">
-                <i class="fas fa-calendar-alt text-xs"></i>
-              </button>
-              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Parceiro</label>
-            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_comissao_parceiro if pi and pi.perc_comissao_parceiro else '' }}">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Parceiro</label>
-            <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}" readonly>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido PR</label>
-            <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}" readonly>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Plataformas</label>
-            <input type="text" name="valor_plataformas" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
-            <div class="flex">
-              <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_fim').showPicker()">
-                <i class="fas fa-calendar-alt text-xs"></i>
-              </button>
-              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- COLLAPSE: Responsáveis / Contatos -->
-      <details class="mb-3 border border-gray-200 rounded">
+      <!-- COLLAPSE: Contatos -->
+      <details id="details_contatos" class="mb-3 border border-gray-200 rounded">
         <summary class="px-4 py-2 bg-gray-50 cursor-pointer text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors rounded select-none">
-          <span class="ml-1">Responsáveis e Contatos</span>
+          <span class="ml-1">Contatos</span>
         </summary>
         <div class="p-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Cliente -->
             <div class="space-y-2">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</p>
               <div>
@@ -176,7 +118,6 @@
                 </select>
               </div>
             </div>
-            <!-- Agência -->
             <div class="space-y-2">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Agência</p>
               <div>
@@ -192,7 +133,6 @@
                 </select>
               </div>
             </div>
-            <!-- Parceiro -->
             <div class="space-y-2">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parceiro</p>
               <div>
@@ -211,6 +151,65 @@
           </div>
         </div>
       </details>
+
+      <!-- Valores e Período -->
+      <div class="mb-4">
+        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Valores e Período</h2>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <!-- Linha 1: Bruto | %Ag | ComissãoAg | Líquido PR | Início -->
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Bruto (R$)</label>
+            <input type="text" name="valor_bruto" id="input_valor_bruto" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Agência</label>
+            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_comissao_agencia if pi and pi.perc_comissao_agencia else '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Agência</label>
+            <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}" readonly>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido PR</label>
+            <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}" readonly>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Início</label>
+            <div class="flex">
+              <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-xs"></i>
+              </button>
+              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+            </div>
+          </div>
+          <!-- Linha 2: Líquido | %Parc | ComissãoParc | Plataformas | Término -->
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido</label>
+            <input type="text" name="valor_liquido" id="input_valor_liquido" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Parceiro</label>
+            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_comissao_parceiro if pi and pi.perc_comissao_parceiro else '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Parceiro</label>
+            <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}" readonly>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Plataformas</label>
+            <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}" readonly>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
+            <div class="flex">
+              <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-xs"></i>
+              </button>
+              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- COLLAPSE: Observações -->
       <details class="mb-3 border border-gray-200 rounded">
@@ -271,6 +270,7 @@
     contatoFinParceiro: () => document.getElementById('sel_contato_fin_parceiro'),
     percComissaoParc: () => document.getElementById('input_perc_comissao_parceiro'),
     comissaoParc: () => document.getElementById('input_comissao_parceiro'),
+    valorPlataformas: () => document.getElementById('input_valor_plataformas'),
   };
 
   function parseBRL(str) {
@@ -306,7 +306,10 @@
     var percParc = parseBRL(els.percComissaoParc().value);
     var comissaoParc = (liquido > 0 && percParc > 0) ? liquido * percParc / 100 : 0;
     els.comissaoParc().value = comissaoParc > 0 ? formatBRL(comissaoParc) : '';
-    els.valorLiquidoPR().value = (liquido > 0 && comissaoParc > 0) ? formatBRL(liquido - comissaoParc) : '';
+    var liquidoPR = liquido - comissaoParc;
+    els.valorLiquidoPR().value = liquido > 0 ? formatBRL(liquidoPR) : '';
+    var basePlat = comissaoParc > 0 ? liquidoPR : liquido;
+    els.valorPlataformas().value = basePlat > 0 ? formatBRL(basePlat * 0.3) : '';
   }
 
   els.valorBruto().addEventListener('input', function() { maskMoney(this); calcValores(); });
@@ -429,18 +432,40 @@
     } catch (err) { console.error('Erro ao carregar contatos (' + tipo + '):', err); }
   }
 
+  function abrirContatosESinalizar(tipo) {
+    var details = document.getElementById('details_contatos');
+    if (!details.open) details.open = true;
+
+    var midiaId, finId;
+    if (tipo === 'cliente') { midiaId = 'sel_contato_midia_cliente'; finId = 'sel_contato_fin_cliente'; }
+    else if (tipo === 'agencia') { midiaId = 'sel_contato_midia_agencia'; finId = 'sel_contato_fin_agencia'; }
+    else { midiaId = 'sel_contato_midia_parceiro'; finId = 'sel_contato_fin_parceiro'; }
+
+    setTimeout(function() {
+      var midia = document.getElementById(midiaId);
+      var fin = document.getElementById(finId);
+      var alvo = (!midia.value) ? midia : (!fin.value) ? fin : null;
+      if (!alvo) return;
+
+      alvo.classList.add('border-blue-400', 'ring-2', 'ring-blue-200');
+      alvo.focus();
+      alvo.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(function() { alvo.classList.remove('border-blue-400', 'ring-2', 'ring-blue-200'); }, 3000);
+    }, 150);
+  }
+
   function selecionarCliente(id, nome) {
     els.clienteBusca().value = nome;
     els.clienteHidden().value = id;
     els.clienteDropdown().classList.add('hidden');
-    carregarContatos(id, 'cliente');
+    carregarContatos(id, 'cliente').then(function() { abrirContatosESinalizar('cliente'); });
   }
 
   function selecionarAgencia(id, nome, percentual) {
     els.agenciaBusca().value = nome;
     els.agenciaHidden().value = id;
     els.agenciaDropdown().classList.add('hidden');
-    carregarContatos(id, 'agencia');
+    carregarContatos(id, 'agencia').then(function() { abrirContatosESinalizar('agencia'); });
     if (percentual) {
       var percInput = els.percComissaoAg();
       percInput.value = percentual.toString().replace('.', ',');
@@ -456,7 +481,7 @@
     els.parceiroBusca().value = nome;
     els.parceiroHidden().value = id;
     els.parceiroDropdown().classList.add('hidden');
-    carregarContatos(id, 'parceiro');
+    carregarContatos(id, 'parceiro').then(function() { abrirContatosESinalizar('parceiro'); });
     if (percentual) {
       var percInput = els.percComissaoParc();
       percInput.value = percentual.toString().replace('.', ',');

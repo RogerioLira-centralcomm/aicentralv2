@@ -351,11 +351,6 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url_for('cadu_pi_lista') }}" class="{% if request.endpoint == 'cadu_pi_lista' %}active{% endif %}">
-                                            <span class="sidebar-text">PIs</span>
-                                        </a>
-                                    </li>
-                                    <li>
                                         <a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">
                                             <span class="sidebar-text">PI Recebido</span>
                                         </a>
@@ -369,80 +364,47 @@
                             </details>
                         </li>
 
-                        <!-- Operação (colapsível) -->
+                        <!-- PIs (colapsível) -->
                         <li class="mt-2">
-                            <details data-group="operacao" {% if request.endpoint == 'cadu_pi_lista' %}open{% endif %}>
+                            <details data-group="pis" {% if request.endpoint == 'cadu_pi_lista' or request.endpoint == 'cadu_pi_novo' %}open{% endif %}>
                                 <summary>
-                                    <span class="sidebar-text">Operação</span>
+                                    <span class="sidebar-text">PIs</span>
                                 </summary>
                                 <ul>
                                     <li>
-                                        <details {% if request.endpoint == 'cadu_pi_lista' %}open{% endif %}>
-                                            <summary>
-                                                <span class="sidebar-text">PIs</span>
-                                            </summary>
-                                            <ul>
-                                                <li>
-                                                    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">
-                                                        <span class="sidebar-text">Em configuração</span>
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">
-                                                        <span class="sidebar-text">Em andamento</span>
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
-                                                        <span class="sidebar-text">Em faturamento</span>
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </details>
+                                        <a href="{{ url_for('cadu_pi_lista') }}" class="{% if request.endpoint == 'cadu_pi_lista' and not request.args.get('id_sub_status_pi') %}active{% endif %}">
+                                            <span class="sidebar-text">Todos</span>
+                                        </a>
                                     </li>
                                     <li>
-                                        <details>
-                                            <summary>
-                                                <span class="sidebar-text">Campanhas</span>
-                                            </summary>
-                                            <ul>
-                                                <li>
-                                                    <a href="{{ url_for('campanhas_pi') }}">
-                                                        <span class="sidebar-text">Acompanhamento</span>
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </details>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">
+                                            <span class="sidebar-text">Em configuração</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">
+                                            <span class="sidebar-text">Em andamento</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
+                                            <span class="sidebar-text">Em faturamento</span>
+                                        </a>
                                     </li>
                                 </ul>
                             </details>
                         </li>
 
-                        <!-- Audiências (colapsível) -->
+                        <!-- Campanhas (colapsível) -->
                         <li class="mt-2">
-                            <details data-group="audiencias" open>
+                            <details data-group="campanhas" {% if request.endpoint == 'campanhas_pi' %}open{% endif %}>
                                 <summary>
-                                    <span class="sidebar-text">Audiências</span>
+                                    <span class="sidebar-text">Campanhas</span>
                                 </summary>
                                 <ul>
                                     <li>
-                                        <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                            <span class="sidebar-text">Nova Audiência</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
-                                            <span class="sidebar-text">Audiências</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
-                                            <span class="sidebar-text">Categorias</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
-                                            <span class="sidebar-text">Subcategorias</span>
+                                        <a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">
+                                            <span class="sidebar-text">Acompanhamento</span>
                                         </a>
                                     </li>
                                 </ul>
@@ -464,6 +426,26 @@
                                     <li>
                                         <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
                                             <span class="sidebar-text">Métricas Plataforma</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
+                                            <span class="sidebar-text">Nova Audiência</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
+                                            <span class="sidebar-text">Audiências</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
+                                            <span class="sidebar-text">Categorias</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
+                                            <span class="sidebar-text">Subcategorias</span>
                                         </a>
                                     </li>
                                 </ul>

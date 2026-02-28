@@ -7892,14 +7892,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
 
                 flash('PI atualizado com sucesso!', 'success')
-                return redirect(url_for('cadu_pi_lista'))
+                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=1))
 
             auxiliares = _carregar_auxiliares_pi()
             return render_template('cadu_pi_form.html', modo='editar', pi=pi, **auxiliares)
         except Exception as e:
             app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
             flash(f'Erro ao editar PI: {str(e)}', 'error')
-            return redirect(url_for('cadu_pi_lista'))
+            return redirect(url_for('cadu_pi_lista', id_sub_status_pi=1))
 
     @app.route('/api/cadu_pi/<int:id_pi>/excluir', methods=['POST', 'DELETE'])
     @login_required
@@ -7939,6 +7939,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except ValueError:
             return None
 
+    def _parse_decimal_str(value):
+        """Converte valor monetário BR para string numérica (ex: '1234.56') para varchar"""
+        v = _parse_decimal(value)
+        return str(v) if v is not None else None
+
     def _coletar_dados_pi_form():
         """Coleta dados do formulário de PI"""
         data = {
@@ -7951,13 +7956,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'perc_comissao_agencia': _parse_decimal(request.form.get('perc_comissao_agencia')),
             'id_parceiro': request.form.get('id_parceiro', type=int),
             'perc_comissao_parceiro': _parse_decimal(request.form.get('perc_comissao_parceiro')),
-            'valor_bruto': _parse_decimal(request.form.get('valor_bruto')),
-            'valor_liquido': _parse_decimal(request.form.get('valor_liquido')),
-            'comissao_agencia': _parse_decimal(request.form.get('comissao_agencia')),
-            'comissao_parceiro': _parse_decimal(request.form.get('comissao_parceiro')),
-            'valor_liquido_pr': _parse_decimal(request.form.get('valor_liquido_pr')),
-            'total_plataformas': request.form.get('total_plataformas', type=int),
-            'valor_plataformas': _parse_decimal(request.form.get('valor_plataformas')),
+            'valor_bruto': _parse_decimal_str(request.form.get('valor_bruto')),
+            'valor_liquido': _parse_decimal_str(request.form.get('valor_liquido')),
+            'comissao_agencia': _parse_decimal_str(request.form.get('comissao_agencia')),
+            'comissao_parceiro': _parse_decimal_str(request.form.get('comissao_parceiro')),
+            'valor_liquido_pr': _parse_decimal_str(request.form.get('valor_liquido_pr')),
+            'valor_plataformas': _parse_decimal_str(request.form.get('valor_plataformas')),
             'periodo_inicio': request.form.get('periodo_inicio') or None,
             'periodo_fim': request.form.get('periodo_fim') or None,
             'resp_comercial': request.form.get('resp_comercial', type=int),

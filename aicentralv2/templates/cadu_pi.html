@@ -94,7 +94,7 @@
           <tr>
             <th class="font-semibold py-3" style="width: 130px;">Código</th>
             <th class="font-semibold" style="width: 220px;">Cliente</th>
-            <th class="font-semibold" style="width: 180px;">Agência</th>
+            <th class="font-semibold" style="width: 180px;">Agência / Parceiro</th>
             <th class="font-semibold text-center" style="width: 60px;">Links</th>
             <th class="font-semibold text-right" style="width: 140px;">Valor Bruto</th>
             <th class="font-semibold text-right" style="width: 140px;">Valor Líquido</th>
@@ -131,11 +131,16 @@
               </div>
             </td>
             <td>
-              {% if pi.get('agencia_nome') %}
-              <span class="text-xs text-gray-700 truncate block max-w-[180px]" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
-              {% else %}
-              <span class="text-xs text-gray-300">-</span>
-              {% endif %}
+              <div class="flex flex-col gap-0.5 max-w-[180px]">
+                {% if pi.get('agencia_nome') %}
+                <span class="text-xs text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+                {% else %}
+                <span class="text-xs text-gray-300">-</span>
+                {% endif %}
+                {% if pi.get('parceiro_nome') %}
+                <span class="text-[10px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
+                {% endif %}
+              </div>
             </td>
             <td class="text-center">
               <span class="text-xs {% if pi.get('total_links', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_links', 0) }}</span>

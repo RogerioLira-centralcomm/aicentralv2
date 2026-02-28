@@ -8,7 +8,7 @@
   <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
     <div class="flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <a href="{{ url_for('cadu_pi_lista') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) if modo == 'novo' else url_for('cadu_pi_lista') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
           <i class="fas fa-arrow-left text-sm"></i>
         </a>
         <div>
@@ -17,7 +17,7 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <a href="{{ url_for('cadu_pi_lista') }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
+        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) if modo == 'novo' else url_for('cadu_pi_lista') }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
         <button type="submit" form="pi_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
         </button>
@@ -39,26 +39,26 @@
 
   <div class="bg-white rounded border border-gray-200 p-4">
     <form id="pi_form" method="POST" action="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) if modo == 'editar' else url_for('cadu_pi_novo') }}">
+      {% if modo == 'editar' and pi %}
+        <input type="hidden" name="id_status_pi" value="{{ pi.id_status_pi or 1 }}">
+        <input type="hidden" name="id_sub_status_pi" value="{{ pi.id_sub_status_pi or 1 }}">
+      {% endif %}
 
       <!-- LINHA 1: Dados Principais -->
       <div class="mb-4">
         <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Dados do PI</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div id="wrap_codigo_ag">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Código PI AG</label>
-            <input type="text" name="codigo_pi_ag" id="input_codigo_ag" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_ag if pi and pi.codigo_pi_ag else '' }}">
-          </div>
-          <div id="wrap_codigo_cc">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Código PI CC</label>
-            <input type="text" name="codigo_pi_cc" id="input_codigo_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Código PI</label>
+            <input type="text" name="codigo_pi_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Tipo PI</label>
             <input type="text" name="tipo_pi" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.tipo_pi if pi and pi.tipo_pi else '' }}">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Executivo de Vendas</label>
-            <select name="resp_comercial" id="sel_resp_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" onchange="onExecutivoChange()">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Executivo de Vendas <span class="text-red-500">*</span></label>
+            <select name="resp_comercial" id="sel_resp_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" onchange="onExecutivoChange()" required>
               <option value="">Selecione...</option>
               {% for v in vendedores %}
                 <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
@@ -159,19 +159,19 @@
           <!-- Linha 1: Bruto | %Ag | ComissãoAg | Líquido PR | Início -->
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Valor Bruto (R$)</label>
-            <input type="text" name="valor_bruto" id="input_valor_bruto" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+            <input type="text" name="valor_bruto" id="input_valor_bruto" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_bruto|float) if pi and pi.valor_bruto else '' }}">
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Agência</label>
-            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_comissao_agencia if pi and pi.perc_comissao_agencia else '' }}">
+            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_agencia|float) if pi and pi.perc_comissao_agencia else '' }}">
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Agência</label>
-            <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}" readonly>
+            <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.comissao_agencia|float) if pi and pi.comissao_agencia else '' }}" readonly>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido PR</label>
-            <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}" readonly>
+            <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_liquido_pr|float) if pi and pi.valor_liquido_pr else '' }}" readonly>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Início</label>
@@ -185,19 +185,19 @@
           <!-- Linha 2: Líquido | %Parc | ComissãoParc | Plataformas | Término -->
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido</label>
-            <input type="text" name="valor_liquido" id="input_valor_liquido" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
+            <input type="text" name="valor_liquido" id="input_valor_liquido" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_liquido|float) if pi and pi.valor_liquido else '' }}" readonly>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Parceiro</label>
-            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_comissao_parceiro if pi and pi.perc_comissao_parceiro else '' }}">
+            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_parceiro|float) if pi and pi.perc_comissao_parceiro else '' }}">
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Parceiro</label>
-            <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}" readonly>
+            <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.comissao_parceiro|float) if pi and pi.comissao_parceiro else '' }}" readonly>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Plataformas</label>
-            <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}" readonly>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Plataforma Max.</label>
+            <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ '%.2f'|format(pi.valor_plataformas|float) if pi and pi.valor_plataformas else '' }}" readonly>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
@@ -254,10 +254,6 @@
     contatoFinCliente: () => document.getElementById('sel_contato_fin_cliente'),
     contatoMidiaAgencia: () => document.getElementById('sel_contato_midia_agencia'),
     contatoFinAgencia: () => document.getElementById('sel_contato_fin_agencia'),
-    codigoAg: () => document.getElementById('input_codigo_ag'),
-    codigoCc: () => document.getElementById('input_codigo_cc'),
-    wrapAg: () => document.getElementById('wrap_codigo_ag'),
-    wrapCc: () => document.getElementById('wrap_codigo_cc'),
     valorBruto: () => document.getElementById('input_valor_bruto'),
     percComissaoAg: () => document.getElementById('input_perc_comissao_agencia'),
     comissaoAg: () => document.getElementById('input_comissao_agencia'),
@@ -316,6 +312,15 @@
   els.percComissaoAg().addEventListener('input', function() { maskPercent(this); calcValores(); });
   els.percComissaoParc().addEventListener('input', function() { maskPercent(this); calcValores(); });
 
+  document.getElementById('input_periodo_inicio').addEventListener('change', function() {
+    var fimInput = document.getElementById('input_periodo_fim');
+    if (this.value) {
+      var dt = new Date(this.value + 'T00:00:00');
+      dt.setDate(dt.getDate() + 1);
+      fimInput.min = dt.toISOString().split('T')[0];
+    }
+  });
+
   function getExecutivoId() {
     return els.exec().value || null;
   }
@@ -335,15 +340,6 @@
     fin.disabled = true;
   }
 
-  function toggleCodigoPi() {
-    var agVal = els.codigoAg().value.trim();
-    var ccVal = els.codigoCc().value.trim();
-    els.wrapCc().classList.toggle('hidden', agVal !== '');
-    els.wrapAg().classList.toggle('hidden', ccVal !== '');
-  }
-
-  els.codigoAg().addEventListener('input', toggleCodigoPi);
-  els.codigoCc().addEventListener('input', toggleCodigoPi);
 
   window.onExecutivoChange = function() {
     const execId = getExecutivoId();
@@ -421,7 +417,7 @@
       var optionsHtml = '<option value="">Selecione</option>';
       contatos.forEach(function(c) {
         var label = escapeHtml(c.nome_completo) + (c.setor ? ' (' + escapeHtml(c.setor) + ')' : '');
-        optionsHtml += '<option value="' + escapeHtml(c.nome_completo) + '">' + label + '</option>';
+        optionsHtml += '<option value="' + c.id_contato_cliente + '">' + label + '</option>';
       });
       midia.innerHTML = optionsHtml;
       fin.innerHTML = optionsHtml;
@@ -560,8 +556,6 @@
   });
 
   document.addEventListener('DOMContentLoaded', async function() {
-    toggleCodigoPi();
-
     var execId = getExecutivoId();
     if (execId || !USER_IS_EXECUTIVO) {
       els.clienteBusca().disabled = false;
@@ -570,6 +564,7 @@
 
     if (els.valorBruto().value) maskMoney(els.valorBruto());
     if (els.percComissaoAg().value) maskPercent(els.percComissaoAg());
+    if (els.percComissaoParc().value) maskPercent(els.percComissaoParc());
     calcValores();
 
     var clienteId = els.clienteHidden().value;

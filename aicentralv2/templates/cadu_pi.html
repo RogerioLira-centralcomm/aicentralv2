@@ -11,7 +11,9 @@
       <div class="flex items-center gap-3">
         <h1 class="text-lg font-semibold text-gray-800">PIs</h1>
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
-        {% if sub_status_atual|string == '2' %}
+        {% if sub_status_atual|string == '1' %}
+        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">Em aprovação</span>
+        {% elif sub_status_atual|string == '2' %}
         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Em configuração</span>
         {% elif sub_status_atual|string == '3' %}
         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Em andamento</span>
@@ -49,16 +51,6 @@
           <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200" style="min-width: 280px;"></div>
         </div>
 
-        <select name="id_status_pi" id="filtro_status" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
-          <option value="">Todos status</option>
-          {% for s in status_pi %}
-            <option value="{{ s.id }}" {% if filtros.get('id_status_pi')|string == s.id|string %}selected{% endif %}>
-              {{ s.descricao }}
-            </option>
-          {% endfor %}
-        </select>
-
         <select name="mes_ref_comp" id="filtro_mes_ref" onchange="aplicarFiltros()"
                 class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 110px;">
           <option value="">Todos meses</option>
@@ -77,25 +69,8 @@
           <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
         </div>
 
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          {% set sub_icons = [
-            ('2', 'fa-gear', 'Em configuração'),
-            ('3', 'fa-play', 'Em andamento'),
-            ('4', 'fa-file-invoice-dollar', 'Em faturamento')
-          ] %}
-          {% for key, icon, title in sub_icons %}
-          <button type="button" onclick="filtrarSubStatus('{{ key }}')"
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if sub_status_atual|string == key %}bg-gray-200{% endif %}"
-                  title="{{ title }}">
-            <i class="fa-solid {{ icon }} text-sm text-gray-{% if sub_status_atual|string == key %}800{% else %}400{% endif %}"></i>
-          </button>
-          {% endfor %}
-        </div>
       </form>
 
-      <a href="{{ url_for('cadu_pi_novo') }}" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-plus mr-1"></i>Novo PI
-      </a>
     </div>
   </div>
 
@@ -115,6 +90,16 @@
     {% if pis %}
       <table class="table table-sm w-full">
         <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
+          {% if sub_status_atual|string == '1' %}
+          <tr>
+            <th class="font-semibold py-3" style="width: 130px;">Código</th>
+            <th class="font-semibold" style="width: 220px;">Cliente</th>
+            <th class="font-semibold" style="width: 180px;">Agência</th>
+            <th class="font-semibold text-center" style="width: 60px;">Links</th>
+            <th class="font-semibold text-right" style="width: 140px;">Valor Bruto</th>
+            <th class="font-semibold text-right" style="width: 140px;">Valor Líquido</th>
+          </tr>
+          {% else %}
           <tr>
             <th class="font-semibold py-3" style="width: 130px;">Código PI</th>
             <th class="font-semibold" style="width: 180px;">Cliente</th>
@@ -123,14 +108,14 @@
             <th class="font-semibold text-center" style="width: 110px;">Período</th>
             <th class="font-semibold text-center" style="width: 50px;">Links</th>
             <th class="font-semibold text-center" style="width: 50px;">Camp.</th>
-            <th class="font-semibold text-center" style="width: 100px;">Status</th>
             <th class="font-semibold text-right" style="width: 140px;">Bruto / Líquido</th>
           </tr>
+          {% endif %}
         </thead>
         <tbody class="text-sm">
           {% for pi in pis %}
-          {% set hoje = now().date() if now is defined else none %}
           <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}'">
+          {% if sub_status_atual|string == '1' %}
             <td class="py-2.5">
               <div class="flex flex-col gap-0.5">
                 <span class="font-mono text-xs font-semibold text-blue-600">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
@@ -139,14 +124,51 @@
                 {% endif %}
               </div>
             </td>
-
+            <td>
+              <div class="flex flex-col gap-0.5 max-w-[220px]">
+                <span class="font-medium text-gray-800 truncate text-xs">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
+                <span class="text-[11px] text-gray-500 truncate">{{ pi.get('cliente_nome') or '-' }}</span>
+              </div>
+            </td>
+            <td>
+              {% if pi.get('agencia_nome') %}
+              <span class="text-xs text-gray-700 truncate block max-w-[180px]" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <span class="text-xs {% if pi.get('total_links', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_links', 0) }}</span>
+            </td>
+            <td class="text-right">
+              {% if pi.get('valor_bruto') %}
+              <span class="font-semibold text-gray-800 text-xs">{{ "R$ {:,.2f}".format(pi.valor_bruto|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-right">
+              {% if pi.get('valor_liquido') %}
+              <span class="text-xs text-green-600 font-semibold">{{ "R$ {:,.2f}".format(pi.valor_liquido|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+          {% else %}
+            <td class="py-2.5">
+              <div class="flex flex-col gap-0.5">
+                <span class="font-mono text-xs font-semibold text-blue-600">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                {% if pi.get('mes_ref_comp') %}
+                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                {% endif %}
+              </div>
+            </td>
             <td>
               <div class="flex flex-col gap-0.5 max-w-[180px]">
                 <span class="font-medium text-gray-800 truncate text-xs">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
                 <span class="text-[11px] text-gray-500 truncate">{{ pi.get('cliente_nome') or '-' }}</span>
               </div>
             </td>
-
             <td>
               <div class="flex flex-col gap-0.5 max-w-[150px]">
                 {% if pi.get('agencia_nome') %}
@@ -159,7 +181,6 @@
                 {% endif %}
               </div>
             </td>
-
             <td>
               {% if pi.get('resp_comercial_nome') %}
               <span class="text-xs text-gray-700 truncate block max-w-[100px]" title="{{ pi.resp_comercial_nome }}">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
@@ -167,7 +188,6 @@
               <span class="text-xs text-gray-300">-</span>
               {% endif %}
             </td>
-
             <td class="text-center">
               {% if pi.get('periodo_inicio') %}
               <div class="flex flex-col items-center">
@@ -179,34 +199,12 @@
               <span class="text-xs text-gray-300">-</span>
               {% endif %}
             </td>
-
             <td class="text-center">
               <span class="text-xs {% if pi.get('total_links', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_links', 0) }}</span>
             </td>
-
             <td class="text-center">
               <span class="text-xs {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_campanhas', 0) }}</span>
             </td>
-
-            <td class="text-center">
-              {% if pi.get('sub_status_descricao') %}
-              {% set sub = pi.sub_status_descricao %}
-              <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded
-                {% if sub == 'Em andamento' %}bg-green-100 text-green-700
-                {% elif sub == 'Em configuração' or sub == 'Em configuracao' %}bg-blue-100 text-blue-700
-                {% elif sub == 'Em faturamento' %}bg-orange-100 text-orange-700
-                {% else %}bg-gray-100 text-gray-600{% endif %}">
-                {{ sub }}
-              </span>
-              {% elif pi.get('status_descricao') %}
-              <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600">
-                {{ pi.status_descricao }}
-              </span>
-              {% else %}
-              <span class="text-gray-300">-</span>
-              {% endif %}
-            </td>
-
             <td class="text-right">
               <div class="flex flex-col gap-0.5 items-end">
                 {% if pi.get('valor_bruto') %}
@@ -219,6 +217,7 @@
                 {% endif %}
               </div>
             </td>
+          {% endif %}
           </tr>
           {% endfor %}
         </tbody>
@@ -278,13 +277,11 @@ function aplicarFiltros() {
   const params = new URLSearchParams();
   const exec = document.getElementById('filtro_executivo').value;
   const cli = document.getElementById('filtro_cliente_id').value;
-  const st = document.getElementById('filtro_status').value;
   const mes = document.getElementById('filtro_mes_ref').value;
   const busca = document.getElementById('filtro_busca').value.trim();
 
   if (exec) params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
-  if (st) params.set('id_status_pi', st);
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
   if (mes) params.set('mes_ref_comp', mes);
   if (busca) params.set('busca', busca);

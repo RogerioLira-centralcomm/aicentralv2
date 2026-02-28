@@ -356,6 +356,11 @@
                                         </a>
                                     </li>
                                     <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">
+                                            <span class="sidebar-text">PIs em aprovação</span>
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
                                             <span class="sidebar-text">Métricas Semanais</span>
                                         </a>
@@ -371,11 +376,6 @@
                                     <span class="sidebar-text">PIs</span>
                                 </summary>
                                 <ul>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_lista') }}" class="{% if request.endpoint == 'cadu_pi_lista' and not request.args.get('id_sub_status_pi') %}active{% endif %}">
-                                            <span class="sidebar-text">Todos</span>
-                                        </a>
-                                    </li>
                                     <li>
                                         <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">
                                             <span class="sidebar-text">Em configuração</span>

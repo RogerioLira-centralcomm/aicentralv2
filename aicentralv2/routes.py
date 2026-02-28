@@ -7204,19 +7204,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 params.append(vendedor_id)
                 app.logger.info(f"Filtrando: vendedor_id={vendedor_id}")
             
-            # Usar OR para buscar em qualquer um dos campos
             if nome and razao:
-                # Se ambos estão preenchidos (mesmo valor), buscar com OR
-                query += ' AND (c.nome_fantasia ILIKE %s OR c.razao_social ILIKE %s)'
+                query += ' AND (unaccent(c.nome_fantasia) ILIKE unaccent(%s) OR unaccent(c.razao_social) ILIKE unaccent(%s))'
                 params.append(f'%{nome}%')
                 params.append(f'%{razao}%')
                 app.logger.info(f"Adicionado filtro OR: nome=%{nome}% OU razao=%{razao}%")
             elif nome:
-                query += ' AND c.nome_fantasia ILIKE %s'
+                query += ' AND unaccent(c.nome_fantasia) ILIKE unaccent(%s)'
                 params.append(f'%{nome}%')
                 app.logger.info(f"Adicionado filtro nome: %{nome}%")
             elif razao:
-                query += ' AND c.razao_social ILIKE %s'
+                query += ' AND unaccent(c.razao_social) ILIKE unaccent(%s)'
                 params.append(f'%{razao}%')
                 app.logger.info(f"Adicionado filtro razao: %{razao}%")
             
@@ -7815,7 +7813,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pis = db.obter_cadu_pi_lista(filtros)
             status_pi = db.obter_status_pi()
             vendedores = db.obter_vendedores_centralcomm()
-            meses_ref = db.obter_meses_ref_pi()
+            meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
 
             return render_template('cadu_pi.html',
                                    pis=pis or [],
@@ -7839,6 +7837,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if request.method == 'POST':
             try:
                 data = _coletar_dados_pi_form()
+                if not data.get('resp_comercial'):
+                    flash('Executivo de Vendas é obrigatório.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    return render_template('cadu_pi_form.html', modo='novo', pi=None, **auxiliares)
+
                 id_pi = db.criar_cadu_pi(data)
 
                 registrar_auditoria(
@@ -7851,7 +7854,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
 
                 flash('PI criado com sucesso!', 'success')
-                return redirect(url_for('cadu_pi_lista'))
+                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=1))
             except Exception as e:
                 app.logger.error(f"Erro ao criar PI: {e}", exc_info=True)
                 flash(f'Erro ao criar PI: {str(e)}', 'error')
@@ -7871,6 +7874,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if request.method == 'POST':
                 data = _coletar_dados_pi_form()
+                if not data.get('resp_comercial'):
+                    flash('Executivo de Vendas é obrigatório.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, **auxiliares)
+
                 db.atualizar_cadu_pi(id_pi, data)
 
                 registrar_auditoria(
@@ -7933,10 +7941,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     def _coletar_dados_pi_form():
         """Coleta dados do formulário de PI"""
-        return {
+        data = {
             'id_cliente': request.form.get('id_cliente', type=int),
             'titulo_pi': request.form.get('titulo_pi', '').strip(),
-            'codigo_pi_ag': request.form.get('codigo_pi_ag', '').strip() or None,
             'codigo_pi_cc': request.form.get('codigo_pi_cc', '').strip() or None,
             'tipo_pi': request.form.get('tipo_pi', '').strip() or None,
             'tem_agencia': bool(request.form.get('id_agencia', type=int)),
@@ -7953,23 +7960,35 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'valor_plataformas': _parse_decimal(request.form.get('valor_plataformas')),
             'periodo_inicio': request.form.get('periodo_inicio') or None,
             'periodo_fim': request.form.get('periodo_fim') or None,
-            'mes_ref': request.form.get('mes_ref', '').strip() or None,
             'resp_comercial': request.form.get('resp_comercial', type=int),
-            'contato_fin_cliente': request.form.get('contato_fin_cliente', '').strip() or None,
-            'contato_midia_cliente': request.form.get('contato_midia_cliente', '').strip() or None,
-            'contato_fin_agencia': request.form.get('contato_fin_agencia', '').strip() or None,
-            'contato_midia_agencia': request.form.get('contato_midia_agencia', '').strip() or None,
-            'contato_fin_parceiro': request.form.get('contato_fin_parceiro', '').strip() or None,
-            'contato_midia_parceiro': request.form.get('contato_midia_parceiro', '').strip() or None,
-            'id_status_pi': request.form.get('id_status_pi', type=int),
-            'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int),
-            'link_pi_principal': request.form.get('link_pi_principal', '').strip() or None,
-            'link_financeiro': request.form.get('link_financeiro', '').strip() or None,
-            'link_pecas': request.form.get('link_pecas', '').strip() or None,
-            'link_arquivo_assinado': request.form.get('link_arquivo_assinado', '').strip() or None,
+            'contato_fin_cliente': request.form.get('contato_fin_cliente', type=int),
+            'contato_midia_cliente': request.form.get('contato_midia_cliente', type=int),
+            'contato_fin_agencia': request.form.get('contato_fin_agencia', type=int),
+            'contato_midia_agencia': request.form.get('contato_midia_agencia', type=int),
+            'contato_fin_parceiro': request.form.get('contato_fin_parceiro', type=int),
+            'contato_midia_parceiro': request.form.get('contato_midia_parceiro', type=int),
+            'id_status_pi': request.form.get('id_status_pi', type=int) or 1,
+            'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int) or 1,
             'obs_financeiro': request.form.get('obs_financeiro', '').strip() or None,
             'obs_operacao': request.form.get('obs_operacao', '').strip() or None,
         }
+        periodo_inicio = data.get('periodo_inicio')
+        if periodo_inicio:
+            from datetime import datetime
+            try:
+                dt = datetime.strptime(periodo_inicio, '%Y-%m-%d')
+                data['mes_ref'] = periodo_inicio
+                data['mes_ref_comp'] = f'{dt.month}/{dt.strftime("%y")}'
+            except ValueError:
+                data['mes_ref'] = None
+                data['mes_ref_comp'] = None
+        else:
+            data['mes_ref'] = None
+            data['mes_ref_comp'] = None
+
+        app.logger.info(f"Form RAW valores: valor_bruto='{request.form.get('valor_bruto')}', valor_liquido='{request.form.get('valor_liquido')}', comissao_agencia='{request.form.get('comissao_agencia')}', comissao_parceiro='{request.form.get('comissao_parceiro')}', valor_liquido_pr='{request.form.get('valor_liquido_pr')}', valor_plataformas='{request.form.get('valor_plataformas')}', perc_comissao_agencia='{request.form.get('perc_comissao_agencia')}', perc_comissao_parceiro='{request.form.get('perc_comissao_parceiro')}'")
+        app.logger.info(f"Parsed valores: valor_bruto={data['valor_bruto']}, valor_liquido={data['valor_liquido']}, comissao_agencia={data['comissao_agencia']}, comissao_parceiro={data['comissao_parceiro']}, valor_liquido_pr={data['valor_liquido_pr']}, valor_plataformas={data['valor_plataformas']}")
+        return data
 
     def _carregar_auxiliares_pi():
         """Carrega dados auxiliares para selects do formulário de PI"""
@@ -8415,13 +8434,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     # ==================== CAMPANHA PI - ROTAS ====================
 
-    def _parse_decimal(value):
+    def _parse_decimal_campanha(value):
         """Converte string para Decimal, retornando None se vazio"""
         if not value or not str(value).strip():
             return None
         try:
             from decimal import Decimal
-            return Decimal(str(value).strip().replace(',', '.'))
+            return Decimal(str(value).strip().replace('.', '').replace(',', '.'))
         except Exception:
             return None
 
@@ -8434,7 +8453,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'mes_ref': request.form.get('mes_ref') or None,
             'mes_ref_comp': request.form.get('mes_ref_comp', '').strip() or None,
             'nome_campanha': request.form.get('nome_campanha', '').strip() or None,
-            'obj_contratados': _parse_decimal(request.form.get('obj_contratados')),
+            'obj_contratados': _parse_decimal_campanha(request.form.get('obj_contratados')),
             'id_centralx': request.form.get('id_centralx', '').strip() or None,
             'under': request.form.get('under') == 'on',
             'id_objetivos_campanha': request.form.get('id_objetivos_campanha', type=int),

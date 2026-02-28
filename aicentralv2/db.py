@@ -70,7 +70,8 @@ def init_db(app):
         conn = get_db()
 
         with conn.cursor() as cursor:
-            # Adicionar campos necessários
+            cursor.execute('CREATE EXTENSION IF NOT EXISTS unaccent')
+
             cursor.execute('''
                 DO $$ 
                 BEGIN
@@ -2788,7 +2789,7 @@ def obter_clientes_sistema(filtros=None, vendedor_id=None):
                 params.append(filtros['tipo_cliente'])
             
             if filtros.get('search'):
-                query += ' AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s OR cli.cnpj ILIKE %s)'
+                query += ' AND (unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli.razao_social) ILIKE unaccent(%s) OR cli.cnpj ILIKE %s)'
                 search_term = f"%{filtros['search']}%"
                 params.extend([search_term, search_term, search_term])
         
@@ -5242,7 +5243,7 @@ def obter_cotacoes_filtradas(cliente_id=None, responsavel_id=None, mes=None, bus
                 params.append(int(mes))
             
             if busca:
-                query += ' AND (cli.nome_fantasia ILIKE %s OR c.nome_campanha ILIKE %s OR c.numero_cotacao ILIKE %s)'
+                query += ' AND (unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(c.nome_campanha) ILIKE unaccent(%s) OR c.numero_cotacao ILIKE %s)'
                 busca_param = f'%{busca}%'
                 params.extend([busca_param, busca_param, busca_param])
             
@@ -6351,7 +6352,7 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
             count_params.append(filtros['status'])
         
         if filtros.get('search'):
-            where_clauses.append('(cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)')
+            where_clauses.append('(unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli.razao_social) ILIKE unaccent(%s))')
             search_term = f"%{filtros['search']}%"
             params.extend([search_term, search_term])
             count_params.extend([search_term, search_term])
@@ -7168,20 +7169,24 @@ def obter_sub_status_pi():
         raise e
 
 
-def obter_meses_ref_pi():
-    """Retorna valores distintos de mes_ref_comp ordenados por ano e mês (desc)"""
+def obter_meses_ref_pi(id_sub_status_pi=None):
+    """Retorna valores distintos de mes_ref_comp, filtrados por sub_status se informado"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
+            query = '''
                 SELECT mes_ref_comp,
                     CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) as ano,
                     CAST(SPLIT_PART(mes_ref_comp, '/', 1) AS INTEGER) as mes
                 FROM cadu_pi
                 WHERE mes_ref_comp IS NOT NULL AND mes_ref_comp != ''
-                GROUP BY mes_ref_comp
-                ORDER BY ano DESC, mes DESC
-            ''')
+            '''
+            params = []
+            if id_sub_status_pi:
+                query += ' AND id_sub_status_pi = %s'
+                params.append(id_sub_status_pi)
+            query += ' GROUP BY mes_ref_comp ORDER BY ano DESC, mes DESC'
+            cursor.execute(query, params)
             return [r['mes_ref_comp'] for r in cursor.fetchall()]
     except Exception as e:
         conn.rollback()
@@ -7207,7 +7212,7 @@ def obter_cadu_pi_lista(filtros=None):
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
-                LEFT JOIN tbl_cliente cli_parc ON p.id_parceiro = cli_parc.id_cliente
+                LEFT JOIN tbl_cliente cli_parc ON p."Id_parc_reg" = cli_parc.id_cliente
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
@@ -7241,7 +7246,7 @@ def obter_cadu_pi_lista(filtros=None):
                     params.append(filtros['resp_comercial'])
 
                 if filtros.get('search'):
-                    query += ' AND (p.titulo_pi ILIKE %s OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s OR cli.nome_fantasia ILIKE %s OR cli_ag.nome_fantasia ILIKE %s)'
+                    query += ' AND (unaccent(p.titulo_pi) ILIKE unaccent(%s) OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s OR unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli_ag.nome_fantasia) ILIKE unaccent(%s))'
                     search_term = f"%{filtros['search']}%"
                     params.extend([search_term, search_term, search_term, search_term, search_term])
 
@@ -7260,8 +7265,17 @@ def obter_cadu_pi_por_id(id_pi):
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT 
+                SELECT
                     p.*,
+                    p."Id_parc_reg" as id_parceiro,
+                    p.id_cont_cliente_financ as contato_fin_cliente,
+                    p.id_cont_cliente_midia as contato_midia_cliente,
+                    p.id_cont_agen_financ as contato_fin_agencia,
+                    p.id_cont_agen_midia as contato_midia_agencia,
+                    p.id_cont_parc_reg_financ as contato_fin_parceiro,
+                    p.id_cont_parc_reg_midia as contato_midia_parceiro,
+                    p.observacoes_financeiro as obs_financeiro,
+                    p.observacoes_operacao as obs_operacao,
                     cli.nome_fantasia as cliente_nome,
                     cli_ag.nome_fantasia as agencia_nome,
                     cli_parc.nome_fantasia as parceiro_nome,
@@ -7271,7 +7285,7 @@ def obter_cadu_pi_por_id(id_pi):
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
-                LEFT JOIN tbl_cliente cli_parc ON p.id_parceiro = cli_parc.id_cliente
+                LEFT JOIN tbl_cliente cli_parc ON p."Id_parc_reg" = cli_parc.id_cliente
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
@@ -7290,36 +7304,37 @@ def criar_cadu_pi(data):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_pi (
-                    id_cliente, titulo_pi, codigo_pi_ag, codigo_pi_cc, tipo_pi,
-                    tem_agencia, id_agencia, perc_comissao_agencia,
-                    id_parceiro, perc_comissao_parceiro,
+                    id_cliente, titulo_pi, codigo_pi_cc, tipo_pi,
+                    pi_tem_agencia, id_agencia, perc_comissao_agencia,
+                    "Id_parc_reg", perc_comissao_parceiro,
                     valor_bruto, valor_liquido, comissao_agencia, comissao_parceiro,
                     valor_liquido_pr, total_plataformas, valor_plataformas,
-                    periodo_inicio, periodo_fim, mes_ref,
-                    id_resp_comercial, contato_fin_cliente, contato_midia_cliente,
-                    contato_fin_agencia, contato_midia_agencia,
-                    contato_fin_parceiro, contato_midia_parceiro,
+                    periodo_inicio, periodo_fim, mes_ref, mes_ref_comp,
+                    id_resp_comercial,
+                    id_cont_cliente_financ, id_cont_cliente_midia,
+                    id_cont_agen_financ, id_cont_agen_midia,
+                    id_cont_parc_reg_financ, id_cont_parc_reg_midia,
                     id_status_pi, id_sub_status_pi,
-                    link_pi_principal, link_financeiro, link_pecas, link_arquivo_assinado,
-                    obs_financeiro, obs_operacao
+                    observacoes_financeiro, observacoes_operacao,
+                    created_at, updated_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s, %s,
                     %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s,
-                    %s, %s,
-                    %s, %s,
                     %s, %s, %s, %s,
-                    %s, %s
+                    %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    date_trunc('second', CURRENT_TIMESTAMP), date_trunc('second', CURRENT_TIMESTAMP)
                 ) RETURNING id_pi
             ''', (
                 data.get('id_cliente'),
                 data.get('titulo_pi'),
-                data.get('codigo_pi_ag'),
                 data.get('codigo_pi_cc'),
                 data.get('tipo_pi'),
                 data.get('tem_agencia', False),
@@ -7337,6 +7352,7 @@ def criar_cadu_pi(data):
                 data.get('periodo_inicio'),
                 data.get('periodo_fim'),
                 data.get('mes_ref'),
+                data.get('mes_ref_comp'),
                 data.get('resp_comercial'),
                 data.get('contato_fin_cliente'),
                 data.get('contato_midia_cliente'),
@@ -7346,10 +7362,6 @@ def criar_cadu_pi(data):
                 data.get('contato_midia_parceiro'),
                 data.get('id_status_pi'),
                 data.get('id_sub_status_pi'),
-                data.get('link_pi_principal'),
-                data.get('link_financeiro'),
-                data.get('link_pecas'),
-                data.get('link_arquivo_assinado'),
                 data.get('obs_financeiro'),
                 data.get('obs_operacao'),
             ))
@@ -7370,13 +7382,12 @@ def atualizar_cadu_pi(id_pi, data):
                 UPDATE cadu_pi SET
                     id_cliente = %s,
                     titulo_pi = %s,
-                    codigo_pi_ag = %s,
                     codigo_pi_cc = %s,
                     tipo_pi = %s,
-                    tem_agencia = %s,
+                    pi_tem_agencia = %s,
                     id_agencia = %s,
                     perc_comissao_agencia = %s,
-                    id_parceiro = %s,
+                    "Id_parc_reg" = %s,
                     perc_comissao_parceiro = %s,
                     valor_bruto = %s,
                     valor_liquido = %s,
@@ -7388,28 +7399,24 @@ def atualizar_cadu_pi(id_pi, data):
                     periodo_inicio = %s,
                     periodo_fim = %s,
                     mes_ref = %s,
+                    mes_ref_comp = %s,
                     id_resp_comercial = %s,
-                    contato_fin_cliente = %s,
-                    contato_midia_cliente = %s,
-                    contato_fin_agencia = %s,
-                    contato_midia_agencia = %s,
-                    contato_fin_parceiro = %s,
-                    contato_midia_parceiro = %s,
+                    id_cont_cliente_financ = %s,
+                    id_cont_cliente_midia = %s,
+                    id_cont_agen_financ = %s,
+                    id_cont_agen_midia = %s,
+                    id_cont_parc_reg_financ = %s,
+                    id_cont_parc_reg_midia = %s,
                     id_status_pi = %s,
                     id_sub_status_pi = %s,
-                    link_pi_principal = %s,
-                    link_financeiro = %s,
-                    link_pecas = %s,
-                    link_arquivo_assinado = %s,
-                    obs_financeiro = %s,
-                    obs_operacao = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    observacoes_financeiro = %s,
+                    observacoes_operacao = %s,
+                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
                 RETURNING id_pi
             ''', (
                 data.get('id_cliente'),
                 data.get('titulo_pi'),
-                data.get('codigo_pi_ag'),
                 data.get('codigo_pi_cc'),
                 data.get('tipo_pi'),
                 data.get('tem_agencia', False),
@@ -7427,6 +7434,7 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('periodo_inicio'),
                 data.get('periodo_fim'),
                 data.get('mes_ref'),
+                data.get('mes_ref_comp'),
                 data.get('resp_comercial'),
                 data.get('contato_fin_cliente'),
                 data.get('contato_midia_cliente'),
@@ -7436,10 +7444,6 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('contato_midia_parceiro'),
                 data.get('id_status_pi'),
                 data.get('id_sub_status_pi'),
-                data.get('link_pi_principal'),
-                data.get('link_financeiro'),
-                data.get('link_pecas'),
-                data.get('link_arquivo_assinado'),
                 data.get('obs_financeiro'),
                 data.get('obs_operacao'),
                 id_pi,

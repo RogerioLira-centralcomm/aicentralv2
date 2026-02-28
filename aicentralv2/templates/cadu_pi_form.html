@@ -1,11 +1,24 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}{{ 'Novo PI' if modo == 'novo' else 'Editar PI' }} - CentralComm AI{% endblock %}
+{% block title %}{{ 'PI Recebido' if modo == 'novo' else 'Editar PI' }} - CentralComm AI{% endblock %}
+
+{% block styles %}
+<style>
+  .select {
+    height: 2.25rem;
+    min-height: 2.25rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
   <div class="mb-6">
-    <h1 class="text-2xl font-bold">{{ 'Novo PI' if modo == 'novo' else 'Editar PI' }}</h1>
+    <h1 class="text-2xl font-bold">{{ 'PI Recebido' if modo == 'novo' else 'Editar PI' }}</h1>
     <p class="text-sm text-base-content/70">Preencha os dados do PI.</p>
   </div>
 
@@ -22,133 +35,150 @@
   {% endwith %}
 
   <div class="bg-base-100 rounded-xl shadow-lg p-6">
-    <form method="POST" action="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) if modo == 'editar' else url_for('cadu_pi_novo') }}" class="space-y-8">
+    <form method="POST" action="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) if modo == 'editar' else url_for('cadu_pi_novo') }}" class="space-y-5">
 
-      <!-- Dados Principais -->
+      <!-- Dados PI -->
       <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Dados Principais</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control md:col-span-2">
-            <label class="label"><span class="label-text font-semibold">Cliente <span class="text-error">*</span></span></label>
-            <select name="id_cliente" class="select select-bordered w-full" required>
-              <option value="">Selecione o cliente</option>
-              {% for c in clientes %}
-                <option value="{{ c.id_cliente }}" {% if pi and pi.id_cliente == c.id_cliente %}selected{% endif %}>
-                  {{ c.nome_fantasia }}
-                </option>
-              {% endfor %}
-            </select>
+        <legend class="text-sm font-semibold text-gray-700 mb-2 border-b pb-2 w-full">Dados PI</legend>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+          <div id="wrap_codigo_ag" class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Código PI AG</span></label>
+            <input type="text" name="codigo_pi_ag" id="input_codigo_ag" class="input input-bordered input-sm w-full" value="{{ pi.codigo_pi_ag if pi and pi.codigo_pi_ag else '' }}">
           </div>
-          <div class="form-control md:col-span-2">
-            <label class="label"><span class="label-text font-semibold">Título <span class="text-error">*</span></span></label>
-            <input type="text" name="titulo_pi" class="input input-bordered w-full" value="{{ pi.titulo_pi if pi else '' }}" required>
+          <div id="wrap_codigo_cc" class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Código PI CC</span></label>
+            <input type="text" name="codigo_pi_cc" id="input_codigo_cc" class="input input-bordered input-sm w-full" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Código PI AG</span></label>
-            <input type="text" name="codigo_pi_ag" class="input input-bordered w-full" value="{{ pi.codigo_pi_ag if pi and pi.codigo_pi_ag else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Código PI CC</span></label>
-            <input type="text" name="codigo_pi_cc" class="input input-bordered w-full" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Tipo PI</span></label>
-            <input type="text" name="tipo_pi" class="input input-bordered w-full" value="{{ pi.tipo_pi if pi and pi.tipo_pi else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Tipo PI</span></label>
+            <input type="text" name="tipo_pi" class="input input-bordered input-sm w-full" value="{{ pi.tipo_pi if pi and pi.tipo_pi else '' }}">
           </div>
         </div>
-      </fieldset>
 
-      <!-- Agência -->
-      <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Agência</legend>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div class="form-control">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input type="checkbox" name="tem_agencia" class="toggle toggle-sm" id="toggle_agencia"
-                     {% if pi and pi.tem_agencia %}checked{% endif %}
-                     onchange="toggleAgenciaFields()">
-              <span class="label-text font-semibold">Tem Agência</span>
-            </label>
-          </div>
-          <div class="form-control" id="field_agencia">
-            <label class="label"><span class="label-text font-semibold">Agência</span></label>
-            <select name="id_agencia" class="select select-bordered w-full">
-              <option value="">Selecione</option>
-              {% for a in agencias %}
-                <option value="{{ a.id_agencia }}" {% if pi and pi.id_agencia == a.id_agencia %}selected{% endif %}>
-                  {{ a.display }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-control" id="field_perc_agencia">
-            <label class="label"><span class="label-text font-semibold">% Comissão Agência</span></label>
-            <input type="text" name="perc_comissao_agencia" class="input input-bordered w-full" placeholder="0,00"
-                   value="{{ pi.perc_comissao_agencia if pi and pi.perc_comissao_agencia else '' }}">
-          </div>
-        </div>
-      </fieldset>
-
-      <!-- Parceiro Regional -->
-      <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Parceiro Regional</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Parceiro</span></label>
-            <select name="id_parceiro" class="select select-bordered w-full">
-              <option value="">Selecione</option>
-              {% for c in clientes %}
-                <option value="{{ c.id_cliente }}" {% if pi and pi.id_parceiro == c.id_cliente %}selected{% endif %}>
-                  {{ c.nome_fantasia }}
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Executivo de Vendas</span></label>
+            <select name="resp_comercial" id="sel_resp_comercial" class="select select-bordered w-full" onchange="onExecutivoChange()">
+              <option value="">Selecione o executivo</option>
+              {% for v in vendedores %}
+                <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>
+                  {{ v.nome_completo }}
                 </option>
               {% endfor %}
             </select>
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">% Comissão Parceiro</span></label>
-            <input type="text" name="perc_comissao_parceiro" class="input input-bordered w-full" placeholder="0,00"
-                   value="{{ pi.perc_comissao_parceiro if pi and pi.perc_comissao_parceiro else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Título do PI <span class="text-error">*</span></span></label>
+            <input type="text" name="titulo_pi" class="input input-bordered input-sm w-full" value="{{ pi.titulo_pi if pi else '' }}" required>
+          </div>
+
+          <div class="form-control relative">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Nome do Cliente <span class="text-error">*</span></span></label>
+            <input type="text" id="input_cliente_busca" class="input input-bordered input-sm w-full" placeholder="Ex. Empresa Abc" autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+            <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
+            <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
+          </div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Resp. Cliente Mídia</span></label>
+            <select name="contato_midia_cliente" id="sel_contato_midia_cliente" class="select select-bordered w-full" disabled>
+              <option value="">Selecione o cliente primeiro</option>
+            </select>
+          </div>
+
+          <div class="hidden md:block"></div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Resp. Cliente Financeiro</span></label>
+            <select name="contato_fin_cliente" id="sel_contato_fin_cliente" class="select select-bordered w-full" disabled>
+              <option value="">Selecione o cliente primeiro</option>
+            </select>
+          </div>
+
+          <div class="form-control relative">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Nome da Agência</span></label>
+            <input type="text" id="input_agencia_busca" class="input input-bordered input-sm w-full" placeholder="Ex. Centralcomm" autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+            <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
+            <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
+          </div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Resp. Agência Mídia</span></label>
+            <select name="contato_midia_agencia" id="sel_contato_midia_agencia" class="select select-bordered w-full" disabled>
+              <option value="">Selecione a agência primeiro</option>
+            </select>
+          </div>
+
+          <div class="hidden md:block"></div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Resp. Agência Financeiro</span></label>
+            <select name="contato_fin_agencia" id="sel_contato_fin_agencia" class="select select-bordered w-full" disabled>
+              <option value="">Selecione a agência primeiro</option>
+            </select>
+          </div>
+
+          <div class="form-control relative">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Parceiro Regional</span></label>
+            <input type="text" id="input_parceiro_busca" class="input input-bordered input-sm w-full" placeholder="Ex. Parceiro ABC" autocomplete="off">
+            <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
+            <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
+          </div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Resp. Parceiro Mídia</span></label>
+            <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" class="select select-bordered w-full" disabled>
+              <option value="">Selecione o parceiro primeiro</option>
+            </select>
+          </div>
+
+          <div class="hidden md:block"></div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Resp. Parceiro Financeiro</span></label>
+            <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" class="select select-bordered w-full" disabled>
+              <option value="">Selecione o parceiro primeiro</option>
+            </select>
           </div>
         </div>
       </fieldset>
 
       <!-- Valores -->
       <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Valores</legend>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <legend class="text-sm font-semibold text-gray-700 mb-2 border-b pb-2 w-full">Valores</legend>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Valor Bruto</span></label>
-            <input type="text" name="valor_bruto" class="input input-bordered w-full" placeholder="0,00"
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Valor Bruto</span></label>
+            <input type="text" name="valor_bruto" id="input_valor_bruto" class="input input-bordered input-sm w-full" placeholder="0,00"
                    value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Valor Líquido</span></label>
-            <input type="text" name="valor_liquido" class="input input-bordered w-full" placeholder="0,00"
-                   value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">% Comissão Agência</span></label>
+            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="input input-bordered input-sm w-full" placeholder="0,00"
+                   value="{{ pi.perc_comissao_agencia if pi and pi.perc_comissao_agencia else '' }}">
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Comissão Agência</span></label>
-            <input type="text" name="comissao_agencia" class="input input-bordered w-full" placeholder="0,00"
-                   value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Comissão Agência</span></label>
+            <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="input input-bordered input-sm w-full bg-base-200" placeholder="0,00"
+                   value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}" readonly>
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Comissão Parceiro</span></label>
-            <input type="text" name="comissao_parceiro" class="input input-bordered w-full" placeholder="0,00"
-                   value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Valor Líquido PR</span></label>
+            <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="input input-bordered input-sm w-full bg-base-200" placeholder="0,00"
+                   value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}" readonly>
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Valor Líquido PR</span></label>
-            <input type="text" name="valor_liquido_pr" class="input input-bordered w-full" placeholder="0,00"
-                   value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Valor Líquido</span></label>
+            <input type="text" name="valor_liquido" id="input_valor_liquido" class="input input-bordered input-sm w-full bg-base-200" placeholder="0,00"
+                   value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Total Plataformas</span></label>
-            <input type="number" name="total_plataformas" class="input input-bordered w-full"
-                   value="{{ pi.total_plataformas if pi and pi.total_plataformas else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">% Comissão Parceiro</span></label>
+            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="input input-bordered input-sm w-full" placeholder="0,00"
+                   value="{{ pi.perc_comissao_parceiro if pi and pi.perc_comissao_parceiro else '' }}">
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Valor Plataformas</span></label>
-            <input type="text" name="valor_plataformas" class="input input-bordered w-full" placeholder="0,00"
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Comissão Parceiro</span></label>
+            <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="input input-bordered input-sm w-full bg-base-200" placeholder="0,00"
+                   value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}" readonly>
+          </div>
+          <div class="form-control">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Valor Plataformas</span></label>
+            <input type="text" name="valor_plataformas" class="input input-bordered input-sm w-full" placeholder="0,00"
                    value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}">
           </div>
         </div>
@@ -156,131 +186,43 @@
 
       <!-- Período -->
       <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Período</legend>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <legend class="text-sm font-semibold text-gray-700 mb-2 border-b pb-2 w-full">Período</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Período Início</span></label>
-            <input type="date" name="periodo_inicio" class="input input-bordered w-full"
-                   value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Período Início</span></label>
+            <div class="relative">
+              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="input input-bordered input-sm w-full pr-9"
+                     value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+              <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-base-content" onclick="document.getElementById('input_periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-sm"></i>
+              </button>
+            </div>
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Período Fim</span></label>
-            <input type="date" name="periodo_fim" class="input input-bordered w-full"
-                   value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Mês Referência</span></label>
-            <input type="month" name="mes_ref" class="input input-bordered w-full"
-                   value="{{ pi.mes_ref if pi and pi.mes_ref else '' }}">
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Período Fim</span></label>
+            <div class="relative">
+              <input type="date" name="periodo_fim" id="input_periodo_fim" class="input input-bordered input-sm w-full pr-9"
+                     value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
+              <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-base-content" onclick="document.getElementById('input_periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-sm"></i>
+              </button>
+            </div>
           </div>
         </div>
       </fieldset>
 
-      <!-- Responsáveis e Contatos -->
-      <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Responsáveis e Contatos</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control md:col-span-2">
-            <label class="label"><span class="label-text font-semibold">Resp. Comercial</span></label>
-            <select name="resp_comercial" class="select select-bordered w-full">
-              <option value="">Selecione</option>
-              {% for v in vendedores %}
-                <option value="{{ v.id_contato_cliente }}" {% if pi and pi.resp_comercial == v.id_contato_cliente %}selected{% endif %}>
-                  {{ v.nome_completo }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Contato Financeiro Cliente</span></label>
-            <input type="text" name="contato_fin_cliente" class="input input-bordered w-full"
-                   value="{{ pi.contato_fin_cliente if pi and pi.contato_fin_cliente else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Contato Mídia Cliente</span></label>
-            <input type="text" name="contato_midia_cliente" class="input input-bordered w-full"
-                   value="{{ pi.contato_midia_cliente if pi and pi.contato_midia_cliente else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Contato Financeiro Agência</span></label>
-            <input type="text" name="contato_fin_agencia" class="input input-bordered w-full"
-                   value="{{ pi.contato_fin_agencia if pi and pi.contato_fin_agencia else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Contato Mídia Agência</span></label>
-            <input type="text" name="contato_midia_agencia" class="input input-bordered w-full"
-                   value="{{ pi.contato_midia_agencia if pi and pi.contato_midia_agencia else '' }}">
-          </div>
-        </div>
-      </fieldset>
-
-      <!-- Status -->
-      <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Status</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Status PI</span></label>
-            <select name="id_status_pi" class="select select-bordered w-full">
-              <option value="">Selecione</option>
-              {% for s in status_pi %}
-                <option value="{{ s.id }}" {% if pi and pi.id_status_pi == s.id %}selected{% endif %}>
-                  {{ s.descricao }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Sub-status</span></label>
-            <select name="id_sub_status_pi" class="select select-bordered w-full">
-              <option value="">Selecione</option>
-              {% for ss in sub_status_pi %}
-                <option value="{{ ss.id }}" {% if pi and pi.id_sub_status_pi == ss.id %}selected{% endif %}>
-                  {{ ss.descricao }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </fieldset>
-
-      <!-- Google Drive -->
-      <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Google Drive</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">PI Principal</span></label>
-            <input type="url" name="link_pi_principal" class="input input-bordered w-full" placeholder="https://..."
-                   value="{{ pi.link_pi_principal if pi and pi.link_pi_principal else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Financeiro</span></label>
-            <input type="url" name="link_financeiro" class="input input-bordered w-full" placeholder="https://..."
-                   value="{{ pi.link_financeiro if pi and pi.link_financeiro else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Peças</span></label>
-            <input type="url" name="link_pecas" class="input input-bordered w-full" placeholder="https://..."
-                   value="{{ pi.link_pecas if pi and pi.link_pecas else '' }}">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Arquivo Assinado</span></label>
-            <input type="url" name="link_arquivo_assinado" class="input input-bordered w-full" placeholder="https://..."
-                   value="{{ pi.link_arquivo_assinado if pi and pi.link_arquivo_assinado else '' }}">
-          </div>
-        </div>
-      </fieldset>
 
       <!-- Observações -->
       <fieldset>
-        <legend class="text-base font-semibold text-gray-700 mb-3 border-b pb-2 w-full">Observações</legend>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <legend class="text-sm font-semibold text-gray-700 mb-2 border-b pb-2 w-full">Observações</legend>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Obs. Financeiro</span></label>
-            <textarea name="obs_financeiro" class="textarea textarea-bordered w-full" rows="3">{{ pi.obs_financeiro if pi and pi.obs_financeiro else '' }}</textarea>
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Obs. Financeiro</span></label>
+            <textarea name="obs_financeiro" class="textarea textarea-bordered textarea-sm w-full" rows="3">{{ pi.obs_financeiro if pi and pi.obs_financeiro else '' }}</textarea>
           </div>
           <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Obs. Operação</span></label>
-            <textarea name="obs_operacao" class="textarea textarea-bordered w-full" rows="3">{{ pi.obs_operacao if pi and pi.obs_operacao else '' }}</textarea>
+            <label class="label py-0.5"><span class="label-text font-semibold text-xs">Obs. Operação</span></label>
+            <textarea name="obs_operacao" class="textarea textarea-bordered textarea-sm w-full" rows="3">{{ pi.obs_operacao if pi and pi.obs_operacao else '' }}</textarea>
           </div>
         </div>
       </fieldset>
@@ -297,11 +239,363 @@
 </div>
 
 <script>
-function toggleAgenciaFields() {
-  const checked = document.getElementById('toggle_agencia').checked;
-  document.getElementById('field_agencia').style.display = checked ? '' : 'none';
-  document.getElementById('field_perc_agencia').style.display = checked ? '' : 'none';
-}
-document.addEventListener('DOMContentLoaded', toggleAgenciaFields);
+(function() {
+  const DEBOUNCE_MS = 300;
+  const USER_IS_EXECUTIVO = {{ user_is_executivo|tojson }};
+  let debounceCliente = null;
+  let debounceAgencia = null;
+  let debounceParceiro = null;
+
+  const els = {
+    exec: () => document.getElementById('sel_resp_comercial'),
+    clienteBusca: () => document.getElementById('input_cliente_busca'),
+    clienteHidden: () => document.getElementById('hidden_id_cliente'),
+    clienteDropdown: () => document.getElementById('dropdown_clientes'),
+    agenciaBusca: () => document.getElementById('input_agencia_busca'),
+    agenciaHidden: () => document.getElementById('hidden_id_agencia'),
+    agenciaDropdown: () => document.getElementById('dropdown_agencias'),
+    contatoMidiaCliente: () => document.getElementById('sel_contato_midia_cliente'),
+    contatoFinCliente: () => document.getElementById('sel_contato_fin_cliente'),
+    contatoMidiaAgencia: () => document.getElementById('sel_contato_midia_agencia'),
+    contatoFinAgencia: () => document.getElementById('sel_contato_fin_agencia'),
+    codigoAg: () => document.getElementById('input_codigo_ag'),
+    codigoCc: () => document.getElementById('input_codigo_cc'),
+    wrapAg: () => document.getElementById('wrap_codigo_ag'),
+    wrapCc: () => document.getElementById('wrap_codigo_cc'),
+    valorBruto: () => document.getElementById('input_valor_bruto'),
+    percComissaoAg: () => document.getElementById('input_perc_comissao_agencia'),
+    comissaoAg: () => document.getElementById('input_comissao_agencia'),
+    valorLiquido: () => document.getElementById('input_valor_liquido'),
+    valorLiquidoPR: () => document.getElementById('input_valor_liquido_pr'),
+    parceiroBusca: () => document.getElementById('input_parceiro_busca'),
+    parceiroHidden: () => document.getElementById('hidden_id_parceiro'),
+    parceiroDropdown: () => document.getElementById('dropdown_parceiros'),
+    contatoMidiaParceiro: () => document.getElementById('sel_contato_midia_parceiro'),
+    contatoFinParceiro: () => document.getElementById('sel_contato_fin_parceiro'),
+    percComissaoParc: () => document.getElementById('input_perc_comissao_parceiro'),
+    comissaoParc: () => document.getElementById('input_comissao_parceiro'),
+  };
+
+  function parseBRL(str) {
+    if (!str) return 0;
+    return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+
+  function formatBRL(num) {
+    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function maskMoney(input) {
+    var v = input.value.replace(/\D/g, '');
+    if (!v) { input.value = ''; return; }
+    var cents = parseInt(v, 10);
+    input.value = formatBRL(cents / 100);
+  }
+
+  function maskPercent(input) {
+    var v = input.value.replace(/\D/g, '').slice(0, 4);
+    if (!v) { input.value = ''; return; }
+    if (v.length <= 2) { input.value = v; return; }
+    input.value = v.slice(0, v.length - 2) + ',' + v.slice(v.length - 2);
+  }
+
+  function calcValores() {
+    var bruto = parseBRL(els.valorBruto().value);
+    var percAg = parseBRL(els.percComissaoAg().value);
+    var comissaoAg = (bruto > 0 && percAg > 0) ? bruto * percAg / 100 : 0;
+    els.comissaoAg().value = comissaoAg > 0 ? formatBRL(comissaoAg) : '';
+    var liquido = bruto > 0 ? bruto - comissaoAg : 0;
+    els.valorLiquido().value = liquido > 0 ? formatBRL(liquido) : '';
+    var percParc = parseBRL(els.percComissaoParc().value);
+    var comissaoParc = (liquido > 0 && percParc > 0) ? liquido * percParc / 100 : 0;
+    els.comissaoParc().value = comissaoParc > 0 ? formatBRL(comissaoParc) : '';
+    els.valorLiquidoPR().value = (liquido > 0 && comissaoParc > 0) ? formatBRL(liquido - comissaoParc) : '';
+  }
+
+  els.valorBruto().addEventListener('input', function() { maskMoney(this); calcValores(); });
+  els.percComissaoAg().addEventListener('input', function() { maskPercent(this); calcValores(); });
+  els.percComissaoParc().addEventListener('input', function() { maskPercent(this); calcValores(); });
+
+  function getExecutivoId() {
+    return els.exec().value || null;
+  }
+
+  function resetContactSelects(tipo) {
+    var midia, fin, placeholder;
+    if (tipo === 'cliente') {
+      midia = els.contatoMidiaCliente(); fin = els.contatoFinCliente(); placeholder = 'Selecione o cliente primeiro';
+    } else if (tipo === 'parceiro') {
+      midia = els.contatoMidiaParceiro(); fin = els.contatoFinParceiro(); placeholder = 'Selecione o parceiro primeiro';
+    } else {
+      midia = els.contatoMidiaAgencia(); fin = els.contatoFinAgencia(); placeholder = 'Selecione a agência primeiro';
+    }
+    midia.innerHTML = '<option value="">' + placeholder + '</option>';
+    fin.innerHTML = '<option value="">' + placeholder + '</option>';
+    midia.disabled = true;
+    fin.disabled = true;
+  }
+
+  function toggleCodigoPi() {
+    var agVal = els.codigoAg().value.trim();
+    var ccVal = els.codigoCc().value.trim();
+    els.wrapCc().classList.toggle('hidden', agVal !== '');
+    els.wrapAg().classList.toggle('hidden', ccVal !== '');
+  }
+
+  els.codigoAg().addEventListener('input', toggleCodigoPi);
+  els.codigoCc().addEventListener('input', toggleCodigoPi);
+
+  window.onExecutivoChange = function() {
+    const execId = getExecutivoId();
+    var shouldDisable = USER_IS_EXECUTIVO && !execId;
+    els.clienteBusca().disabled = shouldDisable;
+    els.agenciaBusca().disabled = shouldDisable;
+
+    els.clienteBusca().value = '';
+    els.clienteHidden().value = '';
+    els.agenciaBusca().value = '';
+    els.agenciaHidden().value = '';
+    els.clienteDropdown().classList.add('hidden');
+    els.agenciaDropdown().classList.add('hidden');
+
+    resetContactSelects('cliente');
+    resetContactSelects('agencia');
+  };
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderDropdown(dropdownEl, items, tipo) {
+    if (!items || items.length === 0) {
+      dropdownEl.innerHTML = '<div class="px-4 py-2 text-sm text-base-content/50">Nenhum resultado encontrado</div>';
+      dropdownEl.classList.remove('hidden');
+      return;
+    }
+    dropdownEl.innerHTML = items.map(function(item) {
+      return '<div class="ac-item px-4 py-2 cursor-pointer hover:bg-base-200 text-sm border-b border-base-200 last:border-0" data-id="' + item.pk_id_tbl_cliente + '" data-nome="' + escapeHtml(item.nome_fantasia) + '" data-tipo="' + tipo + '" data-percentual="' + (item.percentual || '') + '">'
+        + '<div class="font-medium">' + escapeHtml(item.nome_fantasia) + '</div>'
+        + (item.razao_social ? '<div class="text-xs text-base-content/50">' + escapeHtml(item.razao_social) + '</div>' : '')
+        + '</div>';
+    }).join('');
+    dropdownEl.classList.remove('hidden');
+  }
+
+  async function buscarClientes(termo) {
+    const execId = getExecutivoId();
+    const body = { nome: termo, razao: termo, agencia: false };
+    if (execId) body.vendedor_id = parseInt(execId);
+    try {
+      const resp = await fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+      if (data.success) renderDropdown(els.clienteDropdown(), data.clientes, 'cliente');
+    } catch (err) { console.error('Erro ao buscar clientes:', err); }
+  }
+
+  async function buscarAgencias(termo) {
+    const execId = getExecutivoId();
+    const body = { nome: termo, razao: termo, agencia: true };
+    if (execId) body.vendedor_id = parseInt(execId);
+    try {
+      const resp = await fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+      if (data.success) renderDropdown(els.agenciaDropdown(), data.clientes, 'agencia');
+    } catch (err) { console.error('Erro ao buscar agências:', err); }
+  }
+
+  async function carregarContatos(clienteId, tipo, preselecaoMidia, preselecaoFin) {
+    try {
+      const resp = await fetch('/api/clientes/' + clienteId + '/todos-contatos');
+      const contatos = await resp.json();
+
+      var midia, fin;
+      if (tipo === 'cliente') { midia = els.contatoMidiaCliente(); fin = els.contatoFinCliente(); }
+      else if (tipo === 'parceiro') { midia = els.contatoMidiaParceiro(); fin = els.contatoFinParceiro(); }
+      else { midia = els.contatoMidiaAgencia(); fin = els.contatoFinAgencia(); }
+
+      var optionsHtml = '<option value="">Selecione</option>';
+      contatos.forEach(function(c) {
+        var label = escapeHtml(c.nome_completo) + (c.setor ? ' (' + escapeHtml(c.setor) + ')' : '');
+        optionsHtml += '<option value="' + escapeHtml(c.nome_completo) + '">' + label + '</option>';
+      });
+
+      midia.innerHTML = optionsHtml;
+      fin.innerHTML = optionsHtml;
+      midia.disabled = false;
+      fin.disabled = false;
+
+      if (preselecaoMidia) midia.value = preselecaoMidia;
+      if (preselecaoFin) fin.value = preselecaoFin;
+    } catch (err) { console.error('Erro ao carregar contatos (' + tipo + '):', err); }
+  }
+
+  function selecionarCliente(id, nome) {
+    els.clienteBusca().value = nome;
+    els.clienteHidden().value = id;
+    els.clienteDropdown().classList.add('hidden');
+    carregarContatos(id, 'cliente');
+  }
+
+  function selecionarAgencia(id, nome, percentual) {
+    els.agenciaBusca().value = nome;
+    els.agenciaHidden().value = id;
+    els.agenciaDropdown().classList.add('hidden');
+    carregarContatos(id, 'agencia');
+    if (percentual) {
+      var percInput = els.percComissaoAg();
+      percInput.value = percentual.toString().replace('.', ',');
+      maskPercent(percInput);
+      percInput.readOnly = true;
+      percInput.classList.add('bg-base-200');
+    }
+    calcValores();
+  }
+
+  async function buscarParceiros(termo) {
+    try {
+      const resp = await fetch('/api/clientes/buscar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: termo, razao: termo, tipo_cliente: 'Parceiro Regional' })
+      });
+      const data = await resp.json();
+      if (data.success) renderDropdown(els.parceiroDropdown(), data.clientes, 'parceiro');
+    } catch (err) { console.error('Erro ao buscar parceiros:', err); }
+  }
+
+  function selecionarParceiro(id, nome, percentual) {
+    els.parceiroBusca().value = nome;
+    els.parceiroHidden().value = id;
+    els.parceiroDropdown().classList.add('hidden');
+    carregarContatos(id, 'parceiro');
+    if (percentual) {
+      var percInput = els.percComissaoParc();
+      percInput.value = percentual.toString().replace('.', ',');
+      maskPercent(percInput);
+      percInput.readOnly = true;
+      percInput.classList.add('bg-base-200');
+    }
+  }
+
+  els.clienteBusca().addEventListener('input', function(e) {
+    clearTimeout(debounceCliente);
+    els.clienteHidden().value = '';
+    resetContactSelects('cliente');
+    var termo = e.target.value.trim();
+    if (termo.length < 2) { els.clienteDropdown().classList.add('hidden'); return; }
+    debounceCliente = setTimeout(function() { buscarClientes(termo); }, DEBOUNCE_MS);
+  });
+
+  els.agenciaBusca().addEventListener('input', function(e) {
+    clearTimeout(debounceAgencia);
+    els.agenciaHidden().value = '';
+    resetContactSelects('agencia');
+    var percInput = els.percComissaoAg();
+    percInput.readOnly = false;
+    percInput.classList.remove('bg-base-200');
+    percInput.value = '';
+    calcValores();
+    var termo = e.target.value.trim();
+    if (termo.length < 2) { els.agenciaDropdown().classList.add('hidden'); return; }
+    debounceAgencia = setTimeout(function() { buscarAgencias(termo); }, DEBOUNCE_MS);
+  });
+
+  els.parceiroBusca().addEventListener('input', function(e) {
+    clearTimeout(debounceParceiro);
+    els.parceiroHidden().value = '';
+    resetContactSelects('parceiro');
+    var percInput = els.percComissaoParc();
+    percInput.readOnly = false;
+    percInput.classList.remove('bg-base-200');
+    percInput.value = '';
+    var termo = e.target.value.trim();
+    if (termo.length < 2) { els.parceiroDropdown().classList.add('hidden'); return; }
+    debounceParceiro = setTimeout(function() { buscarParceiros(termo); }, DEBOUNCE_MS);
+  });
+
+  document.addEventListener('click', function(e) {
+    var acItem = e.target.closest('.ac-item');
+    if (acItem) {
+      var id = parseInt(acItem.dataset.id);
+      var nome = acItem.dataset.nome;
+      if (acItem.dataset.tipo === 'cliente') selecionarCliente(id, nome);
+      else if (acItem.dataset.tipo === 'agencia') selecionarAgencia(id, nome, acItem.dataset.percentual ? parseFloat(acItem.dataset.percentual) : null);
+      else if (acItem.dataset.tipo === 'parceiro') selecionarParceiro(id, nome, acItem.dataset.percentual ? parseFloat(acItem.dataset.percentual) : null);
+      return;
+    }
+    if (!e.target.closest('#input_cliente_busca') && !e.target.closest('#dropdown_clientes')) {
+      els.clienteDropdown().classList.add('hidden');
+    }
+    if (!e.target.closest('#input_agencia_busca') && !e.target.closest('#dropdown_agencias')) {
+      els.agenciaDropdown().classList.add('hidden');
+    }
+    if (!e.target.closest('#input_parceiro_busca') && !e.target.closest('#dropdown_parceiros')) {
+      els.parceiroDropdown().classList.add('hidden');
+    }
+  });
+
+  document.querySelector('form').addEventListener('submit', function(e) {
+    if (!els.clienteHidden().value) {
+      e.preventDefault();
+      els.clienteBusca().focus();
+      els.clienteBusca().classList.add('input-error');
+      setTimeout(function() { els.clienteBusca().classList.remove('input-error'); }, 3000);
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', async function() {
+    toggleCodigoPi();
+
+    var execId = getExecutivoId();
+    if (execId || !USER_IS_EXECUTIVO) {
+      els.clienteBusca().disabled = false;
+      els.agenciaBusca().disabled = false;
+    }
+
+    if (els.valorBruto().value) maskMoney(els.valorBruto());
+    if (els.percComissaoAg().value) maskPercent(els.percComissaoAg());
+    calcValores();
+
+    var clienteId = els.clienteHidden().value;
+    if (clienteId) {
+      els.clienteBusca().value = {{ (pi.cliente_nome if pi and pi.cliente_nome else '')|tojson }};
+      await carregarContatos(clienteId, 'cliente',
+        {{ (pi.contato_midia_cliente if pi and pi.contato_midia_cliente else '')|tojson }},
+        {{ (pi.contato_fin_cliente if pi and pi.contato_fin_cliente else '')|tojson }}
+      );
+    }
+
+    var agenciaId = els.agenciaHidden().value;
+    if (agenciaId) {
+      els.agenciaBusca().value = {{ (pi.agencia_nome if pi and pi.agencia_nome else '')|tojson }};
+      els.percComissaoAg().readOnly = true;
+      els.percComissaoAg().classList.add('bg-base-200');
+      await carregarContatos(agenciaId, 'agencia',
+        {{ (pi.contato_midia_agencia if pi and pi.contato_midia_agencia else '')|tojson }},
+        {{ (pi.contato_fin_agencia if pi and pi.contato_fin_agencia else '')|tojson }}
+      );
+    }
+
+    var parceiroId = els.parceiroHidden().value;
+    if (parceiroId) {
+      els.parceiroBusca().value = {{ (pi.parceiro_nome if pi and pi.parceiro_nome else '')|tojson }};
+      els.percComissaoParc().readOnly = true;
+      els.percComissaoParc().classList.add('bg-base-200');
+      await carregarContatos(parceiroId, 'parceiro',
+        {{ (pi.contato_midia_parceiro if pi and pi.contato_midia_parceiro else '')|tojson }},
+        {{ (pi.contato_fin_parceiro if pi and pi.contato_fin_parceiro else '')|tojson }}
+      );
+    }
+  });
+})();
 </script>
 {% endblock %}

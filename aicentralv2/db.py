@@ -7262,12 +7262,14 @@ def obter_cadu_pi_por_id(id_pi):
                     p.*,
                     cli.nome_fantasia as cliente_nome,
                     cli_ag.nome_fantasia as agencia_nome,
+                    cli_parc.nome_fantasia as parceiro_nome,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
+                LEFT JOIN tbl_cliente cli_parc ON p.id_parceiro = cli_parc.id_cliente
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
@@ -7294,6 +7296,7 @@ def criar_cadu_pi(data):
                     periodo_inicio, periodo_fim, mes_ref,
                     id_resp_comercial, contato_fin_cliente, contato_midia_cliente,
                     contato_fin_agencia, contato_midia_agencia,
+                    contato_fin_parceiro, contato_midia_parceiro,
                     id_status_pi, id_sub_status_pi,
                     link_pi_principal, link_financeiro, link_pecas, link_arquivo_assinado,
                     obs_financeiro, obs_operacao
@@ -7305,6 +7308,7 @@ def criar_cadu_pi(data):
                     %s, %s, %s,
                     %s, %s, %s,
                     %s, %s, %s,
+                    %s, %s,
                     %s, %s,
                     %s, %s,
                     %s, %s, %s, %s,
@@ -7336,6 +7340,8 @@ def criar_cadu_pi(data):
                 data.get('contato_midia_cliente'),
                 data.get('contato_fin_agencia'),
                 data.get('contato_midia_agencia'),
+                data.get('contato_fin_parceiro'),
+                data.get('contato_midia_parceiro'),
                 data.get('id_status_pi'),
                 data.get('id_sub_status_pi'),
                 data.get('link_pi_principal'),
@@ -7385,6 +7391,8 @@ def atualizar_cadu_pi(id_pi, data):
                     contato_midia_cliente = %s,
                     contato_fin_agencia = %s,
                     contato_midia_agencia = %s,
+                    contato_fin_parceiro = %s,
+                    contato_midia_parceiro = %s,
                     id_status_pi = %s,
                     id_sub_status_pi = %s,
                     link_pi_principal = %s,
@@ -7422,6 +7430,8 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('contato_midia_cliente'),
                 data.get('contato_fin_agencia'),
                 data.get('contato_midia_agencia'),
+                data.get('contato_fin_parceiro'),
+                data.get('contato_midia_parceiro'),
                 data.get('id_status_pi'),
                 data.get('id_sub_status_pi'),
                 data.get('link_pi_principal'),

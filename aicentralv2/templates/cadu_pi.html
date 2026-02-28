@@ -77,10 +77,6 @@
           <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
         </div>
       </form>
-
-      <a href="{{ url_for('cadu_pi_novo') }}" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-plus mr-1"></i>Novo PI
-      </a>
     </div>
   </div>
 
@@ -173,9 +169,6 @@
       <div class="p-8 text-center">
         <i class="fas fa-file-contract text-4xl text-gray-300 mb-3"></i>
         <p class="text-gray-500">Nenhum PI encontrado.</p>
-        <a href="{{ url_for('cadu_pi_novo') }}" class="btn btn-sm mt-4 text-white" style="background-color: #72cd80;">
-          <i class="fas fa-plus mr-2"></i>Novo PI
-        </a>
       </div>
     {% endif %}
   </div>

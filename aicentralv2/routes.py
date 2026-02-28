@@ -7154,6 +7154,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             razao = data.get('razao') or ''
             agencia_filter = data.get('agencia')  # True = só agências, False = só não-agências, None = todos
             tipo_cliente_filter = data.get('tipo_cliente')  # String para filtrar por tipo de cliente (ex: "Parceiro Regional")
+            vendedor_id = data.get('vendedor_id')  # Filtrar por executivo de vendas vinculado
             
             # Limpar espaços
             nome = nome.strip() if nome else ''
@@ -7197,6 +7198,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 # Somente agências - onde key = true (display = "Sim")
                 query += ' AND a.key = true'
                 app.logger.info("Filtrando: somente agências (key = true / Sim)")
+            
+            if vendedor_id:
+                query += ' AND c.vendas_central_comm = %s'
+                params.append(vendedor_id)
+                app.logger.info(f"Filtrando: vendedor_id={vendedor_id}")
             
             # Usar OR para buscar em qualquer um dos campos
             if nome and razao:
@@ -7933,7 +7939,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'codigo_pi_ag': request.form.get('codigo_pi_ag', '').strip() or None,
             'codigo_pi_cc': request.form.get('codigo_pi_cc', '').strip() or None,
             'tipo_pi': request.form.get('tipo_pi', '').strip() or None,
-            'tem_agencia': request.form.get('tem_agencia') == 'on',
+            'tem_agencia': bool(request.form.get('id_agencia', type=int)),
             'id_agencia': request.form.get('id_agencia', type=int),
             'perc_comissao_agencia': _parse_decimal(request.form.get('perc_comissao_agencia')),
             'id_parceiro': request.form.get('id_parceiro', type=int),
@@ -7953,6 +7959,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'contato_midia_cliente': request.form.get('contato_midia_cliente', '').strip() or None,
             'contato_fin_agencia': request.form.get('contato_fin_agencia', '').strip() or None,
             'contato_midia_agencia': request.form.get('contato_midia_agencia', '').strip() or None,
+            'contato_fin_parceiro': request.form.get('contato_fin_parceiro', '').strip() or None,
+            'contato_midia_parceiro': request.form.get('contato_midia_parceiro', '').strip() or None,
             'id_status_pi': request.form.get('id_status_pi', type=int),
             'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int),
             'link_pi_principal': request.form.get('link_pi_principal', '').strip() or None,
@@ -7965,12 +7973,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     def _carregar_auxiliares_pi():
         """Carrega dados auxiliares para selects do formulário de PI"""
+        vendedores = db.obter_vendedores_centralcomm()
+        user_id = session.get('user_id')
+        is_executivo = any(v['id_contato_cliente'] == user_id for v in (vendedores or []))
         return {
             'clientes': db.obter_clientes_simples(),
             'agencias': db.obter_aux_agencia(),
-            'vendedores': db.obter_vendedores_centralcomm(),
+            'vendedores': vendedores,
             'status_pi': db.obter_status_pi(),
             'sub_status_pi': db.obter_sub_status_pi(),
+            'user_is_executivo': is_executivo,
         }
 
     # ==================== OBJETIVOS CAMPANHA PI - ROTAS ====================

@@ -356,6 +356,11 @@
                                         </a>
                                     </li>
                                     <li>
+                                        <a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">
+                                            <span class="sidebar-text">PI Recebido</span>
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
                                             <span class="sidebar-text">Métricas Semanais</span>
                                         </a>

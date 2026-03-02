@@ -19,6 +19,10 @@
       <div class="flex items-center gap-2">
         <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
         {% if modo == 'editar' and pi %}
+          <button type="button" onclick="abrirModalLinks()" class="px-3 py-1.5 text-sm border border-purple-400 rounded hover:bg-purple-50 text-purple-700 inline-flex items-center gap-1.5">
+            <span id="badge_total_links" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full {% if pi.total_links %}bg-purple-600 text-white{% else %}bg-gray-200 text-gray-500{% endif %}">{{ pi.total_links or 0 }}</span>
+            <i class="fas fa-link mr-0.5"></i>Links
+          </button>
           {% if pi.googled_pi_princ %}
             <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
               <i class="fab fa-google-drive mr-1"></i>Abrir Pastas
@@ -28,6 +32,13 @@
               <i class="fab fa-google-drive mr-1"></i>Gerar Pastas
             </button>
           {% endif %}
+          <button type="button" id="btn_enviar_producao"
+            onclick="document.getElementById('modal_confirmar_producao').showModal()"
+            {% if not pi.get('googled_pi_princ') or not pi.get('id_cliente') or not pi.get('codigo_pi_cc') %}disabled{% endif %}
+            class="px-3 py-1.5 text-sm border border-orange-400 rounded hover:bg-orange-50 text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            title="{% if not pi.get('googled_pi_princ') %}Gere as pastas primeiro{% elif not pi.get('id_cliente') %}Selecione um cliente{% elif not pi.get('codigo_pi_cc') %}Preencha o código do PI{% else %}Enviar PI para operação{% endif %}">
+            <i class="fas fa-paper-plane mr-1"></i>Enviar para Operação
+          </button>
         {% endif %}
         <button type="submit" form="pi_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
@@ -300,11 +311,11 @@
 
   function parseBRL(str) {
     if (!str) return 0;
-    return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+    return parseFloat(str.replace('R$', '').trim().replace(/\./g, '').replace(',', '.')) || 0;
   }
 
   function formatBRL(num) {
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function maskMoney(input) {
@@ -604,6 +615,11 @@
           link.className = 'px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600';
           link.innerHTML = '<i class="fab fa-google-drive mr-1"></i>Abrir Pastas';
           btn.parentNode.replaceChild(link, btn);
+          var btnProd = document.getElementById('btn_enviar_producao');
+          if (btnProd && els.clienteHidden().value && document.querySelector('[name="codigo_pi_cc"]').value) {
+            btnProd.disabled = false;
+            btnProd.title = 'Enviar PI para operação';
+          }
           if (typeof showToast === 'function') showToast('Pastas criadas com sucesso!', 'success');
         } else {
           btn.disabled = false;
@@ -666,4 +682,239 @@
   });
 })();
 </script>
+
+{% if modo == 'editar' and pi %}
+<dialog id="modal_links_destino" class="modal">
+  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-lg shadow-2xl">
+    <!-- Header -->
+    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between rounded-t-lg">
+      <div class="flex items-center gap-2">
+        <i class="fas fa-link text-purple-600"></i>
+        <h3 class="font-semibold text-base text-gray-800">Links de Direcionamento</h3>
+        <span id="modal_badge_count" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-purple-600 text-white">0</span>
+      </div>
+      <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost text-gray-400 hover:text-gray-600">✕</button></form>
+    </div>
+
+    <!-- Formulario inline -->
+    <div class="px-5 py-3 border-b border-gray-100 bg-white">
+      <div class="flex gap-2 items-center">
+        <input type="url" id="input_novo_link" placeholder="Cole a URL aqui..." class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none">
+        <button type="button" id="btn_adicionar_link" onclick="adicionarLinkDestino()" class="px-3 py-1.5 text-sm rounded text-white flex-shrink-0 hover:opacity-90 transition-opacity" style="background-color: #72cd80;" title="Adicionar link">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabela de links -->
+    <div class="overflow-y-auto" style="max-height: 320px;">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 sticky top-0">
+          <tr class="text-xs text-gray-500 uppercase">
+            <th class="px-5 py-2 text-left font-medium">Link</th>
+            <th class="px-3 py-2 text-center font-medium w-16"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody_links_destino">
+          <tr id="tr_links_vazio"><td colspan="2" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_links_destino').close()" class="px-4 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Fechar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<!-- Modal confirmacao excluir -->
+<dialog id="modal_confirmar_excluir_link" class="modal">
+  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-base text-gray-800">Confirmar exclusão</h3>
+    </div>
+    <div class="px-5 py-4">
+      <p class="text-sm text-gray-600">Tem certeza que deseja excluir este link?</p>
+      <p id="txt_link_excluir" class="text-xs text-gray-400 mt-1 truncate"></p>
+    </div>
+    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_excluir_link').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_excluir_link" class="px-3 py-1.5 text-sm rounded text-white bg-red-600 hover:bg-red-700">Excluir</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<!-- Modal confirmacao enviar producao -->
+<dialog id="modal_confirmar_producao" class="modal">
+  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-base text-gray-800">Enviar para Operação</h3>
+    </div>
+    <div class="px-5 py-4">
+      <p class="text-sm text-gray-600">Tem certeza que deseja enviar este PI para produção?</p>
+      <p class="text-xs text-gray-500 mt-2"><strong>{{ pi.codigo_pi_cc or '—' }}</strong> · {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
+    </div>
+    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_producao').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_producao" class="px-3 py-1.5 text-sm rounded text-white bg-orange-500 hover:bg-orange-600">Confirmar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<script>
+(function() {
+  var PI_ID = {{ (pi.id_pi if pi else 0)|tojson }};
+
+  // Enviar para Producao
+  document.getElementById('btn_confirmar_producao').addEventListener('click', async function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    try {
+      var resp = await fetch('/api/cadu_pi/' + PI_ID + '/enviar-producao', { method: 'POST' });
+      var data = await resp.json();
+      if (data.success) {
+        document.getElementById('modal_confirmar_producao').close();
+        showToast('PI enviado para produção!', 'success');
+        setTimeout(function() { window.location.href = '{{ url_for("cadu_pi_lista", id_sub_status_pi=2) }}'; }, 800);
+      } else {
+        showToast(data.message || 'Erro ao enviar', 'error');
+      }
+    } catch (err) {
+      showToast('Erro ao enviar para operação', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Confirmar';
+    }
+  });
+
+  window.abrirModalLinks = function() {
+    document.getElementById('modal_links_destino').showModal();
+    carregarLinksDestino();
+  };
+
+  async function carregarLinksDestino() {
+    try {
+      var resp = await fetch('/api/cadu_pi/' + PI_ID + '/link-destinos');
+      var data = await resp.json();
+      if (!data.success) return;
+      renderizarLinksTabela(data.links);
+      atualizarBadges(data.links.length);
+    } catch (err) { console.error('Erro ao carregar links:', err); }
+  }
+
+  function renderizarLinksTabela(links) {
+    var tbody = document.getElementById('tbody_links_destino');
+    if (!links || links.length === 0) {
+      tbody.innerHTML = '<tr id="tr_links_vazio"><td colspan="2" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>';
+      return;
+    }
+    tbody.innerHTML = links.map(function(ld) {
+      var linkCurto = ld.link.length > 65 ? ld.link.substring(0, 65) + '...' : ld.link;
+      return '<tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">'
+        + '<td class="px-5 py-2"><a href="' + escHtml(ld.link) + '" target="_blank" class="text-blue-600 hover:underline text-xs" title="' + escHtml(ld.link) + '">' + escHtml(linkCurto) + ' <i class="fas fa-external-link-alt text-[10px] ml-1 text-gray-400"></i></a></td>'
+        + '<td class="px-3 py-2 text-center"><button type="button" onclick="confirmarExcluirLink(' + ld.id_link_destino + ', \'' + escHtml(ld.link).replace(/'/g, "\\'") + '\')" class="text-gray-400 hover:text-red-500 transition-colors" title="Excluir"><i class="fas fa-trash-alt text-xs"></i></button></td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function atualizarBadges(count) {
+    var badge = document.getElementById('badge_total_links');
+    var modalBadge = document.getElementById('modal_badge_count');
+    if (badge) {
+      badge.textContent = count;
+      badge.className = 'inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full ' + (count > 0 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-500');
+    }
+    if (modalBadge) modalBadge.textContent = count;
+  }
+
+  window.adicionarLinkDestino = async function() {
+    var inputLink = document.getElementById('input_novo_link');
+    var link = inputLink.value.trim();
+    if (!link) {
+      inputLink.focus();
+      inputLink.classList.add('border-red-400');
+      setTimeout(function() { inputLink.classList.remove('border-red-400'); }, 2000);
+      return;
+    }
+
+    var idCliente = parseInt(document.getElementById('hidden_id_cliente').value) || null;
+    var btn = document.getElementById('btn_adicionar_link');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+      var resp = await fetch('/api/cadu_pi/' + PI_ID + '/link-destinos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: link, id_cliente: idCliente })
+      });
+      var data = await resp.json();
+      if (data.success) {
+        inputLink.value = '';
+        carregarLinksDestino();
+        showToast('Link adicionado', 'success');
+        inputLink.focus();
+      } else {
+        showToast(data.message || 'Erro ao adicionar', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao adicionar link', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-plus"></i>';
+    }
+  };
+
+  var linkExcluirId = null;
+  window.confirmarExcluirLink = function(id, linkText) {
+    linkExcluirId = id;
+    document.getElementById('txt_link_excluir').textContent = linkText;
+    document.getElementById('modal_confirmar_excluir_link').showModal();
+  };
+
+  document.getElementById('btn_confirmar_excluir_link').addEventListener('click', async function() {
+    if (!linkExcluirId) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
+    try {
+      var resp = await fetch('/api/cadu_pi/link-destinos/' + linkExcluirId, { method: 'DELETE' });
+      var data = await resp.json();
+      if (data.success) {
+        document.getElementById('modal_confirmar_excluir_link').close();
+        carregarLinksDestino();
+        showToast('Link excluído', 'success');
+      } else {
+        showToast(data.message || 'Erro ao excluir', 'error');
+      }
+    } catch (err) {
+      showToast('Erro ao excluir link', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Excluir';
+      linkExcluirId = null;
+    }
+  });
+
+  // Enter no input de link adiciona
+  document.getElementById('input_novo_link').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); adicionarLinkDestino(); }
+  });
+})();
+</script>
+{% endif %}
+
 {% endblock %}

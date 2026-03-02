@@ -7291,11 +7291,15 @@ def obter_cadu_pi_por_id(id_pi):
                     p.observacoes_financeiro as obs_financeiro,
                     p.observacoes_operacao as obs_operacao,
                     cli.nome_fantasia as cliente_nome,
+                    cli.razao_social as cliente_razao_social,
                     cli_ag.nome_fantasia as agencia_nome,
+                    cli_ag.razao_social as agencia_razao_social,
                     cli_parc.nome_fantasia as parceiro_nome,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
-                    rc.nome_completo as resp_comercial_nome
+                    rc.nome_completo as resp_comercial_nome,
+                    rc.email as resp_comercial_email,
+                    (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
@@ -7729,6 +7733,32 @@ def excluir_plataforma_campanha(id_plataforma):
 
 
 # ==================== LINK DESTINOS PI - CRUD ====================
+
+def obter_link_destinos_por_pi(id_pi):
+    """Retorna links de destino de um PI específico"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    ld.id_link_destino,
+                    ld.id_pi,
+                    ld.link,
+                    ld.status,
+                    ld.created_at,
+                    ld.updated_at,
+                    ld.id_cliente,
+                    cli.nome_fantasia AS cliente_nome
+                FROM cadu_pi_link_destinos ld
+                LEFT JOIN tbl_cliente cli ON ld.id_cliente = cli.id_cliente
+                WHERE ld.id_pi = %s
+                ORDER BY ld.id_link_destino DESC
+            ''', (id_pi,))
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
 
 def obter_link_destinos():
     """Retorna todos os links de destino com nomes de PI e cliente"""

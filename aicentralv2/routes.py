@@ -7999,6 +7999,228 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao gerar pastas Google Drive: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/cadu_pi/<int:id_pi>/enviar-producao', methods=['POST'])
+    @login_required
+    def cadu_pi_enviar_producao(id_pi):
+        """Altera status/sub-status do PI para produção e dispara webhooks"""
+        try:
+            import requests
+
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            if not pi.get('googled_pi_princ'):
+                return jsonify({'success': False, 'message': 'Gere as pastas do Google Drive antes de enviar'}), 400
+            if not pi.get('id_cliente'):
+                return jsonify({'success': False, 'message': 'Selecione um cliente antes de enviar'}), 400
+            if not pi.get('codigo_pi_cc'):
+                return jsonify({'success': False, 'message': 'Preencha o código do PI antes de enviar'}), 400
+
+            conn = db.get_db()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        UPDATE cadu_pi
+                        SET id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'Campanha em análise' LIMIT 1),
+                            id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em configuração' LIMIT 1),
+                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                        WHERE id_pi = %s
+                    ''', (id_pi,))
+                    conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise e
+
+            import os
+            from datetime import datetime, timedelta
+
+            numero = pi.get('codigo_pi_cc', '')
+            is_dev = app.config.get('DEBUG', False)
+
+            def fmt_data(val):
+                if not val:
+                    return ''
+                if isinstance(val, str):
+                    try:
+                        val = datetime.strptime(val, '%Y-%m-%d')
+                    except ValueError:
+                        return val
+                return val.strftime('%d/%m/%Y %H:%M:%S')
+
+            periodo_inicio = pi.get('periodo_inicio')
+            dt_inicio = None
+            if periodo_inicio:
+                if isinstance(periodo_inicio, str):
+                    try:
+                        dt_inicio = datetime.strptime(periodo_inicio, '%Y-%m-%d')
+                    except ValueError:
+                        dt_inicio = None
+                else:
+                    dt_inicio = periodo_inicio
+
+            webhook_erros = []
+
+            def fmt_data_curta(val):
+                if not val:
+                    return ''
+                if isinstance(val, str):
+                    try:
+                        val = datetime.strptime(val, '%Y-%m-%d')
+                    except ValueError:
+                        return val
+                return val.strftime('%d/%m/%Y %H:%M:%S')
+
+            def fmt_data_invite(val):
+                if not val:
+                    return ''
+                if isinstance(val, str):
+                    try:
+                        val = datetime.strptime(val, '%Y-%m-%d')
+                    except ValueError:
+                        return val
+                return val.strftime('%m/%d/%Y 06:00:00')
+
+            tem_agencia = bool(pi.get('id_agencia'))
+
+            url_config = os.getenv('MAKE_WEBHOOK_PI_CONFIGURACAO')
+            if url_config:
+                params_config = {
+                    'testeparam': 'yes' if is_dev else 'no',
+                    'codPI': numero,
+                    'razaosccliente': pi.get('cliente_razao_social') or '',
+                    'nomefcliente': pi.get('cliente_nome') or '',
+                    'razaoscagencia': pi.get('agencia_razao_social') or '',
+                    'nomefagencia': pi.get('agencia_nome') or '',
+                    'pastagoogleprinc': pi.get('googled_pi_princ') or '',
+                    'valorliquidopi': pi.get('vr_liquido_pi') or '',
+                    'emailresponsavelpi': pi.get('resp_comercial_email') or '',
+                    'mesref': fmt_data_curta(pi.get('mes_ref')),
+                    'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
+                    'datafim': fmt_data_curta(pi.get('periodo_fim')),
+                    'pastagooglepecas': pi.get('googled_pi_pecas') or '',
+                    'instrucoesoperacao': pi.get('observacoes_operacao') or '',
+                    'instrucoesfinanceiro': pi.get('observacoes_financeiro') or '',
+                    'nomerespPI': pi.get('resp_comercial_nome') or '',
+                    'titulo': pi.get('titulo_pi') or '',
+                    'pi_tem_agencia': 'sim' if tem_agencia else 'não',
+                }
+                try:
+                    resp = requests.get(url_config, params=params_config, timeout=30)
+                    resp.raise_for_status()
+                except Exception as wh_err:
+                    app.logger.error(f"Erro webhook PI_CONFIGURACAO: {wh_err}")
+                    webhook_erros.append(str(wh_err))
+
+            url_invites = os.getenv('MAKE_WEBHOOK_PI_INVITES')
+            if url_invites:
+                params_invites = {
+                    'testeparam': 'yes' if is_dev else 'no',
+                    'dteveinicio': fmt_data_invite(periodo_inicio),
+                    'nomerespcc': pi.get('resp_comercial_nome') or '',
+                    'emailrespcc': pi.get('resp_comercial_email') or '',
+                    'codPI': numero,
+                    'dteven5dias': fmt_data_invite(dt_inicio + timedelta(days=5)) if dt_inicio else '',
+                    'tituloPI': pi.get('titulo_pi') or '',
+                    'dtevenfim': fmt_data_invite(pi.get('periodo_fim')),
+                }
+                try:
+                    resp = requests.get(url_invites, params=params_invites, timeout=30)
+                    resp.raise_for_status()
+                except Exception as wh_err:
+                    app.logger.error(f"Erro webhook PI_INVITES: {wh_err}")
+                    webhook_erros.append(str(wh_err))
+
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'PI enviado para produção: {numero}',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_anteriores={'id_status_pi': pi.get('id_status_pi'), 'id_sub_status_pi': pi.get('id_sub_status_pi')},
+                dados_novos={'status': 'Campanha em análise', 'sub_status': 'Em configuração'}
+            )
+
+            if webhook_erros:
+                return jsonify({'success': True, 'warning': f'Status alterado, mas {len(webhook_erros)} webhook(s) falharam'})
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro ao enviar PI para produção: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # ==================== LINK DESTINOS PI - API JSON ====================
+
+    @app.route('/api/cadu_pi/<int:id_pi>/link-destinos', methods=['GET'])
+    @login_required
+    def api_link_destinos_listar(id_pi):
+        """Retorna links de destino de um PI em JSON"""
+        try:
+            links = db.obter_link_destinos_por_pi(id_pi)
+            resultado = []
+            for ld in (links or []):
+                resultado.append({
+                    'id_link_destino': ld['id_link_destino'],
+                    'id_pi': ld['id_pi'],
+                    'link': ld['link'],
+                    'status': ld['status'],
+                    'id_cliente': ld['id_cliente'],
+                    'cliente_nome': ld.get('cliente_nome') or '',
+                })
+            return jsonify({'success': True, 'links': resultado})
+        except Exception as e:
+            app.logger.error(f"Erro ao listar links do PI: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/<int:id_pi>/link-destinos', methods=['POST'])
+    @login_required
+    def api_link_destino_criar(id_pi):
+        """Cria um link de destino para o PI via JSON"""
+        try:
+            body = request.get_json(silent=True) or {}
+            link = (body.get('link') or '').strip()
+            if not link:
+                return jsonify({'success': False, 'message': 'O link é obrigatório'}), 400
+
+            data = {
+                'id_pi': id_pi,
+                'link': link,
+                'status': True,
+                'id_cliente': body.get('id_cliente') or None,
+            }
+            id_ld = db.criar_link_destino(data)
+            if not id_ld:
+                return jsonify({'success': False, 'message': 'Erro ao criar link'}), 500
+
+            ld = db.obter_link_destino_por_id(id_ld)
+            return jsonify({
+                'success': True,
+                'link_destino': {
+                    'id_link_destino': ld['id_link_destino'],
+                    'id_pi': ld['id_pi'],
+                    'link': ld['link'],
+                    'status': ld['status'],
+                    'id_cliente': ld['id_cliente'],
+                    'cliente_nome': ld.get('cliente_nome') or '',
+                }
+            })
+        except Exception as e:
+            app.logger.error(f"Erro ao criar link destino: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/link-destinos/<int:id_ld>', methods=['DELETE'])
+    @login_required
+    def api_link_destino_excluir(id_ld):
+        """Exclui um link de destino via JSON"""
+        try:
+            ld = db.obter_link_destino_por_id(id_ld)
+            if not ld:
+                return jsonify({'success': False, 'message': 'Link não encontrado'}), 404
+            db.excluir_link_destino(id_ld)
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir link destino: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     def _parse_decimal(value):
         """Converte string de valor monetário brasileiro para float"""
         if not value:
@@ -8006,6 +8228,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         value = str(value).strip()
         if not value:
             return None
+        value = value.replace('R$', '').strip()
         value = value.replace('.', '').replace(',', '.')
         try:
             return float(value)
@@ -8517,7 +8740,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return None
         try:
             from decimal import Decimal
-            return Decimal(str(value).strip().replace('.', '').replace(',', '.'))
+            cleaned = str(value).strip().replace('R$', '').strip()
+            return Decimal(cleaned.replace('.', '').replace(',', '.'))
         except Exception:
             return None
 
@@ -8679,12 +8903,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return redirect(url_for('campanhas_pi'))
 
     def _parse_decimal_br(value):
-        """Converte string formatada em pt-BR (1.234,56) para Decimal"""
+        """Converte string formatada em pt-BR (R$ 1.234,56) para Decimal"""
         if not value or not str(value).strip():
             return None
         try:
             from decimal import Decimal
-            cleaned = str(value).strip().replace('.', '').replace(',', '.')
+            cleaned = str(value).strip().replace('R$', '').strip().replace('.', '').replace(',', '.')
             return Decimal(cleaned)
         except Exception:
             return None

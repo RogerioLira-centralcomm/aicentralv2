@@ -95,7 +95,6 @@
             <th class="font-semibold py-3" style="width: 130px;">Código</th>
             <th class="font-semibold" style="width: 220px;">Cliente</th>
             <th class="font-semibold" style="width: 180px;">Agência / Parceiro</th>
-            <th class="font-semibold text-center" style="width: 60px;">Links</th>
             <th class="font-semibold text-right" style="width: 140px;">Valor Bruto</th>
             <th class="font-semibold text-right" style="width: 140px;">Valor Líquido</th>
           </tr>
@@ -106,7 +105,6 @@
             <th class="font-semibold" style="width: 150px;">Agência / Parceiro</th>
             <th class="font-semibold" style="width: 100px;">Executivo</th>
             <th class="font-semibold text-center" style="width: 110px;">Período</th>
-            <th class="font-semibold text-center" style="width: 50px;">Links</th>
             <th class="font-semibold text-center" style="width: 50px;">Camp.</th>
             <th class="font-semibold text-right" style="width: 140px;">Bruto / Líquido</th>
           </tr>
@@ -125,9 +123,9 @@
               </div>
             </td>
             <td>
-              <div class="flex flex-col gap-0.5 max-w-[220px]">
-                <span class="font-medium text-gray-800 truncate text-xs">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
-                <span class="text-[11px] text-gray-500 truncate">{{ pi.get('cliente_nome') or '-' }}</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="font-medium text-gray-800 text-xs whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
+                <span class="text-[11px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
               </div>
             </td>
             <td>
@@ -141,9 +139,6 @@
                 <span class="text-[10px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
                 {% endif %}
               </div>
-            </td>
-            <td class="text-center">
-              <span class="text-xs {% if pi.get('total_links', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_links', 0) }}</span>
             </td>
             <td class="text-right">
               {% if pi.get('valor_bruto') %}
@@ -162,16 +157,23 @@
           {% else %}
             <td class="py-2.5">
               <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-xs font-semibold text-blue-600">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                <div class="flex items-center gap-1">
+                  <span class="font-mono text-xs font-semibold text-blue-600">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                  {% if pi.get('googled_pi_princ') %}
+                  <a href="{{ pi.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()" class="text-gray-400 hover:text-yellow-600" title="Pasta Google Drive">
+                    <i class="fa-solid fa-folder text-[11px]"></i>
+                  </a>
+                  {% endif %}
+                </div>
                 {% if pi.get('mes_ref_comp') %}
                 <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
                 {% endif %}
               </div>
             </td>
             <td>
-              <div class="flex flex-col gap-0.5 max-w-[180px]">
-                <span class="font-medium text-gray-800 truncate text-xs">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
-                <span class="text-[11px] text-gray-500 truncate">{{ pi.get('cliente_nome') or '-' }}</span>
+              <div class="flex flex-col gap-0.5">
+                <span class="font-medium text-gray-800 text-xs whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
+                <span class="text-[11px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
               </div>
             </td>
             <td>
@@ -197,7 +199,7 @@
               {% if pi.get('periodo_inicio') %}
               <div class="flex flex-col items-center">
                 <span class="text-[11px] text-gray-600">
-                  {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} - {{ pi.periodo_fim.strftime('%d/%m') }}{% endif %}
+                  {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} - {{ pi.periodo_fim.strftime('%d/%m') }} <span class="text-gray-400">({{ (pi.periodo_fim - pi.periodo_inicio).days }}d)</span>{% endif %}
                 </span>
               </div>
               {% else %}
@@ -205,20 +207,17 @@
               {% endif %}
             </td>
             <td class="text-center">
-              <span class="text-xs {% if pi.get('total_links', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_links', 0) }}</span>
-            </td>
-            <td class="text-center">
               <span class="text-xs {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_campanhas', 0) }}</span>
             </td>
             <td class="text-right">
               <div class="flex flex-col gap-0.5 items-end">
                 {% if pi.get('valor_bruto') %}
-                <span class="font-semibold text-gray-800 text-xs">{{ pi.valor_bruto }}</span>
+                <span class="font-semibold text-gray-800 text-xs">{{ "R$ {:,.2f}".format(pi.valor_bruto|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
                 {% else %}
                 <span class="text-xs text-gray-300">-</span>
                 {% endif %}
                 {% if pi.get('valor_liquido') %}
-                <span class="text-[11px] text-green-600">{{ pi.valor_liquido }}</span>
+                <span class="text-[11px] text-green-600">{{ "R$ {:,.2f}".format(pi.valor_liquido|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
                 {% endif %}
               </div>
             </td>
@@ -236,7 +235,6 @@
           {% endif %}
         </p>
         <div class="flex items-center gap-4 text-xs text-gray-400">
-          <span><i class="fa-solid fa-link mr-1"></i>Links</span>
           <span><i class="fa-solid fa-bullhorn mr-1"></i>Campanhas</span>
         </div>
       </div>
@@ -285,7 +283,7 @@ function aplicarFiltros() {
   const mes = document.getElementById('filtro_mes_ref').value;
   const busca = document.getElementById('filtro_busca').value.trim();
 
-  if (exec) params.set('resp_comercial', exec);
+  params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
   if (mes) params.set('mes_ref_comp', mes);

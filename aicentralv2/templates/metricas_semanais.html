@@ -118,7 +118,7 @@
                 <select id="filtroExecutivo" class="select select-bordered w-full min-w-[200px]" style="min-width: 200px;">
                     <option value="">Todos</option>
                     {% for exec in executivos %}
-                    <option value="{{ exec.id }}">{{ exec.nome }}</option>
+                    <option value="{{ exec.id }}" {% if default_executivo_id and default_executivo_id == exec.id %}selected{% endif %}>{{ exec.nome }}</option>
                     {% endfor %}
                 </select>
             </div>

@@ -441,7 +441,7 @@ function aplicarFiltros() {
   const executivo = document.getElementById('filtro_executivo').value;
   const mes = document.getElementById('filtro_mes').value;
   const params = new URLSearchParams();
-  if (executivo) params.set('executivo_id', executivo);
+  params.set('executivo_id', executivo);
   if (mes) params.set('mes', mes);
   window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
 }

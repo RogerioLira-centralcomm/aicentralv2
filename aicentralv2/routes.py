@@ -2153,11 +2153,16 @@ def init_routes(app):
             # Filtros
             filtros = {}
             
-            # Filtro por executivo (obrigatório - default para usuário logado se for vendedor)
             executivo_id = request.args.get('executivo_id', type=int)
             if executivo_id:
                 filtros['executivo_id'] = executivo_id
-            
+
+            vendedores_auto = db.obter_vendedores_centralcomm()
+            user_id = session.get('user_id')
+            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
+            if user_is_executivo and 'executivo_id' not in request.args and 'executivo_id' not in filtros:
+                filtros['executivo_id'] = user_id
+
             # Filtro por status - Default: ativo
             status_filter = request.args.get('status', 'ativo')
             if status_filter == 'ativo':
@@ -3917,6 +3922,14 @@ def init_routes(app):
                     filtros['sem_responsavel'] = True
                 else:
                     filtros['responsavel_id'] = int(responsavel_id)
+
+            if 'responsavel_id' not in request.args and 'responsavel_id' not in filtros and not filtros.get('sem_responsavel'):
+                vendedores_auto = db.obter_vendedores_centralcomm()
+                user_id = session.get('user_id')
+                user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
+                if user_is_executivo:
+                    filtros['responsavel_id'] = user_id
+
             if mes:
                 filtros['mes'] = int(mes)
             if ano:
@@ -3992,7 +4005,7 @@ def init_routes(app):
                                  cliente_selecionado=cliente_selecionado,
                                  projeto_selecionado=projeto_selecionado,
                                  stats=stats,
-                                 filtros={'status': status, 'cliente_id': cliente_id, 'projeto_id': projeto_id, 'busca': busca, 'responsavel_id': responsavel_id, 'mes': mes, 'ano': ano})
+                                 filtros={'status': status, 'cliente_id': cliente_id, 'projeto_id': projeto_id, 'busca': busca, 'responsavel_id': str(filtros.get('responsavel_id', '')) if filtros.get('responsavel_id') else responsavel_id, 'mes': mes, 'ano': ano})
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
@@ -4394,7 +4407,13 @@ def init_routes(app):
             mes = request.args.get('mes')
             busca = request.args.get('busca', '').strip()
             status = request.args.get('status')
-            
+
+            vendedores_auto = db.obter_vendedores_centralcomm()
+            user_id = session.get('user_id')
+            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
+            if user_is_executivo and 'responsavel_comercial' not in request.args and not responsavel_id:
+                responsavel_id = user_id
+
             cliente_info = None
             
             app.logger.info(f"DEBUG cotacoes_list: cliente_id={cliente_id}, responsavel_id={responsavel_id}, mes={mes}, busca={busca}, status={status}")
@@ -4450,7 +4469,13 @@ def init_routes(app):
             
             # Remover filtros vazios
             filtros = {k: v for k, v in filtros.items() if v is not None and v != ''}
-            
+
+            vendedores_auto = db.obter_vendedores_centralcomm()
+            user_id = session.get('user_id')
+            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
+            if user_is_executivo and 'executivo_id' not in request.args and 'executivo_id' not in filtros:
+                filtros['executivo_id'] = user_id
+
             # Obter cotações agrupadas por status
             colunas = db.obter_cotacoes_pipeline(filtros)
             
@@ -7482,13 +7507,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @login_required
     def metricas_semanais():
         """Página de Métricas Semanais do Comercial"""
-        # Obter executivos e clientes para os filtros
         executivos = db.obter_executivos_ativos()
         clientes = db.obter_clientes_para_filtro()
-        
+
+        vendedores_auto = db.obter_vendedores_centralcomm()
+        user_id = session.get('user_id')
+        user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
+        default_executivo_id = user_id if user_is_executivo else None
+
         return render_template('metricas_semanais.html',
             executivos=executivos,
-            clientes=clientes
+            clientes=clientes,
+            default_executivo_id=default_executivo_id
         )
     
     @app.route('/api/metricas/semanais/kpis', methods=['GET'])
@@ -7810,9 +7840,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if cli_info:
                     filtros['cliente_nome'] = cli_info.get('nome_fantasia', '')
 
+            vendedores = db.obter_vendedores_centralcomm()
+
+            user_id = session.get('user_id')
+            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
+            if user_is_executivo and 'resp_comercial' not in request.args and 'resp_comercial' not in filtros:
+                filtros['resp_comercial'] = user_id
+
             pis = db.obter_cadu_pi_lista(filtros)
             status_pi = db.obter_status_pi()
-            vendedores = db.obter_vendedores_centralcomm()
             meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
 
             return render_template('cadu_pi.html',
@@ -7820,7 +7856,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    status_pi=status_pi,
                                    vendedores=vendedores,
                                    meses_ref=meses_ref,
-                                   filtros=filtros)
+                                   filtros=filtros,
+                                   user_is_executivo=user_is_executivo)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
             flash('Erro ao carregar lista de PIs.', 'error')
@@ -8789,12 +8826,64 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'id_pi': request.args.get('id_pi', type=int),
                 'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
             }
+            if request.args.get('resp_comercial'):
+                filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
             filtros = {k: v for k, v in filtros.items() if v is not None}
+
+            vendedores = db.obter_vendedores_centralcomm()
+            user_id = session.get('user_id')
+            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
+            if user_is_executivo and 'resp_comercial' not in request.args and 'resp_comercial' not in filtros:
+                filtros['resp_comercial'] = user_id
 
             campanhas = db.obter_campanhas_pi(filtros or None)
             auxiliares = _carregar_auxiliares_campanha()
             meses_ref = db.obter_meses_ref_campanha_pi()
-            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref)
+
+            total_campanhas = len(campanhas) if campanhas else 0
+            campanhas_ativas = 0
+            soma_pct_objetivo = 0
+            count_pct_objetivo = 0
+            gasto_total = 0.0
+            previsto_total = 0.0
+
+            for camp in (campanhas or []):
+                if camp.get('status_nome') and camp['status_nome'].lower() in ('ativo', 'ativa', 'em andamento'):
+                    campanhas_ativas += 1
+                obj = camp.get('obj_contratados')
+                ating = camp.get('totalizador_atingido')
+                if obj and ating:
+                    try:
+                        obj_f = float(obj)
+                        ating_f = float(ating)
+                        if obj_f > 0:
+                            soma_pct_objetivo += (ating_f / obj_f) * 100
+                            count_pct_objetivo += 1
+                    except (ValueError, TypeError):
+                        pass
+                gasto_raw = camp.get('totalizador_gasto')
+                prev_raw = camp.get('valor_plataforma')
+                if gasto_raw:
+                    try:
+                        gasto_total += float(str(gasto_raw).replace('R$', '').replace('.', '').replace(',', '.').strip())
+                    except (ValueError, TypeError):
+                        pass
+                if prev_raw:
+                    try:
+                        previsto_total += float(str(prev_raw).replace('R$', '').replace('.', '').replace(',', '.').strip())
+                    except (ValueError, TypeError):
+                        pass
+
+            kpis = {
+                'total_campanhas': total_campanhas,
+                'campanhas_ativas': campanhas_ativas,
+                'pct_objetivo_medio': round(soma_pct_objetivo / count_pct_objetivo, 1) if count_pct_objetivo > 0 else 0,
+                'gasto_total': gasto_total,
+                'previsto_total': previsto_total,
+                'pct_investimento': round((gasto_total / previsto_total) * 100, 1) if previsto_total > 0 else 0,
+            }
+
+            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref, kpis=kpis, vendedores=vendedores)
         except Exception as e:
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
             flash('Erro ao carregar campanhas PI.', 'error')
@@ -8881,6 +8970,44 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             flash('Não é possível excluir esta campanha pois está em uso.', 'error')
 
         return redirect(url_for('campanhas_pi'))
+
+    @app.route('/campanhas-pi/atualizar-massa', methods=['POST'])
+    @login_required
+    def campanhas_pi_atualizar_massa():
+        """Atualização em massa de totalizador_atingido e totalizador_gasto"""
+        try:
+            data = request.get_json()
+            if not data or not isinstance(data, list):
+                return jsonify({'success': False, 'error': 'Dados inválidos'}), 400
+
+            updates = []
+            for item in data:
+                if not item.get('id_campanha'):
+                    continue
+                updates.append({
+                    'id_campanha': int(item['id_campanha']),
+                    'totalizador_atingido': item.get('totalizador_atingido'),
+                    'totalizador_gasto': item.get('totalizador_gasto'),
+                })
+
+            if updates:
+                db.atualizar_campanhas_massa(updates)
+
+            return jsonify({'success': True, 'updated': len(updates)})
+        except Exception as e:
+            app.logger.error(f"Erro ao atualizar campanhas em massa: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/campanhas-pi/<int:id_camp>/diarios-chart')
+    @login_required
+    def campanhas_pi_diarios_chart(id_camp):
+        """Retorna dados JSON dos diários para mini chart"""
+        try:
+            chart_data = db.obter_diarios_campanha_chart(id_camp)
+            return jsonify(chart_data)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar dados do chart: {str(e)}")
+            return jsonify({'labels': [], 'atingido': [], 'gasto': []}), 500
 
     # ==================== DIÁRIOS DE CAMPANHA PI ====================
 

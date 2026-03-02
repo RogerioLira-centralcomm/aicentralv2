@@ -8003,8 +8003,8 @@ def obter_campanhas_pi(filtros=None):
                     st.descricao AS status_nome,
                     plt.descricao AS plataforma_nome,
                     pi.codigo_pi_cc AS codigo_pi,
-                    vend.nome_completo AS executivo_nome,
-                    (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = c.id_pi) AS total_links
+                    pi.googled_pi_princ,
+                    vend.nome_completo AS executivo_nome
                 FROM cadu_pi_campanha c
                 LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
                 LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
@@ -8032,8 +8032,11 @@ def obter_campanhas_pi(filtros=None):
                 if filtros.get('mes_ref_comp'):
                     query += ' AND c.mes_ref_comp = %s'
                     params.append(filtros['mes_ref_comp'])
+                if filtros.get('resp_comercial'):
+                    query += ' AND cli.vendas_central_comm = %s'
+                    params.append(filtros['resp_comercial'])
 
-            query += ' ORDER BY c.id_campanha DESC'
+            query += ' ORDER BY c.mes_ref_comp DESC, c.id_campanha DESC'
             cursor.execute(query, params)
             return cursor.fetchall()
     except Exception as e:
@@ -8227,6 +8230,52 @@ def obter_meses_ref_campanha_pi():
                 ORDER BY ano DESC, mes DESC
             ''')
             return [r['mes_ref_comp'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_campanhas_massa(updates):
+    """Atualiza totalizador_atingido e totalizador_gasto em batch.
+    updates: list of dicts com id_campanha, totalizador_atingido, totalizador_gasto"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            for u in updates:
+                cursor.execute('''
+                    UPDATE cadu_pi_campanha
+                    SET totalizador_atingido = %s,
+                        totalizador_gasto = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id_campanha = %s
+                ''', (u.get('totalizador_atingido'), u.get('totalizador_gasto'), u['id_campanha']))
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_diarios_campanha_chart(id_campanha):
+    """Retorna diários formatados para chart (atingido e gasto ao longo do tempo)"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT data_evento, atingido, gasto
+                FROM cadu_pi_camp_diarios
+                WHERE id_campanha = %s
+                ORDER BY data_evento ASC
+            ''', (id_campanha,))
+            rows = cursor.fetchall()
+            labels = []
+            atingido_data = []
+            gasto_data = []
+            for r in rows:
+                labels.append(r['data_evento'].strftime('%d/%m') if r['data_evento'] else '')
+                atingido_data.append(float(r['atingido']) if r['atingido'] else 0)
+                gasto_data.append(float(r['gasto']) if r['gasto'] else 0)
+            return {'labels': labels, 'atingido': atingido_data, 'gasto': gasto_data}
     except Exception as e:
         conn.rollback()
         raise e

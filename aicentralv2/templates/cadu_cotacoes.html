@@ -270,7 +270,7 @@ function aplicarFiltros() {
   const status = urlParams.get('status');
   
   let params = new URLSearchParams();
-  if (executivo) params.set('responsavel_comercial', executivo);
+  params.set('responsavel_comercial', executivo);
   if (mes) params.set('mes', mes);
   if (busca) params.set('busca', busca);
   if (status) params.set('status', status);

@@ -92,19 +92,19 @@
         <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
           {% if sub_status_atual|string == '1' %}
           <tr>
-            <th class="font-semibold py-3" style="max-width: 70px;">Código</th>
-            <th class="font-semibold" style="width: 220px;">Cliente</th>
-            <th class="font-semibold" style="width: 180px;">Agência / Parceiro</th>
+            <th class="font-semibold py-3" style="width: 90px;">Código</th>
+            <th class="font-semibold" style="width: 270px;">Cliente</th>
+            <th class="font-semibold" style="width: 200px;">Agência / Parceiro</th>
             <th class="font-semibold text-right" style="width: 140px;">Valor Bruto</th>
             <th class="font-semibold text-right" style="width: 140px;">Valor Líquido</th>
           </tr>
           {% else %}
           <tr>
-            <th class="font-semibold py-3" style="max-width: 70px;">Código PI</th>
-            <th class="font-semibold" style="width: 180px;">Cliente</th>
-            <th class="font-semibold" style="width: 150px;">Agência / Parceiro</th>
+            <th class="font-semibold py-3" style="width: 90px;">Código PI</th>
+            <th class="font-semibold" style="width: 230px;">Cliente</th>
+            <th class="font-semibold" style="width: 170px;">Agência / Parceiro</th>
             <th class="font-semibold" style="width: 100px;">Executivo</th>
-            <th class="font-semibold text-center" style="width: 110px;">Período</th>
+            <th class="font-semibold text-center" style="width: 90px;">Período</th>
             <th class="font-semibold text-center" style="width: 50px;">Camp.</th>
             <th class="font-semibold text-right" style="width: 140px;">Bruto / Líquido</th>
           </tr>
@@ -114,9 +114,9 @@
           {% for pi in pis %}
           <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}'">
           {% if sub_status_atual|string == '1' %}
-            <td class="py-2.5" style="max-width: 70px;">
+            <td class="py-2.5" style="width: 90px;">
               <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-xs font-semibold text-blue-600">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[80px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
                 {% if pi.get('mes_ref_comp') %}
                 <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
                 {% endif %}
@@ -155,9 +155,9 @@
               {% endif %}
             </td>
           {% else %}
-            <td class="py-2.5" style="max-width: 70px;">
+            <td class="py-2.5" style="width: 90px;">
               <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-xs font-semibold text-blue-600">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[80px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
                 {% if pi.get('mes_ref_comp') %}
                 <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
                 {% endif %}
@@ -183,7 +183,7 @@
             </td>
             <td>
               {% if pi.get('resp_comercial_nome') %}
-              <span class="text-xs text-gray-700 truncate block max-w-[100px]" title="{{ pi.resp_comercial_nome }}">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
+              <span class="text-xs text-gray-700 truncate block max-w-[80px]" title="{{ pi.resp_comercial_nome }}">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
               {% else %}
               <span class="text-xs text-gray-300">-</span>
               {% endif %}

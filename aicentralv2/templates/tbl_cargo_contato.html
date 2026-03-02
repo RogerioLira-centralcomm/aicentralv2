@@ -81,7 +81,6 @@
                     'id_cargo_contato': cargo.id_cargo_contato,
                     'descricao': cargo.descricao,
                     'pk_id_aux_setor': cargo.pk_id_aux_setor,
-                    'id_centralx': cargo.id_centralx,
                     'indice': cargo.indice,
                     'status': cargo.status
                 }|tojson|safe %}
@@ -146,17 +145,6 @@
               <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
             {% endfor %}
           </select>
-        </div>
-
-        <div class="mb-4">
-          <label for="id_centralx" class="block text-sm font-medium text-gray-700 mb-1">
-            ID CentralX
-          </label>
-          <input type="text" 
-                 id="id_centralx" 
-                 name="id_centralx" 
-                 maxlength="100"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
         </div>
 
         <div class="mb-4">

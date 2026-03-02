@@ -440,6 +440,10 @@
 function aplicarFiltros() {
   const executivo = document.getElementById('filtro_executivo').value;
   const mes = document.getElementById('filtro_mes').value;
+
+  setCookie('crm_exec', executivo, 30);
+  setCookie('crm_mes', mes, 30);
+
   const params = new URLSearchParams();
   params.set('executivo_id', executivo);
   if (mes) params.set('mes', mes);
@@ -450,11 +454,29 @@ function filtrarPorStatus(status) {
   const params = new URLSearchParams(window.location.search);
   if (params.get('status') === status) {
     params.delete('status');
+    setCookie('crm_status', '', 30);
   } else {
     params.set('status', status);
+    setCookie('crm_status', status, 30);
   }
   window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
 }
+
+(function restoreCrmFilters() {
+  const params = new URLSearchParams(window.location.search);
+  const hasFilters = params.has('executivo_id') || params.has('mes') || params.has('status') || params.has('_restored');
+  if (hasFilters) return;
+  const cExec = getCookie('crm_exec');
+  const cMes = getCookie('crm_mes');
+  const cStatus = getCookie('crm_status');
+  if (!cExec && !cMes && !cStatus) return;
+  const rp = new URLSearchParams();
+  if (cExec) rp.set('executivo_id', cExec);
+  if (cMes) rp.set('mes', cMes);
+  if (cStatus) rp.set('status', cStatus);
+  rp.set('_restored', '1');
+  window.location.href = '{{ url_for("crm_pipeline") }}?' + rp.toString();
+})();
 
 // ==================== DRAG & DROP ====================
 let draggedCard = null;

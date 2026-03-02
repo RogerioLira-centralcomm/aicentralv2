@@ -28,31 +28,43 @@
   {# ====== FILTROS + AÇÕES ====== #}
   <div class="bg-white border border-gray-200 rounded-lg px-4 py-2.5 mb-3 mt-2 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3 flex-wrap">
-      <select id="filtroStatus" onchange="aplicarFiltros()"
-              class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
-        <option value="">Todos os Status</option>
-        {% for st in statuses %}
-          <option value="{{ st.id }}" {% if filtros.get('id_status') == st.id %}selected{% endif %}>{{ st.descricao }}</option>
-        {% endfor %}
-      </select>
-      <select id="filtroMesRef" onchange="aplicarFiltros()"
-              class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
-        <option value="">Todos meses</option>
-        {% for m in meses_ref %}
-          <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
-        {% endfor %}
-      </select>
-      <select id="filtroExecutivo" onchange="aplicarFiltros()"
-              class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
-        <option value="">Todos executivos</option>
-        {% for v in vendedores %}
-          <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
-            {{ v.nome_completo }}
-          </option>
-        {% endfor %}
-      </select>
-      <input type="text" id="searchInput" placeholder="Buscar campanha..."
-             class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      <div class="relative">
+        <i class="fa-solid fa-circle-check absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select id="filtroStatus" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+          <option value="">Todos os Status</option>
+          {% for st in statuses %}
+            <option value="{{ st.id }}" {% if filtros.get('id_status') == st.id %}selected{% endif %}>{{ st.descricao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="relative">
+        <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select id="filtroMesRef" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+          <option value="__todos__" {% if todos_meses %}selected{% endif %}>Todos meses</option>
+          {% for m in meses_ref %}
+            <option value="{{ m }}" {% if not todos_meses and filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-user-tie absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select id="filtroExecutivo" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+          <option value="">Todos executivos</option>
+          {% for v in vendedores %}
+            <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
+              {{ v.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <input type="text" id="searchInput" placeholder="Buscar campanha..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+      </div>
     </div>
     <div class="flex items-center gap-2">
       <button onclick="toggleBulkEdit()" id="btnBulkEdit"
@@ -106,7 +118,7 @@
           <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
 
             {# ====== AGRUPAMENTO POR MES ====== #}
-            {% if not filtros.get('mes_ref_comp') %}
+            {% if todos_meses %}
               {% set campanhas_by_mes = {} %}
               {% for c in campanhas %}
                 {% set mes_key = c.mes_ref_comp or 'Sem mês' %}
@@ -265,10 +277,6 @@
                           <div class="text-gray-700 font-medium mt-0.5">{{ c.objetivo_nome or '—' }}</div>
                         </div>
                         <div>
-                          <span class="text-gray-400 uppercase tracking-wide">ID CentralX</span>
-                          <div class="text-gray-700 font-medium mt-0.5">{{ c.id_centralx or '—' }}</div>
-                        </div>
-                        <div>
                           <span class="text-gray-400 uppercase tracking-wide">Status</span>
                           <div class="text-gray-700 font-medium mt-0.5">{{ c.status_nome or '—' }}</div>
                         </div>
@@ -420,10 +428,6 @@
                         <div class="text-gray-700 font-medium mt-0.5">{{ c.objetivo_nome or '—' }}</div>
                       </div>
                       <div>
-                        <span class="text-gray-400 uppercase tracking-wide">ID CentralX</span>
-                        <div class="text-gray-700 font-medium mt-0.5">{{ c.id_centralx or '—' }}</div>
-                      </div>
-                      <div>
                         <span class="text-gray-400 uppercase tracking-wide">Status</span>
                         <div class="text-gray-700 font-medium mt-0.5">{{ c.status_nome or '—' }}</div>
                       </div>
@@ -553,11 +557,6 @@
                 <option value="{{ st.id }}">{{ st.descricao }}</option>
               {% endfor %}
             </select>
-          </div>
-          <div>
-            <label for="id_centralx" class="block text-sm font-medium text-gray-700 mb-1">ID CentralX</label>
-            <input type="text" id="id_centralx" name="id_centralx"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
           </div>
           <div>
             <label for="obj_contratados" class="block text-sm font-medium text-gray-700 mb-1">Obj. Contratados</label>
@@ -717,29 +716,43 @@
 <script>
   const MES_ATUAL = '{{ mes_atual }}';
 
-  // ==================== COOKIES HELPER ====================
-  function setCookie(name, value, days) {
-    const d = new Date();
-    d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-    document.cookie = name + '=' + value + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
-  }
-
-  function getCookie(name) {
-    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return v ? v.pop() : null;
-  }
-
   // ==================== FILTROS ====================
   function aplicarFiltros() {
     const params = new URLSearchParams();
     const status = document.getElementById('filtroStatus').value;
     const mes = document.getElementById('filtroMesRef').value;
     const exec = document.getElementById('filtroExecutivo').value;
+
+    setCookie('camppi_status', status, 30);
+    setCookie('camppi_mes', mes, 30);
+    setCookie('camppi_exec', exec, 30);
+
     if (status) params.set('id_status', status);
-    if (mes) params.set('mes_ref_comp', mes);
+    if (mes === '__todos__') {
+      params.set('todos_meses', '1');
+    } else if (mes) {
+      params.set('mes_ref_comp', mes);
+    }
     params.set('resp_comercial', exec);
     window.location.href = '{{ url_for("campanhas_pi") }}' + (params.toString() ? '?' + params.toString() : '');
   }
+
+  (function restoreCampPiFilters() {
+    const params = new URLSearchParams(window.location.search);
+    const hasFilters = params.has('id_status') || params.has('mes_ref_comp') || params.has('todos_meses') || params.has('resp_comercial') || params.has('_restored');
+    if (hasFilters) return;
+    const cStatus = getCookie('camppi_status');
+    const cMes = getCookie('camppi_mes');
+    const cExec = getCookie('camppi_exec');
+    if (!cStatus && !cMes && !cExec) return;
+    const rp = new URLSearchParams();
+    if (cStatus) rp.set('id_status', cStatus);
+    if (cMes === '__todos__') { rp.set('todos_meses', '1'); }
+    else if (cMes) { rp.set('mes_ref_comp', cMes); }
+    if (cExec) rp.set('resp_comercial', cExec);
+    rp.set('_restored', '1');
+    window.location.href = '{{ url_for("campanhas_pi") }}?' + rp.toString();
+  })();
 
   document.getElementById('searchInput').addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
@@ -1052,7 +1065,6 @@
     document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
     document.getElementById('id_plataforma').value = c.id_plataforma || '';
     document.getElementById('id_status').value = c.id_status || '';
-    document.getElementById('id_centralx').value = c.id_centralx || '';
     document.getElementById('obj_contratados').value = c.obj_contratados || '';
     document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
     document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';

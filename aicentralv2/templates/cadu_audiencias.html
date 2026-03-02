@@ -879,7 +879,16 @@ document.addEventListener('DOMContentLoaded', function() {
     aplicarFiltros();
   });
 
-  // Inicializar filtros na carga da página (plataforma já vem pré-selecionada)
+  // Restaurar filtros de cookies
+  const cAudId = getCookie('aud_id');
+  const cAudPlat = getCookie('aud_plat');
+  const cAudCat = getCookie('aud_cat');
+  const cAudStatus = getCookie('aud_status');
+  if (cAudId) filtroId.value = cAudId;
+  if (cAudPlat && !filtroPlataforma.value) filtroPlataforma.value = cAudPlat;
+  if (cAudCat) filtroCategoria.value = cAudCat;
+  if (cAudStatus) { statusFiltroAtual = cAudStatus; atualizarBotoesStatus(cAudStatus); }
+
   aplicarFiltros();
 
   // Função para aplicar filtros
@@ -889,6 +898,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
     const statusFiltro = statusFiltroAtual;
+
+    setCookie('aud_id', filtroId.value.trim(), 30);
+    setCookie('aud_plat', plataformaFiltro, 30);
+    setCookie('aud_cat', categoriaId, 30);
+    setCookie('aud_subcat', subcategoriaId, 30);
+    setCookie('aud_status', statusFiltro, 30);
 
     console.log('Filtros aplicados:', { idFiltro, plataformaFiltro, categoriaId, subcategoriaId, statusFiltro });
 

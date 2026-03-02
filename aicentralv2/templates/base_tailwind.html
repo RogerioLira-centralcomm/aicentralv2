@@ -29,7 +29,19 @@
 
     <!-- Estilos específicos da página -->
     {% block styles %}{% endblock %}
-    
+
+    <script>
+    function setCookie(name, value, days) {
+      const d = new Date();
+      d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+      document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    }
+    function getCookie(name) {
+      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? decodeURIComponent(v.pop()) : '';
+    }
+    </script>
+
     <!-- Script para controle do sidebar e dropdowns -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {

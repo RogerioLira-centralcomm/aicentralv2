@@ -268,29 +268,53 @@ function aplicarFiltros() {
   const busca = document.getElementById('filtro_busca').value.trim();
   const urlParams = new URLSearchParams(window.location.search);
   const status = urlParams.get('status');
-  
+
+  setCookie('cotacoes_exec', executivo, 30);
+  setCookie('cotacoes_mes', mes, 30);
+  setCookie('cotacoes_busca', busca, 30);
+  if (status) setCookie('cotacoes_status', status, 30);
+
   let params = new URLSearchParams();
   params.set('responsavel_comercial', executivo);
   if (mes) params.set('mes', mes);
   if (busca) params.set('busca', busca);
   if (status) params.set('status', status);
-  
+
   window.location.href = '/cotacoes' + (params.toString() ? '?' + params.toString() : '');
 }
 
 function filtrarPorStatus(status) {
   const urlParams = new URLSearchParams(window.location.search);
   const currentStatus = urlParams.get('status');
-  
-  // Toggle: se já está no status, remove o filtro
+
   if (currentStatus === status) {
     urlParams.delete('status');
+    setCookie('cotacoes_status', '', 30);
   } else {
     urlParams.set('status', status);
+    setCookie('cotacoes_status', status, 30);
   }
-  
+
   window.location.href = '/cotacoes' + (urlParams.toString() ? '?' + urlParams.toString() : '');
 }
+
+(function restoreCotacoesFilters() {
+  const params = new URLSearchParams(window.location.search);
+  const hasFilters = params.has('responsavel_comercial') || params.has('mes') || params.has('busca') || params.has('status') || params.has('_restored');
+  if (hasFilters) return;
+  const cExec = getCookie('cotacoes_exec');
+  const cMes = getCookie('cotacoes_mes');
+  const cBusca = getCookie('cotacoes_busca');
+  const cStatus = getCookie('cotacoes_status');
+  if (!cExec && !cMes && !cBusca && !cStatus) return;
+  const rp = new URLSearchParams();
+  if (cExec) rp.set('responsavel_comercial', cExec);
+  if (cMes) rp.set('mes', cMes);
+  if (cBusca) rp.set('busca', cBusca);
+  if (cStatus) rp.set('status', cStatus);
+  rp.set('_restored', '1');
+  window.location.href = '/cotacoes?' + rp.toString();
+})();
 
 function duplicarCotacao(cotacaoId) {
   if (!confirm('Deseja duplicar esta cotação?')) return;

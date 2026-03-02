@@ -218,6 +218,10 @@ function filtrarStatus(status) {
 function filtrarSubcategorias() {
   const pesquisa = document.getElementById('pesquisa_subcategoria').value.toLowerCase().trim();
   const categoriaFiltro = document.getElementById('filtro_categoria').value.trim();
+
+  setCookie('subcat_pesq', document.getElementById('pesquisa_subcategoria').value.trim(), 30);
+  setCookie('subcat_cat', categoriaFiltro, 30);
+  setCookie('subcat_status', filtroStatusAtual, 30);
   const tabela = document.getElementById('tabela_subcategorias');
   if (!tabela) return;
   
@@ -266,6 +270,12 @@ function filtrarSubcategorias() {
 
 // Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', function() {
+  const cPesq = getCookie('subcat_pesq');
+  const cCat = getCookie('subcat_cat');
+  const cStatus = getCookie('subcat_status');
+  if (cPesq) document.getElementById('pesquisa_subcategoria').value = cPesq;
+  if (cCat) document.getElementById('filtro_categoria').value = cCat;
+  if (cStatus) { filtroStatusAtual = cStatus; atualizarBotoesStatus(); }
   filtrarSubcategorias();
 });
 

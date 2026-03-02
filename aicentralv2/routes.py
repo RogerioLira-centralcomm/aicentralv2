@@ -8845,6 +8845,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def campanhas_pi():
         """Lista todas as campanhas PI"""
         try:
+            from datetime import datetime as dt_cls
+
+            todos_meses = request.args.get('todos_meses') == '1'
+
             filtros = {
                 'id_cliente': request.args.get('id_cliente', type=int),
                 'id_status': request.args.get('id_status', type=int),
@@ -8855,6 +8859,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if request.args.get('resp_comercial'):
                 filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
             filtros = {k: v for k, v in filtros.items() if v is not None}
+
+            if not todos_meses and 'mes_ref_comp' not in filtros:
+                now = dt_cls.now()
+                filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
 
             vendedores = db.obter_vendedores_centralcomm()
             user_id = session.get('user_id')
@@ -8909,10 +8917,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'pct_investimento': round((gasto_total / previsto_total) * 100, 1) if previsto_total > 0 else 0,
             }
 
-            from datetime import datetime as dt_now
-            mes_atual = f"{dt_now.now().month}/{dt_now.now().year}"
+            now = dt_cls.now()
+            mes_atual = f"{now.month}/{now.year}"
 
-            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref, kpis=kpis, vendedores=vendedores, mes_atual=mes_atual)
+            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref, kpis=kpis, vendedores=vendedores, mes_atual=mes_atual, todos_meses=todos_meses)
         except Exception as e:
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
             flash('Erro ao carregar campanhas PI.', 'error')

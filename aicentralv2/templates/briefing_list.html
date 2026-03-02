@@ -16,7 +16,7 @@
             <!-- Filtros Inline -->
             <form id="filtros_form" method="get" action="{{ url_for('briefing_list') }}" class="flex flex-wrap items-center gap-2">
                 <!-- Status -->
-                <select name="status" onchange="this.form.submit()"
+                <select name="status" onchange="salvarFiltrosESubmeter()"
                         class="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 w-24">
                     <option value="">Status</option>
                     <option value="rascunho" {% if filtros.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
@@ -40,7 +40,7 @@
                 </div>
                 
                 <!-- Responsável -->
-                <select name="responsavel_id" onchange="this.form.submit()"
+                <select name="responsavel_id" onchange="salvarFiltrosESubmeter()"
                         class="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 w-32">
                     <option value="">Responsável</option>
                     <option value="sem_responsavel" {% if filtros.responsavel_id == 'sem_responsavel' %}selected{% endif %}>Sem resp.</option>
@@ -51,7 +51,7 @@
                 
                 <!-- Período -->
                 <input type="hidden" name="ano" value="2026">
-                <select name="mes" onchange="this.form.submit()"
+                <select name="mes" onchange="salvarFiltrosESubmeter()"
                         class="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 w-24">
                     <option value="">Período</option>
                     <option value="1" {% if filtros.mes == '1' %}selected{% endif %}>Jan/2026</option>
@@ -72,7 +72,7 @@
                 <input type="text" name="busca" value="{{ filtros.busca }}" 
                        placeholder="Buscar..." 
                        class="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 w-28"
-                       onkeydown="if(event.key==='Enter'){this.form.submit();}">
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();salvarFiltrosESubmeter();}">
                 
                 <!-- Limpar -->
                 {% if filtros.status or filtros.cliente_id or filtros.responsavel_id or filtros.busca or filtros.mes or filtros.ano %}
@@ -332,6 +332,46 @@
 </dialog>
 
 <script>
+function salvarFiltrosESubmeter() {
+  const form = document.getElementById('filtros_form');
+  setCookie('brief_status', form.querySelector('[name="status"]').value, 30);
+  setCookie('brief_resp', form.querySelector('[name="responsavel_id"]').value, 30);
+  setCookie('brief_mes', form.querySelector('[name="mes"]').value, 30);
+  setCookie('brief_cliente', form.querySelector('[name="cliente_id"]').value, 30);
+  setCookie('brief_busca', form.querySelector('[name="busca"]').value, 30);
+
+  let fInput = form.querySelector('[name="_f"]');
+  if (!fInput) {
+    fInput = document.createElement('input');
+    fInput.type = 'hidden';
+    fInput.name = '_f';
+    form.appendChild(fInput);
+  }
+  fInput.value = '1';
+  form.submit();
+}
+
+(function restoreBriefingFilters() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('_f') || params.has('_restored')) return;
+
+  const cStatus = getCookie('brief_status');
+  const cResp = getCookie('brief_resp');
+  const cMes = getCookie('brief_mes');
+  const cCliente = getCookie('brief_cliente');
+  const cBusca = getCookie('brief_busca');
+  if (!cStatus && !cResp && !cMes && !cCliente && !cBusca) return;
+
+  const rp = new URLSearchParams();
+  if (cStatus) rp.set('status', cStatus);
+  if (cCliente) rp.set('cliente_id', cCliente);
+  if (cResp) rp.set('responsavel_id', cResp);
+  if (cMes) { rp.set('mes', cMes); rp.set('ano', '2026'); }
+  if (cBusca) rp.set('busca', cBusca);
+  rp.set('_restored', '1');
+  window.location.href = '{{ url_for("briefing_list") }}?' + rp.toString();
+})();
+
 let timeoutBuscaCliente = null;
 let clientesSugeridos = [];
 
@@ -399,9 +439,7 @@ function selecionarClienteFiltro(clienteId, nomeCliente) {
   document.getElementById('cliente_id_filtro').value = clienteId;
   document.getElementById('cliente_busca').value = nomeCliente;
   document.getElementById('resultados_clientes_filtro').classList.add('hidden');
-  
-  // Submeter formulário ao selecionar cliente
-  document.getElementById('filtros_form').submit();
+  salvarFiltrosESubmeter();
 }
 
 function mostrarResultadosFiltro() {

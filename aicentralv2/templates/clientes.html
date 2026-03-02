@@ -237,20 +237,56 @@
 
 <script>
   // Filtros
+  function salvarFiltrosClientes() {
+    const form = document.getElementById('filtros_form');
+    setCookie('cli_exec', form.querySelector('[name="executivo_id"]').value, 30);
+    setCookie('cli_search', form.querySelector('[name="search"]').value, 30);
+    setCookie('cli_status', document.getElementById('status_filter').value, 30);
+    setCookie('cli_categoria', document.getElementById('categoria_filter').value, 30);
+    setCookie('cli_agencia', document.getElementById('agencia_filter').value, 30);
+  }
+
   function filtrarStatus(status) {
     document.getElementById('status_filter').value = status;
+    salvarFiltrosClientes();
     document.getElementById('filtros_form').submit();
   }
-  
+
   function filtrarCategoria(cat) {
     document.getElementById('categoria_filter').value = cat;
+    salvarFiltrosClientes();
     document.getElementById('filtros_form').submit();
   }
-  
+
   function filtrarAgencia(valor) {
     document.getElementById('agencia_filter').value = valor;
+    salvarFiltrosClientes();
     document.getElementById('filtros_form').submit();
   }
+
+  document.getElementById('filtros_form').addEventListener('submit', function() {
+    salvarFiltrosClientes();
+  });
+
+  (function restoreClientesFilters() {
+    const params = new URLSearchParams(window.location.search);
+    const hasFilters = params.has('executivo_id') || params.has('search') || params.has('status') || params.has('categoria') || params.has('_restored');
+    if (hasFilters) return;
+    const cExec = getCookie('cli_exec');
+    const cSearch = getCookie('cli_search');
+    const cStatus = getCookie('cli_status');
+    const cCat = getCookie('cli_categoria');
+    const cAg = getCookie('cli_agencia');
+    if (!cExec && !cSearch && !cStatus && !cCat && !cAg) return;
+    const rp = new URLSearchParams();
+    if (cExec) rp.set('executivo_id', cExec);
+    if (cSearch) rp.set('search', cSearch);
+    rp.set('status', cStatus || 'ativo');
+    if (cCat) rp.set('categoria', cCat);
+    rp.set('agencia', cAg || 'nao');
+    rp.set('_restored', '1');
+    window.location.href = '{{ url_for("clientes") }}?' + rp.toString();
+  })();
   
   // Recategorizar ABC
   async function recategorizarABC() {
@@ -387,14 +423,6 @@
           <div id="percentual_fields" class="form-control">
             <label class="text-xs font-medium text-gray-600 mb-1">Percentual</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
-          </div>
-        </div>
-
-        <!-- ID CentralX (campo oculto) -->
-        <div class="hidden">
-          <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">ID CentralX</label>
-            <input id="input_id_centralx" name="id_centralx" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="ID CentralX">
           </div>
         </div>
 
@@ -836,9 +864,6 @@ async function abrirModalEditar(clienteId) {
     } else {
       document.querySelector('input[name="percentual"]').value = '';
     }
-    
-    // ID CentralX
-    document.getElementById('input_id_centralx').value = cliente.id_centralx || '';
     
     // Atualizar campos visíveis baseado no tipo de pessoa
     togglePessoaFieldsModal();

@@ -255,6 +255,10 @@ function filtrarDestaque(destaque) {
 function filtrarCategorias() {
   const pesquisa = document.getElementById('pesquisa_categoria').value.toLowerCase();
   const tabela = document.getElementById('tabela_categorias');
+
+  setCookie('cat_pesq', document.getElementById('pesquisa_categoria').value.trim(), 30);
+  setCookie('cat_status', statusFiltroAtual, 30);
+  setCookie('cat_destaque', destaqueFiltroAtual, 30);
   
   if (!tabela) return;
   
@@ -308,6 +312,12 @@ function filtrarCategorias() {
 
 // Inicializar ao carregar
 document.addEventListener('DOMContentLoaded', function() {
+  const cPesq = getCookie('cat_pesq');
+  const cStatus = getCookie('cat_status');
+  const cDest = getCookie('cat_destaque');
+  if (cPesq) document.getElementById('pesquisa_categoria').value = cPesq;
+  if (cStatus) filtrarStatus(cStatus);
+  if (cDest) filtrarDestaque(cDest);
   filtrarCategorias();
 });
 </script>

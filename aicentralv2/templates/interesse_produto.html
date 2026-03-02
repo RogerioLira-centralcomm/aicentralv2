@@ -211,8 +211,36 @@
 // Filtrar por status de notificação
 function filtrarNotificado(valor) {
   document.getElementById('notificado_filter').value = valor;
+  salvarFiltrosInteresse();
   document.getElementById('filtros_form').submit();
 }
+
+function salvarFiltrosInteresse() {
+  const form = document.getElementById('filtros_form');
+  setCookie('inter_tipo', form.querySelector('[name="tipo_produto"]').value, 30);
+  setCookie('inter_cliente', form.querySelector('[name="cliente_id"]').value, 30);
+  setCookie('inter_notif', form.querySelector('[name="notificado"]').value, 30);
+}
+
+document.getElementById('filtros_form').addEventListener('submit', function() {
+  salvarFiltrosInteresse();
+});
+
+(function restoreInteresseFilters() {
+  const params = new URLSearchParams(window.location.search);
+  const hasFilters = params.has('tipo_produto') || params.has('cliente_id') || params.has('notificado') || params.has('_restored');
+  if (hasFilters) return;
+  const cTipo = getCookie('inter_tipo');
+  const cCliente = getCookie('inter_cliente');
+  const cNotif = getCookie('inter_notif');
+  if (!cTipo && !cCliente && !cNotif) return;
+  const rp = new URLSearchParams();
+  if (cTipo) rp.set('tipo_produto', cTipo);
+  if (cCliente) rp.set('cliente_id', cCliente);
+  if (cNotif) rp.set('notificado', cNotif);
+  rp.set('_restored', '1');
+  window.location.href = '{{ url_for("interesse_produto_listar") }}?' + rp.toString();
+})();
 
 // Busca de clientes
 let timeoutIdInteresse = null;

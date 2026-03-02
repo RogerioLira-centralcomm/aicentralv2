@@ -1082,6 +1082,32 @@ def init_routes(app):
             app.logger.error(f"Erro ao buscar cliente {cliente_id}: {e}")
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
+    @login_required
+    def api_campanhas_pi(id_pi):
+        try:
+            campanhas_raw = db.obter_campanhas_pi(filtros={'id_pi': id_pi})
+            campanhas = []
+            for c in (campanhas_raw or []):
+                campanhas.append({
+                    'id_campanha': c.get('id_campanha'),
+                    'nome_campanha': c.get('nome_campanha', ''),
+                    'status_nome': c.get('status_nome', ''),
+                    'periodo_inicio': c['periodo_inicio'].strftime('%d/%m/%Y') if c.get('periodo_inicio') else None,
+                    'periodo_fim': c['periodo_fim'].strftime('%d/%m/%Y') if c.get('periodo_fim') else None,
+                    'obj_contratados': c.get('obj_contratados'),
+                    'totalizador_atingido': c.get('totalizador_atingido'),
+                    'totalizador_gasto': float(c['totalizador_gasto']) if c.get('totalizador_gasto') else None,
+                    'valor_plataforma': float(c['valor_plataforma']) if c.get('valor_plataforma') else None,
+                    'plataforma_nome': c.get('plataforma_nome', ''),
+                    'codigo_pi': c.get('codigo_pi', ''),
+                    'id_pi': c.get('id_pi'),
+                })
+            return jsonify({'success': True, 'campanhas': campanhas})
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar campanhas do PI {id_pi}: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     @app.route('/api/cliente/<int:cliente_id>/contatos')
     @login_required
     def api_cliente_contatos(cliente_id):
@@ -8883,7 +8909,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'pct_investimento': round((gasto_total / previsto_total) * 100, 1) if previsto_total > 0 else 0,
             }
 
-            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref, kpis=kpis, vendedores=vendedores)
+            from datetime import datetime as dt_now
+            mes_atual = f"{dt_now.now().month}/{dt_now.now().year}"
+
+            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref, kpis=kpis, vendedores=vendedores, mes_atual=mes_atual)
         except Exception as e:
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
             flash('Erro ao carregar campanhas PI.', 'error')
@@ -9008,6 +9037,105 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except Exception as e:
             app.logger.error(f"Erro ao carregar dados do chart: {str(e)}")
             return jsonify({'labels': [], 'atingido': [], 'gasto': []}), 500
+
+    @app.route('/api/campanhas-pi/<int:id_camp>/diarios')
+    @login_required
+    def api_campanhas_pi_diarios(id_camp):
+        """API: lista diários de uma campanha como JSON"""
+        try:
+            campanha = db.obter_campanha_pi_por_id(id_camp)
+            if not campanha:
+                return jsonify({'success': False, 'error': 'Campanha não encontrada'}), 404
+            diarios = db.obter_diarios_campanha(id_camp)
+            diarios_list = []
+            for d in (diarios or []):
+                diarios_list.append({
+                    'id': d['id'],
+                    'id_campanha': d['id_campanha'],
+                    'data_evento': d['data_evento'].isoformat() if d.get('data_evento') else None,
+                    'data_evento_fmt': d['data_evento'].strftime('%d/%m/%Y') if d.get('data_evento') else '—',
+                    'atingido': float(d['atingido']) if d.get('atingido') is not None else None,
+                    'gasto': float(d['gasto']) if d.get('gasto') is not None else None,
+                    'dif_atingido': float(d['dif_atingido']) if d.get('dif_atingido') is not None else None,
+                    'dif_gasto': float(d['dif_gasto']) if d.get('dif_gasto') is not None else None,
+                })
+            return jsonify({
+                'success': True,
+                'campanha': {
+                    'id_campanha': campanha['id_campanha'],
+                    'nome_campanha': campanha.get('nome_campanha', ''),
+                    'codigo_pi': campanha.get('codigo_pi', ''),
+                    'id_pi': campanha.get('id_pi'),
+                },
+                'diarios': diarios_list
+            })
+        except Exception as e:
+            app.logger.error(f"Erro API diários: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/campanhas-pi/<int:id_camp>/diarios', methods=['POST'])
+    @login_required
+    def api_campanhas_pi_diario_criar(id_camp):
+        """API: criar diário via JSON"""
+        try:
+            campanha = db.obter_campanha_pi_por_id(id_camp)
+            if not campanha:
+                return jsonify({'success': False, 'error': 'Campanha não encontrada'}), 404
+            payload = request.get_json()
+            data = {
+                'id_pi': campanha['id_pi'],
+                'id_campanha': id_camp,
+                'data_evento': payload.get('data_evento') or None,
+                'atingido': _parse_decimal_br(payload.get('atingido')),
+                'gasto': _parse_decimal_br(payload.get('gasto')),
+                'dif_atingido': None,
+                'dif_gasto': None,
+            }
+            if not data['data_evento']:
+                return jsonify({'success': False, 'error': 'Data do evento é obrigatória'}), 400
+            id_diario = db.criar_diario_campanha(data)
+            return jsonify({'success': True, 'id': id_diario})
+        except Exception as e:
+            app.logger.error(f"Erro API criar diário: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/campanhas-pi/diarios/<int:id_diario>', methods=['PUT'])
+    @login_required
+    def api_campanhas_pi_diario_editar(id_diario):
+        """API: editar diário via JSON"""
+        try:
+            diario = db.obter_diario_por_id(id_diario)
+            if not diario:
+                return jsonify({'success': False, 'error': 'Diário não encontrado'}), 404
+            payload = request.get_json()
+            data = {
+                'data_evento': payload.get('data_evento') or None,
+                'atingido': _parse_decimal_br(payload.get('atingido')),
+                'gasto': _parse_decimal_br(payload.get('gasto')),
+                'dif_atingido': None,
+                'dif_gasto': None,
+            }
+            if not data['data_evento']:
+                return jsonify({'success': False, 'error': 'Data do evento é obrigatória'}), 400
+            db.atualizar_diario_campanha(id_diario, data)
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro API editar diário: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/campanhas-pi/diarios/<int:id_diario>', methods=['DELETE'])
+    @login_required
+    def api_campanhas_pi_diario_excluir(id_diario):
+        """API: excluir diário via JSON"""
+        try:
+            diario = db.obter_diario_por_id(id_diario)
+            if not diario:
+                return jsonify({'success': False, 'error': 'Diário não encontrado'}), 404
+            db.excluir_diario_campanha(id_diario)
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro API excluir diário: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     # ==================== DIÁRIOS DE CAMPANHA PI ====================
 

@@ -16,9 +16,6 @@
   .month-group-body tr.collapse-row.open { display: table-row; }
   .sort-icon { opacity: 0.3; margin-left: 4px; font-size: 10px; }
   .sort-icon.active { opacity: 1; }
-  .kpi-card { background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem 1.25rem; min-width: 180px; }
-  .kpi-value { font-size: 1.5rem; font-weight: 700; color: #111827; }
-  .kpi-label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
   .bulk-input { width: 100px; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.8rem; text-align: right; }
   #bulkSaveBar { position: fixed; bottom: 0; left: 0; right: 0; background: #1f2937; color: white; padding: 12px 24px; display: none; z-index: 50; }
   #bulkSaveBar.active { display: flex; }
@@ -28,37 +25,8 @@
 {% block content %}
 <div class="max-w-full mx-auto px-2">
 
-  {# ====== KPI CARDS ====== #}
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 mt-2">
-    <div class="kpi-card">
-      <div class="kpi-label">Total Campanhas</div>
-      <div class="kpi-value">{{ kpis.total_campanhas }}</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Objetivo Médio</div>
-      <div class="kpi-value {% if kpis.pct_objetivo_medio >= 100 %}text-green-600{% elif kpis.pct_objetivo_medio >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">
-        {{ kpis.pct_objetivo_medio }}%
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Investimento</div>
-      <div class="kpi-value text-base">
-        <span class="text-sm text-gray-500">R$</span> {{ '{:,.0f}'.format(kpis.gasto_total).replace(',', '.') }}
-        <span class="text-xs text-gray-400">/ {{ '{:,.0f}'.format(kpis.previsto_total).replace(',', '.') }}</span>
-      </div>
-      <div class="progress-bar-container mt-1">
-        <div class="progress-bar-fill {% if kpis.pct_investimento <= 80 %}bg-green-500{% elif kpis.pct_investimento <= 100 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
-             style="width: {{ [kpis.pct_investimento, 100]|min }}%"></div>
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Campanhas Ativas</div>
-      <div class="kpi-value text-blue-600">{{ kpis.campanhas_ativas }}</div>
-    </div>
-  </div>
-
   {# ====== FILTROS + AÇÕES ====== #}
-  <div class="bg-white border border-gray-200 rounded-lg px-4 py-2.5 mb-3 flex flex-wrap items-center justify-between gap-3">
+  <div class="bg-white border border-gray-200 rounded-lg px-4 py-2.5 mb-3 mt-2 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3 flex-wrap">
       <select id="filtroStatus" onchange="aplicarFiltros()"
               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400">
@@ -132,7 +100,7 @@
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase cursor-pointer select-none" data-sort="investimento" onclick="sortTable('investimento')" style="min-width:180px;">
                 Investimento <i class="fas fa-sort sort-icon" id="sort-icon-investimento"></i>
               </th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-28">Ações</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-36">Ações</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
@@ -150,7 +118,7 @@
 
               {% for mes_key, grupo in campanhas_by_mes.items() %}
                 {% set mg_idx = loop.index %}
-                {% set ns = namespace(total=grupo|length, soma_pct=0, cnt_pct=0, gasto=0.0, previsto=0.0) %}
+                {% set ns = namespace(total=grupo|length, soma_pct=0, cnt_pct=0) %}
                 {% for gc in grupo %}
                   {% if gc.obj_contratados and gc.totalizador_atingido %}
                     {% if gc.obj_contratados|float > 0 %}
@@ -161,7 +129,7 @@
                 {% endfor %}
                 {% set pct_medio = (ns.soma_pct / ns.cnt_pct)|round(1) if ns.cnt_pct > 0 else 0 %}
 
-                <tr class="bg-gray-50 border-t-2 border-gray-300 month-header cursor-pointer" onclick="toggleMonthGroup('mg-{{ mg_idx }}')">
+                <tr class="bg-gray-50 border-t-2 border-gray-300 month-header cursor-pointer" onclick="toggleMonthGroup('mg-{{ mg_idx }}')" data-mes-key="{{ mes_key }}">
                   <td colspan="6" class="py-2.5 px-3">
                     <div class="flex items-center justify-between">
                       <div class="flex items-center gap-3">
@@ -245,11 +213,23 @@
                       </div>
                     </td>
                     <td class="py-2 px-3">
-                      <div class="flex items-center justify-center gap-1.5">
-                        <a href="{{ url_for('diarios_campanha', id_camp=c.id_campanha) }}"
+                      <div class="flex items-center justify-center gap-1">
+                        {% if c.googled_pi_princ %}
+                          <a href="{{ c.googled_pi_princ }}" target="_blank"
+                             class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Google Drive">
+                            <i class="fab fa-google-drive text-xs"></i>
+                          </a>
+                        {% endif %}
+                        {% if c.link_dash %}
+                          <a href="{{ c.link_dash }}" target="_blank"
+                             class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Dashboard">
+                            <i class="fas fa-chart-line text-xs"></i>
+                          </a>
+                        {% endif %}
+                        <button onclick="abrirModalDiarios({{ c.id_campanha }})"
                            class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Diários">
                           <i class="fas fa-calendar-day text-xs"></i>
-                        </a>
+                        </button>
                         <button onclick='abrirModalEditar({{ c | tojson }})'
                                 class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Editar">
                           <i class="fas fa-edit text-xs"></i>
@@ -264,10 +244,10 @@
                     </td>
                   </tr>
 
-                  {# Row collapse #}
+                  {# Row collapse - compacto #}
                   <tr class="collapse-row bg-gray-50/50" id="collapse-{{ c.id_campanha }}">
-                    <td colspan="6" class="px-6 py-4">
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs mb-4">
+                    <td colspan="6" class="px-4 py-2">
+                      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-2">
                         <div>
                           <span class="text-gray-400 uppercase tracking-wide">Cliente</span>
                           <div class="text-gray-700 font-medium mt-0.5">{{ c.cliente_nome or '—' }}</div>
@@ -312,22 +292,11 @@
                           </div>
                         </div>
                       </div>
-                      <div class="flex items-center gap-4 text-xs mb-4">
-                        {% if c.googled_pi_princ %}
-                          <a href="{{ c.googled_pi_princ }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800">
-                            <i class="fab fa-google-drive"></i> Google Drive
-                          </a>
-                        {% endif %}
-                        {% if c.link_dash %}
-                          <a href="{{ c.link_dash }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-chart-line"></i> Dashboard
-                          </a>
-                        {% endif %}
-                      </div>
-                      <div class="border-t border-gray-200 pt-3">
-                        <div class="text-xs text-gray-400 uppercase tracking-wide mb-2">Evolução de Desempenho</div>
-                        <div style="height: 150px; max-width: 500px;">
-                          <canvas id="chart-{{ c.id_campanha }}" width="500" height="150"></canvas>
+                      <div class="chart-container" id="chart-container-{{ c.id_campanha }}" style="display:none;">
+                        <div class="border-t border-gray-200 pt-2">
+                          <div style="height: 140px; max-width: 480px;">
+                            <canvas id="chart-{{ c.id_campanha }}" width="480" height="140"></canvas>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -399,11 +368,23 @@
                     </div>
                   </td>
                   <td class="py-2 px-3">
-                    <div class="flex items-center justify-center gap-1.5">
-                      <a href="{{ url_for('diarios_campanha', id_camp=c.id_campanha) }}"
+                    <div class="flex items-center justify-center gap-1">
+                      {% if c.googled_pi_princ %}
+                        <a href="{{ c.googled_pi_princ }}" target="_blank"
+                           class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Google Drive">
+                          <i class="fab fa-google-drive text-xs"></i>
+                        </a>
+                      {% endif %}
+                      {% if c.link_dash %}
+                        <a href="{{ c.link_dash }}" target="_blank"
+                           class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Dashboard">
+                          <i class="fas fa-chart-line text-xs"></i>
+                        </a>
+                      {% endif %}
+                      <button onclick="abrirModalDiarios({{ c.id_campanha }})"
                          class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Diários">
                         <i class="fas fa-calendar-day text-xs"></i>
-                      </a>
+                      </button>
                       <button onclick='abrirModalEditar({{ c | tojson }})'
                               class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Editar">
                         <i class="fas fa-edit text-xs"></i>
@@ -418,10 +399,10 @@
                   </td>
                 </tr>
 
-                {# Row collapse (sem agrupamento) #}
+                {# Row collapse (sem agrupamento) - compacto #}
                 <tr class="collapse-row bg-gray-50/50" id="collapse-{{ c.id_campanha }}">
-                  <td colspan="6" class="px-6 py-4">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs mb-4">
+                  <td colspan="6" class="px-4 py-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-2">
                       <div>
                         <span class="text-gray-400 uppercase tracking-wide">Cliente</span>
                         <div class="text-gray-700 font-medium mt-0.5">{{ c.cliente_nome or '—' }}</div>
@@ -466,22 +447,11 @@
                         </div>
                       </div>
                     </div>
-                    <div class="flex items-center gap-4 text-xs mb-4">
-                      {% if c.googled_pi_princ %}
-                        <a href="{{ c.googled_pi_princ }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800">
-                          <i class="fab fa-google-drive"></i> Google Drive
-                        </a>
-                      {% endif %}
-                      {% if c.link_dash %}
-                        <a href="{{ c.link_dash }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800">
-                          <i class="fas fa-chart-line"></i> Dashboard
-                        </a>
-                      {% endif %}
-                    </div>
-                    <div class="border-t border-gray-200 pt-3">
-                      <div class="text-xs text-gray-400 uppercase tracking-wide mb-2">Evolução de Desempenho</div>
-                      <div style="height: 150px; max-width: 500px;">
-                        <canvas id="chart-{{ c.id_campanha }}" width="500" height="150"></canvas>
+                    <div class="chart-container" id="chart-container-{{ c.id_campanha }}" style="display:none;">
+                      <div class="border-t border-gray-200 pt-2">
+                        <div style="height: 140px; max-width: 480px;">
+                          <canvas id="chart-{{ c.id_campanha }}" width="480" height="140"></canvas>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -665,7 +635,7 @@
                   class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
             Cancelar
           </button>
-          <button type="submit"
+          <button type="submit" id="btnSalvarCampanha"
                   class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
             Salvar
           </button>
@@ -675,11 +645,90 @@
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
+
+<!-- Modal de Diários -->
+<dialog id="modal_diarios" class="modal">
+  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-lg">
+    <div class="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_diarios_title">Diários da Campanha</h3>
+      <button onclick="modal_diarios.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+    <div class="p-4 max-h-[75vh] overflow-y-auto">
+      <div id="diarios_loading" class="text-center py-8 text-gray-400">
+        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+        <p class="text-sm">Carregando diários...</p>
+      </div>
+      <div id="diarios_content" style="display:none;">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm text-gray-500" id="diarios_count"></span>
+          <button onclick="toggleNovoDiario()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-plus mr-1"></i> Novo Diário
+          </button>
+        </div>
+
+        <div id="form_novo_diario" class="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3" style="display:none;">
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Data</label>
+              <input type="date" id="diario_data" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Atingido</label>
+              <input type="text" id="diario_atingido" placeholder="0" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Gasto</label>
+              <input type="text" id="diario_gasto" placeholder="0" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 mt-2">
+            <button onclick="toggleNovoDiario()" class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 text-gray-600">Cancelar</button>
+            <button onclick="salvarDiario()" id="btnSalvarDiario" class="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Salvar</button>
+          </div>
+          <input type="hidden" id="diario_edit_id" value="">
+        </div>
+
+        <table class="w-full text-sm" id="tabela_diarios">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Data</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Atingido</th>
+              <th class="text-right py-2 px-3 text-xs font-medium text-gray-600 uppercase">Gasto</th>
+              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="diarios_tbody" class="divide-y divide-gray-100"></tbody>
+        </table>
+        <div id="diarios_empty" class="text-center py-6 text-gray-400 text-sm" style="display:none;">
+          Nenhum diário registrado.
+        </div>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+  const MES_ATUAL = '{{ mes_atual }}';
+
+  // ==================== COOKIES HELPER ====================
+  function setCookie(name, value, days) {
+    const d = new Date();
+    d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = name + '=' + value + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+  }
+
+  function getCookie(name) {
+    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : null;
+  }
+
   // ==================== FILTROS ====================
   function aplicarFiltros() {
     const params = new URLSearchParams();
@@ -705,16 +754,21 @@
     });
   });
 
-  // ==================== MONTH GROUP TOGGLE ====================
+  // ==================== MONTH GROUP TOGGLE (with cookies) ====================
   function toggleMonthGroup(groupId) {
     const rows = document.querySelectorAll('.' + groupId);
     const chevron = document.getElementById(groupId.replace('mg-', 'mg-chevron-'));
     const isOpen = chevron && chevron.classList.contains('open');
 
+    const header = document.querySelector(`tr[onclick*="'${groupId}'"]`);
+    const mesKey = header ? header.dataset.mesKey : groupId;
+
     rows.forEach(row => {
       row.style.display = isOpen ? 'none' : '';
     });
     if (chevron) chevron.classList.toggle('open');
+
+    setCookie('camppi_mg_' + mesKey.replace('/', '_'), isOpen ? 'closed' : 'open', 90);
 
     if (isOpen) {
       rows.forEach(row => {
@@ -727,6 +781,39 @@
         }
       });
     }
+  }
+
+  function applyMonthCollapseState() {
+    const headers = document.querySelectorAll('.month-header');
+    headers.forEach(header => {
+      const mesKey = header.dataset.mesKey;
+      if (!mesKey) return;
+      const cookieKey = 'camppi_mg_' + mesKey.replace('/', '_');
+      const saved = getCookie(cookieKey);
+      const onclickAttr = header.getAttribute('onclick');
+      const match = onclickAttr ? onclickAttr.match(/'(mg-\d+)'/) : null;
+      if (!match) return;
+      const groupId = match[1];
+      const chevron = document.getElementById(groupId.replace('mg-', 'mg-chevron-'));
+      const rows = document.querySelectorAll('.' + groupId);
+
+      let shouldOpen;
+      if (saved === 'open') {
+        shouldOpen = true;
+      } else if (saved === 'closed') {
+        shouldOpen = false;
+      } else {
+        shouldOpen = (mesKey === MES_ATUAL);
+      }
+
+      if (shouldOpen) {
+        rows.forEach(r => r.style.display = '');
+        if (chevron) chevron.classList.add('open');
+      } else {
+        rows.forEach(r => r.style.display = 'none');
+        if (chevron) chevron.classList.remove('open');
+      }
+    });
   }
 
   // ==================== COLLAPSE TOGGLE ====================
@@ -747,23 +834,18 @@
     }
   }
 
-  // ==================== CHART.JS INTEGRATION ====================
+  // ==================== CHART.JS (conditional) ====================
   function loadChart(campId) {
     fetch(`/api/campanhas-pi/${campId}/diarios-chart`)
       .then(r => r.json())
       .then(data => {
+        loadedCharts[campId] = true;
         if (!data.labels || data.labels.length === 0) {
-          const canvas = document.getElementById('chart-' + campId);
-          if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.font = '12px Inter, sans-serif';
-            ctx.fillStyle = '#9ca3af';
-            ctx.textAlign = 'center';
-            ctx.fillText('Sem dados de diários', canvas.width / 2, canvas.height / 2);
-          }
-          loadedCharts[campId] = true;
           return;
         }
+
+        const container = document.getElementById('chart-container-' + campId);
+        if (container) container.style.display = '';
 
         const ctx = document.getElementById('chart-' + campId);
         if (!ctx) return;
@@ -805,7 +887,6 @@
             }
           }
         });
-        loadedCharts[campId] = true;
       })
       .catch(() => { loadedCharts[campId] = true; });
   }
@@ -935,7 +1016,7 @@
     });
   }
 
-  // ==================== MODAL ====================
+  // ==================== MODAL EDIÇÃO (AJAX) ====================
   function formatDateForInput(val) {
     if (!val) return '';
     const d = new Date(val);
@@ -989,8 +1070,194 @@
 
   document.getElementById('modal_campanha').addEventListener('close', resetForm);
 
+  document.getElementById('campanhaForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = this;
+    const btn = document.getElementById('btnSalvarCampanha');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvando...';
+
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+    })
+    .then(r => {
+      if (r.redirected || r.ok) {
+        if (typeof showToast === 'function') showToast('Campanha salva com sucesso!', 'success');
+        setTimeout(() => location.reload(), 600);
+      } else {
+        throw new Error('Erro ao salvar');
+      }
+    })
+    .catch(() => {
+      if (typeof showToast === 'function') showToast('Erro ao salvar campanha.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = 'Salvar';
+    });
+  });
+
+  // ==================== MODAL DIÁRIOS ====================
+  let currentDiarioCampId = null;
+
+  function abrirModalDiarios(campId) {
+    currentDiarioCampId = campId;
+    document.getElementById('diarios_loading').style.display = '';
+    document.getElementById('diarios_content').style.display = 'none';
+    document.getElementById('form_novo_diario').style.display = 'none';
+    document.getElementById('diario_edit_id').value = '';
+    modal_diarios.showModal();
+    carregarDiarios(campId);
+  }
+
+  function carregarDiarios(campId) {
+    fetch(`/api/campanhas-pi/${campId}/diarios`)
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('diarios_loading').style.display = 'none';
+        document.getElementById('diarios_content').style.display = '';
+
+        if (data.campanha) {
+          document.getElementById('modal_diarios_title').textContent =
+            'Diários — ' + (data.campanha.nome_campanha || 'Campanha');
+        }
+
+        const tbody = document.getElementById('diarios_tbody');
+        const emptyMsg = document.getElementById('diarios_empty');
+        tbody.innerHTML = '';
+
+        if (!data.diarios || data.diarios.length === 0) {
+          emptyMsg.style.display = '';
+          document.getElementById('diarios_count').textContent = '0 diários';
+          return;
+        }
+
+        emptyMsg.style.display = 'none';
+        document.getElementById('diarios_count').textContent = data.diarios.length + ' diário(s)';
+
+        data.diarios.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-50';
+          tr.innerHTML = `
+            <td class="py-2 px-3 text-gray-700">${d.data_evento_fmt}</td>
+            <td class="py-2 px-3 text-right text-gray-700">${d.atingido != null ? Number(d.atingido).toLocaleString('pt-BR') : '—'}</td>
+            <td class="py-2 px-3 text-right text-gray-700">${d.gasto != null ? Number(d.gasto).toLocaleString('pt-BR') : '—'}</td>
+            <td class="py-2 px-3 text-center">
+              <div class="flex items-center justify-center gap-1">
+                <button onclick="editarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})"
+                        class="p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title="Editar">
+                  <i class="fas fa-edit text-xs"></i>
+                </button>
+                <button onclick="excluirDiario(${d.id})"
+                        class="p-1 text-red-500 hover:text-red-800 hover:bg-red-50 rounded" title="Excluir">
+                  <i class="fas fa-trash text-xs"></i>
+                </button>
+              </div>
+            </td>`;
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(() => {
+        document.getElementById('diarios_loading').style.display = 'none';
+        document.getElementById('diarios_content').style.display = '';
+        document.getElementById('diarios_empty').style.display = '';
+        document.getElementById('diarios_empty').textContent = 'Erro ao carregar diários.';
+      });
+  }
+
+  function toggleNovoDiario() {
+    const form = document.getElementById('form_novo_diario');
+    const isVisible = form.style.display !== 'none';
+    form.style.display = isVisible ? 'none' : '';
+    if (!isVisible) {
+      document.getElementById('diario_data').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('diario_atingido').value = '';
+      document.getElementById('diario_gasto').value = '';
+      document.getElementById('diario_edit_id').value = '';
+      document.getElementById('btnSalvarDiario').textContent = 'Salvar';
+    }
+  }
+
+  function editarDiario(id, dataEvento, atingido, gasto) {
+    document.getElementById('form_novo_diario').style.display = '';
+    document.getElementById('diario_data').value = dataEvento || '';
+    document.getElementById('diario_atingido').value = atingido != null ? atingido : '';
+    document.getElementById('diario_gasto').value = gasto != null ? gasto : '';
+    document.getElementById('diario_edit_id').value = id;
+    document.getElementById('btnSalvarDiario').textContent = 'Atualizar';
+  }
+
+  function salvarDiario() {
+    const editId = document.getElementById('diario_edit_id').value;
+    const payload = {
+      data_evento: document.getElementById('diario_data').value,
+      atingido: document.getElementById('diario_atingido').value || '0',
+      gasto: document.getElementById('diario_gasto').value || '0',
+    };
+
+    if (!payload.data_evento) {
+      if (typeof showToast === 'function') showToast('Data é obrigatória.', 'error');
+      return;
+    }
+
+    let url, method;
+    if (editId) {
+      url = `/api/campanhas-pi/diarios/${editId}`;
+      method = 'PUT';
+    } else {
+      url = `/api/campanhas-pi/${currentDiarioCampId}/diarios`;
+      method = 'POST';
+    }
+
+    const btn = document.getElementById('btnSalvarDiario');
+    btn.disabled = true;
+
+    fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      if (data.success) {
+        if (typeof showToast === 'function') showToast(editId ? 'Diário atualizado!' : 'Diário criado!', 'success');
+        document.getElementById('form_novo_diario').style.display = 'none';
+        carregarDiarios(currentDiarioCampId);
+        loadedCharts[currentDiarioCampId] = false;
+      } else {
+        if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
+    });
+  }
+
+  function excluirDiario(id) {
+    if (!confirm('Excluir este diário?')) return;
+    fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+          carregarDiarios(currentDiarioCampId);
+          loadedCharts[currentDiarioCampId] = false;
+        } else {
+          if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
+        }
+      })
+      .catch(() => {
+        if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
+      });
+  }
+
   // ==================== INIT ====================
   document.addEventListener('DOMContentLoaded', function() {
+    applyMonthCollapseState();
+
     if (currentSort) {
       const icon = document.getElementById('sort-icon-' + currentSort);
       if (icon) {

@@ -207,7 +207,9 @@
               {% endif %}
             </td>
             <td class="text-center">
-              <span class="text-xs {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-gray-700{% else %}text-gray-300{% endif %}">{{ pi.get('total_campanhas', 0) }}</span>
+              <span class="text-xs cursor-pointer select-none inline-flex items-center gap-1 {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-blue-600 hover:text-blue-800{% else %}text-gray-300{% endif %}"
+                    onclick="toggleCampanhas({{ pi.id_pi }}, event)"
+                    title="Ver campanhas">{{ pi.get('total_campanhas', 0) }} {% if pi.get('total_campanhas', 0) > 0 %}<i class="fa-solid fa-chevron-down text-[9px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i>{% endif %}</span>
             </td>
             <td class="text-right">
               <div class="flex flex-col gap-0.5 items-end">
@@ -223,6 +225,18 @@
             </td>
           {% endif %}
           </tr>
+          {% if sub_status_atual|string != '1' %}
+          <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
+            <td colspan="7" class="p-0">
+              <div class="bg-blue-50/50 px-4 py-3 border-t border-blue-100">
+                <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">
+                  <i class="fa-solid fa-spinner fa-spin text-blue-400 mr-2"></i>
+                  <span class="text-xs text-gray-500">Carregando campanhas...</span>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -265,6 +279,14 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
+<style>
+.collapse-camp-row.hidden { display: none; }
+.chevron-camp { transition: transform 0.2s ease; }
+.chevron-camp.open { transform: rotate(180deg); }
+.camp-table th { font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #6b7280; padding: 4px 8px; white-space: nowrap; }
+.camp-table td { font-size: 0.75rem; padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+.camp-table tr:last-child td { border-bottom: none; }
+</style>
 <script>
 let debounceTimer;
 let debounceClienteTimer;
@@ -276,12 +298,30 @@ function debounceAplicarFiltros() {
 
 let subStatusAtual = '{{ filtros.get("id_sub_status_pi", "") }}';
 
+function setCookie(name, value, days) {
+  const d = new Date();
+  d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+  document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+}
+
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? decodeURIComponent(v.pop()) : '';
+}
+
 function aplicarFiltros() {
   const params = new URLSearchParams();
   const exec = document.getElementById('filtro_executivo').value;
   const cli = document.getElementById('filtro_cliente_id').value;
   const mes = document.getElementById('filtro_mes_ref').value;
   const busca = document.getElementById('filtro_busca').value.trim();
+  const clienteNome = document.getElementById('filtro_cliente_busca').value;
+
+  setCookie('cadupi_exec', exec, 30);
+  setCookie('cadupi_cliente_id', cli, 30);
+  setCookie('cadupi_cliente_nome', clienteNome, 30);
+  setCookie('cadupi_mes', mes, 30);
+  setCookie('cadupi_busca', busca, 30);
 
   params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
@@ -291,6 +331,32 @@ function aplicarFiltros() {
 
   window.location.href = '/cadu_pi' + (params.toString() ? '?' + params.toString() : '');
 }
+
+(function restoreFiltersFromCookies() {
+  const params = new URLSearchParams(window.location.search);
+  const hasExplicitFilters = params.has('resp_comercial') || params.has('id_cliente') || params.has('mes_ref_comp') || params.has('busca');
+  const alreadyRestored = params.has('_restored');
+
+  if (hasExplicitFilters || alreadyRestored) return;
+
+  const cExec = getCookie('cadupi_exec');
+  const cCli = getCookie('cadupi_cliente_id');
+  const cCliNome = getCookie('cadupi_cliente_nome');
+  const cMes = getCookie('cadupi_mes');
+  const cBusca = getCookie('cadupi_busca');
+
+  if (!cExec && !cCli && !cMes && !cBusca) return;
+
+  const rp = new URLSearchParams();
+  if (cExec) rp.set('resp_comercial', cExec);
+  if (cCli) rp.set('id_cliente', cCli);
+  if (subStatusAtual) rp.set('id_sub_status_pi', subStatusAtual);
+  if (cMes) rp.set('mes_ref_comp', cMes);
+  if (cBusca) rp.set('busca', cBusca);
+  rp.set('_restored', '1');
+
+  window.location.href = '/cadu_pi?' + rp.toString();
+})();
 
 function filtrarSubStatus(key) {
   if (subStatusAtual === key) {
@@ -365,5 +431,68 @@ document.addEventListener('click', function(e) {
     container.classList.add('hidden');
   }
 });
+
+const loadedCampanhas = {};
+
+function toggleCampanhas(idPi, event) {
+  event.stopPropagation();
+  const row = document.getElementById('camp-collapse-' + idPi);
+  const chevron = document.getElementById('chevron-' + idPi);
+  if (!row) return;
+
+  const isHidden = row.classList.contains('hidden');
+  row.classList.toggle('hidden');
+  if (chevron) chevron.classList.toggle('open', isHidden);
+
+  if (isHidden && !loadedCampanhas[idPi]) {
+    fetch('/api/cadu-pi/' + idPi + '/campanhas')
+      .then(r => r.json())
+      .then(data => {
+        loadedCampanhas[idPi] = true;
+        const container = document.getElementById('camp-content-' + idPi);
+        if (!data.success || !data.campanhas || data.campanhas.length === 0) {
+          container.innerHTML = '<div class="text-center py-3"><i class="fa-solid fa-inbox text-gray-300 text-lg mb-1"></i><p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
+          return;
+        }
+        let html = '<table class="camp-table w-full"><thead><tr>' +
+          '<th class="text-left">Campanha</th>' +
+          '<th class="text-left">Plataforma</th>' +
+          '<th class="text-center">Período</th>' +
+          '<th class="text-center">Objetivo</th>' +
+          '<th class="text-right">Investimento</th>' +
+          '<th class="text-center">Ações</th>' +
+          '</tr></thead><tbody>';
+        data.campanhas.forEach(c => {
+          const periodo = (c.periodo_inicio || '-') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+          const objAtingido = c.totalizador_atingido != null ? c.totalizador_atingido : 0;
+          const objContratado = c.obj_contratados != null ? c.obj_contratados : 0;
+          const pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
+          const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
+          const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
+          const fmtBrl = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+          const pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
+
+          html += '<tr class="hover:bg-blue-100/40">' +
+            '<td class="text-left"><span class="font-medium text-gray-800">' + (c.nome_campanha || '-') + '</span>' +
+              '<span class="block text-[10px] text-gray-400">' + (c.status_nome || '') + '</span></td>' +
+            '<td class="text-left text-gray-600">' + (c.plataforma_nome || '-') + '</td>' +
+            '<td class="text-center text-gray-600">' + periodo + '</td>' +
+            '<td class="text-center"><span class="' + pctColor + ' font-semibold">' + objAtingido + '/' + objContratado + '</span>' +
+              '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span></td>' +
+            '<td class="text-right"><span class="font-medium text-gray-800">' + fmtBrl(gasto) + '</span>' +
+              '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span></td>' +
+            '<td class="text-center"><a href="/campanhas-pi?id_pi=' + c.id_pi + '" onclick="event.stopPropagation()" ' +
+              'class="text-blue-500 hover:text-blue-700 text-xs font-medium"><i class="fa-solid fa-arrow-up-right-from-square mr-0.5"></i>Ver</a></td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      })
+      .catch(() => {
+        const container = document.getElementById('camp-content-' + idPi);
+        container.innerHTML = '<div class="text-center py-3 text-xs text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
+      });
+  }
+}
 </script>
 {% endblock %}

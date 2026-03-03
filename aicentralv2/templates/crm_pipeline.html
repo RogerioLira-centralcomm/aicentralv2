@@ -469,7 +469,7 @@ function filtrarPorStatus(status) {
   const cExec = getCookie('cc_filtro_exec');
   const cMes = getCookie('cc_filtro_mes');
   const cStatus = getCookie('crm_status');
-  if (!cExec && !cMes && !cStatus) return;
+  if (cExec === null && cMes === null && !cStatus) return;
   const rp = new URLSearchParams();
   rp.set('executivo_id', cExec || '');
   if (cMes) {

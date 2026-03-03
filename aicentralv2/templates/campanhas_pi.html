@@ -1021,7 +1021,7 @@
     const cStatus = getCookie('camppi_status');
     const cMes = getCookie('cc_filtro_mes');
     const cExec = getCookie('cc_filtro_exec');
-    if (!cStatus && !cMes && !cExec) return;
+    if (!cStatus && cMes === null && cExec === null) return;
     const rp = new URLSearchParams();
     if (cStatus) rp.set('id_status', cStatus);
     if (cMes) {

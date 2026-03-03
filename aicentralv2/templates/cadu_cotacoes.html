@@ -306,7 +306,7 @@ function filtrarPorStatus(status) {
   const cMes = getCookie('cc_filtro_mes');
   const cBusca = getCookie('cotacoes_busca');
   const cStatus = getCookie('cotacoes_status');
-  if (!cExec && !cMes && !cBusca && !cStatus) return;
+  if (cExec === null && cMes === null && !cBusca && !cStatus) return;
   const rp = new URLSearchParams();
   rp.set('responsavel_comercial', cExec || '');
   if (cMes) {

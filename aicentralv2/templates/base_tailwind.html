@@ -39,8 +39,8 @@
       document.cookie = c;
     }
     function getCookie(name) {
-      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-      return v ? decodeURIComponent(v.pop()) : '';
+      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
+      return v ? decodeURIComponent(v[2]) : null;
     }
     </script>
 

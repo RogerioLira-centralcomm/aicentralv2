@@ -882,7 +882,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Pre-select exec from unified cookie (overrides server default)
     var cookieExec = getCookie('cc_filtro_exec');
-    if (cookieExec) {
+    if (cookieExec !== null) {
         var selExec = document.getElementById('filtroExecutivo');
         for (var i = 0; i < selExec.options.length; i++) {
             if (selExec.options[i].value === cookieExec) {

@@ -360,7 +360,7 @@ function salvarFiltrosESubmeter() {
   const cMes = getCookie('cc_filtro_mes');
   const cCliente = getCookie('brief_cliente');
   const cBusca = getCookie('brief_busca');
-  if (!cStatus && !cResp && !cMes && !cCliente && !cBusca) return;
+  if (!cStatus && cResp === null && cMes === null && !cCliente && !cBusca) return;
 
   const rp = new URLSearchParams();
   if (cStatus) rp.set('status', cStatus);

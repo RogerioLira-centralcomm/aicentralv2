@@ -333,7 +333,7 @@ function filtrarSubStatus(key) {
   if (hasFilters) return;
   var cExec = getCookie('cc_filtro_exec');
   var cMes = getCookie('cc_filtro_mes');
-  if (!cExec && !cMes) return;
+  if (cExec === null && cMes === null) return;
   var rp = new URLSearchParams();
   rp.set('resp_comercial', cExec || '');
   if (cMes) {

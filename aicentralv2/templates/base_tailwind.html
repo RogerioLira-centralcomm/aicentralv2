@@ -34,7 +34,9 @@
     function setCookie(name, value, days) {
       const d = new Date();
       d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-      document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+      let c = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+      if (location.protocol === 'https:') c += ';Secure';
+      document.cookie = c;
     }
     function getCookie(name) {
       const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');

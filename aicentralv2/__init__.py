@@ -44,7 +44,32 @@ def create_app(config_class=Config):
         return value.strftime(fmt)
     app.jinja_env.filters['format_datetime'] = format_datetime
     app.jinja_env.filters['datetime_format'] = format_datetime  # Alias
-    
+
+    def parse_brl(value):
+        """Parseia valor monetário BR para float. Aceita '1234.56' e 'R$ 1.234,56'."""
+        if not value:
+            return 0.0
+        s = str(value).strip().replace('R$', '').strip()
+        if not s:
+            return 0.0
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        try:
+            return float(s)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def format_brl(value):
+        """Formata valor como moeda BR: R$ 1.234,56"""
+        num = parse_brl(value)
+        if num == 0 and not value:
+            return '-'
+        formatted = f"{num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {formatted}"
+
+    app.jinja_env.filters['parse_brl'] = parse_brl
+    app.jinja_env.filters['format_brl'] = format_brl
+
     # Configurar logging
     setup_logging(app)
     

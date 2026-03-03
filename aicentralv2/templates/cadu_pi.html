@@ -112,7 +112,7 @@
         </thead>
         <tbody class="text-sm">
           {% for pi in pis %}
-          <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}'">
+          <tr id="pi-{{ pi.id_pi }}" class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}'">
           {% if sub_status_atual|string == '1' %}
             <td class="py-2.5" style="width: 90px;">
               <div class="flex flex-col gap-0.5">
@@ -142,14 +142,14 @@
             </td>
             <td class="text-right">
               {% if pi.get('valor_bruto') %}
-              <span class="font-semibold text-gray-800 text-xs">{{ "R$ {:,.2f}".format(pi.valor_bruto|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+              <span class="font-semibold text-gray-800 text-xs">{{ pi.valor_bruto|format_brl }}</span>
               {% else %}
               <span class="text-xs text-gray-300">-</span>
               {% endif %}
             </td>
             <td class="text-right">
               {% if pi.get('valor_liquido') %}
-              <span class="text-xs text-green-600 font-semibold">{{ "R$ {:,.2f}".format(pi.valor_liquido|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+              <span class="text-xs text-green-600 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
               {% else %}
               <span class="text-xs text-gray-300">-</span>
               {% endif %}
@@ -208,12 +208,12 @@
               <div class="flex items-center justify-end gap-2">
                 <div class="flex flex-col gap-0.5 items-end">
                   {% if pi.get('valor_bruto') %}
-                  <span class="font-semibold text-gray-800 text-xs">{{ "R$ {:,.2f}".format(pi.valor_bruto|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                  <span class="font-semibold text-gray-800 text-xs">{{ pi.valor_bruto|format_brl }}</span>
                   {% else %}
                   <span class="text-xs text-gray-300">-</span>
                   {% endif %}
                   {% if pi.get('valor_liquido') %}
-                  <span class="text-[11px] text-green-600">{{ "R$ {:,.2f}".format(pi.valor_liquido|float).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                  <span class="text-[11px] text-green-600">{{ pi.valor_liquido|format_brl }}</span>
                   {% endif %}
                 </div>
                 {% if pi.get('googled_pi_princ') %}
@@ -304,16 +304,8 @@ function aplicarFiltros() {
   const cli = document.getElementById('filtro_cliente_id').value;
   const mes = document.getElementById('filtro_mes_ref').value;
   const busca = document.getElementById('filtro_busca').value.trim();
-  const clienteNome = document.getElementById('filtro_cliente_busca').value;
 
-  const sfx = subStatusAtual ? '_' + subStatusAtual : '';
-  setCookie('cadupi_exec' + sfx, exec, 30);
-  setCookie('cadupi_cliente_id' + sfx, cli, 30);
-  setCookie('cadupi_cliente_nome' + sfx, clienteNome, 30);
-  setCookie('cadupi_mes' + sfx, mes, 30);
-  setCookie('cadupi_busca' + sfx, busca, 30);
-
-  params.set('resp_comercial', exec);
+  if (exec) params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
   if (mes) params.set('mes_ref_comp', mes);
@@ -322,30 +314,6 @@ function aplicarFiltros() {
 
   window.location.href = '/cadu_pi' + (params.toString() ? '?' + params.toString() : '');
 }
-
-(function restoreFiltersFromCookies() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('_f') || params.has('_restored')) return;
-
-  const sfx = subStatusAtual ? '_' + subStatusAtual : '';
-  const cExec = getCookie('cadupi_exec' + sfx);
-  const cCli = getCookie('cadupi_cliente_id' + sfx);
-  const cCliNome = getCookie('cadupi_cliente_nome' + sfx);
-  const cMes = getCookie('cadupi_mes' + sfx);
-  const cBusca = getCookie('cadupi_busca' + sfx);
-
-  if (!cExec && !cCli && !cMes && !cBusca) return;
-
-  const rp = new URLSearchParams();
-  rp.set('resp_comercial', cExec);
-  if (cCli) rp.set('id_cliente', cCli);
-  if (subStatusAtual) rp.set('id_sub_status_pi', subStatusAtual);
-  if (cMes) rp.set('mes_ref_comp', cMes);
-  if (cBusca) rp.set('busca', cBusca);
-  rp.set('_restored', '1');
-
-  window.location.href = '/cadu_pi?' + rp.toString();
-})();
 
 function filtrarSubStatus(key) {
   if (subStatusAtual === key) {
@@ -483,5 +451,16 @@ function toggleCampanhas(idPi, event) {
       });
   }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.location.hash) {
+    var el = document.querySelector(window.location.hash);
+    if (el) {
+      el.scrollIntoView({behavior: 'smooth', block: 'center'});
+      el.classList.add('bg-yellow-50');
+      setTimeout(function() { el.classList.remove('bg-yellow-50'); }, 2500);
+    }
+  }
+});
 </script>
 {% endblock %}

@@ -7326,7 +7326,7 @@ def criar_cadu_pi(data):
                     pi_tem_agencia, id_agencia, perc_cms_agencia,
                     "Id_parc_reg", perc_cms_parc_reg,
                     vr_bruto_pi, vr_liquido_pi, vr_cms_agencia, vr_cms_parc_com,
-                    vr_liquido_pr_pi, vr_platafor_max_pi,
+                    vr_liquido_pr_pi, vr_platafor_max_pi, total_platafor_max_pi,
                     periodo_inicio, periodo_fim, mes_ref, mes_ref_comp,
                     id_resp_comercial,
                     id_cont_cliente_financ, id_cont_cliente_midia,
@@ -7340,7 +7340,7 @@ def criar_cadu_pi(data):
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s, %s,
-                    %s, %s,
+                    %s, %s, %s,
                     %s, %s, %s, %s,
                     %s,
                     %s, %s,
@@ -7365,6 +7365,7 @@ def criar_cadu_pi(data):
                 data.get('comissao_agencia'),
                 data.get('comissao_parceiro'),
                 data.get('valor_liquido_pr'),
+                data.get('valor_plataformas'),
                 data.get('valor_plataformas'),
                 data.get('periodo_inicio'),
                 data.get('periodo_fim'),
@@ -7412,6 +7413,7 @@ def atualizar_cadu_pi(id_pi, data):
                     vr_cms_parc_com = %s,
                     vr_liquido_pr_pi = %s,
                     vr_platafor_max_pi = %s,
+                    total_platafor_max_pi = %s,
                     periodo_inicio = %s,
                     periodo_fim = %s,
                     mes_ref = %s,
@@ -7445,6 +7447,7 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('comissao_agencia'),
                 data.get('comissao_parceiro'),
                 data.get('valor_liquido_pr'),
+                data.get('valor_plataformas'),
                 data.get('valor_plataformas'),
                 data.get('periodo_inicio'),
                 data.get('periodo_fim'),
@@ -8004,7 +8007,9 @@ def obter_campanhas_pi(filtros=None):
                     plt.descricao AS plataforma_nome,
                     pi.codigo_pi_cc AS codigo_pi,
                     pi.googled_pi_princ,
-                    vend.nome_completo AS executivo_nome
+                    vend.nome_completo AS executivo_nome,
+                    pi.vr_liquido_pi AS valor_liquido_pi,
+                    pi.vr_platafor_max_pi AS valor_plataformas_pi
                 FROM cadu_pi_campanha c
                 LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
                 LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha

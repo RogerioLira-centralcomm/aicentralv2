@@ -1082,6 +1082,20 @@ def init_routes(app):
             app.logger.error(f"Erro ao buscar cliente {cliente_id}: {e}")
             return jsonify({'error': str(e)}), 500
 
+    def _parse_brl_float(value):
+        """Converte valor monetário BR (R$ 1.234,56 ou 1234.56) para float."""
+        if not value:
+            return None
+        s = str(value).strip().replace('R$', '').strip()
+        if not s:
+            return None
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        try:
+            return float(s)
+        except (ValueError, TypeError):
+            return None
+
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
     def api_campanhas_pi(id_pi):
@@ -1097,8 +1111,8 @@ def init_routes(app):
                     'periodo_fim': c['periodo_fim'].strftime('%d/%m/%Y') if c.get('periodo_fim') else None,
                     'obj_contratados': c.get('obj_contratados'),
                     'totalizador_atingido': c.get('totalizador_atingido'),
-                    'totalizador_gasto': float(c['totalizador_gasto']) if c.get('totalizador_gasto') else None,
-                    'valor_plataforma': float(c['valor_plataforma']) if c.get('valor_plataforma') else None,
+                    'totalizador_gasto': _parse_brl_float(c.get('totalizador_gasto')),
+                    'valor_plataforma': _parse_brl_float(c.get('valor_plataforma')),
                     'plataforma_nome': c.get('plataforma_nome', ''),
                     'codigo_pi': c.get('codigo_pi', ''),
                     'id_pi': c.get('id_pi'),
@@ -7845,6 +7859,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Lista PIs com filtros"""
         try:
             filtros = {}
+            user_set_filters = '_f' in request.args or '_restored' in request.args
 
             if request.args.get('resp_comercial'):
                 filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
@@ -7867,11 +7882,22 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     filtros['cliente_nome'] = cli_info.get('nome_fantasia', '')
 
             vendedores = db.obter_vendedores_centralcomm()
-
             user_id = session.get('user_id')
             user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
-            if user_is_executivo and 'resp_comercial' not in request.args and 'resp_comercial' not in filtros:
-                filtros['resp_comercial'] = user_id
+
+            if user_set_filters:
+                exec_arg = request.args.get('resp_comercial', '')
+                session['cadupi_exec'] = int(exec_arg) if exec_arg else None
+                session['cadupi_exec_init'] = True
+            elif 'resp_comercial' not in filtros:
+                if 'cadupi_exec_init' not in session and user_is_executivo:
+                    filtros['resp_comercial'] = user_id
+                    session['cadupi_exec'] = user_id
+                    session['cadupi_exec_init'] = True
+                else:
+                    saved_exec = session.get('cadupi_exec')
+                    if saved_exec:
+                        filtros['resp_comercial'] = saved_exec
 
             pis = db.obter_cadu_pi_lista(filtros)
             status_pi = db.obter_status_pi()
@@ -7900,10 +7926,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if request.method == 'POST':
             try:
                 data = _coletar_dados_pi_form()
+                return_url = request.form.get('return_url', '')
+
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
-                    return render_template('cadu_pi_form.html', modo='novo', pi=None, **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
                 id_pi = db.criar_cadu_pi(data)
 
@@ -7917,13 +7945,23 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
 
                 flash('PI criado com sucesso!', 'success')
-                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=1))
+                if return_url and return_url.startswith('/cadu_pi'):
+                    anchor = f'#pi-{id_pi}'
+                    sep = '&' if '?' in return_url else '?'
+                    return redirect(f'{return_url}{sep}_f=1{anchor}')
+                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=data.get('id_sub_status_pi', 1)))
             except Exception as e:
                 app.logger.error(f"Erro ao criar PI: {e}", exc_info=True)
                 flash(f'Erro ao criar PI: {str(e)}', 'error')
 
+        return_url = ''
+        referrer = request.referrer or ''
+        if '/cadu_pi' in referrer and '/novo' not in referrer:
+            from urllib.parse import urlparse
+            parsed = urlparse(referrer)
+            return_url = parsed.path + ('?' + parsed.query if parsed.query else '')
         auxiliares = _carregar_auxiliares_pi()
-        return render_template('cadu_pi_form.html', modo='novo', pi=None, **auxiliares)
+        return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
     @app.route('/cadu_pi/editar/<int:id_pi>', methods=['GET', 'POST'])
     @login_required
@@ -7937,10 +7975,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if request.method == 'POST':
                 data = _coletar_dados_pi_form()
+                return_url = request.form.get('return_url', '')
+
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
-                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, **auxiliares)
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
 
                 db.atualizar_cadu_pi(id_pi, data)
 
@@ -7955,14 +7995,25 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
 
                 flash('PI atualizado com sucesso!', 'success')
-                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=1))
+                if return_url and return_url.startswith('/cadu_pi'):
+                    anchor = f'#pi-{id_pi}'
+                    sep = '&' if '?' in return_url else '?'
+                    return redirect(f'{return_url}{sep}_f=1{anchor}')
+                sub_status = data.get('id_sub_status_pi') or (pi.get('id_sub_status_pi') if pi else 1) or 1
+                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=sub_status))
 
+            return_url = ''
+            referrer = request.referrer or ''
+            if '/cadu_pi' in referrer and '/editar' not in referrer:
+                from urllib.parse import urlparse
+                parsed = urlparse(referrer)
+                return_url = parsed.path + ('?' + parsed.query if parsed.query else '')
             auxiliares = _carregar_auxiliares_pi()
-            return render_template('cadu_pi_form.html', modo='editar', pi=pi, **auxiliares)
+            return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
         except Exception as e:
             app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
             flash(f'Erro ao editar PI: {str(e)}', 'error')
-            return redirect(url_for('cadu_pi_lista', id_sub_status_pi=1))
+            return redirect(url_for('cadu_pi_lista'))
 
     @app.route('/api/cadu_pi/<int:id_pi>/excluir', methods=['POST', 'DELETE'])
     @login_required
@@ -8149,7 +8200,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             url_config = os.getenv('MAKE_WEBHOOK_PI_CONFIGURACAO')
             if url_config:
                 params_config = {
-                    'testeparam': 'yes' if is_dev else 'no',
+                    'testeparam': 'no' if is_dev else 'yes',
                     'codPI': numero,
                     'razaosccliente': pi.get('cliente_razao_social') or '',
                     'nomefcliente': pi.get('cliente_nome') or '',
@@ -8178,7 +8229,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             url_invites = os.getenv('MAKE_WEBHOOK_PI_INVITES')
             if url_invites:
                 params_invites = {
-                    'testeparam': 'yes' if is_dev else 'no',
+                    'testeparam': 'no' if is_dev else 'yes',
                     'dteveinicio': fmt_data_invite(periodo_inicio),
                     'nomerespcc': pi.get('resp_comercial_nome') or '',
                     'emailrespcc': pi.get('resp_comercial_email') or '',
@@ -8298,10 +8349,25 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except ValueError:
             return None
 
-    def _parse_decimal_str(value):
-        """Converte valor monetário BR para string numérica (ex: '1234.56') para varchar"""
-        v = _parse_decimal(value)
-        return str(v) if v is not None else None
+    def _parse_real_pi(value):
+        """Converte string formatada pt-BR para formato gravável com R$.
+        Ex: 'R$ 1.234,56' -> 'R$ 1.234,56' (mantém),
+            '1234.56' -> 'R$ 1.234,56' (formata),
+            '1234,56' -> 'R$ 1.234,56' (formata)
+        """
+        if not value or not str(value).strip():
+            return None
+        try:
+            cleaned = str(value).strip().replace('R$', '').strip()
+            cleaned = cleaned.replace('.', '').replace(',', '.')
+            num = float(cleaned)
+            inteiro = int(num * 100)
+            centavos = inteiro % 100
+            reais = inteiro // 100
+            parte_int = f'{reais:,}'.replace(',', '.')
+            return f'R$ {parte_int},{centavos:02d}'
+        except (ValueError, TypeError):
+            return None
 
     def _coletar_dados_pi_form():
         """Coleta dados do formulário de PI"""
@@ -8315,12 +8381,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'perc_comissao_agencia': _parse_decimal(request.form.get('perc_comissao_agencia')),
             'id_parceiro': request.form.get('id_parceiro', type=int),
             'perc_comissao_parceiro': _parse_decimal(request.form.get('perc_comissao_parceiro')),
-            'valor_bruto': _parse_decimal_str(request.form.get('valor_bruto')),
-            'valor_liquido': _parse_decimal_str(request.form.get('valor_liquido')),
-            'comissao_agencia': _parse_decimal_str(request.form.get('comissao_agencia')),
-            'comissao_parceiro': _parse_decimal_str(request.form.get('comissao_parceiro')),
-            'valor_liquido_pr': _parse_decimal_str(request.form.get('valor_liquido_pr')),
-            'valor_plataformas': _parse_decimal_str(request.form.get('valor_plataformas')),
+            'valor_bruto': _parse_real_pi(request.form.get('valor_bruto')),
+            'valor_liquido': _parse_real_pi(request.form.get('valor_liquido')),
+            'comissao_agencia': _parse_real_pi(request.form.get('comissao_agencia')),
+            'comissao_parceiro': _parse_real_pi(request.form.get('comissao_parceiro')),
+            'valor_liquido_pr': _parse_real_pi(request.form.get('valor_liquido_pr')),
+            'valor_plataformas': _parse_real_pi(request.form.get('valor_plataformas')),
             'periodo_inicio': request.form.get('periodo_inicio') or None,
             'periodo_fim': request.form.get('periodo_fim') or None,
             'resp_comercial': request.form.get('resp_comercial', type=int),
@@ -8349,8 +8415,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             data['mes_ref'] = None
             data['mes_ref_comp'] = None
 
-        app.logger.info(f"Form RAW valores: valor_bruto='{request.form.get('valor_bruto')}', valor_liquido='{request.form.get('valor_liquido')}', comissao_agencia='{request.form.get('comissao_agencia')}', comissao_parceiro='{request.form.get('comissao_parceiro')}', valor_liquido_pr='{request.form.get('valor_liquido_pr')}', valor_plataformas='{request.form.get('valor_plataformas')}', perc_comissao_agencia='{request.form.get('perc_comissao_agencia')}', perc_comissao_parceiro='{request.form.get('perc_comissao_parceiro')}'")
-        app.logger.info(f"Parsed valores: valor_bruto={data['valor_bruto']}, valor_liquido={data['valor_liquido']}, comissao_agencia={data['comissao_agencia']}, comissao_parceiro={data['comissao_parceiro']}, valor_liquido_pr={data['valor_liquido_pr']}, valor_plataformas={data['valor_plataformas']}")
+        app.logger.info(f"PI Form valores salvos: valor_bruto={data['valor_bruto']}, valor_liquido={data['valor_liquido']}, comissao_agencia={data['comissao_agencia']}, comissao_parceiro={data['comissao_parceiro']}, valor_liquido_pr={data['valor_liquido_pr']}, valor_plataformas={data['valor_plataformas']}, perc_ag={data['perc_comissao_agencia']}, perc_parc={data['perc_comissao_parceiro']}")
         return data
 
     def _carregar_auxiliares_pi():
@@ -8797,15 +8862,39 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     # ==================== CAMPANHA PI - ROTAS ====================
 
-    def _parse_decimal_campanha(value):
-        """Converte string para Decimal, retornando None se vazio"""
+    def _parse_numero_campanha(value):
+        """Converte string formatada pt-BR para número puro (sem formatação).
+        Ex: '1.234.567' -> '1234567', '0' -> '0'
+        """
         if not value or not str(value).strip():
             return None
         try:
-            from decimal import Decimal
+            cleaned = str(value).strip().replace('.', '').replace(',', '.')
+            num = float(cleaned)
+            if num == int(num):
+                return str(int(num))
+            return str(num)
+        except (ValueError, TypeError):
+            return None
+
+    def _parse_real_campanha(value):
+        """Converte string formatada pt-BR para formato gravável com R$.
+        Ex: 'R$ 1.234,56' -> 'R$ 1.234,56' (mantém),
+            '1234.56' -> 'R$ 1.234,56' (formata),
+            '1234,56' -> 'R$ 1.234,56' (formata)
+        """
+        if not value or not str(value).strip():
+            return None
+        try:
             cleaned = str(value).strip().replace('R$', '').strip()
-            return Decimal(cleaned.replace('.', '').replace(',', '.'))
-        except Exception:
+            cleaned = cleaned.replace('.', '').replace(',', '.')
+            num = float(cleaned)
+            inteiro = int(num * 100)
+            centavos = inteiro % 100
+            reais = inteiro // 100
+            parte_int = f'{reais:,}'.replace(',', '.')
+            return f'R$ {parte_int},{centavos:02d}'
+        except (ValueError, TypeError):
             return None
 
     def _extrair_dados_campanha():
@@ -8817,17 +8906,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'mes_ref': request.form.get('mes_ref') or None,
             'mes_ref_comp': request.form.get('mes_ref_comp', '').strip() or None,
             'nome_campanha': request.form.get('nome_campanha', '').strip() or None,
-            'obj_contratados': _parse_decimal_campanha(request.form.get('obj_contratados')),
+            'obj_contratados': _parse_numero_campanha(request.form.get('obj_contratados')),
             'id_centralx': request.form.get('id_centralx', '').strip() or None,
             'under': request.form.get('under') == 'on',
             'id_objetivos_campanha': request.form.get('id_objetivos_campanha', type=int),
             'periodo_inicio': request.form.get('periodo_inicio') or None,
             'periodo_fim': request.form.get('periodo_fim') or None,
             'id_status': request.form.get('id_status', type=int),
-            'totalizador_atingido': request.form.get('totalizador_atingido', '').strip() or None,
-            'totalizador_gasto': request.form.get('totalizador_gasto', '').strip() or None,
-            'valor_plataforma': request.form.get('valor_plataforma', '').strip() or None,
-            'valor_total_plataforma': request.form.get('valor_total_plataforma', '').strip() or None,
+            'totalizador_atingido': _parse_numero_campanha(request.form.get('totalizador_atingido')),
+            'totalizador_gasto': _parse_real_campanha(request.form.get('totalizador_gasto')),
+            'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
+            'valor_total_plataforma': _parse_real_campanha(request.form.get('valor_total_plataforma')),
             'id_plataforma': request.form.get('id_plataforma', type=int),
         }
 
@@ -8846,6 +8935,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Lista todas as campanhas PI"""
         try:
             from datetime import datetime as dt_cls
+            from collections import defaultdict
+            import json as json_mod
 
             todos_meses = request.args.get('todos_meses') == '1'
 
@@ -8874,39 +8965,95 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             auxiliares = _carregar_auxiliares_campanha()
             meses_ref = db.obter_meses_ref_campanha_pi()
 
+            def _parse_currency(raw):
+                if not raw:
+                    return 0.0
+                try:
+                    return float(str(raw).replace('R$', '').replace('.', '').replace(',', '.').strip())
+                except (ValueError, TypeError):
+                    return 0.0
+
             total_campanhas = len(campanhas) if campanhas else 0
             campanhas_ativas = 0
             soma_pct_objetivo = 0
             count_pct_objetivo = 0
             gasto_total = 0.0
             previsto_total = 0.0
+            soma_dias = 0
+            count_dias = 0
+            valor_liquido_total = 0.0
+            valor_plataforma_total = 0.0
+            count_liquido = 0
+
+            gasto_por_plataforma = defaultdict(float)
+            objetivo_por_mes = defaultdict(lambda: {'obj': 0, 'ating': 0, 'count': 0})
+            perf_campanhas = []
 
             for camp in (campanhas or []):
                 if camp.get('status_nome') and camp['status_nome'].lower() in ('ativo', 'ativa', 'em andamento'):
                     campanhas_ativas += 1
+
                 obj = camp.get('obj_contratados')
                 ating = camp.get('totalizador_atingido')
+                pct_camp = 0
                 if obj and ating:
                     try:
                         obj_f = float(obj)
                         ating_f = float(ating)
                         if obj_f > 0:
-                            soma_pct_objetivo += (ating_f / obj_f) * 100
+                            pct_camp = round((ating_f / obj_f) * 100, 1)
+                            soma_pct_objetivo += pct_camp
                             count_pct_objetivo += 1
                     except (ValueError, TypeError):
                         pass
-                gasto_raw = camp.get('totalizador_gasto')
-                prev_raw = camp.get('valor_plataforma')
-                if gasto_raw:
+
+                gasto_val = _parse_currency(camp.get('totalizador_gasto'))
+                prev_val = _parse_currency(camp.get('valor_plataforma'))
+                gasto_total += gasto_val
+                previsto_total += prev_val
+
+                if camp.get('periodo_inicio') and camp.get('periodo_fim'):
                     try:
-                        gasto_total += float(str(gasto_raw).replace('R$', '').replace('.', '').replace(',', '.').strip())
+                        dias = (camp['periodo_fim'] - camp['periodo_inicio']).days
+                        if dias > 0:
+                            soma_dias += dias
+                            count_dias += 1
+                    except (TypeError, AttributeError):
+                        pass
+
+                vl_pi = 0.0
+                if camp.get('valor_liquido_pi'):
+                    try:
+                        vl_pi = float(camp['valor_liquido_pi'])
+                        valor_liquido_total += vl_pi
+                        count_liquido += 1
                     except (ValueError, TypeError):
                         pass
-                if prev_raw:
-                    try:
-                        previsto_total += float(str(prev_raw).replace('R$', '').replace('.', '').replace(',', '.').strip())
-                    except (ValueError, TypeError):
-                        pass
+                valor_plataforma_total += prev_val
+
+                plat_nome = camp.get('plataforma_nome') or 'Sem plataforma'
+                gasto_por_plataforma[plat_nome] += gasto_val
+
+                mes_key = camp.get('mes_ref_comp') or 'N/A'
+                try:
+                    objetivo_por_mes[mes_key]['obj'] += float(obj) if obj else 0
+                    objetivo_por_mes[mes_key]['ating'] += float(ating) if ating else 0
+                    objetivo_por_mes[mes_key]['count'] += 1
+                except (ValueError, TypeError):
+                    pass
+
+                perf_campanhas.append({
+                    'nome': camp.get('nome_campanha', ''),
+                    'pct': pct_camp,
+                    'cliente': camp.get('cliente_nome', ''),
+                })
+
+            perf_campanhas.sort(key=lambda x: x['pct'], reverse=True)
+            perf_top10 = perf_campanhas[:10]
+
+            midia_corte = 0.40
+            midia_max = valor_liquido_total * midia_corte
+            pct_midia = round((valor_plataforma_total / midia_max) * 100, 1) if midia_max > 0 else 0
 
             kpis = {
                 'total_campanhas': total_campanhas,
@@ -8915,68 +9062,133 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'gasto_total': gasto_total,
                 'previsto_total': previsto_total,
                 'pct_investimento': round((gasto_total / previsto_total) * 100, 1) if previsto_total > 0 else 0,
+                'tempo_medio_dias': round(soma_dias / count_dias) if count_dias > 0 else 0,
+                'valor_liquido_total': valor_liquido_total,
+                'valor_plataforma_total': valor_plataforma_total,
+                'midia_max': midia_max,
+                'pct_midia': pct_midia,
+                'midia_corte_pct': int(midia_corte * 100),
+            }
+
+            chart_plataformas = {
+                'labels': list(gasto_por_plataforma.keys()),
+                'values': [round(v, 2) for v in gasto_por_plataforma.values()],
+            }
+
+            meses_sorted = sorted(objetivo_por_mes.keys(), key=lambda m: (
+                int(m.split('/')[1]) if '/' in m else 0,
+                int(m.split('/')[0]) if '/' in m else 0
+            ))
+            chart_objetivo_mes = {
+                'labels': meses_sorted,
+                'obj': [objetivo_por_mes[m]['obj'] for m in meses_sorted],
+                'ating': [objetivo_por_mes[m]['ating'] for m in meses_sorted],
+            }
+
+            chart_performance = {
+                'labels': [c['nome'][:30] for c in perf_top10],
+                'values': [c['pct'] for c in perf_top10],
+                'clientes': [c['cliente'] for c in perf_top10],
             }
 
             now = dt_cls.now()
             mes_atual = f"{now.month}/{now.year}"
 
-            return render_template('campanhas_pi.html', campanhas=campanhas, **auxiliares, filtros=filtros, meses_ref=meses_ref, kpis=kpis, vendedores=vendedores, mes_atual=mes_atual, todos_meses=todos_meses)
+            return render_template('campanhas_pi.html',
+                campanhas=campanhas, **auxiliares,
+                filtros=filtros, meses_ref=meses_ref,
+                kpis=kpis, vendedores=vendedores,
+                mes_atual=mes_atual, todos_meses=todos_meses,
+                chart_plataformas=json_mod.dumps(chart_plataformas),
+                chart_objetivo_mes=json_mod.dumps(chart_objetivo_mes),
+                chart_performance=json_mod.dumps(chart_performance))
         except Exception as e:
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
             flash('Erro ao carregar campanhas PI.', 'error')
             return redirect(url_for('index'))
 
+    def _redirect_campanhas_pi_preservar_filtros():
+        """Redireciona para campanhas_pi preservando filtros da URL de origem"""
+        referer = request.referrer
+        if referer and '/campanhas-pi' in referer:
+            from urllib.parse import urlparse, parse_qs, urlencode
+            parsed = urlparse(referer)
+            params = parse_qs(parsed.query, keep_blank_values=True)
+            flat = {k: v[0] for k, v in params.items() if v}
+            return redirect(url_for('campanhas_pi', **flat))
+        return redirect(url_for('campanhas_pi'))
+
     @app.route('/campanhas-pi/novo', methods=['POST'])
     @login_required
     def campanha_pi_nova():
         """Criar nova campanha PI"""
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         try:
             data = _extrair_dados_campanha()
 
             if not data['nome_campanha']:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'O nome da campanha é obrigatório!'}), 400
                 flash('O nome da campanha é obrigatório!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             id_camp = db.criar_campanha_pi(data)
 
             if id_camp:
+                if is_ajax:
+                    return jsonify({'success': True, 'id': id_camp, 'message': f'Campanha "{data["nome_campanha"]}" criada com sucesso!'})
                 flash(f'Campanha "{data["nome_campanha"]}" criada com sucesso!', 'success')
             else:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Erro ao criar campanha.'}), 500
                 flash('Erro ao criar campanha.', 'error')
 
         except Exception as e:
             app.logger.error(f"Erro ao criar campanha PI: {str(e)}")
+            if is_ajax:
+                return jsonify({'success': False, 'error': str(e)}), 500
             flash('Erro ao criar campanha.', 'error')
 
-        return redirect(url_for('campanhas_pi'))
+        return _redirect_campanhas_pi_preservar_filtros()
 
     @app.route('/campanhas-pi/<int:id_camp>/editar', methods=['POST'])
     @login_required
     def campanha_pi_editar(id_camp):
         """Editar campanha PI"""
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         try:
             campanha = db.obter_campanha_pi_por_id(id_camp)
 
             if not campanha:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Campanha não encontrada!'}), 404
                 flash('Campanha não encontrada!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             data = _extrair_dados_campanha()
 
             if not data['nome_campanha']:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'O nome da campanha é obrigatório!'}), 400
                 flash('O nome da campanha é obrigatório!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             if db.atualizar_campanha_pi(id_camp, data):
+                if is_ajax:
+                    return jsonify({'success': True, 'message': f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!'})
                 flash(f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!', 'success')
             else:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Erro ao atualizar campanha.'}), 500
                 flash('Erro ao atualizar campanha.', 'error')
 
         except Exception as e:
             app.logger.error(f"Erro ao atualizar campanha PI: {str(e)}")
+            if is_ajax:
+                return jsonify({'success': False, 'error': str(e)}), 500
             flash('Erro ao atualizar campanha.', 'error')
 
-        return redirect(url_for('campanhas_pi'))
+        return _redirect_campanhas_pi_preservar_filtros()
 
     @app.route('/campanhas-pi/<int:id_camp>/excluir', methods=['POST'])
     @login_required
@@ -8987,7 +9199,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if not campanha:
                 flash('Campanha não encontrada!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             if db.excluir_campanha_pi(id_camp):
                 registrar_auditoria(
@@ -9006,7 +9218,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao excluir campanha PI: {str(e)}")
             flash('Não é possível excluir esta campanha pois está em uso.', 'error')
 
-        return redirect(url_for('campanhas_pi'))
+        return _redirect_campanhas_pi_preservar_filtros()
 
     @app.route('/campanhas-pi/atualizar-massa', methods=['POST'])
     @login_required
@@ -9143,6 +9355,115 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': True})
         except Exception as e:
             app.logger.error(f"Erro API excluir diário: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    # ==================== EMAIL DE CAMPANHA PI ====================
+
+    @app.route('/api/campanhas-pi/enviar-email', methods=['POST'])
+    @login_required
+    def campanhas_pi_enviar_email():
+        """Envia email relacionado a campanha via Brevo"""
+        try:
+            from aicentralv2.services.brevo_service import BrevoService
+            payload = request.get_json()
+            if not payload:
+                return jsonify({'success': False, 'error': 'Dados inválidos'}), 400
+
+            to_email = payload.get('to_email', '').strip()
+            to_name = payload.get('to_name', '').strip()
+            subject = payload.get('subject', '').strip()
+            message = payload.get('message', '').strip()
+            template_type = payload.get('template_type', 'custom')
+            campanha_id = payload.get('campanha_id')
+
+            if not to_email or not subject:
+                return jsonify({'success': False, 'error': 'Email e assunto são obrigatórios'}), 400
+
+            brevo = BrevoService()
+
+            if template_type == 'relatorio' and campanha_id:
+                campanha = db.obter_campanha_pi_por_id(int(campanha_id))
+                if not campanha:
+                    return jsonify({'success': False, 'error': 'Campanha não encontrada'}), 404
+
+                obj_val = float(campanha.get('obj_contratados') or 0)
+                ating_val = float(campanha.get('totalizador_atingido') or 0)
+                pct_obj = round((ating_val / obj_val) * 100, 1) if obj_val > 0 else 0
+
+                gasto_raw = campanha.get('totalizador_gasto') or '0'
+                gasto_val = float(str(gasto_raw).replace('R$', '').replace('.', '').replace(',', '.').strip()) if gasto_raw else 0
+                prev_raw = campanha.get('valor_plataforma') or '0'
+                prev_val = float(str(prev_raw).replace('R$', '').replace('.', '').replace(',', '.').strip()) if prev_raw else 0
+                pct_inv = round((gasto_val / prev_val) * 100, 1) if prev_val > 0 else 0
+
+                dias = 0
+                if campanha.get('periodo_inicio') and campanha.get('periodo_fim'):
+                    try:
+                        dias = (campanha['periodo_fim'] - campanha['periodo_inicio']).days
+                    except (TypeError, AttributeError):
+                        pass
+
+                params = {
+                    'nome_campanha': campanha.get('nome_campanha', ''),
+                    'cliente_nome': campanha.get('cliente_nome', ''),
+                    'executivo_nome': campanha.get('executivo_nome', ''),
+                    'plataforma_nome': campanha.get('plataforma_nome', ''),
+                    'objetivo_nome': campanha.get('objetivo_nome', ''),
+                    'status_nome': campanha.get('status_nome', ''),
+                    'periodo_inicio': campanha['periodo_inicio'].strftime('%d/%m/%Y') if campanha.get('periodo_inicio') else '—',
+                    'periodo_fim': campanha['periodo_fim'].strftime('%d/%m/%Y') if campanha.get('periodo_fim') else '—',
+                    'dias_campanha': dias,
+                    'obj_contratados': f"{obj_val:,.0f}".replace(',', '.'),
+                    'totalizador_atingido': f"{ating_val:,.0f}".replace(',', '.'),
+                    'pct_objetivo': pct_obj,
+                    'valor_plataforma': f"R$ {prev_val:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                    'totalizador_gasto': f"R$ {gasto_val:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                    'pct_investimento': pct_inv,
+                    'mensagem_personalizada': message,
+                    'to_name': to_name or 'Cliente',
+                }
+
+                result = brevo.enviar_email_com_template(
+                    template_name='relatorio-campanha.html',
+                    to_email=to_email,
+                    to_name=to_name or 'Cliente',
+                    subject=subject,
+                    params=params,
+                    template_folder='emails/externos'
+                )
+            else:
+                html_content = f"""
+                <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #1e293b, #334155); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 22px;">CentralComm</h1>
+                    </div>
+                    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+                        <p style="color: #334155; font-size: 15px; line-height: 1.7;">{message.replace(chr(10), '<br>')}</p>
+                    </div>
+                    <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 20px;">CentralComm Media</p>
+                </div>
+                """
+                result = brevo.enviar_email(
+                    to_email=to_email,
+                    to_name=to_name or 'Cliente',
+                    subject=subject,
+                    html_content=html_content
+                )
+
+            if result.get('success'):
+                registrar_auditoria(
+                    acao='enviar_email',
+                    modulo='campanhas_pi',
+                    descricao=f'Email enviado para {to_email}: {subject}',
+                    registro_id=campanha_id,
+                    registro_tipo='campanha_pi'
+                )
+                return jsonify({'success': True, 'messageId': result.get('messageId')})
+            else:
+                return jsonify({'success': False, 'error': result.get('error', 'Erro ao enviar')}), 500
+
+        except Exception as e:
+            app.logger.error(f"Erro ao enviar email de campanha: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
     # ==================== DIÁRIOS DE CAMPANHA PI ====================

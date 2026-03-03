@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Relatório de Campanha</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+    
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f4f5;">
+        <tr>
+            <td style="padding:40px 15px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="580" align="center" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    
+                    <tr>
+                        <td style="background-color:#ffffff;padding:24px 32px;text-align:center;border-bottom:1px solid #e5e7eb;">
+                            <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="100" style="display:block;margin:0 auto;">
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:28px 32px;text-align:center;">
+                            <span style="color:#ffffff;font-size:22px;font-weight:700;display:block;">Relatório de Campanha</span>
+                            <span style="color:rgba(255,255,255,0.85);font-size:14px;margin-top:6px;display:block;">{{ nome_campanha }}</span>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="padding:28px 32px;">
+                            <p style="color:#334155;font-size:15px;line-height:1.6;margin:0 0 20px;">
+                                Olá <strong>{{ to_name }}</strong>,
+                            </p>
+                            <p style="color:#334155;font-size:15px;line-height:1.6;margin:0 0 24px;">
+                                Segue abaixo o resumo da campanha <strong>{{ nome_campanha }}</strong> do cliente <strong>{{ cliente_nome }}</strong>.
+                            </p>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:24px;">
+                                <tr>
+                                    <td width="50%" style="padding:0 6px 12px 0;vertical-align:top;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                                            <tr>
+                                                <td style="padding:16px 18px;">
+                                                    <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;">Período</span>
+                                                    <span style="color:#1e293b;font-size:16px;font-weight:600;display:block;margin-top:4px;">{{ periodo_inicio }} — {{ periodo_fim }}</span>
+                                                    <span style="color:#94a3b8;font-size:12px;display:block;margin-top:2px;">{{ dias_campanha }} dias</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    <td width="50%" style="padding:0 0 12px 6px;vertical-align:top;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                                            <tr>
+                                                <td style="padding:16px 18px;">
+                                                    <span style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;">Plataforma</span>
+                                                    <span style="color:#1e293b;font-size:16px;font-weight:600;display:block;margin-top:4px;">{{ plataforma_nome }}</span>
+                                                    <span style="color:#94a3b8;font-size:12px;display:block;margin-top:2px;">{{ objetivo_nome }}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:10px;border:1px solid #bbf7d0;margin-bottom:16px;">
+                                <tr>
+                                    <td style="padding:20px 22px;">
+                                        <span style="color:#166534;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;">Objetivo Atingido</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:8px;">
+                                            <tr>
+                                                <td width="50%">
+                                                    <span style="color:#1e293b;font-size:28px;font-weight:700;display:block;">{{ pct_objetivo }}%</span>
+                                                </td>
+                                                <td width="50%" style="text-align:right;">
+                                                    <span style="color:#64748b;font-size:13px;display:block;">{{ totalizador_atingido }} / {{ obj_contratados }}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:10px;">
+                                            <tr>
+                                                <td style="background:#dcfce7;border-radius:4px;height:8px;">
+                                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="{{ [pct_objetivo, 100]|min }}%" height="8">
+                                                        <tr><td style="background:#22c55e;border-radius:4px;"></td></tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;border:1px solid #93c5fd;margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:20px 22px;">
+                                        <span style="color:#1e40af;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;">Investimento</span>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:8px;">
+                                            <tr>
+                                                <td width="50%">
+                                                    <span style="color:#1e293b;font-size:28px;font-weight:700;display:block;">{{ pct_investimento }}%</span>
+                                                </td>
+                                                <td width="50%" style="text-align:right;">
+                                                    <span style="color:#64748b;font-size:13px;display:block;">{{ totalizador_gasto }} / {{ valor_plataforma }}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:10px;">
+                                            <tr>
+                                                <td style="background:#bfdbfe;border-radius:4px;height:8px;">
+                                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="{{ [pct_investimento, 100]|min }}%" height="8">
+                                                        <tr><td style="background:#3b82f6;border-radius:4px;"></td></tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {% if mensagem_personalizada %}
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fefce8;border-radius:10px;border:1px solid #fde68a;margin-bottom:24px;">
+                                <tr>
+                                    <td style="padding:18px 22px;">
+                                        <span style="color:#92400e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;display:block;margin-bottom:8px;">Mensagem do Executivo</span>
+                                        <p style="color:#334155;font-size:14px;line-height:1.6;margin:0;">{{ mensagem_personalizada }}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-top:1px solid #e2e8f0;padding-top:16px;margin-top:8px;">
+                                <tr>
+                                    <td style="padding-top:16px;">
+                                        <p style="color:#64748b;font-size:12px;line-height:1.5;margin:0;">
+                                            Executivo responsável: <strong style="color:#334155;">{{ executivo_nome }}</strong><br>
+                                            Status: <strong style="color:#334155;">{{ status_nome }}</strong>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="background-color:#f8fafc;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="color:#94a3b8;font-size:12px;margin:0;">
+                                CentralComm Media &bull; Relatório gerado automaticamente
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

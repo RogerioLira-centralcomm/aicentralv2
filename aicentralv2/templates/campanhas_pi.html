@@ -6,32 +6,123 @@
 
 {% block styles %}
 <style>
-  .progress-bar-container { background: #e5e7eb; border-radius: 9999px; height: 6px; width: 100%; overflow: hidden; }
-  .progress-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.4s ease; }
-  .collapse-row { display: none; }
-  .collapse-row.open { display: table-row; }
-  .chevron-toggle { transition: transform 0.2s ease; cursor: pointer; }
-  .chevron-toggle.open { transform: rotate(180deg); }
-  .month-group-body tr.collapse-row { display: none; }
-  .month-group-body tr.collapse-row.open { display: table-row; }
-  .sort-icon { opacity: 0.3; margin-left: 4px; font-size: 10px; }
-  .sort-icon.active { opacity: 1; }
+  .kpi-card {
+    background: linear-gradient(135deg, var(--kpi-from), var(--kpi-to));
+    border-radius: 16px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px -8px rgba(0,0,0,0.18); }
+  .kpi-card::after {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -20%;
+    width: 140px;
+    height: 140px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 50%;
+  }
+  .kpi-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(255,255,255,0.15); color: #fff; font-size: 16px; }
+  .kpi-value { font-size: 28px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  .kpi-label { font-size: 12px; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .kpi-sub { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+  .chart-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 20px;
+    transition: box-shadow 0.2s ease;
+  }
+  .chart-card:hover { box-shadow: 0 8px 24px -6px rgba(0,0,0,0.08); }
+  .chart-title { font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; }
+  .chart-container { position: relative; height: 240px; }
+
+  .camp-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  .camp-card:hover { border-color: #6366f1; box-shadow: 0 4px 16px -4px rgba(99,102,241,0.15); }
+  .camp-card.active { border-color: #6366f1; border-width: 2px; box-shadow: 0 4px 16px -4px rgba(99,102,241,0.2); }
+
+  .progress-slim { height: 5px; border-radius: 99px; background: #f1f5f9; overflow: hidden; }
+  .progress-slim-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+
+  .sidebar-panel {
+    position: fixed;
+    top: 0;
+    right: -480px;
+    width: 480px;
+    height: 100vh;
+    background: #fff;
+    border-left: 1px solid #e5e7eb;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.08);
+    z-index: 40;
+    transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+  .sidebar-panel.open { right: 0; }
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 39;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+  .badge-status { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-ativo { background: #dcfce7; color: #166534; }
+  .badge-finalizado { background: #e0e7ff; color: #3730a3; }
+  .badge-pausado { background: #fef3c7; color: #92400e; }
+  .badge-default { background: #f1f5f9; color: #475569; }
+
+  .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; transition: all 0.2s; cursor: pointer; border: none; background: transparent; color: #64748b; }
+  .tab-btn:hover { background: #f1f5f9; color: #334155; }
+  .tab-btn.active { background: #6366f1; color: #fff; }
+
+  .email-template-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .email-template-card:hover { border-color: #6366f1; background: #f5f3ff; }
+  .email-template-card.selected { border-color: #6366f1; background: #ede9fe; }
+
   .bulk-input { width: 100px; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.8rem; text-align: right; }
   #bulkSaveBar { position: fixed; bottom: 0; left: 0; right: 0; background: #1f2937; color: white; padding: 12px 24px; display: none; z-index: 50; }
   #bulkSaveBar.active { display: flex; }
+
+  @media (max-width: 768px) {
+    .sidebar-panel { width: 100vw; right: -100vw; }
+    .kpi-card { padding: 16px 18px; }
+    .kpi-value { font-size: 22px; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-2">
+<div class="max-w-full mx-auto px-3 pb-6">
 
-  {# ====== FILTROS + AÇÕES ====== #}
-  <div class="bg-white border border-gray-200 rounded-lg px-4 py-2.5 mb-3 mt-2 flex flex-wrap items-center justify-between gap-3">
+  {# ====== FILTROS ====== #}
+  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3 flex-wrap">
       <div class="relative">
         <i class="fa-solid fa-circle-check absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroStatus" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
           <option value="">Todos os Status</option>
           {% for st in statuses %}
             <option value="{{ st.id }}" {% if filtros.get('id_status') == st.id %}selected{% endif %}>{{ st.descricao }}</option>
@@ -41,7 +132,7 @@
       <div class="relative">
         <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroMesRef" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
           <option value="__todos__" {% if todos_meses %}selected{% endif %}>Todos meses</option>
           {% for m in meses_ref %}
             <option value="{{ m }}" {% if not todos_meses and filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
@@ -51,7 +142,7 @@
       <div class="relative">
         <i class="fa-solid fa-user-tie absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroExecutivo" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
           <option value="">Todos executivos</option>
           {% for v in vendedores %}
             <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
@@ -63,13 +154,17 @@
       <div class="relative">
         <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <input type="text" id="searchInput" placeholder="Buscar campanha..."
-               class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+               class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 200px;">
       </div>
     </div>
     <div class="flex items-center gap-2">
       <button onclick="toggleBulkEdit()" id="btnBulkEdit"
-              class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700 transition-colors">
+              class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors">
         <i class="fas fa-pen-to-square mr-1"></i> Edição em Massa
+      </button>
+      <button onclick="abrirModalNovo()"
+              class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
+        <i class="fas fa-plus mr-1"></i> Nova Campanha
       </button>
     </div>
   </div>
@@ -90,388 +185,412 @@
     {% endif %}
   {% endwith %}
 
-  {# ====== TABELA ====== #}
-  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-    {% if campanhas and campanhas|length > 0 %}
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm" id="tabela_campanhas">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase cursor-pointer select-none" data-sort="codigo_pi" onclick="sortTable('codigo_pi')">
-                PI <i class="fas fa-sort sort-icon" id="sort-icon-codigo_pi"></i>
-              </th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase cursor-pointer select-none" data-sort="nome_campanha" onclick="sortTable('nome_campanha')">
-                Campanha <i class="fas fa-sort sort-icon" id="sort-icon-nome_campanha"></i>
-              </th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase cursor-pointer select-none" data-sort="periodo" onclick="sortTable('periodo')">
-                Período <i class="fas fa-sort sort-icon" id="sort-icon-periodo"></i>
-              </th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase cursor-pointer select-none" data-sort="objetivo" onclick="sortTable('objetivo')" style="min-width:180px;">
-                Objetivo <i class="fas fa-sort sort-icon" id="sort-icon-objetivo"></i>
-              </th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase cursor-pointer select-none" data-sort="investimento" onclick="sortTable('investimento')" style="min-width:180px;">
-                Investimento <i class="fas fa-sort sort-icon" id="sort-icon-investimento"></i>
-              </th>
-              <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-36">Ações</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
+  {# ====== KPI CARDS ====== #}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+    <div class="kpi-card" style="--kpi-from: #6366f1; --kpi-to: #818cf8;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="kpi-icon"><i class="fas fa-clock"></i></div>
+        <span class="kpi-sub">{{ kpis.total_campanhas }} campanha{{ 's' if kpis.total_campanhas != 1 }}</span>
+      </div>
+      <div class="kpi-value">{{ kpis.tempo_medio_dias }}d</div>
+      <div class="kpi-label mt-1">Tempo Médio de Campanha</div>
+      <div class="kpi-sub mt-1">{{ kpis.campanhas_ativas }} ativa{{ 's' if kpis.campanhas_ativas != 1 }}</div>
+    </div>
 
-            {# ====== AGRUPAMENTO POR MES ====== #}
-            {% if todos_meses %}
-              {% set campanhas_by_mes = {} %}
-              {% for c in campanhas %}
-                {% set mes_key = c.mes_ref_comp or 'Sem mês' %}
-                {% if mes_key not in campanhas_by_mes %}
-                  {% set _ = campanhas_by_mes.update({mes_key: []}) %}
+    <div class="kpi-card" style="--kpi-from: #10b981; --kpi-to: #34d399;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="kpi-icon"><i class="fas fa-bullseye"></i></div>
+        <span class="kpi-sub {% if kpis.pct_objetivo_medio >= 100 %}text-white{% elif kpis.pct_objetivo_medio >= 70 %}text-yellow-200{% else %}text-red-200{% endif %}">
+          {% if kpis.pct_objetivo_medio >= 100 %}Superou{% elif kpis.pct_objetivo_medio >= 70 %}Progresso{% else %}Abaixo{% endif %}
+        </span>
+      </div>
+      <div class="kpi-value">{{ kpis.pct_objetivo_medio }}%</div>
+      <div class="kpi-label mt-1">Objetivo Atingido (Média)</div>
+      <div class="w-full mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
+        <div class="h-full bg-white/60 rounded-full" style="width: {{ [kpis.pct_objetivo_medio, 100]|min }}%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card" style="--kpi-from: #f59e0b; --kpi-to: #fbbf24;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="kpi-icon"><i class="fas fa-coins"></i></div>
+        <span class="kpi-sub">{{ kpis.pct_investimento }}% utilizado</span>
+      </div>
+      <div class="kpi-value">R$ {{ '{:,.0f}'.format(kpis.gasto_total).replace(',', '.') }}</div>
+      <div class="kpi-label mt-1">Custo / Gasto Plataforma</div>
+      <div class="kpi-sub mt-1">Previsto: R$ {{ '{:,.0f}'.format(kpis.previsto_total).replace(',', '.') }}</div>
+    </div>
+
+    <div class="kpi-card" style="--kpi-from: #8b5cf6; --kpi-to: #a78bfa;">
+      <div class="flex items-center justify-between mb-3">
+        <div class="kpi-icon"><i class="fas fa-chart-pie"></i></div>
+        <span class="kpi-sub {% if kpis.pct_midia <= 100 %}text-green-200{% else %}text-red-200{% endif %}">
+          Corte: {{ kpis.midia_corte_pct }}%
+        </span>
+      </div>
+      <div class="kpi-value">{{ kpis.pct_midia }}%</div>
+      <div class="kpi-label mt-1">Mídia vs Valor Líquido</div>
+      <div class="kpi-sub mt-1">Máx: R$ {{ '{:,.0f}'.format(kpis.midia_max).replace(',', '.') }}</div>
+      <div class="w-full mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
+        <div class="h-full rounded-full {% if kpis.pct_midia <= 100 %}bg-green-300{% else %}bg-red-300{% endif %}" style="width: {{ [kpis.pct_midia, 100]|min }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  {# ====== 3 GRÁFICOS ====== #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+    <div class="chart-card">
+      <div class="flex items-center justify-between mb-3">
+        <span class="chart-title"><i class="fas fa-chart-area text-indigo-500 mr-1.5"></i> Evolução Objetivo vs Atingido</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="chartObjetivoMes"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="flex items-center justify-between mb-3">
+        <span class="chart-title"><i class="fas fa-chart-pie text-amber-500 mr-1.5"></i> Gasto por Plataforma</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="chartPlataformas"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="flex items-center justify-between mb-3">
+        <span class="chart-title"><i class="fas fa-ranking-star text-emerald-500 mr-1.5"></i> Performance Top 10</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="chartPerformance"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {# ====== LISTA DE CAMPANHAS (CARDS) ====== #}
+  <div class="mb-2 flex items-center justify-between">
+    <h2 class="text-lg font-bold text-gray-800">
+      <i class="fas fa-bullhorn text-indigo-500 mr-1.5"></i>
+      Campanhas
+      <span class="text-sm font-normal text-gray-500 ml-2">{{ campanhas|length if campanhas else 0 }} resultado{{ 's' if (campanhas|length if campanhas else 0) != 1 }}</span>
+    </h2>
+  </div>
+
+  {% if campanhas and campanhas|length > 0 %}
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="campanhasGrid">
+      {% for c in campanhas %}
+        {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
+        {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
+        {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
+        {% set prev_raw = c.valor_plataforma or '0' %}
+        {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
+        {% set prev_val = prev_clean|float if prev_clean else 0 %}
+        {% set gasto_raw = c.totalizador_gasto or '0' %}
+        {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
+        {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
+        {% set pct_inv = ((gasto_val / prev_val) * 100)|round(1) if prev_val > 0 else 0 %}
+
+        <div class="camp-card" data-campanha-id="{{ c.id_campanha }}" onclick="abrirSidebar({{ c | tojson }})">
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                {% if c.codigo_pi %}
+                  <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{{ c.codigo_pi }}</span>
                 {% endif %}
-                {% set _ = campanhas_by_mes[mes_key].append(c) %}
-              {% endfor %}
+                {% set st_lower = (c.status_nome or '')|lower %}
+                <span class="badge-status {% if st_lower in ['ativo', 'ativa', 'em andamento'] %}badge-ativo{% elif st_lower in ['finalizado', 'concluído', 'concluida'] %}badge-finalizado{% elif st_lower in ['pausado', 'pausada'] %}badge-pausado{% else %}badge-default{% endif %}">
+                  {{ c.status_nome or 'N/A' }}
+                </span>
+              </div>
+              <h3 class="font-semibold text-gray-800 text-sm truncate">{{ c.nome_campanha or '—' }}</h3>
+              <p class="text-xs text-gray-400 truncate mt-0.5">{{ c.cliente_nome or '' }} · {{ c.executivo_nome or '' }}</p>
+            </div>
+            <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+              {% if c.googled_pi_princ %}
+                <a href="{{ c.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()"
+                   class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Google Drive">
+                  <i class="fab fa-google-drive text-xs"></i>
+                </a>
+              {% endif %}
+              {% if c.link_dash %}
+                <a href="{{ c.link_dash }}" target="_blank" onclick="event.stopPropagation()"
+                   class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Dashboard">
+                  <i class="fas fa-chart-line text-xs"></i>
+                </a>
+              {% endif %}
+            </div>
+          </div>
 
-              {% for mes_key, grupo in campanhas_by_mes.items() %}
-                {% set mg_idx = loop.index %}
-                {% set ns = namespace(total=grupo|length, soma_pct=0, cnt_pct=0) %}
-                {% for gc in grupo %}
-                  {% if gc.obj_contratados and gc.totalizador_atingido %}
-                    {% if gc.obj_contratados|float > 0 %}
-                      {% set ns.soma_pct = ns.soma_pct + (gc.totalizador_atingido|float / gc.obj_contratados|float * 100) %}
-                      {% set ns.cnt_pct = ns.cnt_pct + 1 %}
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-                {% set pct_medio = (ns.soma_pct / ns.cnt_pct)|round(1) if ns.cnt_pct > 0 else 0 %}
-
-                <tr class="bg-gray-50 border-t-2 border-gray-300 month-header cursor-pointer" onclick="toggleMonthGroup('mg-{{ mg_idx }}')" data-mes-key="{{ mes_key }}">
-                  <td colspan="6" class="py-2.5 px-3">
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-3">
-                        <i class="fas fa-chevron-down chevron-toggle text-gray-400" id="mg-chevron-{{ mg_idx }}"></i>
-                        <span class="font-semibold text-gray-700">
-                          {% if mes_key != 'Sem mês' %}
-                            {{ nomes_meses.get(mes_key.split('/')[0], mes_key.split('/')[0]) }}/{{ mes_key.split('/')[1] }}
-                          {% else %}
-                            Sem mês
-                          {% endif %}
-                        </span>
-                        <span class="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">{{ ns.total }} campanha{{ 's' if ns.total > 1 else '' }}</span>
-                      </div>
-                      <div class="flex items-center gap-4 text-xs text-gray-500">
-                        <span>Obj. médio: <strong class="{% if pct_medio >= 100 %}text-green-600{% elif pct_medio >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ pct_medio }}%</strong></span>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-
-                {% for c in grupo %}
-                  {# Row principal #}
-                  <tr class="hover:bg-gray-50 transition-colors month-group-row mg-{{ mg_idx }}" data-campanha-id="{{ c.id_campanha }}">
-                    <td class="py-2 px-3">
-                      <div class="text-gray-700 font-medium text-xs">{{ c.codigo_pi or '—' }}</div>
-                    </td>
-                    <td class="py-2 px-3">
-                      <div class="flex items-center gap-2">
-                        <i class="fas fa-chevron-right chevron-toggle text-gray-400 text-xs" onclick="toggleCollapse({{ c.id_campanha }}, event)" id="chev-{{ c.id_campanha }}"></i>
-                        <div>
-                          <div class="font-medium text-gray-800">{{ c.nome_campanha or '—' }}</div>
-                          <div class="text-gray-400 text-xs">{{ c.cliente_nome or '' }} · {{ c.executivo_nome or '' }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="py-2 px-3 text-xs text-gray-600 whitespace-nowrap">
-                      {% if c.periodo_inicio and c.periodo_fim %}
-                        {% set dias = (c.periodo_fim - c.periodo_inicio).days %}
-                        {{ c.periodo_inicio.strftime('%d/%m') }} – {{ c.periodo_fim.strftime('%d/%m') }}
-                        <span class="text-gray-400">({{ dias }}d)</span>
-                      {% elif c.periodo_inicio %}
-                        {{ c.periodo_inicio.strftime('%d/%m') }} –
-                      {% else %}—{% endif %}
-                    </td>
-                    <td class="py-2 px-3">
-                      {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
-                      {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
-                      {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
-                      <div class="flex items-center justify-between mb-0.5">
-                        <span class="text-xs text-gray-500">{{ '{:,.0f}'.format(obj_val).replace(',', '.') }}</span>
-                        <span class="text-xs font-semibold bulk-display {% if pct_obj >= 100 %}text-green-600{% elif pct_obj >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}" data-field="atingido" data-id="{{ c.id_campanha }}">
-                          {{ pct_obj }}%
-                        </span>
-                        <input type="text" class="bulk-input bulk-edit-field hidden" data-id="{{ c.id_campanha }}" data-field="totalizador_atingido"
-                               value="{{ c.totalizador_atingido or '' }}">
-                      </div>
-                      <div class="progress-bar-container">
-                        <div class="progress-bar-fill {% if pct_obj >= 100 %}bg-green-500{% elif pct_obj >= 70 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
-                             style="width: {{ [pct_obj, 100]|min }}%"></div>
-                      </div>
-                    </td>
-                    <td class="py-2 px-3">
-                      {% set prev_raw = c.valor_plataforma or '0' %}
-                      {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-                      {% set prev_val = prev_clean|float if prev_clean else 0 %}
-                      {% set gasto_raw = c.totalizador_gasto or '0' %}
-                      {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-                      {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
-                      {% set pct_inv = ((gasto_val / prev_val) * 100)|round(1) if prev_val > 0 else 0 %}
-                      <div class="flex items-center justify-between mb-0.5">
-                        <span class="text-xs text-gray-500">R$ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}</span>
-                        <span class="text-xs font-semibold bulk-display {% if pct_inv <= 80 %}text-green-600{% elif pct_inv <= 100 %}text-yellow-600{% else %}text-red-600{% endif %}" data-field="gasto" data-id="{{ c.id_campanha }}">
-                          R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }}
-                        </span>
-                        <input type="text" class="bulk-input bulk-edit-field hidden" data-id="{{ c.id_campanha }}" data-field="totalizador_gasto"
-                               value="{{ c.totalizador_gasto or '' }}">
-                      </div>
-                      <div class="progress-bar-container">
-                        <div class="progress-bar-fill {% if pct_inv <= 80 %}bg-green-500{% elif pct_inv <= 100 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
-                             style="width: {{ [pct_inv, 100]|min }}%"></div>
-                      </div>
-                    </td>
-                    <td class="py-2 px-3">
-                      <div class="flex items-center justify-center gap-1">
-                        {% if c.googled_pi_princ %}
-                          <a href="{{ c.googled_pi_princ }}" target="_blank"
-                             class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Google Drive">
-                            <i class="fab fa-google-drive text-xs"></i>
-                          </a>
-                        {% endif %}
-                        {% if c.link_dash %}
-                          <a href="{{ c.link_dash }}" target="_blank"
-                             class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Dashboard">
-                            <i class="fas fa-chart-line text-xs"></i>
-                          </a>
-                        {% endif %}
-                        <button onclick="abrirModalDiarios({{ c.id_campanha }})"
-                           class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Diários">
-                          <i class="fas fa-calendar-day text-xs"></i>
-                        </button>
-                        <button onclick='abrirModalEditar({{ c | tojson }})'
-                                class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Editar">
-                          <i class="fas fa-edit text-xs"></i>
-                        </button>
-                        <form method="POST" action="{{ url_for('campanha_pi_excluir', id_camp=c.id_campanha) }}"
-                              onsubmit="return confirm('Tem certeza que deseja excluir esta campanha?');" class="inline">
-                          <button type="submit" class="p-1.5 text-red-500 hover:text-red-800 hover:bg-red-50 rounded transition-colors" title="Excluir">
-                            <i class="fas fa-trash text-xs"></i>
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {# Row collapse - compacto #}
-                  <tr class="collapse-row bg-gray-50/50" id="collapse-{{ c.id_campanha }}">
-                    <td colspan="6" class="px-4 py-2">
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-2">
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Cliente</span>
-                          <div class="text-gray-700 font-medium mt-0.5">{{ c.cliente_nome or '—' }}</div>
-                        </div>
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Executivo</span>
-                          <div class="text-gray-700 font-medium mt-0.5">{{ c.executivo_nome or '—' }}</div>
-                        </div>
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Plataforma</span>
-                          <div class="text-gray-700 font-medium mt-0.5">{{ c.plataforma_nome or '—' }}</div>
-                        </div>
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Objetivo</span>
-                          <div class="text-gray-700 font-medium mt-0.5">{{ c.objetivo_nome or '—' }}</div>
-                        </div>
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Status</span>
-                          <div class="text-gray-700 font-medium mt-0.5">{{ c.status_nome or '—' }}</div>
-                        </div>
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Período Completo</span>
-                          <div class="text-gray-700 font-medium mt-0.5">
-                            {% if c.periodo_inicio and c.periodo_fim %}
-                              {{ c.periodo_inicio.strftime('%d/%m/%Y %H:%M') }} – {{ c.periodo_fim.strftime('%d/%m/%Y %H:%M') }}
-                              <span class="text-gray-400">({{ (c.periodo_fim - c.periodo_inicio).days }} dias)</span>
-                            {% elif c.periodo_inicio %}
-                              {{ c.periodo_inicio.strftime('%d/%m/%Y %H:%M') }} –
-                            {% else %}—{% endif %}
-                          </div>
-                        </div>
-                        <div>
-                          <span class="text-gray-400 uppercase tracking-wide">Mês Ref</span>
-                          <div class="text-gray-700 font-medium mt-0.5">
-                            {% if c.mes_ref_comp %}
-                              {{ nomes_meses.get(c.mes_ref_comp.split('/')[0], c.mes_ref_comp.split('/')[0]) }}/{{ c.mes_ref_comp.split('/')[1] }}
-                            {% else %}—{% endif %}
-                          </div>
-                        </div>
-                      </div>
-                      <div class="chart-container" id="chart-container-{{ c.id_campanha }}" style="display:none;">
-                        <div class="border-t border-gray-200 pt-2">
-                          <div style="height: 140px; max-width: 480px;">
-                            <canvas id="chart-{{ c.id_campanha }}" width="480" height="140"></canvas>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                {% endfor %}
-              {% endfor %}
-
-            {% else %}
-              {# SEM AGRUPAMENTO (mês filtrado) #}
-              {% for c in campanhas %}
-                <tr class="hover:bg-gray-50 transition-colors" data-campanha-id="{{ c.id_campanha }}">
-                  <td class="py-2 px-3">
-                    <div class="text-gray-700 font-medium text-xs">{{ c.codigo_pi or '—' }}</div>
-                  </td>
-                  <td class="py-2 px-3">
-                    <div class="flex items-center gap-2">
-                      <i class="fas fa-chevron-right chevron-toggle text-gray-400 text-xs" onclick="toggleCollapse({{ c.id_campanha }}, event)" id="chev-{{ c.id_campanha }}"></i>
-                      <div>
-                        <div class="font-medium text-gray-800">{{ c.nome_campanha or '—' }}</div>
-                        <div class="text-gray-400 text-xs">{{ c.cliente_nome or '' }} · {{ c.executivo_nome or '' }}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="py-2 px-3 text-xs text-gray-600 whitespace-nowrap">
-                    {% if c.periodo_inicio and c.periodo_fim %}
-                      {% set dias = (c.periodo_fim - c.periodo_inicio).days %}
-                      {{ c.periodo_inicio.strftime('%d/%m') }} – {{ c.periodo_fim.strftime('%d/%m') }}
-                      <span class="text-gray-400">({{ dias }}d)</span>
-                    {% elif c.periodo_inicio %}
-                      {{ c.periodo_inicio.strftime('%d/%m') }} –
-                    {% else %}—{% endif %}
-                  </td>
-                  <td class="py-2 px-3">
-                    {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
-                    {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
-                    {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
-                    <div class="flex items-center justify-between mb-0.5">
-                      <span class="text-xs text-gray-500">{{ '{:,.0f}'.format(obj_val).replace(',', '.') }}</span>
-                      <span class="text-xs font-semibold bulk-display {% if pct_obj >= 100 %}text-green-600{% elif pct_obj >= 70 %}text-yellow-600{% else %}text-red-600{% endif %}" data-field="atingido" data-id="{{ c.id_campanha }}">
-                        {{ pct_obj }}%
-                      </span>
-                      <input type="text" class="bulk-input bulk-edit-field hidden" data-id="{{ c.id_campanha }}" data-field="totalizador_atingido"
-                             value="{{ c.totalizador_atingido or '' }}">
-                    </div>
-                    <div class="progress-bar-container">
-                      <div class="progress-bar-fill {% if pct_obj >= 100 %}bg-green-500{% elif pct_obj >= 70 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
-                           style="width: {{ [pct_obj, 100]|min }}%"></div>
-                    </div>
-                  </td>
-                  <td class="py-2 px-3">
-                    {% set prev_raw = c.valor_plataforma or '0' %}
-                    {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-                    {% set prev_val = prev_clean|float if prev_clean else 0 %}
-                    {% set gasto_raw = c.totalizador_gasto or '0' %}
-                    {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-                    {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
-                    {% set pct_inv = ((gasto_val / prev_val) * 100)|round(1) if prev_val > 0 else 0 %}
-                    <div class="flex items-center justify-between mb-0.5">
-                      <span class="text-xs text-gray-500">R$ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}</span>
-                      <span class="text-xs font-semibold bulk-display {% if pct_inv <= 80 %}text-green-600{% elif pct_inv <= 100 %}text-yellow-600{% else %}text-red-600{% endif %}" data-field="gasto" data-id="{{ c.id_campanha }}">
-                        R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }}
-                      </span>
-                      <input type="text" class="bulk-input bulk-edit-field hidden" data-id="{{ c.id_campanha }}" data-field="totalizador_gasto"
-                             value="{{ c.totalizador_gasto or '' }}">
-                    </div>
-                    <div class="progress-bar-container">
-                      <div class="progress-bar-fill {% if pct_inv <= 80 %}bg-green-500{% elif pct_inv <= 100 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
-                           style="width: {{ [pct_inv, 100]|min }}%"></div>
-                    </div>
-                  </td>
-                  <td class="py-2 px-3">
-                    <div class="flex items-center justify-center gap-1">
-                      {% if c.googled_pi_princ %}
-                        <a href="{{ c.googled_pi_princ }}" target="_blank"
-                           class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Google Drive">
-                          <i class="fab fa-google-drive text-xs"></i>
-                        </a>
-                      {% endif %}
-                      {% if c.link_dash %}
-                        <a href="{{ c.link_dash }}" target="_blank"
-                           class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors" title="Dashboard">
-                          <i class="fas fa-chart-line text-xs"></i>
-                        </a>
-                      {% endif %}
-                      <button onclick="abrirModalDiarios({{ c.id_campanha }})"
-                         class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Diários">
-                        <i class="fas fa-calendar-day text-xs"></i>
-                      </button>
-                      <button onclick='abrirModalEditar({{ c | tojson }})'
-                              class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="Editar">
-                        <i class="fas fa-edit text-xs"></i>
-                      </button>
-                      <form method="POST" action="{{ url_for('campanha_pi_excluir', id_camp=c.id_campanha) }}"
-                            onsubmit="return confirm('Tem certeza que deseja excluir esta campanha?');" class="inline">
-                        <button type="submit" class="p-1.5 text-red-500 hover:text-red-800 hover:bg-red-50 rounded transition-colors" title="Excluir">
-                          <i class="fas fa-trash text-xs"></i>
-                        </button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-
-                {# Row collapse (sem agrupamento) - compacto #}
-                <tr class="collapse-row bg-gray-50/50" id="collapse-{{ c.id_campanha }}">
-                  <td colspan="6" class="px-4 py-2">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-2">
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Cliente</span>
-                        <div class="text-gray-700 font-medium mt-0.5">{{ c.cliente_nome or '—' }}</div>
-                      </div>
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Executivo</span>
-                        <div class="text-gray-700 font-medium mt-0.5">{{ c.executivo_nome or '—' }}</div>
-                      </div>
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Plataforma</span>
-                        <div class="text-gray-700 font-medium mt-0.5">{{ c.plataforma_nome or '—' }}</div>
-                      </div>
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Objetivo</span>
-                        <div class="text-gray-700 font-medium mt-0.5">{{ c.objetivo_nome or '—' }}</div>
-                      </div>
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Status</span>
-                        <div class="text-gray-700 font-medium mt-0.5">{{ c.status_nome or '—' }}</div>
-                      </div>
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Período Completo</span>
-                        <div class="text-gray-700 font-medium mt-0.5">
-                          {% if c.periodo_inicio and c.periodo_fim %}
-                            {{ c.periodo_inicio.strftime('%d/%m/%Y %H:%M') }} – {{ c.periodo_fim.strftime('%d/%m/%Y %H:%M') }}
-                            <span class="text-gray-400">({{ (c.periodo_fim - c.periodo_inicio).days }} dias)</span>
-                          {% elif c.periodo_inicio %}
-                            {{ c.periodo_inicio.strftime('%d/%m/%Y %H:%M') }} –
-                          {% else %}—{% endif %}
-                        </div>
-                      </div>
-                      <div>
-                        <span class="text-gray-400 uppercase tracking-wide">Mês Ref</span>
-                        <div class="text-gray-700 font-medium mt-0.5">
-                          {% if c.mes_ref_comp %}
-                            {{ nomes_meses.get(c.mes_ref_comp.split('/')[0], c.mes_ref_comp.split('/')[0]) }}/{{ c.mes_ref_comp.split('/')[1] }}
-                          {% else %}—{% endif %}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="chart-container" id="chart-container-{{ c.id_campanha }}" style="display:none;">
-                      <div class="border-t border-gray-200 pt-2">
-                        <div style="height: 140px; max-width: 480px;">
-                          <canvas id="chart-{{ c.id_campanha }}" width="480" height="140"></canvas>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              {% endfor %}
+          <div class="flex items-center gap-2 text-xs text-gray-500 mb-3">
+            <i class="far fa-calendar text-gray-400"></i>
+            {% if c.periodo_inicio and c.periodo_fim %}
+              {% set dias = (c.periodo_fim - c.periodo_inicio).days %}
+              {{ c.periodo_inicio.strftime('%d/%m') }} – {{ c.periodo_fim.strftime('%d/%m/%Y') }}
+              <span class="text-gray-400">({{ dias }}d)</span>
+            {% elif c.periodo_inicio %}
+              {{ c.periodo_inicio.strftime('%d/%m') }} –
+            {% else %}—{% endif %}
+            {% if c.plataforma_nome %}
+              <span class="text-gray-300">|</span>
+              <i class="fas fa-desktop text-gray-400"></i>
+              {{ c.plataforma_nome }}
             {% endif %}
+          </div>
 
-          </tbody>
-        </table>
+          <div class="space-y-2">
+            <div>
+              <div class="flex items-center justify-between text-xs mb-0.5">
+                <span class="text-gray-500 font-medium">Objetivo</span>
+                <span class="font-bold {% if pct_obj >= 100 %}text-emerald-600{% elif pct_obj >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">{{ pct_obj }}%</span>
+              </div>
+              <div class="progress-slim">
+                <div class="progress-slim-fill {% if pct_obj >= 100 %}bg-emerald-500{% elif pct_obj >= 70 %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width: {{ [pct_obj, 100]|min }}%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-xs mb-0.5">
+                <span class="text-gray-500 font-medium">Investimento</span>
+                <span class="font-bold {% if pct_inv <= 80 %}text-emerald-600{% elif pct_inv <= 100 %}text-amber-600{% else %}text-red-500{% endif %}">
+                  R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }} <span class="font-normal text-gray-400">/ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}</span>
+                </span>
+              </div>
+              <div class="progress-slim">
+                <div class="progress-slim-fill {% if pct_inv <= 80 %}bg-emerald-500{% elif pct_inv <= 100 %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width: {{ [pct_inv, 100]|min }}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center py-16 bg-white rounded-xl border border-gray-200">
+      <i class="fas fa-bullhorn text-6xl text-gray-200 mb-4"></i>
+      <p class="text-gray-400 text-lg mb-2">Nenhuma campanha encontrada.</p>
+      <p class="text-gray-400 text-sm">Ajuste os filtros ou crie uma nova campanha.</p>
+    </div>
+  {% endif %}
+</div>
+
+{# ====== SIDEBAR LATERAL ====== #}
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
+<div class="sidebar-panel" id="sidebarPanel">
+  <div class="sticky top-0 bg-white z-10 border-b border-gray-200">
+    <div class="flex items-center justify-between px-5 py-3">
+      <h3 class="font-bold text-gray-800 text-lg truncate" id="sidebarTitle">Detalhes</h3>
+      <button onclick="fecharSidebar()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+    <div class="flex gap-1 px-5 pb-3">
+      <button class="tab-btn active" data-tab="detalhes" onclick="switchSidebarTab('detalhes')">
+        <i class="fas fa-info-circle mr-1"></i> Detalhes
+      </button>
+      <button class="tab-btn" data-tab="comunicacao" onclick="switchSidebarTab('comunicacao')">
+        <i class="fas fa-envelope mr-1"></i> Comunicação
+      </button>
+      <button class="tab-btn" data-tab="diarios" onclick="switchSidebarTab('diarios')">
+        <i class="fas fa-calendar-day mr-1"></i> Diários
+      </button>
+    </div>
+  </div>
+
+  {# --- Tab: Detalhes --- #}
+  <div class="sidebar-tab-content p-5" id="tab-detalhes">
+    <div class="space-y-4">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="badge-status badge-default text-sm" id="sidebarStatus"></span>
+        <span class="text-xs text-gray-400" id="sidebarPeriodo"></span>
       </div>
-    {% else %}
-      <div class="text-center py-12">
-        <i class="fas fa-bullhorn text-6xl text-gray-300 mb-4"></i>
-        <p class="text-gray-500 text-lg mb-4">Nenhuma campanha encontrada.</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3">
+          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Cliente</span>
+          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarCliente">—</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Executivo</span>
+          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarExecutivo">—</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Plataforma</span>
+          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarPlataforma">—</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Objetivo</span>
+          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarObjetivo">—</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Valor Líquido PI</span>
+          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarVlLiquido">—</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3">
+          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Mês Ref.</span>
+          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarMesRef">—</div>
+        </div>
       </div>
-    {% endif %}
+
+      <div class="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Objetivo Atingido</span>
+          <span class="text-lg font-extrabold text-emerald-700" id="sidebarPctObj">0%</span>
+        </div>
+        <div class="progress-slim mt-1" style="height: 6px;">
+          <div class="progress-slim-fill bg-emerald-500" id="sidebarBarObj" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-emerald-600 mt-1.5">
+          <span id="sidebarAtingido">0</span>
+          <span id="sidebarObjContratados">/ 0</span>
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-blue-700 uppercase tracking-wider">Investimento</span>
+          <span class="text-lg font-extrabold text-blue-700" id="sidebarPctInv">0%</span>
+        </div>
+        <div class="progress-slim mt-1" style="height: 6px;">
+          <div class="progress-slim-fill bg-blue-500" id="sidebarBarInv" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-blue-600 mt-1.5">
+          <span id="sidebarGasto">R$ 0</span>
+          <span id="sidebarPrevisto">/ R$ 0</span>
+        </div>
+      </div>
+
+      <div class="border border-gray-200 rounded-xl p-4">
+        <span class="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 block">Evolução Diária</span>
+        <div style="height: 160px;">
+          <canvas id="sidebarChart"></canvas>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-2">
+        <button onclick="editarCampanhaSidebar()" class="flex-1 px-3 py-2 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+          <i class="fas fa-edit mr-1"></i> Editar
+        </button>
+        <button onclick="abrirModalDiarios(currentSidebarCamp.id_campanha)" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700">
+          <i class="fas fa-calendar-day mr-1"></i> Diários
+        </button>
+        <button onclick="excluirCampanhaSidebar()" class="px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# --- Tab: Comunicação --- #}
+  <div class="sidebar-tab-content p-5 hidden" id="tab-comunicacao">
+    <div class="space-y-4">
+      <p class="text-sm text-gray-500 mb-3">Envie emails e relatórios diretamente para o cliente via Brevo.</p>
+
+      <div class="space-y-2 mb-4">
+        <span class="text-xs font-bold text-gray-600 uppercase tracking-wider">Tipo de Comunicação</span>
+        <div class="grid grid-cols-1 gap-2">
+          <div class="email-template-card selected" data-template="relatorio" onclick="selecionarTemplate('relatorio')">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <i class="fas fa-chart-bar text-indigo-600 text-sm"></i>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-gray-800">Relatório Mensal</div>
+                <div class="text-[11px] text-gray-400">Resumo completo de performance</div>
+              </div>
+            </div>
+          </div>
+          <div class="email-template-card" data-template="atualizacao" onclick="selecionarTemplate('atualizacao')">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+                <i class="fas fa-bell text-amber-600 text-sm"></i>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-gray-800">Atualização de Campanha</div>
+                <div class="text-[11px] text-gray-400">Informar mudanças e progresso</div>
+              </div>
+            </div>
+          </div>
+          <div class="email-template-card" data-template="custom" onclick="selecionarTemplate('custom')">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                <i class="fas fa-pen text-gray-600 text-sm"></i>
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-gray-800">Email Personalizado</div>
+                <div class="text-[11px] text-gray-400">Mensagem livre</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Destinatário</label>
+          <input type="email" id="emailTo" placeholder="email@cliente.com"
+                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Nome</label>
+          <input type="text" id="emailToName" placeholder="Nome do contato"
+                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Assunto</label>
+          <input type="text" id="emailSubject" placeholder="Assunto do email"
+                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Mensagem</label>
+          <textarea id="emailMessage" rows="4" placeholder="Escreva sua mensagem..."
+                    class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 resize-none"></textarea>
+        </div>
+      </div>
+
+      <button onclick="enviarEmail()" id="btnEnviarEmail"
+              class="w-full px-4 py-2.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold">
+        <i class="fas fa-paper-plane mr-1.5"></i> Enviar Email
+      </button>
+
+      <div id="emailResultado" class="hidden">
+        <div class="p-3 rounded-lg text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  {# --- Tab: Diários --- #}
+  <div class="sidebar-tab-content p-5 hidden" id="tab-diarios">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-sm text-gray-500" id="sidebarDiariosCount">0 diários</span>
+      <button onclick="toggleSidebarNovoDiario()" class="px-3 py-1.5 text-xs bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium">
+        <i class="fas fa-plus mr-1"></i> Novo
+      </button>
+    </div>
+
+    <div id="sidebarFormDiario" class="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3 hidden">
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Data</label>
+          <input type="date" id="sidebarDiarioData" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Atingido</label>
+          <input type="text" id="sidebarDiarioAtingido" placeholder="0" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Gasto</label>
+          <input type="text" id="sidebarDiarioGasto" placeholder="0" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-2">
+        <button onclick="toggleSidebarNovoDiario()" class="px-3 py-1 text-xs border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-500">Cancelar</button>
+        <button onclick="salvarSidebarDiario()" id="btnSidebarSalvarDiario" class="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Salvar</button>
+      </div>
+      <input type="hidden" id="sidebarDiarioEditId" value="">
+    </div>
+
+    <div id="sidebarDiariosLista" class="space-y-1.5"></div>
+    <div id="sidebarDiariosEmpty" class="text-center py-8 text-gray-400 text-sm hidden">
+      Nenhum diário registrado.
+    </div>
   </div>
 </div>
 
@@ -486,7 +605,7 @@
   </div>
 </div>
 
-<!-- Modal de Criação/Edição -->
+{# ====== MODAL DE CRIAÇÃO/EDIÇÃO ====== #}
 <dialog id="modal_campanha" class="modal">
   <div class="modal-box w-11/12 max-w-4xl bg-white p-0 rounded-lg">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -561,6 +680,7 @@
           <div>
             <label for="obj_contratados" class="block text-sm font-medium text-gray-700 mb-1">Obj. Contratados</label>
             <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
+                   data-mask="numero" placeholder="0"
                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
           </div>
         </div>
@@ -607,11 +727,13 @@
           <div>
             <label for="totalizador_atingido" class="block text-sm font-medium text-gray-700 mb-1">Totalizador Atingido</label>
             <input type="text" id="totalizador_atingido" name="totalizador_atingido"
+                   data-mask="numero" placeholder="0"
                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
           </div>
           <div>
             <label for="totalizador_gasto" class="block text-sm font-medium text-gray-700 mb-1">Totalizador Gasto</label>
             <input type="text" id="totalizador_gasto" name="totalizador_gasto"
+                   data-mask="real" placeholder="R$ 0,00"
                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
           </div>
         </div>
@@ -620,11 +742,13 @@
           <div>
             <label for="valor_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Valor Plataforma</label>
             <input type="text" id="valor_plataforma" name="valor_plataforma"
+                   data-mask="real" placeholder="R$ 0,00"
                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
           </div>
           <div>
             <label for="valor_total_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Valor Total Plataforma</label>
             <input type="text" id="valor_total_plataforma" name="valor_total_plataforma"
+                   data-mask="real" placeholder="R$ 0,00"
                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
           </div>
         </div>
@@ -645,7 +769,7 @@
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
-<!-- Modal de Diários -->
+{# ====== MODAL DE DIÁRIOS ====== #}
 <dialog id="modal_diarios" class="modal">
   <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-lg">
     <div class="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gray-50">
@@ -715,6 +839,112 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
   const MES_ATUAL = '{{ mes_atual }}';
+  let currentSidebarCamp = null;
+  let sidebarChartInstance = null;
+  let selectedEmailTemplate = 'relatorio';
+
+  // ==================== MÁSCARAS DE INPUT ====================
+  function formatarNumero(valor) {
+    if (!valor && valor !== 0) return '';
+    const num = String(valor).replace(/[^\d]/g, '');
+    if (!num) return '';
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function formatarReal(valor) {
+    if (!valor && valor !== 0) return '';
+    let limpo = String(valor).replace(/[^\d,.\-]/g, '');
+    limpo = limpo.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(limpo);
+    if (isNaN(num)) return '';
+    return 'R$ ' + num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function rawParaFormatado(valor, tipo) {
+    if (!valor && valor !== 0) return '';
+    const v = String(valor).trim();
+    if (!v) return '';
+    if (tipo === 'real') return formatarReal(v);
+    if (tipo === 'numero') return formatarNumero(v);
+    return v;
+  }
+
+  function aplicarMascaraNumero(input) {
+    input.addEventListener('input', function() {
+      const pos = this.selectionStart;
+      const antes = this.value.length;
+      const digits = this.value.replace(/[^\d]/g, '');
+      this.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      const diff = this.value.length - antes;
+      this.setSelectionRange(pos + diff, pos + diff);
+    });
+  }
+
+  function aplicarMascaraReal(input) {
+    input.addEventListener('input', function() {
+      let v = this.value.replace(/[^\d]/g, '');
+      if (!v) { this.value = ''; return; }
+      v = v.padStart(3, '0');
+      const inteiro = v.slice(0, -2).replace(/^0+/, '') || '0';
+      const decimal = v.slice(-2);
+      const formatado = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      this.value = 'R$ ' + formatado + ',' + decimal;
+    });
+
+    input.addEventListener('focus', function() {
+      if (!this.value) this.value = 'R$ 0,00';
+    });
+  }
+
+  document.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
+  document.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
+
+  // ==================== CHARTS ====================
+  (function initCharts() {
+    const CHART_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#64748b'];
+
+    const dataObjetivoMes = {{ chart_objetivo_mes | safe }};
+    const ctxObj = document.getElementById('chartObjetivoMes');
+    if (ctxObj) {
+      new Chart(ctxObj, {
+        type: 'line',
+        data: {
+          labels: dataObjetivoMes.labels,
+          datasets: [
+            { label: 'Objetivo', data: dataObjetivoMes.obj, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 },
+            { label: 'Atingido', data: dataObjetivoMes.ating, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14, padding: 12 } } }, scales: { x: { ticks: { font: { size: 10 } }, grid: { display: false } }, y: { ticks: { font: { size: 10 } }, grid: { color: '#f1f5f9' }, beginAtZero: true } } }
+      });
+    }
+
+    const dataPlataformas = {{ chart_plataformas | safe }};
+    const ctxPlat = document.getElementById('chartPlataformas');
+    if (ctxPlat && dataPlataformas.labels.length > 0) {
+      new Chart(ctxPlat, {
+        type: 'doughnut',
+        data: {
+          labels: dataPlataformas.labels,
+          datasets: [{ data: dataPlataformas.values, backgroundColor: CHART_COLORS.slice(0, dataPlataformas.labels.length), borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } }, tooltip: { callbacks: { label: function(ctx) { return ctx.label + ': R$ ' + ctx.parsed.toLocaleString('pt-BR', {minimumFractionDigits: 2}); } } } } }
+      });
+    }
+
+    const dataPerf = {{ chart_performance | safe }};
+    const ctxPerf = document.getElementById('chartPerformance');
+    if (ctxPerf && dataPerf.labels.length > 0) {
+      new Chart(ctxPerf, {
+        type: 'bar',
+        data: {
+          labels: dataPerf.labels,
+          datasets: [{ label: '% Objetivo', data: dataPerf.values, backgroundColor: dataPerf.values.map(v => v >= 100 ? '#10b981' : v >= 70 ? '#f59e0b' : '#ef4444'), borderRadius: 6, barPercentage: 0.7 }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + '%' } } }, scales: { x: { ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f1f5f9' }, beginAtZero: true }, y: { ticks: { font: { size: 10 } }, grid: { display: false } } } }
+      });
+    }
+  })();
 
   // ==================== FILTROS ====================
   function aplicarFiltros() {
@@ -756,280 +986,271 @@
 
   document.getElementById('searchInput').addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
-    const rows = document.querySelectorAll('#campanhasTableBody tr[data-campanha-id]');
-    rows.forEach(row => {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(searchTerm) ? '' : 'none';
-      const collapseRow = document.getElementById('collapse-' + row.dataset.campanhaId);
-      if (collapseRow && !text.includes(searchTerm)) {
-        collapseRow.classList.remove('open');
-      }
+    const cards = document.querySelectorAll('#campanhasGrid .camp-card');
+    cards.forEach(card => {
+      const text = card.textContent.toLowerCase();
+      card.style.display = text.includes(searchTerm) ? '' : 'none';
     });
   });
 
-  // ==================== MONTH GROUP TOGGLE (with cookies) ====================
-  function toggleMonthGroup(groupId) {
-    const rows = document.querySelectorAll('.' + groupId);
-    const chevron = document.getElementById(groupId.replace('mg-', 'mg-chevron-'));
-    const isOpen = chevron && chevron.classList.contains('open');
+  // ==================== SIDEBAR ====================
+  function abrirSidebar(camp) {
+    currentSidebarCamp = camp;
 
-    const header = document.querySelector(`tr[onclick*="'${groupId}'"]`);
-    const mesKey = header ? header.dataset.mesKey : groupId;
+    document.querySelectorAll('.camp-card.active').forEach(c => c.classList.remove('active'));
+    const card = document.querySelector(`.camp-card[data-campanha-id="${camp.id_campanha}"]`);
+    if (card) card.classList.add('active');
 
-    rows.forEach(row => {
-      row.style.display = isOpen ? 'none' : '';
-    });
-    if (chevron) chevron.classList.toggle('open');
+    document.getElementById('sidebarTitle').textContent = camp.nome_campanha || 'Campanha';
+    document.getElementById('sidebarCliente').textContent = camp.cliente_nome || '—';
+    document.getElementById('sidebarExecutivo').textContent = camp.executivo_nome || '—';
+    document.getElementById('sidebarPlataforma').textContent = camp.plataforma_nome || '—';
+    document.getElementById('sidebarObjetivo').textContent = camp.objetivo_nome || '—';
+    document.getElementById('sidebarStatus').textContent = camp.status_nome || 'N/A';
+    document.getElementById('sidebarMesRef').textContent = camp.mes_ref_comp || '—';
 
-    setCookie('camppi_mg_' + mesKey.replace('/', '_'), isOpen ? 'closed' : 'open', 90);
+    const vlPi = camp.valor_liquido_pi ? parseFloat(camp.valor_liquido_pi) : 0;
+    document.getElementById('sidebarVlLiquido').textContent = vlPi > 0 ? 'R$ ' + vlPi.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '—';
 
-    if (isOpen) {
-      rows.forEach(row => {
-        const campId = row.dataset.campanhaId;
-        if (campId) {
-          const collapseRow = document.getElementById('collapse-' + campId);
-          if (collapseRow) collapseRow.classList.remove('open');
-          const chev = document.getElementById('chev-' + campId);
-          if (chev) chev.classList.remove('open');
-        }
-      });
+    let periodoText = '—';
+    if (camp.periodo_inicio && camp.periodo_fim) {
+      const di = new Date(camp.periodo_inicio);
+      const df = new Date(camp.periodo_fim);
+      const dias = Math.round((df - di) / (1000 * 60 * 60 * 24));
+      periodoText = di.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'}) + ' — ' + df.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' (' + dias + 'd)';
     }
+    document.getElementById('sidebarPeriodo').textContent = periodoText;
+
+    const objVal = parseFloat(camp.obj_contratados) || 0;
+    const atingVal = parseFloat(camp.totalizador_atingido) || 0;
+    const pctObj = objVal > 0 ? ((atingVal / objVal) * 100).toFixed(1) : 0;
+    document.getElementById('sidebarPctObj').textContent = pctObj + '%';
+    document.getElementById('sidebarBarObj').style.width = Math.min(pctObj, 100) + '%';
+    document.getElementById('sidebarAtingido').textContent = Number(atingVal).toLocaleString('pt-BR');
+    document.getElementById('sidebarObjContratados').textContent = '/ ' + Number(objVal).toLocaleString('pt-BR');
+
+    const prevStr = String(camp.valor_plataforma || '0').replace(/R\$/g,'').replace(/\./g,'').replace(/,/g,'.').trim();
+    const prevVal = parseFloat(prevStr) || 0;
+    const gastoStr = String(camp.totalizador_gasto || '0').replace(/R\$/g,'').replace(/\./g,'').replace(/,/g,'.').trim();
+    const gastoVal = parseFloat(gastoStr) || 0;
+    const pctInv = prevVal > 0 ? ((gastoVal / prevVal) * 100).toFixed(1) : 0;
+    document.getElementById('sidebarPctInv').textContent = pctInv + '%';
+    document.getElementById('sidebarBarInv').style.width = Math.min(pctInv, 100) + '%';
+    document.getElementById('sidebarGasto').textContent = 'R$ ' + gastoVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    document.getElementById('sidebarPrevisto').textContent = '/ R$ ' + prevVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+
+    loadSidebarChart(camp.id_campanha);
+
+    document.getElementById('emailSubject').value = 'Relatório — ' + (camp.nome_campanha || 'Campanha');
+
+    switchSidebarTab('detalhes');
+    document.getElementById('sidebarPanel').classList.add('open');
+    document.getElementById('sidebarOverlay').classList.add('open');
+
+    loadSidebarDiarios(camp.id_campanha);
   }
 
-  function applyMonthCollapseState() {
-    const headers = document.querySelectorAll('.month-header');
-    headers.forEach(header => {
-      const mesKey = header.dataset.mesKey;
-      if (!mesKey) return;
-      const cookieKey = 'camppi_mg_' + mesKey.replace('/', '_');
-      const saved = getCookie(cookieKey);
-      const onclickAttr = header.getAttribute('onclick');
-      const match = onclickAttr ? onclickAttr.match(/'(mg-\d+)'/) : null;
-      if (!match) return;
-      const groupId = match[1];
-      const chevron = document.getElementById(groupId.replace('mg-', 'mg-chevron-'));
-      const rows = document.querySelectorAll('.' + groupId);
-
-      let shouldOpen;
-      if (saved === 'open') {
-        shouldOpen = true;
-      } else if (saved === 'closed') {
-        shouldOpen = false;
-      } else {
-        shouldOpen = (mesKey === MES_ATUAL);
-      }
-
-      if (shouldOpen) {
-        rows.forEach(r => r.style.display = '');
-        if (chevron) chevron.classList.add('open');
-      } else {
-        rows.forEach(r => r.style.display = 'none');
-        if (chevron) chevron.classList.remove('open');
-      }
-    });
+  function fecharSidebar() {
+    document.getElementById('sidebarPanel').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.querySelectorAll('.camp-card.active').forEach(c => c.classList.remove('active'));
+    currentSidebarCamp = null;
   }
 
-  // ==================== COLLAPSE TOGGLE ====================
-  const loadedCharts = {};
-
-  function toggleCollapse(id, event) {
-    if (event) event.stopPropagation();
-    const row = document.getElementById('collapse-' + id);
-    const chev = document.getElementById('chev-' + id);
-    if (!row) return;
-
-    const isOpen = row.classList.contains('open');
-    row.classList.toggle('open');
-    if (chev) chev.classList.toggle('open');
-
-    if (!isOpen && !loadedCharts[id]) {
-      loadChart(id);
-    }
+  function switchSidebarTab(tabName) {
+    document.querySelectorAll('.sidebar-tab-content').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabName).classList.remove('hidden');
+    document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add('active');
   }
 
-  // ==================== CHART.JS (conditional) ====================
-  function loadChart(campId) {
+  function loadSidebarChart(campId) {
+    if (sidebarChartInstance) { sidebarChartInstance.destroy(); sidebarChartInstance = null; }
     fetch(`/api/campanhas-pi/${campId}/diarios-chart`)
       .then(r => r.json())
       .then(data => {
-        loadedCharts[campId] = true;
-        if (!data.labels || data.labels.length === 0) {
-          return;
-        }
-
-        const container = document.getElementById('chart-container-' + campId);
-        if (container) container.style.display = '';
-
-        const ctx = document.getElementById('chart-' + campId);
-        if (!ctx) return;
-
-        new Chart(ctx, {
+        if (!data.labels || data.labels.length === 0) return;
+        const ctx = document.getElementById('sidebarChart');
+        sidebarChartInstance = new Chart(ctx, {
           type: 'line',
           data: {
             labels: data.labels,
             datasets: [
-              {
-                label: 'Atingido',
-                data: data.atingido,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 2,
-                borderWidth: 2,
-              },
-              {
-                label: 'Gasto',
-                data: data.gasto,
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245,158,11,0.1)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 2,
-                borderWidth: 2,
-              }
+              { label: 'Atingido', data: data.atingido, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.3, pointRadius: 2, borderWidth: 2 },
+              { label: 'Gasto', data: data.gasto, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)', fill: true, tension: 0.3, pointRadius: 2, borderWidth: 2 }
             ]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 12 } } },
-            scales: {
-              x: { ticks: { font: { size: 9 } }, grid: { display: false } },
-              y: { ticks: { font: { size: 9 } }, grid: { color: '#f3f4f6' }, beginAtZero: true }
-            }
-          }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } } }, scales: { x: { ticks: { font: { size: 9 } }, grid: { display: false } }, y: { ticks: { font: { size: 9 } }, grid: { color: '#f1f5f9' }, beginAtZero: true } } }
         });
-      })
-      .catch(() => { loadedCharts[campId] = true; });
+      });
   }
 
-  // ==================== SORTING ====================
-  let currentSort = localStorage.getItem('camppi_sort_col') || '';
-  let currentDir = localStorage.getItem('camppi_sort_dir') || 'asc';
+  // ==================== SIDEBAR DIÁRIOS ====================
+  function loadSidebarDiarios(campId) {
+    const lista = document.getElementById('sidebarDiariosLista');
+    const empty = document.getElementById('sidebarDiariosEmpty');
+    lista.innerHTML = '<div class="text-center py-4 text-gray-400"><i class="fas fa-spinner fa-spin"></i></div>';
+    empty.classList.add('hidden');
 
-  function sortTable(col) {
-    if (currentSort === col) {
-      currentDir = currentDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      currentSort = col;
-      currentDir = 'asc';
+    fetch(`/api/campanhas-pi/${campId}/diarios`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.diarios || data.diarios.length === 0) {
+          lista.innerHTML = '';
+          empty.classList.remove('hidden');
+          document.getElementById('sidebarDiariosCount').textContent = '0 diários';
+          return;
+        }
+        empty.classList.add('hidden');
+        document.getElementById('sidebarDiariosCount').textContent = data.diarios.length + ' diário(s)';
+        lista.innerHTML = data.diarios.map(d => `
+          <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
+            <div class="flex items-center gap-3">
+              <span class="text-gray-500 font-medium">${d.data_evento_fmt}</span>
+              <span class="text-emerald-600 font-semibold">${d.atingido != null ? Number(d.atingido).toLocaleString('pt-BR') : '—'}</span>
+              <span class="text-amber-600 font-semibold">R$ ${d.gasto != null ? Number(d.gasto).toLocaleString('pt-BR') : '—'}</span>
+            </div>
+            <div class="flex gap-1">
+              <button onclick="editarSidebarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})" class="p-1 text-gray-400 hover:text-gray-700 rounded"><i class="fas fa-edit text-xs"></i></button>
+              <button onclick="excluirSidebarDiario(${d.id})" class="p-1 text-red-400 hover:text-red-600 rounded"><i class="fas fa-trash text-xs"></i></button>
+            </div>
+          </div>
+        `).join('');
+      });
+  }
+
+  function toggleSidebarNovoDiario() {
+    const form = document.getElementById('sidebarFormDiario');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) {
+      document.getElementById('sidebarDiarioData').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('sidebarDiarioAtingido').value = '';
+      document.getElementById('sidebarDiarioGasto').value = '';
+      document.getElementById('sidebarDiarioEditId').value = '';
     }
-    localStorage.setItem('camppi_sort_col', currentSort);
-    localStorage.setItem('camppi_sort_dir', currentDir);
+  }
 
-    document.querySelectorAll('.sort-icon').forEach(ic => {
-      ic.className = 'fas fa-sort sort-icon';
-    });
-    const activeIcon = document.getElementById('sort-icon-' + col);
-    if (activeIcon) {
-      activeIcon.className = 'fas fa-sort-' + (currentDir === 'asc' ? 'up' : 'down') + ' sort-icon active';
-    }
+  function editarSidebarDiario(id, dataEvento, atingido, gasto) {
+    const form = document.getElementById('sidebarFormDiario');
+    form.classList.remove('hidden');
+    document.getElementById('sidebarDiarioData').value = dataEvento || '';
+    document.getElementById('sidebarDiarioAtingido').value = atingido != null ? atingido : '';
+    document.getElementById('sidebarDiarioGasto').value = gasto != null ? gasto : '';
+    document.getElementById('sidebarDiarioEditId').value = id;
+  }
 
-    const tbody = document.getElementById('campanhasTableBody');
-    const rows = Array.from(tbody.querySelectorAll('tr[data-campanha-id]'));
-    const collapseRows = {};
-    rows.forEach(r => {
-      const id = r.dataset.campanhaId;
-      const cr = document.getElementById('collapse-' + id);
-      if (cr) collapseRows[id] = cr;
-    });
+  function salvarSidebarDiario() {
+    if (!currentSidebarCamp) return;
+    const editId = document.getElementById('sidebarDiarioEditId').value;
+    const payload = {
+      data_evento: document.getElementById('sidebarDiarioData').value,
+      atingido: document.getElementById('sidebarDiarioAtingido').value || '0',
+      gasto: document.getElementById('sidebarDiarioGasto').value || '0',
+    };
+    if (!payload.data_evento) { if (typeof showToast === 'function') showToast('Data é obrigatória.', 'error'); return; }
+    let url, method;
+    if (editId) { url = `/api/campanhas-pi/diarios/${editId}`; method = 'PUT'; }
+    else { url = `/api/campanhas-pi/${currentSidebarCamp.id_campanha}/diarios`; method = 'POST'; }
 
-    rows.sort((a, b) => {
-      let va = getCellValue(a, col);
-      let vb = getCellValue(b, col);
-      if (!isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))) {
-        va = parseFloat(va); vb = parseFloat(vb);
+    fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          if (typeof showToast === 'function') showToast(editId ? 'Diário atualizado!' : 'Diário criado!', 'success');
+          document.getElementById('sidebarFormDiario').classList.add('hidden');
+          loadSidebarDiarios(currentSidebarCamp.id_campanha);
+          loadSidebarChart(currentSidebarCamp.id_campanha);
+        } else {
+          if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
+        }
+      });
+  }
+
+  function excluirSidebarDiario(id) {
+    if (!confirm('Excluir este diário?')) return;
+    fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+          loadSidebarDiarios(currentSidebarCamp.id_campanha);
+          loadSidebarChart(currentSidebarCamp.id_campanha);
+        }
+      });
+  }
+
+  // ==================== EMAIL ====================
+  function selecionarTemplate(tipo) {
+    selectedEmailTemplate = tipo;
+    document.querySelectorAll('.email-template-card').forEach(c => c.classList.remove('selected'));
+    document.querySelector(`.email-template-card[data-template="${tipo}"]`).classList.add('selected');
+
+    if (currentSidebarCamp) {
+      if (tipo === 'relatorio') {
+        document.getElementById('emailSubject').value = 'Relatório Mensal — ' + (currentSidebarCamp.nome_campanha || '');
+        document.getElementById('emailMessage').placeholder = 'Mensagem personalizada para acompanhar o relatório (opcional)...';
+      } else if (tipo === 'atualizacao') {
+        document.getElementById('emailSubject').value = 'Atualização de Campanha — ' + (currentSidebarCamp.nome_campanha || '');
+        document.getElementById('emailMessage').placeholder = 'Descreva as atualizações da campanha...';
+      } else {
+        document.getElementById('emailSubject').value = '';
+        document.getElementById('emailMessage').placeholder = 'Escreva sua mensagem...';
       }
-      if (va < vb) return currentDir === 'asc' ? -1 : 1;
-      if (va > vb) return currentDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    rows.forEach(r => {
-      tbody.appendChild(r);
-      const id = r.dataset.campanhaId;
-      if (collapseRows[id]) tbody.appendChild(collapseRows[id]);
-    });
-  }
-
-  function getCellValue(row, col) {
-    const cells = row.querySelectorAll('td');
-    const colMap = { 'codigo_pi': 0, 'nome_campanha': 1, 'periodo': 2, 'objetivo': 3, 'investimento': 4 };
-    const idx = colMap[col];
-    if (idx === undefined) return '';
-    const cell = cells[idx];
-    if (!cell) return '';
-
-    if (col === 'objetivo' || col === 'investimento') {
-      const span = cell.querySelector('.bulk-display');
-      if (span) {
-        const txt = span.textContent.replace(/[R$%.\s]/g, '').replace(',', '.');
-        return parseFloat(txt) || 0;
-      }
-    }
-    return cell.textContent.trim().toLowerCase();
-  }
-
-  // ==================== BULK EDIT ====================
-  let bulkMode = false;
-
-  function toggleBulkEdit() {
-    bulkMode = !bulkMode;
-    const btn = document.getElementById('btnBulkEdit');
-    const bar = document.getElementById('bulkSaveBar');
-    const displays = document.querySelectorAll('.bulk-display');
-    const fields = document.querySelectorAll('.bulk-edit-field');
-
-    if (bulkMode) {
-      btn.classList.add('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
-      bar.classList.add('active');
-      displays.forEach(el => el.classList.add('hidden'));
-      fields.forEach(el => el.classList.remove('hidden'));
-    } else {
-      btn.classList.remove('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
-      bar.classList.remove('active');
-      displays.forEach(el => el.classList.remove('hidden'));
-      fields.forEach(el => el.classList.add('hidden'));
     }
   }
 
-  function salvarMassa() {
-    const fields = document.querySelectorAll('.bulk-edit-field');
-    const updates = {};
+  function enviarEmail() {
+    if (!currentSidebarCamp) return;
+    const btn = document.getElementById('btnEnviarEmail');
+    const toEmail = document.getElementById('emailTo').value.trim();
+    const toName = document.getElementById('emailToName').value.trim();
+    const subject = document.getElementById('emailSubject').value.trim();
+    const message = document.getElementById('emailMessage').value.trim();
 
-    fields.forEach(f => {
-      const id = f.dataset.id;
-      const field = f.dataset.field;
-      if (!updates[id]) updates[id] = { id_campanha: parseInt(id) };
-      updates[id][field] = f.value || null;
-    });
+    if (!toEmail || !subject) {
+      if (typeof showToast === 'function') showToast('Email e assunto são obrigatórios.', 'error');
+      return;
+    }
 
-    const payload = Object.values(updates);
-    if (payload.length === 0) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Enviando...';
 
-    fetch('{{ url_for("campanhas_pi_atualizar_massa") }}', {
+    fetch('/api/campanhas-pi/enviar-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        to_email: toEmail,
+        to_name: toName,
+        subject: subject,
+        message: message,
+        template_type: selectedEmailTemplate,
+        campanha_id: currentSidebarCamp.id_campanha,
+      })
     })
     .then(r => r.json())
     .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane mr-1.5"></i> Enviar Email';
+      const resultado = document.getElementById('emailResultado');
+      resultado.classList.remove('hidden');
       if (data.success) {
-        if (typeof showToast === 'function') {
-          showToast(`${data.updated} campanha(s) atualizada(s) com sucesso!`, 'success');
-        }
-        setTimeout(() => location.reload(), 800);
+        resultado.querySelector('div').className = 'p-3 rounded-lg text-sm bg-green-100 text-green-800';
+        resultado.querySelector('div').innerHTML = '<i class="fas fa-check-circle mr-1"></i> Email enviado com sucesso!';
+        if (typeof showToast === 'function') showToast('Email enviado!', 'success');
       } else {
-        if (typeof showToast === 'function') showToast('Erro ao salvar: ' + (data.error || ''), 'error');
+        resultado.querySelector('div').className = 'p-3 rounded-lg text-sm bg-red-100 text-red-800';
+        resultado.querySelector('div').innerHTML = '<i class="fas fa-times-circle mr-1"></i> Erro: ' + (data.error || 'Falha ao enviar');
       }
+      setTimeout(() => resultado.classList.add('hidden'), 5000);
     })
     .catch(() => {
-      if (typeof showToast === 'function') showToast('Erro de conexão ao salvar.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane mr-1.5"></i> Enviar Email';
+      if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
     });
   }
 
-  // ==================== MODAL EDIÇÃO (AJAX) ====================
+  // ==================== MODAL EDIÇÃO ====================
   function formatDateForInput(val) {
     if (!val) return '';
     const d = new Date(val);
@@ -1065,19 +1286,38 @@
     document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
     document.getElementById('id_plataforma').value = c.id_plataforma || '';
     document.getElementById('id_status').value = c.id_status || '';
-    document.getElementById('obj_contratados').value = c.obj_contratados || '';
+    document.getElementById('obj_contratados').value = rawParaFormatado(c.obj_contratados, 'numero');
     document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
     document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
     document.getElementById('link_dash').value = c.link_dash || '';
     document.getElementById('periodo_inicio').value = formatDatetimeForInput(c.periodo_inicio);
     document.getElementById('periodo_fim').value = formatDatetimeForInput(c.periodo_fim);
     document.getElementById('under').checked = !!c.under;
-    document.getElementById('totalizador_atingido').value = c.totalizador_atingido || '';
-    document.getElementById('totalizador_gasto').value = c.totalizador_gasto || '';
-    document.getElementById('valor_plataforma').value = c.valor_plataforma || '';
-    document.getElementById('valor_total_plataforma').value = c.valor_total_plataforma || '';
+    document.getElementById('totalizador_atingido').value = rawParaFormatado(c.totalizador_atingido, 'numero');
+    document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
+    document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
+    document.getElementById('valor_total_plataforma').value = rawParaFormatado(c.valor_total_plataforma, 'real');
 
     modal_campanha.showModal();
+  }
+
+  function editarCampanhaSidebar() {
+    if (currentSidebarCamp) abrirModalEditar(currentSidebarCamp);
+  }
+
+  function excluirCampanhaSidebar() {
+    if (!currentSidebarCamp) return;
+    if (!confirm('Tem certeza que deseja excluir esta campanha?')) return;
+    fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
+      method: 'POST',
+      redirect: 'manual'
+    }).then(() => {
+      if (typeof showToast === 'function') showToast('Campanha excluída!', 'success');
+      fecharSidebar();
+      setTimeout(() => location.reload(), 600);
+    }).catch(() => {
+      if (typeof showToast === 'function') showToast('Erro ao excluir.', 'error');
+    });
   }
 
   document.getElementById('modal_campanha').addEventListener('close', resetForm);
@@ -1094,13 +1334,19 @@
     fetch(form.action, {
       method: 'POST',
       body: formData,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      redirect: 'manual'
     })
-    .then(r => {
-      if (r.redirected || r.ok) {
-        if (typeof showToast === 'function') showToast('Campanha salva com sucesso!', 'success');
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        if (typeof showToast === 'function') showToast(data.message || 'Campanha salva com sucesso!', 'success');
+        modal_campanha.close();
         setTimeout(() => location.reload(), 600);
       } else {
-        throw new Error('Erro ao salvar');
+        if (typeof showToast === 'function') showToast(data.error || 'Erro ao salvar.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = 'Salvar';
       }
     })
     .catch(() => {
@@ -1214,22 +1460,13 @@
     }
 
     let url, method;
-    if (editId) {
-      url = `/api/campanhas-pi/diarios/${editId}`;
-      method = 'PUT';
-    } else {
-      url = `/api/campanhas-pi/${currentDiarioCampId}/diarios`;
-      method = 'POST';
-    }
+    if (editId) { url = `/api/campanhas-pi/diarios/${editId}`; method = 'PUT'; }
+    else { url = `/api/campanhas-pi/${currentDiarioCampId}/diarios`; method = 'POST'; }
 
     const btn = document.getElementById('btnSalvarDiario');
     btn.disabled = true;
 
-    fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     .then(r => r.json())
     .then(data => {
       btn.disabled = false;
@@ -1237,7 +1474,6 @@
         if (typeof showToast === 'function') showToast(editId ? 'Diário atualizado!' : 'Diário criado!', 'success');
         document.getElementById('form_novo_diario').style.display = 'none';
         carregarDiarios(currentDiarioCampId);
-        loadedCharts[currentDiarioCampId] = false;
       } else {
         if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
       }
@@ -1256,7 +1492,6 @@
         if (data.success) {
           if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
           carregarDiarios(currentDiarioCampId);
-          loadedCharts[currentDiarioCampId] = false;
         } else {
           if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
         }
@@ -1266,17 +1501,32 @@
       });
   }
 
-  // ==================== INIT ====================
-  document.addEventListener('DOMContentLoaded', function() {
-    applyMonthCollapseState();
+  // ==================== BULK EDIT ====================
+  let bulkMode = false;
 
-    if (currentSort) {
-      const icon = document.getElementById('sort-icon-' + currentSort);
-      if (icon) {
-        icon.className = 'fas fa-sort-' + (currentDir === 'asc' ? 'up' : 'down') + ' sort-icon active';
-      }
-      sortTable(currentSort);
+  function toggleBulkEdit() {
+    bulkMode = !bulkMode;
+    const btn = document.getElementById('btnBulkEdit');
+    const bar = document.getElementById('bulkSaveBar');
+
+    if (bulkMode) {
+      btn.classList.add('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
+      bar.classList.add('active');
+      if (typeof showToast === 'function') showToast('Edição em massa disponível apenas via tabela. Use filtros e ações.', 'info');
+    } else {
+      btn.classList.remove('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
+      bar.classList.remove('active');
     }
+  }
+
+  function salvarMassa() {
+    if (typeof showToast === 'function') showToast('Use a edição individual pelo sidebar para atualizar campanhas.', 'info');
+    toggleBulkEdit();
+  }
+
+  // ==================== KEYBOARD ====================
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') fecharSidebar();
   });
 </script>
 {% endblock %}

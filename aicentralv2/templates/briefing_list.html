@@ -361,8 +361,8 @@ function salvarFiltrosESubmeter() {
   const cBusca = getCookie('brief_busca');
   let needsRedirect = false;
   const rp = new URLSearchParams(params);
-  if (cResp !== null && !params.has('responsavel_id')) { rp.set('responsavel_id', cResp); needsRedirect = true; }
-  if (cMes !== null && !params.has('mes')) {
+  if (cResp && !params.has('responsavel_id')) { rp.set('responsavel_id', cResp); needsRedirect = true; }
+  if (cMes && !params.has('mes')) {
     let monthVal = cMes;
     if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
     rp.set('mes', String(parseInt(monthVal)));

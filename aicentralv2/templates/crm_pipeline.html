@@ -470,8 +470,8 @@ function filtrarPorStatus(status) {
   const cStatus = getCookie('crm_status');
   let needsRedirect = false;
   const rp = new URLSearchParams(params);
-  if (cExec !== null && !params.has('executivo_id')) { rp.set('executivo_id', cExec); needsRedirect = true; }
-  if (cMes !== null && !params.has('mes')) {
+  if (cExec && !params.has('executivo_id')) { rp.set('executivo_id', cExec); needsRedirect = true; }
+  if (cMes && !params.has('mes')) {
     let monthVal = cMes;
     if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
     rp.set('mes', monthVal.padStart(2, '0'));

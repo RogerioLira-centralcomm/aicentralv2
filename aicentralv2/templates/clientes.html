@@ -278,7 +278,7 @@
     const cAg = getCookie('cli_agencia');
     let needsRedirect = false;
     const rp = new URLSearchParams(params);
-    if (cExec !== null && !params.has('executivo_id')) { rp.set('executivo_id', cExec); needsRedirect = true; }
+    if (cExec && !params.has('executivo_id')) { rp.set('executivo_id', cExec); needsRedirect = true; }
     if (cSearch && !params.has('search')) { rp.set('search', cSearch); needsRedirect = true; }
     if (!params.has('status')) { rp.set('status', cStatus || 'ativo'); needsRedirect = true; }
     if (cCat && !params.has('categoria')) { rp.set('categoria', cCat); needsRedirect = true; }

@@ -334,11 +334,11 @@ function filtrarSubStatus(key) {
   var cMes = getCookie('cc_filtro_mes');
   var needsRedirect = false;
   var rp = new URLSearchParams(params);
-  if (cExec !== null && !params.has('resp_comercial')) {
+  if (cExec && !params.has('resp_comercial')) {
     rp.set('resp_comercial', cExec);
     needsRedirect = true;
   }
-  if (cMes !== null && !params.has('mes_ref_comp')) {
+  if (cMes && !params.has('mes_ref_comp')) {
     var selMes = document.getElementById('filtro_mes_ref');
     var matched = false;
     for (var i = 0; i < selMes.options.length; i++) {

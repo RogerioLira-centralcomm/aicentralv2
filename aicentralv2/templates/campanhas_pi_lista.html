@@ -760,8 +760,8 @@
     const cExec = getCookie('cc_filtro_exec');
     let needsRedirect = false;
     const rp = new URLSearchParams(params);
-    if (cExec !== null && !params.has('resp_comercial')) { rp.set('resp_comercial', cExec); needsRedirect = true; }
-    if (cMes !== null && !params.has('mes_ref_comp')) {
+    if (cExec && !params.has('resp_comercial')) { rp.set('resp_comercial', cExec); needsRedirect = true; }
+    if (cMes && !params.has('mes_ref_comp')) {
       const sel = document.getElementById('filtroMesRef');
       let matched = false;
       for (const opt of sel.options) {

@@ -407,8 +407,10 @@ function toggleCampanhas(idPi, event) {
       .then(data => {
         loadedCampanhas[idPi] = true;
         const container = document.getElementById('camp-content-' + idPi);
+
         if (!data.success || !data.campanhas || data.campanhas.length === 0) {
-          container.innerHTML = '<div class="text-center py-3"><i class="fa-solid fa-inbox text-gray-300 text-lg mb-1"></i><p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
+          container.innerHTML = '<div class="text-center py-3"><i class="fa-solid fa-inbox text-gray-300 text-lg mb-1"></i>' +
+            '<p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
           return;
         }
         let html = '<table class="camp-table w-full"><thead><tr>' +

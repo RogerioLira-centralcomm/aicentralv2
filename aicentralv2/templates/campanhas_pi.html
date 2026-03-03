@@ -1273,6 +1273,9 @@
 
   function abrirModalNovo() {
     resetForm();
+    {% if filtros.get('id_pi') %}
+    document.getElementById('id_pi').value = '{{ filtros.id_pi }}';
+    {% endif %}
     modal_campanha.showModal();
   }
 

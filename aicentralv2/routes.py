@@ -7989,6 +7989,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
+                    sub_st = str(pi.get('id_sub_status_pi', ''))
+                    if sub_st in ('3', '4'):
+                        auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
 
                 db.atualizar_cadu_pi(id_pi, data)
@@ -8011,6 +8014,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             return_url = _extrair_return_url(request.referrer or '', '/editar')
             auxiliares = _carregar_auxiliares_pi()
+            sub_st = str(pi.get('id_sub_status_pi', ''))
+            if sub_st in ('3', '4'):
+                auxiliares.update(_carregar_auxiliares_campanha())
             return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
         except Exception as e:
             app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
@@ -9128,10 +9134,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         try:
             data = _extrair_dados_campanha()
 
+            return_to_pi = request.form.get('return_to_pi')
+            id_pi_form = data.get('id_pi')
+
             if not data['nome_campanha']:
                 if is_ajax:
                     return jsonify({'success': False, 'error': 'O nome da campanha é obrigatório!'}), 400
                 flash('O nome da campanha é obrigatório!', 'error')
+                if return_to_pi and id_pi_form:
+                    return redirect(url_for('cadu_pi_editar', id_pi=int(id_pi_form)))
                 return _redirect_campanhas_pi_preservar_filtros()
 
             id_camp = db.criar_campanha_pi(data)
@@ -9151,6 +9162,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'error': str(e)}), 500
             flash('Erro ao criar campanha.', 'error')
 
+        if request.form.get('return_to_pi') and request.form.get('id_pi'):
+            return redirect(url_for('cadu_pi_editar', id_pi=int(request.form.get('id_pi'))))
         return _redirect_campanhas_pi_preservar_filtros()
 
     @app.route('/campanhas-pi/<int:id_camp>/editar', methods=['POST'])

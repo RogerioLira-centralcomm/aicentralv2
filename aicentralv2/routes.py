@@ -7936,6 +7936,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     auxiliares = _carregar_auxiliares_pi()
                     return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
+                if not data.get('id_pi_tipo'):
+                    flash('Tipo PI é obrigatório.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
+
                 id_pi = db.criar_cadu_pi(data)
 
                 registrar_auditoria(
@@ -7988,6 +7993,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    sub_st = str(pi.get('id_sub_status_pi', ''))
+                    if sub_st in ('3', '4'):
+                        auxiliares.update(_carregar_auxiliares_campanha())
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
+
+                if not data.get('id_pi_tipo'):
+                    flash('Tipo PI é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     sub_st = str(pi.get('id_sub_status_pi', ''))
                     if sub_st in ('3', '4'):
@@ -8383,7 +8396,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_cliente': request.form.get('id_cliente', type=int),
             'titulo_pi': request.form.get('titulo_pi', '').strip(),
             'codigo_pi_cc': request.form.get('codigo_pi_cc', '').strip() or None,
-            'tipo_pi': request.form.get('tipo_pi', '').strip() or None,
+            'id_pi_tipo': request.form.get('id_pi_tipo', type=int),
             'tem_agencia': bool(request.form.get('id_agencia', type=int)),
             'id_agencia': request.form.get('id_agencia', type=int),
             'perc_comissao_agencia': _parse_decimal(request.form.get('perc_comissao_agencia')),
@@ -8435,6 +8448,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'clientes': db.obter_clientes_simples(),
             'agencias': db.obter_aux_agencia(),
             'vendedores': vendedores,
+            'tipos_pi': db.obter_tipos_pi(),
             'status_pi': db.obter_status_pi(),
             'sub_status_pi': db.obter_sub_status_pi(),
             'user_is_executivo': is_executivo,

@@ -77,8 +77,13 @@
             <input type="text" name="codigo_pi_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Tipo PI</label>
-            <input type="text" name="tipo_pi" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.tipo_pi if pi and pi.tipo_pi else '' }}">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Tipo PI <span class="text-red-500">*</span></label>
+            <select name="id_pi_tipo" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
+              <option value="">Selecione...</option>
+              {% for t in tipos_pi %}
+                <option value="{{ t.id }}" {% if pi and pi.id_pi_tipo == t.id %}selected{% endif %}>{{ t.descricao }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Executivo de Vendas <span class="text-red-500">*</span></label>

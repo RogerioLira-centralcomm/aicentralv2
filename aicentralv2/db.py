@@ -7169,6 +7169,18 @@ def obter_sub_status_pi():
         raise e
 
 
+def obter_tipos_pi():
+    """Retorna todos os tipos de PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id, descricao FROM cadu_pi_tipo ORDER BY id')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_meses_ref_pi(id_sub_status_pi=None):
     """Retorna valores distintos de mes_ref_comp, filtrados por sub_status se informado"""
     conn = get_db()
@@ -7322,7 +7334,7 @@ def criar_cadu_pi(data):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_pi (
-                    id_cliente, titulo_pi, codigo_pi_cc, tipo_pi,
+                    id_cliente, titulo_pi, codigo_pi_cc, id_pi_tipo,
                     pi_tem_agencia, id_agencia, perc_cms_agencia,
                     "Id_parc_reg", perc_cms_parc_reg,
                     vr_bruto_pi, vr_liquido_pi, vr_cms_agencia, vr_cms_parc_com,
@@ -7354,7 +7366,7 @@ def criar_cadu_pi(data):
                 data.get('id_cliente'),
                 data.get('titulo_pi'),
                 data.get('codigo_pi_cc'),
-                data.get('tipo_pi'),
+                data.get('id_pi_tipo'),
                 data.get('tem_agencia', False),
                 data.get('id_agencia'),
                 data.get('perc_comissao_agencia'),
@@ -7401,7 +7413,7 @@ def atualizar_cadu_pi(id_pi, data):
                     id_cliente = %s,
                     titulo_pi = %s,
                     codigo_pi_cc = %s,
-                    tipo_pi = %s,
+                    id_pi_tipo = %s,
                     pi_tem_agencia = %s,
                     id_agencia = %s,
                     perc_cms_agencia = %s,
@@ -7436,7 +7448,7 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('id_cliente'),
                 data.get('titulo_pi'),
                 data.get('codigo_pi_cc'),
-                data.get('tipo_pi'),
+                data.get('id_pi_tipo'),
                 data.get('tem_agencia', False),
                 data.get('id_agencia'),
                 data.get('perc_comissao_agencia'),

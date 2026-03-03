@@ -464,20 +464,21 @@ function filtrarPorStatus(status) {
 
 (function restoreCrmFilters() {
   const params = new URLSearchParams(window.location.search);
-  const hasFilters = params.has('executivo_id') || params.has('mes') || params.has('status') || params.has('_restored');
-  if (hasFilters) return;
+  if (params.has('_restored')) return;
   const cExec = getCookie('cc_filtro_exec');
   const cMes = getCookie('cc_filtro_mes');
   const cStatus = getCookie('crm_status');
-  if (cExec === null && cMes === null && !cStatus) return;
-  const rp = new URLSearchParams();
-  rp.set('executivo_id', cExec || '');
-  if (cMes) {
+  let needsRedirect = false;
+  const rp = new URLSearchParams(params);
+  if (cExec !== null && !params.has('executivo_id')) { rp.set('executivo_id', cExec); needsRedirect = true; }
+  if (cMes !== null && !params.has('mes')) {
     let monthVal = cMes;
     if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
     rp.set('mes', monthVal.padStart(2, '0'));
+    needsRedirect = true;
   }
-  if (cStatus) rp.set('status', cStatus);
+  if (cStatus && !params.has('status')) { rp.set('status', cStatus); needsRedirect = true; }
+  if (!needsRedirect) return;
   rp.set('_restored', '1');
   window.location.href = '{{ url_for("crm_pipeline") }}?' + rp.toString();
 })();

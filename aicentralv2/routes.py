@@ -2201,10 +2201,6 @@ def init_routes(app):
                 filtros['executivo_id'] = executivo_id
 
             vendedores_auto = db.obter_vendedores_centralcomm()
-            user_id = session.get('user_id')
-            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
-            if user_is_executivo and 'executivo_id' not in request.args and 'executivo_id' not in filtros:
-                filtros['executivo_id'] = user_id
 
             # Filtro por status - Default: ativo
             status_filter = request.args.get('status', 'ativo')
@@ -3967,13 +3963,6 @@ def init_routes(app):
                 else:
                     filtros['responsavel_id'] = int(responsavel_id)
 
-            if 'responsavel_id' not in request.args and 'responsavel_id' not in filtros and not filtros.get('sem_responsavel'):
-                vendedores_auto = db.obter_vendedores_centralcomm()
-                user_id = session.get('user_id')
-                user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
-                if user_is_executivo:
-                    filtros['responsavel_id'] = user_id
-
             if mes:
                 filtros['mes'] = int(mes)
             if ano:
@@ -4453,10 +4442,6 @@ def init_routes(app):
             status = request.args.get('status')
 
             vendedores_auto = db.obter_vendedores_centralcomm()
-            user_id = session.get('user_id')
-            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
-            if user_is_executivo and 'responsavel_comercial' not in request.args and not responsavel_id:
-                responsavel_id = user_id
 
             cliente_info = None
             
@@ -4480,7 +4465,7 @@ def init_routes(app):
             
             app.logger.info(f"DEBUG: Cotações obtidas: {len(cotacoes) if cotacoes else 0} registros")
             
-            vendedores = db.obter_vendedores()
+            vendedores = db.obter_vendedores_centralcomm()
             return render_template('cadu_cotacoes.html', 
                                  cotacoes=cotacoes or [], 
                                  cliente_filtro=cliente_info, 
@@ -4489,7 +4474,7 @@ def init_routes(app):
         except Exception as e:
             app.logger.error(f"Erro ao listar cotações: {str(e)}", exc_info=True)
             flash('Erro ao carregar cotações.', 'error')
-            vendedores = db.obter_vendedores()
+            vendedores = db.obter_vendedores_centralcomm()
             return render_template('cadu_cotacoes.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores, now=datetime.now)
 
     # ==================== CRM PIPELINE ====================
@@ -4515,16 +4500,12 @@ def init_routes(app):
             filtros = {k: v for k, v in filtros.items() if v is not None and v != ''}
 
             vendedores_auto = db.obter_vendedores_centralcomm()
-            user_id = session.get('user_id')
-            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
-            if user_is_executivo and 'executivo_id' not in request.args and 'executivo_id' not in filtros:
-                filtros['executivo_id'] = user_id
 
             # Obter cotações agrupadas por status
             colunas = db.obter_cotacoes_pipeline(filtros)
             
             # Obter listas para filtros
-            vendedores = db.obter_vendedores()
+            vendedores = db.obter_vendedores_centralcomm()
             clientes = db.obter_clientes_para_filtro()
             
             # Calcular totais por coluna
@@ -4617,7 +4598,7 @@ def init_routes(app):
                 if not client_id or not nome_campanha or not periodo_inicio or not valor_total_str:
                     flash('Cliente, nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
-                    vendedores = db.obter_vendedores()
+                    vendedores = db.obter_vendedores_centralcomm()
                     return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
 
                 # Converter valor para float
@@ -4669,11 +4650,11 @@ def init_routes(app):
                 app.logger.error(f"Erro ao criar cotação: {str(e)}", exc_info=True)
                 flash(f'Erro ao criar cotação: {str(e)}', 'error')
                 clientes = db.obter_clientes_simples()
-                vendedores = db.obter_vendedores()
+                vendedores = db.obter_vendedores_centralcomm()
                 return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
 
         clientes = db.obter_clientes_simples()
-        vendedores = db.obter_vendedores()
+        vendedores = db.obter_vendedores_centralcomm()
         cliente_selecionado = None
         briefings = []
         
@@ -4705,7 +4686,7 @@ def init_routes(app):
                 if not nome_campanha or not periodo_inicio or not valor_total_str:
                     flash('Nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
-                    vendedores = db.obter_vendedores()
+                    vendedores = db.obter_vendedores_centralcomm()
                     return render_template('cadu_cotacoes_form.html', 
                                          cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
 
@@ -4755,7 +4736,7 @@ def init_routes(app):
                 return redirect(url_for('cotacoes_list'))
 
             clientes = db.obter_clientes_simples()
-            vendedores = db.obter_vendedores()
+            vendedores = db.obter_vendedores_centralcomm()
             briefings = []
             contatos_cliente = []
             contatos_agencia = []
@@ -4830,7 +4811,7 @@ def init_routes(app):
                 return redirect(url_for('cotacoes_list'))
 
             clientes = db.obter_clientes_simples()
-            vendedores = db.obter_vendedores()
+            vendedores = db.obter_vendedores_centralcomm()
             
             # Buscar dados do cliente atual (para percentual líquido)
             cliente = None
@@ -7554,15 +7535,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         executivos = db.obter_executivos_ativos()
         clientes = db.obter_clientes_para_filtro()
 
-        vendedores_auto = db.obter_vendedores_centralcomm()
-        user_id = session.get('user_id')
-        user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores_auto or []))
-        default_executivo_id = user_id if user_is_executivo else None
-
         return render_template('metricas_semanais.html',
             executivos=executivos,
             clientes=clientes,
-            default_executivo_id=default_executivo_id
+            default_executivo_id=None
         )
     
     @app.route('/api/metricas/semanais/kpis', methods=['GET'])
@@ -7888,20 +7864,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             vendedores = db.obter_vendedores_centralcomm()
             user_id = session.get('user_id')
             user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
-
-            if user_set_filters:
-                exec_arg = request.args.get('resp_comercial', '')
-                session['cadupi_exec'] = int(exec_arg) if exec_arg else None
-                session['cadupi_exec_init'] = True
-            elif 'resp_comercial' not in filtros:
-                if 'cadupi_exec_init' not in session and user_is_executivo:
-                    filtros['resp_comercial'] = user_id
-                    session['cadupi_exec'] = user_id
-                    session['cadupi_exec_init'] = True
-                else:
-                    saved_exec = session.get('cadupi_exec')
-                    if saved_exec:
-                        filtros['resp_comercial'] = saved_exec
 
             pis = db.obter_cadu_pi_lista(filtros)
             status_pi = db.obter_status_pi()
@@ -8977,10 +8939,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
 
             vendedores = db.obter_vendedores_centralcomm()
-            user_id = session.get('user_id')
-            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
-            if user_is_executivo and 'resp_comercial' not in request.args and 'resp_comercial' not in filtros:
-                filtros['resp_comercial'] = user_id
 
             campanhas = db.obter_campanhas_pi(filtros or None)
             auxiliares = _carregar_auxiliares_campanha()
@@ -9194,10 +9152,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
 
             vendedores = db.obter_vendedores_centralcomm()
-            user_id = session.get('user_id')
-            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
-            if user_is_executivo and 'resp_comercial' not in request.args and 'resp_comercial' not in filtros:
-                filtros['resp_comercial'] = user_id
 
             campanhas = db.obter_campanhas_pi(filtros or None)
             auxiliares = _carregar_auxiliares_campanha()

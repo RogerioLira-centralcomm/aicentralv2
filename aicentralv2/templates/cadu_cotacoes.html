@@ -300,22 +300,23 @@ function filtrarPorStatus(status) {
 
 (function restoreCotacoesFilters() {
   const params = new URLSearchParams(window.location.search);
-  const hasFilters = params.has('responsavel_comercial') || params.has('mes') || params.has('busca') || params.has('status') || params.has('_restored');
-  if (hasFilters) return;
+  if (params.has('_restored')) return;
   const cExec = getCookie('cc_filtro_exec');
   const cMes = getCookie('cc_filtro_mes');
   const cBusca = getCookie('cotacoes_busca');
   const cStatus = getCookie('cotacoes_status');
-  if (cExec === null && cMes === null && !cBusca && !cStatus) return;
-  const rp = new URLSearchParams();
-  rp.set('responsavel_comercial', cExec || '');
-  if (cMes) {
+  let needsRedirect = false;
+  const rp = new URLSearchParams(params);
+  if (cExec !== null && !params.has('responsavel_comercial')) { rp.set('responsavel_comercial', cExec); needsRedirect = true; }
+  if (cMes !== null && !params.has('mes')) {
     let monthVal = cMes;
     if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
     rp.set('mes', monthVal.padStart(2, '0'));
+    needsRedirect = true;
   }
-  if (cBusca) rp.set('busca', cBusca);
-  if (cStatus) rp.set('status', cStatus);
+  if (cBusca && !params.has('busca')) { rp.set('busca', cBusca); needsRedirect = true; }
+  if (cStatus && !params.has('status')) { rp.set('status', cStatus); needsRedirect = true; }
+  if (!needsRedirect) return;
   rp.set('_restored', '1');
   window.location.href = '/cotacoes?' + rp.toString();
 })();

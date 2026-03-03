@@ -353,26 +353,26 @@ function salvarFiltrosESubmeter() {
 
 (function restoreBriefingFilters() {
   const params = new URLSearchParams(window.location.search);
-  if (params.has('_f') || params.has('_restored')) return;
-
+  if (params.has('_restored')) return;
   const cStatus = getCookie('brief_status');
   const cResp = getCookie('cc_filtro_exec');
   const cMes = getCookie('cc_filtro_mes');
   const cCliente = getCookie('brief_cliente');
   const cBusca = getCookie('brief_busca');
-  if (!cStatus && cResp === null && cMes === null && !cCliente && !cBusca) return;
-
-  const rp = new URLSearchParams();
-  if (cStatus) rp.set('status', cStatus);
-  if (cCliente) rp.set('cliente_id', cCliente);
-  rp.set('responsavel_id', cResp || '');
-  if (cMes) {
+  let needsRedirect = false;
+  const rp = new URLSearchParams(params);
+  if (cResp !== null && !params.has('responsavel_id')) { rp.set('responsavel_id', cResp); needsRedirect = true; }
+  if (cMes !== null && !params.has('mes')) {
     let monthVal = cMes;
     if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
     rp.set('mes', String(parseInt(monthVal)));
     rp.set('ano', '2026');
+    needsRedirect = true;
   }
-  if (cBusca) rp.set('busca', cBusca);
+  if (cStatus && !params.has('status')) { rp.set('status', cStatus); needsRedirect = true; }
+  if (cCliente && !params.has('cliente_id')) { rp.set('cliente_id', cCliente); needsRedirect = true; }
+  if (cBusca && !params.has('busca')) { rp.set('busca', cBusca); needsRedirect = true; }
+  if (!needsRedirect) return;
   rp.set('_restored', '1');
   window.location.href = '{{ url_for("briefing_list") }}?' + rp.toString();
 })();

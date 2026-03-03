@@ -1016,15 +1016,14 @@
 
   (function restoreCampPiFilters() {
     const params = new URLSearchParams(window.location.search);
-    const hasFilters = params.has('id_status') || params.has('mes_ref_comp') || params.has('resp_comercial') || params.has('_restored');
-    if (hasFilters) return;
+    if (params.has('_restored')) return;
     const cStatus = getCookie('camppi_status');
     const cMes = getCookie('cc_filtro_mes');
     const cExec = getCookie('cc_filtro_exec');
-    if (!cStatus && cMes === null && cExec === null) return;
-    const rp = new URLSearchParams();
-    if (cStatus) rp.set('id_status', cStatus);
-    if (cMes) {
+    let needsRedirect = false;
+    const rp = new URLSearchParams(params);
+    if (cExec !== null && !params.has('resp_comercial')) { rp.set('resp_comercial', cExec); needsRedirect = true; }
+    if (cMes !== null && !params.has('mes_ref_comp')) {
       const sel = document.getElementById('filtroMesRef');
       let matched = false;
       for (const opt of sel.options) {
@@ -1033,11 +1032,13 @@
       if (!matched) {
         const mesNum = parseInt(cMes);
         for (const opt of sel.options) {
-          if (opt.value && parseInt(opt.value.split('/')[0]) === mesNum) { rp.set('mes_ref_comp', opt.value); break; }
+          if (opt.value && parseInt(opt.value.split('/')[0]) === mesNum) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
         }
       }
+      if (matched) needsRedirect = true;
     }
-    rp.set('resp_comercial', cExec || '');
+    if (cStatus && !params.has('id_status')) { rp.set('id_status', cStatus); needsRedirect = true; }
+    if (!needsRedirect) return;
     rp.set('_restored', '1');
     window.location.href = '{{ url_for("campanhas_pi") }}?' + rp.toString();
   })();

@@ -34,13 +34,15 @@
     function setCookie(name, value, days) {
       const d = new Date();
       d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-      let c = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+      let c = name + '=' + encodeURIComponent(value === '' ? '__all__' : value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
       if (location.protocol === 'https:') c += ';Secure';
       document.cookie = c;
     }
     function getCookie(name) {
       const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]*)');
-      return v ? decodeURIComponent(v[2]) : null;
+      if (!v) return null;
+      const val = decodeURIComponent(v[2]);
+      return val === '__all__' ? '' : val;
     }
     </script>
 

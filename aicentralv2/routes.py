@@ -25,6 +25,9 @@ def serializar_para_json(obj):
         return [serializar_para_json(item) for item in obj]
     if isinstance(obj, (datetime, date, timedelta)):
         return obj.isoformat()
+    from decimal import Decimal
+    if isinstance(obj, Decimal):
+        return float(obj)
     if hasattr(obj, '__dict__'):
         return serializar_para_json(obj.__dict__)
     return obj
@@ -7947,21 +7950,27 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 flash('PI criado com sucesso!', 'success')
                 if return_url and return_url.startswith('/cadu_pi'):
                     anchor = f'#pi-{id_pi}'
-                    sep = '&' if '?' in return_url else '?'
-                    return redirect(f'{return_url}{sep}_f=1{anchor}')
+                    return redirect(f'{return_url}{anchor}')
                 return redirect(url_for('cadu_pi_lista', id_sub_status_pi=data.get('id_sub_status_pi', 1)))
             except Exception as e:
                 app.logger.error(f"Erro ao criar PI: {e}", exc_info=True)
                 flash(f'Erro ao criar PI: {str(e)}', 'error')
 
-        return_url = ''
-        referrer = request.referrer or ''
-        if '/cadu_pi' in referrer and '/novo' not in referrer:
-            from urllib.parse import urlparse
-            parsed = urlparse(referrer)
-            return_url = parsed.path + ('?' + parsed.query if parsed.query else '')
+        return_url = _extrair_return_url(request.referrer or '', '/novo')
         auxiliares = _carregar_auxiliares_pi()
         return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
+
+    def _extrair_return_url(referrer, excluir_path_part):
+        """Extrai path relativo do referrer, removendo _f e _restored da query."""
+        if not referrer or '/cadu_pi' not in referrer or excluir_path_part in referrer:
+            return ''
+        from urllib.parse import urlparse, parse_qs, urlencode
+        parsed = urlparse(referrer)
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        params.pop('_f', None)
+        params.pop('_restored', None)
+        clean_qs = urlencode(params, doseq=True)
+        return parsed.path + ('?' + clean_qs if clean_qs else '')
 
     @app.route('/cadu_pi/editar/<int:id_pi>', methods=['GET', 'POST'])
     @login_required
@@ -7996,18 +8005,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 flash('PI atualizado com sucesso!', 'success')
                 if return_url and return_url.startswith('/cadu_pi'):
-                    anchor = f'#pi-{id_pi}'
-                    sep = '&' if '?' in return_url else '?'
-                    return redirect(f'{return_url}{sep}_f=1{anchor}')
+                    return redirect(f'{return_url}#pi-{id_pi}')
                 sub_status = data.get('id_sub_status_pi') or (pi.get('id_sub_status_pi') if pi else 1) or 1
                 return redirect(url_for('cadu_pi_lista', id_sub_status_pi=sub_status))
 
-            return_url = ''
-            referrer = request.referrer or ''
-            if '/cadu_pi' in referrer and '/editar' not in referrer:
-                from urllib.parse import urlparse
-                parsed = urlparse(referrer)
-                return_url = parsed.path + ('?' + parsed.query if parsed.query else '')
+            return_url = _extrair_return_url(request.referrer or '', '/editar')
             auxiliares = _carregar_auxiliares_pi()
             return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
         except Exception as e:

@@ -1,53 +1,11 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}Dashboard Campanhas - CentralComm AI{% endblock %}
+{% block title %}Acompanhamento de Campanhas - CentralComm AI{% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
 {% block styles %}
 <style>
-  .kpi-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-left: 4px solid var(--kpi-accent, #6366f1);
-    border-radius: 12px;
-    padding: 14px 18px;
-    position: relative;
-    overflow: hidden;
-    transition: box-shadow 0.25s ease;
-  }
-  .kpi-card:hover { box-shadow: 0 4px 16px -4px rgba(0,0,0,0.1); }
-  .kpi-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--kpi-icon-bg, #eef2ff); color: var(--kpi-accent, #6366f1); font-size: 14px; }
-  .kpi-value { font-size: 22px; font-weight: 800; color: #1e293b; font-variant-numeric: tabular-nums; }
-  .kpi-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-  .kpi-sub { font-size: 11px; color: #94a3b8; }
-
-  .chart-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 20px;
-    transition: box-shadow 0.2s ease;
-  }
-  .chart-card:hover { box-shadow: 0 8px 24px -6px rgba(0,0,0,0.08); }
-  .chart-title { font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; }
-  .chart-container { position: relative; height: 240px; }
-
-  .camp-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 16px 20px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-  }
-  .camp-card:hover { border-color: #6366f1; box-shadow: 0 4px 16px -4px rgba(99,102,241,0.15); }
-  .camp-card.active { border-color: #6366f1; border-width: 2px; box-shadow: 0 4px 16px -4px rgba(99,102,241,0.2); }
-
-  .progress-slim { height: 5px; border-radius: 99px; background: #f1f5f9; overflow: hidden; }
-  .progress-slim-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
-
   .sidebar-panel {
     position: fixed;
     top: 0;
@@ -83,6 +41,9 @@
   .tab-btn:hover { background: #f1f5f9; color: #334155; }
   .tab-btn.active { background: #6366f1; color: #fff; }
 
+  .progress-slim { height: 5px; border-radius: 99px; background: #f1f5f9; overflow: hidden; }
+  .progress-slim-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+
   .email-template-card {
     border: 1px solid #e2e8f0;
     border-radius: 10px;
@@ -93,14 +54,12 @@
   .email-template-card:hover { border-color: #6366f1; background: #f5f3ff; }
   .email-template-card.selected { border-color: #6366f1; background: #ede9fe; }
 
-  .bulk-input { width: 100px; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.8rem; text-align: right; }
-  #bulkSaveBar { position: fixed; bottom: 0; left: 0; right: 0; background: #1f2937; color: white; padding: 12px 24px; display: none; z-index: 50; }
-  #bulkSaveBar.active { display: flex; }
+  .lista-table tbody tr { cursor: pointer; transition: background 0.15s ease; }
+  .lista-table tbody tr:hover { background: #f8fafc; }
+  .lista-table tbody tr.active { background: #eef2ff; }
 
   @media (max-width: 768px) {
     .sidebar-panel { width: 100vw; right: -100vw; }
-    .kpi-card { padding: 12px 14px; }
-    .kpi-value { font-size: 20px; }
   }
 </style>
 {% endblock %}
@@ -148,11 +107,8 @@
                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 200px;">
       </div>
     </div>
-    <div class="flex items-center gap-2">
-      <button onclick="toggleBulkEdit()" id="btnBulkEdit"
-              class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors">
-        <i class="fas fa-pen-to-square mr-1"></i> Edição em Massa
-      </button>
+    <div class="text-sm text-gray-500">
+      <span id="totalCampanhas">{{ campanhas|length if campanhas else 0 }}</span> campanha{{ 's' if (campanhas|length if campanhas else 0) != 1 }}
     </div>
   </div>
 
@@ -172,125 +128,76 @@
     {% endif %}
   {% endwith %}
 
-  {# ====== KPI CARDS ====== #}
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-    <div class="kpi-card" style="--kpi-accent: #6366f1; --kpi-icon-bg: #eef2ff;">
-      <div class="flex items-center justify-between mb-2">
-        <div class="kpi-icon"><i class="fas fa-clock"></i></div>
-        <span class="kpi-sub">{{ kpis.total_campanhas }} camp.</span>
-      </div>
-      <div class="kpi-value">{{ kpis.tempo_medio_dias }}d</div>
-      <div class="kpi-label mt-1">Tempo Médio</div>
-      <div class="kpi-sub mt-0.5">{{ kpis.campanhas_ativas }} ativa{{ 's' if kpis.campanhas_ativas != 1 }}</div>
-    </div>
-
-    <div class="kpi-card" style="--kpi-accent: #10b981; --kpi-icon-bg: #ecfdf5;">
-      <div class="flex items-center justify-between mb-2">
-        <div class="kpi-icon"><i class="fas fa-bullseye"></i></div>
-        <span class="kpi-sub {% if kpis.pct_objetivo_medio >= 100 %}text-emerald-600{% elif kpis.pct_objetivo_medio >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">
-          {% if kpis.pct_objetivo_medio >= 100 %}Superou{% elif kpis.pct_objetivo_medio >= 70 %}Progresso{% else %}Abaixo{% endif %}
-        </span>
-      </div>
-      <div class="kpi-value">{{ kpis.pct_objetivo_medio }}%</div>
-      <div class="kpi-label mt-1">Objetivo Atingido</div>
-      <div class="w-full mt-1.5 h-1 bg-gray-100 rounded-full overflow-hidden">
-        <div class="h-full bg-emerald-500 rounded-full" style="width: {{ [kpis.pct_objetivo_medio, 100]|min }}%"></div>
-      </div>
-    </div>
-
-    <div class="kpi-card" style="--kpi-accent: #f59e0b; --kpi-icon-bg: #fffbeb;">
-      <div class="flex items-center justify-between mb-2">
-        <div class="kpi-icon"><i class="fas fa-coins"></i></div>
-        <span class="kpi-sub">{{ kpis.pct_investimento }}% utilizado</span>
-      </div>
-      <div class="kpi-value">R$ {{ '{:,.0f}'.format(kpis.gasto_total).replace(',', '.') }}</div>
-      <div class="kpi-label mt-1">Custo / Gasto</div>
-      <div class="kpi-sub mt-0.5">Prev: R$ {{ '{:,.0f}'.format(kpis.previsto_total).replace(',', '.') }}</div>
-    </div>
-
-    <div class="kpi-card" style="--kpi-accent: #8b5cf6; --kpi-icon-bg: #f5f3ff;">
-      <div class="flex items-center justify-between mb-2">
-        <div class="kpi-icon"><i class="fas fa-chart-pie"></i></div>
-        <span class="kpi-sub {% if kpis.pct_midia <= 100 %}text-emerald-600{% else %}text-red-500{% endif %}">
-          Corte: {{ kpis.midia_corte_pct }}%
-        </span>
-      </div>
-      <div class="kpi-value">{{ kpis.pct_midia }}%</div>
-      <div class="kpi-label mt-1">Mídia vs Líquido</div>
-      <div class="kpi-sub mt-0.5">Máx: R$ {{ '{:,.0f}'.format(kpis.midia_max).replace(',', '.') }}</div>
-      <div class="w-full mt-1.5 h-1 bg-gray-100 rounded-full overflow-hidden">
-        <div class="h-full rounded-full {% if kpis.pct_midia <= 100 %}bg-emerald-500{% else %}bg-red-500{% endif %}" style="width: {{ [kpis.pct_midia, 100]|min }}%"></div>
-      </div>
-    </div>
-  </div>
-
-  {# ====== 4 GRÁFICOS (2x2) ====== #}
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-    <div class="chart-card">
-      <div class="flex items-center justify-between mb-3">
-        <span class="chart-title"><i class="fas fa-chart-area text-indigo-500 mr-1.5"></i> Evolução Objetivo vs Atingido</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="chartObjetivoMes"></canvas>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="flex items-center justify-between mb-3">
-        <span class="chart-title"><i class="fas fa-chart-pie text-amber-500 mr-1.5"></i> Gasto por Plataforma</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="chartPlataformas"></canvas>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="flex items-center justify-between mb-3">
-        <span class="chart-title"><i class="fas fa-ranking-star text-emerald-500 mr-1.5"></i> Performance Top 10</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="chartPerformance"></canvas>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="flex items-center justify-between mb-3">
-        <span class="chart-title"><i class="fas fa-user-tie text-violet-500 mr-1.5"></i> Gasto por Executivo</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="chartExecutivos"></canvas>
-      </div>
-    </div>
-  </div>
-
-  {# ====== TOP 20 CLIENTES DO PERÍODO ====== #}
-  {% if top_clientes and top_clientes|length > 0 %}
-  <div class="bg-white border border-gray-200 rounded-xl p-5 mb-5">
-    <h2 class="text-sm font-bold text-gray-800 uppercase tracking-wider mb-3">
-      <i class="fas fa-trophy text-amber-500 mr-1.5"></i> Top {{ top_clientes|length }} Clientes do Período
-    </h2>
+  {# ====== TABELA COMPACTA ====== #}
+  {% if campanhas and campanhas|length > 0 %}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm lista-table">
         <thead>
-          <tr class="border-b border-gray-200">
-            <th class="text-left py-2 px-2 text-[10px] font-semibold text-gray-500 uppercase">#</th>
-            <th class="text-left py-2 px-2 text-[10px] font-semibold text-gray-500 uppercase">Cliente</th>
-            <th class="text-center py-2 px-2 text-[10px] font-semibold text-gray-500 uppercase">Campanhas</th>
-            <th class="text-right py-2 px-2 text-[10px] font-semibold text-gray-500 uppercase">Investimento Total</th>
-            <th class="text-right py-2 px-2 text-[10px] font-semibold text-gray-500 uppercase">Ticket Médio</th>
-            <th class="text-right py-2 px-2 text-[10px] font-semibold text-gray-500 uppercase">% Obj. Médio</th>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cod. PI</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Campanha</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Executivo</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Plataforma</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Período</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">% Obj.</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Gasto</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Previsto</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Links</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
-          {% for cli in top_clientes %}
-          <tr class="hover:bg-gray-50 transition-colors">
-            <td class="py-2 px-2 text-xs text-gray-400 font-semibold">{{ cli.pos }}</td>
-            <td class="py-2 px-2 text-xs font-medium text-gray-800 max-w-[200px] truncate">{{ cli.nome }}</td>
-            <td class="py-2 px-2 text-xs text-gray-600 text-center">{{ cli.num_campanhas }}</td>
-            <td class="py-2 px-2 text-xs font-semibold text-gray-800 text-right">R$ {{ '{:,.2f}'.format(cli.investimento_total).replace(',', 'X').replace('.', ',').replace('X', '.') }}</td>
-            <td class="py-2 px-2 text-xs text-gray-600 text-right">R$ {{ '{:,.2f}'.format(cli.ticket_medio).replace(',', 'X').replace('.', ',').replace('X', '.') }}</td>
-            <td class="py-2 px-2 text-xs text-right">
-              <span class="{% if cli.pct_objetivo_medio >= 100 %}text-emerald-600{% elif cli.pct_objetivo_medio >= 70 %}text-amber-600{% else %}text-red-500{% endif %} font-semibold">{{ cli.pct_objetivo_medio }}%</span>
+        <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
+          {% for c in campanhas %}
+            {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
+            {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
+            {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
+            {% set prev_raw = c.valor_plataforma or '0' %}
+            {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
+            {% set prev_val = prev_clean|float if prev_clean else 0 %}
+            {% set gasto_raw = c.totalizador_gasto or '0' %}
+            {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
+            {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
+            {% set st_lower = (c.status_nome or '')|lower %}
+
+          <tr data-campanha-id="{{ c.id_campanha }}" onclick="abrirSidebar({{ c | tojson }})">
+            <td class="py-2 px-3 text-xs font-bold text-indigo-600 whitespace-nowrap">{{ c.codigo_pi or '—' }}</td>
+            <td class="py-2 px-3 text-xs font-medium text-gray-800 max-w-[200px] truncate">{{ c.nome_campanha or '—' }}</td>
+            <td class="py-2 px-3 text-xs text-gray-600 max-w-[150px] truncate">{{ c.cliente_nome or '—' }}</td>
+            <td class="py-2 px-3 text-xs text-gray-600 max-w-[120px] truncate">{{ c.executivo_nome or '—' }}</td>
+            <td class="py-2 px-3 text-xs text-gray-600 whitespace-nowrap">{{ c.plataforma_nome or '—' }}</td>
+            <td class="py-2 px-3 text-xs text-gray-500 whitespace-nowrap">
+              {% if c.periodo_inicio and c.periodo_fim %}
+                {{ c.periodo_inicio.strftime('%d/%m') }} – {{ c.periodo_fim.strftime('%d/%m/%y') }}
+              {% elif c.periodo_inicio %}
+                {{ c.periodo_inicio.strftime('%d/%m') }} –
+              {% else %}—{% endif %}
+            </td>
+            <td class="py-2 px-3 text-xs text-right font-semibold whitespace-nowrap {% if pct_obj >= 100 %}text-emerald-600{% elif pct_obj >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">
+              {{ pct_obj }}%
+            </td>
+            <td class="py-2 px-3 text-xs text-right text-gray-700 whitespace-nowrap font-medium">
+              R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }}
+            </td>
+            <td class="py-2 px-3 text-xs text-right text-gray-500 whitespace-nowrap">
+              R$ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}
+            </td>
+            <td class="py-2 px-3 text-center whitespace-nowrap">
+              {% if c.googled_pi_princ %}
+                <a href="{{ c.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()"
+                   class="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Google Drive">
+                  <i class="fab fa-google-drive text-xs"></i>
+                </a>
+              {% endif %}
+              {% if c.link_dash %}
+                <a href="{{ c.link_dash }}" target="_blank" onclick="event.stopPropagation()"
+                   class="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Dashboard">
+                  <i class="fas fa-chart-line text-xs"></i>
+                </a>
+              {% endif %}
+              {% if not c.googled_pi_princ and not c.link_dash %}
+                <span class="text-gray-300">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -298,108 +205,11 @@
       </table>
     </div>
   </div>
-  {% endif %}
-
-  {# ====== LISTA DE CAMPANHAS (CARDS) ====== #}
-  <div class="mb-2 flex items-center justify-between">
-    <h2 class="text-lg font-bold text-gray-800">
-      <i class="fas fa-bullhorn text-indigo-500 mr-1.5"></i>
-      Campanhas
-      <span class="text-sm font-normal text-gray-500 ml-2">{{ campanhas|length if campanhas else 0 }} resultado{{ 's' if (campanhas|length if campanhas else 0) != 1 }}</span>
-    </h2>
-  </div>
-
-  {% if campanhas and campanhas|length > 0 %}
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="campanhasGrid">
-      {% for c in campanhas %}
-        {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
-        {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
-        {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
-        {% set prev_raw = c.valor_plataforma or '0' %}
-        {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-        {% set prev_val = prev_clean|float if prev_clean else 0 %}
-        {% set gasto_raw = c.totalizador_gasto or '0' %}
-        {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-        {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
-        {% set pct_inv = ((gasto_val / prev_val) * 100)|round(1) if prev_val > 0 else 0 %}
-
-        <div class="camp-card" data-campanha-id="{{ c.id_campanha }}" onclick="abrirSidebar({{ c | tojson }})">
-          <div class="flex items-start justify-between mb-2">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                {% if c.codigo_pi %}
-                  <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{{ c.codigo_pi }}</span>
-                {% endif %}
-                {% set st_lower = (c.status_nome or '')|lower %}
-                <span class="badge-status {% if st_lower in ['ativo', 'ativa', 'em andamento'] %}badge-ativo{% elif st_lower in ['finalizado', 'concluído', 'concluida'] %}badge-finalizado{% elif st_lower in ['pausado', 'pausada'] %}badge-pausado{% else %}badge-default{% endif %}">
-                  {{ c.status_nome or 'N/A' }}
-                </span>
-              </div>
-              <h3 class="font-semibold text-gray-800 text-sm truncate">{{ c.nome_campanha or '—' }}</h3>
-              <p class="text-xs text-gray-400 truncate mt-0.5">{{ c.cliente_nome or '' }} · {{ c.executivo_nome or '' }}</p>
-            </div>
-            <div class="flex items-center gap-1 ml-2 flex-shrink-0">
-              {% if c.googled_pi_princ %}
-                <a href="{{ c.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()"
-                   class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Google Drive">
-                  <i class="fab fa-google-drive text-xs"></i>
-                </a>
-              {% endif %}
-              {% if c.link_dash %}
-                <a href="{{ c.link_dash }}" target="_blank" onclick="event.stopPropagation()"
-                   class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Dashboard">
-                  <i class="fas fa-chart-line text-xs"></i>
-                </a>
-              {% endif %}
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 text-xs text-gray-500 mb-3">
-            <i class="far fa-calendar text-gray-400"></i>
-            {% if c.periodo_inicio and c.periodo_fim %}
-              {% set dias = (c.periodo_fim - c.periodo_inicio).days %}
-              {{ c.periodo_inicio.strftime('%d/%m') }} – {{ c.periodo_fim.strftime('%d/%m/%Y') }}
-              <span class="text-gray-400">({{ dias }}d)</span>
-            {% elif c.periodo_inicio %}
-              {{ c.periodo_inicio.strftime('%d/%m') }} –
-            {% else %}—{% endif %}
-            {% if c.plataforma_nome %}
-              <span class="text-gray-300">|</span>
-              <i class="fas fa-desktop text-gray-400"></i>
-              {{ c.plataforma_nome }}
-            {% endif %}
-          </div>
-
-          <div class="space-y-2">
-            <div>
-              <div class="flex items-center justify-between text-xs mb-0.5">
-                <span class="text-gray-500 font-medium">Objetivo</span>
-                <span class="font-bold {% if pct_obj >= 100 %}text-emerald-600{% elif pct_obj >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">{{ pct_obj }}%</span>
-              </div>
-              <div class="progress-slim">
-                <div class="progress-slim-fill {% if pct_obj >= 100 %}bg-emerald-500{% elif pct_obj >= 70 %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width: {{ [pct_obj, 100]|min }}%"></div>
-              </div>
-            </div>
-            <div>
-              <div class="flex items-center justify-between text-xs mb-0.5">
-                <span class="text-gray-500 font-medium">Investimento</span>
-                <span class="font-bold {% if pct_inv <= 80 %}text-emerald-600{% elif pct_inv <= 100 %}text-amber-600{% else %}text-red-500{% endif %}">
-                  R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }} <span class="font-normal text-gray-400">/ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}</span>
-                </span>
-              </div>
-              <div class="progress-slim">
-                <div class="progress-slim-fill {% if pct_inv <= 80 %}bg-emerald-500{% elif pct_inv <= 100 %}bg-amber-500{% else %}bg-red-500{% endif %}" style="width: {{ [pct_inv, 100]|min }}%"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
   {% else %}
     <div class="text-center py-16 bg-white rounded-xl border border-gray-200">
       <i class="fas fa-bullhorn text-6xl text-gray-200 mb-4"></i>
       <p class="text-gray-400 text-lg mb-2">Nenhuma campanha encontrada.</p>
-      <p class="text-gray-400 text-sm">Ajuste os filtros ou crie uma nova campanha.</p>
+      <p class="text-gray-400 text-sm">Ajuste os filtros para ver campanhas.</p>
     </div>
   {% endif %}
 </div>
@@ -632,22 +442,11 @@
   </div>
 </div>
 
-{# ====== BARRA DE EDIÇÃO EM MASSA ====== #}
-<div id="bulkSaveBar" class="items-center justify-between">
-  <span><i class="fas fa-pen-to-square mr-2"></i> Modo edição em massa ativo</span>
-  <div class="flex gap-2">
-    <button onclick="toggleBulkEdit()" class="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors">Cancelar</button>
-    <button onclick="salvarMassa()" class="px-4 py-2 text-sm bg-green-600 hover:bg-green-500 rounded text-white font-semibold transition-colors">
-      <i class="fas fa-save mr-1"></i> Salvar Todos
-    </button>
-  </div>
-</div>
-
-{# ====== MODAL DE CRIAÇÃO/EDIÇÃO ====== #}
+{# ====== MODAL DE EDIÇÃO ====== #}
 <dialog id="modal_campanha" class="modal">
   <div class="modal-box w-11/12 max-w-4xl bg-white p-0 rounded-lg">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Nova Campanha</h3>
+      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Editar Campanha</h3>
       <button onclick="modal_campanha.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
         <i class="fa-solid fa-xmark text-gray-500"></i>
       </button>
@@ -876,7 +675,6 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-  const MES_ATUAL = '{{ mes_atual }}';
   let currentSidebarCamp = null;
   let sidebarChartInstance = null;
   let selectedEmailTemplate = 'relatorio';
@@ -937,66 +735,6 @@
   document.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
   document.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
 
-  // ==================== CHARTS ====================
-  (function initCharts() {
-    const CHART_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#64748b'];
-
-    const dataObjetivoMes = {{ chart_objetivo_mes | safe }};
-    const ctxObj = document.getElementById('chartObjetivoMes');
-    if (ctxObj) {
-      new Chart(ctxObj, {
-        type: 'line',
-        data: {
-          labels: dataObjetivoMes.labels,
-          datasets: [
-            { label: 'Objetivo', data: dataObjetivoMes.obj, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 },
-            { label: 'Atingido', data: dataObjetivoMes.ating, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5 }
-          ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14, padding: 12 } } }, scales: { x: { ticks: { font: { size: 10 } }, grid: { display: false } }, y: { ticks: { font: { size: 10 } }, grid: { color: '#f1f5f9' }, beginAtZero: true } } }
-      });
-    }
-
-    const dataPlataformas = {{ chart_plataformas | safe }};
-    const ctxPlat = document.getElementById('chartPlataformas');
-    if (ctxPlat && dataPlataformas.labels.length > 0) {
-      new Chart(ctxPlat, {
-        type: 'doughnut',
-        data: {
-          labels: dataPlataformas.labels,
-          datasets: [{ data: dataPlataformas.values, backgroundColor: CHART_COLORS.slice(0, dataPlataformas.labels.length), borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } }, tooltip: { callbacks: { label: function(ctx) { return ctx.label + ': R$ ' + ctx.parsed.toLocaleString('pt-BR', {minimumFractionDigits: 2}); } } } } }
-      });
-    }
-
-    const dataPerf = {{ chart_performance | safe }};
-    const ctxPerf = document.getElementById('chartPerformance');
-    if (ctxPerf && dataPerf.labels.length > 0) {
-      new Chart(ctxPerf, {
-        type: 'bar',
-        data: {
-          labels: dataPerf.labels,
-          datasets: [{ label: '% Objetivo', data: dataPerf.values, backgroundColor: dataPerf.values.map(v => v >= 100 ? '#10b981' : v >= 70 ? '#f59e0b' : '#ef4444'), borderRadius: 6, barPercentage: 0.7 }]
-        },
-        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x + '%' } } }, scales: { x: { ticks: { font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#f1f5f9' }, beginAtZero: true }, y: { ticks: { font: { size: 10 } }, grid: { display: false } } } }
-      });
-    }
-
-    const dataExec = {{ chart_executivos | safe }};
-    const ctxExec = document.getElementById('chartExecutivos');
-    if (ctxExec && dataExec.labels.length > 0) {
-      new Chart(ctxExec, {
-        type: 'bar',
-        data: {
-          labels: dataExec.labels,
-          datasets: [{ label: 'Gasto (R$)', data: dataExec.values, backgroundColor: CHART_COLORS.slice(0, dataExec.labels.length), borderRadius: 6, barPercentage: 0.7 }]
-        },
-        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => 'R$ ' + ctx.parsed.x.toLocaleString('pt-BR', {minimumFractionDigits: 2}) } } }, scales: { x: { ticks: { font: { size: 10 }, callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#f1f5f9' }, beginAtZero: true }, y: { ticks: { font: { size: 10 } }, grid: { display: false } } } }
-      });
-    }
-  })();
-
   // ==================== FILTROS ====================
   function aplicarFiltros() {
     const params = new URLSearchParams();
@@ -1011,7 +749,7 @@
     if (status) params.set('id_status', status);
     if (mes) params.set('mes_ref_comp', mes);
     params.set('resp_comercial', exec);
-    window.location.href = '{{ url_for("campanhas_pi") }}' + (params.toString() ? '?' + params.toString() : '');
+    window.location.href = '{{ url_for("campanhas_pi_lista") }}' + (params.toString() ? '?' + params.toString() : '');
   }
 
   (function restoreCampPiFilters() {
@@ -1039,25 +777,29 @@
     }
     rp.set('resp_comercial', cExec || '');
     rp.set('_restored', '1');
-    window.location.href = '{{ url_for("campanhas_pi") }}?' + rp.toString();
+    window.location.href = '{{ url_for("campanhas_pi_lista") }}?' + rp.toString();
   })();
 
   document.getElementById('searchInput').addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
-    const cards = document.querySelectorAll('#campanhasGrid .camp-card');
-    cards.forEach(card => {
-      const text = card.textContent.toLowerCase();
-      card.style.display = text.includes(searchTerm) ? '' : 'none';
+    const rows = document.querySelectorAll('#campanhasTableBody tr');
+    let visibleCount = 0;
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      const match = text.includes(searchTerm);
+      row.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
     });
+    document.getElementById('totalCampanhas').textContent = visibleCount;
   });
 
   // ==================== SIDEBAR ====================
   function abrirSidebar(camp) {
     currentSidebarCamp = camp;
 
-    document.querySelectorAll('.camp-card.active').forEach(c => c.classList.remove('active'));
-    const card = document.querySelector(`.camp-card[data-campanha-id="${camp.id_campanha}"]`);
-    if (card) card.classList.add('active');
+    document.querySelectorAll('#campanhasTableBody tr.active').forEach(c => c.classList.remove('active'));
+    const row = document.querySelector(`tr[data-campanha-id="${camp.id_campanha}"]`);
+    if (row) row.classList.add('active');
 
     document.getElementById('sidebarTitle').textContent = camp.nome_campanha || 'Campanha';
     document.getElementById('sidebarCliente').textContent = camp.cliente_nome || '—';
@@ -1111,7 +853,7 @@
   function fecharSidebar() {
     document.getElementById('sidebarPanel').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('open');
-    document.querySelectorAll('.camp-card.active').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('#campanhasTableBody tr.active').forEach(c => c.classList.remove('active'));
     currentSidebarCamp = null;
   }
 
@@ -1324,17 +1066,9 @@
   }
 
   function resetForm() {
-    document.getElementById('modal_title').textContent = 'Nova Campanha';
+    document.getElementById('modal_title').textContent = 'Editar Campanha';
     document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_nova') }}";
     document.getElementById('campanhaForm').reset();
-  }
-
-  function abrirModalNovo() {
-    resetForm();
-    {% if filtros.get('id_pi') %}
-    document.getElementById('id_pi').value = '{{ filtros.id_pi }}';
-    {% endif %}
-    modal_campanha.showModal();
   }
 
   function abrirModalEditar(c) {
@@ -1368,7 +1102,7 @@
 
   function verCampanhasDoPi() {
     if (!currentSidebarCamp || !currentSidebarCamp.id_pi) return;
-    window.location.href = '{{ url_for("campanhas_pi") }}?id_pi=' + currentSidebarCamp.id_pi;
+    window.location.href = '{{ url_for("campanhas_pi_lista") }}?id_pi=' + currentSidebarCamp.id_pi;
   }
 
   function excluirCampanhaSidebar() {
@@ -1565,29 +1299,6 @@
       .catch(() => {
         if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
       });
-  }
-
-  // ==================== BULK EDIT ====================
-  let bulkMode = false;
-
-  function toggleBulkEdit() {
-    bulkMode = !bulkMode;
-    const btn = document.getElementById('btnBulkEdit');
-    const bar = document.getElementById('bulkSaveBar');
-
-    if (bulkMode) {
-      btn.classList.add('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
-      bar.classList.add('active');
-      if (typeof showToast === 'function') showToast('Edição em massa disponível apenas via tabela. Use filtros e ações.', 'info');
-    } else {
-      btn.classList.remove('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
-      bar.classList.remove('active');
-    }
-  }
-
-  function salvarMassa() {
-    if (typeof showToast === 'function') showToast('Use a edição individual pelo sidebar para atualizar campanhas.', 'info');
-    toggleBulkEdit();
   }
 
   // ==================== KEYBOARD ====================

@@ -3344,11 +3344,11 @@ def init_routes(app):
     def cadu_audiencias():
         """Lista todas as audiências do catálogo"""
         try:
-            audiencias = db.obter_cadu_audiencias()
+            plataforma_id = request.args.get('plataforma_id', type=int)
+            audiencias = db.obter_cadu_audiencias(plataforma_id=plataforma_id)
             categorias = db.obter_cadu_categorias()
             plataformas = db.obter_cadu_plataformas()
             
-            # Calcular estatísticas
             total = len(audiencias)
             ativos = sum(1 for a in audiencias if a.get('is_active'))
             inativos = total - ativos
@@ -3363,7 +3363,8 @@ def init_routes(app):
                                  audiencias=audiencias,
                                  categorias=categorias,
                                  plataformas=plataformas,
-                                 stats=stats)
+                                 stats=stats,
+                                 plataforma_id_selecionada=plataforma_id)
         except Exception as e:
             app.logger.error(f"Erro ao listar audiências: {str(e)}")
             flash('Erro ao carregar audiências.', 'error')
@@ -8960,8 +8961,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             from collections import defaultdict
             import json as json_mod
 
-            todos_meses = request.args.get('todos_meses') == '1'
-
             filtros = {
                 'id_cliente': request.args.get('id_cliente', type=int),
                 'id_status': request.args.get('id_status', type=int),
@@ -8973,7 +8972,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
             filtros = {k: v for k, v in filtros.items() if v is not None}
 
-            if not todos_meses and 'mes_ref_comp' not in filtros:
+            if 'mes_ref_comp' not in filtros:
                 now = dt_cls.now()
                 filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
 
@@ -9008,6 +9007,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             count_liquido = 0
 
             gasto_por_plataforma = defaultdict(float)
+            gasto_por_executivo = defaultdict(float)
+            clientes_agg = defaultdict(lambda: {'investimento_total': 0.0, 'num_campanhas': 0, 'objetivo_total': 0.0, 'atingido_total': 0.0})
             objetivo_por_mes = defaultdict(lambda: {'obj': 0, 'ating': 0, 'count': 0})
             perf_campanhas = []
 
@@ -9055,6 +9056,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 plat_nome = camp.get('plataforma_nome') or 'Sem plataforma'
                 gasto_por_plataforma[plat_nome] += gasto_val
+
+                exec_nome = camp.get('executivo_nome') or 'Sem exec.'
+                gasto_por_executivo[exec_nome] += gasto_val
+
+                cli_nome = camp.get('cliente_nome') or 'Sem cliente'
+                clientes_agg[cli_nome]['investimento_total'] += gasto_val
+                clientes_agg[cli_nome]['num_campanhas'] += 1
+                clientes_agg[cli_nome]['objetivo_total'] += float(obj) if obj else 0
+                clientes_agg[cli_nome]['atingido_total'] += float(ating) if ating else 0
 
                 mes_key = camp.get('mes_ref_comp') or 'N/A'
                 try:
@@ -9113,6 +9123,26 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'clientes': [c['cliente'] for c in perf_top10],
             }
 
+            exec_sorted = sorted(gasto_por_executivo.items(), key=lambda x: x[1], reverse=True)
+            chart_executivos = {
+                'labels': [e[0] for e in exec_sorted],
+                'values': [round(e[1], 2) for e in exec_sorted],
+            }
+
+            top_clientes_sorted = sorted(clientes_agg.items(), key=lambda x: x[1]['investimento_total'], reverse=True)[:20]
+            top_clientes = []
+            for pos, (cli_name, data) in enumerate(top_clientes_sorted, 1):
+                pct_obj_medio = round((data['atingido_total'] / data['objetivo_total']) * 100, 1) if data['objetivo_total'] > 0 else 0
+                ticket_medio = round(data['investimento_total'] / data['num_campanhas'], 2) if data['num_campanhas'] > 0 else 0
+                top_clientes.append({
+                    'pos': pos,
+                    'nome': cli_name,
+                    'num_campanhas': data['num_campanhas'],
+                    'investimento_total': round(data['investimento_total'], 2),
+                    'ticket_medio': ticket_medio,
+                    'pct_objetivo_medio': pct_obj_medio,
+                })
+
             now = dt_cls.now()
             mes_atual = f"{now.month}/{now.year}"
 
@@ -9120,10 +9150,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 campanhas=campanhas, **auxiliares,
                 filtros=filtros, meses_ref=meses_ref,
                 kpis=kpis, vendedores=vendedores,
-                mes_atual=mes_atual, todos_meses=todos_meses,
+                mes_atual=mes_atual,
                 chart_plataformas=json_mod.dumps(chart_plataformas),
                 chart_objetivo_mes=json_mod.dumps(chart_objetivo_mes),
-                chart_performance=json_mod.dumps(chart_performance))
+                chart_performance=json_mod.dumps(chart_performance),
+                chart_executivos=json_mod.dumps(chart_executivos),
+                top_clientes=top_clientes)
         except Exception as e:
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
             flash('Erro ao carregar campanhas PI.', 'error')
@@ -9139,6 +9171,46 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             flat = {k: v[0] for k, v in params.items() if v}
             return redirect(url_for('campanhas_pi', **flat))
         return redirect(url_for('campanhas_pi'))
+
+    @app.route('/campanhas-pi/lista')
+    @login_required
+    def campanhas_pi_lista():
+        """Lista de campanhas PI em formato de tabela compacta"""
+        try:
+            filtros = {
+                'id_cliente': request.args.get('id_cliente', type=int),
+                'id_status': request.args.get('id_status', type=int),
+                'id_plataforma': request.args.get('id_plataforma', type=int),
+                'id_pi': request.args.get('id_pi', type=int),
+                'mes_ref_comp': request.args.get('mes_ref_comp', '').strip() or None,
+            }
+            if request.args.get('resp_comercial'):
+                filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
+            filtros = {k: v for k, v in filtros.items() if v is not None}
+
+            from datetime import datetime as dt_cls
+            if 'mes_ref_comp' not in filtros:
+                now = dt_cls.now()
+                filtros['mes_ref_comp'] = f"{now.month}/{now.strftime('%y')}"
+
+            vendedores = db.obter_vendedores_centralcomm()
+            user_id = session.get('user_id')
+            user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
+            if user_is_executivo and 'resp_comercial' not in request.args and 'resp_comercial' not in filtros:
+                filtros['resp_comercial'] = user_id
+
+            campanhas = db.obter_campanhas_pi(filtros or None)
+            auxiliares = _carregar_auxiliares_campanha()
+            meses_ref = db.obter_meses_ref_campanha_pi()
+
+            return render_template('campanhas_pi_lista.html',
+                campanhas=campanhas, **auxiliares,
+                filtros=filtros, meses_ref=meses_ref,
+                vendedores=vendedores)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar campanhas PI (lista): {str(e)}")
+            flash('Erro ao carregar lista de campanhas PI.', 'error')
+            return redirect(url_for('index'))
 
     @app.route('/campanhas-pi/novo', methods=['POST'])
     @login_required

@@ -305,7 +305,10 @@ function aplicarFiltros() {
   const mes = document.getElementById('filtro_mes_ref').value;
   const busca = document.getElementById('filtro_busca').value.trim();
 
-  if (exec) params.set('resp_comercial', exec);
+  setCookie('cc_filtro_exec', exec, 30);
+  setCookie('cc_filtro_mes', mes, 30);
+
+  params.set('resp_comercial', exec);
   if (cli) params.set('id_cliente', cli);
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
   if (mes) params.set('mes_ref_comp', mes);
@@ -323,6 +326,33 @@ function filtrarSubStatus(key) {
   }
   aplicarFiltros();
 }
+
+(function restoreCaduPiFilters() {
+  const params = new URLSearchParams(window.location.search);
+  const hasFilters = params.has('resp_comercial') || params.has('mes_ref_comp') || params.has('id_cliente') || params.has('busca') || params.has('id_sub_status_pi') || params.has('_f') || params.has('_restored');
+  if (hasFilters) return;
+  var cExec = getCookie('cc_filtro_exec');
+  var cMes = getCookie('cc_filtro_mes');
+  if (!cExec && !cMes) return;
+  var rp = new URLSearchParams();
+  rp.set('resp_comercial', cExec || '');
+  if (cMes) {
+    var selMes = document.getElementById('filtro_mes_ref');
+    var matched = false;
+    for (var i = 0; i < selMes.options.length; i++) {
+      if (selMes.options[i].value === cMes) { matched = true; break; }
+    }
+    if (!matched) {
+      var m = parseInt(cMes, 10);
+      for (var i = 0; i < selMes.options.length; i++) {
+        if (parseInt(selMes.options[i].value, 10) === m) { matched = true; cMes = selMes.options[i].value; break; }
+      }
+    }
+    if (matched) rp.set('mes_ref_comp', cMes);
+  }
+  rp.set('_restored', '1');
+  window.location.href = '/cadu_pi?' + rp.toString();
+})();
 
 function buscarClientesFiltro(termo) {
   clearTimeout(debounceClienteTimer);

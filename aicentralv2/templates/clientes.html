@@ -239,7 +239,7 @@
   // Filtros
   function salvarFiltrosClientes() {
     const form = document.getElementById('filtros_form');
-    setCookie('cli_exec', form.querySelector('[name="executivo_id"]').value, 30);
+    setCookie('cc_filtro_exec', form.querySelector('[name="executivo_id"]').value, 30);
     setCookie('cli_search', form.querySelector('[name="search"]').value, 30);
     setCookie('cli_status', document.getElementById('status_filter').value, 30);
     setCookie('cli_categoria', document.getElementById('categoria_filter').value, 30);
@@ -272,14 +272,14 @@
     const params = new URLSearchParams(window.location.search);
     const hasFilters = params.has('executivo_id') || params.has('search') || params.has('status') || params.has('categoria') || params.has('_restored');
     if (hasFilters) return;
-    const cExec = getCookie('cli_exec');
+    const cExec = getCookie('cc_filtro_exec');
     const cSearch = getCookie('cli_search');
     const cStatus = getCookie('cli_status');
     const cCat = getCookie('cli_categoria');
     const cAg = getCookie('cli_agencia');
     if (!cExec && !cSearch && !cStatus && !cCat && !cAg) return;
     const rp = new URLSearchParams();
-    if (cExec) rp.set('executivo_id', cExec);
+    rp.set('executivo_id', cExec || '');
     if (cSearch) rp.set('search', cSearch);
     rp.set('status', cStatus || 'ativo');
     if (cCat) rp.set('categoria', cCat);

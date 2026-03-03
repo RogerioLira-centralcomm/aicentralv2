@@ -2167,12 +2167,12 @@ class CaduAudiencias:
 
 # ==================== CADU AUDIÊNCIAS - CRUD ====================
 
-def obter_cadu_audiencias():
-    """Retorna todas as audiências do catálogo com informações de categoria e subcategoria"""
+def obter_cadu_audiencias(plataforma_id=None):
+    """Retorna audiências do catálogo, opcionalmente filtradas por plataforma"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
+            query = '''
                 SELECT 
                     a.id,
                     a.id_audiencia_plataforma,
@@ -2195,8 +2195,13 @@ def obter_cadu_audiencias():
                 FROM cadu_audiencias a
                 LEFT JOIN cadu_categorias cat ON a.categoria_id = cat.id
                 LEFT JOIN cadu_subcategorias sub ON a.subcategoria_id = sub.id
-                ORDER BY a.created_at DESC
-            ''')
+            '''
+            params = []
+            if plataforma_id is not None:
+                query += ' WHERE a.plataforma_id = %s'
+                params.append(plataforma_id)
+            query += ' ORDER BY a.created_at DESC'
+            cursor.execute(query, params)
             return cursor.fetchall()
     except Exception as e:
         raise e

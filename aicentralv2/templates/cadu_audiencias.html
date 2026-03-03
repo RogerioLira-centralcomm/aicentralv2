@@ -85,9 +85,11 @@ select.select:focus {
         
         <!-- Plataforma -->
         <select id="filtro-plataforma" 
+                onchange="filtrarPlataformaServer(this.value)"
                 class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 110px; min-width: 110px;">
+          <option value="">Todas Plataformas</option>
           {% for plataforma in plataformas %}
-            <option value="{{ plataforma.id }}" {% if loop.first %}selected{% endif %}>{{ plataforma.nome }}</option>
+            <option value="{{ plataforma.id }}" {% if plataforma_id_selecionada and plataforma.id == plataforma_id_selecionada %}selected{% endif %}>{{ plataforma.nome }}</option>
           {% endfor %}
         </select>
         
@@ -523,6 +525,16 @@ select.select:focus {
 </dialog>
 
 <script>
+function filtrarPlataformaServer(plataformaId) {
+  const url = new URL(window.location.href);
+  if (plataformaId) {
+    url.searchParams.set('plataforma_id', plataformaId);
+  } else {
+    url.searchParams.delete('plataforma_id');
+  }
+  window.location.href = url.toString();
+}
+
 // Funções do Modal de Audiência (apenas para edição)
 async function abrirModalEditarAudiencia(audienciaId) {
   try {
@@ -865,18 +877,19 @@ document.addEventListener('DOMContentLoaded', function() {
   // Aplicar filtro ao digitar ID
   filtroId.addEventListener('input', aplicarFiltros);
 
-  // Aplicar filtro ao trocar plataforma
-  filtroPlataforma.addEventListener('change', aplicarFiltros);
-
   // Limpar filtros
   btnLimparFiltros.addEventListener('click', function() {
     filtroId.value = '';
-    filtroPlataforma.selectedIndex = 0;
     filtroCategoria.value = '';
     filtroSubcategoria.innerHTML = '<option value="" selected>Todas subcategorias</option>';
     filtroSubcategoria.disabled = true;
     atualizarBotoesStatus('');
-    aplicarFiltros();
+    setCookie('aud_id', '', 30);
+    setCookie('aud_plat', '', 30);
+    setCookie('aud_cat', '', 30);
+    setCookie('aud_subcat', '', 30);
+    setCookie('aud_status', '', 30);
+    window.location.href = '{{ url_for("cadu_audiencias") }}';
   });
 
   // Restaurar filtros de cookies
@@ -1243,6 +1256,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Resetar para estado vazio
     mostrarEstadoPreview('vazio');
     document.getElementById('acoes-imagem').classList.add('hidden');
+
+    const btnConfirmar = document.querySelector('#acoes-imagem button');
+    if (btnConfirmar) {
+      btnConfirmar.disabled = false;
+      btnConfirmar.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar e Salvar Imagem';
+    }
     
     // Se já tem imagem salva, mostra no preview
     if (imagemUrl && imagemUrl.trim() !== '') {
@@ -1546,6 +1565,13 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   window.fecharModalImagem = function() {
+    const btnConfirmar = document.querySelector('#acoes-imagem button');
+    if (btnConfirmar) {
+      btnConfirmar.disabled = false;
+      btnConfirmar.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar e Salvar Imagem';
+    }
+    document.getElementById('acoes-imagem').classList.add('hidden');
+
     document.getElementById('modal-gerar-imagem').close();
     imagemAtualUrl = null;
     audienciaAtualId = null;

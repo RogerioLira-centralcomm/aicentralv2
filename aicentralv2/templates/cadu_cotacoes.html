@@ -269,8 +269,8 @@ function aplicarFiltros() {
   const urlParams = new URLSearchParams(window.location.search);
   const status = urlParams.get('status');
 
-  setCookie('cotacoes_exec', executivo, 30);
-  setCookie('cotacoes_mes', mes, 30);
+  setCookie('cc_filtro_exec', executivo, 30);
+  setCookie('cc_filtro_mes', mes, 30);
   setCookie('cotacoes_busca', busca, 30);
   if (status) setCookie('cotacoes_status', status, 30);
 
@@ -302,14 +302,18 @@ function filtrarPorStatus(status) {
   const params = new URLSearchParams(window.location.search);
   const hasFilters = params.has('responsavel_comercial') || params.has('mes') || params.has('busca') || params.has('status') || params.has('_restored');
   if (hasFilters) return;
-  const cExec = getCookie('cotacoes_exec');
-  const cMes = getCookie('cotacoes_mes');
+  const cExec = getCookie('cc_filtro_exec');
+  const cMes = getCookie('cc_filtro_mes');
   const cBusca = getCookie('cotacoes_busca');
   const cStatus = getCookie('cotacoes_status');
   if (!cExec && !cMes && !cBusca && !cStatus) return;
   const rp = new URLSearchParams();
-  if (cExec) rp.set('responsavel_comercial', cExec);
-  if (cMes) rp.set('mes', cMes);
+  rp.set('responsavel_comercial', cExec || '');
+  if (cMes) {
+    let monthVal = cMes;
+    if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
+    rp.set('mes', monthVal.padStart(2, '0'));
+  }
   if (cBusca) rp.set('busca', cBusca);
   if (cStatus) rp.set('status', cStatus);
   rp.set('_restored', '1');

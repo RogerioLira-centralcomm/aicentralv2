@@ -880,13 +880,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const semanaFormatada = `${ano}-W${String(semanaNum).padStart(2, '0')}`;
     document.getElementById('filtroSemana').value = semanaFormatada;
     
+    // Pre-select exec from unified cookie (overrides server default)
+    var cookieExec = getCookie('cc_filtro_exec');
+    if (cookieExec !== null && cookieExec !== undefined) {
+        var selExec = document.getElementById('filtroExecutivo');
+        for (var i = 0; i < selExec.options.length; i++) {
+            if (selExec.options[i].value === cookieExec) {
+                selExec.value = cookieExec;
+                break;
+            }
+        }
+    }
+
     // Carregar dados
     carregarDados();
     
     // Event listeners
     document.getElementById('btnAtualizar').addEventListener('click', carregarDados);
     document.getElementById('filtroSemana').addEventListener('change', carregarDados);
-    document.getElementById('filtroExecutivo').addEventListener('change', carregarDados);
+    document.getElementById('filtroExecutivo').addEventListener('change', function() {
+        setCookie('cc_filtro_exec', this.value, 30);
+        carregarDados();
+    });
     // Cliente usa busca inteligente - carregarDados() é chamado automaticamente ao selecionar
 });
 </script>

@@ -409,13 +409,18 @@
 
                         <!-- Campanhas (colapsível) -->
                         <li class="mt-2">
-                            <details data-group="campanhas" {% if request.endpoint == 'campanhas_pi' %}open{% endif %}>
+                            <details data-group="campanhas" {% if request.endpoint in ['campanhas_pi', 'campanhas_pi_lista'] %}open{% endif %}>
                                 <summary>
                                     <span class="sidebar-text">Campanhas</span>
                                 </summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">
+                                            <span class="sidebar-text">Dashboard</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' %}active{% endif %}">
                                             <span class="sidebar-text">Acompanhamento</span>
                                         </a>
                                     </li>

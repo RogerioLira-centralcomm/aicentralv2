@@ -335,8 +335,8 @@
 function salvarFiltrosESubmeter() {
   const form = document.getElementById('filtros_form');
   setCookie('brief_status', form.querySelector('[name="status"]').value, 30);
-  setCookie('brief_resp', form.querySelector('[name="responsavel_id"]').value, 30);
-  setCookie('brief_mes', form.querySelector('[name="mes"]').value, 30);
+  setCookie('cc_filtro_exec', form.querySelector('[name="responsavel_id"]').value, 30);
+  setCookie('cc_filtro_mes', form.querySelector('[name="mes"]').value, 30);
   setCookie('brief_cliente', form.querySelector('[name="cliente_id"]').value, 30);
   setCookie('brief_busca', form.querySelector('[name="busca"]').value, 30);
 
@@ -356,8 +356,8 @@ function salvarFiltrosESubmeter() {
   if (params.has('_f') || params.has('_restored')) return;
 
   const cStatus = getCookie('brief_status');
-  const cResp = getCookie('brief_resp');
-  const cMes = getCookie('brief_mes');
+  const cResp = getCookie('cc_filtro_exec');
+  const cMes = getCookie('cc_filtro_mes');
   const cCliente = getCookie('brief_cliente');
   const cBusca = getCookie('brief_busca');
   if (!cStatus && !cResp && !cMes && !cCliente && !cBusca) return;
@@ -365,8 +365,13 @@ function salvarFiltrosESubmeter() {
   const rp = new URLSearchParams();
   if (cStatus) rp.set('status', cStatus);
   if (cCliente) rp.set('cliente_id', cCliente);
-  if (cResp) rp.set('responsavel_id', cResp);
-  if (cMes) { rp.set('mes', cMes); rp.set('ano', '2026'); }
+  rp.set('responsavel_id', cResp || '');
+  if (cMes) {
+    let monthVal = cMes;
+    if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
+    rp.set('mes', String(parseInt(monthVal)));
+    rp.set('ano', '2026');
+  }
   if (cBusca) rp.set('busca', cBusca);
   rp.set('_restored', '1');
   window.location.href = '{{ url_for("briefing_list") }}?' + rp.toString();

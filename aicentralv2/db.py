@@ -163,7 +163,7 @@ def init_db(app):
                     role VARCHAR(50) DEFAULT 'member',
                     expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
                     accepted_at TIMESTAMP WITHOUT TIME ZONE,
-                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     CONSTRAINT fk_invite_cliente FOREIGN KEY (id_cliente) 
                         REFERENCES tbl_cliente(id_cliente) ON DELETE CASCADE,
                     CONSTRAINT fk_invite_invited_by FOREIGN KEY (invited_by) 
@@ -194,7 +194,7 @@ def init_db(app):
                     ordem_exibicao INTEGER DEFAULT 0,
                     incluido_proposta BOOLEAN DEFAULT true,
                     motivo_exclusao TEXT,
-                    added_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    added_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     CONSTRAINT fk_cotacao_audiencia_cotacao FOREIGN KEY (cotacao_id) 
                         REFERENCES cadu_cotacoes(id) ON DELETE CASCADE,
                     CONSTRAINT fk_cotacao_audiencia_audiencia FOREIGN KEY (audiencia_id) 
@@ -821,7 +821,7 @@ def atualizar_contato(contato_id, nome_completo, email, telefone=None, pk_id_tbl
                     email = %s, 
                     telefone = %s,
                     pk_id_tbl_cliente = %s,
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (nome_completo, email.lower().strip(), telefone, pk_id_tbl_cliente, contato_id))
 
@@ -839,7 +839,7 @@ def atualizar_contato_com_senha(contato_id, nome_completo, senha_hash):
         with conn.cursor() as cursor:
             cursor.execute('''
                 UPDATE tbl_contato_cliente
-                SET nome_completo = %s, senha = %s, data_modificacao = CURRENT_TIMESTAMP
+                SET nome_completo = %s, senha = %s, data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (nome_completo, senha_hash, contato_id))
         conn.commit()
@@ -859,7 +859,7 @@ def atualizar_senha_contato(contato_id, nova_senha):
             cursor.execute('''
                 UPDATE tbl_contato_cliente
                 SET senha = %s, 
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (senha_hash, contato_id))
 
@@ -882,7 +882,7 @@ def atualizar_reset_token(email, token, expires):
                 UPDATE tbl_contato_cliente c
                 SET reset_token = %s, 
                     reset_token_expires = %s,
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 FROM tbl_cliente cli
                 WHERE c.email = %s
                   AND c.pk_id_tbl_cliente = cli.id_cliente
@@ -932,7 +932,7 @@ def limpar_reset_token(contato_id):
                 UPDATE tbl_contato_cliente
                 SET reset_token = NULL,
                     reset_token_expires = NULL,
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (contato_id,))
         
@@ -965,7 +965,7 @@ def alternar_status_contato(contato_id):
             cursor.execute('''
                 UPDATE tbl_contato_cliente
                 SET status = %s, 
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (novo_status, contato_id))
 
@@ -986,7 +986,7 @@ def ativar_contato(contato_id):
             cursor.execute('''
                 UPDATE tbl_contato_cliente
                 SET status = TRUE, 
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (contato_id,))
 
@@ -1006,7 +1006,7 @@ def desativar_contato(contato_id):
             cursor.execute('''
                 UPDATE tbl_contato_cliente
                 SET status = FALSE, 
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_contato_cliente = %s
             ''', (contato_id,))
 
@@ -1358,7 +1358,7 @@ def atualizar_setor(id_setor, display, status):
             UPDATE tbl_setor
             SET display = %s,
                 status = %s,
-                data_modificacao = CURRENT_TIMESTAMP
+                data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
             WHERE id_setor = %s
         """, (display, status, id_setor))
         conn.commit()
@@ -1371,7 +1371,7 @@ def toggle_status_setor(id_setor):
         cur.execute("""
             UPDATE tbl_setor
             SET status = NOT status,
-                data_modificacao = CURRENT_TIMESTAMP
+                data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
             WHERE id_setor = %s
             RETURNING status
         """, (id_setor,))
@@ -1449,7 +1449,7 @@ def criar_cargo(descricao, pk_id_aux_setor, id_centralx=None, indice=None, statu
             INSERT INTO tbl_cargo_contato 
                 (descricao, pk_id_aux_setor, id_centralx, indice, status, data_cadastro)
             VALUES 
-                (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                (%s, %s, %s, %s, %s, DATE_TRUNC('second', CURRENT_TIMESTAMP))
             RETURNING id_cargo_contato
         """, (descricao, pk_id_aux_setor, id_centralx, indice, status))
         conn.commit()
@@ -1466,7 +1466,7 @@ def atualizar_cargo(id_cargo, descricao, pk_id_aux_setor, id_centralx=None, indi
                 id_centralx = %s,
                 indice = %s,
                 status = %s,
-                data_modificacao = CURRENT_TIMESTAMP
+                data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
             WHERE id_cargo_contato = %s
         """, (descricao, pk_id_aux_setor, id_centralx, indice, status, id_cargo))
         conn.commit()
@@ -1479,7 +1479,7 @@ def toggle_status_cargo(id_cargo):
         cur.execute("""
             UPDATE tbl_cargo_contato
             SET status = NOT status,
-                data_modificacao = CURRENT_TIMESTAMP
+                data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
             WHERE id_cargo_contato = %s
             RETURNING status
         """, (id_cargo,))
@@ -1583,7 +1583,7 @@ def criar_tipo_cliente(display):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO tbl_tipo_cliente (display, data_cadastro, data_modificacao)
-                VALUES (%s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (%s, DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP))
                 RETURNING id_tipo_cliente
             ''', (display,))
             
@@ -1604,7 +1604,7 @@ def atualizar_tipo_cliente(id_tipo_cliente, display):
             cursor.execute('''
                 UPDATE tbl_tipo_cliente
                 SET display = %s,
-                    data_modificacao = CURRENT_TIMESTAMP
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_tipo_cliente = %s
             ''', (display, id_tipo_cliente))
             
@@ -1800,7 +1800,7 @@ def atualizar_cadu_categoria(id_categoria, data):
                     is_featured = %s,
                     meta_titulo = %s,
                     meta_descricao = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
             ''', (
                 data.get('nome'),
@@ -1921,7 +1921,7 @@ def atualizar_cadu_subcategoria(id_subcategoria, dados):
                     is_active = %s,
                     meta_titulo = %s,
                     meta_descricao = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
             ''', (
                 dados.get('categoria_id'),
@@ -2346,7 +2346,7 @@ def atualizar_cadu_audiencia(id_audiencia, dados):
                     dispositivo_mobile = %s,
                     dispositivo_desktop = %s,
                     dispositivo_tablet = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
             ''', (
                 dados.get('id_audiencia_plataforma'),
@@ -2405,7 +2405,7 @@ def toggle_status_cadu_audiencia(id_audiencia):
             cursor.execute('''
                 UPDATE cadu_audiencias
                 SET is_active = NOT is_active,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
                 RETURNING is_active
             ''', (id_audiencia,))
@@ -2549,7 +2549,7 @@ def marcar_interesse_notificado(id_interesse):
             cursor.execute('''
                 UPDATE tbl_interesse_produto
                 SET notificado = true,
-                    data_notificacao = CURRENT_TIMESTAMP
+                    data_notificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_interesse = %s
                 RETURNING id_interesse
             ''', (id_interesse,))
@@ -2629,7 +2629,7 @@ def atualizar_imagem_audiencia(audiencia_id, imagem_url):
             cursor.execute('''
                 UPDATE cadu_audiencias
                 SET imagem_url = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
                 RETURNING id
             ''', (imagem_url, audiencia_id))
@@ -2978,7 +2978,7 @@ def atualizar_system_setting(key, value, updated_by=None):
                 UPDATE tbl_system_settings
                 SET setting_value = %s,
                     updated_by = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE setting_key = %s
                 RETURNING setting_key
             ''', (value_str, updated_by, key))
@@ -3150,7 +3150,7 @@ def atualizar_client_plan(plan_id, dados):
                     plan_status = %s,
                     valid_from = %s,
                     valid_until = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
                 RETURNING id
             ''', (
@@ -3189,7 +3189,7 @@ def atualizar_consumo_tokens(plan_id, tokens_usados, imagens_usadas=0):
                 UPDATE cadu_client_plans
                 SET tokens_used_current_month = tokens_used_current_month + %s,
                     image_credits_used_current_month = image_credits_used_current_month + %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
                 RETURNING id
             ''', (tokens_usados, imagens_usadas, plan_id))
@@ -3217,7 +3217,7 @@ def resetar_contadores_mensais(plan_id=None):
                     UPDATE cadu_client_plans
                     SET tokens_used_current_month = 0,
                         image_credits_used_current_month = 0,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE id = %s
                     RETURNING id
                 ''', (plan_id,))
@@ -3226,7 +3226,7 @@ def resetar_contadores_mensais(plan_id=None):
                     UPDATE cadu_client_plans
                     SET tokens_used_current_month = 0,
                         image_credits_used_current_month = 0,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE plan_status = 'active'
                 ''')
             
@@ -3635,7 +3635,7 @@ def atualizar_invoice_status(invoice_id, novo_status, paid_date=None):
                 UPDATE cadu_invoices
                 SET invoice_status = %s,
                     paid_date = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_invoice = %s
                 RETURNING id_invoice
             ''', (novo_status, paid_date, invoice_id))
@@ -3747,7 +3747,7 @@ def marcar_invoice_paga(invoice_id, data_pagamento=None):
             cursor.execute('''
                 UPDATE cadu_invoices
                 SET status = 'paid',
-                    paid_at = COALESCE(%s, CURRENT_TIMESTAMP)
+                    paid_at = COALESCE(%s, DATE_TRUNC('second', CURRENT_TIMESTAMP))
                 WHERE id = %s
                 RETURNING id
             ''', (data_pagamento, invoice_id))
@@ -4412,7 +4412,7 @@ def atualizar_cotacao(cotacao_id, nome_campanha, periodo_meses, praca, objetivo,
                     observacoes = %s,
                     status = %s,
                     vendas_central_comm = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
                 RETURNING id
             ''', (nome_campanha, periodo_meses, praca, objetivo, observacoes, status, vendas_central_comm, cotacao_id))
@@ -5045,7 +5045,7 @@ def atualizar_briefing(briefing_id, dados):
                 return False
             
             # Sempre atualizar updated_at
-            campos.append('updated_at = CURRENT_TIMESTAMP')
+            campos.append("updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)")
             valores.append(briefing_id)
             
             query = f"UPDATE cadu_briefings SET {', '.join(campos)} WHERE id = %s"
@@ -5075,7 +5075,7 @@ def excluir_briefing(briefing_id, soft_delete=True):
             if soft_delete:
                 cursor.execute('''
                     UPDATE cadu_briefings
-                    SET deleted_at = CURRENT_TIMESTAMP
+                    SET deleted_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE id = %s
                 ''', (briefing_id,))
             else:
@@ -5108,14 +5108,14 @@ def atualizar_status_briefing(briefing_id, novo_status, progresso=None):
                     UPDATE cadu_briefings
                     SET status = %s,
                         progresso = %s,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE id = %s
                 ''', (novo_status, progresso, briefing_id))
             else:
                 cursor.execute('''
                     UPDATE cadu_briefings
                     SET status = %s,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE id = %s
                 ''', (novo_status, briefing_id))
             
@@ -5320,8 +5320,8 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
             
             # Preparar campos dinamicamente
             campos = ['numero_cotacao', 'client_id', 'nome_campanha', 'periodo_inicio', 'created_at', 'updated_at']
-            valores = [numero_cotacao, client_id, nome_campanha, periodo_inicio, 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP']
-            placeholders = ['%s', '%s', '%s', '%s', 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP']
+            valores = [numero_cotacao, client_id, nome_campanha, periodo_inicio, "DATE_TRUNC('second', CURRENT_TIMESTAMP)", "DATE_TRUNC('second', CURRENT_TIMESTAMP)"]
+            placeholders = ['%s', '%s', '%s', '%s', "DATE_TRUNC('second', CURRENT_TIMESTAMP)", "DATE_TRUNC('second', CURRENT_TIMESTAMP)"]
             params = [numero_cotacao, client_id, nome_campanha, periodo_inicio]
             
             # Adicionar campos opcionais
@@ -5358,7 +5358,7 @@ def atualizar_cotacao(cotacao_id, **kwargs):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            updates = ['updated_at = CURRENT_TIMESTAMP']
+            updates = ["updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)"]
             params = []
             
             # Campos permitidos para atualização
@@ -5403,7 +5403,7 @@ def deletar_cotacao(cotacao_id, soft_delete=True):
     try:
         with conn.cursor() as cursor:
             if soft_delete:
-                cursor.execute('UPDATE cadu_cotacoes SET deleted_at = CURRENT_TIMESTAMP WHERE id = %s', (cotacao_id,))
+                cursor.execute("UPDATE cadu_cotacoes SET deleted_at = DATE_TRUNC('second', CURRENT_TIMESTAMP) WHERE id = %s", (cotacao_id,))
             else:
                 cursor.execute('DELETE FROM cadu_cotacoes WHERE id = %s', (cotacao_id,))
             conn.commit()
@@ -5575,7 +5575,7 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
         with conn.cursor() as cursor:
             cursor.execute(f'''
                 UPDATE cadu_cotacao_linhas
-                SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+                SET {set_clause}, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s AND is_deleted = false
             ''', valores)
             conn.commit()
@@ -5595,7 +5595,7 @@ def deletar_linha_cotacao(linha_id, hard_delete=False):
             else:
                 cursor.execute('''
                     UPDATE cadu_cotacao_linhas
-                    SET is_deleted = true, updated_at = CURRENT_TIMESTAMP
+                    SET is_deleted = true, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE id = %s
                 ''', (linha_id,))
             conn.commit()
@@ -5619,8 +5619,8 @@ def gerar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
                 SET 
                     link_publico_token = %s,
                     link_publico_ativo = TRUE,
-                    link_publico_expires_at = CURRENT_TIMESTAMP + INTERVAL '%s days',
-                    updated_at = CURRENT_TIMESTAMP
+                    link_publico_expires_at = DATE_TRUNC('second', CURRENT_TIMESTAMP) + INTERVAL '%s days',
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE cotacao_uuid = %s 
                 AND deleted_at IS NULL
             ''', (novo_token, dias_validade, cotacao_uuid))
@@ -5647,7 +5647,7 @@ def renovar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
                 SET 
                     link_publico_ativo = TRUE,
                     link_publico_expires_at = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE cotacao_uuid = %s 
                 AND deleted_at IS NULL
             ''', (nova_expiracao, cotacao_uuid))
@@ -5712,7 +5712,7 @@ def calcular_valor_total_cotacao(cotacao_id):
             cursor.execute('''
                 UPDATE cadu_cotacoes 
                 SET valor_total_proposta = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
             ''', (valor_total, cotacao_id))
             
@@ -5753,7 +5753,7 @@ def criar_anexo_cotacao(cotacao_id, nome_original, nome_arquivo, url_arquivo,
                 INSERT INTO cadu_cotacao_anexos 
                 (cotacao_id, nome_original, nome_arquivo, url_arquivo, mime_type, 
                  tamanho_bytes, descricao, uploaded_by, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, DATE_TRUNC('second', CURRENT_TIMESTAMP))
                 RETURNING id
             ''', (cotacao_id, nome_original, nome_arquivo, url_arquivo, mime_type, 
                   tamanho_bytes, descricao, uploaded_by))
@@ -7365,7 +7365,7 @@ def criar_cadu_pi(data):
                     %s, %s,
                     %s, %s,
                     %s, %s,
-                    date_trunc('second', CURRENT_TIMESTAMP), date_trunc('second', CURRENT_TIMESTAMP)
+                    DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 ) RETURNING id_pi
             ''', (
                 data.get('id_cliente'),
@@ -7446,7 +7446,7 @@ def atualizar_cadu_pi(id_pi, data):
                     id_sub_status_pi = %s,
                     observacoes_financeiro = %s,
                     observacoes_operacao = %s,
-                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
                 RETURNING id_pi
             ''', (
@@ -7514,7 +7514,7 @@ def atualizar_cadu_pi_gdrive(id_pi, princ, financ, pecas, arq_ass):
                     googled_pi_financ = %s,
                     googled_pi_pecas = %s,
                     googled_pi_arq_ass = %s,
-                    updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
             ''', (princ, financ, pecas, arq_ass, id_pi))
             conn.commit()
@@ -7838,7 +7838,7 @@ def criar_link_destino(data):
             cursor.execute('''
                 INSERT INTO cadu_pi_link_destinos
                     (id_pi, link, status, created_at, updated_at, id_cliente)
-                VALUES (%s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s)
+                VALUES (%s, %s, %s, DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP), %s)
                 RETURNING id_link_destino
             ''', (
                 data.get('id_pi'),
@@ -7864,7 +7864,7 @@ def atualizar_link_destino(id_link_destino, data):
                 SET id_pi = %s,
                     link = %s,
                     status = %s,
-                    updated_at = CURRENT_TIMESTAMP,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     id_cliente = %s
                 WHERE id_link_destino = %s
             ''', (
@@ -8026,7 +8026,8 @@ def obter_campanhas_pi(filtros=None):
                     pi.googled_pi_princ,
                     vend.nome_completo AS executivo_nome,
                     pi.vr_liquido_pi AS valor_liquido_pi,
-                    pi.vr_platafor_max_pi AS valor_plataformas_pi
+                    pi.vr_platafor_max_pi AS valor_plataformas_pi,
+                    (SELECT COUNT(*) FROM cadu_pi_camp_diarios d WHERE d.id_campanha = c.id_campanha) AS qtd_diarios
                 FROM cadu_pi_campanha c
                 LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
                 LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
@@ -8130,7 +8131,7 @@ def criar_campanha_pi(data):
                 VALUES (
                     %s, %s, %s, %s, %s,
                     %s, %s, %s,
-                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, %s, %s,
+                    DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP), %s, %s,
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s
@@ -8179,7 +8180,7 @@ def atualizar_campanha_pi(id_campanha, data):
                     nome_campanha = %s,
                     obj_contratados = %s,
                     id_centralx = %s,
-                    updated_at = CURRENT_TIMESTAMP,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     under = %s,
                     id_objetivos_campanha = %s,
                     periodo_inicio = %s,
@@ -8268,7 +8269,7 @@ def atualizar_campanhas_massa(updates):
                     UPDATE cadu_pi_campanha
                     SET totalizador_atingido = %s,
                         totalizador_gasto = %s,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                     WHERE id_campanha = %s
                 ''', (u.get('totalizador_atingido'), u.get('totalizador_gasto'), u['id_campanha']))
             conn.commit()
@@ -8293,10 +8294,19 @@ def obter_diarios_campanha_chart(id_campanha):
             labels = []
             atingido_data = []
             gasto_data = []
+            def _parse_varchar_num(val):
+                if not val:
+                    return 0
+                s = str(val).replace('R$', '').strip().replace('.', '').replace(',', '.')
+                try:
+                    return float(s)
+                except (ValueError, TypeError):
+                    return 0
+
             for r in rows:
                 labels.append(r['data_evento'].strftime('%d/%m') if r['data_evento'] else '')
-                atingido_data.append(float(r['atingido']) if r['atingido'] else 0)
-                gasto_data.append(float(r['gasto']) if r['gasto'] else 0)
+                atingido_data.append(_parse_varchar_num(r['atingido']))
+                gasto_data.append(_parse_varchar_num(r['gasto']))
             return {'labels': labels, 'atingido': atingido_data, 'gasto': gasto_data}
     except Exception as e:
         conn.rollback()
@@ -8353,7 +8363,7 @@ def criar_diario_campanha(data):
                     id_pi, id_campanha, atingido, gasto,
                     dif_atingido, dif_gasto, data_evento, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, DATE_TRUNC('second', CURRENT_TIMESTAMP))
                 RETURNING id
             ''', (
                 data.get('id_pi'),
@@ -8384,7 +8394,7 @@ def atualizar_diario_campanha(id_diario, data):
                     dif_atingido = %s,
                     dif_gasto = %s,
                     data_evento = %s,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id = %s
             ''', (
                 data.get('atingido'),

@@ -144,23 +144,24 @@
             <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">% Obj.</th>
             <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Gasto</th>
             <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Previsto</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Diários</th>
             <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Links</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
           {% for c in campanhas %}
-            {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
-            {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
+            {% set obj_val = (c.obj_contratados|string|replace('.','')|replace(',','.')|float) if c.obj_contratados else 0 %}
+            {% set ating_val = (c.totalizador_atingido|string|replace('.','')|replace(',','.')|float) if c.totalizador_atingido else 0 %}
             {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
-            {% set prev_raw = c.valor_plataforma or '0' %}
-            {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-            {% set prev_val = prev_clean|float if prev_clean else 0 %}
-            {% set gasto_raw = c.totalizador_gasto or '0' %}
-            {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-            {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
+            {% set prev_raw = c.valor_plataforma|string if c.valor_plataforma else '0' %}
+            {% set prev_val = prev_raw|replace('R$','')|replace(' ','')|replace('.','')|replace(',','.')|float %}
+            {% set gasto_raw = c.totalizador_gasto|string if c.totalizador_gasto else '0' %}
+            {% set gasto_val = gasto_raw|replace('R$','')|replace(' ','')|replace('.','')|replace(',','.')|float %}
             {% set st_lower = (c.status_nome or '')|lower %}
 
-          <tr data-campanha-id="{{ c.id_campanha }}" onclick="abrirSidebar({{ c | tojson }})">
+          <tr data-campanha-id="{{ c.id_campanha }}"
+              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "obj_contratados": c.obj_contratados or "", "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": c.totalizador_atingido or "", "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
+              onclick="abrirModalEditar(JSON.parse(this.dataset.camp))" class="cursor-pointer">
             <td class="py-2 px-3 text-xs font-bold text-indigo-600 whitespace-nowrap">{{ c.codigo_pi or '—' }}</td>
             <td class="py-2 px-3 text-xs font-medium text-gray-800 max-w-[200px] truncate">{{ c.nome_campanha or '—' }}</td>
             <td class="py-2 px-3 text-xs text-gray-600 max-w-[150px] truncate">{{ c.cliente_nome or '—' }}</td>
@@ -177,10 +178,17 @@
               {{ pct_obj }}%
             </td>
             <td class="py-2 px-3 text-xs text-right text-gray-700 whitespace-nowrap font-medium">
-              R$ {{ '{:,.0f}'.format(gasto_val).replace(',', '.') }}
+              R$ {{ '{:,.2f}'.format(gasto_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
             </td>
             <td class="py-2 px-3 text-xs text-right text-gray-500 whitespace-nowrap">
-              R$ {{ '{:,.0f}'.format(prev_val).replace(',', '.') }}
+              R$ {{ '{:,.2f}'.format(prev_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
+            </td>
+            <td class="py-2 px-3 text-center text-xs whitespace-nowrap">
+              {% if c.qtd_diarios %}
+                <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">{{ c.qtd_diarios }}</span>
+              {% else %}
+                <span class="text-gray-300">0</span>
+              {% endif %}
             </td>
             <td class="py-2 px-3 text-center whitespace-nowrap">
               {% if c.googled_pi_princ %}
@@ -417,15 +425,20 @@
       <div class="grid grid-cols-3 gap-2">
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Data</label>
-          <input type="date" id="sidebarDiarioData" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+          <div class="relative">
+            <input type="date" id="sidebarDiarioData" class="w-full px-2 py-1.5 pr-7 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+            <button type="button" onclick="document.getElementById('sidebarDiarioData').showPicker()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <i class="fas fa-calendar-alt text-xs"></i>
+            </button>
+          </div>
         </div>
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Atingido</label>
-          <input type="text" id="sidebarDiarioAtingido" placeholder="0" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+          <input type="text" id="sidebarDiarioAtingido" placeholder="0" data-mask="numero" inputmode="decimal" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
         </div>
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Gasto</label>
-          <input type="text" id="sidebarDiarioGasto" placeholder="0" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+          <input type="text" id="sidebarDiarioGasto" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
         </div>
       </div>
       <div class="flex justify-end gap-2 mt-2">
@@ -454,6 +467,7 @@
 
     <div class="p-6 max-h-[75vh] overflow-y-auto">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
+        <input type="hidden" id="id_centralx" name="id_centralx" value="">
 
         <div class="grid grid-cols-3 gap-4 mb-4">
           <div class="col-span-2">
@@ -590,15 +604,32 @@
           </div>
         </div>
 
-        <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
-          <button type="button" onclick="modal_campanha.close()"
-                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
-            Cancelar
+        <div id="campanha_timestamps" class="grid grid-cols-2 gap-4 mb-4 hidden">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Criado em</label>
+            <span id="campanha_created_at" class="text-sm text-gray-700">—</span>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Atualizado em</label>
+            <span id="campanha_updated_at" class="text-sm text-gray-700">—</span>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+          <button type="button" id="btnDiariosCampanha" onclick="abrirDiariosDoCampanhaModal()"
+                  class="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 transition-colors hidden">
+            <i class="fas fa-calendar-day mr-1"></i> Diários
           </button>
-          <button type="submit" id="btnSalvarCampanha"
-                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            Salvar
-          </button>
+          <div class="flex gap-3">
+            <button type="button" onclick="modal_campanha.close()"
+                    class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" id="btnSalvarCampanha"
+                    class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+              Salvar
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -632,15 +663,22 @@
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Data</label>
-              <input type="date" id="diario_data" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <div class="relative">
+                <input type="date" id="diario_data" class="w-full px-2 py-1.5 pr-8 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+                <button type="button" onclick="document.getElementById('diario_data').showPicker()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-calendar-alt text-xs"></i>
+                </button>
+              </div>
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Atingido</label>
-              <input type="text" id="diario_atingido" placeholder="0" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <input type="text" id="diario_atingido" placeholder="0" data-mask="numero" inputmode="decimal"
+                     class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Gasto</label>
-              <input type="text" id="diario_gasto" placeholder="0" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <input type="text" id="diario_gasto" placeholder="R$ 0,00" data-mask="real" inputmode="decimal"
+                     class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
             </div>
           </div>
           <div class="flex justify-end gap-2 mt-2">
@@ -822,8 +860,8 @@
     }
     document.getElementById('sidebarPeriodo').textContent = periodoText;
 
-    const objVal = parseFloat(camp.obj_contratados) || 0;
-    const atingVal = parseFloat(camp.totalizador_atingido) || 0;
+    const objVal = parseFloat(String(camp.obj_contratados || '0').replace(/\./g, '')) || 0;
+    const atingVal = parseFloat(String(camp.totalizador_atingido || '0').replace(/\./g, '')) || 0;
     const pctObj = objVal > 0 ? ((atingVal / objVal) * 100).toFixed(1) : 0;
     document.getElementById('sidebarPctObj').textContent = pctObj + '%';
     document.getElementById('sidebarBarObj').style.width = Math.min(pctObj, 100) + '%';
@@ -908,8 +946,8 @@
           <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
             <div class="flex items-center gap-3">
               <span class="text-gray-500 font-medium">${d.data_evento_fmt}</span>
-              <span class="text-emerald-600 font-semibold">${d.atingido != null ? Number(d.atingido).toLocaleString('pt-BR') : '—'}</span>
-              <span class="text-amber-600 font-semibold">R$ ${d.gasto != null ? Number(d.gasto).toLocaleString('pt-BR') : '—'}</span>
+              <span class="text-emerald-600 font-semibold">${d.atingido || '—'}</span>
+              <span class="text-amber-600 font-semibold">${d.gasto || '—'}</span>
             </div>
             <div class="flex gap-1">
               <button onclick="editarSidebarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})" class="p-1 text-gray-400 hover:text-gray-700 rounded"><i class="fas fa-edit text-xs"></i></button>
@@ -934,9 +972,9 @@
   function editarSidebarDiario(id, dataEvento, atingido, gasto) {
     const form = document.getElementById('sidebarFormDiario');
     form.classList.remove('hidden');
-    document.getElementById('sidebarDiarioData').value = dataEvento || '';
-    document.getElementById('sidebarDiarioAtingido').value = atingido != null ? atingido : '';
-    document.getElementById('sidebarDiarioGasto').value = gasto != null ? gasto : '';
+    document.getElementById('sidebarDiarioData').value = dataEvento ? String(dataEvento).slice(0, 10) : '';
+    document.getElementById('sidebarDiarioAtingido').value = atingido || '';
+    document.getElementById('sidebarDiarioGasto').value = gasto || '';
     document.getElementById('sidebarDiarioEditId').value = id;
   }
 
@@ -1067,12 +1105,18 @@
   }
 
   function resetForm() {
-    document.getElementById('modal_title').textContent = 'Editar Campanha';
+    currentModalCampId = null;
+    document.getElementById('modal_title').textContent = 'Nova Campanha';
     document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_nova') }}";
     document.getElementById('campanhaForm').reset();
+    document.getElementById('campanha_timestamps').classList.add('hidden');
+    document.getElementById('btnDiariosCampanha').classList.add('hidden');
   }
 
+  let currentModalCampId = null;
+
   function abrirModalEditar(c) {
+    currentModalCampId = c.id_campanha;
     document.getElementById('modal_title').textContent = 'Editar Campanha';
     document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_editar', id_camp=0) }}".replace('0', c.id_campanha);
 
@@ -1093,8 +1137,23 @@
     document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
     document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
     document.getElementById('valor_total_plataforma').value = rawParaFormatado(c.valor_total_plataforma, 'real');
+    document.getElementById('id_centralx').value = c.id_centralx || '';
+
+    const tsBlock = document.getElementById('campanha_timestamps');
+    document.getElementById('campanha_created_at').textContent = c.created_at || '—';
+    document.getElementById('campanha_updated_at').textContent = c.updated_at || '—';
+    tsBlock.classList.toggle('hidden', !c.created_at && !c.updated_at);
+
+    const btnDiarios = document.getElementById('btnDiariosCampanha');
+    btnDiarios.classList.remove('hidden');
 
     modal_campanha.showModal();
+  }
+
+  function abrirDiariosDoCampanhaModal() {
+    if (!currentModalCampId) return;
+    modal_campanha.close();
+    abrirModalDiarios(currentModalCampId);
   }
 
   function editarCampanhaSidebar() {
@@ -1200,8 +1259,8 @@
           tr.className = 'hover:bg-gray-50';
           tr.innerHTML = `
             <td class="py-2 px-3 text-gray-700">${d.data_evento_fmt}</td>
-            <td class="py-2 px-3 text-right text-gray-700">${d.atingido != null ? Number(d.atingido).toLocaleString('pt-BR') : '—'}</td>
-            <td class="py-2 px-3 text-right text-gray-700">${d.gasto != null ? Number(d.gasto).toLocaleString('pt-BR') : '—'}</td>
+            <td class="py-2 px-3 text-right text-gray-700">${d.atingido || '—'}</td>
+            <td class="py-2 px-3 text-right text-gray-700">${d.gasto || '—'}</td>
             <td class="py-2 px-3 text-center">
               <div class="flex items-center justify-center gap-1">
                 <button onclick="editarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})"
@@ -1240,9 +1299,9 @@
 
   function editarDiario(id, dataEvento, atingido, gasto) {
     document.getElementById('form_novo_diario').style.display = '';
-    document.getElementById('diario_data').value = dataEvento || '';
-    document.getElementById('diario_atingido').value = atingido != null ? atingido : '';
-    document.getElementById('diario_gasto').value = gasto != null ? gasto : '';
+    document.getElementById('diario_data').value = dataEvento ? String(dataEvento).slice(0, 10) : '';
+    document.getElementById('diario_atingido').value = atingido || '';
+    document.getElementById('diario_gasto').value = gasto || '';
     document.getElementById('diario_edit_id').value = id;
     document.getElementById('btnSalvarDiario').textContent = 'Atualizar';
   }

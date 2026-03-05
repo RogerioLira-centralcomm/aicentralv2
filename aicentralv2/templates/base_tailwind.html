@@ -22,12 +22,9 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    <!-- A configuração de temas do daisyUI está em tailwind.config.js -->
-
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Estilos específicos da página -->
     {% block styles %}{% endblock %}
 
     <script>
@@ -46,43 +43,7 @@
     }
     </script>
 
-    <!-- Script para controle do sidebar e dropdowns -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggleBtn = document.getElementById('sidebarToggle');
-            const drawer = document.getElementById('main-drawer');
-            const sidebarTexts = document.querySelectorAll('.sidebar-text');
-            
-            // Toggle sidebar collapse on desktop
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', function() {
-                    const sidebar = toggleBtn.closest('aside');
-                    const isCollapsed = sidebar.classList.contains('w-16');
-                    
-                    if (isCollapsed) {
-                        sidebar.classList.remove('w-16');
-                        sidebar.classList.add('w-64');
-                        sidebarTexts.forEach(text => text.classList.remove('hidden'));
-                    } else {
-                        sidebar.classList.remove('w-64');
-                        sidebar.classList.add('w-16');
-                        sidebarTexts.forEach(text => text.classList.add('hidden'));
-                    }
-                });
-            }
-            
-            // Close drawer on mobile when clicking a link
-            const menuLinks = document.querySelectorAll('.drawer-side .menu a');
-            menuLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    if (window.innerWidth < 1024 && drawer) {
-                        drawer.checked = false;
-                    }
-                });
-            });
-        });
-
-        // Função global de Toast
         function showToast(message, type = 'success', duration = 3000) {
             const alertClass = {
                 'success': 'alert-success',
@@ -102,12 +63,10 @@
             toast.className = `alert ${alertClass} shadow-lg animate-slide-up`;
             toast.innerHTML = `<i class="fas ${iconClass}"></i><span>${message}</span>`;
             
-            // Verificar se há um dialog modal aberto e adicionar o toast dentro dele
             const openDialog = document.querySelector('dialog[open]');
             let container;
             
             if (openDialog) {
-                // Se há um dialog aberto, criar/usar container dentro do dialog
                 let dialogToastContainer = openDialog.querySelector('.dialog-toast-container');
                 if (!dialogToastContainer) {
                     dialogToastContainer = document.createElement('div');
@@ -117,7 +76,6 @@
                 }
                 container = dialogToastContainer;
             } else {
-                // Usar o container global
                 container = document.getElementById('toast-container');
             }
             
@@ -134,21 +92,6 @@
     </script>
 
     <style>
-        /* Custom scrollbar para sidebar */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(156, 207, 49, 0.3);
-            border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(156, 207, 49, 0.5);
-        }
-        
         /* Ocultar ícone nativo de calendário */
         input[type="date"]::-webkit-calendar-picker-indicator,
         input[type="datetime-local"]::-webkit-calendar-picker-indicator {
@@ -156,7 +99,7 @@
             -webkit-appearance: none;
         }
         
-        /* Custom scrollbar para conteúdo principal */
+        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -172,67 +115,54 @@
             background: #a0aec0;
         }
         
-        /* Menu active state */
+        /* Navbar menu active state */
         .menu li > a.active {
             background-color: oklch(0.85 0.15 145 / 0.15);
             color: oklch(0.55 0.2 145);
             font-weight: 600;
         }
-        
         .menu li > a.active i {
             color: oklch(0.55 0.2 145);
         }
-        
-        /* Menu title with icon styling */
-        .menu-title {
-            display: flex;
+
+        /* Navbar link styling */
+        .nav-item {
+            display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: oklch(0.5 0.02 240);
+            gap: 0.25rem;
             padding: 0.5rem 0.75rem;
-            margin-top: 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background-color 0.15s;
         }
-        
-        .menu-title svg {
-            width: 14px;
-            height: 14px;
-            opacity: 0.7;
+        .nav-item:hover {
+            background-color: oklch(var(--b2));
         }
-        
-        .menu li > a:hover {
-            background-color: hsl(var(--b2));
-        }
-        
-        /* Reduzir padding dos subitens da sidebar */
-        .menu details ul li > a {
-            padding-top: 0.25rem;
-            padding-bottom: 0.25rem;
-            font-size: 0.8rem;
-        }
-        
-        /* Drawer transitions */
-        .drawer-side {
-            transition: transform 0.3s ease-in-out;
-            z-index: 50 !important;
-        }
-        
-        .drawer-side > aside {
-            z-index: 50 !important;
-        }
-        
-        .sidebar-text {
-            transition: opacity 0.2s ease-in-out;
+        .nav-item.active {
+            background-color: oklch(0.85 0.15 145 / 0.15);
+            color: oklch(0.55 0.2 145);
+            font-weight: 600;
         }
 
-        /* Classes utilitárias */
+        /* Navbar dropdown panel */
+        .navbar-dropdown .dropdown-content {
+            min-width: 14rem;
+            z-index: 999 !important;
+        }
+
+        /* Mobile drawer menu styling */
+        .drawer-side .mobile-menu details ul li > a {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            font-size: 0.85rem;
+        }
+
         .animate-fade-in {
             animation: fadeIn 0.5s ease-in;
         }
-        
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -241,42 +171,20 @@
         .animate-slide-up {
             animation: slideUp 0.3s ease-out;
         }
-        
         @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Previnindo problemas de FOUC (Flash of Unstyled Content) */
-        .no-fouc {
-            visibility: hidden;
-        }
-        .fouc-ready {
-            visibility: visible;
-        }
-        
-        /* Melhorias de densidade */
-        @media (min-width: 1920px) {
-            .menu li > a {
-                padding: 0.625rem 0.875rem;
-            }
-        }
-        
-        /* Garantir que toasts apareçam acima de modals/dialogs */
+        .no-fouc { visibility: hidden; }
+        .fouc-ready { visibility: visible; }
+
         #toast-container {
             position: fixed !important;
             top: 1rem !important;
             right: 1rem !important;
             z-index: 2147483647 !important;
         }
-        
-        /* Para navegadores que suportam popover/top-layer, usar CSS de contenção */
         #toast-container .alert {
             position: relative;
             z-index: inherit;
@@ -284,286 +192,136 @@
     </style>
 </head>
 <body class="bg-base-100 font-sans no-fouc">
-    <!-- Toast Container Global - positioned above modals/dialogs -->
+    <!-- Toast Container -->
     <div id="toast-container" class="toast toast-top toast-end" style="position: fixed !important; top: 1rem !important; right: 1rem !important; z-index: 2147483647 !important;"></div>
 
-    <!-- Mobile Drawer -->
-    <div class="drawer lg:drawer-open">
+    <!-- Drawer wrapper (mobile hamburger menu) -->
+    <div class="drawer">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" />
-        <div class="drawer-content flex flex-col h-screen">
-            <!-- Mobile Navbar -->
-            <div class="navbar bg-base-100 lg:hidden">
-                <div class="flex-none">
-                    <label for="main-drawer" class="btn btn-square btn-ghost drawer-button">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+
+        <!-- Page content (navbar + main) -->
+        <div class="drawer-content flex flex-col min-h-screen">
+
+            <!-- ===== TOP NAVBAR ===== -->
+            <nav class="navbar bg-base-100 border-b border-base-200 shadow-sm sticky top-0 z-50 px-2 lg:px-4">
+                <!-- Hamburger button (mobile only) -->
+                <div class="flex-none lg:hidden">
+                    <label for="main-drawer" class="btn btn-square btn-ghost">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
                     </label>
                 </div>
-                <div class="flex-1">
-                    <a class="btn btn-ghost normal-case text-xl flex items-center gap-2">
+
+                <!-- Logo -->
+                <div class="flex-none mr-4">
+                    <a href="{{ url_for('index') }}" class="flex items-center gap-2">
                         <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX" class="h-8 w-auto" />
-                        <span>CentralX</span>
+                        <span class="font-bold text-lg hidden sm:inline">CentralX</span>
                     </a>
                 </div>
-            </div>
-            
-            <!-- Main Content Area -->
-            <div class="flex-1 overflow-y-auto p-4">
-                {% block content %}{% endblock %}
-            </div>
-        </div>
-        
-        <!-- Drawer Sidebar -->
-        <div class="drawer-side">
-            <label for="main-drawer" class="drawer-overlay"></label>
-            <aside class="w-64 bg-base-100 flex flex-col h-full">
-                <!-- Logo & Brand -->
-                <div class="p-4 border-b border-base-200">
-                    <div id="sidebarLogo" class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX" class="h-8 w-auto" />
-                            <div class="sidebar-text">
-                                <h1 class="text-lg font-bold">CentralX</h1>
-                                <p class="text-xs opacity-60">CentralComm</p>
-                            </div>
+
+                <!-- Desktop navigation (hidden on mobile) -->
+                <div class="flex-1 hidden lg:flex items-center gap-1">
+                    <!-- Início (link direto) -->
+                    <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                        Início
+                    </a>
+
+                    <!-- Comercial -->
+                    <div class="dropdown navbar-dropdown">
+                        <div tabindex="0" role="button" class="nav-item">
+                            Comercial
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
+                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
+                            <li><a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">Clientes</a></li>
+                            <li><a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">Cotações</a></li>
+                            <li><a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">Briefings</a></li>
+                            <li><a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">PI Recebido</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">PIs em aprovação</a></li>
+                            <li><a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">Métricas Semanais</a></li>
+                        </ul>
                     </div>
+
+                    <!-- PIs -->
+                    <div class="dropdown navbar-dropdown">
+                        <div tabindex="0" role="button" class="nav-item">
+                            PIs
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">Em configuração</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">Em andamento</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">Em faturamento</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Campanhas -->
+                    <div class="dropdown navbar-dropdown">
+                        <div tabindex="0" role="button" class="nav-item">
+                            Campanhas
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                            <li><a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">Dashboard</a></li>
+                            <li><a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' %}active{% endif %}">Acompanhamento</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Cadu -->
+                    <div class="dropdown navbar-dropdown">
+                        <div tabindex="0" role="button" class="nav-item">
+                            Cadu
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
+                            <li><a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">Interesses</a></li>
+                            <li><a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">Métricas Plataforma</a></li>
+                            <li><a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">Nova Audiência</a></li>
+                            <li><a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">Audiências</a></li>
+                            <li><a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">Categorias</a></li>
+                            <li><a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">Subcategorias</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Administração -->
+                    {% if session.user_type in ['admin', 'superadmin'] or true %}
+                    <div class="dropdown navbar-dropdown">
+                        <div tabindex="0" role="button" class="nav-item">
+                            Administração
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
+                            <li><a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">Tipos de Cliente</a></li>
+                            <li><a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">Setores</a></li>
+                            <li><a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">Cargos</a></li>
+                            <li><a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">Logs de Auditoria</a></li>
+                            <li><a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">Assistente IA</a></li>
+                        </ul>
+                    </div>
+                    {% endif %}
                 </div>
-            
-                <!-- Navegação Principal -->
-                <nav class="flex-1 overflow-y-auto flex flex-col custom-scrollbar">
-                    <ul class="menu menu-sm px-3 py-4">
-                        <!-- Início -->
-                        <li>
-                            <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
-                                <span class="sidebar-text">Início</span>
-                            </a>
-                        </li>
 
-                        <!-- Comercial (colapsível) -->
-                        <li class="mt-4">
-                            <details data-group="comercial" open>
-                                <summary>
-                                    <span class="sidebar-text">Comercial</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
-                                            <span class="sidebar-text">Clientes</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">
-                                            <span class="sidebar-text">Cotações</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('crm_pipeline') }}" class="{% if request.endpoint == 'crm_pipeline' %}active{% endif %}">
-                                            <span class="sidebar-text">CRM</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
-                                            <span class="sidebar-text">Briefings</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">
-                                            <span class="sidebar-text">PI Recebido</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">
-                                            <span class="sidebar-text">PIs em aprovação</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
-                                            <span class="sidebar-text">Métricas Semanais</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
-                        <!-- PIs (colapsível) -->
-                        <li class="mt-2">
-                            <details data-group="pis" {% if request.endpoint == 'cadu_pi_lista' or request.endpoint == 'cadu_pi_novo' %}open{% endif %}>
-                                <summary>
-                                    <span class="sidebar-text">PIs</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">
-                                            <span class="sidebar-text">Em configuração</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">
-                                            <span class="sidebar-text">Em andamento</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
-                                            <span class="sidebar-text">Em faturamento</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
-                        <!-- Campanhas (colapsível) -->
-                        <li class="mt-2">
-                            <details data-group="campanhas" {% if request.endpoint in ['campanhas_pi', 'campanhas_pi_lista'] %}open{% endif %}>
-                                <summary>
-                                    <span class="sidebar-text">Campanhas</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">
-                                            <span class="sidebar-text">Dashboard</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' %}active{% endif %}">
-                                            <span class="sidebar-text">Acompanhamento</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
-                        <!-- Cadu (colapsível) -->
-                        <li class="mt-2">
-                            <details data-group="cadu">
-                                <summary>
-                                    <span class="sidebar-text">Cadu</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
-                                            <span class="sidebar-text">Interesses</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
-                                            <span class="sidebar-text">Métricas Plataforma</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
-                                            <span class="sidebar-text">Nova Audiência</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
-                                            <span class="sidebar-text">Audiências</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
-                                            <span class="sidebar-text">Categorias</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
-                                            <span class="sidebar-text">Subcategorias</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
-                        <!-- Configurações (colapsível) -->
-                        <li class="mt-4">
-                            <details data-group="config">
-                                <summary>
-                                    <span class="sidebar-text">Configurações</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
-                                            <span class="sidebar-text">Tipos de Cliente</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
-                                            <span class="sidebar-text">Setores</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
-                                            <span class="sidebar-text">Cargos</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-
-                        <!-- Administração (colapsível) -->
-                        {% if session.user_type in ['admin', 'superadmin'] or true %}
-                        <li class="mt-2">
-                            <details data-group="admin">
-                                <summary>
-                                    <span class="sidebar-text">Administração</span>
-                                </summary>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
-                                            <span class="sidebar-text">Logs de Auditoria</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
-                                            <span class="sidebar-text">Assistente IA</span>
-                                        </a>
-                                    </li>
-                                    <li class="px-2 py-2">
-                                        <div class="flex items-center gap-2 px-2 text-sm opacity-70">
-                                            <span class="sidebar-text">Seletor de Tema</span>
-                                        </div>
-                                        <div class="px-2 pt-1">
-                                            <select id="themeSelector" class="select select-bordered select-sm w-full text-xs">
-                                                <option value="centralcomm">CentralComm</option>
-                                                <option value="light">Light</option>
-                                                <option value="dark">Dark</option>
-                                                <option value="corporate">Corporate</option>
-                                            </select>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </details>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            
-                <!-- User Info -->
-                <div class="border-t border-base-200 p-3">
-                    <div class="dropdown dropdown-top dropdown-end w-full">
-                        <label tabindex="0" class="btn btn-ghost w-full justify-start gap-3 p-2 h-auto min-h-0">
-                            <!-- Avatar com iniciais -->
+                <!-- User dropdown (right side) -->
+                <div class="flex-none">
+                    <div class="dropdown dropdown-end">
+                        <div tabindex="0" role="button" class="btn btn-ghost gap-2 px-2">
                             <div class="avatar placeholder">
-                                <div class="bg-primary text-primary-content rounded-full w-9 h-9">
-                                    <span class="text-sm font-semibold">{{ session.get('user_name', 'U')[:2]|upper }}</span>
+                                <div class="bg-primary text-primary-content rounded-full w-8 h-8">
+                                    <span class="text-xs font-semibold">{{ session.get('user_name', 'U')[:2]|upper }}</span>
                                 </div>
                             </div>
-                            <div class="sidebar-text flex-1 text-left min-w-0">
-                                <p class="text-sm font-medium truncate">{{ session.get('user_name', 'Usuário') }}</p>
-                                <p class="text-xs opacity-60 truncate">{{ session.get('user_email', '') }}</p>
-                            </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50 sidebar-text" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
-                        </label>
-                        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52 mb-2 border border-base-200">
+                            <span class="hidden sm:inline text-sm font-medium max-w-[120px] truncate">{{ session.get('user_name', 'Usuário') }}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-2 border border-base-200">
                             <li>
                                 <a class="flex items-center gap-2">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                     Meu Perfil
-                                </a>
-                            </li>
-                            <li>
-                                <a class="flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                    Configurações
                                 </a>
                             </li>
                             <div class="divider my-1 h-px"></div>
@@ -576,84 +334,267 @@
                         </ul>
                     </div>
                 </div>
+            </nav>
+
+            <!-- ===== MAIN CONTENT ===== -->
+            <main class="flex-1 w-full p-4 overflow-y-auto">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+
+        <!-- ===== MOBILE DRAWER SIDEBAR ===== -->
+        <div class="drawer-side z-40">
+            <label for="main-drawer" aria-label="fechar menu" class="drawer-overlay"></label>
+            <aside class="bg-base-100 w-72 min-h-full flex flex-col">
+                <!-- Mobile logo -->
+                <div class="p-4 border-b border-base-200">
+                    <div class="flex items-center gap-3">
+                        <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="CentralX" class="h-8 w-auto" />
+                        <div>
+                            <h1 class="text-lg font-bold">CentralX</h1>
+                            <p class="text-xs opacity-60">CentralComm</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile navigation -->
+                <nav class="flex-1 overflow-y-auto">
+                    <ul class="mobile-menu menu menu-sm px-3 py-4">
+                        <!-- Início -->
+                        <li>
+                            <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
+                                Início
+                            </a>
+                        </li>
+
+                        <!-- Comercial -->
+                        <li class="mt-2">
+                            <details {% if request.endpoint in ['clientes', 'cotacoes_list', 'briefing_list', 'cadu_pi_novo', 'metricas_semanais'] or (request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1') %}open{% endif %}>
+                                <summary>Comercial</summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
+                                            Clientes
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">
+                                            Cotações
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
+                                            Briefings
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">
+                                            PI Recebido
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">
+                                            PIs em aprovação
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
+                                            Métricas Semanais
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
+                        <!-- PIs -->
+                        <li class="mt-2">
+                            <details {% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') in ['2','3','4'] %}open{% endif %}>
+                                <summary>PIs</summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">
+                                            Em configuração
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">
+                                            Em andamento
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
+                                            Em faturamento
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
+                        <!-- Campanhas -->
+                        <li class="mt-2">
+                            <details {% if request.endpoint in ['campanhas_pi', 'campanhas_pi_lista'] %}open{% endif %}>
+                                <summary>Campanhas</summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">
+                                            Dashboard
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' %}active{% endif %}">
+                                            Acompanhamento
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
+                        <!-- Cadu -->
+                        <li class="mt-2">
+                            <details>
+                                <summary>Cadu</summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
+                                            Interesses
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">
+                                            Métricas Plataforma
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
+                                            Nova Audiência
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">
+                                            Audiências
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">
+                                            Categorias
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_subcategorias') }}" class="{% if request.endpoint == 'cadu_subcategorias' %}active{% endif %}">
+                                            Subcategorias
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+
+                        <!-- Administração (merged) -->
+                        {% if session.user_type in ['admin', 'superadmin'] or true %}
+                        <li class="mt-4">
+                            <details>
+                                <summary>Administração</summary>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
+                                            Tipos de Cliente
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">
+                                            Setores
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">
+                                            Cargos
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
+                                            Logs de Auditoria
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
+                                            Assistente IA
+                                        </a>
+                                    </li>
+                                </ul>
+                            </details>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+
+                <!-- Mobile user info -->
+                <div class="border-t border-base-200 p-3">
+                    <div class="flex items-center gap-3 px-2 py-2">
+                        <div class="avatar placeholder">
+                            <div class="bg-primary text-primary-content rounded-full w-9 h-9">
+                                <span class="text-sm font-semibold">{{ session.get('user_name', 'U')[:2]|upper }}</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">{{ session.get('user_name', 'Usuário') }}</p>
+                            <p class="text-xs opacity-60 truncate">{{ session.get('user_email', '') }}</p>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm w-full justify-start gap-2 text-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            Sair
+                        </a>
+                    </div>
+                </div>
             </aside>
         </div>
     </div>
 
     <!-- Scripts globais -->
     <script>
-        // Previne FOUC
         document.addEventListener('DOMContentLoaded', function() {
+            // FOUC prevention
             document.body.classList.remove('no-fouc');
             document.body.classList.add('fouc-ready');
+
+            // Close navbar dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                document.querySelectorAll('.navbar-dropdown').forEach(function(dd) {
+                    if (!dd.contains(e.target)) {
+                        dd.removeAttribute('open');
+                        var trigger = dd.querySelector('[tabindex]');
+                        if (trigger) trigger.blur();
+                    }
+                });
+            });
+
+            // Close navbar dropdown after clicking a link inside it
+            document.querySelectorAll('.navbar-dropdown .dropdown-content a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    var dd = this.closest('.navbar-dropdown');
+                    if (dd) {
+                        var trigger = dd.querySelector('[tabindex]');
+                        if (trigger) trigger.blur();
+                    }
+                });
+            });
+
+            // Close mobile drawer when clicking a link
+            var drawer = document.getElementById('main-drawer');
+            document.querySelectorAll('.drawer-side .mobile-menu a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (drawer) {
+                        drawer.checked = false;
+                    }
+                });
+            });
         });
 
-        // Função para fechar mensagens flash
         function closeFlashMessage(element) {
             element.parentElement.remove();
         }
-        
-        // Marcar link ativo na navegação
-        document.addEventListener('DOMContentLoaded', function() {
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.nav-link');
-            
-            navLinks.forEach(link => {
-                if (link.getAttribute('href') === currentPath) {
-                    link.classList.add('active');
-                }
-            });
-        });
-
-        // Collapse state persistence via localStorage (DaisyUI native)
-        document.addEventListener('DOMContentLoaded', function(){
-            // Salvar estado quando abrir/fechar
-            document.querySelectorAll('details[data-group]').forEach(detail => {
-                detail.addEventListener('toggle', (e) => {
-                    const groupId = e.target.dataset.group;
-                    localStorage.setItem(`sidebar-${groupId}`, e.target.open ? 'open' : 'closed');
-                });
-            });
-
-            // Restaurar estado ao carregar
-            document.querySelectorAll('details[data-group]').forEach(detail => {
-                const groupId = detail.dataset.group;
-                const saved = localStorage.getItem(`sidebar-${groupId}`);
-                if (saved === 'closed') detail.removeAttribute('open');
-                if (saved === 'open') detail.setAttribute('open', '');
-            });
-        });
-
-        // Theme management
-        document.addEventListener('DOMContentLoaded', function(){
-            const storageKey = 'theme';
-            const htmlEl = document.documentElement;
-            const selector = document.getElementById('themeSelector');
-            const defaultTheme = 'centralcomm';
-
-            function applyTheme(theme){
-                htmlEl.setAttribute('data-theme', theme);
-            }
-
-            // init from localStorage
-            const saved = localStorage.getItem(storageKey) || defaultTheme;
-            applyTheme(saved);
-            
-            // Set the selector value after DOM is loaded
-            if (selector){ 
-                selector.value = saved;
-                
-                // handle change
-                selector.addEventListener('change', function(){
-                    const t = selector.value;
-                    localStorage.setItem(storageKey, t);
-                    applyTheme(t);
-                });
-            }
-        });
     </script>
 
-    <!-- Scripts específicos da página -->
     {% block scripts %}{% endblock %}
 </body>
 </html>

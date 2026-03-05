@@ -595,7 +595,7 @@ function calcularInvestLiquidoEdit() {
             Informações da Campanha
           </h2>
           {% if modo == 'editar' %}
-          <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+          <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
             <i class="fas fa-edit text-xs"></i>
           </button>
           {% endif %}
@@ -2031,6 +2031,7 @@ function calcularInvestLiquidoEdit() {
 <script>
 // Status que permitem edição de linhas, audiências, cliente e campanha
 const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise', 'Negociação'];
+const STATUS_PERMITE_EDICAO_CAMPANHA = ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'];
 let statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
 
 // Função auxiliar para verificar se edição é permitida
@@ -2062,10 +2063,10 @@ function atualizarElementosEdicao(novoStatus) {
     btnEditarCliente.style.display = podeEditarAgora ? '' : 'none';
   }
   
-  // Botão editar campanha
+  // Botão editar campanha (usa lista própria que inclui Em Acompanhamento)
   const btnEditarCampanha = document.getElementById('btn_editar_campanha');
   if (btnEditarCampanha) {
-    btnEditarCampanha.style.display = podeEditarAgora ? '' : 'none';
+    btnEditarCampanha.style.display = STATUS_PERMITE_EDICAO_CAMPANHA.includes(novoStatus) ? '' : 'none';
   }
   
   // Botão adicionar linha
@@ -3081,7 +3082,7 @@ async function salvarEdicaoCliente() {
 
 // Funções para editar Campanha
 function abrirModalEditarCampanha() {
-  if (!podeEditar()) {
+  if (!STATUS_PERMITE_EDICAO_CAMPANHA.includes(statusAtualCotacao)) {
     mostrarBloqueioEdicao();
     return;
   }
@@ -3089,7 +3090,7 @@ function abrirModalEditarCampanha() {
 }
 
 async function salvarEdicaoCampanha() {
-  if (!podeEditar()) {
+  if (!STATUS_PERMITE_EDICAO_CAMPANHA.includes(statusAtualCotacao)) {
     mostrarBloqueioEdicao();
     return;
   }

@@ -8848,17 +8848,27 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     # ==================== CAMPANHA PI - ROTAS ====================
 
     def _parse_numero_campanha(value):
-        """Converte string formatada pt-BR para número puro (sem formatação).
-        Ex: '1.234.567' -> '1234567', '0' -> '0'
+        """Converte string formatada pt-BR para número puro (para colunas NUMERIC).
+        Ex: '1.234.567' -> 1234567, '0' -> 0
         """
         if not value or not str(value).strip():
             return None
         try:
             cleaned = str(value).strip().replace('.', '').replace(',', '.')
-            num = float(cleaned)
-            if num == int(num):
-                return str(int(num))
-            return str(num)
+            return int(float(cleaned))
+        except (ValueError, TypeError):
+            return None
+
+    def _parse_numero_campanha_formatado(value):
+        """Converte string para número formatado com pontos de milhar (para colunas VARCHAR).
+        Ex: '1234567' -> '1.234.567', '1.234.567' -> '1.234.567', '0' -> '0'
+        """
+        if not value or not str(value).strip():
+            return None
+        try:
+            cleaned = str(value).strip().replace('.', '').replace(',', '.')
+            num = int(float(cleaned))
+            return f'{num:,}'.replace(',', '.')
         except (ValueError, TypeError):
             return None
 
@@ -8891,14 +8901,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'mes_ref': request.form.get('mes_ref') or None,
             'mes_ref_comp': request.form.get('mes_ref_comp', '').strip() or None,
             'nome_campanha': request.form.get('nome_campanha', '').strip() or None,
-            'obj_contratados': _parse_numero_campanha(request.form.get('obj_contratados')),
+            'obj_contratados': _parse_numero_campanha_formatado(request.form.get('obj_contratados')),
             'id_centralx': request.form.get('id_centralx', '').strip() or None,
             'under': request.form.get('under') == 'on',
             'id_objetivos_campanha': request.form.get('id_objetivos_campanha', type=int),
             'periodo_inicio': request.form.get('periodo_inicio') or None,
             'periodo_fim': request.form.get('periodo_fim') or None,
             'id_status': request.form.get('id_status', type=int),
-            'totalizador_atingido': _parse_numero_campanha(request.form.get('totalizador_atingido')),
+            'totalizador_atingido': _parse_numero_campanha_formatado(request.form.get('totalizador_atingido')),
             'totalizador_gasto': _parse_real_campanha(request.form.get('totalizador_gasto')),
             'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
             'valor_total_plataforma': _parse_real_campanha(request.form.get('valor_total_plataforma')),
@@ -8977,16 +8987,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 obj = camp.get('obj_contratados')
                 ating = camp.get('totalizador_atingido')
                 pct_camp = 0
-                if obj and ating:
-                    try:
-                        obj_f = float(obj)
-                        ating_f = float(ating)
-                        if obj_f > 0:
-                            pct_camp = round((ating_f / obj_f) * 100, 1)
-                            soma_pct_objetivo += pct_camp
-                            count_pct_objetivo += 1
-                    except (ValueError, TypeError):
-                        pass
+                obj_f = _parse_currency(obj)
+                ating_f = _parse_currency(ating)
+                if obj_f > 0 and ating_f > 0:
+                    pct_camp = round((ating_f / obj_f) * 100, 1)
+                    soma_pct_objetivo += pct_camp
+                    count_pct_objetivo += 1
 
                 gasto_val = _parse_currency(camp.get('totalizador_gasto'))
                 prev_val = _parse_currency(camp.get('valor_plataforma'))
@@ -9021,16 +9027,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 cli_nome = camp.get('cliente_nome') or 'Sem cliente'
                 clientes_agg[cli_nome]['investimento_total'] += gasto_val
                 clientes_agg[cli_nome]['num_campanhas'] += 1
-                clientes_agg[cli_nome]['objetivo_total'] += float(obj) if obj else 0
-                clientes_agg[cli_nome]['atingido_total'] += float(ating) if ating else 0
+                clientes_agg[cli_nome]['objetivo_total'] += _parse_currency(obj)
+                clientes_agg[cli_nome]['atingido_total'] += _parse_currency(ating)
 
                 mes_key = camp.get('mes_ref_comp') or 'N/A'
-                try:
-                    objetivo_por_mes[mes_key]['obj'] += float(obj) if obj else 0
-                    objetivo_por_mes[mes_key]['ating'] += float(ating) if ating else 0
-                    objetivo_por_mes[mes_key]['count'] += 1
-                except (ValueError, TypeError):
-                    pass
+                objetivo_por_mes[mes_key]['obj'] += _parse_currency(obj)
+                objetivo_por_mes[mes_key]['ating'] += _parse_currency(ating)
+                objetivo_por_mes[mes_key]['count'] += 1
 
                 perf_campanhas.append({
                     'nome': camp.get('nome_campanha', ''),
@@ -9115,7 +9118,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 chart_executivos=json_mod.dumps(chart_executivos),
                 top_clientes=top_clientes)
         except Exception as e:
-            app.logger.error(f"Erro ao listar campanhas PI: {str(e)}")
+            import traceback
+            app.logger.error(f"Erro ao listar campanhas PI: {str(e)}\n{traceback.format_exc()}")
             flash('Erro ao carregar campanhas PI.', 'error')
             return redirect(url_for('index'))
 
@@ -9329,10 +9333,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'id_campanha': d['id_campanha'],
                     'data_evento': d['data_evento'].isoformat() if d.get('data_evento') else None,
                     'data_evento_fmt': d['data_evento'].strftime('%d/%m/%Y') if d.get('data_evento') else '—',
-                    'atingido': float(d['atingido']) if d.get('atingido') is not None else None,
-                    'gasto': float(d['gasto']) if d.get('gasto') is not None else None,
-                    'dif_atingido': float(d['dif_atingido']) if d.get('dif_atingido') is not None else None,
-                    'dif_gasto': float(d['dif_gasto']) if d.get('dif_gasto') is not None else None,
+                    'atingido': str(d['atingido']) if d.get('atingido') is not None else None,
+                    'gasto': str(d['gasto']) if d.get('gasto') is not None else None,
+                    'dif_atingido': str(d['dif_atingido']) if d.get('dif_atingido') is not None else None,
+                    'dif_gasto': str(d['dif_gasto']) if d.get('dif_gasto') is not None else None,
                 })
             return jsonify({
                 'success': True,
@@ -9357,15 +9361,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not campanha:
                 return jsonify({'success': False, 'error': 'Campanha não encontrada'}), 404
             payload = request.get_json()
+            app.logger.warning(f"[DEBUG DIARIO CRIAR] RAW payload: atingido='{payload.get('atingido')}' gasto='{payload.get('gasto')}'")
             data = {
                 'id_pi': campanha['id_pi'],
                 'id_campanha': id_camp,
                 'data_evento': payload.get('data_evento') or None,
-                'atingido': _parse_decimal_br(payload.get('atingido')),
-                'gasto': _parse_decimal_br(payload.get('gasto')),
+                'atingido': _parse_numero_campanha_formatado(payload.get('atingido')),
+                'gasto': _parse_real_campanha(payload.get('gasto')),
                 'dif_atingido': None,
                 'dif_gasto': None,
             }
+            app.logger.warning(f"[DEBUG DIARIO CRIAR] PARSED: atingido='{data['atingido']}' gasto='{data['gasto']}'")
             if not data['data_evento']:
                 return jsonify({'success': False, 'error': 'Data do evento é obrigatória'}), 400
             id_diario = db.criar_diario_campanha(data)
@@ -9385,8 +9391,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             payload = request.get_json()
             data = {
                 'data_evento': payload.get('data_evento') or None,
-                'atingido': _parse_decimal_br(payload.get('atingido')),
-                'gasto': _parse_decimal_br(payload.get('gasto')),
+                'atingido': _parse_numero_campanha_formatado(payload.get('atingido')),
+                'gasto': _parse_real_campanha(payload.get('gasto')),
                 'dif_atingido': None,
                 'dif_gasto': None,
             }
@@ -9567,8 +9573,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'id_pi': campanha['id_pi'],
                 'id_campanha': id_camp,
                 'data_evento': request.form.get('data_evento') or None,
-                'atingido': _parse_decimal_br(request.form.get('atingido')),
-                'gasto': _parse_decimal_br(request.form.get('gasto')),
+                'atingido': _parse_numero_campanha_formatado(request.form.get('atingido')),
+                'gasto': _parse_real_campanha(request.form.get('gasto')),
                 'dif_atingido': None,
                 'dif_gasto': None,
             }
@@ -9605,8 +9611,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             data = {
                 'data_evento': request.form.get('data_evento') or None,
-                'atingido': _parse_decimal_br(request.form.get('atingido')),
-                'gasto': _parse_decimal_br(request.form.get('gasto')),
+                'atingido': _parse_numero_campanha_formatado(request.form.get('atingido')),
+                'gasto': _parse_real_campanha(request.form.get('gasto')),
                 'dif_atingido': None,
                 'dif_gasto': None,
             }

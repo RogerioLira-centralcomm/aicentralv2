@@ -312,8 +312,8 @@
   {% if campanhas and campanhas|length > 0 %}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="campanhasGrid">
       {% for c in campanhas %}
-        {% set obj_val = c.obj_contratados|float if c.obj_contratados else 0 %}
-        {% set ating_val = c.totalizador_atingido|float if c.totalizador_atingido else 0 %}
+        {% set obj_val = (c.obj_contratados|string|replace('.','')|float) if c.obj_contratados else 0 %}
+        {% set ating_val = (c.totalizador_atingido|string|replace('.','')|float) if c.totalizador_atingido else 0 %}
         {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
         {% set prev_raw = c.valor_plataforma or '0' %}
         {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
@@ -611,11 +611,11 @@
         </div>
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Atingido</label>
-          <input type="text" id="sidebarDiarioAtingido" placeholder="0" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+          <input type="text" id="sidebarDiarioAtingido" placeholder="0" data-mask="numero" inputmode="decimal" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
         </div>
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Gasto</label>
-          <input type="text" id="sidebarDiarioGasto" placeholder="0" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
+          <input type="text" id="sidebarDiarioGasto" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-indigo-200">
         </div>
       </div>
       <div class="flex justify-end gap-2 mt-2">
@@ -837,11 +837,11 @@
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Atingido</label>
-              <input type="text" id="diario_atingido" placeholder="0" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <input type="text" id="diario_atingido" placeholder="0" data-mask="numero" inputmode="decimal" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Gasto</label>
-              <input type="text" id="diario_gasto" placeholder="0" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <input type="text" id="diario_gasto" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
             </div>
           </div>
           <div class="flex justify-end gap-2 mt-2">
@@ -1080,8 +1080,8 @@
     }
     document.getElementById('sidebarPeriodo').textContent = periodoText;
 
-    const objVal = parseFloat(camp.obj_contratados) || 0;
-    const atingVal = parseFloat(camp.totalizador_atingido) || 0;
+    const objVal = parseFloat(String(camp.obj_contratados || '0').replace(/\./g, '')) || 0;
+    const atingVal = parseFloat(String(camp.totalizador_atingido || '0').replace(/\./g, '')) || 0;
     const pctObj = objVal > 0 ? ((atingVal / objVal) * 100).toFixed(1) : 0;
     document.getElementById('sidebarPctObj').textContent = pctObj + '%';
     document.getElementById('sidebarBarObj').style.width = Math.min(pctObj, 100) + '%';
@@ -1166,8 +1166,8 @@
           <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
             <div class="flex items-center gap-3">
               <span class="text-gray-500 font-medium">${d.data_evento_fmt}</span>
-              <span class="text-emerald-600 font-semibold">${d.atingido != null ? Number(d.atingido).toLocaleString('pt-BR') : '—'}</span>
-              <span class="text-amber-600 font-semibold">R$ ${d.gasto != null ? Number(d.gasto).toLocaleString('pt-BR') : '—'}</span>
+              <span class="text-emerald-600 font-semibold">${d.atingido || '—'}</span>
+              <span class="text-amber-600 font-semibold">${d.gasto || '—'}</span>
             </div>
             <div class="flex gap-1">
               <button onclick="editarSidebarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})" class="p-1 text-gray-400 hover:text-gray-700 rounded"><i class="fas fa-edit text-xs"></i></button>
@@ -1192,9 +1192,9 @@
   function editarSidebarDiario(id, dataEvento, atingido, gasto) {
     const form = document.getElementById('sidebarFormDiario');
     form.classList.remove('hidden');
-    document.getElementById('sidebarDiarioData').value = dataEvento || '';
-    document.getElementById('sidebarDiarioAtingido').value = atingido != null ? atingido : '';
-    document.getElementById('sidebarDiarioGasto').value = gasto != null ? gasto : '';
+    document.getElementById('sidebarDiarioData').value = dataEvento ? String(dataEvento).slice(0, 10) : '';
+    document.getElementById('sidebarDiarioAtingido').value = atingido || '';
+    document.getElementById('sidebarDiarioGasto').value = gasto || '';
     document.getElementById('sidebarDiarioEditId').value = id;
   }
 
@@ -1466,8 +1466,8 @@
           tr.className = 'hover:bg-gray-50';
           tr.innerHTML = `
             <td class="py-2 px-3 text-gray-700">${d.data_evento_fmt}</td>
-            <td class="py-2 px-3 text-right text-gray-700">${d.atingido != null ? Number(d.atingido).toLocaleString('pt-BR') : '—'}</td>
-            <td class="py-2 px-3 text-right text-gray-700">${d.gasto != null ? Number(d.gasto).toLocaleString('pt-BR') : '—'}</td>
+            <td class="py-2 px-3 text-right text-gray-700">${d.atingido || '—'}</td>
+            <td class="py-2 px-3 text-right text-gray-700">${d.gasto || '—'}</td>
             <td class="py-2 px-3 text-center">
               <div class="flex items-center justify-center gap-1">
                 <button onclick="editarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})"
@@ -1506,9 +1506,9 @@
 
   function editarDiario(id, dataEvento, atingido, gasto) {
     document.getElementById('form_novo_diario').style.display = '';
-    document.getElementById('diario_data').value = dataEvento || '';
-    document.getElementById('diario_atingido').value = atingido != null ? atingido : '';
-    document.getElementById('diario_gasto').value = gasto != null ? gasto : '';
+    document.getElementById('diario_data').value = dataEvento ? String(dataEvento).slice(0, 10) : '';
+    document.getElementById('diario_atingido').value = atingido || '';
+    document.getElementById('diario_gasto').value = gasto || '';
     document.getElementById('diario_edit_id').value = id;
     document.getElementById('btnSalvarDiario').textContent = 'Atualizar';
   }

@@ -1106,8 +1106,8 @@
 
       camps.forEach(c => {
         const periodo = (c.periodo_inicio || '-') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
-        const objAtingido = c.totalizador_atingido != null ? c.totalizador_atingido : 0;
-        const objContratado = c.obj_contratados != null ? c.obj_contratados : 0;
+        const objAtingido = parseFloat(String(c.totalizador_atingido || '0').replace(/\./g, '')) || 0;
+        const objContratado = parseFloat(String(c.obj_contratados || '0').replace(/\./g, '')) || 0;
         const pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
         const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
         const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;

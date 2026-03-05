@@ -68,92 +68,86 @@ select.select:focus {
 </style>
 
 <div class="max-w-full mx-auto px-2 overflow-x-hidden">
-  <!-- Header Compacto Sticky com Filtros Inline -->
-  <div class="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 mb-3 sticky top-0 z-40">
-    <div class="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+  <!-- Header Sticky com Filtros Inline -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40">
+    <div class="flex items-center justify-between gap-3">
       <!-- Título -->
       <div class="flex items-center gap-2 flex-shrink-0">
-        <h1 class="text-base sm:text-lg font-semibold text-gray-800">Audiências</h1>
-        <span class="text-xs text-gray-500 hidden sm:inline">(<span id="contador-header">{{ audiencias|length }}</span>)</span>
+        <h1 class="text-lg font-semibold text-gray-800">Audiências</h1>
+        <span class="text-xs text-gray-500">(<span id="contador-header">{{ audiencias|length }}</span>)</span>
       </div>
       
-      <!-- Filtros Inline -->
-      <div class="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center overflow-x-auto">
-        <!-- ID -->
-        <input type="text" id="filtro-id" placeholder="ID..."
-               class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 70px; min-width: 70px;">
+      <!-- Filtros -->
+      <div class="flex items-center gap-3 flex-1 justify-center">
+        <input type="text" id="filtro-id" placeholder="ID ou Nome..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 150px;">
         
-        <!-- Plataforma -->
         <select id="filtro-plataforma" 
                 onchange="filtrarPlataformaServer(this.value)"
-                class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 110px; min-width: 110px;">
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 170px;">
           <option value="">Todas Plataformas</option>
           {% for plataforma in plataformas %}
             <option value="{{ plataforma.id }}" {% if plataforma_id_selecionada and plataforma.id == plataforma_id_selecionada %}selected{% endif %}>{{ plataforma.nome }}</option>
           {% endfor %}
         </select>
         
-        <!-- Categoria -->
         <select id="filtro-categoria" 
-                class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 110px; min-width: 110px;">
-          <option value="" selected>Categorias</option>
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 170px;">
+          <option value="" selected>Todas Categorias</option>
           {% for categoria in categorias %}
             <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
           {% endfor %}
         </select>
         
-        <!-- Subcategoria -->
         <select id="filtro-subcategoria" disabled
-                class="text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 sm:py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 disabled:opacity-50" style="width: 110px; min-width: 110px;">
-          <option value="" selected>Subcategorias</option>
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 disabled:opacity-50" style="min-width: 170px;">
+          <option value="" selected>Todas Subcategorias</option>
         </select>
         
         <!-- Status Icons -->
-        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-1.5">
+        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
           <button type="button" id="filtro-status-ativa"
-                  class="p-1 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
                   title="Ativas">
-            <i class="fa-solid fa-circle-check text-xs sm:text-sm text-gray-400"></i>
+            <i class="fa-solid fa-circle-check text-sm text-gray-400"></i>
           </button>
           <button type="button" id="filtro-status-inativa"
-                  class="p-1 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
                   title="Inativas">
-            <i class="fa-solid fa-circle-xmark text-xs sm:text-sm text-gray-400"></i>
+            <i class="fa-solid fa-circle-xmark text-sm text-gray-400"></i>
           </button>
           <button type="button" id="filtro-status-todos"
-                  class="p-1 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
                   title="Todas">
-            <i class="fa-solid fa-list text-xs sm:text-sm text-gray-800"></i>
+            <i class="fa-solid fa-list text-sm text-gray-800"></i>
           </button>
         </div>
         
-        <!-- Limpar Filtros -->
         <button type="button" id="btn-limpar-filtros" 
-                class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600" 
+                class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600" 
                 title="Limpar Filtros">
-          <i class="fas fa-times text-xs sm:text-sm"></i>
+          <i class="fas fa-times text-sm"></i>
         </button>
       </div>
       
-      <!-- Botões de Visualização e Nova Audiência -->
-      <div class="flex gap-1 sm:gap-2 flex-shrink-0">
-        <!-- Toggle Visualização -->
-        <div class="flex items-center gap-0.5 border-r border-gray-200 pr-1 sm:pr-2">
+      <!-- Ações -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="flex items-center gap-1 border-r border-gray-200 pr-2">
           <button type="button" id="btn-view-table"
-                  class="p-1 sm:p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors bg-gray-200" 
                   title="Visualização em Tabela">
-            <i class="fa-solid fa-table text-xs sm:text-sm text-gray-800"></i>
+            <i class="fa-solid fa-table text-sm text-gray-800"></i>
           </button>
           <button type="button" id="btn-view-cards"
-                  class="p-1 sm:p-1.5 rounded hover:bg-gray-100 transition-colors" 
+                  class="p-1.5 rounded hover:bg-gray-100 transition-colors" 
                   title="Visualização em Cards">
-            <i class="fa-solid fa-grip text-xs sm:text-sm text-gray-400"></i>
+            <i class="fa-solid fa-grip text-sm text-gray-400"></i>
           </button>
         </div>
         
         <button onclick="modal_audiencia.showModal(); document.getElementById('modal_audiencia_title').textContent='Nova Audiência'; document.getElementById('audiencia_id').value=''; document.getElementById('btn_submit_audiencia_text').textContent='Cadastrar'; document.getElementById('form_audiencia').reset();" 
-                class="px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors whitespace-nowrap">
-          <i class="fas fa-plus mr-0.5 sm:mr-1"></i><span class="hidden sm:inline">Nova</span>
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors whitespace-nowrap">
+          <i class="fas fa-plus mr-1"></i>Nova
         </button>
       </div>
     </div>
@@ -624,6 +618,10 @@ async function carregarSubcategoriasModal(categoriaId, subcategoriaSelecionada =
   }
 }
 
+function normalizar(str) {
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   console.log('✅ Script de audiências carregado');
   
@@ -906,7 +904,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Função para aplicar filtros
   function aplicarFiltros() {
-    const idFiltro = filtroId.value.trim().toLowerCase();
+    const idFiltro = normalizar(filtroId.value.trim());
     const plataformaFiltro = filtroPlataforma.value;
     const categoriaId = filtroCategoria.value;
     const subcategoriaId = filtroSubcategoria.value;
@@ -928,12 +926,13 @@ document.addEventListener('DOMContentLoaded', function() {
       const rowSubcategoriaId = row.getAttribute('data-subcategoria-id');
       const statusAttr = row.getAttribute('data-status');
       const rowPlataformaId = row.getAttribute('data-plataforma-id') || '';
-      const rowId = row.cells[0]?.textContent.trim().toLowerCase() || '';
+      const rowId = normalizar(row.cells[0]?.textContent);
+      const rowNome = normalizar(row.cells[1]?.textContent);
       
       let showRow = true;
 
       if (idFiltro) {
-        if (!rowId.includes(idFiltro)) {
+        if (!rowId.includes(idFiltro) && !rowNome.includes(idFiltro)) {
           showRow = false;
         }
       }
@@ -977,12 +976,14 @@ document.addEventListener('DOMContentLoaded', function() {
       const statusAttr = card.getAttribute('data-status');
       const cardPlataformaId = card.getAttribute('data-plataforma-id') || '';
       const cardIdElement = card.querySelector('code');
-      const cardId = cardIdElement ? cardIdElement.textContent.trim().toLowerCase() : '';
+      const cardId = normalizar(cardIdElement ? cardIdElement.textContent : '');
+      const cardNomeElement = card.querySelector('h3');
+      const cardNome = normalizar(cardNomeElement ? cardNomeElement.textContent : '');
 
       let showCard = true;
 
       if (idFiltro) {
-        if (!cardId.includes(idFiltro)) {
+        if (!cardId.includes(idFiltro) && !cardNome.includes(idFiltro)) {
           showCard = false;
         }
       }
@@ -1023,12 +1024,14 @@ document.addEventListener('DOMContentLoaded', function() {
       const statusAttr = card.getAttribute('data-status');
       const cardPlataformaId = card.getAttribute('data-plataforma-id') || '';
       const cardIdElement = card.querySelector('.badge-neutral');
-      const cardId = cardIdElement ? cardIdElement.textContent.replace('#', '').trim().toLowerCase() : '';
+      const cardId = normalizar(cardIdElement ? cardIdElement.textContent.replace('#', '') : '');
+      const cardNomeElement = card.querySelector('h3');
+      const cardNome = normalizar(cardNomeElement ? cardNomeElement.textContent : '');
 
       let showCard = true;
 
       if (idFiltro) {
-        if (!cardId.includes(idFiltro)) {
+        if (!cardId.includes(idFiltro) && !cardNome.includes(idFiltro)) {
           showCard = false;
         }
       }

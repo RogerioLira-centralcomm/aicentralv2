@@ -2043,7 +2043,6 @@ def init_routes(app):
     def aceitar_convite_submit(token):
         """Processa o formulário de aceitar convite"""
         from datetime import datetime
-        import hashlib
         
         invite = db.obter_invite_por_token(token)
         
@@ -2089,8 +2088,6 @@ def init_routes(app):
                                    nome=nome)
         
         try:
-            senha_hash = hashlib.sha256(senha.encode()).hexdigest()
-            
             role_mapping = {
                 'member': 'client',
                 'admin': 'admin',
@@ -2102,13 +2099,14 @@ def init_routes(app):
             
             contato_existente = db.obter_contato_por_email(invite['email'])
             if contato_existente:
+                senha_hash = db.gerar_senha_hash(senha)
                 db.atualizar_contato_com_senha(contato_existente['id_contato_cliente'], nome, senha_hash)
                 contato_id = contato_existente['id_contato_cliente']
             else:
                 contato_id = db.criar_contato(
                     nome_completo=nome,
                     email=invite['email'],
-                    senha=senha_hash,
+                    senha=senha,
                     pk_id_tbl_cliente=invite['id_cliente'],
                     user_type=user_type
                 )

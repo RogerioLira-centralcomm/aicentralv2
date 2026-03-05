@@ -6829,6 +6829,7 @@ def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id
                     ) as ciclo_medio_dias
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
+                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -6882,6 +6883,7 @@ def obter_cotacoes_por_executivo_semana(semana_inicio, semana_fim, executivo_id=
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = c.responsavel_comercial
                 WHERE c.deleted_at IS NULL
+                  AND (c.status IS NULL OR c.status != 'Rascunho')
                   AND c.created_at >= %s
                   AND c.created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -6925,6 +6927,7 @@ def obter_evolucao_diaria_semana(semana_inicio, semana_fim, executivo_id=None, c
                     COUNT(*) FILTER (WHERE status = 'Enviada' OR status = 'Negociação') as em_andamento
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
+                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -6966,6 +6969,7 @@ def obter_distribuicao_status_semana(semana_inicio, semana_fim, executivo_id=Non
                     COALESCE(SUM(valor_total_proposta), 0) as valor
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
+                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7016,6 +7020,7 @@ def obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id=None, clie
                     COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
+                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7030,6 +7035,7 @@ def obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id=None, clie
                     COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
+                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7058,7 +7064,7 @@ def obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id=None, clie
         return {'atual': {}, 'anterior': {}, 'variacao': {}}
 
 
-def obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id=None, cliente_id=None):
+def obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id=None, cliente_id=None, busca=None):
     """
     Retorna lista detalhada de cotações da semana para a tabela.
     
@@ -7079,6 +7085,16 @@ def obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id=Non
                 filtros_sql += ' AND c.client_id = %s'
                 params.append(int(cliente_id))
             
+            if busca:
+                filtros_sql += ''' AND (
+                    c.numero_cotacao ILIKE %s
+                    OR cli.nome_fantasia ILIKE %s
+                    OR cli.razao_social ILIKE %s
+                    OR c.nome_campanha ILIKE %s
+                )'''
+                termo = f'%{busca}%'
+                params.extend([termo, termo, termo, termo])
+            
             cursor.execute(f'''
                 SELECT 
                     c.id,
@@ -7095,17 +7111,113 @@ def obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id=Non
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.client_id
                 LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = c.responsavel_comercial
+                LEFT JOIN tbl_agencia ag ON cli.pk_id_tbl_agencia = ag.id_agencia
                 WHERE c.deleted_at IS NULL
+                  AND (c.status IS NULL OR c.status != 'Rascunho')
                   AND c.created_at >= %s
                   AND c.created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
-                ORDER BY c.created_at DESC
+                ORDER BY cli.nome_fantasia, ag.display, e.nome_completo, c.nome_campanha
             ''', params)
             
             return cursor.fetchall()
     except Exception as e:
         current_app.logger.error(f"Erro ao obter cotações detalhadas: {e}")
         return []
+
+
+def obter_kpis_mensais_por_semana(mes_inicio, mes_fim, executivo_id=None, cliente_id=None):
+    """
+    Retorna KPIs quebrados por semana dentro do mês.
+    Semana 1: dias 1-7, Semana 2: dias 8-14, Semana 3: dias 15-21, Semana 4+: dias 22+
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [mes_inicio, mes_fim]
+            filtros_sql = ''
+            
+            if executivo_id:
+                filtros_sql += ' AND responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            
+            if cliente_id:
+                filtros_sql += ' AND client_id = %s'
+                params.append(int(cliente_id))
+            
+            cursor.execute(f'''
+                SELECT 
+                    CASE 
+                        WHEN EXTRACT(DAY FROM created_at) <= 7 THEN 'Semana 1'
+                        WHEN EXTRACT(DAY FROM created_at) <= 14 THEN 'Semana 2'
+                        WHEN EXTRACT(DAY FROM created_at) <= 21 THEN 'Semana 3'
+                        ELSE 'Semana 4'
+                    END as semana,
+                    COUNT(*) as cotacoes_criadas,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor_total,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
+                    COUNT(*) FILTER (WHERE status = 'Rejeitada') as rejeitadas,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL / 
+                        NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada')), 0) * 100, 
+                        1
+                    ) as taxa_conversao
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND (status IS NULL OR status != 'Rascunho')
+                  AND created_at >= %s
+                  AND created_at < %s + INTERVAL '1 day'
+                  {filtros_sql}
+                GROUP BY 
+                    CASE 
+                        WHEN EXTRACT(DAY FROM created_at) <= 7 THEN 'Semana 1'
+                        WHEN EXTRACT(DAY FROM created_at) <= 14 THEN 'Semana 2'
+                        WHEN EXTRACT(DAY FROM created_at) <= 21 THEN 'Semana 3'
+                        ELSE 'Semana 4'
+                    END
+                ORDER BY semana
+            ''', params)
+            
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter KPIs mensais por semana: {e}")
+        return []
+
+
+def obter_novos_clientes_periodo(inicio, fim):
+    """Conta novos clientes cadastrados no período."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM tbl_cliente
+                WHERE data_cadastro >= %s
+                  AND data_cadastro < %s + INTERVAL '1 day'
+            ''', [inicio, fim])
+            result = cursor.fetchone()
+            return result['total'] if result else 0
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter novos clientes: {e}")
+        return 0
+
+
+def obter_novos_contatos_periodo(inicio, fim):
+    """Conta novos contatos cadastrados no período."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT COUNT(*) as total
+                FROM tbl_contato_cliente
+                WHERE data_cadastro >= %s
+                  AND data_cadastro < %s + INTERVAL '1 day'
+            ''', [inicio, fim])
+            result = cursor.fetchone()
+            return result['total'] if result else 0
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter novos contatos: {e}")
+        return 0
 
 
 def obter_executivos_ativos():

@@ -1,17 +1,10 @@
 {% extends "base_tailwind.html" %}
 
-{% block title %}Métricas Semanais - Comercial{% endblock %}
+{% block title %}Métricas Mensais - Comercial{% endblock %}
 
 {% block styles %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-    .stat-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-    }
     .chart-container {
         position: relative;
         height: 280px;
@@ -19,40 +12,26 @@
     .kpi-value {
         font-variant-numeric: tabular-nums;
     }
-    .variacao-positiva { color: #22c55e; }
-    .variacao-negativa { color: #ef4444; }
+    .variacao-positiva { color: #1E4D4F; font-weight: 600; }
+    .variacao-negativa { color: #374151; }
     .variacao-neutra { color: #6b7280; }
     
-    /* Status colors */
-    .status-rascunho { background-color: #e5e7eb; color: #374151; }
-    .status-analise { background-color: #dbeafe; color: #1d4ed8; }
-    .status-enviada { background-color: #fef3c7; color: #b45309; }
-    .status-negociacao { background-color: #e0e7ff; color: #4338ca; }
-    .status-aprovada { background-color: #dcfce7; color: #166534; }
-    .status-rejeitada { background-color: #fee2e2; color: #991b1b; }
-    
-    /* Fix para selects e input week */
-    .select, .input[type="week"] {
-        min-height: 2.5rem;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
-        line-height: 1.5;
-        overflow: visible;
-    }
-    .select select {
-        padding-right: 2.5rem;
-        padding-left: 0.75rem;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-        text-overflow: clip;
-        white-space: nowrap;
-        overflow: visible;
-        background-color: transparent;
-        color: inherit;
+    input[type="month"] {
+        min-width: 170px;
         width: 100%;
+        padding: 0.375rem 0.625rem;
+        font-size: 0.8125rem;
+    }
+    input[type="month"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.7;
+    }
+    input[type="month"]:focus {
+        outline: 2px solid #1E4D4F;
+        outline-offset: 2px;
     }
     .select select:focus {
-        outline: 2px solid hsl(var(--p));
+        outline: 2px solid #1E4D4F;
         outline-offset: 2px;
     }
     .select select option {
@@ -61,61 +40,46 @@
         background-color: hsl(var(--b1));
         color: hsl(var(--bc));
     }
-    input[type="week"] {
-        min-width: 180px;
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.875rem;
-    }
-    input[type="week"]::-webkit-calendar-picker-indicator {
-        cursor: pointer;
-        opacity: 0.7;
-    }
-    input[type="week"]:focus {
-        outline: 2px solid hsl(var(--p));
+    #filtroBusca:focus {
+        outline: 2px solid #1E4D4F;
         outline-offset: 2px;
     }
     
-    /* Estilos para busca inteligente de clientes */
-    #resultados_clientes_metricas {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    #tabelaCotacoes td {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
-    #resultados_clientes_metricas .cliente-resultado:hover {
-        background-color: hsl(var(--b2));
+    
+    .week-group-header {
+        background-color: #f3f4f6;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #374151;
     }
-    #filtroClienteBusca:focus {
-        outline: 2px solid hsl(var(--p));
-        outline-offset: 2px;
+    .table tbody tr:nth-child(even):not(.week-group-header) {
+        background-color: #f9fafb;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
-    <!-- Header -->
-    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-base-content flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Métricas Semanais
-            </h1>
-            <p class="text-base-content/60 text-sm mt-1">Acompanhamento semanal da performance comercial</p>
-        </div>
+<div class="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
+    <!-- Header compacto -->
+    <div class="flex flex-wrap items-end justify-between gap-2">
+        <h1 class="text-xl font-bold text-base-content">Métricas Mensais</h1>
         
-        <!-- Filtros -->
-        <div class="flex flex-wrap items-center gap-3">
-            <!-- Seletor de Semana -->
+        <div class="flex flex-wrap items-end gap-2">
+            <!-- Mês -->
             <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">Semana</label>
-                <input type="week" id="filtroSemana" class="input input-bordered w-full min-w-[180px]" style="min-width: 180px;" />
+                <label class="text-xs text-base-content/60 mb-0.5">Mês</label>
+                <input type="month" id="filtroMes" class="input input-bordered input-xs" />
             </div>
             
             <!-- Executivo -->
             <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">Executivo</label>
-                <select id="filtroExecutivo" class="select select-bordered w-full min-w-[200px]" style="min-width: 200px;">
+                <label class="text-xs text-base-content/60 mb-0.5">Executivo</label>
+                <select id="filtroExecutivo" class="select select-bordered select-xs min-w-[240px] max-w-[320px]">
                     <option value="">Todos</option>
                     {% for exec in executivos %}
                     <option value="{{ exec.id }}" {% if default_executivo_id and default_executivo_id == exec.id %}selected{% endif %}>{{ exec.nome }}</option>
@@ -123,148 +87,103 @@
                 </select>
             </div>
             
-            <!-- Cliente -->
+            <!-- Busca unificada -->
             <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">Cliente</label>
-                <div class="relative" style="min-width: 200px;">
-                    <input type="hidden" id="filtroCliente" value="">
-                    <div class="relative">
-                        <input type="text" id="filtroClienteBusca" class="input input-bordered w-full pr-8" 
-                               placeholder="Buscar cliente..." 
-                               autocomplete="off" 
-                               oninput="buscarClientesMetricas(this.value)" 
-                               onfocus="mostrarResultadosClientes()">
-                        <button type="button" 
-                                class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle p-0 h-6 w-6" 
-                                onclick="limparFiltroCliente()"
-                                id="btnLimparCliente"
-                                style="display: none;">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                    <div id="resultados_clientes_metricas" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-base-300"></div>
-                </div>
+                <label class="text-xs text-base-content/60 mb-0.5">Buscar</label>
+                <input type="text" id="filtroBusca" class="input input-bordered input-xs min-w-[200px]" 
+                       placeholder="Cliente, campanha, número..." 
+                       autocomplete="off">
             </div>
             
-            <!-- Botão Atualizar -->
+            <!-- Buscar -->
             <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-1">&nbsp;</label>
-                <button id="btnAtualizar" class="btn btn-primary btn-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Atualizar
-                </button>
+                <button id="btnAtualizar" class="btn btn-primary btn-xs">Buscar</button>
             </div>
         </div>
     </div>
 
     <!-- Período selecionado -->
-    <div class="text-sm text-base-content/60 flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <span id="periodoLabel">Carregando...</span>
-    </div>
+    <div class="text-sm text-base-content/50" id="periodoLabel">Carregando...</div>
 
     <!-- KPI Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         <!-- Cotações Criadas -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Cotações Criadas</span>
-            </div>
-            <div class="text-3xl font-bold text-primary kpi-value" id="kpi-cotacoes">
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Cotações Criadas</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-cotacoes">
                 <span class="loading loading-spinner loading-sm"></span>
             </div>
             <div class="text-xs text-base-content/50 mt-1" id="kpi-cotacoes-var">--</div>
         </div>
 
         <!-- Valor Total -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Valor Total Cotado</span>
-            </div>
-            <div class="text-2xl font-bold text-success kpi-value" id="kpi-valor">
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Valor Total Cotado</div>
+            <div class="text-xl font-bold text-primary kpi-value" id="kpi-valor">
                 <span class="loading loading-spinner loading-sm"></span>
             </div>
             <div class="text-xs text-base-content/50 mt-1" id="kpi-valor-var">--</div>
         </div>
 
         <!-- Taxa de Conversão -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Taxa de Conversão</span>
-            </div>
-            <div class="text-3xl font-bold text-info kpi-value" id="kpi-conversao">
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Taxa de Conversão</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-conversao">
                 <span class="loading loading-spinner loading-sm"></span>
             </div>
             <div class="text-xs text-base-content/50 mt-1" id="kpi-conversao-detalhe">Aprovadas / Finalizadas</div>
         </div>
 
         <!-- Ticket Médio -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span>Ticket Médio</span>
-            </div>
-            <div class="text-2xl font-bold text-warning kpi-value" id="kpi-ticket">
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Ticket Médio</div>
+            <div class="text-xl font-bold text-primary kpi-value" id="kpi-ticket">
                 <span class="loading loading-spinner loading-sm"></span>
             </div>
             <div class="text-xs text-base-content/50 mt-1">Valor médio aprovadas</div>
         </div>
 
         <!-- Ciclo Médio -->
-        <div class="stat-card bg-base-100 rounded-xl p-4 border border-base-300">
-            <div class="flex items-center gap-2 text-base-content/60 text-xs mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Ciclo Médio</span>
-            </div>
-            <div class="text-3xl font-bold text-secondary kpi-value" id="kpi-ciclo">
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Ciclo Médio</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-ciclo">
                 <span class="loading loading-spinner loading-sm"></span>
             </div>
             <div class="text-xs text-base-content/50 mt-1">Dias até aprovação</div>
         </div>
+
+        <!-- Novos Clientes -->
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Novos Clientes</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-novos-clientes">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1">Cadastrados no mês</div>
+        </div>
+
+        <!-- Novos Contatos -->
+        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div class="text-xs text-base-content/60 mb-2">Novos Contatos</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-novos-contatos">
+                <span class="loading loading-spinner loading-sm"></span>
+            </div>
+            <div class="text-xs text-base-content/50 mt-1">Cadastrados no mês</div>
+        </div>
     </div>
 
     <!-- Gráficos Row 1 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Cotações por Executivo (Barras) -->
-        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Cotações por Executivo
-            </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Cotações por Executivo -->
+        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4">Cotações por Executivo</h3>
             <div class="chart-container">
                 <canvas id="chartExecutivos"></canvas>
             </div>
         </div>
 
-        <!-- Evolução Diária (Linha) -->
-        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                </svg>
-                Evolução Diária da Semana
-            </h3>
+        <!-- Evolução Diária -->
+        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4">Evolução Diária</h3>
             <div class="chart-container">
                 <canvas id="chartEvolucao"></canvas>
             </div>
@@ -272,29 +191,18 @@
     </div>
 
     <!-- Gráficos Row 2 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Distribuição por Status (Pizza) -->
-        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                </svg>
-                Distribuição por Status
-            </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Distribuição por Status -->
+        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4">Distribuição por Status</h3>
             <div class="chart-container">
                 <canvas id="chartStatus"></canvas>
             </div>
         </div>
 
-        <!-- Comparativo Semanal -->
-        <div class="bg-base-100 rounded-xl p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Comparativo: Semana Atual vs Anterior
-            </h3>
+        <!-- Comparativo Semanal do Mês -->
+        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+            <h3 class="text-sm font-semibold text-base-content mb-4">Comparativo por Semana do Mês</h3>
             <div class="chart-container">
                 <canvas id="chartComparativo"></canvas>
             </div>
@@ -302,20 +210,15 @@
     </div>
 
     <!-- Tabela Detalhada -->
-    <div class="bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+    <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
         <div class="p-4 border-b border-base-300 flex justify-between items-center">
-            <h3 class="text-sm font-semibold text-base-content flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                Cotações da Semana
-            </h3>
-            <span class="badge badge-ghost" id="totalCotacoesTabela">0 cotações</span>
+            <h3 class="text-sm font-semibold text-base-content">Cotações do Mês</h3>
+            <span class="text-xs text-base-content/60" id="totalCotacoesTabela">0 cotações</span>
         </div>
         
         <div class="overflow-x-auto">
             <table class="table table-sm w-full">
-                <thead style="background-color: #72cd80;">
+                <thead style="background-color: #1E4D4F;">
                     <tr class="text-white text-xs">
                         <th class="font-semibold">Número</th>
                         <th class="font-semibold">Cliente</th>
@@ -349,13 +252,21 @@ let chartEvolucao = null;
 let chartStatus = null;
 let chartComparativo = null;
 
+const PRIMARY = '#1E4D4F';
+const PRIMARY_70 = 'rgba(30, 77, 79, 0.7)';
+const PRIMARY_30 = 'rgba(30, 77, 79, 0.3)';
+const PRIMARY_10 = 'rgba(30, 77, 79, 0.1)';
+const GRAY_500 = '#6b7280';
+const GRAY_400 = '#9ca3af';
+const GRAY_300 = '#d1d5db';
+const GRAY_700 = '#374151';
+
 const STATUS_COLORS = {
-    'Rascunho': '#9ca3af',
-    'Em Análise': '#3b82f6',
-    'Enviada': '#f59e0b',
-    'Negociação': '#8b5cf6',
-    'Aprovada': '#22c55e',
-    'Rejeitada': '#ef4444'
+    'Em Análise': PRIMARY_70,
+    'Enviada': GRAY_500,
+    'Negociação': PRIMARY,
+    'Aprovada': '#4b5563',
+    'Rejeitada': GRAY_300
 };
 
 // ==================== FUNÇÕES UTILITÁRIAS ====================
@@ -390,16 +301,15 @@ function getWeekDayName(dateStr) {
     return date.toLocaleDateString('pt-BR', { weekday: 'short' });
 }
 
-function getStatusClass(status) {
-    const classes = {
-        'Rascunho': 'badge-ghost',
-        'Em Análise': 'badge-info',
-        'Enviada': 'badge-warning',
-        'Negociação': 'badge-secondary',
-        'Aprovada': 'badge-success',
-        'Rejeitada': 'badge-error'
+function getStatusBadgeClass(status) {
+    const map = {
+        'Em Análise': 'bg-gray-200 text-gray-700',
+        'Enviada': 'bg-gray-300 text-gray-800',
+        'Negociação': 'bg-gray-400 text-white',
+        'Aprovada': 'bg-gray-700 text-white',
+        'Rejeitada': 'bg-gray-100 text-gray-500'
     };
-    return classes[status] || 'badge-ghost';
+    return map[status] || 'bg-gray-100 text-gray-600';
 }
 
 function getVariacaoHTML(valor) {
@@ -409,129 +319,24 @@ function getVariacaoHTML(valor) {
     return `<span class="${cls}">${icon} ${Math.abs(valor).toFixed(1)}%</span>`;
 }
 
-// ==================== BUSCA INTELIGENTE DE CLIENTES ====================
-let timeoutBuscaClientes = null;
-
-function buscarClientesMetricas(termo) {
-    clearTimeout(timeoutBuscaClientes);
-    
-    if (termo.length < 2) {
-        document.getElementById('resultados_clientes_metricas').style.display = 'none';
-        // Se o campo estiver vazio, limpar o filtro
-        if (termo.length === 0) {
-            document.getElementById('filtroCliente').value = '';
-            document.getElementById('filtroClienteBusca').value = '';
-            document.getElementById('btnLimparCliente').style.display = 'none';
-        }
-        return;
-    }
-    
-    timeoutBuscaClientes = setTimeout(() => {
-        fetch('/api/clientes/buscar', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                nome: termo,
-                razao: termo
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            renderizarResultadosClientes(data.clientes || []);
-        })
-        .catch(error => {
-            console.error('Erro ao buscar clientes:', error);
-        });
-    }, 300);
+function getWeekNumber(dateStr) {
+    const d = new Date(dateStr);
+    const day = d.getDate();
+    if (day <= 7) return 'Semana 1';
+    if (day <= 14) return 'Semana 2';
+    if (day <= 21) return 'Semana 3';
+    return 'Semana 4';
 }
-
-function renderizarResultadosClientes(clientes) {
-    const resultadosDiv = document.getElementById('resultados_clientes_metricas');
-    
-    if (clientes.length === 0) {
-        resultadosDiv.innerHTML = '<div class="p-2 text-xs text-base-content/60">Nenhum cliente encontrado</div>';
-        resultadosDiv.style.display = 'block';
-        return;
-    }
-    
-    // Adicionar opção "Todos"
-    let html = '<div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 cliente-resultado" data-id="" data-nome="">';
-    html += '<div class="font-semibold text-xs text-primary">Todos os clientes</div>';
-    html += '</div>';
-    
-    html += clientes.map((cliente) => `
-        <div class="p-2 hover:bg-base-200 cursor-pointer border-b border-base-300 last:border-b-0 cliente-resultado" 
-             data-id="${cliente.id_cliente}" 
-             data-nome="${cliente.nome_fantasia || cliente.razao_social}">
-            <div class="font-semibold text-xs">${cliente.nome_fantasia || cliente.razao_social}</div>
-            ${cliente.razao_social && cliente.nome_fantasia ? `<div class="text-xs text-base-content/60">${cliente.razao_social}</div>` : ''}
-        </div>
-    `).join('');
-    
-    resultadosDiv.innerHTML = html;
-    resultadosDiv.style.display = 'block';
-    
-    document.querySelectorAll('.cliente-resultado').forEach(elem => {
-        elem.addEventListener('click', function() {
-            const clienteId = this.getAttribute('data-id');
-            const clienteNome = this.getAttribute('data-nome');
-            
-            document.getElementById('filtroCliente').value = clienteId;
-            document.getElementById('filtroClienteBusca').value = clienteNome || '';
-            resultadosDiv.style.display = 'none';
-            
-            // Mostrar/ocultar botão de limpar
-            const btnLimpar = document.getElementById('btnLimparCliente');
-            if (clienteId) {
-                btnLimpar.style.display = 'block';
-            } else {
-                btnLimpar.style.display = 'none';
-            }
-            
-            // Recarregar dados quando um cliente for selecionado
-            carregarDados();
-        });
-    });
-}
-
-function mostrarResultadosClientes() {
-    const termo = document.getElementById('filtroClienteBusca').value;
-    if (termo.length >= 2) {
-        buscarClientesMetricas(termo);
-    }
-}
-
-function limparFiltroCliente() {
-    document.getElementById('filtroCliente').value = '';
-    document.getElementById('filtroClienteBusca').value = '';
-    document.getElementById('resultados_clientes_metricas').style.display = 'none';
-    document.getElementById('btnLimparCliente').style.display = 'none';
-    carregarDados();
-}
-
-// Fechar resultados ao clicar fora
-document.addEventListener('click', function(event) {
-    const resultadosDiv = document.getElementById('resultados_clientes_metricas');
-    const inputBusca = document.getElementById('filtroClienteBusca');
-    
-    if (resultadosDiv && inputBusca && 
-        !resultadosDiv.contains(event.target) && 
-        !inputBusca.contains(event.target)) {
-        resultadosDiv.style.display = 'none';
-    }
-});
 
 function getFilters() {
-    const semana = document.getElementById('filtroSemana').value;
+    const mes = document.getElementById('filtroMes').value;
     const executivo = document.getElementById('filtroExecutivo').value;
-    const cliente = document.getElementById('filtroCliente').value;
+    const busca = document.getElementById('filtroBusca').value.trim();
     
     const params = new URLSearchParams();
-    if (semana) params.append('semana', semana);
+    if (mes) params.append('mes', mes);
     if (executivo) params.append('executivo_id', executivo);
-    if (cliente) params.append('cliente_id', cliente);
+    if (busca) params.append('busca', busca);
     
     return params.toString();
 }
@@ -545,21 +350,20 @@ async function carregarKPIs() {
         if (result.success) {
             const data = result.data;
             
-            // Atualizar KPIs
             document.getElementById('kpi-cotacoes').textContent = data.cotacoes_criadas || 0;
             document.getElementById('kpi-valor').textContent = formatCurrency(data.valor_total);
             document.getElementById('kpi-conversao').textContent = (data.taxa_conversao || 0) + '%';
             document.getElementById('kpi-ticket').textContent = formatCurrency(data.ticket_medio);
             document.getElementById('kpi-ciclo').textContent = (data.ciclo_medio_dias || 0) + ' dias';
+            document.getElementById('kpi-novos-clientes').textContent = data.novos_clientes || 0;
+            document.getElementById('kpi-novos-contatos').textContent = data.novos_contatos || 0;
             
-            // Atualizar período
             if (result.periodo) {
                 const inicio = formatDate(result.periodo.inicio);
                 const fim = formatDate(result.periodo.fim);
-                document.getElementById('periodoLabel').textContent = `${inicio} a ${fim}`;
+                document.getElementById('periodoLabel').textContent = `Período: ${inicio} a ${fim}`;
             }
             
-            // Detalhes extras
             document.getElementById('kpi-conversao-detalhe').textContent = 
                 `${data.aprovadas || 0} aprovadas / ${(data.aprovadas || 0) + (data.rejeitadas || 0)} finalizadas`;
         }
@@ -587,15 +391,15 @@ async function carregarGraficoExecutivos() {
                         {
                             label: 'Total',
                             data: result.data.map(d => d.total_cotacoes),
-                            backgroundColor: 'rgba(114, 205, 128, 0.7)',
-                            borderColor: '#72cd80',
+                            backgroundColor: PRIMARY_70,
+                            borderColor: PRIMARY,
                             borderWidth: 1
                         },
                         {
                             label: 'Aprovadas',
                             data: result.data.map(d => d.aprovadas),
-                            backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                            borderColor: '#22c55e',
+                            backgroundColor: GRAY_400,
+                            borderColor: GRAY_500,
                             borderWidth: 1
                         }
                     ]
@@ -607,7 +411,8 @@ async function carregarGraficoExecutivos() {
                         legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
                     },
                     scales: {
-                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
+                        x: { grid: { display: false } }
                     }
                 }
             });
@@ -628,31 +433,23 @@ async function carregarGraficoEvolucao() {
             
             if (chartEvolucao) chartEvolucao.destroy();
             
-            // Preencher dias faltantes da semana
-            const diasSemana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-            const dadosPorDia = {};
-            result.data.forEach(d => {
-                const dia = getWeekDayName(d.data);
-                dadosPorDia[dia] = d;
-            });
-            
             chartEvolucao = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: result.data.map(d => formatDate(d.data) + '\n' + getWeekDayName(d.data)),
+                    labels: result.data.map(d => formatDate(d.data)),
                     datasets: [
                         {
                             label: 'Cotações',
                             data: result.data.map(d => d.total_cotacoes),
-                            borderColor: '#72cd80',
-                            backgroundColor: 'rgba(114, 205, 128, 0.1)',
+                            borderColor: PRIMARY,
+                            backgroundColor: PRIMARY_10,
                             fill: true,
                             tension: 0.3
                         },
                         {
                             label: 'Valor (R$ mil)',
                             data: result.data.map(d => (d.valor_total || 0) / 1000),
-                            borderColor: '#3b82f6',
+                            borderColor: GRAY_400,
                             backgroundColor: 'transparent',
                             borderDash: [5, 5],
                             tension: 0.3,
@@ -667,8 +464,9 @@ async function carregarGraficoEvolucao() {
                         legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
                     },
                     scales: {
-                        y: { beginAtZero: true, position: 'left', ticks: { stepSize: 1 } },
-                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
+                        y: { beginAtZero: true, position: 'left', ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
+                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } },
+                        x: { grid: { display: false } }
                     }
                 }
             });
@@ -695,7 +493,7 @@ async function carregarGraficoStatus() {
                     labels: result.data.map(d => d.status),
                     datasets: [{
                         data: result.data.map(d => d.total),
-                        backgroundColor: result.data.map(d => STATUS_COLORS[d.status] || '#9ca3af'),
+                        backgroundColor: result.data.map(d => STATUS_COLORS[d.status] || GRAY_300),
                         borderWidth: 2,
                         borderColor: '#fff'
                     }]
@@ -725,46 +523,36 @@ async function carregarGraficoStatus() {
     }
 }
 
-// ==================== CARREGAR GRÁFICO COMPARATIVO ====================
+// ==================== CARREGAR GRÁFICO COMPARATIVO (SEMANAS DO MÊS) ====================
 async function carregarGraficoComparativo() {
     try {
         const response = await fetch(`/api/metricas/semanais/comparativo?${getFilters()}`);
         const result = await response.json();
         
-        if (result.success) {
+        if (result.success && result.data.length > 0) {
             const ctx = document.getElementById('chartComparativo').getContext('2d');
             
             if (chartComparativo) chartComparativo.destroy();
             
-            const atual = result.data.atual || {};
-            const anterior = result.data.anterior || {};
-            const variacao = result.data.variacao || {};
+            const semanas = result.data.map(d => d.semana);
             
             chartComparativo = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Cotações', 'Valor (R$ mil)', 'Aprovadas'],
+                    labels: semanas,
                     datasets: [
                         {
-                            label: 'Semana Anterior',
-                            data: [
-                                anterior.total || 0,
-                                (anterior.valor || 0) / 1000,
-                                anterior.aprovadas || 0
-                            ],
-                            backgroundColor: 'rgba(156, 163, 175, 0.5)',
-                            borderColor: '#9ca3af',
+                            label: 'Cotações',
+                            data: result.data.map(d => d.cotacoes_criadas),
+                            backgroundColor: PRIMARY_70,
+                            borderColor: PRIMARY,
                             borderWidth: 1
                         },
                         {
-                            label: 'Semana Atual',
-                            data: [
-                                atual.total || 0,
-                                (atual.valor || 0) / 1000,
-                                atual.aprovadas || 0
-                            ],
-                            backgroundColor: 'rgba(114, 205, 128, 0.7)',
-                            borderColor: '#72cd80',
+                            label: 'Aprovadas',
+                            data: result.data.map(d => d.aprovadas),
+                            backgroundColor: GRAY_400,
+                            borderColor: GRAY_500,
                             borderWidth: 1
                         }
                     ]
@@ -776,29 +564,20 @@ async function carregarGraficoComparativo() {
                         legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
                         tooltip: {
                             callbacks: {
-                                afterLabel: function(context) {
-                                    if (context.datasetIndex === 1) {
-                                        const keys = ['total', 'valor', 'aprovadas'];
-                                        const var_val = variacao[keys[context.dataIndex]];
-                                        if (var_val !== undefined) {
-                                            const sinal = var_val >= 0 ? '+' : '';
-                                            return `Variação: ${sinal}${var_val.toFixed(1)}%`;
-                                        }
-                                    }
-                                    return '';
+                                afterBody: function(tooltipItems) {
+                                    const idx = tooltipItems[0].dataIndex;
+                                    const item = result.data[idx];
+                                    return `Valor: ${formatCurrency(item.valor_total)}\nConversão: ${item.taxa_conversao || 0}%`;
                                 }
                             }
                         }
                     },
                     scales: {
-                        y: { beginAtZero: true }
+                        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
+                        x: { grid: { display: false } }
                     }
                 }
             });
-            
-            // Atualizar variações nos KPIs
-            document.getElementById('kpi-cotacoes-var').innerHTML = getVariacaoHTML(variacao.total) + ' vs anterior';
-            document.getElementById('kpi-valor-var').innerHTML = getVariacaoHTML(variacao.valor) + ' vs anterior';
         }
     } catch (error) {
         console.error('Erro ao carregar gráfico comparativo:', error);
@@ -817,31 +596,46 @@ async function carregarTabela() {
         if (result.success && result.data.length > 0) {
             badge.textContent = `${result.data.length} cotações`;
             
-            tbody.innerHTML = result.data.map(cot => `
-                <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}'">
-                    <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
-                    <td class="font-medium">${cot.cliente_nome || '--'}</td>
-                    <td class="max-w-[200px] truncate" title="${cot.nome_campanha || ''}">${cot.nome_campanha || '--'}</td>
-                    <td class="text-right font-medium">${formatCurrency(cot.valor_total_proposta)}</td>
-                    <td class="text-center">
-                        <span class="badge badge-sm ${getStatusClass(cot.status)}">${cot.status || 'Rascunho'}</span>
-                    </td>
-                    <td>${cot.executivo_nome || '--'}</td>
-                    <td class="text-center">
-                        <span class="${cot.dias_aberto > 7 ? 'text-warning font-semibold' : ''}">${cot.dias_aberto || 0}</span>
-                    </td>
-                    <td class="text-xs text-base-content/60">${formatDateTime(cot.created_at)}</td>
-                </tr>
-            `).join('');
+            const grouped = {};
+            result.data.forEach(cot => {
+                const week = getWeekNumber(cot.created_at);
+                if (!grouped[week]) grouped[week] = [];
+                grouped[week].push(cot);
+            });
+            
+            let html = '';
+            const weeks = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'];
+            weeks.forEach(week => {
+                if (!grouped[week] || grouped[week].length === 0) return;
+                
+                html += `<tr class="week-group-header">
+                    <td colspan="8" class="py-2 px-4">${week} — ${grouped[week].length} cotações</td>
+                </tr>`;
+                
+                grouped[week].forEach(cot => {
+                    html += `
+                        <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}'">
+                            <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
+                            <td class="font-medium">${cot.cliente_nome || '--'}</td>
+                            <td>${cot.nome_campanha || '--'}</td>
+                            <td class="text-right font-medium">${formatCurrency(cot.valor_total_proposta)}</td>
+                            <td class="text-center">
+                                <span class="inline-block px-2 py-0.5 rounded text-xs ${getStatusBadgeClass(cot.status)}">${cot.status || '--'}</span>
+                            </td>
+                            <td>${cot.executivo_nome || '--'}</td>
+                            <td class="text-center">${cot.dias_aberto || 0}</td>
+                            <td class="text-xs text-base-content/60">${formatDateTime(cot.created_at)}</td>
+                        </tr>`;
+                });
+            });
+            
+            tbody.innerHTML = html;
         } else {
             badge.textContent = '0 cotações';
             tbody.innerHTML = `
                 <tr>
                     <td colspan="8" class="text-center py-8 text-base-content/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p>Nenhuma cotação encontrada nesta semana</p>
+                        <p>Nenhuma cotação encontrada neste mês</p>
                     </td>
                 </tr>
             `;
@@ -853,7 +647,6 @@ async function carregarTabela() {
 
 // ==================== CARREGAR TODOS OS DADOS ====================
 async function carregarDados() {
-    // Mostrar loading
     document.getElementById('btnAtualizar').classList.add('loading');
     
     await Promise.all([
@@ -865,22 +658,15 @@ async function carregarDados() {
         carregarTabela()
     ]);
     
-    // Remover loading
     document.getElementById('btnAtualizar').classList.remove('loading');
 }
 
 // ==================== INICIALIZAÇÃO ====================
 document.addEventListener('DOMContentLoaded', function() {
-    // Definir semana atual no seletor
     const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const primeiroDiaAno = new Date(ano, 0, 1);
-    const diasPassados = Math.floor((hoje - primeiroDiaAno) / (24 * 60 * 60 * 1000));
-    const semanaNum = Math.ceil((diasPassados + primeiroDiaAno.getDay() + 1) / 7);
-    const semanaFormatada = `${ano}-W${String(semanaNum).padStart(2, '0')}`;
-    document.getElementById('filtroSemana').value = semanaFormatada;
+    const mesFormatado = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+    document.getElementById('filtroMes').value = mesFormatado;
     
-    // Pre-select exec from unified cookie (overrides server default)
     var cookieExec = getCookie('cc_filtro_exec');
     if (cookieExec !== null) {
         var selExec = document.getElementById('filtroExecutivo');
@@ -892,17 +678,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Carregar dados
     carregarDados();
     
-    // Event listeners
     document.getElementById('btnAtualizar').addEventListener('click', carregarDados);
-    document.getElementById('filtroSemana').addEventListener('change', carregarDados);
     document.getElementById('filtroExecutivo').addEventListener('change', function() {
         setCookie('cc_filtro_exec', this.value, 30);
-        carregarDados();
     });
-    // Cliente usa busca inteligente - carregarDados() é chamado automaticamente ao selecionar
+    document.getElementById('filtroBusca').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') carregarDados();
+    });
 });
 </script>
 {% endblock %}

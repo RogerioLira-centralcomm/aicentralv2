@@ -12,6 +12,17 @@
   /* Tab styles */
   .tab-btn.tab-active { color: #1f2937; border-bottom-color: #374151; }
   .modal-tab-content.hidden { display: none; }
+
+  /* Selects: garantir que o texto nunca fique truncado */
+  select {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  #form_cliente select,
+  #form_contato select {
+    min-width: 0;
+  }
 </style>
 
 <div class="max-w-full mx-auto px-2">
@@ -28,7 +39,7 @@
       <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="flex items-center gap-3">
         <!-- Executivo -->
         <select name="executivo_id" onchange="salvarFiltrosClientes(); this.form.submit()" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 240px; max-width: 320px;">
           <option value="">Todos executivos</option>
           {% for vendedor in vendedores_cc %}
             <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
@@ -316,7 +327,7 @@
 
 <!-- Modal de Cliente -->
 <dialog id="modal_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-[90vh]">
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-none overflow-visible">
     <!-- Header fixo -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
       <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Cliente</h3>
@@ -379,21 +390,9 @@
           </div>
         </div>
 
-        <!-- Linha 2: Inscrições + Tipo + Vendas + Agência + Percentual -->
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <div id="inscricoes_fields" class="form-control col-span-2 md:col-span-2">
-            <div class="grid grid-cols-2 gap-2">
-              <div class="form-control">
-                <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
-                <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
-              </div>
-              <div class="form-control">
-                <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
-                <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
-              </div>
-            </div>
-          </div>
-          <div id="tipo_cliente_fields" class="form-control">
+        <!-- Linha 2: Tipo + Executivo + Agência + Percentual -->
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+          <div id="tipo_cliente_fields" class="form-control col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
             <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -402,8 +401,8 @@
               {% endfor %}
             </select>
           </div>
-          <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Vendas CC*</label>
+          <div class="form-control col-span-1 md:col-span-5">
+            <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
             <select name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for vendedor in vendedores_cc %}
@@ -411,7 +410,7 @@
               {% endfor %}
             </select>
           </div>
-          <div id="agencia_fields" class="form-control">
+          <div id="agencia_fields" class="form-control col-span-1 md:col-span-3">
             <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
             <select name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
@@ -420,9 +419,21 @@
               {% endfor %}
             </select>
           </div>
-          <div id="percentual_fields" class="form-control">
+          <div id="percentual_fields" class="form-control col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Percentual</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
+          </div>
+        </div>
+
+        <!-- Linha 3: Inscrições (apenas PJ) -->
+        <div id="inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
+            <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+          </div>
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
+            <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
           </div>
         </div>
 
@@ -451,18 +462,20 @@
               <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
               <input id="bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
-            <div class="form-control col-span-2">
+            <div class="form-control col-span-3">
               <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
               <input id="logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
+          </div>
+          <div class="grid grid-cols-4 gap-3 mt-3">
             <div class="form-control">
               <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
               <input id="numero" name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
-          </div>
-          <div class="form-control mt-3">
-            <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
-            <input id="complemento" name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
+              <input id="complemento" name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+            </div>
           </div>
         </div>
 
@@ -665,6 +678,7 @@
 </dialog>
 
 <script>
+const LOGGED_USER_ID = {{ session.get('user_id', 0) }};
 // Funções do Modal de Cliente
 document.addEventListener('DOMContentLoaded', function() {
   const formCliente = document.getElementById('form_cliente');
@@ -810,6 +824,13 @@ function abrirModalNovo() {
     }
   });
   
+  // Pré-selecionar executivo de vendas logado
+  const selectVendas = document.querySelector('select[name="vendas_central_comm"]');
+  const optionLogado = selectVendas.querySelector(`option[value="${LOGGED_USER_ID}"]`);
+  if (optionLogado) {
+    selectVendas.value = LOGGED_USER_ID;
+  }
+
   // Abrir modal
   modal_cliente.showModal();
 }

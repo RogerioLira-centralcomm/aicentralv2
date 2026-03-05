@@ -7526,12 +7526,29 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Página do Dashboard de Métricas Admin"""
         return render_template('admin_metrics_dashboard.html')
 
-    # ==================== MÉTRICAS SEMANAIS ====================
+    # ==================== MÉTRICAS MENSAIS (ex-SEMANAIS) ====================
+
+    def _parsear_periodo_mensal(mes_param):
+        """Função auxiliar para parsear o parâmetro 'mes' (YYYY-MM) e retornar (inicio, fim)."""
+        from datetime import datetime
+        import calendar
+        if mes_param:
+            year, month = mes_param.split('-')
+            year, month = int(year), int(month)
+            ultimo_dia = calendar.monthrange(year, month)[1]
+            mes_inicio = datetime(year, month, 1).date()
+            mes_fim = datetime(year, month, ultimo_dia).date()
+        else:
+            hoje = datetime.now()
+            ultimo_dia = calendar.monthrange(hoje.year, hoje.month)[1]
+            mes_inicio = datetime(hoje.year, hoje.month, 1).date()
+            mes_fim = datetime(hoje.year, hoje.month, ultimo_dia).date()
+        return mes_inicio, mes_fim
     
     @app.route('/metricas/semanais')
     @login_required
     def metricas_semanais():
-        """Página de Métricas Semanais do Comercial"""
+        """Página de Métricas Mensais do Comercial"""
         executivos = db.obter_executivos_ativos()
         clientes = db.obter_clientes_para_filtro()
 
@@ -7544,86 +7561,46 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/metricas/semanais/kpis', methods=['GET'])
     @login_required
     def api_metricas_semanais_kpis():
-        """API para KPIs semanais"""
+        """API para KPIs mensais"""
         try:
-            from datetime import datetime, timedelta
-            
-            # Obter parâmetros
-            semana = request.args.get('semana')  # formato: YYYY-Www (ex: 2026-W03)
+            mes = request.args.get('mes')
             executivo_id = request.args.get('executivo_id', type=int)
             cliente_id = request.args.get('cliente_id', type=int)
             
-            # Calcular datas da semana
-            if semana:
-                # Parse ISO week format
-                year, week = semana.split('-W')
-                # Encontrar a segunda-feira da semana
-                jan1 = datetime(int(year), 1, 1)
-                # Calcular o dia da semana de 1º de janeiro (0 = segunda)
-                jan1_weekday = jan1.weekday()
-                # Calcular dias até a segunda da semana 1
-                days_to_week1 = (7 - jan1_weekday) % 7
-                if jan1_weekday <= 3:  # Se 1º jan é seg-qui, semana 1 começa nessa semana
-                    days_to_week1 = -jan1_weekday
-                else:  # Se 1º jan é sex-dom, semana 1 começa na próxima segunda
-                    days_to_week1 = 7 - jan1_weekday
-                
-                semana_inicio = jan1 + timedelta(days=days_to_week1 + (int(week) - 1) * 7)
-                semana_fim = semana_inicio + timedelta(days=6)
-            else:
-                # Semana atual
-                hoje = datetime.now()
-                semana_inicio = hoje - timedelta(days=hoje.weekday())
-                semana_fim = semana_inicio + timedelta(days=6)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
-            semana_inicio = semana_inicio.date()
-            semana_fim = semana_fim.date()
+            kpis = db.obter_kpis_semanais(mes_inicio, mes_fim, executivo_id, cliente_id)
             
-            kpis = db.obter_kpis_semanais(semana_inicio, semana_fim, executivo_id, cliente_id)
+            novos_clientes = db.obter_novos_clientes_periodo(mes_inicio, mes_fim)
+            novos_contatos = db.obter_novos_contatos_periodo(mes_inicio, mes_fim)
+            if isinstance(kpis, dict):
+                kpis['novos_clientes'] = novos_clientes
+                kpis['novos_contatos'] = novos_contatos
             
             return jsonify({
                 'success': True,
                 'data': kpis,
                 'periodo': {
-                    'inicio': semana_inicio.isoformat(),
-                    'fim': semana_fim.isoformat()
+                    'inicio': mes_inicio.isoformat(),
+                    'fim': mes_fim.isoformat()
                 }
             })
         except Exception as e:
-            current_app.logger.error(f"Erro ao obter KPIs semanais: {e}")
+            current_app.logger.error(f"Erro ao obter KPIs mensais: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/por-executivo', methods=['GET'])
     @login_required
     def api_metricas_semanais_por_executivo():
-        """API para cotações por executivo na semana"""
+        """API para cotações por executivo no mês"""
         try:
-            from datetime import datetime, timedelta
-            
-            semana = request.args.get('semana')
+            mes = request.args.get('mes')
             executivo_id = request.args.get('executivo_id', type=int)
             cliente_id = request.args.get('cliente_id', type=int)
             
-            # Calcular datas da semana (mesmo cálculo)
-            if semana:
-                year, week = semana.split('-W')
-                jan1 = datetime(int(year), 1, 1)
-                jan1_weekday = jan1.weekday()
-                if jan1_weekday <= 3:
-                    days_to_week1 = -jan1_weekday
-                else:
-                    days_to_week1 = 7 - jan1_weekday
-                semana_inicio = jan1 + timedelta(days=days_to_week1 + (int(week) - 1) * 7)
-                semana_fim = semana_inicio + timedelta(days=6)
-            else:
-                hoje = datetime.now()
-                semana_inicio = hoje - timedelta(days=hoje.weekday())
-                semana_fim = semana_inicio + timedelta(days=6)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
-            semana_inicio = semana_inicio.date()
-            semana_fim = semana_fim.date()
-            
-            dados = db.obter_cotacoes_por_executivo_semana(semana_inicio, semana_fim, executivo_id, cliente_id)
+            dados = db.obter_cotacoes_por_executivo_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
             
             return jsonify({'success': True, 'data': [dict(d) for d in dados]})
         except Exception as e:
@@ -7633,35 +7610,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/metricas/semanais/evolucao-diaria', methods=['GET'])
     @login_required
     def api_metricas_semanais_evolucao():
-        """API para evolução diária na semana"""
+        """API para evolução diária no mês"""
         try:
-            from datetime import datetime, timedelta
-            
-            semana = request.args.get('semana')
+            mes = request.args.get('mes')
             executivo_id = request.args.get('executivo_id', type=int)
             cliente_id = request.args.get('cliente_id', type=int)
             
-            if semana:
-                year, week = semana.split('-W')
-                jan1 = datetime(int(year), 1, 1)
-                jan1_weekday = jan1.weekday()
-                if jan1_weekday <= 3:
-                    days_to_week1 = -jan1_weekday
-                else:
-                    days_to_week1 = 7 - jan1_weekday
-                semana_inicio = jan1 + timedelta(days=days_to_week1 + (int(week) - 1) * 7)
-                semana_fim = semana_inicio + timedelta(days=6)
-            else:
-                hoje = datetime.now()
-                semana_inicio = hoje - timedelta(days=hoje.weekday())
-                semana_fim = semana_inicio + timedelta(days=6)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
-            semana_inicio = semana_inicio.date()
-            semana_fim = semana_fim.date()
+            dados = db.obter_evolucao_diaria_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
             
-            dados = db.obter_evolucao_diaria_semana(semana_inicio, semana_fim, executivo_id, cliente_id)
-            
-            # Formatar datas para JSON
             result = []
             for d in dados:
                 item = dict(d)
@@ -7676,33 +7634,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/metricas/semanais/distribuicao-status', methods=['GET'])
     @login_required
     def api_metricas_semanais_status():
-        """API para distribuição por status na semana"""
+        """API para distribuição por status no mês"""
         try:
-            from datetime import datetime, timedelta
-            
-            semana = request.args.get('semana')
+            mes = request.args.get('mes')
             executivo_id = request.args.get('executivo_id', type=int)
             cliente_id = request.args.get('cliente_id', type=int)
             
-            if semana:
-                year, week = semana.split('-W')
-                jan1 = datetime(int(year), 1, 1)
-                jan1_weekday = jan1.weekday()
-                if jan1_weekday <= 3:
-                    days_to_week1 = -jan1_weekday
-                else:
-                    days_to_week1 = 7 - jan1_weekday
-                semana_inicio = jan1 + timedelta(days=days_to_week1 + (int(week) - 1) * 7)
-                semana_fim = semana_inicio + timedelta(days=6)
-            else:
-                hoje = datetime.now()
-                semana_inicio = hoje - timedelta(days=hoje.weekday())
-                semana_fim = semana_inicio + timedelta(days=6)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
-            semana_inicio = semana_inicio.date()
-            semana_fim = semana_fim.date()
-            
-            dados = db.obter_distribuicao_status_semana(semana_inicio, semana_fim, executivo_id, cliente_id)
+            dados = db.obter_distribuicao_status_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
             
             return jsonify({'success': True, 'data': [dict(d) for d in dados]})
         except Exception as e:
@@ -7712,71 +7652,36 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/metricas/semanais/comparativo', methods=['GET'])
     @login_required
     def api_metricas_semanais_comparativo():
-        """API para comparativo com semana anterior"""
+        """API para comparativo semanal dentro do mês"""
         try:
-            from datetime import datetime, timedelta
-            
-            semana = request.args.get('semana')
+            mes = request.args.get('mes')
             executivo_id = request.args.get('executivo_id', type=int)
             cliente_id = request.args.get('cliente_id', type=int)
             
-            if semana:
-                year, week = semana.split('-W')
-                jan1 = datetime(int(year), 1, 1)
-                jan1_weekday = jan1.weekday()
-                if jan1_weekday <= 3:
-                    days_to_week1 = -jan1_weekday
-                else:
-                    days_to_week1 = 7 - jan1_weekday
-                semana_inicio = jan1 + timedelta(days=days_to_week1 + (int(week) - 1) * 7)
-                semana_fim = semana_inicio + timedelta(days=6)
-            else:
-                hoje = datetime.now()
-                semana_inicio = hoje - timedelta(days=hoje.weekday())
-                semana_fim = semana_inicio + timedelta(days=6)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
-            semana_inicio = semana_inicio.date()
-            semana_fim = semana_fim.date()
+            dados = db.obter_kpis_mensais_por_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
             
-            dados = db.obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id, cliente_id)
-            
-            return jsonify({'success': True, 'data': dados})
+            result = [dict(d) for d in dados]
+            return jsonify({'success': True, 'data': result})
         except Exception as e:
-            current_app.logger.error(f"Erro ao obter comparativo semanal: {e}")
+            current_app.logger.error(f"Erro ao obter comparativo mensal: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/cotacoes', methods=['GET'])
     @login_required
     def api_metricas_semanais_cotacoes():
-        """API para lista detalhada de cotações da semana"""
+        """API para lista detalhada de cotações do mês"""
         try:
-            from datetime import datetime, timedelta
-            
-            semana = request.args.get('semana')
+            mes = request.args.get('mes')
             executivo_id = request.args.get('executivo_id', type=int)
             cliente_id = request.args.get('cliente_id', type=int)
+            busca = request.args.get('busca', '').strip() or None
             
-            if semana:
-                year, week = semana.split('-W')
-                jan1 = datetime(int(year), 1, 1)
-                jan1_weekday = jan1.weekday()
-                if jan1_weekday <= 3:
-                    days_to_week1 = -jan1_weekday
-                else:
-                    days_to_week1 = 7 - jan1_weekday
-                semana_inicio = jan1 + timedelta(days=days_to_week1 + (int(week) - 1) * 7)
-                semana_fim = semana_inicio + timedelta(days=6)
-            else:
-                hoje = datetime.now()
-                semana_inicio = hoje - timedelta(days=hoje.weekday())
-                semana_fim = semana_inicio + timedelta(days=6)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
-            semana_inicio = semana_inicio.date()
-            semana_fim = semana_fim.date()
+            dados = db.obter_cotacoes_detalhadas_semana(mes_inicio, mes_fim, executivo_id, cliente_id, busca)
             
-            dados = db.obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id, cliente_id)
-            
-            # Formatar datas para JSON
             result = []
             for d in dados:
                 item = dict(d)

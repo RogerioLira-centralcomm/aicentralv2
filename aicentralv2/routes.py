@@ -9067,9 +9067,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return render_template('campanhas_pi_lista.html',
                 campanhas=campanhas, **auxiliares,
                 filtros=filtros, meses_ref=meses_ref,
-                vendedores=vendedores)
+                vendedores=vendedores, agora=dt_cls.now())
         except Exception as e:
-            app.logger.error(f"Erro ao listar campanhas PI (lista): {str(e)}")
+            import traceback
+            app.logger.error(f"Erro ao listar campanhas PI (lista): {str(e)}\n{traceback.format_exc()}")
             flash('Erro ao carregar lista de campanhas PI.', 'error')
             return redirect(url_for('index'))
 

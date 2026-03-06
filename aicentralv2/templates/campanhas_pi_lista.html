@@ -135,17 +135,14 @@
       <table class="w-full text-sm lista-table">
         <thead>
           <tr class="bg-gray-50 border-b border-gray-200">
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cod. PI</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Campanha</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Executivo</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Plataforma</th>
             <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Período</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">% Obj.</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Gasto</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Previsto</th>
-            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Diários</th>
-            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Links</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Campanha</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Link</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Contratado</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Atingido</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">$ Gasto</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">$ Previsto</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Ações</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
@@ -158,54 +155,104 @@
             {% set gasto_raw = c.totalizador_gasto|string if c.totalizador_gasto else '0' %}
             {% set gasto_val = gasto_raw|replace('R$','')|replace(' ','')|replace('.','')|replace(',','.')|float %}
             {% set st_lower = (c.status_nome or '')|lower %}
+            {% set pct_inv = ((gasto_val / prev_val) * 100)|round(1) if prev_val > 0 else 0 %}
+            {% set restante_obj = obj_val - ating_val %}
+            {% set diff_gasto = gasto_val - prev_val %}
+            {% set link_count = (1 if c.googled_pi_princ else 0) + (1 if c.link_dash else 0) %}
+            {% set dias_restantes = (c.periodo_fim - agora).days if c.periodo_fim else none %}
 
           <tr data-campanha-id="{{ c.id_campanha }}"
               data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "obj_contratados": c.obj_contratados or "", "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": c.totalizador_atingido or "", "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
               onclick="abrirModalEditar(JSON.parse(this.dataset.camp))" class="cursor-pointer">
-            <td class="py-2 px-3 text-xs font-bold text-indigo-600 whitespace-nowrap">{{ c.codigo_pi or '—' }}</td>
-            <td class="py-2 px-3 text-xs font-medium text-gray-800 max-w-[200px] truncate">{{ c.nome_campanha or '—' }}</td>
-            <td class="py-2 px-3 text-xs text-gray-600 max-w-[150px] truncate">{{ c.cliente_nome or '—' }}</td>
-            <td class="py-2 px-3 text-xs text-gray-600 max-w-[120px] truncate">{{ c.executivo_nome or '—' }}</td>
-            <td class="py-2 px-3 text-xs text-gray-600 whitespace-nowrap">{{ c.plataforma_nome or '—' }}</td>
-            <td class="py-2 px-3 text-xs text-gray-500 whitespace-nowrap">
-              {% if c.periodo_inicio and c.periodo_fim %}
-                {{ c.periodo_inicio.strftime('%d/%m') }} – {{ c.periodo_fim.strftime('%d/%m/%y') }}
-              {% elif c.periodo_inicio %}
-                {{ c.periodo_inicio.strftime('%d/%m') }} –
-              {% else %}—{% endif %}
+
+            {# — PERÍODO — #}
+            <td class="py-2.5 px-3 align-top whitespace-nowrap">
+              <div class="text-xs font-bold text-indigo-600">{{ c.codigo_pi or '—' }}</div>
+              <div class="text-[11px] text-gray-500">
+                {% if c.periodo_inicio and c.periodo_fim %}
+                  {{ c.periodo_inicio.strftime('%d/%m') }} a {{ c.periodo_fim.strftime('%d/%m') }}
+                {% elif c.periodo_inicio %}
+                  {{ c.periodo_inicio.strftime('%d/%m') }} –
+                {% else %}—{% endif %}
+              </div>
+              <div class="text-[11px] text-gray-400 truncate max-w-[120px]">{{ c.executivo_nome or '—' }}</div>
+              {% if dias_restantes is not none %}
+                <div class="text-[10px] {% if dias_restantes > 0 %}text-gray-400{% else %}text-red-400{% endif %}">/ {{ dias_restantes }} dias</div>
+              {% endif %}
             </td>
-            <td class="py-2 px-3 text-xs text-right font-semibold whitespace-nowrap {% if pct_obj >= 100 %}text-emerald-600{% elif pct_obj >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">
-              {{ pct_obj }}%
+
+            {# — CAMPANHA — #}
+            <td class="py-2.5 px-3 align-top max-w-[220px]">
+              <div class="text-xs font-semibold text-gray-800 truncate">{{ c.nome_campanha or '—' }}</div>
+              <div class="text-[11px] text-gray-400 truncate">{{ c.cliente_nome or '—' }}</div>
             </td>
-            <td class="py-2 px-3 text-xs text-right text-gray-700 whitespace-nowrap font-medium">
-              R$ {{ '{:,.2f}'.format(gasto_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
+
+            {# — LINK — #}
+            <td class="py-2.5 px-3 text-center align-top">
+              <span class="inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 rounded-full text-[10px] font-bold {% if link_count > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}">L{{ link_count }}</span>
+              <div class="text-[10px] text-gray-400 mt-0.5 truncate max-w-[80px] mx-auto">{{ c.plataforma_nome or '' }}</div>
+              <div class="text-[10px] text-gray-400 truncate max-w-[80px] mx-auto">{{ c.objetivo_nome or '' }}</div>
             </td>
-            <td class="py-2 px-3 text-xs text-right text-gray-500 whitespace-nowrap">
+
+            {# — CONTRATADO — #}
+            <td class="py-2.5 px-3 text-right align-top text-xs text-gray-700 font-medium whitespace-nowrap">
+              {{ '{:,.0f}'.format(obj_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
+            </td>
+
+            {# — ATINGIDO — #}
+            <td class="py-2.5 px-3 text-right align-top whitespace-nowrap">
+              <div class="flex items-center justify-end gap-1.5 mb-0.5">
+                <div class="progress-slim w-16">
+                  <div class="progress-slim-fill {% if pct_obj >= 100 %}bg-emerald-500{% elif pct_obj >= 70 %}bg-amber-400{% else %}bg-red-400{% endif %}" style="width: {{ [pct_obj, 100]|min }}%"></div>
+                </div>
+                <span class="text-[11px] font-semibold {% if pct_obj >= 100 %}text-emerald-600{% elif pct_obj >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">{{ pct_obj }}%</span>
+              </div>
+              <div class="text-[11px] text-gray-600">{{ '{:,.0f}'.format(ating_val)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
+              <div class="text-[10px] text-gray-400">rest. {{ '{:,.0f}'.format(restante_obj)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
+            </td>
+
+            {# — $ GASTO — #}
+            <td class="py-2.5 px-3 text-right align-top whitespace-nowrap">
+              <div class="text-[11px] font-semibold {% if pct_inv > 100 %}text-red-500{% else %}text-gray-700{% endif %}">{{ pct_inv }}%</div>
+              <div class="text-[11px] text-gray-600">R$ {{ '{:,.2f}'.format(gasto_val)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
+              <div class="text-[10px] {% if diff_gasto > 0 %}text-red-400{% else %}text-emerald-500{% endif %}">
+                {{ '{:+,.2f}'.format(diff_gasto)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              </div>
+            </td>
+
+            {# — $ PREVISTO — #}
+            <td class="py-2.5 px-3 text-right align-top text-xs text-gray-500 whitespace-nowrap">
               R$ {{ '{:,.2f}'.format(prev_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
             </td>
-            <td class="py-2 px-3 text-center text-xs whitespace-nowrap">
-              {% if c.qtd_diarios %}
-                <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">{{ c.qtd_diarios }}</span>
-              {% else %}
-                <span class="text-gray-300">0</span>
-              {% endif %}
-            </td>
-            <td class="py-2 px-3 text-center whitespace-nowrap">
-              {% if c.googled_pi_princ %}
-                <a href="{{ c.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()"
-                   class="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Google Drive">
-                  <i class="fab fa-google-drive text-xs"></i>
-                </a>
-              {% endif %}
-              {% if c.link_dash %}
-                <a href="{{ c.link_dash }}" target="_blank" onclick="event.stopPropagation()"
-                   class="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Dashboard">
-                  <i class="fas fa-chart-line text-xs"></i>
-                </a>
-              {% endif %}
-              {% if not c.googled_pi_princ and not c.link_dash %}
-                <span class="text-gray-300">—</span>
-              {% endif %}
+
+            {# — AÇÕES — #}
+            <td class="py-2.5 px-3 text-center align-top whitespace-nowrap">
+              <div class="flex items-center justify-center gap-0.5">
+                <button onclick="event.stopPropagation(); abrirModalEditar(JSON.parse(this.closest('tr').dataset.camp))"
+                        class="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Editar">
+                  <i class="fas fa-edit text-xs"></i>
+                </button>
+                {% if c.googled_pi_princ %}
+                  <a href="{{ c.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()"
+                     class="p-1 text-gray-400 hover:text-blue-600 transition-colors" title="Google Drive">
+                    <i class="fab fa-google-drive text-xs"></i>
+                  </a>
+                {% endif %}
+                {% if c.link_dash %}
+                  <a href="{{ c.link_dash }}" target="_blank" onclick="event.stopPropagation()"
+                     class="p-1 text-gray-400 hover:text-purple-600 transition-colors" title="Dashboard">
+                    <i class="fas fa-chart-line text-xs"></i>
+                  </a>
+                {% endif %}
+                <button onclick="event.stopPropagation(); navigator.clipboard.writeText('{{ c.codigo_pi or '' }}')"
+                        class="p-1 text-gray-400 hover:text-gray-600 transition-colors" title="Copiar PI">
+                  <i class="fas fa-copy text-xs"></i>
+                </button>
+                <button onclick="event.stopPropagation(); abrirModalDiarios({{ c.id_campanha }})"
+                        class="p-1 text-gray-400 hover:text-amber-600 transition-colors" title="Diários">
+                  <i class="fas fa-calendar-day text-xs"></i>
+                </button>
+              </div>
             </td>
           </tr>
           {% endfor %}

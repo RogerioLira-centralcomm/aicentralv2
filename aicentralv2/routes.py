@@ -8087,7 +8087,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             url_config = os.getenv('MAKE_WEBHOOK_PI_CONFIGURACAO')
             if url_config:
                 params_config = {
-                    'testeparam': 'no' if is_dev else 'yes',
+                    'testeparam': 'yes' if is_dev else 'no',
                     'codPI': numero,
                     'razaosccliente': pi.get('cliente_razao_social') or '',
                     'nomefcliente': pi.get('cliente_nome') or '',
@@ -8116,7 +8116,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             url_invites = os.getenv('MAKE_WEBHOOK_PI_INVITES')
             if url_invites:
                 params_invites = {
-                    'testeparam': 'no' if is_dev else 'yes',
+                    'testeparam': 'yes' if is_dev else 'no',
                     'dteveinicio': fmt_data_invite(periodo_inicio),
                     'nomerespcc': pi.get('resp_comercial_nome') or '',
                     'emailrespcc': pi.get('resp_comercial_email') or '',

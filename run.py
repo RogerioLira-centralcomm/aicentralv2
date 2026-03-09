@@ -29,4 +29,4 @@ if __name__ == '__main__':
     print("Login padrao: admin / admin123")
     print("=" * 70)
     
-    app.run(debug=app.config.get('DEBUG', False), host='0.0.0.0', port=5000, use_reloader=False)
+    app.run(debug=app.config.get('DEBUG', False), host='0.0.0.0', port=5000, use_reloader=True, extra_files=['.env'])

@@ -79,7 +79,7 @@ class ProductionConfig(Config):
 	"""Configuração de produção"""
 	DEBUG = False
 	TESTING = False
-	USE_CSS_CDN = False
+	USE_CSS_CDN = True
 
 
 class TestingConfig(Config):

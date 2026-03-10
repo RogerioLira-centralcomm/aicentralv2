@@ -2,6 +2,8 @@
 
 # Script de Deploy - AIcentral v2
 set -e
+export SYSTEMD_PAGER=""
+export PAGER="cat"
 
 echo "========================================"
 echo "Deploy AIcentral v2"
@@ -58,11 +60,11 @@ sudo systemctl start aicentralv2
 sleep 3
 if sudo systemctl is-active --quiet aicentralv2; then
     echo "✓ Servico ativo!"
-    sudo systemctl status aicentralv2 --no-pager -l
+    sudo systemctl status aicentralv2 --no-pager -l 2>&1 | head -20
 else
     echo "✗ ERRO ao iniciar servico"
-    sudo systemctl status aicentralv2 --no-pager -l
-    sudo journalctl -u aicentralv2 -n 50 --no-pager
+    sudo systemctl status aicentralv2 --no-pager -l 2>&1 | head -20
+    sudo journalctl -u aicentralv2 -n 50 --no-pager 2>&1 | cat
     exit 1
 fi
 

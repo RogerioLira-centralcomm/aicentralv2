@@ -29,14 +29,12 @@ sudo rm -f gunicorn.pid
 echo "Atualizando codigo..."
 git pull origin main
 
-# 3. Ativar ambiente virtual
-echo "Ativando ambiente virtual..."
-source venv/bin/activate || source venv_new/bin/activate
-
-# 4. Atualizar dependencias
+# 3. Atualizar dependencias (usando pip do venv diretamente)
 echo "Atualizando dependencias..."
-pip install --upgrade pip --quiet
-pip install -r requirements.txt --upgrade --quiet
+VENV_PIP="venv/bin/pip"
+[ ! -f "$VENV_PIP" ] && VENV_PIP="venv_new/bin/pip"
+$VENV_PIP install --upgrade pip --quiet
+$VENV_PIP install -r requirements.txt --upgrade --quiet
 
 # 5. Criar diretorios
 mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes logs

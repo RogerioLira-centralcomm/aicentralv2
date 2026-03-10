@@ -1116,7 +1116,12 @@ def init_routes(app):
                     'totalizador_atingido': c.get('totalizador_atingido'),
                     'totalizador_gasto': _parse_brl_float(c.get('totalizador_gasto')),
                     'valor_plataforma': _parse_brl_float(c.get('valor_plataforma')),
+                    'valor_total_plataforma': _parse_brl_float(c.get('valor_total_plataforma')),
                     'plataforma_nome': c.get('plataforma_nome', ''),
+                    'objetivo_nome': c.get('objetivo_nome', ''),
+                    'criativos_validados_nome': c.get('criativos_validados_nome', ''),
+                    'link_dash': c.get('link_dash', ''),
+                    'under': c.get('under', False),
                     'codigo_pi': c.get('codigo_pi', ''),
                     'id_pi': c.get('id_pi'),
                 })
@@ -7860,17 +7865,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
-                    sub_st = str(pi.get('id_sub_status_pi', ''))
-                    if sub_st in ('3', '4'):
-                        auxiliares.update(_carregar_auxiliares_campanha())
+                    auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
 
                 if not data.get('id_pi_tipo'):
                     flash('Tipo PI é obrigatório.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
-                    sub_st = str(pi.get('id_sub_status_pi', ''))
-                    if sub_st in ('3', '4'):
-                        auxiliares.update(_carregar_auxiliares_campanha())
+                    auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
 
                 db.atualizar_cadu_pi(id_pi, data)
@@ -7893,9 +7894,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             return_url = _extrair_return_url(request.referrer or '', '/editar')
             auxiliares = _carregar_auxiliares_pi()
-            sub_st = str(pi.get('id_sub_status_pi', ''))
-            if sub_st in ('3', '4'):
-                auxiliares.update(_carregar_auxiliares_campanha())
+            auxiliares.update(_carregar_auxiliares_campanha())
             return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
         except Exception as e:
             app.logger.error(f"Erro ao editar PI: {e}", exc_info=True)
@@ -8147,6 +8146,104 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': True})
         except Exception as e:
             app.logger.error(f"Erro ao enviar PI para produção: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/<int:id_pi>/enviar-andamento', methods=['POST'])
+    @login_required
+    def cadu_pi_enviar_andamento(id_pi):
+        """Inicia todas as campanhas do PI e altera sub-status para Em andamento"""
+        try:
+            import requests
+            import os
+            from datetime import datetime
+
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            conn = db.get_db()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        UPDATE cadu_pi_campanha
+                        SET id_status = (SELECT id FROM cadu_pi_camp_status WHERE descricao = 'Ativa' LIMIT 1),
+                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                        WHERE id_pi = %s
+                    ''', (id_pi,))
+                    quant_campanhas = cursor.rowcount
+
+                    cursor.execute('''
+                        UPDATE cadu_pi
+                        SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em andamento' LIMIT 1),
+                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                        WHERE id_pi = %s
+                    ''', (id_pi,))
+                    conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise e
+
+            numero = pi.get('codigo_pi_cc', '')
+            is_dev = app.config.get('DEBUG', False)
+            tem_agencia = bool(pi.get('id_agencia'))
+
+            def fmt_data_curta(val):
+                if not val:
+                    return ''
+                if isinstance(val, str):
+                    try:
+                        val = datetime.strptime(val, '%Y-%m-%d')
+                    except ValueError:
+                        return val
+                return val.strftime('%d/%m/%Y %H:%M:%S')
+
+            webhook_erros = []
+
+            url_andamento = os.getenv('MAKE_WEBHOOK_PI_ANDAMENTO')
+            if url_andamento:
+                params_andamento = {
+                    'testeparam': 'yes' if is_dev else 'no',
+                    'codPI': numero,
+                    'razaosccliente': pi.get('cliente_razao_social') or '',
+                    'nomefcliente': pi.get('cliente_nome') or '',
+                    'pastagoogleprinc': pi.get('googled_pi_princ') or '',
+                    'valorliquidopi': pi.get('vr_liquido_pi') or '',
+                    'emailresponsavelpi': pi.get('resp_comercial_email') or '',
+                    'quantcampanhas': quant_campanhas,
+                    'mesref': fmt_data_curta(pi.get('mes_ref')),
+                    'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
+                    'datafim': fmt_data_curta(pi.get('periodo_fim')),
+                    'pastagooglepecas': pi.get('googled_pi_pecas') or '',
+                    'instrucoesoperacao': pi.get('observacoes_operacao') or '',
+                    'nomerespPI': pi.get('resp_comercial_nome') or '',
+                    'titulo': pi.get('titulo_pi') or '',
+                    'pi_tem_agencia': 'sim' if tem_agencia else 'não',
+                }
+                if tem_agencia:
+                    params_andamento['nomefagencia'] = pi.get('agencia_nome') or ''
+
+                try:
+                    resp = requests.get(url_andamento, params=params_andamento, timeout=30)
+                    resp.raise_for_status()
+                except Exception as wh_err:
+                    app.logger.error(f"Erro webhook PI_ANDAMENTO: {wh_err}")
+                    webhook_erros.append(str(wh_err))
+
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'Campanhas iniciadas - PI: {numero}',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_anteriores={'id_sub_status_pi': pi.get('id_sub_status_pi')},
+                dados_novos={'sub_status': 'Em andamento', 'campanhas_ativadas': quant_campanhas}
+            )
+
+            if webhook_erros:
+                return jsonify({'success': True, 'warning': f'Campanhas iniciadas, mas {len(webhook_erros)} webhook(s) falharam'})
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro ao iniciar campanhas do PI: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== LINK DESTINOS PI - API JSON ====================
@@ -8775,6 +8872,55 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except (ValueError, TypeError):
             return None
 
+    def _parse_brl_to_float(value):
+        """Converte 'R$ 1.234,56' para float 1234.56"""
+        if not value or not str(value).strip():
+            return 0.0
+        try:
+            cleaned = str(value).strip().replace('R$', '').strip()
+            cleaned = cleaned.replace('.', '').replace(',', '.')
+            return float(cleaned)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _float_to_brl(num):
+        """Converte float 1234.56 para 'R$ 1.234,56'"""
+        if num is None:
+            return 'R$ 0,00'
+        inteiro = int(round(num * 100))
+        centavos = abs(inteiro) % 100
+        reais = inteiro // 100
+        parte_int = f'{reais:,}'.replace(',', '.')
+        return f'R$ {parte_int},{centavos:02d}'
+
+    def _subtrair_valor_plataforma_pi(id_pi, valor_campanha_brl):
+        """Subtrai valor_plataforma da campanha de vr_liquido_pi e total_platafor_max_pi"""
+        pi_vals = db.obter_pi_valores_plataforma(id_pi)
+        if not pi_vals:
+            return
+        valor_camp = _parse_brl_to_float(valor_campanha_brl)
+        if valor_camp <= 0:
+            return
+        vr_liq = _parse_brl_to_float(pi_vals.get('vr_liquido_pi'))
+        total_plat = _parse_brl_to_float(pi_vals.get('total_platafor_max_pi'))
+        novo_vr_liq = max(vr_liq - valor_camp, 0)
+        novo_total = max(total_plat - valor_camp, 0)
+        db.atualizar_pi_valores_plataforma(id_pi, _float_to_brl(novo_vr_liq), _float_to_brl(novo_total))
+
+    def _somar_valor_plataforma_pi(id_pi, valor_campanha_brl):
+        """Soma valor_plataforma de volta a vr_liquido_pi e total_platafor_max_pi (para edição/exclusão)"""
+        pi_vals = db.obter_pi_valores_plataforma(id_pi)
+        if not pi_vals:
+            return
+        valor_camp = _parse_brl_to_float(valor_campanha_brl)
+        if valor_camp <= 0:
+            return
+        vr_liq = _parse_brl_to_float(pi_vals.get('vr_liquido_pi'))
+        total_plat = _parse_brl_to_float(pi_vals.get('total_platafor_max_pi'))
+        novo_vr_liq = vr_liq + valor_camp
+        novo_total = total_plat + valor_camp
+        db.atualizar_pi_valores_plataforma(id_pi, _float_to_brl(novo_vr_liq), _float_to_brl(novo_total))
+
     def _parse_real_campanha(value):
         """Converte string formatada pt-BR para formato gravável com R$.
         Ex: 'R$ 1.234,56' -> 'R$ 1.234,56' (mantém),
@@ -8797,25 +8943,36 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     def _extrair_dados_campanha():
         """Extrai dados do formulário de campanha PI"""
+        from datetime import datetime as _dt
+        periodo_inicio = request.form.get('periodo_inicio') or None
+        mes_ref = None
+        mes_ref_comp = None
+        if periodo_inicio:
+            try:
+                dt = _dt.strptime(periodo_inicio, '%Y-%m-%d')
+                mes_ref = periodo_inicio
+                mes_ref_comp = f'{dt.month}/{dt.strftime("%y")}'
+            except ValueError:
+                pass
         return {
             'id_pi': request.form.get('id_pi', type=int),
             'id_cliente': request.form.get('id_cliente', type=int),
             'link_dash': request.form.get('link_dash', '').strip() or None,
-            'mes_ref': request.form.get('mes_ref') or None,
-            'mes_ref_comp': request.form.get('mes_ref_comp', '').strip() or None,
+            'mes_ref': mes_ref,
+            'mes_ref_comp': mes_ref_comp,
             'nome_campanha': request.form.get('nome_campanha', '').strip() or None,
             'obj_contratados': _parse_numero_campanha_formatado(request.form.get('obj_contratados')),
             'id_centralx': request.form.get('id_centralx', '').strip() or None,
             'under': request.form.get('under') == 'on',
             'id_objetivos_campanha': request.form.get('id_objetivos_campanha', type=int),
-            'periodo_inicio': request.form.get('periodo_inicio') or None,
+            'periodo_inicio': periodo_inicio,
             'periodo_fim': request.form.get('periodo_fim') or None,
             'id_status': request.form.get('id_status', type=int),
             'totalizador_atingido': _parse_numero_campanha_formatado(request.form.get('totalizador_atingido')),
             'totalizador_gasto': _parse_real_campanha(request.form.get('totalizador_gasto')),
             'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
-            'valor_total_plataforma': _parse_real_campanha(request.form.get('valor_total_plataforma')),
             'id_plataforma': request.form.get('id_plataforma', type=int),
+            'id_criativos_validados': request.form.get('id_criativos_validados', type=int),
         }
 
     def _carregar_auxiliares_campanha():
@@ -8825,6 +8982,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'objetivos': db.obter_objetivos_campanha(),
             'statuses': db.obter_status_campanha(),
             'plataformas': db.obter_plataformas_campanha(),
+            'criativos_validados': db.obter_criativos_validados_campanha(),
         }
 
     @app.route('/campanhas-pi')
@@ -9096,6 +9254,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             id_camp = db.criar_campanha_pi(data)
 
             if id_camp:
+                if data.get('id_pi') and data.get('valor_plataforma'):
+                    _subtrair_valor_plataforma_pi(data['id_pi'], data['valor_plataforma'])
                 if is_ajax:
                     return jsonify({'success': True, 'id': id_camp, 'message': f'Campanha "{data["nome_campanha"]}" criada com sucesso!'})
                 flash(f'Campanha "{data["nome_campanha"]}" criada com sucesso!', 'success')
@@ -9136,7 +9296,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 flash('O nome da campanha é obrigatório!', 'error')
                 return _redirect_campanhas_pi_preservar_filtros()
 
+            valor_antigo = campanha.get('valor_plataforma')
+
             if db.atualizar_campanha_pi(id_camp, data):
+                id_pi = data.get('id_pi') or campanha.get('id_pi')
+                if id_pi:
+                    if valor_antigo:
+                        _somar_valor_plataforma_pi(id_pi, valor_antigo)
+                    if data.get('valor_plataforma'):
+                        _subtrair_valor_plataforma_pi(id_pi, data['valor_plataforma'])
                 if is_ajax:
                     return jsonify({'success': True, 'message': f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!'})
                 flash(f'Campanha "{data["nome_campanha"]}" atualizada com sucesso!', 'success')

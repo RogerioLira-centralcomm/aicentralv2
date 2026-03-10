@@ -8027,6 +8027,18 @@ def obter_status_campanha():
         raise e
 
 
+def obter_criativos_validados_campanha():
+    """Retorna todos os criativos validados ordenados por descrição"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id, descricao FROM cadu_pi_camp_criativos_validados ORDER BY descricao')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_status_campanha_por_id(id_status):
     """Retorna um status de campanha específico por ID"""
     conn = get_db()
@@ -8130,10 +8142,12 @@ def obter_campanhas_pi(filtros=None):
                     c.valor_plataforma,
                     c.valor_total_plataforma,
                     c.id_plataforma,
+                    c.id_criativos_validados,
                     cli.nome_fantasia AS cliente_nome,
                     obj.descricao AS objetivo_nome,
                     st.descricao AS status_nome,
                     plt.descricao AS plataforma_nome,
+                    cv.descricao AS criativos_validados_nome,
                     pi.codigo_pi_cc AS codigo_pi,
                     pi.googled_pi_princ,
                     vend.nome_completo AS executivo_nome,
@@ -8145,6 +8159,7 @@ def obter_campanhas_pi(filtros=None):
                 LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
                 LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
                 LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
+                LEFT JOIN cadu_pi_camp_criativos_validados cv ON c.id_criativos_validados = cv.id
                 LEFT JOIN cadu_pi pi ON c.id_pi = pi.id_pi
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
                 WHERE 1=1
@@ -8207,6 +8222,7 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.valor_plataforma,
                     c.valor_total_plataforma,
                     c.id_plataforma,
+                    c.id_criativos_validados,
                     cli.nome_fantasia AS cliente_nome,
                     obj.descricao AS objetivo_nome,
                     st.descricao AS status_nome,
@@ -8238,7 +8254,8 @@ def criar_campanha_pi(data):
                     created_at, updated_at, under, id_objetivos_campanha,
                     periodo_inicio, periodo_fim, id_status,
                     totalizador_atingido, totalizador_gasto,
-                    valor_plataforma, valor_total_plataforma, id_plataforma
+                    valor_plataforma, id_plataforma,
+                    id_criativos_validados
                 )
                 VALUES (
                     %s, %s, %s, %s, %s,
@@ -8246,7 +8263,8 @@ def criar_campanha_pi(data):
                     DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP), %s, %s,
                     %s, %s, %s,
                     %s, %s,
-                    %s, %s, %s
+                    %s, %s,
+                    %s
                 )
                 RETURNING id_campanha
             ''', (
@@ -8266,12 +8284,45 @@ def criar_campanha_pi(data):
                 data.get('totalizador_atingido'),
                 data.get('totalizador_gasto'),
                 data.get('valor_plataforma'),
-                data.get('valor_total_plataforma'),
                 data.get('id_plataforma'),
+                data.get('id_criativos_validados'),
             ))
             result = cursor.fetchone()
             conn.commit()
             return result['id_campanha'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_pi_valores_plataforma(id_pi):
+    """Retorna vr_liquido_pi e total_platafor_max_pi de um PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT vr_liquido_pi, total_platafor_max_pi FROM cadu_pi WHERE id_pi = %s',
+                (id_pi,)
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_pi_valores_plataforma(id_pi, vr_liquido_pi, total_platafor_max_pi):
+    """Atualiza vr_liquido_pi e total_platafor_max_pi do PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi
+                SET vr_liquido_pi = %s,
+                    total_platafor_max_pi = %s
+                WHERE id_pi = %s
+            ''', (vr_liquido_pi, total_platafor_max_pi, id_pi))
+            conn.commit()
+            return cursor.rowcount > 0
     except Exception as e:
         conn.rollback()
         raise e
@@ -8301,8 +8352,8 @@ def atualizar_campanha_pi(id_campanha, data):
                     totalizador_atingido = %s,
                     totalizador_gasto = %s,
                     valor_plataforma = %s,
-                    valor_total_plataforma = %s,
-                    id_plataforma = %s
+                    id_plataforma = %s,
+                    id_criativos_validados = %s
                 WHERE id_campanha = %s
             ''', (
                 data.get('id_pi'),
@@ -8321,8 +8372,8 @@ def atualizar_campanha_pi(id_campanha, data):
                 data.get('totalizador_atingido'),
                 data.get('totalizador_gasto'),
                 data.get('valor_plataforma'),
-                data.get('valor_total_plataforma'),
                 data.get('id_plataforma'),
+                data.get('id_criativos_validados'),
                 id_campanha,
             ))
             conn.commit()

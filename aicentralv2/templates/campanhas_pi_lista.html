@@ -162,7 +162,7 @@
             {% set dias_restantes = (c.periodo_fim - agora).days if c.periodo_fim else none %}
 
           <tr data-campanha-id="{{ c.id_campanha }}"
-              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "obj_contratados": c.obj_contratados or "", "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": c.totalizador_atingido or "", "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "valor_total_plataforma": c.valor_total_plataforma or "", "id_centralx": c.id_centralx or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
+              data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "obj_contratados": c.obj_contratados or "", "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": c.totalizador_atingido or "", "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "id_centralx": c.id_centralx or "", "id_criativos_validados": c.id_criativos_validados or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
               onclick="abrirModalEditar(JSON.parse(this.dataset.camp))" class="cursor-pointer">
 
             {# — PERÍODO — #}
@@ -504,184 +504,166 @@
 
 {# ====== MODAL DE EDIÇÃO ====== #}
 <dialog id="modal_campanha" class="modal">
-  <div class="modal-box w-11/12 max-w-4xl bg-white p-0 rounded-lg">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Editar Campanha</h3>
-      <button onclick="modal_campanha.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-3.5 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-sm text-white tracking-wide" id="modal_title">Operação: <span class="font-normal text-gray-200 ml-1">Editar Campanha</span></h3>
+      <button onclick="modal_campanha.close()" class="p-1.5 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
       </button>
     </div>
 
-    <div class="p-6 max-h-[75vh] overflow-y-auto">
+    <div class="px-6 py-5 max-h-[75vh] overflow-y-auto">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" id="id_centralx" name="id_centralx" value="">
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
-          <div class="col-span-2">
-            <label for="nome_campanha" class="block text-sm font-medium text-gray-700 mb-1">
-              Nome da Campanha <span class="text-red-500">*</span>
-            </label>
-            <input type="text" id="nome_campanha" name="nome_campanha" required
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-          <div>
-            <label for="id_pi" class="block text-sm font-medium text-gray-700 mb-1">ID PI</label>
-            <input type="number" id="id_pi" name="id_pi"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="sm:col-span-2">
+            <label for="nome_campanha" class="block text-xs font-semibold text-gray-700 mb-1.5">Nome da Campanha</label>
+            <input type="text" id="nome_campanha" name="nome_campanha" required placeholder="Nome da Campanha"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          </div>
           <div>
-            <label for="id_cliente" class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-            <select id="id_cliente" name="id_cliente"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <label for="id_cliente" class="block text-xs font-semibold text-gray-700 mb-1.5">Cliente</label>
+            <select id="id_cliente" name="id_cliente" disabled
+                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed appearance-none">
               <option value="">Selecione...</option>
               {% for cli in clientes %}
                 <option value="{{ cli.id_cliente }}">{{ cli.nome_fantasia or cli.razao_social }}</option>
               {% endfor %}
             </select>
+            <input type="hidden" id="id_cliente_hidden" name="id_cliente" value="">
+          </div>
+
+          <div>
+            <label for="obj_contratados" class="block text-xs font-semibold text-gray-700 mb-1.5">Obj Contratado</label>
+            <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
+                   data-mask="numero" placeholder="0"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
           </div>
           <div>
-            <label for="id_objetivos_campanha" class="block text-sm font-medium text-gray-700 mb-1">Objetivo</label>
-            <select id="id_objetivos_campanha" name="id_objetivos_campanha"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-              <option value="">Selecione...</option>
-              {% for obj in objetivos %}
-                <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
+            <label for="valor_plataforma" class="block text-xs font-semibold text-gray-700 mb-1.5">Valor Plataforma <span class="text-red-400">*</span></label>
+            <input type="text" id="valor_plataforma" name="valor_plataforma" required
+                   data-mask="real" placeholder="R$ 0,00"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1.5">Distribuição %</label>
+            <input type="text" id="dist_pct" readonly tabindex="-1"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default text-right focus:outline-none" value="0,00%">
+          </div>
+
+          <div>
+            <label for="id_status" class="block text-xs font-semibold text-gray-700 mb-1.5">Status</label>
+            <select id="id_status" name="id_status"
+                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              {% for st in statuses %}
+                <option value="{{ st.id }}" {% if st.descricao|lower == 'aguardando' %}selected{% endif %}>{{ st.descricao }}</option>
               {% endfor %}
             </select>
           </div>
           <div>
-            <label for="id_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Plataforma</label>
+            <label for="id_criativos_validados" class="block text-xs font-semibold text-gray-700 mb-1.5">Criativos Validados <span class="text-red-500">*</span></label>
+            <select id="id_criativos_validados" name="id_criativos_validados" required
+                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              <option value="">Selecione...</option>
+              {% for cv in criativos_validados|default([]) %}
+                <option value="{{ cv.id }}">{{ cv.descricao }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="periodo_inicio" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Início</label>
+            <input type="date" id="periodo_inicio" name="periodo_inicio"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <label for="periodo_fim" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Fim</label>
+            <input type="date" id="periodo_fim" name="periodo_fim"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          </div>
+
+          <div>
+            <label for="id_plataforma" class="block text-xs font-semibold text-gray-700 mb-1.5">Plataforma</label>
             <select id="id_plataforma" name="id_plataforma"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
               {% for plt in plataformas %}
                 <option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label for="id_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select id="id_status" name="id_status"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <label for="id_objetivos_campanha" class="block text-xs font-semibold text-gray-700 mb-1.5">Objetivos</label>
+            <select id="id_objetivos_campanha" name="id_objetivos_campanha"
+                    class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
-              {% for st in statuses %}
-                <option value="{{ st.id }}">{{ st.descricao }}</option>
+              {% for obj in objetivos %}
+                <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-          <div>
-            <label for="obj_contratados" class="block text-sm font-medium text-gray-700 mb-1">Obj. Contratados</label>
-            <input type="text" id="obj_contratados" name="obj_contratados" inputmode="decimal"
-                   data-mask="numero" placeholder="0"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-        </div>
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <label for="mes_ref" class="block text-sm font-medium text-gray-700 mb-1">Mês Referência</label>
-            <input type="date" id="mes_ref" name="mes_ref"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-          <div>
-            <label for="mes_ref_comp" class="block text-sm font-medium text-gray-700 mb-1">Mês Ref Comp</label>
-            <input type="text" id="mes_ref_comp" name="mes_ref_comp"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-          <div>
-            <label for="link_dash" class="block text-sm font-medium text-gray-700 mb-1">Link Dashboard</label>
+          <div class="sm:col-span-3">
+            <label for="link_dash" class="block text-xs font-semibold text-gray-700 mb-1.5">Link Dashboard</label>
             <input type="url" id="link_dash" name="link_dash" placeholder="https://..."
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
-        </div>
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label for="periodo_inicio" class="block text-sm font-medium text-gray-700 mb-1">Período Início</label>
-            <input type="datetime-local" id="periodo_inicio" name="periodo_inicio"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <label for="id_pi" class="block text-xs font-semibold text-gray-700 mb-1.5">ID PI</label>
+            <input type="number" id="id_pi" name="id_pi"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
           <div>
-            <label for="periodo_fim" class="block text-sm font-medium text-gray-700 mb-1">Período Fim</label>
-            <input type="datetime-local" id="periodo_fim" name="periodo_fim"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <label for="totalizador_atingido" class="block text-xs font-semibold text-gray-700 mb-1.5">Totalizador Atingido</label>
+            <input type="text" id="totalizador_atingido" name="totalizador_atingido"
+                   data-mask="numero" placeholder="0"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
           </div>
-          <div class="flex items-end pb-2">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
+          <div>
+            <label for="totalizador_gasto" class="block text-xs font-semibold text-gray-700 mb-1.5">Totalizador Gasto</label>
+            <input type="text" id="totalizador_gasto" name="totalizador_gasto"
+                   data-mask="real" placeholder="R$ 0,00"
+                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          </div>
+
+          <div class="sm:col-span-3 flex items-center pt-1">
+            <label class="inline-flex items-center gap-2.5 cursor-pointer select-none">
               <input type="checkbox" id="under" name="under"
-                     class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
-              <span class="text-sm font-medium text-gray-700">Under</span>
+                     class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400 accent-gray-800">
+              <span class="text-sm text-gray-600">Under</span>
             </label>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
+        <div id="campanha_timestamps" class="grid grid-cols-2 gap-4 mt-4 hidden">
           <div>
-            <label for="totalizador_atingido" class="block text-sm font-medium text-gray-700 mb-1">Totalizador Atingido</label>
-            <input type="text" id="totalizador_atingido" name="totalizador_atingido"
-                   data-mask="numero" placeholder="0"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <label class="block text-[10px] uppercase font-semibold text-gray-400 mb-0.5">Criado em</label>
+            <span id="campanha_created_at" class="text-xs text-gray-600">—</span>
           </div>
           <div>
-            <label for="totalizador_gasto" class="block text-sm font-medium text-gray-700 mb-1">Totalizador Gasto</label>
-            <input type="text" id="totalizador_gasto" name="totalizador_gasto"
-                   data-mask="real" placeholder="R$ 0,00"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <label class="block text-[10px] uppercase font-semibold text-gray-400 mb-0.5">Atualizado em</label>
+            <span id="campanha_updated_at" class="text-xs text-gray-600">—</span>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label for="valor_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Valor Plataforma</label>
-            <input type="text" id="valor_plataforma" name="valor_plataforma"
-                   data-mask="real" placeholder="R$ 0,00"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-          <div>
-            <label for="valor_total_plataforma" class="block text-sm font-medium text-gray-700 mb-1">Valor Total Plataforma</label>
-            <input type="text" id="valor_total_plataforma" name="valor_total_plataforma"
-                   data-mask="real" placeholder="R$ 0,00"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
-          </div>
-        </div>
-
-        <div id="campanha_timestamps" class="grid grid-cols-2 gap-4 mb-4 hidden">
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">Criado em</label>
-            <span id="campanha_created_at" class="text-sm text-gray-700">—</span>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">Atualizado em</label>
-            <span id="campanha_updated_at" class="text-sm text-gray-700">—</span>
-          </div>
-        </div>
-
-        <div class="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+        <div class="mt-6 pt-5 border-t border-gray-100 flex items-center justify-between">
           <button type="button" id="btnDiariosCampanha" onclick="abrirDiariosDoCampanhaModal()"
-                  class="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded hover:bg-indigo-50 transition-colors hidden">
-            <i class="fas fa-calendar-day mr-1"></i> Diários
+                  class="px-4 py-2 text-xs font-medium border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors hidden">
+            <i class="fas fa-calendar-day mr-1.5"></i> Diários
           </button>
-          <div class="flex gap-3">
-            <button type="button" onclick="modal_campanha.close()"
-                    class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
-              Cancelar
-            </button>
+          <div class="flex-1 flex justify-center">
             <button type="submit" id="btnSalvarCampanha"
-                    class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-              Salvar
+                    class="px-8 py-2.5 text-sm font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
+              Salvar Campanha
             </button>
           </div>
         </div>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
 </dialog>
 
 {# ====== MODAL DE DIÁRIOS ====== #}
@@ -819,6 +801,28 @@
 
   document.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
   document.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
+
+  // ==================== DISTRIBUIÇÃO % ====================
+  var vrPlatMax = 0;
+  function parseRealVal(s) {
+    if (!s) return 0;
+    return parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+  }
+  function calcDistribuicao() {
+    var inp = document.getElementById('valor_plataforma');
+    var out = document.getElementById('dist_pct');
+    if (!inp || !out) return;
+    var v = parseRealVal(inp.value);
+    var pct = vrPlatMax > 0 ? (v / vrPlatMax) * 100 : 0;
+    out.value = pct.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '%';
+  }
+  (function() {
+    var vpInput = document.getElementById('valor_plataforma');
+    if (vpInput) {
+      vpInput.addEventListener('input', function() { setTimeout(calcDistribuicao, 0); });
+      vpInput.addEventListener('change', function() { setTimeout(calcDistribuicao, 0); });
+    }
+  })();
 
   // ==================== FILTROS ====================
   function aplicarFiltros() {
@@ -1153,7 +1157,7 @@
 
   function resetForm() {
     currentModalCampId = null;
-    document.getElementById('modal_title').textContent = 'Nova Campanha';
+    document.getElementById('modal_title').innerHTML = 'Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span>';
     document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_nova') }}";
     document.getElementById('campanhaForm').reset();
     document.getElementById('campanha_timestamps').classList.add('hidden');
@@ -1164,15 +1168,17 @@
 
   function abrirModalEditar(c) {
     currentModalCampId = c.id_campanha;
-    document.getElementById('modal_title').textContent = 'Editar Campanha';
+    document.getElementById('modal_title').innerHTML = 'Operação: <span class="font-normal text-gray-200 ml-1">Editar Campanha</span>';
     document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_editar', id_camp=0) }}".replace('0', c.id_campanha);
 
     document.getElementById('nome_campanha').value = c.nome_campanha || '';
     document.getElementById('id_pi').value = c.id_pi || '';
     document.getElementById('id_cliente').value = c.id_cliente || '';
+    document.getElementById('id_cliente_hidden').value = c.id_cliente || '';
     document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
     document.getElementById('id_plataforma').value = c.id_plataforma || '';
     document.getElementById('id_status').value = c.id_status || '';
+    document.getElementById('id_criativos_validados').value = c.id_criativos_validados || '';
     document.getElementById('obj_contratados').value = rawParaFormatado(c.obj_contratados, 'numero');
     document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
     document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
@@ -1183,8 +1189,10 @@
     document.getElementById('totalizador_atingido').value = rawParaFormatado(c.totalizador_atingido, 'numero');
     document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
     document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
-    document.getElementById('valor_total_plataforma').value = rawParaFormatado(c.valor_total_plataforma, 'real');
     document.getElementById('id_centralx').value = c.id_centralx || '';
+
+    vrPlatMax = parseRealVal(c.valor_plataformas_pi);
+    calcDistribuicao();
 
     const tsBlock = document.getElementById('campanha_timestamps');
     document.getElementById('campanha_created_at').textContent = c.created_at || '—';

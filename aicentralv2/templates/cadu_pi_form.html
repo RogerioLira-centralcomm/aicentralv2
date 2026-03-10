@@ -33,6 +33,7 @@
               <i class="fab fa-google-drive mr-1"></i>Gerar Pastas
             </button>
           {% endif %}
+          {% if pi.id_sub_status_pi|string == '1' %}
           <button type="button" id="btn_enviar_producao"
             onclick="document.getElementById('modal_confirmar_producao').showModal()"
             {% if not pi.get('googled_pi_princ') or not pi.get('id_cliente') or not pi.get('codigo_pi_cc') %}disabled{% endif %}
@@ -40,6 +41,13 @@
             title="{% if not pi.get('googled_pi_princ') %}Gere as pastas primeiro{% elif not pi.get('id_cliente') %}Selecione um cliente{% elif not pi.get('codigo_pi_cc') %}Preencha o código do PI{% else %}Enviar PI para operação{% endif %}">
             <i class="fas fa-paper-plane mr-1"></i>Enviar para Operação
           </button>
+          {% elif pi.id_sub_status_pi|string == '2' %}
+          <button type="button" id="btn_enviar_andamento"
+            onclick="document.getElementById('modal_confirmar_andamento').showModal()"
+            class="px-3 py-1.5 text-sm border border-green-500 rounded hover:bg-green-50 text-green-700">
+            <i class="fas fa-play mr-1"></i>Iniciar todas as campanhas
+          </button>
+          {% endif %}
         {% endif %}
         <button type="submit" form="pi_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
@@ -258,6 +266,30 @@
         </div>
       </div>
 
+      {% if modo == 'editar' and pi and pi.id_sub_status_pi|string != '1' %}
+      <!-- Dados Campanhas -->
+      <div class="mb-3 bg-white border border-gray-200 rounded overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+          <span class="text-sm font-semibold text-gray-700">
+            <i class="fa-solid fa-bullhorn mr-1.5 text-indigo-500"></i>Dados Campanhas
+            <span id="camp_count_badge" class="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-gray-200 text-gray-500">...</span>
+          </span>
+          {% if pi.id_sub_status_pi|string != '1' %}
+          <button type="button" onclick="document.getElementById('modal_nova_campanha').showModal()"
+             class="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
+            <i class="fas fa-plus text-[10px]"></i> Nova Campanha
+          </button>
+          {% endif %}
+        </div>
+        <div id="pi_campanhas_container" class="p-4">
+          <div class="flex items-center justify-center py-4">
+            <i class="fa-solid fa-spinner fa-spin text-indigo-400 mr-2"></i>
+            <span class="text-xs text-gray-500">Carregando campanhas...</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- COLLAPSE: Observações -->
       <details class="mb-3 border border-gray-200 rounded">
         <summary class="px-4 py-2 bg-gray-50 cursor-pointer text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors rounded select-none">
@@ -278,29 +310,6 @@
       </details>
 
     </form>
-
-    {% if modo == 'editar' and pi and pi.id_sub_status_pi|string in ['3', '4'] %}
-    <div class="mt-4 bg-white border border-gray-200 rounded overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-        <span class="text-sm font-semibold text-gray-700">
-          <i class="fa-solid fa-bullhorn mr-1.5 text-indigo-500"></i>Campanhas do PI
-          <span id="camp_count_badge" class="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-gray-200 text-gray-500">...</span>
-        </span>
-        {% if pi.id_sub_status_pi|string == '3' %}
-        <button type="button" onclick="document.getElementById('modal_nova_campanha').showModal()"
-           class="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
-          <i class="fas fa-plus text-[10px]"></i> Nova Campanha
-        </button>
-        {% endif %}
-      </div>
-      <div id="pi_campanhas_container" class="p-4">
-        <div class="flex items-center justify-center py-4">
-          <i class="fa-solid fa-spinner fa-spin text-indigo-400 mr-2"></i>
-          <span class="text-xs text-gray-500">Carregando campanhas...</span>
-        </div>
-      </div>
-    </div>
-    {% endif %}
 
   </div>
 </div>
@@ -797,6 +806,28 @@
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
+<!-- Modal confirmacao iniciar campanhas -->
+<dialog id="modal_confirmar_andamento" class="modal">
+  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-base text-gray-800">Iniciar todas as campanhas</h3>
+    </div>
+    <div class="px-5 py-4">
+      <p class="text-sm text-gray-600">Tem certeza que deseja iniciar todas as campanhas deste PI?</p>
+      <div class="mt-3 text-sm text-gray-700 space-y-1">
+        <p><span class="font-semibold text-gray-500">PI:</span> {{ pi.codigo_pi_cc or '—' }}</p>
+        <p><span class="font-semibold text-gray-500">Título:</span> {{ pi.titulo_pi or '—' }}</p>
+        <p><span class="font-semibold text-gray-500">Cliente:</span> {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
+      </div>
+    </div>
+    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_andamento').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_andamento" class="px-3 py-1.5 text-sm rounded text-white bg-green-600 hover:bg-green-700">Confirmar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
 <script>
 (function() {
   var PI_ID = {{ (pi.id_pi if pi else 0)|tojson }};
@@ -823,6 +854,32 @@
       btn.textContent = 'Confirmar';
     }
   });
+
+  // Enviar para Andamento
+  var btnAndamento = document.getElementById('btn_confirmar_andamento');
+  if (btnAndamento) {
+    btnAndamento.addEventListener('click', async function() {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      try {
+        var resp = await fetch('/api/cadu_pi/' + PI_ID + '/enviar-andamento', { method: 'POST' });
+        var data = await resp.json();
+        if (data.success) {
+          document.getElementById('modal_confirmar_andamento').close();
+          showToast('Campanhas iniciadas com sucesso!', 'success');
+          setTimeout(function() { window.location.href = '{{ url_for("cadu_pi_lista", id_sub_status_pi=3) }}'; }, 800);
+        } else {
+          showToast(data.message || 'Erro ao enviar', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao iniciar campanhas', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirmar';
+      }
+    });
+  }
 
   window.abrirModalLinks = function() {
     document.getElementById('modal_links_destino').showModal();
@@ -949,135 +1006,298 @@
 </script>
 {% endif %}
 
-{% if modo == 'editar' and pi and pi.id_sub_status_pi|string == '3' %}
+{% if modo == 'editar' and pi %}
+<style>
+  #modal_nova_campanha input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 2rem; height: 100%; cursor: pointer; }
+</style>
 <dialog id="modal_nova_campanha" class="modal">
-  <div class="modal-box w-11/12 max-w-4xl bg-white p-0 rounded-lg">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800">Nova Campanha</h3>
-      <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-3 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-sm text-white">Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
+      <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-1 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
       </button>
     </div>
-    <div class="p-6 max-h-[75vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
+      <div class="flex items-center gap-1.5">
+        <span class="text-gray-400 text-xs">Cliente:</span>
+        <span class="font-semibold text-gray-800 text-sm">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-gray-400 text-[10px]">PI:</span>
+        <span class="text-gray-500 text-xs">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
+      </div>
+    </div>
+    <div class="px-5 py-4">
       <form id="formNovaCampanha" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" name="id_pi" value="{{ pi.id_pi }}">
         <input type="hidden" name="return_to_pi" value="1">
+        <input type="hidden" name="id_cliente" value="{{ pi.id_cliente }}">
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="grid grid-cols-3 gap-x-4 gap-y-3">
           <div class="col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nome da Campanha <span class="text-red-500">*</span></label>
-            <input type="text" name="nome_campanha" required class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Nome da Campanha <span class="text-red-400">*</span></label>
+            <input type="text" name="nome_campanha" required placeholder="Nome da Campanha"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">PI</label>
-            <input type="text" value="{{ pi.codigo_pi_cc or pi.id_pi }}" disabled class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm bg-gray-100 text-gray-500">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Obj Contratado <span class="text-red-400">*</span></label>
+            <input type="text" name="obj_contratados" required data-mask="numero" placeholder="0"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
           </div>
-        </div>
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-            <select name="id_cliente" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-              <option value="">Selecione...</option>
-              {% for cli in clientes|default([]) %}
-                <option value="{{ cli.id_cliente }}" {% if pi.id_cliente|string == cli.id_cliente|string %}selected{% endif %}>{{ cli.nome_fantasia or cli.razao_social }}</option>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Valor Plataforma <span class="text-red-400">*</span></label>
+            <input type="text" id="nova_camp_valor_plat" name="valor_plataforma" required data-mask="real" placeholder="R$ 0,00"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Distribuição %</label>
+            <input type="text" id="nova_camp_dist_pct" readonly tabindex="-1"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default text-right focus:outline-none" value="0,00%">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Status</label>
+            <select name="id_status"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              {% for st in statuses|default([]) %}
+                <option value="{{ st.id }}" {% if st.descricao|lower == 'aguardando' %}selected{% endif %}>{{ st.descricao }}</option>
               {% endfor %}
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Objetivo</label>
-            <select name="id_objetivos_campanha" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Criativos Validados <span class="text-red-500">*</span></label>
+            <select name="id_criativos_validados" id="nova_camp_criativos_validados" required
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
-              {% for obj in objetivos|default([]) %}
-                <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
+              {% for cv in criativos_validados|default([]) %}
+                <option value="{{ cv.id }}">{{ cv.descricao }}</option>
               {% endfor %}
             </select>
           </div>
+
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Plataforma</label>
-            <select name="id_plataforma" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Data Início</label>
+            <div class="relative">
+              <input type="date" id="nova_camp_dt_inicio" name="periodo_inicio" {% if pi.periodo_inicio %}value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') }}"{% endif %}
+                class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <i onclick="document.getElementById('nova_camp_dt_inicio').showPicker()"
+                class="fa-regular fa-calendar absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs cursor-pointer hover:text-gray-600"></i>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Data Fim</label>
+            <div class="relative">
+              <input type="date" id="nova_camp_dt_fim" name="periodo_fim" {% if pi.periodo_fim %}value="{{ pi.periodo_fim.strftime('%Y-%m-%d') }}"{% endif %}
+                class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <i onclick="document.getElementById('nova_camp_dt_fim').showPicker()"
+                class="fa-regular fa-calendar absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs cursor-pointer hover:text-gray-600"></i>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Plataforma <span class="text-red-400">*</span></label>
+            <select name="id_plataforma" required
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
               {% for plt in plataformas|default([]) %}
                 <option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-        </div>
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select name="id_status" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Objetivos</label>
+            <select name="id_objetivos_campanha"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
-              {% for st in statuses|default([]) %}
-                <option value="{{ st.id }}">{{ st.descricao }}</option>
+              {% for obj in objetivos|default([]) %}
+                <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
               {% endfor %}
             </select>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Obj. Contratados</label>
-            <input type="text" name="obj_contratados" data-mask="numero" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Link Dash</label>
+            <input type="url" name="link_dash" placeholder="Link Dash"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
+
         </div>
 
-        <div class="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Mês Referência</label>
-            <input type="date" name="mes_ref" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Mês Ref Comp</label>
-            <input type="text" name="mes_ref_comp" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Link Dashboard</label>
-            <input type="url" name="link_dash" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Período Início</label>
-            <input type="datetime-local" name="periodo_inicio" {% if pi.periodo_inicio %}value="{{ pi.periodo_inicio.strftime('%Y-%m-%dT%H:%M') }}"{% endif %} class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Período Fim</label>
-            <input type="datetime-local" name="periodo_fim" {% if pi.periodo_fim %}value="{{ pi.periodo_fim.strftime('%Y-%m-%dT%H:%M') }}"{% endif %} class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-          <div class="flex items-end pb-2">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="under" class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
-              <span class="text-sm font-medium text-gray-700">Under</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Valor Plataforma</label>
-            <input type="text" name="valor_plataforma" data-mask="real" placeholder="R$ 0,00" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Valor Total Plataforma</label>
-            <input type="text" name="valor_total_plataforma" data-mask="real" placeholder="R$ 0,00" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400">
-          </div>
-        </div>
-
-        <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4">
-          <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">Cancelar</button>
-          <button type="submit" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            <i class="fas fa-save mr-1"></i> Criar Campanha
+        <div class="mt-4 pt-3 border-t border-gray-100 flex justify-center">
+          <button type="submit"
+            class="px-8 py-2 text-sm font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
+            Salvar Campanha
           </button>
         </div>
       </form>
     </div>
   </div>
-  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
 </dialog>
+<script>
+(function() {
+  function aplicarMascaraNumero(input) {
+    input.addEventListener('input', function() {
+      var pos = this.selectionStart;
+      var antes = this.value.length;
+      var digits = this.value.replace(/[^\d]/g, '');
+      this.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      var diff = this.value.length - antes;
+      this.setSelectionRange(pos + diff, pos + diff);
+    });
+  }
+  function aplicarMascaraReal(input) {
+    input.addEventListener('input', function() {
+      var v = this.value.replace(/[^\d]/g, '');
+      if (!v) { this.value = ''; return; }
+      v = v.padStart(3, '0');
+      var inteiro = v.slice(0, -2).replace(/^0+/, '') || '0';
+      var decimal = v.slice(-2);
+      var formatado = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      this.value = 'R$ ' + formatado + ',' + decimal;
+    });
+    input.addEventListener('focus', function() {
+      if (!this.value) this.value = 'R$ 0,00';
+    });
+  }
+  var modal = document.getElementById('modal_nova_campanha');
+  if (modal) {
+    modal.querySelectorAll('[data-mask="numero"]').forEach(aplicarMascaraNumero);
+    modal.querySelectorAll('[data-mask="real"]').forEach(aplicarMascaraReal);
+  }
+
+  function parseReal(s) {
+    if (!s) return 0;
+    return parseFloat(s.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+  }
+  var rawMax = '{{ pi.vr_platafor_max_pi|default("0") }}';
+  var vrPlatMax = parseReal(rawMax);
+  var inp = document.getElementById('nova_camp_valor_plat');
+  var out = document.getElementById('nova_camp_dist_pct');
+  if (inp && out) {
+    function calc() {
+      var v = parseReal(inp.value);
+      var pct = vrPlatMax > 0 ? (v / vrPlatMax) * 100 : 0;
+      out.value = pct.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '%';
+    }
+    inp.addEventListener('input', function() { setTimeout(calc, 0); });
+    inp.addEventListener('change', function() { setTimeout(calc, 0); });
+    calc();
+  }
+})();
+</script>
 {% endif %}
 
-{% if modo == 'editar' and pi and pi.id_sub_status_pi|string in ['3', '4'] %}
+<dialog id="modal_ver_campanha" class="modal">
+  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-3 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-sm text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
+      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-1 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
+      </button>
+    </div>
+    <div class="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
+      <div class="flex items-center gap-1.5">
+        <span class="text-gray-400 text-xs">Cliente:</span>
+        <span class="font-semibold text-gray-800 text-sm">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-gray-400 text-[10px]">PI:</span>
+        <span class="text-gray-500 text-xs">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
+      </div>
+    </div>
+    <div class="px-5 py-4">
+      <div class="grid grid-cols-3 gap-x-4 gap-y-3">
+        <div class="col-span-2">
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
+          <span id="view_nome_campanha" class="text-sm font-medium text-gray-800">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
+          <span id="view_obj_contratados" class="text-sm text-gray-700">—</span>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
+          <span id="view_valor_plataforma" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
+          <span id="view_status" class="text-sm text-gray-700">—</span>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
+          <span id="view_criativos_validados" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
+          <span id="view_periodo_inicio" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
+          <span id="view_periodo_fim" class="text-sm text-gray-700">—</span>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
+          <span id="view_plataforma" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
+          <span id="view_objetivos" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
+          <span id="view_under" class="text-sm text-gray-700">—</span>
+        </div>
+
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
+          <span id="view_totalizador_atingido" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
+          <span id="view_totalizador_gasto" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
+          <span id="view_link_dash" class="text-sm text-gray-700 break-all">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
+</dialog>
+
+{% if modo == 'editar' and pi %}
+<style>
+  details[open] > summary .details-open-rotate { transform: rotate(90deg); }
+</style>
 <script>
+function abrirViewCampanha(c) {
+  var fmtBrl = function(v) { return v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'; };
+  document.getElementById('view_nome_campanha').textContent = c.nome_campanha || '—';
+  document.getElementById('view_obj_contratados').textContent = c.obj_contratados || '—';
+  document.getElementById('view_valor_plataforma').textContent = c.valor_plataforma != null ? fmtBrl(c.valor_plataforma) : '—';
+  document.getElementById('view_status').textContent = c.status_nome || '—';
+  document.getElementById('view_criativos_validados').textContent = c.criativos_validados_nome || '—';
+  document.getElementById('view_periodo_inicio').textContent = c.periodo_inicio || '—';
+  document.getElementById('view_periodo_fim').textContent = c.periodo_fim || '—';
+  document.getElementById('view_plataforma').textContent = c.plataforma_nome || '—';
+  document.getElementById('view_objetivos').textContent = c.objetivo_nome || '—';
+  document.getElementById('view_under').textContent = c.under ? 'Sim' : 'Não';
+  document.getElementById('view_totalizador_atingido').textContent = c.totalizador_atingido || '—';
+  document.getElementById('view_totalizador_gasto').textContent = c.totalizador_gasto != null ? fmtBrl(c.totalizador_gasto) : '—';
+  var linkEl = document.getElementById('view_link_dash');
+  if (c.link_dash) {
+    linkEl.innerHTML = '<a href="' + c.link_dash + '" target="_blank" class="text-blue-500 hover:text-blue-700 underline">' + c.link_dash + '</a>';
+  } else {
+    linkEl.textContent = '—';
+  }
+  document.getElementById('modal_ver_campanha').showModal();
+}
+
 (function() {
   fetch('/api/cadu-pi/{{ pi.id_pi }}/campanhas')
     .then(r => r.json())
@@ -1095,14 +1315,7 @@
 
       const fmtBrl = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-      let html = '<table class="w-full text-sm"><thead class="bg-gray-50 text-gray-600 text-xs uppercase"><tr>' +
-        '<th class="text-left py-2 px-3 font-semibold">Campanha</th>' +
-        '<th class="text-left py-2 px-3 font-semibold">Plataforma</th>' +
-        '<th class="text-center py-2 px-3 font-semibold">Período</th>' +
-        '<th class="text-center py-2 px-3 font-semibold">Objetivo</th>' +
-        '<th class="text-right py-2 px-3 font-semibold">Investimento</th>' +
-        '<th class="text-center py-2 px-3 font-semibold">Ações</th>' +
-        '</tr></thead><tbody>';
+      let html = '';
 
       camps.forEach(c => {
         const periodo = (c.periodo_inicio || '-') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
@@ -1113,21 +1326,47 @@
         const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
         const pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
 
-        html += '<tr class="border-b border-gray-100 hover:bg-gray-50">' +
-          '<td class="py-2 px-3"><span class="font-medium text-gray-800">' + (c.nome_campanha || '-') + '</span>' +
-            '<span class="block text-[10px] text-gray-400">' + (c.status_nome || '') + '</span></td>' +
-          '<td class="py-2 px-3 text-gray-600">' + (c.plataforma_nome || '-') + '</td>' +
-          '<td class="py-2 px-3 text-center text-gray-600 text-xs">' + periodo + '</td>' +
-          '<td class="py-2 px-3 text-center"><span class="' + pctColor + ' font-semibold">' + objAtingido + '/' + objContratado + '</span>' +
-            '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span></td>' +
-          '<td class="py-2 px-3 text-right"><span class="font-medium text-gray-800">' + fmtBrl(gasto) + '</span>' +
-            '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span></td>' +
-          '<td class="py-2 px-3 text-center"><a href="/campanhas-pi?id_pi={{ pi.id_pi }}" ' +
-            'class="text-blue-500 hover:text-blue-700 text-xs font-medium"><i class="fa-solid fa-arrow-up-right-from-square mr-0.5"></i>Ver</a></td>' +
-          '</tr>';
+        html += '<details class="border border-gray-200 rounded-lg mb-2">' +
+          '<summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none [&::-webkit-details-marker]:hidden">' +
+            '<div class="flex items-center gap-2 min-w-0">' +
+              '<i class="fa-solid fa-chevron-right text-[10px] text-gray-400 transition-transform details-open-rotate"></i>' +
+              '<span class="font-medium text-gray-800 truncate">' + (c.nome_campanha || '-') + '</span>' +
+              '<span class="text-[10px] text-gray-400">' + (c.status_nome || '') + '</span>' +
+            '</div>' +
+            '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0 ml-2">' + (c.plataforma_nome || '-') + '</span>' +
+          '</summary>' +
+          '<div class="px-4 pb-3 pt-2 border-t border-gray-100">' +
+            '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">' +
+              '<div>' +
+                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
+                '<span class="text-gray-600 text-xs">' + periodo + '</span>' +
+              '</div>' +
+              '<div>' +
+                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Objetivo</span>' +
+                '<span class="' + pctColor + ' font-semibold text-xs">' + objAtingido + ' / ' + objContratado + '</span>' +
+                '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span>' +
+              '</div>' +
+              '<div>' +
+                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Investimento</span>' +
+                '<span class="font-medium text-gray-800 text-xs">' + fmtBrl(gasto) + '</span>' +
+                '<span class="text-[10px] text-gray-400 ml-1">de ' + fmtBrl(previsto) + '</span>' +
+              '</div>' +
+              '<div class="flex items-end">' +
+                '<button type="button" data-camp-view="' + btoa(unescape(encodeURIComponent(JSON.stringify(c)))) + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +
+                  '<i class="fa-solid fa-eye text-[10px]"></i>Ver campanha</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</details>';
       });
-      html += '</tbody></table>';
       container.innerHTML = html;
+      container.querySelectorAll('.btn-ver-camp').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          var data = JSON.parse(decodeURIComponent(escape(atob(this.dataset.campView))));
+          abrirViewCampanha(data);
+        });
+      });
     })
     .catch(() => {
       document.getElementById('pi_campanhas_container').innerHTML =

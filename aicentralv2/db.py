@@ -7308,8 +7308,8 @@ def obter_notas_fiscais_por_pi(id_pi):
                     nf.id,
                     nf.valor,
                     nf.data_emissao,
-                    nf.data_pagamento_previsto,
-                    nf.data_pagamento_realizado,
+                    nf.data_pag_prevista as data_pagamento_previsto,
+                    nf.data_pag_realizado as data_pagamento_realizado,
                     nf.numero_nota,
                     nf.mes_ref_comp,
                     nf.id_pi,
@@ -7338,8 +7338,8 @@ def obter_nota_fiscal_por_id(id_nota):
                     id,
                     valor,
                     data_emissao,
-                    data_pagamento_previsto,
-                    data_pagamento_realizado,
+                    data_pag_prevista as data_pagamento_previsto,
+                    data_pag_realizado as data_pagamento_realizado,
                     numero_nota,
                     mes_ref_comp,
                     id_pi,
@@ -7362,7 +7362,7 @@ def criar_nota_fiscal(data):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_pi_nota_fiscal (
-                    valor, data_emissao, data_pagamento_previsto, data_pagamento_realizado,
+                    valor, data_emissao, data_pag_prevista, data_pag_realizado,
                     numero_nota, mes_ref_comp, id_pi, status,
                     googled_pi_arq_ass, created_at, updated_at
                 ) VALUES (
@@ -7398,8 +7398,8 @@ def atualizar_nota_fiscal(id_nota, data):
                 UPDATE cadu_pi_nota_fiscal
                 SET valor = %s,
                     data_emissao = %s,
-                    data_pagamento_previsto = %s,
-                    data_pagamento_realizado = %s,
+                    data_pag_prevista = %s,
+                    data_pag_realizado = %s,
                     numero_nota = %s,
                     mes_ref_comp = %s,
                     id_pi = %s,
@@ -7449,8 +7449,8 @@ def obter_notas_fiscais_lista(filtros=None):
                     nf.id,
                     nf.valor,
                     nf.data_emissao,
-                    nf.data_pagamento_previsto,
-                    nf.data_pagamento_realizado,
+                    nf.data_pag_prevista as data_pagamento_previsto,
+                    nf.data_pag_realizado as data_pagamento_realizado,
                     nf.numero_nota,
                     nf.mes_ref_comp,
                     nf.id_pi,

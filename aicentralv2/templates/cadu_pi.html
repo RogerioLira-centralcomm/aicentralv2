@@ -349,7 +349,7 @@
       </div>
       <div>
         <label class="text-xs font-medium text-gray-600 mb-1 block">Valor <span class="text-red-500">*</span></label>
-        <input type="text" id="nf_valor" class="input input-bordered input-sm w-full" placeholder="0,00" required>
+        <input type="text" id="nf_valor" class="input input-bordered input-sm w-full" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" required>
       </div>
       <div>
         <label class="text-xs font-medium text-gray-600 mb-1 block">Data Emissão <span class="text-red-500">*</span></label>
@@ -366,7 +366,7 @@
         </div>
         <div>
           <label class="text-xs font-medium text-gray-600 mb-1 block">Status</label>
-          <select id="nf_status" class="select select-bordered select-sm w-full">
+          <select id="nf_status" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
             <option value="">Selecione</option>
             {% for st in statuses_nf %}
             <option value="{{ st.id }}">{{ st.descricao }}</option>
@@ -602,6 +602,23 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+function aplicarMascaraRealNf(input) {
+  input.addEventListener('input', function() {
+    let v = this.value.replace(/[^\d]/g, '');
+    if (!v) { this.value = ''; return; }
+    let num = (parseInt(v, 10) / 100);
+    this.value = 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  });
+}
+document.querySelectorAll('#modal_nf [data-mask="real"]').forEach(aplicarMascaraRealNf);
+
+function fmtValorBrl(val) {
+  if (!val) return '';
+  let n = parseFloat(String(val).replace('R$', '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
+  if (isNaN(n)) return val;
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function fmtDateInput(dt) {
   if (!dt) return '';
   if (typeof dt === 'string') return dt.substring(0, 10);
@@ -633,7 +650,7 @@ function abrirModalNf(idPi, nfId, piInfo) {
       .then(r => r.json())
       .then(nf => {
         document.getElementById('nf_numero_nota').value = nf.numero_nota || '';
-        document.getElementById('nf_valor').value = nf.valor || '';
+        document.getElementById('nf_valor').value = fmtValorBrl(nf.valor) || '';
         document.getElementById('nf_data_emissao').value = fmtDateInput(nf.data_emissao);
         document.getElementById('nf_data_pagamento').value = fmtDateInput(nf.data_pagamento_previsto);
         document.getElementById('nf_data_pagamento_realizado').value = fmtDateInput(nf.data_pagamento_realizado);

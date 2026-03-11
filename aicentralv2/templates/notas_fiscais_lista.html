@@ -104,7 +104,11 @@
         <tbody class="text-sm">
           {% for nf in notas %}
           <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-              onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=nf.id_pi) }}'">
+              data-nf-id="{{ nf.id }}"
+              data-cod-pi="{{ nf.codigo_pi_cc or '' }}"
+              data-cliente="{{ nf.cliente_nome or '' }}"
+              onclick="abrirModalNfView(this.dataset.nfId, this.dataset.codPi, this.dataset.cliente)"
+              title="Clique para ver detalhes">
             <td class="py-2.5">
               <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[90px]" title="{{ nf.codigo_pi_cc or '-' }}">{{ nf.codigo_pi_cc or '-' }}</span>
             </td>
@@ -149,7 +153,7 @@
             </td>
             <td class="text-right">
               {% if nf.valor %}
-              <span class="font-semibold text-gray-800 text-xs">R$ {{ nf.valor }}</span>
+              <span class="font-semibold text-gray-800 text-xs">{{ nf.valor }}</span>
               {% else %}
               <span class="text-xs text-gray-300">-</span>
               {% endif %}
@@ -187,6 +191,76 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Modal Ver/Editar Nota Fiscal -->
+<dialog id="modal_nf_view" class="modal">
+  <div class="modal-box max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg" id="modal_nf_view_title">Nota Fiscal</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+    </div>
+    <input type="hidden" id="vnf_id">
+    <input type="hidden" id="vnf_id_pi">
+
+    <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
+          <span class="text-sm font-mono font-semibold text-blue-600" id="vnf_cod_pi">-</span>
+        </div>
+        <div class="col-span-2">
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
+          <span class="text-sm text-gray-800 font-medium" id="vnf_cliente">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Número da Nota</label>
+        <input type="text" id="vnf_numero_nota" class="input input-bordered input-sm w-full" readonly>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Valor</label>
+        <input type="text" id="vnf_valor" class="input input-bordered input-sm w-full" data-mask="real" inputmode="decimal" readonly>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Data Emissão</label>
+        <input type="date" id="vnf_data_emissao" class="input input-bordered input-sm w-full" readonly>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Previsto</label>
+        <input type="date" id="vnf_data_pagamento" class="input input-bordered input-sm w-full" readonly>
+      </div>
+      <div id="vnf_pag_realizado_wrapper" class="hidden">
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Realizado</label>
+        <input type="date" id="vnf_data_pagamento_realizado" class="input input-bordered input-sm w-full" readonly>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Status</label>
+        <select id="vnf_status" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-700 cursor-not-allowed appearance-none" disabled>
+          <option value="">Selecione</option>
+          {% for st in statuses_nf %}
+          <option value="{{ st.id }}">{{ st.descricao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-action flex justify-between">
+      <form method="dialog"><button class="btn btn-ghost btn-sm">Fechar</button></form>
+      <div class="flex gap-2">
+        <button class="btn btn-outline btn-sm" id="btn_editar_nf" onclick="habilitarEdicaoNf()">
+          <i class="fa-solid fa-pen-to-square mr-1"></i> Editar
+        </button>
+        <button class="btn btn-primary btn-sm hidden" id="btn_salvar_nf_view" onclick="salvarNfView()">
+          <i class="fa-solid fa-floppy-disk mr-1"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 
 <script>
 let debounceTimer;
@@ -315,5 +389,147 @@ document.addEventListener('click', function(e) {
     container.classList.add('hidden');
   }
 });
+
+function aplicarMascaraRealNfView(input) {
+  input.addEventListener('input', function() {
+    let v = this.value.replace(/[^\d]/g, '');
+    if (!v) { this.value = ''; return; }
+    let num = (parseInt(v, 10) / 100);
+    this.value = 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  });
+}
+document.querySelectorAll('#modal_nf_view [data-mask="real"]').forEach(aplicarMascaraRealNfView);
+
+function fmtDateInput(dt) {
+  if (!dt) return '';
+  var s = String(dt);
+  if (s.length >= 10 && s[4] === '-') return s.substring(0, 10);
+  var d = new Date(s);
+  if (isNaN(d.getTime())) return '';
+  var yyyy = d.getFullYear();
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  return yyyy + '-' + mm + '-' + dd;
+}
+
+var STATUS_PAG_REALIZADO = null;
+(function() {
+  var sel = document.getElementById('vnf_status');
+  for (var i = 0; i < sel.options.length; i++) {
+    var txt = sel.options[i].text.toLowerCase();
+    if (txt.indexOf('pagamento realizado') !== -1 || txt.indexOf('pag') !== -1 && txt.indexOf('realizado') !== -1) {
+      STATUS_PAG_REALIZADO = sel.options[i].value;
+      break;
+    }
+  }
+})();
+
+function abrirModalNfView(nfId, codPi, clienteNome) {
+  document.getElementById('vnf_id').value = nfId;
+  document.getElementById('vnf_cod_pi').textContent = codPi || '-';
+  document.getElementById('vnf_cliente').textContent = clienteNome || '-';
+
+  var campos = document.querySelectorAll('#modal_nf_view input:not([type=hidden])');
+  campos.forEach(function(c) { c.setAttribute('readonly', true); c.classList.add('bg-gray-100'); });
+  var selStatus = document.getElementById('vnf_status');
+  selStatus.disabled = true;
+  selStatus.classList.add('bg-gray-100', 'cursor-not-allowed');
+  selStatus.classList.remove('bg-gray-50', 'cursor-pointer');
+  document.getElementById('btn_editar_nf').classList.remove('hidden');
+  document.getElementById('btn_salvar_nf_view').classList.add('hidden');
+  document.getElementById('modal_nf_view_title').textContent = 'Nota Fiscal';
+  document.getElementById('vnf_pag_realizado_wrapper').classList.add('hidden');
+
+  fetch('/api/cadu_pi_nota_fiscal/' + nfId)
+    .then(function(r) { return r.json(); })
+    .then(function(nf) {
+      document.getElementById('vnf_id_pi').value = nf.id_pi || '';
+      document.getElementById('vnf_numero_nota').value = nf.numero_nota || '';
+      document.getElementById('vnf_valor').value = nf.valor || '';
+      document.getElementById('vnf_data_emissao').value = fmtDateInput(nf.data_emissao);
+      document.getElementById('vnf_data_pagamento').value = fmtDateInput(nf.data_pagamento_previsto);
+      document.getElementById('vnf_data_pagamento_realizado').value = fmtDateInput(nf.data_pagamento_realizado);
+
+      var statusVal = nf.status != null ? String(nf.status) : '';
+      document.getElementById('vnf_status').value = statusVal;
+
+      if (statusVal === STATUS_PAG_REALIZADO) {
+        document.getElementById('vnf_pag_realizado_wrapper').classList.remove('hidden');
+      }
+
+      document.getElementById('modal_nf_view').showModal();
+    })
+    .catch(function(e) { alert('Erro ao carregar nota fiscal'); console.error(e); });
+}
+
+function habilitarEdicaoNf() {
+  var campos = document.querySelectorAll('#modal_nf_view input:not([type=hidden])');
+  campos.forEach(function(c) {
+    c.removeAttribute('readonly');
+    c.classList.remove('bg-gray-100');
+    if (c.type === 'date') c.setAttribute('onclick', 'this.showPicker()');
+  });
+  var selStatus = document.getElementById('vnf_status');
+  selStatus.disabled = false;
+  selStatus.classList.remove('bg-gray-100', 'cursor-not-allowed');
+  selStatus.classList.add('bg-gray-50', 'cursor-pointer');
+  selStatus.addEventListener('change', togglePgtoRealizado);
+
+  document.getElementById('btn_editar_nf').classList.add('hidden');
+  document.getElementById('btn_salvar_nf_view').classList.remove('hidden');
+  document.getElementById('modal_nf_view_title').textContent = 'Editar Nota Fiscal';
+  togglePgtoRealizado();
+}
+
+function togglePgtoRealizado() {
+  var statusVal = document.getElementById('vnf_status').value;
+  var wrapper = document.getElementById('vnf_pag_realizado_wrapper');
+  if (statusVal === STATUS_PAG_REALIZADO) {
+    wrapper.classList.remove('hidden');
+  } else {
+    wrapper.classList.add('hidden');
+    document.getElementById('vnf_data_pagamento_realizado').value = '';
+  }
+}
+
+function salvarNfView() {
+  var nfId = document.getElementById('vnf_id').value;
+  var idPi = document.getElementById('vnf_id_pi').value;
+  var statusVal = document.getElementById('vnf_status').value;
+  var dataPagReal = document.getElementById('vnf_data_pagamento_realizado').value;
+
+  if (statusVal === STATUS_PAG_REALIZADO && !dataPagReal) {
+    alert('Para o status "Pagamento Realizado" é obrigatório preencher a data de pagamento realizado.');
+    document.getElementById('vnf_data_pagamento_realizado').focus();
+    return;
+  }
+
+  var data = {
+    numero_nota: document.getElementById('vnf_numero_nota').value.trim(),
+    valor: document.getElementById('vnf_valor').value.trim(),
+    data_emissao: document.getElementById('vnf_data_emissao').value || null,
+    data_pagamento_previsto: document.getElementById('vnf_data_pagamento').value || null,
+    data_pagamento_realizado: document.getElementById('vnf_data_pagamento_realizado').value || null,
+    status: document.getElementById('vnf_status').value ? parseInt(document.getElementById('vnf_status').value) : null,
+    id_pi: parseInt(idPi)
+  };
+
+  fetch('/api/cadu_pi_nota_fiscal/' + nfId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Erro ao salvar');
+    return r.json();
+  })
+  .then(function() {
+    document.getElementById('modal_nf_view').close();
+    window.location.reload();
+  })
+  .catch(function(err) {
+    alert('Erro ao salvar nota fiscal: ' + err.message);
+  });
+}
 </script>
 {% endblock %}

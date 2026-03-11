@@ -9953,7 +9953,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         nota = db.obter_nota_fiscal_por_id(id_nota)
         if not nota:
             abort(404)
-        return jsonify(nota)
+        result = dict(nota)
+        for campo in ('data_emissao', 'data_pagamento_previsto', 'data_pagamento_realizado', 'created_at', 'updated_at'):
+            val = result.get(campo)
+            if val and hasattr(val, 'strftime'):
+                result[campo] = val.strftime('%Y-%m-%d')
+        return jsonify(result)
 
     @app.route('/api/cadu_pi_nota_fiscal', methods=['POST'])
     @login_required

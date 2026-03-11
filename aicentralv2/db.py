@@ -7286,6 +7286,260 @@ def obter_sub_status_pi():
         raise e
 
 
+def obter_nota_fiscal_status():
+    """Retorna todos os status de nota fiscal"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id, descricao FROM cadu_pi_nota_fiscal_status ORDER BY id')
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_notas_fiscais_por_pi(id_pi):
+    """Retorna todas as notas fiscais de um PI"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    nf.id,
+                    nf.valor,
+                    nf.data_emissao,
+                    nf.data_pagamento_previsto,
+                    nf.data_pagamento_realizado,
+                    nf.numero_nota,
+                    nf.mes_ref_comp,
+                    nf.id_pi,
+                    nf.created_at,
+                    nf.updated_at,
+                    nf.status,
+                    nfs.descricao as status_descricao
+                FROM cadu_pi_nota_fiscal nf
+                LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id
+                WHERE nf.id_pi = %s
+                ORDER BY nf.created_at DESC
+            ''', (id_pi,))
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_nota_fiscal_por_id(id_nota):
+    """Retorna uma nota fiscal por ID"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    id,
+                    valor,
+                    data_emissao,
+                    data_pagamento_previsto,
+                    data_pagamento_realizado,
+                    numero_nota,
+                    mes_ref_comp,
+                    id_pi,
+                    created_at,
+                    updated_at,
+                    status
+                FROM cadu_pi_nota_fiscal
+                WHERE id = %s
+            ''', (id_nota,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_nota_fiscal(data):
+    """Cria uma nova nota fiscal"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_pi_nota_fiscal (
+                    valor, data_emissao, data_pagamento_previsto, data_pagamento_realizado,
+                    numero_nota, mes_ref_comp, id_pi, status,
+                    created_at, updated_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s,
+                    DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                ) RETURNING id
+            ''', (
+                data.get('valor'),
+                data.get('data_emissao'),
+                data.get('data_pagamento_previsto'),
+                data.get('data_pagamento_realizado'),
+                data.get('numero_nota'),
+                data.get('mes_ref_comp'),
+                data.get('id_pi'),
+                data.get('status')
+            ))
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_nota_fiscal(id_nota, data):
+    """Atualiza uma nota fiscal existente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi_nota_fiscal
+                SET valor = %s,
+                    data_emissao = %s,
+                    data_pagamento_previsto = %s,
+                    data_pagamento_realizado = %s,
+                    numero_nota = %s,
+                    mes_ref_comp = %s,
+                    id_pi = %s,
+                    status = %s,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id = %s
+            ''', (
+                data.get('valor'),
+                data.get('data_emissao'),
+                data.get('data_pagamento_previsto'),
+                data.get('data_pagamento_realizado'),
+                data.get('numero_nota'),
+                data.get('mes_ref_comp'),
+                data.get('id_pi'),
+                data.get('status'),
+                id_nota
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_nota_fiscal(id_nota):
+    """Exclui uma nota fiscal"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cadu_pi_nota_fiscal WHERE id = %s
+            ''', (id_nota,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_notas_fiscais_lista(filtros=None):
+    """Retorna notas fiscais com filtros e JOINs para dados do PI/cliente"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT
+                    nf.id,
+                    nf.valor,
+                    nf.data_emissao,
+                    nf.data_pagamento_previsto,
+                    nf.data_pagamento_realizado,
+                    nf.numero_nota,
+                    nf.mes_ref_comp,
+                    nf.id_pi,
+                    nf.created_at,
+                    nf.updated_at,
+                    nf.status,
+                    nfs.descricao as status_descricao,
+                    p.codigo_pi_cc,
+                    p.titulo_pi,
+                    cli.nome_fantasia as cliente_nome,
+                    cli_ag.nome_fantasia as agencia_nome,
+                    rc.nome_completo as resp_comercial_nome
+                FROM cadu_pi_nota_fiscal nf
+                LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id
+                LEFT JOIN cadu_pi p ON nf.id_pi = p.id_pi
+                LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
+                LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
+                LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
+                WHERE 1=1
+            '''
+            params = []
+
+            if filtros:
+                if filtros.get('status'):
+                    query += ' AND nf.status = %s'
+                    params.append(filtros['status'])
+
+                if filtros.get('resp_comercial'):
+                    query += ' AND p.id_resp_comercial = %s'
+                    params.append(filtros['resp_comercial'])
+
+                if filtros.get('id_cliente'):
+                    query += ' AND p.id_cliente = %s'
+                    params.append(filtros['id_cliente'])
+
+                if filtros.get('id_agencia'):
+                    query += ' AND p.id_agencia = %s'
+                    params.append(filtros['id_agencia'])
+
+                if filtros.get('mes_ref_comp'):
+                    query += ' AND nf.mes_ref_comp = %s'
+                    params.append(filtros['mes_ref_comp'])
+
+                if filtros.get('data_inicio'):
+                    query += ' AND nf.data_emissao >= %s'
+                    params.append(filtros['data_inicio'])
+
+                if filtros.get('data_fim'):
+                    query += ' AND nf.data_emissao <= %s'
+                    params.append(filtros['data_fim'])
+
+                if filtros.get('search'):
+                    query += ''' AND (
+                        nf.numero_nota ILIKE %s
+                        OR p.codigo_pi_cc ILIKE %s
+                        OR unaccent(cli.nome_fantasia) ILIKE unaccent(%s)
+                        OR unaccent(cli_ag.nome_fantasia) ILIKE unaccent(%s)
+                    )'''
+                    search_term = f"%{filtros['search']}%"
+                    params.extend([search_term, search_term, search_term, search_term])
+
+            query += ' ORDER BY nf.created_at DESC'
+
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_meses_ref_nf():
+    """Retorna valores distintos de mes_ref_comp de notas fiscais"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT mes_ref_comp,
+                    CAST(SPLIT_PART(mes_ref_comp, '/', 2) AS INTEGER) as ano,
+                    CAST(SPLIT_PART(mes_ref_comp, '/', 1) AS INTEGER) as mes
+                FROM cadu_pi_nota_fiscal
+                WHERE mes_ref_comp IS NOT NULL AND mes_ref_comp != ''
+                GROUP BY mes_ref_comp
+                ORDER BY ano DESC, mes DESC
+            ''')
+            return [r['mes_ref_comp'] for r in cursor.fetchall()]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_tipos_pi():
     """Retorna todos os tipos de PI"""
     conn = get_db()
@@ -7337,13 +7591,19 @@ def obter_cadu_pi_lista(filtros=None):
                     p.vr_liquido_pr_pi as valor_liquido_pr,
                     p.vr_platafor_max_pi as valor_plataformas,
                     cli.nome_fantasia as cliente_nome,
+                    cli.cnpj as cliente_cnpj,
                     cli_ag.nome_fantasia as agencia_nome,
                     cli_parc.nome_fantasia as parceiro_nome,
                     sp.descricao as status_descricao,
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome,
                     (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links,
-                    (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas
+                    (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas,
+                    nf_sub.nf_id,
+                    nf_sub.nf_numero_nota,
+                    nf_sub.nf_valor,
+                    nf_sub.nf_status,
+                    nf_sub.nf_status_descricao
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
@@ -7351,6 +7611,19 @@ def obter_cadu_pi_lista(filtros=None):
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
+                LEFT JOIN LATERAL (
+                    SELECT
+                        nf.id as nf_id,
+                        nf.numero_nota as nf_numero_nota,
+                        nf.valor as nf_valor,
+                        nf.status as nf_status,
+                        nfs.descricao as nf_status_descricao
+                    FROM cadu_pi_nota_fiscal nf
+                    LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id
+                    WHERE nf.id_pi = p.id_pi
+                    ORDER BY nf.created_at DESC
+                    LIMIT 1
+                ) nf_sub ON true
                 WHERE 1=1
             '''
             params = []

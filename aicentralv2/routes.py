@@ -7776,6 +7776,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pis = db.obter_cadu_pi_lista(filtros)
             status_pi = db.obter_status_pi()
             meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
+            statuses_nf = db.obter_nota_fiscal_status()
 
             return render_template('cadu_pi.html',
                                    pis=pis or [],
@@ -7783,6 +7784,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    vendedores=vendedores,
                                    meses_ref=meses_ref,
                                    filtros=filtros,
+                                   statuses_nf=statuses_nf,
                                    user_is_executivo=user_is_executivo)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
@@ -7791,6 +7793,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    pis=[],
                                    status_pi=[],
                                    vendedores=[],
+                                   statuses_nf=[],
                                    filtros={})
 
     @app.route('/cadu_pi/novo', methods=['GET', 'POST'])
@@ -8244,6 +8247,109 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': True})
         except Exception as e:
             app.logger.error(f"Erro ao iniciar campanhas do PI: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/<int:id_pi>/enviar-financeiro', methods=['POST'])
+    @login_required
+    def cadu_pi_enviar_financeiro(id_pi):
+        """Finaliza campanhas e envia PI para faturamento"""
+        try:
+            import requests
+            import os
+            from datetime import datetime
+
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+            conn = db.get_db()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        UPDATE cadu_pi_campanha
+                        SET id_status = (SELECT id FROM cadu_pi_camp_status WHERE descricao = 'Finalizada' LIMIT 1),
+                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                        WHERE id_pi = %s
+                    ''', (id_pi,))
+                    quant_campanhas = cursor.rowcount
+
+                    cursor.execute('''
+                        UPDATE cadu_pi
+                        SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em faturamento' LIMIT 1),
+                            id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'Faturamento' LIMIT 1),
+                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                        WHERE id_pi = %s
+                    ''', (id_pi,))
+                    conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise e
+
+            numero = pi.get('codigo_pi_cc', '')
+            is_dev = app.config.get('DEBUG', False)
+            tem_agencia = bool(pi.get('id_agencia'))
+
+            def fmt_data_curta(val):
+                if not val:
+                    return ''
+                if isinstance(val, str):
+                    try:
+                        val = datetime.strptime(val, '%Y-%m-%d')
+                    except ValueError:
+                        return val
+                return val.strftime('%d/%m/%Y %H:%M:%S')
+
+            webhook_erros = []
+
+            url_faturamento = os.getenv('MAKE_WEBHOOK_PI_FATURAMENTO')
+            if url_faturamento:
+                tem_parceiro = bool(pi.get('id_parceiro'))
+                params_faturamento = {
+                    'testeparam': 'yes' if is_dev else 'no',
+                    'codPI': numero,
+                    'razaosccliente': pi.get('cliente_razao_social') or '',
+                    'nomefcliente': pi.get('cliente_nome') or '',
+                    'pastaprgoogle': pi.get('googled_pi_princ') or '',
+                    'valorliquidopi': pi.get('vr_liquido_pi') or '',
+                    'emailresponsavelpi': pi.get('resp_comercial_email') or '',
+                    'quantcampanhas': quant_campanhas,
+                    'mesref': fmt_data_curta(pi.get('mes_ref')),
+                    'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
+                    'datafim': fmt_data_curta(pi.get('periodo_fim')),
+                    'pastaassinadas': pi.get('googled_pi_arq_ass') or '',
+                    'instrucoesfinanceiro': pi.get('observacoes_financeiro') or '',
+                    'nomerespPI': pi.get('resp_comercial_nome') or '',
+                    'titulo': pi.get('titulo_pi') or '',
+                    'pi_tem_agencia': 'sim' if tem_agencia else 'não',
+                }
+                if tem_agencia:
+                    params_faturamento['nomefagencia'] = pi.get('agencia_nome') or ''
+                if tem_parceiro:
+                    params_faturamento['razaosparceiro'] = pi.get('parceiro_razao_social') or ''
+                    params_faturamento['nomeparceiro'] = pi.get('parceiro_nome') or ''
+
+                try:
+                    resp = requests.get(url_faturamento, params=params_faturamento, timeout=30)
+                    resp.raise_for_status()
+                except Exception as wh_err:
+                    app.logger.error(f"Erro webhook PI_FATURAMENTO: {wh_err}")
+                    webhook_erros.append(str(wh_err))
+
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'PI enviado para faturamento - PI: {numero}',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_anteriores={'id_sub_status_pi': pi.get('id_sub_status_pi')},
+                dados_novos={'sub_status': 'Em faturamento', 'campanhas_finalizadas': quant_campanhas}
+            )
+
+            if webhook_erros:
+                return jsonify({'success': True, 'warning': f'PI enviado para faturamento, mas {len(webhook_erros)} webhook(s) falharam'})
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro ao enviar PI para faturamento: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== LINK DESTINOS PI - API JSON ====================
@@ -9729,5 +9835,134 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return redirect(url_for('campanhas_pi'))
 
         return redirect(url_for('diarios_campanha', id_camp=id_camp))
+
+    # ==================== NOTA FISCAL PI ====================
+
+    @app.route('/notas-fiscais')
+    @login_required
+    def notas_fiscais_lista():
+        """Lista Notas Fiscais com filtros"""
+        try:
+            filtros = {}
+
+            if request.args.get('resp_comercial'):
+                filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
+            if request.args.get('id_cliente'):
+                filtros['id_cliente'] = int(request.args.get('id_cliente'))
+            if request.args.get('id_agencia'):
+                filtros['id_agencia'] = int(request.args.get('id_agencia'))
+            if request.args.get('status'):
+                filtros['status'] = int(request.args.get('status'))
+            if request.args.get('mes_ref_comp'):
+                filtros['mes_ref_comp'] = request.args.get('mes_ref_comp')
+            if request.args.get('data_inicio'):
+                filtros['data_inicio'] = request.args.get('data_inicio')
+            if request.args.get('data_fim'):
+                filtros['data_fim'] = request.args.get('data_fim')
+            if request.args.get('busca', '').strip():
+                filtros['search'] = request.args.get('busca').strip()
+
+            if filtros.get('id_cliente'):
+                cli_info = db.obter_cliente_por_id(filtros['id_cliente'])
+                if cli_info:
+                    filtros['cliente_nome'] = cli_info.get('nome_fantasia', '')
+
+            vendedores = db.obter_vendedores_centralcomm()
+            statuses_nf = db.obter_nota_fiscal_status()
+            meses_ref = db.obter_meses_ref_nf()
+            notas = db.obter_notas_fiscais_lista(filtros)
+
+            return render_template('notas_fiscais_lista.html',
+                                   notas=notas or [],
+                                   vendedores=vendedores,
+                                   statuses_nf=statuses_nf,
+                                   meses_ref=meses_ref,
+                                   filtros=filtros)
+        except Exception as e:
+            app.logger.error(f"Erro ao listar notas fiscais: {e}", exc_info=True)
+            flash('Erro ao carregar lista de notas fiscais.', 'error')
+            return render_template('notas_fiscais_lista.html',
+                                   notas=[],
+                                   vendedores=[],
+                                   statuses_nf=[],
+                                   meses_ref=[],
+                                   filtros={})
+
+    @app.route('/api/cadu_pi/<int:id_pi>/notas-fiscais', methods=['GET'])
+    @login_required
+    def api_listar_notas_fiscais_pi(id_pi):
+        notas = db.obter_notas_fiscais_por_pi(id_pi)
+        return jsonify(notas)
+
+    @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>', methods=['GET'])
+    @login_required
+    def api_obter_nota_fiscal(id_nota):
+        nota = db.obter_nota_fiscal_por_id(id_nota)
+        if not nota:
+            abort(404)
+        return jsonify(nota)
+
+    @app.route('/api/cadu_pi_nota_fiscal', methods=['POST'])
+    @login_required
+    def api_criar_nota_fiscal():
+        data = request.json
+        id_pi = data.get('id_pi')
+
+        if data.get('data_emissao'):
+            from datetime import datetime
+            try:
+                dt = datetime.strptime(data['data_emissao'], '%Y-%m-%d')
+                data['mes_ref_comp'] = f"{dt.month}/{dt.year}"
+            except (ValueError, TypeError):
+                pass
+
+        conn = db.get_db()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    'SELECT id FROM cadu_pi_nota_fiscal_status WHERE descricao = %s LIMIT 1',
+                    ('NF Emitida',)
+                )
+                row = cursor.fetchone()
+                if row:
+                    data['status'] = row['id']
+        except Exception:
+            pass
+
+        novo_id = db.criar_nota_fiscal(data)
+
+        if id_pi and novo_id:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        UPDATE cadu_pi
+                        SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Finalizado' LIMIT 1),
+                            id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'NF Emitida' LIMIT 1),
+                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                        WHERE id_pi = %s
+                    ''', (id_pi,))
+                    conn.commit()
+            except Exception as e:
+                conn.rollback()
+                app.logger.error(f"Erro ao atualizar status PI após criar NF: {e}")
+
+        return jsonify({'id': novo_id}), 201
+
+    @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>', methods=['PUT'])
+    @login_required
+    def api_atualizar_nota_fiscal(id_nota):
+        data = request.json
+        ok = db.atualizar_nota_fiscal(id_nota, data)
+        if not ok:
+            abort(404)
+        return jsonify({'success': True})
+
+    @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>', methods=['DELETE'])
+    @login_required
+    def api_excluir_nota_fiscal(id_nota):
+        ok = db.excluir_nota_fiscal(id_nota)
+        if not ok:
+            abort(404)
+        return jsonify({'success': True})
 
     # ==================== UP AUDIÊNCIA ====================

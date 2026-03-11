@@ -1,0 +1,319 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Notas Fiscais - CentralComm AI{% endblock %}
+
+{% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <h1 class="text-lg font-semibold text-gray-800">Notas Fiscais</h1>
+      </div>
+
+      <form id="filtros_form" class="flex items-center gap-3">
+        <select name="status" id="filtro_status" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 130px;">
+          <option value="">Todos status</option>
+          {% for st in statuses_nf %}
+            <option value="{{ st.id }}" {% if filtros.get('status')|string == st.id|string %}selected{% endif %}>
+              {{ st.descricao }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <select name="resp_comercial" id="filtro_executivo" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+          <option value="">Todos executivos</option>
+          {% for v in vendedores %}
+            <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
+              {{ v.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <div class="relative">
+          <input type="hidden" name="id_cliente" id="filtro_cliente_id" value="{{ filtros.get('id_cliente', '') }}">
+          <input type="text" id="filtro_cliente_busca"
+                 value="{{ filtros.get('cliente_nome', '') }}"
+                 placeholder="Buscar cliente/agência..."
+                 autocomplete="off"
+                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-7 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+                 style="min-width: 170px;"
+                 oninput="buscarClientesFiltro(this.value)"
+                 onfocus="buscarClientesFiltro(this.value)">
+          <i class="fa-solid fa-building absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+          <button type="button" id="btn_limpar_cliente" onclick="limparFiltroCliente()"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs {% if not filtros.get('id_cliente') %}hidden{% endif %}">
+            <i class="fas fa-times"></i>
+          </button>
+          <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200" style="min-width: 280px;"></div>
+        </div>
+
+        <select name="mes_ref_comp" id="filtro_mes_ref" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 110px;">
+          <option value="">Todos meses</option>
+          {% for m in meses_ref %}
+            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+          {% endfor %}
+        </select>
+
+        <div class="relative">
+          <input type="text" name="busca" id="filtro_busca"
+                 value="{{ filtros.get('search', '') }}"
+                 placeholder="Buscar..."
+                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+                 style="min-width: 150px;"
+                 onkeyup="debounceAplicarFiltros()">
+          <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-3 space-y-2">
+        {% for category, message in messages %}
+          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
+            <span class="text-sm">{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-white rounded border border-gray-200 overflow-hidden">
+    {% if notas %}
+      <table class="table table-sm w-full">
+        <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
+          <tr>
+            <th class="font-semibold py-3" style="width: 100px;">Cód PI</th>
+            <th class="font-semibold" style="width: 130px;">Nº Nota</th>
+            <th class="font-semibold" style="width: 250px;">Cliente</th>
+            <th class="font-semibold" style="width: 100px;">Executivo</th>
+            <th class="font-semibold text-center" style="width: 100px;">Emissão</th>
+            <th class="font-semibold text-center" style="width: 100px;">Pgto Prev.</th>
+            <th class="font-semibold text-center" style="width: 100px;">Pgto Real.</th>
+            <th class="font-semibold text-right" style="width: 130px;">Valor</th>
+            <th class="font-semibold text-center" style="width: 120px;">Status</th>
+          </tr>
+        </thead>
+        <tbody class="text-sm">
+          {% for nf in notas %}
+          <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+              onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=nf.id_pi) }}'">
+            <td class="py-2.5">
+              <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[90px]" title="{{ nf.codigo_pi_cc or '-' }}">{{ nf.codigo_pi_cc or '-' }}</span>
+            </td>
+            <td>
+              <span class="text-xs font-medium text-gray-800">{{ nf.numero_nota or '-' }}</span>
+            </td>
+            <td>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-medium text-gray-800 truncate" title="{{ nf.cliente_nome or '' }}">{{ nf.cliente_nome or '-' }}</span>
+                {% if nf.agencia_nome %}
+                <span class="text-[10px] text-gray-400 truncate" title="{{ nf.agencia_nome }}">{{ nf.agencia_nome }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              {% if nf.resp_comercial_nome %}
+              <span class="text-xs text-gray-700 truncate block max-w-[90px]" title="{{ nf.resp_comercial_nome }}">{{ nf.resp_comercial_nome.split(' ')[0] }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if nf.data_emissao %}
+              <span class="text-xs text-gray-600">{{ nf.data_emissao.strftime('%d/%m/%Y') }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if nf.data_pagamento_previsto %}
+              <span class="text-xs text-gray-600">{{ nf.data_pagamento_previsto.strftime('%d/%m/%Y') }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if nf.data_pagamento_realizado %}
+              <span class="text-xs text-green-600 font-medium">{{ nf.data_pagamento_realizado.strftime('%d/%m/%Y') }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-right">
+              {% if nf.valor %}
+              <span class="font-semibold text-gray-800 text-xs">R$ {{ nf.valor }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if nf.status_descricao %}
+              <span class="px-2 py-0.5 text-[11px] font-medium rounded-full
+                {% if nf.status == 1 %}bg-yellow-100 text-yellow-700
+                {% elif nf.status == 2 %}bg-blue-100 text-blue-700
+                {% elif nf.status == 3 %}bg-green-100 text-green-700
+                {% else %}bg-gray-100 text-gray-600
+                {% endif %}">{{ nf.status_descricao }}</span>
+              {% else %}
+              <span class="text-xs text-gray-300">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+        <p class="text-sm text-gray-600">
+          <strong>{{ notas|length }}</strong> nota(s) fiscal(is)
+          {% if filtros.get('status') or filtros.get('resp_comercial') or filtros.get('id_cliente') or filtros.get('mes_ref_comp') %}
+          <span class="text-gray-400">• filtrado</span>
+          {% endif %}
+        </p>
+      </div>
+    {% else %}
+      <div class="p-8 text-center">
+        <i class="fas fa-file-invoice text-4xl text-gray-300 mb-3"></i>
+        <p class="text-gray-500">Nenhuma nota fiscal encontrada.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+let debounceTimer;
+let debounceClienteTimer;
+
+function debounceAplicarFiltros() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(aplicarFiltros, 500);
+}
+
+function aplicarFiltros() {
+  const params = new URLSearchParams();
+  const status = document.getElementById('filtro_status').value;
+  const exec = document.getElementById('filtro_executivo').value;
+  const cli = document.getElementById('filtro_cliente_id').value;
+  const mes = document.getElementById('filtro_mes_ref').value;
+  const busca = document.getElementById('filtro_busca').value.trim();
+
+  setCookie('cc_nf_filtro_status', status, 30);
+  setCookie('cc_nf_filtro_exec', exec, 30);
+  setCookie('cc_nf_filtro_mes', mes, 30);
+
+  if (status) params.set('status', status);
+  if (exec) params.set('resp_comercial', exec);
+  if (cli) params.set('id_cliente', cli);
+  if (mes) params.set('mes_ref_comp', mes);
+  if (busca) params.set('busca', busca);
+  params.set('_f', '1');
+
+  window.location.href = '/notas-fiscais?' + params.toString();
+}
+
+(function restoreNfFilters() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.has('_restored') || params.has('_f')) return;
+
+  var cStatus = getCookie('cc_nf_filtro_status');
+  var cExec = getCookie('cc_nf_filtro_exec');
+  var cMes = getCookie('cc_nf_filtro_mes');
+  var needsRedirect = false;
+  var rp = new URLSearchParams(params);
+
+  if (cStatus && !params.has('status')) {
+    rp.set('status', cStatus);
+    needsRedirect = true;
+  }
+
+  if (cExec && !params.has('resp_comercial')) {
+    rp.set('resp_comercial', cExec);
+    needsRedirect = true;
+  }
+
+  if (cMes && !params.has('mes_ref_comp')) {
+    var selMes = document.getElementById('filtro_mes_ref');
+    var matched = false;
+    for (var i = 0; i < selMes.options.length; i++) {
+      if (selMes.options[i].value === cMes) { matched = true; break; }
+    }
+    if (!matched) {
+      var m = parseInt(cMes, 10);
+      for (var i = 0; i < selMes.options.length; i++) {
+        if (parseInt(selMes.options[i].value, 10) === m) { matched = true; cMes = selMes.options[i].value; break; }
+      }
+    }
+    if (matched) { rp.set('mes_ref_comp', cMes); needsRedirect = true; }
+  }
+
+  if (!needsRedirect) return;
+  rp.set('_restored', '1');
+  window.location.href = '/notas-fiscais?' + rp.toString();
+})();
+
+function buscarClientesFiltro(termo) {
+  clearTimeout(debounceClienteTimer);
+  const resultadosDiv = document.getElementById('resultados_clientes_filtro');
+
+  if (termo.length < 2) {
+    resultadosDiv.classList.add('hidden');
+    return;
+  }
+
+  debounceClienteTimer = setTimeout(() => {
+    fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: termo, razao: termo })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.clientes && data.clientes.length > 0) {
+        resultadosDiv.innerHTML = data.clientes.map(c => `
+          <div class="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+               onclick="selecionarClienteFiltro('${c.id_cliente || c.pk_id_tbl_cliente}', '${(c.nome_fantasia || '').replace(/'/g, "\\'")}')">
+            <div class="font-medium text-sm text-gray-800">${c.nome_fantasia || ''}</div>
+            <div class="text-xs text-gray-400">${c.razao_social || ''}</div>
+          </div>
+        `).join('');
+      } else {
+        resultadosDiv.innerHTML = '<div class="px-3 py-3 text-xs text-gray-400 text-center">Nenhum cliente encontrado</div>';
+      }
+      resultadosDiv.classList.remove('hidden');
+    })
+    .catch(() => { resultadosDiv.classList.add('hidden'); });
+  }, 300);
+}
+
+function selecionarClienteFiltro(id, nome) {
+  document.getElementById('filtro_cliente_id').value = id;
+  document.getElementById('filtro_cliente_busca').value = nome;
+  document.getElementById('resultados_clientes_filtro').classList.add('hidden');
+  document.getElementById('btn_limpar_cliente').classList.remove('hidden');
+  aplicarFiltros();
+}
+
+function limparFiltroCliente() {
+  document.getElementById('filtro_cliente_id').value = '';
+  document.getElementById('filtro_cliente_busca').value = '';
+  document.getElementById('btn_limpar_cliente').classList.add('hidden');
+  aplicarFiltros();
+}
+
+document.addEventListener('click', function(e) {
+  const container = document.getElementById('resultados_clientes_filtro');
+  const input = document.getElementById('filtro_cliente_busca');
+  if (container && !container.contains(e.target) && e.target !== input) {
+    container.classList.add('hidden');
+  }
+});
+</script>
+{% endblock %}

@@ -4,6 +4,7 @@
 set -e
 export SYSTEMD_PAGER=""
 export PAGER="cat"
+export SYSTEMD_LESS=""
 
 echo "========================================"
 echo "Deploy AIcentral v2"
@@ -19,7 +20,7 @@ sudo pkill -9 -f "gunicorn.*run:app" 2>/dev/null || true
 sleep 1
 
 # Verificar que a porta 8001 está livre
-if ss -tlnp | grep -q ':8001'; then
+if sudo ss -tlnp 2>/dev/null | grep -q ':8001'; then
     echo "⚠ Porta 8001 ainda ocupada, matando processo..."
     sudo fuser -k 8001/tcp 2>/dev/null || true
     sleep 2
@@ -60,17 +61,15 @@ sudo systemctl start aicentralv2
 sleep 3
 if sudo systemctl is-active --quiet aicentralv2; then
     echo "✓ Servico ativo!"
-    sudo systemctl status aicentralv2 --no-pager -l 2>&1 | head -20
 else
     echo "✗ ERRO ao iniciar servico"
-    sudo systemctl status aicentralv2 --no-pager -l 2>&1 | head -20
-    sudo journalctl -u aicentralv2 -n 50 --no-pager 2>&1 | cat
+    sudo journalctl -u aicentralv2 -n 30 --no-pager 2>&1 | cat
     exit 1
 fi
 
-# 10. Health check
+# 10. Health check (timeout de 10s)
 sleep 2
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/ 2>/dev/null || echo "000")
+HTTP_CODE=$(curl -s -m 10 -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/ 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "000" ]; then
     echo "⚠ Servidor não respondeu ao health check (pode precisar de login)"
 elif [ "$HTTP_CODE" -lt "400" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "302" ]; then
@@ -83,11 +82,3 @@ echo ""
 echo "========================================"
 echo "Deploy concluido com sucesso!"
 echo "========================================"
-echo ""
-echo "Verifique o status:"
-echo "  sudo systemctl status aicentralv2"
-echo ""
-echo "Logs:"
-echo "  sudo journalctl -u aicentralv2 -f"
-echo "  tail -f logs/error.log"
-echo ""

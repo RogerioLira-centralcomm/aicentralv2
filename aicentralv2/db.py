@@ -7364,9 +7364,9 @@ def criar_nota_fiscal(data):
                 INSERT INTO cadu_pi_nota_fiscal (
                     valor, data_emissao, data_pagamento_previsto, data_pagamento_realizado,
                     numero_nota, mes_ref_comp, id_pi, status,
-                    created_at, updated_at
+                    googled_pi_arq_ass, created_at, updated_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 ) RETURNING id
@@ -7378,7 +7378,8 @@ def criar_nota_fiscal(data):
                 data.get('numero_nota'),
                 data.get('mes_ref_comp'),
                 data.get('id_pi'),
-                data.get('status')
+                data.get('status'),
+                data.get('googled_pi_arq_ass')
             ))
             result = cursor.fetchone()
             conn.commit()
@@ -8422,6 +8423,7 @@ def obter_campanhas_pi(filtros=None):
                     plt.descricao AS plataforma_nome,
                     cv.descricao AS criativos_validados_nome,
                     pi.codigo_pi_cc AS codigo_pi,
+                    pi.titulo_pi,
                     pi.googled_pi_princ,
                     vend.nome_completo AS executivo_nome,
                     pi.vr_liquido_pi AS valor_liquido_pi,
@@ -8458,6 +8460,9 @@ def obter_campanhas_pi(filtros=None):
                 if filtros.get('resp_comercial'):
                     query += ' AND cli.vendas_central_comm = %s'
                     params.append(filtros['resp_comercial'])
+                if filtros.get('id_sub_status_pi'):
+                    query += ' AND pi.id_sub_status_pi = %s'
+                    params.append(filtros['id_sub_status_pi'])
 
             query += ' ORDER BY c.mes_ref_comp DESC, c.id_campanha DESC'
             cursor.execute(query, params)

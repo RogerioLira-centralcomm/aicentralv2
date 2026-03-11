@@ -1,6 +1,6 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}Acompanhamento de Campanhas - CentralComm AI{% endblock %}
+{% block title %}{% if request.args.get('view') == 'diarios' %}Diários Geral{% else %}Acompanhamento de Campanhas{% endif %} - CentralComm AI{% endblock %}
 
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
@@ -70,6 +70,7 @@
   {# ====== FILTROS ====== #}
   <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3 flex-wrap">
+      {% if request.args.get('view') != 'diarios' %}
       <div class="relative">
         <i class="fa-solid fa-circle-check absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroStatus" onchange="aplicarFiltros()"
@@ -80,6 +81,7 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
       <div class="relative">
         <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroMesRef" onchange="aplicarFiltros()"
@@ -106,6 +108,10 @@
         <input type="text" id="searchInput" placeholder="Buscar campanha..."
                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 200px;">
       </div>
+      <button type="button" onclick="confirmarAtualizarDiariosMassa()"
+              class="text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5">
+        <i class="fas fa-layer-group text-xs"></i> Atualizar Todos
+      </button>
     </div>
     <div class="text-sm text-gray-500">
       <span id="totalCampanhas">{{ campanhas|length if campanhas else 0 }}</span> campanha{{ 's' if (campanhas|length if campanhas else 0) != 1 }}
@@ -130,7 +136,7 @@
 
   {# ====== TABELA COMPACTA ====== #}
   {% if campanhas and campanhas|length > 0 %}
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden" {% if request.args.get('view') == 'diarios' %}style="display:none"{% endif %}>
     <div class="overflow-x-auto">
       <table class="w-full text-sm lista-table">
         <thead>
@@ -260,6 +266,53 @@
       </table>
     </div>
   </div>
+
+  {# ====== DIÁRIOS GERAL ====== #}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden {% if request.args.get('view') != 'diarios' %}mt-4{% endif %}" id="diarios-geral">
+    <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center gap-2">
+      <i class="fas fa-calendar-plus text-indigo-400 text-sm"></i>
+      <h3 class="font-semibold text-sm text-gray-700">Diários Geral</h3>
+      <span class="text-xs text-gray-400 ml-1">Preencha os campos e clique em "Atualizar Todos"</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm table-fixed" id="tabelaDiariosMassa">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width:80px">Cód PI</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width:28%">Título PI</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width:28%">Campanha</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width:120px">Data Evento</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width:110px">Atingido</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width:120px">Gasto</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for c in campanhas %}
+          <tr class="diario-massa-row hover:bg-gray-50/50"
+              data-campanha-id="{{ c.id_campanha }}"
+              data-id-pi="{{ c.id_pi }}">
+            <td class="py-2 px-3 text-xs font-bold text-indigo-600 whitespace-nowrap">{{ c.codigo_pi or '—' }}</td>
+            <td class="py-2 px-3 text-xs text-gray-700 truncate" title="{{ c.titulo_pi or '' }}">{{ c.titulo_pi or '—' }}</td>
+            <td class="py-2 px-3 text-xs text-gray-700 truncate" title="{{ c.nome_campanha or '' }}">{{ c.nome_campanha or '—' }}</td>
+            <td class="py-2 px-2">
+              <input type="date" class="dm-data text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-1.5 py-1 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 w-full"
+                     onclick="this.showPicker()">
+            </td>
+            <td class="py-2 px-2">
+              <input type="text" class="dm-atingido text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-1.5 py-1 text-gray-700 text-right focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 w-full"
+                     placeholder="0" data-mask="numero">
+            </td>
+            <td class="py-2 px-2">
+              <input type="text" class="dm-gasto text-[11px] bg-gray-50 border border-gray-200 rounded-lg px-1.5 py-1 text-gray-700 text-right focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 w-full"
+                     placeholder="R$ 0,00" data-mask="real">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   {% else %}
     <div class="text-center py-16 bg-white rounded-xl border border-gray-200">
       <i class="fas fa-bullhorn text-6xl text-gray-200 mb-4"></i>
@@ -270,8 +323,8 @@
 </div>
 
 {# ====== SIDEBAR LATERAL ====== #}
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
-<div class="sidebar-panel" id="sidebarPanel">
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()" {% if request.args.get('view') == 'diarios' %}style="display:none"{% endif %}></div>
+<div class="sidebar-panel" id="sidebarPanel" {% if request.args.get('view') == 'diarios' %}style="display:none"{% endif %}>
   <div class="sticky top-0 bg-white z-10 border-b border-gray-200">
     <div class="flex items-center justify-between px-5 py-3">
       <h3 class="font-bold text-gray-800 text-lg truncate" id="sidebarTitle">Detalhes</h3>
@@ -785,17 +838,10 @@
 
   function aplicarMascaraReal(input) {
     input.addEventListener('input', function() {
-      let v = this.value.replace(/[^\d]/g, '');
+      let v = this.value.replace(/\D/g, '');
       if (!v) { this.value = ''; return; }
-      v = v.padStart(3, '0');
-      const inteiro = v.slice(0, -2).replace(/^0+/, '') || '0';
-      const decimal = v.slice(-2);
-      const formatado = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-      this.value = 'R$ ' + formatado + ',' + decimal;
-    });
-
-    input.addEventListener('focus', function() {
-      if (!this.value) this.value = 'R$ 0,00';
+      v = (parseInt(v, 10) / 100).toFixed(2);
+      this.value = 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     });
   }
 
@@ -825,16 +871,20 @@
   })();
 
   // ==================== FILTROS ====================
+  const isDiariosView = {{ 'true' if request.args.get('view') == 'diarios' else 'false' }};
+
   function aplicarFiltros() {
     const params = new URLSearchParams();
-    const status = document.getElementById('filtroStatus').value;
+    const statusEl = document.getElementById('filtroStatus');
+    const status = statusEl ? statusEl.value : '';
     const mes = document.getElementById('filtroMesRef').value;
     const exec = document.getElementById('filtroExecutivo').value;
 
-    setCookie('camppi_status', status, 30);
+    if (!isDiariosView) setCookie('camppi_status', status, 30);
     setCookie('cc_filtro_mes', mes, 30);
     setCookie('cc_filtro_exec', exec, 30);
 
+    if (isDiariosView) params.set('view', 'diarios');
     if (status) params.set('id_status', status);
     if (mes) params.set('mes_ref_comp', mes);
     params.set('resp_comercial', exec);
@@ -849,6 +899,7 @@
     const cExec = getCookie('cc_filtro_exec');
     let needsRedirect = false;
     const rp = new URLSearchParams(params);
+    if (isDiariosView) rp.set('view', 'diarios');
     if (cExec && !params.has('resp_comercial')) { rp.set('resp_comercial', cExec); needsRedirect = true; }
     if (cMes && !params.has('mes_ref_comp')) {
       const sel = document.getElementById('filtroMesRef');
@@ -864,7 +915,7 @@
       }
       if (matched) needsRedirect = true;
     }
-    if (cStatus && !params.has('id_status')) { rp.set('id_status', cStatus); needsRedirect = true; }
+    if (!isDiariosView && cStatus && !params.has('id_status')) { rp.set('id_status', cStatus); needsRedirect = true; }
     if (!needsRedirect) return;
     rp.set('_restored', '1');
     window.location.href = '{{ url_for("campanhas_pi_lista") }}?' + rp.toString();
@@ -1057,16 +1108,23 @@
   }
 
   function excluirSidebarDiario(id) {
-    if (!confirm('Excluir este diário?')) return;
-    fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
-          loadSidebarDiarios(currentSidebarCamp.id_campanha);
-          loadSidebarChart(currentSidebarCamp.id_campanha);
-        }
-      });
+    showConfirm({
+      title: 'Excluir Diário',
+      message: 'Tem certeza que deseja excluir este diário?',
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: () => {
+        fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+              loadSidebarDiarios(currentSidebarCamp.id_campanha);
+              loadSidebarChart(currentSidebarCamp.id_campanha);
+            }
+          });
+      }
+    });
   }
 
   // ==================== EMAIL ====================
@@ -1222,16 +1280,23 @@
 
   function excluirCampanhaSidebar() {
     if (!currentSidebarCamp) return;
-    if (!confirm('Tem certeza que deseja excluir esta campanha?')) return;
-    fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
-      method: 'POST',
-      redirect: 'manual'
-    }).then(() => {
-      if (typeof showToast === 'function') showToast('Campanha excluída!', 'success');
-      fecharSidebar();
-      setTimeout(() => location.reload(), 600);
-    }).catch(() => {
-      if (typeof showToast === 'function') showToast('Erro ao excluir.', 'error');
+    showConfirm({
+      title: 'Excluir Campanha',
+      message: `Tem certeza que deseja excluir a campanha <strong>${currentSidebarCamp.nome_campanha || ''}</strong>?`,
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: () => {
+        fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
+          method: 'POST',
+          redirect: 'manual'
+        }).then(() => {
+          if (typeof showToast === 'function') showToast('Campanha excluída!', 'success');
+          fecharSidebar();
+          setTimeout(() => location.reload(), 600);
+        }).catch(() => {
+          if (typeof showToast === 'function') showToast('Erro ao excluir.', 'error');
+        });
+      }
     });
   }
 
@@ -1400,20 +1465,97 @@
   }
 
   function excluirDiario(id) {
-    if (!confirm('Excluir este diário?')) return;
-    fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
-          carregarDiarios(currentDiarioCampId);
-        } else {
-          if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
-        }
-      })
-      .catch(() => {
-        if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
-      });
+    showConfirm({
+      title: 'Excluir Diário',
+      message: 'Tem certeza que deseja excluir este diário?',
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: () => {
+        fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+              carregarDiarios(currentDiarioCampId);
+            } else {
+              if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
+            }
+          })
+          .catch(() => {
+            if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
+          });
+      }
+    });
+  }
+
+  // ==================== DIÁRIOS EM MASSA ====================
+  (function() {
+    const hoje = new Date().toISOString().slice(0, 10);
+    document.querySelectorAll('#tabelaDiariosMassa .dm-data').forEach(el => { el.value = hoje; });
+    document.querySelectorAll('#tabelaDiariosMassa [data-mask="numero"]').forEach(aplicarMascaraNumero);
+    document.querySelectorAll('#tabelaDiariosMassa [data-mask="real"]').forEach(aplicarMascaraReal);
+  })();
+
+  function coletarDiariosMassaValidos() {
+    const rows = document.querySelectorAll('#tabelaDiariosMassa .diario-massa-row');
+    const validos = [];
+    rows.forEach(row => {
+      const data = row.querySelector('.dm-data').value.trim();
+      const atingido = row.querySelector('.dm-atingido').value.trim();
+      const gasto = row.querySelector('.dm-gasto').value.trim();
+      if (data && atingido && gasto) {
+        validos.push({
+          id_campanha: row.dataset.campanhaId,
+          id_pi: row.dataset.idPi,
+          data_evento: data,
+          atingido: atingido,
+          gasto: gasto
+        });
+      }
+    });
+    return validos;
+  }
+
+  function confirmarAtualizarDiariosMassa() {
+    const validos = coletarDiariosMassaValidos();
+    if (validos.length === 0) {
+      showToast('Nenhuma linha com os 3 campos preenchidos (data, atingido, gasto).', 'warning');
+      return;
+    }
+    showConfirm({
+      title: 'Adicionar Diários',
+      message: `<strong>${validos.length}</strong> diário${validos.length > 1 ? 's' : ''} ser${validos.length > 1 ? 'ão adicionados' : 'á adicionado'}.`,
+      detail: '<span class="text-gray-500">Apenas linhas com data, valor atingido e valor gasto preenchidos serão processadas.</span>',
+      theme: 'info',
+      confirmText: 'Confirmar',
+      onConfirm: () => enviarDiariosMassa(validos)
+    });
+  }
+
+  async function enviarDiariosMassa(items) {
+    let ok = 0, erros = 0;
+    for (const item of items) {
+      try {
+        const resp = await fetch(`/api/campanhas-pi/${item.id_campanha}/diarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            data_evento: item.data_evento,
+            atingido: item.atingido,
+            gasto: item.gasto
+          })
+        });
+        const data = await resp.json();
+        if (data.success) ok++;
+        else erros++;
+      } catch (e) { erros++; }
+    }
+    if (erros === 0) {
+      showToast(`${ok} diário${ok > 1 ? 's' : ''} adicionado${ok > 1 ? 's' : ''} com sucesso!`, 'success');
+    } else {
+      showToast(`${ok} adicionado${ok > 1 ? 's' : ''}, ${erros} com erro.`, 'warning');
+    }
+    setTimeout(() => location.reload(), 1200);
   }
 
   // ==================== KEYBOARD ====================

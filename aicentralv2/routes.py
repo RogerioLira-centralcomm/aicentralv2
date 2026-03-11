@@ -9317,6 +9317,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['resp_comercial'] = int(request.args.get('resp_comercial'))
             filtros = {k: v for k, v in filtros.items() if v is not None}
 
+            view_diarios = request.args.get('view') == 'diarios'
+            if view_diarios:
+                filtros['id_sub_status_pi'] = 3
+                filtros.pop('id_status', None)
+
             from datetime import datetime as dt_cls
             if 'mes_ref_comp' not in filtros:
                 now = dt_cls.now()
@@ -9539,20 +9544,44 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not campanha:
                 return jsonify({'success': False, 'error': 'Campanha não encontrada'}), 404
             payload = request.get_json()
-            app.logger.warning(f"[DEBUG DIARIO CRIAR] RAW payload: atingido='{payload.get('atingido')}' gasto='{payload.get('gasto')}'")
+            atingido_parsed = _parse_numero_campanha_formatado(payload.get('atingido'))
+            gasto_parsed = _parse_real_campanha(payload.get('gasto'))
+
+            atingido_float = float(str(atingido_parsed).replace('.', '').replace(',', '.')) if atingido_parsed else 0
+            gasto_float = float(str(gasto_parsed).replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')) if gasto_parsed else 0
+
+            diarios_existentes = db.obter_diarios_campanha(id_camp)
+            primeiro_evento = not diarios_existentes or len(diarios_existentes) == 0
+
+            if primeiro_evento:
+                dif_atingido = atingido_float
+                dif_gasto = gasto_float
+            else:
+                tot_atingido = float(campanha.get('totalizador_atingido') or 0)
+                tot_gasto_str = str(campanha.get('totalizador_gasto') or '0')
+                tot_gasto = float(tot_gasto_str.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')) if tot_gasto_str else 0
+                dif_atingido = atingido_float - tot_atingido
+                dif_gasto = gasto_float - tot_gasto
+
             data = {
                 'id_pi': campanha['id_pi'],
                 'id_campanha': id_camp,
                 'data_evento': payload.get('data_evento') or None,
-                'atingido': _parse_numero_campanha_formatado(payload.get('atingido')),
-                'gasto': _parse_real_campanha(payload.get('gasto')),
-                'dif_atingido': None,
-                'dif_gasto': None,
+                'atingido': atingido_parsed,
+                'gasto': gasto_parsed,
+                'dif_atingido': str(dif_atingido),
+                'dif_gasto': str(dif_gasto),
             }
-            app.logger.warning(f"[DEBUG DIARIO CRIAR] PARSED: atingido='{data['atingido']}' gasto='{data['gasto']}'")
             if not data['data_evento']:
                 return jsonify({'success': False, 'error': 'Data do evento é obrigatória'}), 400
             id_diario = db.criar_diario_campanha(data)
+
+            db.atualizar_campanhas_massa([{
+                'id_campanha': id_camp,
+                'totalizador_atingido': str(atingido_parsed) if atingido_parsed else '0',
+                'totalizador_gasto': str(gasto_parsed) if gasto_parsed else '0',
+            }])
+
             return jsonify({'success': True, 'id': id_diario})
         except Exception as e:
             app.logger.error(f"Erro API criar diário: {str(e)}")
@@ -9590,7 +9619,31 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             diario = db.obter_diario_por_id(id_diario)
             if not diario:
                 return jsonify({'success': False, 'error': 'Diário não encontrado'}), 404
+
+            id_camp = diario.get('id_campanha')
+            campanha = db.obter_campanha_pi_por_id(id_camp) if id_camp else None
+
             db.excluir_diario_campanha(id_diario)
+
+            if campanha:
+                dif_at_str = str(diario.get('dif_atingido') or '0')
+                dif_ga_str = str(diario.get('dif_gasto') or '0')
+                dif_at = float(dif_at_str.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')) if dif_at_str else 0
+                dif_ga = float(dif_ga_str.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')) if dif_ga_str else 0
+
+                tot_at = float(campanha.get('totalizador_atingido') or 0)
+                tot_ga_str = str(campanha.get('totalizador_gasto') or '0')
+                tot_ga = float(tot_ga_str.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')) if tot_ga_str else 0
+
+                novo_at = max(tot_at - dif_at, 0)
+                novo_ga = max(tot_ga - dif_ga, 0)
+
+                db.atualizar_campanhas_massa([{
+                    'id_campanha': id_camp,
+                    'totalizador_atingido': str(novo_at),
+                    'totalizador_gasto': str(novo_ga),
+                }])
+
             return jsonify({'success': True})
         except Exception as e:
             app.logger.error(f"Erro API excluir diário: {str(e)}")
@@ -9926,6 +9979,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 row = cursor.fetchone()
                 if row:
                     data['status'] = row['id']
+
+                if id_pi:
+                    cursor.execute(
+                        'SELECT googled_pi_arq_ass FROM cadu_pi WHERE id_pi = %s',
+                        (id_pi,)
+                    )
+                    pi_row = cursor.fetchone()
+                    if pi_row:
+                        data['googled_pi_arq_ass'] = pi_row.get('googled_pi_arq_ass')
         except Exception:
             pass
 

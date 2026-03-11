@@ -1230,16 +1230,23 @@
   }
 
   function excluirSidebarDiario(id) {
-    if (!confirm('Excluir este diário?')) return;
-    fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
-          loadSidebarDiarios(currentSidebarCamp.id_campanha);
-          loadSidebarChart(currentSidebarCamp.id_campanha);
-        }
-      });
+    showConfirm({
+      title: 'Excluir Diário',
+      message: 'Tem certeza que deseja excluir este diário?',
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: () => {
+        fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+              loadSidebarDiarios(currentSidebarCamp.id_campanha);
+              loadSidebarChart(currentSidebarCamp.id_campanha);
+            }
+          });
+      }
+    });
   }
 
   // ==================== EMAIL ====================
@@ -1384,16 +1391,23 @@
 
   function excluirCampanhaSidebar() {
     if (!currentSidebarCamp) return;
-    if (!confirm('Tem certeza que deseja excluir esta campanha?')) return;
-    fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
-      method: 'POST',
-      redirect: 'manual'
-    }).then(() => {
-      if (typeof showToast === 'function') showToast('Campanha excluída!', 'success');
-      fecharSidebar();
-      setTimeout(() => location.reload(), 600);
-    }).catch(() => {
-      if (typeof showToast === 'function') showToast('Erro ao excluir.', 'error');
+    showConfirm({
+      title: 'Excluir Campanha',
+      message: `Tem certeza que deseja excluir a campanha <strong>${currentSidebarCamp.nome_campanha || ''}</strong>?`,
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: () => {
+        fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
+          method: 'POST',
+          redirect: 'manual'
+        }).then(() => {
+          if (typeof showToast === 'function') showToast('Campanha excluída!', 'success');
+          fecharSidebar();
+          setTimeout(() => location.reload(), 600);
+        }).catch(() => {
+          if (typeof showToast === 'function') showToast('Erro ao excluir.', 'error');
+        });
+      }
     });
   }
 
@@ -1562,20 +1576,27 @@
   }
 
   function excluirDiario(id) {
-    if (!confirm('Excluir este diário?')) return;
-    fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
-          carregarDiarios(currentDiarioCampId);
-        } else {
-          if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
-        }
-      })
-      .catch(() => {
-        if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
-      });
+    showConfirm({
+      title: 'Excluir Diário',
+      message: 'Tem certeza que deseja excluir este diário?',
+      theme: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: () => {
+        fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+              carregarDiarios(currentDiarioCampId);
+            } else {
+              if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
+            }
+          })
+          .catch(() => {
+            if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
+          });
+      }
+    });
   }
 
   // ==================== BULK EDIT ====================

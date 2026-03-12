@@ -1004,6 +1004,8 @@ def init_routes(app):
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 percentual = request.form.get('percentual', '').strip()
                 id_centralx = request.form.get('id_centralx', '').strip() or None
+                status_val = request.form.get('status', '1')
+                status = status_val == '1'
                 
                 if not vendas_central_comm:
                     flash('Vendas CentralComm é obrigatório!', 'error')
@@ -1040,6 +1042,7 @@ def init_routes(app):
                     vendas_central_comm=vendas_central_comm,
                     percentual=percentual_valor,
                     id_centralx=id_centralx,
+                    status=status,
                     cep=cep,
                     bairro=bairro,
                     cidade=cidade,

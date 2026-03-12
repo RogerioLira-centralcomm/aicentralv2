@@ -162,13 +162,12 @@
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
-                <div class="text-xs text-gray-500">
-                  {% if cliente.executivo_nome %}
-                    <i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}
-                  {% else %}
-                    <span class="italic">Sem executivo</span>
-                  {% endif %}
-                </div>
+                {% if cliente.razao_social and cliente.nome_fantasia and cliente.razao_social != cliente.nome_fantasia %}
+                <div class="text-xs text-gray-400">{{ cliente.razao_social }}</div>
+                {% endif %}
+                {% if not filtros.get('executivo_id') and cliente.executivo_nome %}
+                <div class="text-xs text-gray-400"><i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}</div>
+                {% endif %}
               </td>
               <td class="text-center py-2 px-2">
                 <span class="text-xs text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
@@ -358,8 +357,21 @@
       <form id="form_cliente" method="post" class="space-y-3 modal-tab-content" data-tab="editar">
         <input type="hidden" id="cliente_id" name="cliente_id" value="">
         
-        <!-- Linha 1: Pessoa + CNPJ + Nome Fantasia + Razão Social -->
+        <!-- Linha 1: Status + Pessoa + CNPJ + Nome Fantasia + Razão Social -->
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+          <div id="status_toggle_container" class="form-control col-span-1 md:col-span-1" style="display:none;">
+            <label class="text-xs font-medium text-gray-600 mb-1">Status</label>
+            <div class="flex gap-0">
+              <label id="label_status_ativo" class="status-toggle-btn cursor-pointer flex items-center justify-center gap-1 px-2.5 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="toggleStatusField(true)">
+                <input type="radio" name="status" value="1" class="hidden" checked>
+                <i class="fas fa-check text-[10px]"></i>
+              </label>
+              <label id="label_status_inativo" class="status-toggle-btn cursor-pointer flex items-center justify-center gap-1 px-2.5 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="toggleStatusField(false)">
+                <input type="radio" name="status" value="0" class="hidden">
+                <i class="fas fa-times text-[10px]"></i>
+              </label>
+            </div>
+          </div>
           <div class="form-control col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
             <div class="flex gap-0 pessoa-toggle-group">
@@ -810,7 +822,8 @@ function abrirModalNovo() {
   // Atualizar campos visíveis
   togglePessoaFieldsModal();
   
-  // Ocultar abas (modo novo)
+  // Ocultar status e abas (modo novo)
+  document.getElementById('status_toggle_container').style.display = 'none';
   document.getElementById('tabs_container').style.display = 'none';
   
   // Mostrar apenas o formulário
@@ -886,6 +899,10 @@ async function abrirModalEditar(clienteId) {
       document.querySelector('input[name="percentual"]').value = '';
     }
     
+    // Status do cliente
+    document.getElementById('status_toggle_container').style.display = '';
+    toggleStatusField(!!cliente.status);
+
     // Atualizar campos visíveis baseado no tipo de pessoa
     togglePessoaFieldsModal();
     
@@ -990,6 +1007,25 @@ function togglePessoaFieldsModal() {
     document.getElementById('input_cnpj').placeholder = 'Digite o CNPJ';
     document.getElementById('label_nome_fantasia').innerText = 'Nome Fantasia *';
     document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome fantasia';
+  }
+}
+
+function toggleStatusField(ativo) {
+  const labelAtivo = document.getElementById('label_status_ativo');
+  const labelInativo = document.getElementById('label_status_inativo');
+
+  if (ativo) {
+    labelAtivo.querySelector('input').checked = true;
+    labelAtivo.classList.remove('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+    labelAtivo.classList.add('border-green-500', 'bg-green-50', 'text-green-700');
+    labelInativo.classList.remove('border-red-500', 'bg-red-50', 'text-red-700');
+    labelInativo.classList.add('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+  } else {
+    labelInativo.querySelector('input').checked = true;
+    labelInativo.classList.remove('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
+    labelInativo.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
+    labelAtivo.classList.remove('border-green-500', 'bg-green-50', 'text-green-700');
+    labelAtivo.classList.add('border-gray-300', 'bg-white', 'text-gray-500', 'hover:bg-gray-50');
   }
 }
 

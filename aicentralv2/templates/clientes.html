@@ -93,21 +93,24 @@
                   title="Categoria C">C</button>
         </div>
         
-        <!-- Agência toggle: um botão que alterna entre Clientes e Agências -->
+        <!-- Agência toggle: Clientes / Agências / Todos -->
         <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          {% if request.args.get('agencia') == 'sim' %}
+          {% set agencia_val = request.args.get('agencia', 'nao') %}
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='nao') }}"
-             class="px-2 py-1 text-xs rounded transition-colors bg-gray-200 text-gray-800 hover:bg-gray-300" 
-             title="Mostrando Agências - Clique para ver Clientes">
-            <i class="fa-solid fa-building text-xs"></i>
-          </a>
-          {% else %}
-          <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='sim') }}"
-             class="px-2 py-1 text-xs rounded transition-colors bg-gray-200 text-gray-800 hover:bg-gray-300" 
-             title="Mostrando Clientes - Clique para ver Agências">
+             class="px-2 py-1 text-xs rounded transition-colors {% if agencia_val == 'nao' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             title="Clientes">
             <i class="fa-solid fa-user text-xs"></i>
           </a>
-          {% endif %}
+          <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='sim') }}"
+             class="px-2 py-1 text-xs rounded transition-colors {% if agencia_val == 'sim' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             title="Agências">
+            <i class="fa-solid fa-building text-xs"></i>
+          </a>
+          <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='todos') }}"
+             class="px-2 py-1 text-xs rounded transition-colors {% if agencia_val == 'todos' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             title="Todos">
+            <i class="fa-solid fa-list text-xs"></i>
+          </a>
         </div>
       </form>
       
@@ -162,7 +165,7 @@
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
-                {% if cliente.razao_social and cliente.nome_fantasia and cliente.razao_social != cliente.nome_fantasia %}
+                {% if cliente.razao_social %}
                 <div class="text-xs text-gray-400">{{ cliente.razao_social }}</div>
                 {% endif %}
                 {% if not filtros.get('executivo_id') and cliente.executivo_nome %}

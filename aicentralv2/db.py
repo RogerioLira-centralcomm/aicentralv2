@@ -8150,6 +8150,7 @@ def obter_link_destinos_por_pi(id_pi):
                     ld.id_link_destino,
                     ld.id_pi,
                     ld.link,
+                    ld.descricao,
                     ld.status,
                     ld.created_at,
                     ld.updated_at,
@@ -8176,6 +8177,7 @@ def obter_link_destinos():
                     ld.id_link_destino,
                     ld.id_pi,
                     ld.link,
+                    ld.descricao,
                     ld.status,
                     ld.created_at,
                     ld.updated_at,
@@ -8201,6 +8203,7 @@ def obter_link_destino_por_id(id_link_destino):
                     ld.id_link_destino,
                     ld.id_pi,
                     ld.link,
+                    ld.descricao,
                     ld.status,
                     ld.created_at,
                     ld.updated_at,
@@ -8223,12 +8226,13 @@ def criar_link_destino(data):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_pi_link_destinos
-                    (id_pi, link, status, created_at, updated_at, id_cliente)
-                VALUES (%s, %s, %s, DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP), %s)
+                    (id_pi, link, descricao, status, created_at, updated_at, id_cliente)
+                VALUES (%s, %s, %s, %s, DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP), %s)
                 RETURNING id_link_destino
             ''', (
                 data.get('id_pi'),
                 data.get('link'),
+                data.get('descricao'),
                 data.get('status', True),
                 data.get('id_cliente'),
             ))
@@ -8249,6 +8253,7 @@ def atualizar_link_destino(id_link_destino, data):
                 UPDATE cadu_pi_link_destinos
                 SET id_pi = %s,
                     link = %s,
+                    descricao = %s,
                     status = %s,
                     updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     id_cliente = %s
@@ -8256,6 +8261,7 @@ def atualizar_link_destino(id_link_destino, data):
             ''', (
                 data.get('id_pi'),
                 data.get('link'),
+                data.get('descricao'),
                 data.get('status', True),
                 data.get('id_cliente'),
                 id_link_destino,

@@ -748,6 +748,9 @@
     <!-- Formulario inline -->
     <div class="px-5 py-3 border-b border-gray-100 bg-white">
       <div class="flex gap-2 items-center">
+        <select id="select_descricao_link" class="px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none" style="min-width: 110px;">
+          <option value="">Desc...</option>
+        </select>
         <input type="url" id="input_novo_link" placeholder="Cole a URL aqui..." class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none">
         <button type="button" id="btn_adicionar_link" onclick="adicionarLinkDestino()" class="px-3 py-1.5 text-sm rounded text-white flex-shrink-0 hover:opacity-90 transition-opacity" style="background-color: #72cd80;" title="Adicionar link">
           <i class="fas fa-plus"></i>
@@ -760,12 +763,13 @@
       <table class="w-full text-sm">
         <thead class="bg-gray-50 sticky top-0">
           <tr class="text-xs text-gray-500 uppercase">
+            <th class="px-3 py-2 text-left font-medium w-24">Descrição</th>
             <th class="px-5 py-2 text-left font-medium">Link</th>
             <th class="px-3 py-2 text-center font-medium w-16"></th>
           </tr>
         </thead>
         <tbody id="tbody_links_destino">
-          <tr id="tr_links_vazio"><td colspan="2" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>
+          <tr id="tr_links_vazio"><td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>
         </tbody>
       </table>
     </div>
@@ -955,16 +959,30 @@
   function renderizarLinksTabela(links) {
     var tbody = document.getElementById('tbody_links_destino');
     if (!links || links.length === 0) {
-      tbody.innerHTML = '<tr id="tr_links_vazio"><td colspan="2" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>';
+      tbody.innerHTML = '<tr id="tr_links_vazio"><td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>';
+      atualizarSelectDescricao([]);
       return;
     }
     tbody.innerHTML = links.map(function(ld) {
       var linkCurto = ld.link.length > 65 ? ld.link.substring(0, 65) + '...' : ld.link;
       return '<tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">'
+        + '<td class="px-3 py-2 text-xs text-gray-600">' + escHtml(ld.descricao || '—') + '</td>'
         + '<td class="px-5 py-2"><a href="' + escHtml(ld.link) + '" target="_blank" class="text-blue-600 hover:underline text-xs" title="' + escHtml(ld.link) + '">' + escHtml(linkCurto) + ' <i class="fas fa-external-link-alt text-[10px] ml-1 text-gray-400"></i></a></td>'
         + '<td class="px-3 py-2 text-center"><button type="button" onclick="confirmarExcluirLink(' + ld.id_link_destino + ', \'' + escHtml(ld.link).replace(/'/g, "\\'") + '\')" class="text-gray-400 hover:text-red-500 transition-colors" title="Excluir"><i class="fas fa-trash-alt text-xs"></i></button></td>'
         + '</tr>';
     }).join('');
+    atualizarSelectDescricao(links);
+  }
+
+  function atualizarSelectDescricao(links) {
+    var select = document.getElementById('select_descricao_link');
+    var usadas = (links || []).map(function(l) { return l.descricao; }).filter(Boolean);
+    select.innerHTML = '<option value="">Desc...</option>';
+    for (var i = 1; i <= 20; i++) {
+      var val = 'Link' + i;
+      var disabled = usadas.indexOf(val) !== -1;
+      select.innerHTML += '<option value="' + val + '"' + (disabled ? ' disabled' : '') + '>' + val + '</option>';
+    }
   }
 
   function escHtml(str) {
@@ -986,7 +1004,16 @@
 
   window.adicionarLinkDestino = async function() {
     var inputLink = document.getElementById('input_novo_link');
+    var selectDesc = document.getElementById('select_descricao_link');
     var link = inputLink.value.trim();
+    var descricao = selectDesc.value;
+
+    if (!descricao) {
+      selectDesc.focus();
+      selectDesc.classList.add('border-red-400');
+      setTimeout(function() { selectDesc.classList.remove('border-red-400'); }, 2000);
+      return;
+    }
     if (!link) {
       inputLink.focus();
       inputLink.classList.add('border-red-400');
@@ -1003,14 +1030,15 @@
       var resp = await fetch('/api/cadu_pi/' + PI_ID + '/link-destinos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link: link, id_cliente: idCliente })
+        body: JSON.stringify({ link: link, descricao: descricao, id_cliente: idCliente })
       });
       var data = await resp.json();
       if (data.success) {
         inputLink.value = '';
+        selectDesc.value = '';
         carregarLinksDestino();
         showToast('Link adicionado', 'success');
-        inputLink.focus();
+        selectDesc.focus();
       } else {
         showToast(data.message || 'Erro ao adicionar', 'error');
       }

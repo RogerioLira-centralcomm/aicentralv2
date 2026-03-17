@@ -8369,6 +8369,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'id_link_destino': ld['id_link_destino'],
                     'id_pi': ld['id_pi'],
                     'link': ld['link'],
+                    'descricao': ld.get('descricao') or '',
                     'status': ld['status'],
                     'id_cliente': ld['id_cliente'],
                     'cliente_nome': ld.get('cliente_nome') or '',
@@ -8388,9 +8389,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not link:
                 return jsonify({'success': False, 'message': 'O link é obrigatório'}), 400
 
+            descricao = (body.get('descricao') or '').strip() or None
+            if descricao:
+                existentes = db.obter_link_destinos_por_pi(id_pi)
+                if any(l['descricao'] == descricao for l in (existentes or [])):
+                    return jsonify({'success': False, 'message': f'A descrição "{descricao}" já está em uso neste PI!'}), 400
+
             data = {
                 'id_pi': id_pi,
                 'link': link,
+                'descricao': descricao,
                 'status': True,
                 'id_cliente': body.get('id_cliente') or None,
             }
@@ -8405,6 +8413,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'id_link_destino': ld['id_link_destino'],
                     'id_pi': ld['id_pi'],
                     'link': ld['link'],
+                    'descricao': ld.get('descricao') or '',
                     'status': ld['status'],
                     'id_cliente': ld['id_cliente'],
                     'cliente_nome': ld.get('cliente_nome') or '',
@@ -8765,6 +8774,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             data = {
                 'id_pi': request.form.get('id_pi', type=int),
                 'link': request.form.get('link', '').strip(),
+                'descricao': request.form.get('descricao', '').strip() or None,
                 'status': request.form.get('status') == 'on',
                 'id_cliente': request.form.get('id_cliente', type=int),
             }
@@ -8772,6 +8782,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not data['link']:
                 flash('O link é obrigatório!', 'error')
                 return redirect(url_for('link_destinos'))
+
+            if data['id_pi'] and data['descricao']:
+                existentes = db.obter_link_destinos_por_pi(data['id_pi'])
+                if any(l['descricao'] == data['descricao'] for l in (existentes or [])):
+                    flash(f'A descrição "{data["descricao"]}" já está em uso neste PI!', 'error')
+                    return redirect(url_for('link_destinos'))
 
             id_ld = db.criar_link_destino(data)
 
@@ -8800,6 +8816,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             data = {
                 'id_pi': request.form.get('id_pi', type=int),
                 'link': request.form.get('link', '').strip(),
+                'descricao': request.form.get('descricao', '').strip() or None,
                 'status': request.form.get('status') == 'on',
                 'id_cliente': request.form.get('id_cliente', type=int),
             }
@@ -8807,6 +8824,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not data['link']:
                 flash('O link é obrigatório!', 'error')
                 return redirect(url_for('link_destinos'))
+
+            if data['id_pi'] and data['descricao']:
+                existentes = db.obter_link_destinos_por_pi(data['id_pi'])
+                if any(l['descricao'] == data['descricao'] and l['id_link_destino'] != id_ld for l in (existentes or [])):
+                    flash(f'A descrição "{data["descricao"]}" já está em uso neste PI!', 'error')
+                    return redirect(url_for('link_destinos'))
 
             if db.atualizar_link_destino(id_ld, data):
                 flash('Link de destino atualizado com sucesso!', 'success')

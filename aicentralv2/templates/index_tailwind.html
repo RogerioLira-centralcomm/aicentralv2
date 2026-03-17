@@ -81,9 +81,10 @@
                 <select id="globalPeriodo" class="select select-bordered select-sm w-full min-w-[180px]">
                     <option value="7">Últimos 7 dias</option>
                     <option value="30">Últimos 30 dias</option>
-                    <option value="90" selected>Últimos 90 dias</option>
+                    <option value="90">Últimos 90 dias</option>
                     <option value="180">Últimos 6 meses</option>
                     <option value="365">Último ano</option>
+                    <option value="9999" selected>Todo o período</option>
                 </select>
             </div>
             <div class="form-control">
@@ -409,7 +410,7 @@ const COLORS = {
 };
 
 let charts = {};
-let currentDays = 90;
+let currentDays = 9999;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadAllSections();
@@ -497,12 +498,13 @@ async function loadCotacoes() {
         if (!json.success) return;
         const d = json.data;
 
-        const statusMap = {};
-        (d.por_status || []).forEach(s => { statusMap[s.status_nome?.toLowerCase() || ''] = s; });
-
-        const aprovadas = (statusMap['aprovada'] || statusMap['aprovado'] || {}).total || 0;
-        const rejeitadas = (statusMap['rejeitada'] || statusMap['rejeitado'] || statusMap['recusada'] || statusMap['recusado'] || {}).total || 0;
-        const totalGeral = d.total || 0;
+        const statusList = d.por_status || [];
+        let aprovadas = 0, rejeitadas = 0, totalGeral = d.total || 0;
+        statusList.forEach(s => {
+            const nome = (s.status_nome || '').toLowerCase().trim();
+            if (nome.includes('aprovad')) aprovadas += s.total;
+            else if (nome.includes('rejeitad') || nome.includes('recusad')) rejeitadas += s.total;
+        });
         const outras = totalGeral - aprovadas - rejeitadas;
 
         document.getElementById('sec2-aprovadas').textContent = formatNumber(aprovadas);

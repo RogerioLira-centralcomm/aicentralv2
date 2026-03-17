@@ -8929,15 +8929,13 @@ def get_dashboard_cotacoes_status(days=90):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT
-                    COALESCE(st.descricao, 'Sem Status') AS status_nome,
-                    c.status AS status_id,
+                    COALESCE(c.status, 'Sem Status') AS status_nome,
                     COUNT(*) AS total,
                     COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
                 FROM cadu_cotacoes c
-                LEFT JOIN cadu_cotacoes_status st ON c.status::int = st.id
                 WHERE c.deleted_at IS NULL
                   AND c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY COALESCE(st.descricao, 'Sem Status'), c.status
+                GROUP BY COALESCE(c.status, 'Sem Status')
                 ORDER BY total DESC
             ''', (days,))
             por_status = cursor.fetchall()
@@ -8945,13 +8943,12 @@ def get_dashboard_cotacoes_status(days=90):
             cursor.execute('''
                 SELECT
                     DATE_TRUNC('week', c.created_at)::date AS semana,
-                    COALESCE(st.descricao, 'Sem Status') AS status_nome,
+                    COALESCE(c.status, 'Sem Status') AS status_nome,
                     COUNT(*) AS total
                 FROM cadu_cotacoes c
-                LEFT JOIN cadu_cotacoes_status st ON c.status::int = st.id
                 WHERE c.deleted_at IS NULL
                   AND c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY DATE_TRUNC('week', c.created_at), COALESCE(st.descricao, 'Sem Status')
+                GROUP BY DATE_TRUNC('week', c.created_at), COALESCE(c.status, 'Sem Status')
                 ORDER BY semana
             ''', (days,))
             evolucao = cursor.fetchall()
@@ -9022,26 +9019,45 @@ def get_dashboard_pis_por_mes(days=90):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT
-                    COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'YYYY-MM')) AS mes,
+                    COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'MM/YY')) AS mes,
                     COALESCE(sp.descricao, 'Sem Status') AS status_nome,
-                    COUNT(*) AS total,
-                    COALESCE(SUM(p.vr_liquido_pi), 0) AS valor_total
+                    COUNT(*) AS total
                 FROM cadu_pi p
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 WHERE p.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'YYYY-MM')),
+                GROUP BY COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'MM/YY')),
                          COALESCE(sp.descricao, 'Sem Status')
                 ORDER BY mes
             ''', (days,))
             por_mes = cursor.fetchall()
 
             cursor.execute('''
+                WITH parsed AS (
+                    SELECT
+                        NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), '') AS liq_raw,
+                        NULLIF(REGEXP_REPLACE(vr_bruto_pi, '[^0-9.,]', '', 'g'), '') AS bruto_raw
+                    FROM cadu_pi
+                    WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                )
                 SELECT
                     COUNT(*) AS total,
-                    COALESCE(SUM(vr_liquido_pi), 0) AS valor_total,
-                    COALESCE(SUM(vr_bruto_pi), 0) AS valor_bruto
-                FROM cadu_pi
-                WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    COALESCE(SUM(
+                        CASE
+                            WHEN liq_raw ~ '^[0-9]+,[0-9]+$' THEN REPLACE(liq_raw, ',', '.')::numeric
+                            WHEN liq_raw ~ '^[0-9.]+,[0-9]+$' THEN REPLACE(REPLACE(liq_raw, '.', ''), ',', '.')::numeric
+                            WHEN liq_raw ~ '^[0-9.]+$' THEN liq_raw::numeric
+                            ELSE 0
+                        END
+                    ), 0) AS valor_total,
+                    COALESCE(SUM(
+                        CASE
+                            WHEN bruto_raw ~ '^[0-9]+,[0-9]+$' THEN REPLACE(bruto_raw, ',', '.')::numeric
+                            WHEN bruto_raw ~ '^[0-9.]+,[0-9]+$' THEN REPLACE(REPLACE(bruto_raw, '.', ''), ',', '.')::numeric
+                            WHEN bruto_raw ~ '^[0-9.]+$' THEN bruto_raw::numeric
+                            ELSE 0
+                        END
+                    ), 0) AS valor_bruto
+                FROM parsed
             ''', (days,))
             resumo = cursor.fetchone()
 

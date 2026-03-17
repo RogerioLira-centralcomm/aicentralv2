@@ -1,304 +1,832 @@
 {% extends "base_tailwind.html" %}
 
-{% block title %}Dashboard - CentralComm AI{% endblock %}
+{% block title %}Início - CentralX{% endblock %}
+
+{% block styles %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .dash-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .dash-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .chart-container {
+        position: relative;
+        height: 280px;
+    }
+    .kpi-number {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+    .kpi-label {
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid oklch(var(--b3));
+        margin-bottom: 1rem;
+    }
+    .skeleton-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .4; }
+    }
+    .progress-bar-fill {
+        transition: width 0.6s ease-in-out;
+    }
+    #globalPeriodo {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        min-height: 2rem;
+        padding: 0 2.2rem 0 0.75rem;
+        font-size: 0.875rem;
+        line-height: 2rem;
+        overflow: visible;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 1rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl font-bold text-base-content flex items-center gap-3">
-            <i class="fas fa-chart-line text-base-content/70"></i>
-            Dashboard
-        </h1>
-        <p class="text-base-content/60 mt-1">Visão geral e métricas do sistema</p>
-    </div>
-    <div class="flex items-center gap-2 text-sm">
-        <div class="badge badge-outline gap-2">
-            <i class="fas fa-sync-alt text-xs"></i>
-            Atualizado: {{ "now"|datetime_format("%d/%m/%Y %H:%M") }}
+<div class="p-2 md:p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-base-content flex items-center gap-3">
+                <i class="fas fa-home text-primary"></i>
+                Início
+            </h1>
+            <p class="text-base-content/60 text-sm mt-1">Painel gerencial - visão 360° do negócio</p>
         </div>
-    </div>
-</div>
-
-<!-- Stats Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <!-- Total Clientes Ativos -->
-    <div class="card bg-base-200 border border-base-300">
-        <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-                <div class="stat-figure text-base-content/10">
-                    <i class="fas fa-building text-3xl"></i>
-                </div>
-                <div class="text-right">
-                    <div class="stat-value text-2xl font-bold text-base-content">{{ stats.total_clientes_ativos }}</div>
-                    <div class="stat-title text-base-content/70 text-xs mt-1 font-medium">Clientes Ativos</div>
-                </div>
+        <div class="flex items-center gap-3">
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">Período</label>
+                <select id="globalPeriodo" class="select select-bordered select-sm w-full min-w-[180px]">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="30">Últimos 30 dias</option>
+                    <option value="90" selected>Últimos 90 dias</option>
+                    <option value="180">Últimos 6 meses</option>
+                    <option value="365">Último ano</option>
+                </select>
             </div>
-            <div class="stat-desc text-base-content/60 mt-1 text-xs">
-                <i class="fas fa-check-circle mr-1"></i>
-                Total no sistema
+            <div class="form-control">
+                <label class="text-xs text-base-content/60 mb-1">&nbsp;</label>
+                <button id="refreshBtn" class="btn btn-ghost btn-sm tooltip tooltip-bottom" data-tip="Atualizar dados">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Total Usuários -->
-    <div class="card bg-base-200 border border-base-300">
-        <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-                <div class="stat-figure text-base-content/10">
-                    <i class="fas fa-users text-3xl"></i>
-                </div>
-                <div class="text-right">
-                    <div class="stat-value text-2xl font-bold text-base-content">{{ stats.total_usuarios }}</div>
-                    <div class="stat-title text-base-content/70 text-xs mt-1 font-medium">Usuários</div>
-                </div>
-            </div>
-            <div class="stat-desc text-base-content/60 mt-1 text-xs">
-                <i class="fas fa-user-check mr-1"></i>
-                Usuários ativos
-            </div>
-        </div>
-    </div>
+    <!-- Grid 2 colunas: 8 seções simétricas -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    <!-- Tokens do Mês -->
-    <div class="card bg-base-200 border border-base-300">
-        <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-                <div class="stat-figure text-base-content/10 flex-shrink-0">
-                    <i class="fas fa-coins text-2xl"></i>
+        <!-- SEÇÃO 1: Carteira de Clientes -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-building text-primary"></i>
+                        Carteira de Clientes
+                    </h3>
+                    <span class="badge badge-primary badge-outline badge-sm" id="sec1-badge">--</span>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <div class="space-y-1">
-                        <div>
-                            <div class="text-[10px] text-base-content/60 font-medium">{{ stats.mes_atual }}</div>
-                            <div class="text-lg font-bold break-words text-base-content">{{ "{:,}".format(stats.tokens_mes_atual).replace(',', '.') }}</div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec1-total">
+                            <span class="loading loading-spinner loading-sm"></span>
                         </div>
-                        <div class="border-t border-base-300 pt-1">
-                            <div class="text-[10px] text-base-content/60 font-medium">{{ stats.mes_anterior }}</div>
-                            <div class="text-sm font-semibold break-words text-base-content/80">{{ "{:,}".format(stats.tokens_mes_anterior).replace(',', '.') }}</div>
+                        <div class="kpi-label text-base-content/60 mt-1">Total</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-success" id="sec1-ativos">
+                            <span class="loading loading-spinner loading-sm"></span>
                         </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Ativos</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-accent" id="sec1-novos">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Novos</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartCarteira"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 2: Cotações -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-file-invoice-dollar text-secondary"></i>
+                        Cotações
+                    </h3>
+                    <span class="badge badge-secondary badge-outline badge-sm" id="sec2-badge">--</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4" id="sec2-kpis">
+                    <div class="text-center">
+                        <div class="kpi-number text-success" id="sec2-aprovadas">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Aprovadas</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-error" id="sec2-rejeitadas">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Rejeitadas</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-warning" id="sec2-outras">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Outras</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartCotacoes"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 3: Acessos ao Cadu -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-chart-line text-info"></i>
+                        Acessos ao Cadu
+                    </h3>
+                    <span class="badge badge-info badge-outline badge-sm" id="sec3-badge">--</span>
+                </div>
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec3-dau">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">DAU</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-secondary" id="sec3-wau">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">WAU</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-accent" id="sec3-mau">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">MAU</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-info" id="sec3-sessions">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Sessões Hoje</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartAcessos"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 4: PIs Totais -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-file-contract text-warning"></i>
+                        PIs Totais por Mês
+                    </h3>
+                    <span class="badge badge-warning badge-outline badge-sm" id="sec4-badge">--</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec4-total">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Total PIs</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-success" id="sec4-valor">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Vlr Líquido</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-secondary" id="sec4-bruto">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Vlr Bruto</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartPIs"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 5: Campanhas -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-bullhorn text-accent"></i>
+                        Campanhas
+                    </h3>
+                    <span class="badge badge-accent badge-outline badge-sm" id="sec5-badge">--</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec5-total">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Total</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-success" id="sec5-faturamento">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Faturamento</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-warning" id="sec5-gasto">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Gasto</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartCampanhas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 6: Audiências -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-bullseye text-error"></i>
+                        Audiências & Canais
+                    </h3>
+                    <span class="badge badge-error badge-outline badge-sm" id="sec6-badge">--</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec6-acessos">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Total Acessos</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-secondary" id="sec6-canais">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Canais Ativos</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartAudiencias"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 7: Briefings por Cliente -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-file-alt text-info"></i>
+                        Briefings por Cliente
+                    </h3>
+                    <span class="badge badge-info badge-outline badge-sm" id="sec7-badge">--</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec7-total">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Total</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-success" id="sec7-enviados">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Enviados</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-warning" id="sec7-rascunhos">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Rascunhos</div>
+                    </div>
+                </div>
+                <div id="sec7-lista" class="space-y-2 max-h-[280px] overflow-y-auto">
+                    <div class="flex items-center justify-center py-8">
+                        <span class="loading loading-spinner loading-md"></span>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Imagens do Mês -->
-    <div class="card bg-base-200 border border-base-300">
-        <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-                <div class="stat-figure text-base-content/10">
-                    <i class="fas fa-images text-3xl"></i>
+        <!-- SEÇÃO 8: Leads -->
+        <div class="dash-card bg-base-100 rounded-xl border border-base-300 overflow-hidden">
+            <div class="p-5">
+                <div class="section-header">
+                    <h3 class="font-semibold text-base-content flex items-center gap-2">
+                        <i class="fas fa-user-plus text-success"></i>
+                        Leads
+                    </h3>
+                    <span class="badge badge-success badge-outline badge-sm" id="sec8-badge">--</span>
                 </div>
-                <div class="text-right">
-                    <div class="stat-value text-2xl font-bold text-base-content">{{ stats.imagens_mes_atual }}</div>
-                    <div class="stat-title text-base-content/70 text-xs mt-1 font-medium">Imagens (Mês)</div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                    <div class="text-center">
+                        <div class="kpi-number text-primary" id="sec8-total">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Novos</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-success" id="sec8-notificados">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Notificados</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="kpi-number text-warning" id="sec8-pendentes">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">Pendentes</div>
+                    </div>
                 </div>
-            </div>
-            <div class="stat-desc text-base-content/60 mt-1 text-xs">
-                <i class="fas fa-camera mr-1"></i>
-                Geradas este mês
+                <div class="chart-container">
+                    <canvas id="chartLeads"></canvas>
+                </div>
             </div>
         </div>
+
     </div>
 </div>
+{% endblock %}
 
-<!-- Alertas -->
-{% if show_plan_alerts %}
-<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-    <!-- Planos Próximos do Limite -->
-    <div class="card bg-base-100 border border-warning/20 overflow-hidden">
-        <div class="card-body p-3 sm:p-6">
-            <h2 class="card-title text-warning flex flex-wrap items-center gap-2 text-sm sm:text-base">
-                <div class="badge badge-warning badge-sm sm:badge-lg gap-1 sm:gap-2">
-                    <i class="fas fa-exclamation-triangle text-xs"></i>
-                    {{ stats.planos_proximo_limite }}
-                </div>
-                <span class="text-sm sm:text-base">Alertas de Limite</span>
-            </h2>
-            
-            {% if planos_alerta %}
-            <div class="w-full overflow-x-auto mt-4">
-                <table class="table table-xs w-full min-w-full">
-                    <thead>
-                        <tr class="bg-base-200">
-                            <th class="text-xs">Cliente</th>
-                            <th class="text-xs text-center w-20">Tokens</th>
-                            <th class="text-xs text-center w-20">Imgs</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for plano in planos_alerta[:5] %}
-                        <tr class="hover">
-                            <td class="text-xs">
-                                <a href="{{ url_for('clientes') }}?open={{ plano.id_cliente }}&tab=contratos" 
-                                   class="link link-primary link-hover font-medium truncate block max-w-[100px] sm:max-w-none">
-                                    {{ plano.nome_fantasia }}
-                                </a>
-                            </td>
-                            <td class="text-center p-1">
-                                <div class="radial-progress text-[10px] font-bold 
-                                    {% if plano.tokens_usage_percentage > 90 %}text-error
-                                    {% elif plano.tokens_usage_percentage > 80 %}text-warning
-                                    {% else %}text-success{% endif %}" 
-                                     style="--value:{{ plano.tokens_usage_percentage }}; --size:1.75rem; --thickness:2px;">
-                                    {{ plano.tokens_usage_percentage|int }}%
-                                </div>
-                            </td>
-                            <td class="text-center p-1">
-                                <div class="radial-progress text-[10px] font-bold 
-                                    {% if plano.images_usage_percentage > 90 %}text-error
-                                    {% elif plano.images_usage_percentage > 80 %}text-warning
-                                    {% else %}text-success{% endif %}" 
-                                     style="--value:{{ plano.images_usage_percentage }}; --size:1.75rem; --thickness:2px;">
-                                    {{ plano.images_usage_percentage|int }}%
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-success mt-4 text-xs sm:text-sm">
-                <i class="fas fa-check-circle text-sm sm:text-lg"></i>
-                <span>Nenhum plano próximo do limite</span>
-            </div>
-            {% endif %}
+{% block scripts %}
+<script>
+Chart.defaults.font.family = 'Inter, sans-serif';
+Chart.defaults.color = '#9CA3AF';
 
-            {% if planos_alerta|length > 5 %}
-            <div class="card-actions justify-end mt-4">
-                <button class="btn btn-xs sm:btn-sm btn-ghost gap-1 sm:gap-2">
-                    <i class="fas fa-list text-xs"></i>
-                    <span class="text-xs sm:text-sm">Ver todos ({{ planos_alerta|length }})</span>
-                </button>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+const COLORS = {
+    primary: '#1E4D4F',
+    secondary: '#F3B71B',
+    accent: '#9CCF31',
+    info: '#3ABFF8',
+    success: '#36D399',
+    warning: '#FBBD23',
+    error: '#F87272',
+    chart: ['#1E4D4F','#F3B71B','#9CCF31','#3ABFF8','#36D399','#FBBD23','#F87272','#8B5CF6','#EC4899','#06B6D4']
+};
 
-    <!-- Planos Vencendo -->
-    <div class="card bg-base-100 border border-error/20 overflow-hidden">
-        <div class="card-body p-3 sm:p-6">
-            <h2 class="card-title text-error flex flex-wrap items-center gap-2 text-sm sm:text-base">
-                <div class="badge badge-error badge-sm sm:badge-lg gap-1 sm:gap-2">
-                    <i class="fas fa-calendar-times text-xs"></i>
-                    {{ stats.planos_vencendo }}
-                </div>
-                <span class="text-sm sm:text-base">Planos Vencendo</span>
-            </h2>
-            
-            {% if planos_vencendo %}
-            <div class="w-full overflow-x-auto mt-4">
-                <table class="table table-xs w-full min-w-full">
-                    <thead>
-                        <tr class="bg-base-200">
-                            <th class="text-xs">Cliente</th>
-                            <th class="text-xs text-center w-32">Vencimento</th>
-                            <th class="text-xs text-center w-16">Dias</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for plano in planos_vencendo[:5] %}
-                        <tr class="hover">
-                            <td class="text-xs">
-                                <a href="{{ url_for('clientes') }}?open={{ plano.id_cliente }}&tab=contratos" 
-                                   class="link link-primary link-hover font-medium truncate block max-w-[100px] sm:max-w-none">
-                                    {{ plano.nome_fantasia }}
-                                </a>
-                            </td>
-                            <td class="text-center text-xs">
-                                {{ plano.valid_until.strftime('%d/%m/%Y') if plano.valid_until else 'N/A' }}
-                            </td>
-                            <td class="text-center">
-                                {% set dias_restantes = (plano.valid_until - today).days if plano.valid_until else 0 %}
-                                <span class="badge badge-sm 
-                                    {% if dias_restantes <= 7 %}badge-error
-                                    {% elif dias_restantes <= 15 %}badge-warning
-                                    {% else %}badge-info{% endif %}">
-                                    {{ dias_restantes }}
-                                </span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <div class="alert alert-success mt-4 text-xs sm:text-sm">
-                <i class="fas fa-check-circle text-sm sm:text-lg"></i>
-                <span>Nenhum plano vencendo em {{ aviso_plan }} dias</span>
-            </div>
-            {% endif %}
-            
-            {% if planos_vencendo|length > 5 %}
-            <div class="card-actions justify-end mt-4">
-                <button class="btn btn-xs sm:btn-sm btn-ghost gap-1 sm:gap-2">
-                    <i class="fas fa-list text-xs"></i>
-                    <span class="text-xs sm:text-sm">Ver todos ({{ planos_vencendo|length }})</span>
-                </button>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endif %}
+let charts = {};
+let currentDays = 90;
 
-<!-- Atividade Recente -->
-<div class="card bg-base-100 mb-6">
-    <div class="card-body">
-        <h2 class="card-title flex items-center gap-2">
-            <i class="fas fa-history text-primary"></i>
-            Atividade Recente
-        </h2>
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllSections();
 
-        {% if logs_recentes %}
-        <div class="overflow-x-auto mt-4">
-            <table class="table table-zebra table-sm">
-                <thead>
-                    <tr class="bg-base-200">
-                        <th class="text-xs">Data/Hora</th>
-                        <th class="text-xs">Módulo</th>
-                        <th class="text-xs">Ação</th>
-                        <th class="text-xs">Descrição</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs_recentes %}
-                    <tr class="hover">
-                        <td class="text-xs whitespace-nowrap">
-                            <i class="fas fa-clock text-base-content/50 mr-1"></i>
-                            {{ log.data_acao.strftime('%d/%m %H:%M') }}
-                        </td>
-                        <td><span class="badge badge-sm" style="background-color: #72cd80; color: white; border-color: #72cd80;">{{ log.modulo }}</span></td>
-                        <td>
-                            <span class="badge badge-sm" style="background-color: #72cd80; color: white; border-color: #72cd80;">
-                                {{ log.acao }}
-                            </span>
-                        </td>
-                        <td class="text-xs max-w-md truncate">{{ log.descricao }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    document.getElementById('globalPeriodo').addEventListener('change', function() {
+        currentDays = parseInt(this.value);
+        loadAllSections();
+    });
 
-        {% if session.user_type in ['admin', 'superadmin'] %}
-        <div class="card-actions justify-end mt-4">
-            <a href="{{ url_for('logs_auditoria') }}" class="btn btn-sm btn-ghost gap-2">
-                <span>Ver Todos os Logs</span>
-                <i class="fas fa-arrow-right"></i>
-            </a>
-        </div>
-        {% endif %}
-        {% else %}
-        <div class="alert mt-4">
-            <i class="fas fa-info-circle"></i>
-            <span>Nenhuma atividade registrada</span>
-        </div>
-        {% endif %}
-    </div>
-</div>
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        loadAllSections();
+    });
 
+    setInterval(loadAllSections, 300000);
+});
 
+async function loadAllSections() {
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('loading');
+    btn.querySelector('i')?.classList.add('fa-spin');
+
+    await Promise.all([
+        loadCarteira(),
+        loadCotacoes(),
+        loadAcessos(),
+        loadPIs(),
+        loadCampanhas(),
+        loadAudiencias(),
+        loadBriefings(),
+        loadLeads()
+    ]);
+
+    btn.classList.remove('loading');
+    btn.querySelector('i')?.classList.remove('fa-spin');
+}
+
+// ======================== SEÇÃO 1: Carteira de Clientes ========================
+async function loadCarteira() {
+    try {
+        const res = await fetch(`/api/dashboard/carteira-clientes?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+        const r = d.resumo || {};
+
+        document.getElementById('sec1-total').textContent = formatNumber(r.total || 0);
+        document.getElementById('sec1-ativos').textContent = formatNumber(r.ativos || 0);
+        document.getElementById('sec1-novos').textContent = formatNumber(r.novos_periodo || 0);
+        document.getElementById('sec1-badge').textContent = `${r.ativos || 0} ativos`;
+
+        destroyChart('chartCarteira');
+        const execs = d.por_executivo || [];
+        charts.chartCarteira = new Chart(document.getElementById('chartCarteira'), {
+            type: 'bar',
+            data: {
+                labels: execs.map(e => truncLabel(e.executivo, 18)),
+                datasets: [{
+                    label: 'Clientes Ativos',
+                    data: execs.map(e => e.clientes_ativos),
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 4
+                }, {
+                    label: 'Total',
+                    data: execs.map(e => e.total_clientes),
+                    backgroundColor: COLORS.accent + '66',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error('Erro carteira:', e); }
+}
+
+// ======================== SEÇÃO 2: Cotações ========================
+async function loadCotacoes() {
+    try {
+        const res = await fetch(`/api/dashboard/cotacoes-status?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+
+        const statusMap = {};
+        (d.por_status || []).forEach(s => { statusMap[s.status_nome?.toLowerCase() || ''] = s; });
+
+        const aprovadas = (statusMap['aprovada'] || statusMap['aprovado'] || {}).total || 0;
+        const rejeitadas = (statusMap['rejeitada'] || statusMap['rejeitado'] || statusMap['recusada'] || statusMap['recusado'] || {}).total || 0;
+        const totalGeral = d.total || 0;
+        const outras = totalGeral - aprovadas - rejeitadas;
+
+        document.getElementById('sec2-aprovadas').textContent = formatNumber(aprovadas);
+        document.getElementById('sec2-rejeitadas').textContent = formatNumber(rejeitadas);
+        document.getElementById('sec2-outras').textContent = formatNumber(outras > 0 ? outras : 0);
+        document.getElementById('sec2-badge').textContent = `${totalGeral} total`;
+
+        destroyChart('chartCotacoes');
+        const evolucao = d.evolucao || [];
+        const semanas = [...new Set(evolucao.map(e => e.semana))].sort();
+        const statusNomes = [...new Set(evolucao.map(e => e.status_nome))];
+        const datasets = statusNomes.map((nome, i) => ({
+            label: nome,
+            data: semanas.map(s => {
+                const item = evolucao.find(e => e.semana === s && e.status_nome === nome);
+                return item ? item.total : 0;
+            }),
+            backgroundColor: COLORS.chart[i % COLORS.chart.length],
+            borderRadius: 3
+        }));
+
+        charts.chartCotacoes = new Chart(document.getElementById('chartCotacoes'), {
+            type: 'bar',
+            data: { labels: semanas.map(s => formatDateShort(s)), datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error('Erro cotacoes:', e); }
+}
+
+// ======================== SEÇÃO 3: Acessos ao Cadu ========================
+async function loadAcessos() {
+    try {
+        const res = await fetch(`/api/dashboard/acessos-cadu?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+
+        document.getElementById('sec3-dau').textContent = formatNumber(d.dau || 0);
+        document.getElementById('sec3-wau').textContent = formatNumber(d.wau || 0);
+        document.getElementById('sec3-mau').textContent = formatNumber(d.mau || 0);
+        document.getElementById('sec3-sessions').textContent = formatNumber(d.sessions_today || 0);
+        document.getElementById('sec3-badge').textContent = `MAU ${d.mau || 0}`;
+
+        destroyChart('chartAcessos');
+        const sessoes = d.sessoes_diarias || [];
+        charts.chartAcessos = new Chart(document.getElementById('chartAcessos'), {
+            type: 'line',
+            data: {
+                labels: sessoes.map(s => formatDateShort(s.date)),
+                datasets: [{
+                    label: 'Sessões',
+                    data: sessoes.map(s => s.total_sessions),
+                    borderColor: COLORS.info,
+                    backgroundColor: COLORS.info + '20',
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Usuários Únicos',
+                    data: sessoes.map(s => s.unique_users),
+                    borderColor: COLORS.accent,
+                    backgroundColor: 'transparent',
+                    borderDash: [5, 5],
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error('Erro acessos:', e); }
+}
+
+// ======================== SEÇÃO 4: PIs por Mês ========================
+async function loadPIs() {
+    try {
+        const res = await fetch(`/api/dashboard/pis-mensal?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+        const r = d.resumo || {};
+
+        document.getElementById('sec4-total').textContent = formatNumber(r.total || 0);
+        document.getElementById('sec4-valor').textContent = formatCurrencyShort(r.valor_total || 0);
+        document.getElementById('sec4-bruto').textContent = formatCurrencyShort(r.valor_bruto || 0);
+        document.getElementById('sec4-badge').textContent = `${r.total || 0} PIs`;
+
+        destroyChart('chartPIs');
+        const porMes = d.por_mes || [];
+        const meses = [...new Set(porMes.map(p => p.mes))].sort();
+        const statusNomes = [...new Set(porMes.map(p => p.status_nome))];
+        const datasets = statusNomes.map((nome, i) => ({
+            label: nome,
+            data: meses.map(m => {
+                const item = porMes.find(p => p.mes === m && p.status_nome === nome);
+                return item ? item.total : 0;
+            }),
+            backgroundColor: COLORS.chart[i % COLORS.chart.length],
+            borderRadius: 3
+        }));
+
+        charts.chartPIs = new Chart(document.getElementById('chartPIs'), {
+            type: 'bar',
+            data: { labels: meses, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error('Erro PIs:', e); }
+}
+
+// ======================== SEÇÃO 5: Campanhas ========================
+async function loadCampanhas() {
+    try {
+        const res = await fetch(`/api/dashboard/campanhas?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+        const r = d.resumo || {};
+
+        document.getElementById('sec5-total').textContent = formatNumber(r.total_campanhas || 0);
+        document.getElementById('sec5-faturamento').textContent = formatCurrencyShort(r.faturamento || 0);
+        document.getElementById('sec5-gasto').textContent = formatCurrencyShort(r.gasto || 0);
+        document.getElementById('sec5-badge').textContent = `${r.total_campanhas || 0} campanhas`;
+
+        destroyChart('chartCampanhas');
+        const porStatus = d.por_status || [];
+        charts.chartCampanhas = new Chart(document.getElementById('chartCampanhas'), {
+            type: 'doughnut',
+            data: {
+                labels: porStatus.map(s => s.status_nome),
+                datasets: [{
+                    data: porStatus.map(s => s.total),
+                    backgroundColor: porStatus.map((_, i) => COLORS.chart[i % COLORS.chart.length]),
+                    borderWidth: 2,
+                    borderColor: 'oklch(var(--b1))'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(ctx) {
+                                const item = porStatus[ctx.dataIndex];
+                                return item ? `Valor: ${formatCurrency(item.valor_plataforma)}` : '';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) { console.error('Erro campanhas:', e); }
+}
+
+// ======================== SEÇÃO 6: Audiências ========================
+async function loadAudiencias() {
+    try {
+        const res = await fetch(`/api/dashboard/audiencias?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+
+        document.getElementById('sec6-acessos').textContent = formatNumber(d.total_acessos || 0);
+        document.getElementById('sec6-canais').textContent = formatNumber((d.top_canais || []).length);
+        document.getElementById('sec6-badge').textContent = `${formatNumber(d.total_acessos || 0)} views`;
+
+        destroyChart('chartAudiencias');
+        const top = d.top_audiencias || [];
+        charts.chartAudiencias = new Chart(document.getElementById('chartAudiencias'), {
+            type: 'bar',
+            data: {
+                labels: top.map(a => truncLabel(a.audiencia_nome, 20)),
+                datasets: [{
+                    label: 'Views',
+                    data: top.map(a => a.total_views),
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 4
+                }, {
+                    label: 'Usuários',
+                    data: top.map(a => a.unique_users),
+                    backgroundColor: COLORS.secondary,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error('Erro audiencias:', e); }
+}
+
+// ======================== SEÇÃO 7: Briefings por Cliente ========================
+async function loadBriefings() {
+    try {
+        const res = await fetch(`/api/dashboard/briefings-cliente?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+        const r = d.resumo || {};
+
+        document.getElementById('sec7-total').textContent = formatNumber(r.total || 0);
+        document.getElementById('sec7-enviados').textContent = formatNumber(r.enviados || 0);
+        document.getElementById('sec7-rascunhos').textContent = formatNumber(r.rascunhos || 0);
+        document.getElementById('sec7-badge').textContent = `TOP 10`;
+
+        const lista = document.getElementById('sec7-lista');
+        const clientes = d.top_clientes || [];
+        const maxBriefings = clientes.length > 0 ? clientes[0].total_briefings : 1;
+
+        if (clientes.length === 0) {
+            lista.innerHTML = '<div class="text-center text-base-content/50 py-8 text-sm">Nenhum briefing no período</div>';
+            return;
+        }
+
+        lista.innerHTML = clientes.map((c, i) => {
+            const pct = Math.round((c.total_briefings / maxBriefings) * 100);
+            return `
+                <div class="flex items-center gap-3 py-2 px-1 rounded-lg hover:bg-base-200/50">
+                    <div class="text-xs font-bold text-base-content/40 w-5 text-right">${i + 1}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium truncate">${c.cliente}</span>
+                            <span class="text-sm font-bold text-primary ml-2">${c.total_briefings}</span>
+                        </div>
+                        <div class="w-full bg-base-300 rounded-full h-1.5">
+                            <div class="bg-primary rounded-full h-1.5 progress-bar-fill" style="width: ${pct}%"></div>
+                        </div>
+                        <div class="flex gap-2 mt-1 text-xs text-base-content/50">
+                            <span>${c.enviados || 0} enviados</span>
+                            <span>${c.rascunhos || 0} rascunhos</span>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) { console.error('Erro briefings:', e); }
+}
+
+// ======================== SEÇÃO 8: Leads ========================
+async function loadLeads() {
+    try {
+        const res = await fetch(`/api/dashboard/leads?days=${currentDays}`);
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+        const r = d.resumo || {};
+
+        document.getElementById('sec8-total').textContent = formatNumber(r.total || 0);
+        document.getElementById('sec8-notificados').textContent = formatNumber(r.notificados || 0);
+        document.getElementById('sec8-pendentes').textContent = formatNumber(r.pendentes || 0);
+        document.getElementById('sec8-badge').textContent = `${r.total || 0} leads`;
+
+        destroyChart('chartLeads');
+        const porExec = d.por_executivo || [];
+        charts.chartLeads = new Chart(document.getElementById('chartLeads'), {
+            type: 'bar',
+            data: {
+                labels: porExec.map(e => truncLabel(e.executivo, 18)),
+                datasets: [{
+                    label: 'Notificados',
+                    data: porExec.map(e => e.notificados),
+                    backgroundColor: COLORS.success,
+                    borderRadius: 3
+                }, {
+                    label: 'Pendentes',
+                    data: porExec.map(e => e.pendentes),
+                    backgroundColor: COLORS.warning,
+                    borderRadius: 3
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error('Erro leads:', e); }
+}
+
+// ======================== HELPERS ========================
+function destroyChart(id) {
+    if (charts[id]) { charts[id].destroy(); charts[id] = null; }
+}
+
+function truncLabel(str, max) {
+    if (!str) return '';
+    return str.length > max ? str.substring(0, max) + '...' : str;
+}
+
+function formatNumber(num) {
+    if (num == null) return '0';
+    num = Number(num);
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toLocaleString('pt-BR');
+}
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+}
+
+function formatCurrencyShort(value) {
+    if (!value) return 'R$ 0';
+    value = Number(value);
+    if (value >= 1000000) return 'R$ ' + (value / 1000000).toFixed(1) + 'M';
+    if (value >= 1000) return 'R$ ' + (value / 1000).toFixed(1) + 'K';
+    return formatCurrency(value);
+}
+
+function formatDateShort(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+</script>
 {% endblock %}

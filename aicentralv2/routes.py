@@ -719,66 +719,8 @@ def init_routes(app):
     @app.route('/')
     @login_required
     def index():
-        """Página inicial - Dashboard"""
-        from datetime import date, timedelta
-        
-        # Valores padrão seguros
-        stats = {'total_clientes_ativos': 0, 'total_usuarios': 0, 
-                'tokens_mes_atual': 0, 'tokens_mes_anterior': 0,
-                'imagens_mes_atual': 0,
-                'planos_proximo_limite': 0, 'planos_vencendo': 0,
-                'mes_atual': 'N/A', 'mes_anterior': 'N/A'}
-        logs_recentes = []
-        planos_alerta = []
-        planos_vencendo = []
-        show_plan_alerts = False
-        ALERTA_CONSUMO_TOKEN = 80
-        aviso_plan = 20
-        
-        try:
-            # Estatísticas principais
-            stats = db.obter_dashboard_stats()
-        except Exception as e:
-            app.logger.error(f"Erro stats: {str(e)}")
-        
-        try:
-            # Logs recentes
-            user_id = session.get('user_id')
-            logs_recentes = audit.obter_logs_recentes(limite=10, user_id=user_id)
-        except Exception as e:
-            app.logger.error(f"Erro logs: {str(e)}")
-        
-        try:
-            # Alertas de planos
-            user_type = session.get('user_type', 'client')
-            is_admin = user_type in ['admin', 'superadmin']
-            is_cc = is_centralcomm_user()
-            show_plan_alerts = is_admin or is_cc
-            
-            if show_plan_alerts:
-                todos_planos = db.obter_planos_clientes({'plan_status': 'active'}) or []
-                
-                # Filtrar planos em alerta
-                planos_alerta = [p for p in todos_planos 
-                                if p.get('valid_until') and p['valid_until'] >= date.today()
-                                and (p.get('tokens_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN 
-                                     or p.get('images_usage_percentage', 0) >= ALERTA_CONSUMO_TOKEN)]
-                
-                # Filtrar planos vencendo
-                data_limite = date.today() + timedelta(days=aviso_plan)
-                planos_vencendo = [p for p in todos_planos
-                                  if p.get('valid_until') and date.today() <= p['valid_until'] <= data_limite]
-        except Exception as e:
-            app.logger.error(f"Erro planos: {str(e)}")
-        
-        return render_template('index_tailwind.html',
-                             stats=stats,
-                             logs_recentes=logs_recentes,
-                             planos_alerta=planos_alerta,
-                             planos_vencendo=planos_vencendo,
-                             show_plan_alerts=show_plan_alerts,
-                             aviso_plan=aviso_plan,
-                             today=date.today())
+        """Página inicial - Dashboard Início (dados carregados via API)"""
+        return render_template('index_tailwind.html')
     
     # ==================== FORGOT PASSWORD ====================
     
@@ -7322,6 +7264,167 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'success': False,
                 'message': str(e)
             }), 500
+
+    # ==================== DASHBOARD INÍCIO APIs ====================
+
+    @app.route('/api/dashboard/carteira-clientes', methods=['GET'])
+    @login_required
+    def api_dashboard_carteira_clientes():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_carteira_clientes(days)
+            result = {
+                'por_executivo': [dict(r) for r in (data.get('por_executivo') or [])],
+                'resumo': dict(data.get('resumo') or {}),
+                'evolucao': [{'semana': r['semana'].isoformat() if r.get('semana') else None, 'novos': r.get('novos', 0)} for r in (data.get('evolucao') or [])]
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard carteira: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/cotacoes-status', methods=['GET'])
+    @login_required
+    def api_dashboard_cotacoes_status():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_cotacoes_status(days)
+            result = {
+                'por_status': [dict(r) for r in (data.get('por_status') or [])],
+                'evolucao': [{'semana': r['semana'].isoformat() if r.get('semana') else None, 'status_nome': r.get('status_nome', ''), 'total': r.get('total', 0)} for r in (data.get('evolucao') or [])],
+                'total': data.get('total', 0)
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard cotacoes: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/acessos-cadu', methods=['GET'])
+    @login_required
+    def api_dashboard_acessos_cadu():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_acessos_cadu(days)
+            sessoes = []
+            for s in (data.get('sessoes_diarias') or []):
+                sessoes.append({
+                    'date': s['date'].isoformat() if s.get('date') else None,
+                    'total_sessions': s.get('total_sessions', 0),
+                    'unique_users': s.get('unique_users', 0)
+                })
+            result = {
+                'dau': data.get('dau', 0),
+                'wau': data.get('wau', 0),
+                'mau': data.get('mau', 0),
+                'sessions_today': data.get('sessions_today', 0),
+                'avg_duration': data.get('avg_duration', 0),
+                'sessoes_diarias': sessoes
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard acessos: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/pis-mensal', methods=['GET'])
+    @login_required
+    def api_dashboard_pis_mensal():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_pis_por_mes(days)
+            resumo = data.get('resumo') or {}
+            result = {
+                'por_mes': [{'mes': r.get('mes', ''), 'status_nome': r.get('status_nome', ''), 'total': r.get('total', 0), 'valor_total': float(r.get('valor_total', 0))} for r in (data.get('por_mes') or [])],
+                'resumo': {
+                    'total': resumo.get('total', 0),
+                    'valor_total': float(resumo.get('valor_total', 0)),
+                    'valor_bruto': float(resumo.get('valor_bruto', 0))
+                }
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard PIs: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/campanhas', methods=['GET'])
+    @login_required
+    def api_dashboard_campanhas():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_campanhas(days)
+            resumo = data.get('resumo') or {}
+            result = {
+                'por_status': [{'status_nome': r.get('status_nome', ''), 'total': r.get('total', 0), 'valor_plataforma': float(r.get('valor_plataforma', 0)), 'gasto_total': float(r.get('gasto_total', 0)), 'atingido_total': float(r.get('atingido_total', 0))} for r in (data.get('por_status') or [])],
+                'resumo': {
+                    'total_campanhas': resumo.get('total_campanhas', 0),
+                    'faturamento': float(resumo.get('faturamento', 0)),
+                    'gasto': float(resumo.get('gasto', 0)),
+                    'atingido': float(resumo.get('atingido', 0))
+                }
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard campanhas: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/audiencias', methods=['GET'])
+    @login_required
+    def api_dashboard_audiencias():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_audiencias(days)
+            result = {
+                'top_audiencias': [dict(r) for r in (data.get('top_audiencias') or [])],
+                'top_canais': [dict(r) for r in (data.get('top_canais') or [])],
+                'evolucao': [{'semana': r['semana'].isoformat() if r.get('semana') else None, 'total_views': r.get('total_views', 0)} for r in (data.get('evolucao') or [])],
+                'total_acessos': data.get('total_acessos', 0)
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard audiencias: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/briefings-cliente', methods=['GET'])
+    @login_required
+    def api_dashboard_briefings_cliente():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_briefings_por_cliente(days)
+            resumo = data.get('resumo') or {}
+            result = {
+                'top_clientes': [dict(r) for r in (data.get('top_clientes') or [])],
+                'resumo': {
+                    'total': resumo.get('total', 0),
+                    'enviados': resumo.get('enviados', 0),
+                    'rascunhos': resumo.get('rascunhos', 0),
+                    'enviados_centralcomm': resumo.get('enviados_centralcomm', 0)
+                }
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard briefings: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/dashboard/leads', methods=['GET'])
+    @login_required
+    def api_dashboard_leads():
+        try:
+            days = request.args.get('days', 90, type=int)
+            data = db.get_dashboard_leads(days)
+            resumo = data.get('resumo') or {}
+            result = {
+                'por_executivo': [dict(r) for r in (data.get('por_executivo') or [])],
+                'por_origem': [dict(r) for r in (data.get('por_origem') or [])],
+                'evolucao': [{'semana': r['semana'].isoformat() if r.get('semana') else None, 'total': r.get('total', 0)} for r in (data.get('evolucao') or [])],
+                'resumo': {
+                    'total': resumo.get('total', 0),
+                    'notificados': resumo.get('notificados', 0),
+                    'pendentes': resumo.get('pendentes', 0)
+                }
+            }
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard leads: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== ADMIN ANALYTICS DASHBOARD ====================
     

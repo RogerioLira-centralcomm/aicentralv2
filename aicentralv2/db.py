@@ -8872,3 +8872,401 @@ def excluir_diario_campanha(id_diario):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+# ==================== DASHBOARD INÍCIO ====================
+
+def get_dashboard_carteira_clientes(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
+                    COUNT(cli.id_cliente) AS total_clientes,
+                    COUNT(cli.id_cliente) FILTER (WHERE cli.status = true) AS clientes_ativos
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo')
+                ORDER BY total_clientes DESC
+            ''')
+            por_executivo = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status = true) AS ativos,
+                    COUNT(*) FILTER (WHERE status = false) AS inativos,
+                    COUNT(*) FILTER (WHERE data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day') AS novos_periodo
+                FROM tbl_cliente
+            ''', (days,))
+            resumo = cursor.fetchone()
+
+            cursor.execute('''
+                SELECT
+                    DATE_TRUNC('week', data_cadastro)::date AS semana,
+                    COUNT(*) AS novos
+                FROM tbl_cliente
+                WHERE data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY DATE_TRUNC('week', data_cadastro)
+                ORDER BY semana
+            ''', (days,))
+            evolucao = cursor.fetchall()
+
+            return {
+                'por_executivo': por_executivo,
+                'resumo': resumo,
+                'evolucao': evolucao
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard carteira clientes: {e}")
+        return {'por_executivo': [], 'resumo': {}, 'evolucao': []}
+
+
+def get_dashboard_cotacoes_status(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COALESCE(st.descricao, 'Sem Status') AS status_nome,
+                    c.status AS status_id,
+                    COUNT(*) AS total,
+                    COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
+                FROM cadu_cotacoes c
+                LEFT JOIN cadu_cotacoes_status st ON c.status::int = st.id
+                WHERE c.deleted_at IS NULL
+                  AND c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY COALESCE(st.descricao, 'Sem Status'), c.status
+                ORDER BY total DESC
+            ''', (days,))
+            por_status = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    DATE_TRUNC('week', c.created_at)::date AS semana,
+                    COALESCE(st.descricao, 'Sem Status') AS status_nome,
+                    COUNT(*) AS total
+                FROM cadu_cotacoes c
+                LEFT JOIN cadu_cotacoes_status st ON c.status::int = st.id
+                WHERE c.deleted_at IS NULL
+                  AND c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY DATE_TRUNC('week', c.created_at), COALESCE(st.descricao, 'Sem Status')
+                ORDER BY semana
+            ''', (days,))
+            evolucao = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT COUNT(*) AS total
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+            ''', (days,))
+            resumo = cursor.fetchone()
+
+            return {
+                'por_status': por_status,
+                'evolucao': evolucao,
+                'total': resumo.get('total', 0) if resumo else 0
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard cotacoes: {e}")
+        return {'por_status': [], 'evolucao': [], 'total': 0}
+
+
+def get_dashboard_acessos_cadu(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            dau = mau = wau = sessions_today = 0
+            avg_duration = 0
+            try:
+                cursor.execute('SELECT * FROM v_analytics_dau_mau LIMIT 1')
+                row = cursor.fetchone()
+                if row:
+                    dau = row.get('dau', 0) or 0
+                    wau = row.get('wau', 0) or 0
+                    mau = row.get('mau', 0) or 0
+                    sessions_today = row.get('sessions_today', 0) or 0
+                    avg_duration = float(row.get('avg_session_duration_today', 0) or 0)
+            except Exception:
+                pass
+
+            sessoes_diarias = []
+            try:
+                cursor.execute('''
+                    SELECT * FROM v_analytics_sessions_daily
+                    WHERE date >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    ORDER BY date
+                ''', (days,))
+                sessoes_diarias = cursor.fetchall()
+            except Exception:
+                pass
+
+            return {
+                'dau': dau,
+                'wau': wau,
+                'mau': mau,
+                'sessions_today': sessions_today,
+                'avg_duration': avg_duration,
+                'sessoes_diarias': sessoes_diarias
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard acessos: {e}")
+        return {'dau': 0, 'wau': 0, 'mau': 0, 'sessions_today': 0, 'avg_duration': 0, 'sessoes_diarias': []}
+
+
+def get_dashboard_pis_por_mes(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'YYYY-MM')) AS mes,
+                    COALESCE(sp.descricao, 'Sem Status') AS status_nome,
+                    COUNT(*) AS total,
+                    COALESCE(SUM(p.vr_liquido_pi), 0) AS valor_total
+                FROM cadu_pi p
+                LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
+                WHERE p.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'YYYY-MM')),
+                         COALESCE(sp.descricao, 'Sem Status')
+                ORDER BY mes
+            ''', (days,))
+            por_mes = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(vr_liquido_pi), 0) AS valor_total,
+                    COALESCE(SUM(vr_bruto_pi), 0) AS valor_bruto
+                FROM cadu_pi
+                WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+            ''', (days,))
+            resumo = cursor.fetchone()
+
+            return {
+                'por_mes': por_mes,
+                'resumo': resumo or {'total': 0, 'valor_total': 0, 'valor_bruto': 0}
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard PIs: {e}")
+        return {'por_mes': [], 'resumo': {'total': 0, 'valor_total': 0, 'valor_bruto': 0}}
+
+
+def get_dashboard_campanhas(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COALESCE(st.descricao, 'Sem Status') AS status_nome,
+                    COUNT(*) AS total,
+                    COALESCE(SUM(c.valor_plataforma), 0) AS valor_plataforma,
+                    COALESCE(SUM(c.totalizador_gasto), 0) AS gasto_total,
+                    COALESCE(SUM(c.totalizador_atingido), 0) AS atingido_total
+                FROM cadu_pi_campanha c
+                LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
+                WHERE c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY COALESCE(st.descricao, 'Sem Status')
+                ORDER BY total DESC
+            ''', (days,))
+            por_status = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    COUNT(*) AS total_campanhas,
+                    COALESCE(SUM(c.valor_plataforma), 0) AS faturamento,
+                    COALESCE(SUM(c.totalizador_gasto), 0) AS gasto,
+                    COALESCE(SUM(c.totalizador_atingido), 0) AS atingido
+                FROM cadu_pi_campanha c
+                WHERE c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+            ''', (days,))
+            resumo = cursor.fetchone()
+
+            return {
+                'por_status': por_status,
+                'resumo': resumo or {'total_campanhas': 0, 'faturamento': 0, 'gasto': 0, 'atingido': 0}
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard campanhas: {e}")
+        return {'por_status': [], 'resumo': {'total_campanhas': 0, 'faturamento': 0, 'gasto': 0, 'atingido': 0}}
+
+
+def get_dashboard_audiencias(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            top_audiencias = []
+            evolucao = []
+            total_acessos = 0
+            try:
+                cursor.execute('''
+                    SELECT
+                        COALESCE(a.nome, e.metadata->>'audiencia_nome') AS audiencia_nome,
+                        COUNT(*) AS total_views,
+                        COUNT(DISTINCT e.user_id) AS unique_users
+                    FROM cadu_analytics_events e
+                    LEFT JOIN cadu_audiencias a ON (e.metadata->>'audiencia_id')::int = a.id
+                    WHERE e.event_type = 'audiencia_viewed'
+                      AND e.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    GROUP BY COALESCE(a.nome, e.metadata->>'audiencia_nome')
+                    ORDER BY total_views DESC
+                    LIMIT 10
+                ''', (days,))
+                top_audiencias = cursor.fetchall()
+
+                cursor.execute('''
+                    SELECT
+                        DATE_TRUNC('week', e.created_at)::date AS semana,
+                        COUNT(*) AS total_views
+                    FROM cadu_analytics_events e
+                    WHERE e.event_type = 'audiencia_viewed'
+                      AND e.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    GROUP BY DATE_TRUNC('week', e.created_at)
+                    ORDER BY semana
+                ''', (days,))
+                evolucao = cursor.fetchall()
+
+                cursor.execute('''
+                    SELECT COUNT(*) AS total
+                    FROM cadu_analytics_events
+                    WHERE event_type = 'audiencia_viewed'
+                      AND created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                ''', (days,))
+                r = cursor.fetchone()
+                total_acessos = r.get('total', 0) if r else 0
+            except Exception:
+                pass
+
+            top_canais = []
+            try:
+                cursor.execute('''
+                    SELECT
+                        COALESCE(p.nome, 'Desconhecido') AS canal,
+                        COUNT(a.id) AS total_audiencias,
+                        COALESCE(SUM(a.cpm_venda), 0) AS cpm_total
+                    FROM cadu_audiencias a
+                    LEFT JOIN cadu_audiencias_plataformas p ON a.plataforma_id = p.id
+                    WHERE a.is_active = true
+                    GROUP BY COALESCE(p.nome, 'Desconhecido')
+                    ORDER BY total_audiencias DESC
+                    LIMIT 10
+                ''')
+                top_canais = cursor.fetchall()
+            except Exception:
+                pass
+
+            return {
+                'top_audiencias': top_audiencias,
+                'top_canais': top_canais,
+                'evolucao': evolucao,
+                'total_acessos': total_acessos
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard audiencias: {e}")
+        return {'top_audiencias': [], 'top_canais': [], 'evolucao': [], 'total_acessos': 0}
+
+
+def get_dashboard_briefings_por_cliente(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    cli.nome_fantasia AS cliente,
+                    COUNT(b.id) AS total_briefings,
+                    COUNT(b.id) FILTER (WHERE b.status = 'enviado') AS enviados,
+                    COUNT(b.id) FILTER (WHERE b.status = 'rascunho') AS rascunhos
+                FROM cadu_briefings b
+                INNER JOIN tbl_cliente cli ON b.id_cliente = cli.id_cliente
+                WHERE b.deleted_at IS NULL
+                  AND b.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY cli.nome_fantasia
+                ORDER BY total_briefings DESC
+                LIMIT 10
+            ''', (days,))
+            top_clientes = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status = 'enviado') AS enviados,
+                    COUNT(*) FILTER (WHERE status = 'rascunho') AS rascunhos,
+                    COUNT(*) FILTER (WHERE enviado_para_centralcomm = true) AS enviados_centralcomm
+                FROM cadu_briefings
+                WHERE deleted_at IS NULL
+                  AND created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+            ''', (days,))
+            resumo = cursor.fetchone()
+
+            return {
+                'top_clientes': top_clientes,
+                'resumo': resumo or {'total': 0, 'enviados': 0, 'rascunhos': 0, 'enviados_centralcomm': 0}
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard briefings: {e}")
+        return {'top_clientes': [], 'resumo': {'total': 0, 'enviados': 0, 'rascunhos': 0, 'enviados_centralcomm': 0}}
+
+
+def get_dashboard_leads(days=90):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
+                    COUNT(i.id_interesse) AS total_leads,
+                    COUNT(i.id_interesse) FILTER (WHERE i.notificado = true) AS notificados,
+                    COUNT(i.id_interesse) FILTER (WHERE i.notificado = false) AS pendentes
+                FROM tbl_interesse_produto i
+                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE i.data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo')
+                ORDER BY total_leads DESC
+            ''', (days,))
+            por_executivo = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    tipo_produto,
+                    COUNT(*) AS total
+                FROM tbl_interesse_produto
+                WHERE data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY tipo_produto
+                ORDER BY total DESC
+            ''', (days,))
+            por_origem = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    DATE_TRUNC('week', data_registro)::date AS semana,
+                    COUNT(*) AS total
+                FROM tbl_interesse_produto
+                WHERE data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY DATE_TRUNC('week', data_registro)
+                ORDER BY semana
+            ''', (days,))
+            evolucao = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE notificado = true) AS notificados,
+                    COUNT(*) FILTER (WHERE notificado = false) AS pendentes
+                FROM tbl_interesse_produto
+                WHERE data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+            ''', (days,))
+            resumo = cursor.fetchone()
+
+            return {
+                'por_executivo': por_executivo,
+                'por_origem': por_origem,
+                'evolucao': evolucao,
+                'resumo': resumo or {'total': 0, 'notificados': 0, 'pendentes': 0}
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro dashboard leads: {e}")
+        return {'por_executivo': [], 'por_origem': [], 'evolucao': [], 'resumo': {'total': 0, 'notificados': 0, 'pendentes': 0}}

@@ -65,6 +65,9 @@
                 <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
                   <i class="fas fa-search text-xs"></i>
                 </button>
+                <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;" title="Novo Cliente">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
               </div>
             </div>
             <div>
@@ -91,6 +94,9 @@
                 </div>
                 <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
                   <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;" title="Nova Agência">
+                  <i class="fas fa-plus text-xs"></i>
                 </button>
                 <button type="button" onclick="limparAgenciaSelecionada()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
                   <i class="fas fa-times text-xs"></i>
@@ -121,6 +127,9 @@
                 </div>
                 <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
                   <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;" title="Novo Parceiro">
+                  <i class="fas fa-plus text-xs"></i>
                 </button>
                 <button type="button" onclick="limparParceiroSelecionado()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
                   <i class="fas fa-times text-xs"></i>
@@ -373,6 +382,148 @@
   <form method="dialog" class="modal-backdrop bg-black/50">
     <button>close</button>
   </form>
+</dialog>
+
+<!-- Modal Criar Novo Cliente -->
+<dialog id="modal_novo_cliente_cotacao" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-none overflow-visible">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="nc_modal_title">Novo Cliente</h3>
+      <button type="button" onclick="document.getElementById('modal_novo_cliente_cotacao').close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <form id="nc_form" class="space-y-3">
+        <input type="hidden" id="nc_contexto" value="cliente">
+
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+          <div class="form-control col-span-1 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
+            <div class="flex gap-0">
+              <label id="nc_label_pj" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncTogglePessoa('J')">
+                <input type="radio" name="nc_pessoa" value="J" class="hidden" checked>
+                <span>PJ</span>
+              </label>
+              <label id="nc_label_pf" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="ncTogglePessoa('F')">
+                <input type="radio" name="nc_pessoa" value="F" class="hidden">
+                <span>PF</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-control col-span-1 md:col-span-2">
+            <label id="nc_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
+            <input id="nc_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+          </div>
+          <div class="form-control col-span-1 md:col-span-4">
+            <label id="nc_label_fantasia" class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
+            <input id="nc_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+          </div>
+          <div id="nc_razao_fields" class="form-control col-span-1 md:col-span-4">
+            <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
+            <input id="nc_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+          <div id="nc_tipo_fields" class="form-control col-span-1 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
+            <select id="nc_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for tipo in tipos_cliente|default([]) %}
+                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control col-span-1 md:col-span-5">
+            <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
+            <select id="nc_vendas" name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for v in vendedores_cc|default([]) %}
+                <option value="{{ v.id_contato_cliente }}">{{ v.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="nc_agencia_fields" class="form-control col-span-1 md:col-span-3">
+            <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
+            <select id="nc_agencia" name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for ag in agencias_opts|default([]) %}
+                <option value="{{ ag.id_agencia }}" data-key="{{ ag.key|default(false) }}">{{ ag.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="nc_percentual_fields" class="form-control col-span-1 md:col-span-2" style="display:none;">
+            <label id="nc_percentual_label" class="text-xs font-medium text-gray-600 mb-1">Percentual*</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
+          </div>
+        </div>
+
+        <div id="nc_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
+            <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+          </div>
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
+            <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+          </div>
+        </div>
+
+        <div class="border-t border-gray-200 pt-3 mt-3">
+          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
+          <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
+              <input id="nc_cep" name="cep" oninput="mascaraCep(this)" onkeydown="ncBuscarCep(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
+              <select id="nc_estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="">UF</option>
+                {% for estado in estados|default([]) %}
+                  <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
+              <input id="nc_cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
+              <input id="nc_bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+            </div>
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
+              <input id="nc_logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-3 mt-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
+              <input name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+            </div>
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
+              <input name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
+          <button type="button" onclick="document.getElementById('modal_novo_cliente_cotacao').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+          <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-save mr-2"></i>Cadastrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
 </dialog>
 
 <script>
@@ -938,6 +1089,175 @@ document.addEventListener('click', function(e) {
 document.getElementById('client_id').addEventListener('change', function() {
   briefingsCache = [];
   limparBriefingSelecionado();
+});
+
+// ==================== MODAL NOVO CLIENTE ====================
+
+function abrirModalNovoCliente(contexto) {
+  const form = document.getElementById('nc_form');
+  form.reset();
+  document.getElementById('nc_contexto').value = contexto;
+
+  ncTogglePessoa('J');
+
+  const agenciaSelect = document.getElementById('nc_agencia');
+  const tipoSelect = document.getElementById('nc_tipo_cliente');
+
+  agenciaSelect.value = '';
+  tipoSelect.value = '';
+
+  const titles = { cliente: 'Novo Cliente', agencia: 'Nova Agência', parceiro: 'Novo Parceiro Regional' };
+  document.getElementById('nc_modal_title').textContent = titles[contexto] || 'Novo Cliente';
+
+  const vendasSelect = document.getElementById('nc_vendas');
+  const userId = '{{ session.get("user_id", "") }}';
+  if (userId) {
+    vendasSelect.value = userId;
+  }
+
+  const percFields = document.getElementById('nc_percentual_fields');
+  const percInput = percFields.querySelector('input[name="percentual"]');
+
+  if (contexto === 'cliente') {
+    for (const opt of agenciaSelect.options) {
+      if (opt.dataset.key === 'False' || opt.dataset.key === 'false') { agenciaSelect.value = opt.value; break; }
+    }
+    percFields.style.display = 'none';
+    percInput.required = false;
+    percInput.value = '';
+  } else if (contexto === 'agencia') {
+    for (const opt of agenciaSelect.options) {
+      if (opt.dataset.key === 'True' || opt.dataset.key === 'true') { agenciaSelect.value = opt.value; break; }
+    }
+    percFields.style.display = '';
+    percInput.required = true;
+  } else if (contexto === 'parceiro') {
+    for (const opt of agenciaSelect.options) {
+      if (opt.dataset.key === 'False' || opt.dataset.key === 'false') { agenciaSelect.value = opt.value; break; }
+    }
+    for (const opt of tipoSelect.options) {
+      if (opt.textContent.trim().toLowerCase().includes('parceiro')) { tipoSelect.value = opt.value; break; }
+    }
+    percFields.style.display = '';
+    percInput.required = true;
+  }
+
+  document.getElementById('modal_novo_cliente_cotacao').showModal();
+}
+
+function ncTogglePessoa(tipo) {
+  const lblPj = document.getElementById('nc_label_pj');
+  const lblPf = document.getElementById('nc_label_pf');
+  const razaoFields = document.getElementById('nc_razao_fields');
+  const inscFields = document.getElementById('nc_inscricoes_fields');
+  const agenciaFields = document.getElementById('nc_agencia_fields');
+  const lblCnpj = document.getElementById('nc_label_cnpj');
+  const inputCnpj = document.getElementById('nc_cnpj');
+
+  if (tipo === 'J') {
+    lblPj.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700';
+    lblPf.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50';
+    lblPj.querySelector('input').checked = true;
+    razaoFields.style.display = '';
+    inscFields.style.display = '';
+    agenciaFields.style.display = '';
+    lblCnpj.textContent = 'CNPJ*';
+    inputCnpj.placeholder = 'CNPJ';
+    inputCnpj.maxLength = 18;
+    document.getElementById('nc_razao_social').required = true;
+  } else {
+    lblPf.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700';
+    lblPj.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50';
+    lblPf.querySelector('input').checked = true;
+    razaoFields.style.display = 'none';
+    inscFields.style.display = 'none';
+    agenciaFields.style.display = 'none';
+    lblCnpj.textContent = 'CPF*';
+    inputCnpj.placeholder = 'CPF';
+    inputCnpj.maxLength = 14;
+    document.getElementById('nc_razao_social').required = false;
+  }
+}
+
+async function ncBuscarCep(event) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  const cep = document.getElementById('nc_cep').value.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await resp.json();
+    if (data.erro) { showToast('CEP não encontrado', 'warning'); return; }
+    document.getElementById('nc_logradouro').value = data.logradouro || '';
+    document.getElementById('nc_bairro').value = data.bairro || '';
+    document.getElementById('nc_cidade').value = data.localidade || '';
+    const estadoSelect = document.getElementById('nc_estado');
+    for (const opt of estadoSelect.options) {
+      if (opt.dataset.sigla === data.uf) { estadoSelect.value = opt.value; break; }
+    }
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById('nc_form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const contexto = document.getElementById('nc_contexto').value;
+  const formData = new FormData(this);
+
+  formData.set('_return_json', '1');
+
+  const pessoa = formData.get('nc_pessoa');
+  formData.set('pessoa', pessoa);
+  formData.delete('nc_pessoa');
+
+  if (pessoa === 'F') {
+    formData.set('pk_id_tbl_agencia', '2');
+    if (!formData.get('razao_social')) {
+      formData.set('razao_social', formData.get('nome_fantasia'));
+    }
+  }
+
+  try {
+    const response = await fetch('/clientes/novo', { method: 'POST', body: formData, redirect: 'follow' });
+    const data = await response.json();
+
+    if (!data.success) {
+      showToast(data.message || 'Erro ao cadastrar. Verifique os campos obrigatórios.', 'error');
+      return;
+    }
+
+    document.getElementById('modal_novo_cliente_cotacao').close();
+
+    const novoId = data.id_cliente;
+    const nome = data.nome_fantasia || data.razao_social || 'Novo cliente';
+
+    if (contexto === 'cliente') {
+      document.getElementById('client_id').value = novoId;
+      document.getElementById('nome_cliente_selecionado').textContent = nome;
+      document.getElementById('client_id').dispatchEvent(new Event('change', { bubbles: true }));
+      try {
+        const cResp = await fetch(`/api/cliente/${novoId}/contatos`);
+        const contatos = await cResp.json();
+        const sel = document.getElementById('client_user_id');
+        sel.innerHTML = '<option value="">Selecione...</option>';
+        (contatos || []).forEach(c => { sel.innerHTML += `<option value="${c.id_contato_cliente}">${c.nome_completo}</option>`; });
+      } catch(_) {}
+    } else if (contexto === 'agencia') {
+      document.getElementById('agencia_id').value = novoId;
+      document.getElementById('nome_agencia_selecionada').textContent = nome;
+      if (typeof toggleAgenciaParceiro === 'function') toggleAgenciaParceiro();
+      await carregarContatosAgencia(novoId);
+    } else if (contexto === 'parceiro') {
+      document.getElementById('id_parceiro').value = novoId;
+      document.getElementById('nome_parceiro_selecionado').textContent = nome;
+      if (typeof toggleAgenciaParceiro === 'function') toggleAgenciaParceiro();
+      await carregarContatosParceiro(novoId);
+    }
+
+    showToast(`${nome} cadastrado com sucesso!`, 'success');
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao cadastrar cliente.', 'error');
+  }
 });
 
 </script>

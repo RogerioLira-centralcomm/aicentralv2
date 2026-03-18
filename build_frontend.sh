@@ -42,6 +42,9 @@ if npm outdated | grep -q .; then
   npm install
 fi
 
+# Garante permissão de execução nos binários
+chmod +x node_modules/.bin/* 2>/dev/null || true
+
 # Gera o CSS de produção
 npm run build
 

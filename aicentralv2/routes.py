@@ -2733,6 +2733,14 @@ def init_routes(app):
         vendedores_cc = db.obter_vendedores_centralcomm()
         
         if request.method == 'POST':
+            is_ajax = request.form.get('_return_json')
+
+            def _val_error(msg):
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 400
+                flash(msg, 'error')
+                return redirect(url_for('clientes'))
+
             try:
                 razao_social = request.form.get('razao_social', '').strip()
                 nome_fantasia = request.form.get('nome_fantasia', '').strip()
@@ -2755,27 +2763,21 @@ def init_routes(app):
                 # Obrigatoriedades por tipo de pessoa
                 if pessoa == 'J':
                     if not razao_social or not nome_fantasia:
-                        flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                        return redirect(url_for('clientes'))
+                        return _val_error('Razão Social e Nome Fantasia obrigatórios!')
                 else:
-                    # Pessoa Física: Razão Social não é obrigatória, mas Nome Completo sim (usa campo nome_fantasia)
                     if not nome_fantasia:
-                        flash('Nome Completo é obrigatório!', 'error')
-                        return redirect(url_for('clientes'))
+                        return _val_error('Nome Completo é obrigatório!')
                 
                 if not cnpj:
-                    flash('CNPJ/CPF é obrigatório!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _val_error('CNPJ/CPF é obrigatório!')
                 
                 if not id_tipo_cliente:
-                    flash('Tipo de Cliente é obrigatório!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _val_error('Tipo de Cliente é obrigatório!')
                 
                 # Validação de CPF quando Pessoa Física
                 if pessoa == 'F':
                     if not db.validar_cpf(cnpj):
-                        flash('CPF inválido!', 'error')
-                        return redirect(url_for('clientes'))
+                        return _val_error('CPF inválido!')
                     # Ajustes padrão para PF
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
@@ -2785,40 +2787,31 @@ def init_routes(app):
                 # Validações de unicidade (CNPJ, Razão Social, Nome Fantasia)
                 try:
                     if db.cliente_existe_por_cnpj(cnpj):
-                        flash('CNPJ já cadastrado em outro cliente.', 'error')
-                        return redirect(url_for('clientes'))
-                    # PF com Razão Social padrão não deve bloquear por duplicidade
+                        return _val_error('CNPJ já cadastrado em outro cliente.')
                     if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social):
-                        flash('Razão Social já cadastrada em outro cliente.', 'error')
-                        return redirect(url_for('clientes'))
+                        return _val_error('Razão Social já cadastrada em outro cliente.')
                     if db.cliente_existe_por_nome_fantasia(nome_fantasia):
-                        flash('Nome Fantasia já cadastrado em outro cliente.', 'error')
-                        return redirect(url_for('clientes'))
+                        return _val_error('Nome Fantasia já cadastrado em outro cliente.')
                 except Exception as ve:
                     app.logger.error(f"Erro ao validar duplicidades: {ve}")
-                    flash('Erro ao validar unicidade. Tente novamente.', 'error')
-                    return redirect(url_for('clientes'))
+                    return _val_error('Erro ao validar unicidade. Tente novamente.')
                 
                 if pessoa not in ['F', 'J']:
-                    flash('Tipo de pessoa inválido!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _val_error('Tipo de pessoa inválido!')
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
-                # Campo do form: vendas_central_comm (ID do contato executivo de vendas)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
                 percentual = request.form.get('percentual', '').strip()
                 id_centralx = request.form.get('id_centralx', '').strip() or None
                 
                 if not vendas_central_comm:
-                    flash('Vendas CentralComm é obrigatório!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _val_error('Vendas CentralComm é obrigatório!')
                 
                 # Se for pessoa física, força agência 2
                 if pessoa == 'F':
                     pk_id_tbl_agencia = 2
                 elif not pk_id_tbl_agencia:
-                    flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _val_error('Agência é obrigatória para Pessoa Jurídica!')
 
                 # Percentual obrigatório quando Agência = Sim (Pessoa Jurídica)
                 if pessoa == 'J' and pk_id_tbl_agencia:
@@ -2826,8 +2819,7 @@ def init_routes(app):
                     ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and 'key' in ag else '')
                     if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
                         if not percentual:
-                            flash('Percentual é obrigatório quando Agência = Sim.', 'error')
-                            return redirect(url_for('clientes'))
+                            return _val_error('Percentual é obrigatório quando Agência = Sim.')
 
                 # Converter percentual para float se fornecido
                 percentual_valor = None
@@ -2910,10 +2902,15 @@ def init_routes(app):
                 except Exception as e:
                     app.logger.warning(f"Erro ao criar plano para cliente {id_cliente}: {e}")
                 
+                if request.form.get('_return_json'):
+                    return jsonify({'success': True, 'id_cliente': id_cliente, 'nome_fantasia': nome_fantasia, 'razao_social': razao_social})
+
                 flash(f'Cliente "{nome_fantasia}" criado com sucesso!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro: {e}")
+                if request.form.get('_return_json'):
+                    return jsonify({'success': False, 'message': str(e)}), 400
                 flash('Erro ao criar.', 'error')
                 return redirect(url_for('clientes'))
 
@@ -4547,7 +4544,9 @@ def init_routes(app):
                     flash('Cliente, nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
                     vendedores = db.obter_vendedores_centralcomm()
-                    return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
+                    return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo',
+                                         tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
+                                         vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
                 # Converter valor para float
                 valor_total = float(valor_total_str) if valor_total_str else 0.0
@@ -4599,7 +4598,9 @@ def init_routes(app):
                 flash(f'Erro ao criar cotação: {str(e)}', 'error')
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
-                return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo')
+                return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo',
+                                     tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
+                                     vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores_centralcomm()
@@ -4613,7 +4614,9 @@ def init_routes(app):
             briefings = db.obter_briefings_por_cliente(cliente_id_url)
             app.logger.info(f"DEBUG cotacao_nova GET: cliente_id pre-selecionado={cliente_id_url}")
         
-        return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, briefings=briefings, modo='novo', cliente_selecionado=cliente_selecionado)
+        return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, briefings=briefings, modo='novo', cliente_selecionado=cliente_selecionado,
+                              tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
+                              vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
     @app.route('/cotacoes/<int:cotacao_id>/editar', methods=['GET', 'POST'])
     @login_required
@@ -4636,7 +4639,9 @@ def init_routes(app):
                     clientes = db.obter_clientes_simples()
                     vendedores = db.obter_vendedores_centralcomm()
                     return render_template('cadu_cotacoes_form.html', 
-                                         cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar')
+                                         cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar',
+                                         tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
+                                         vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
                 # Converter valor para float
                 valor_total = float(valor_total_str) if valor_total_str else 0.0
@@ -4697,7 +4702,9 @@ def init_routes(app):
             if cotacao.get('id_parceiro'):
                 contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
             return render_template('cadu_cotacoes_form.html', 
-                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, contatos_parceiro=contatos_parceiro, modo='editar')
+                                  cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, contatos_parceiro=contatos_parceiro, modo='editar',
+                                  tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
+                                  vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
         except Exception as e:
             app.logger.error(f"Erro ao editar cotação: {str(e)}", exc_info=True)
@@ -6254,6 +6261,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             cotacao = db.obter_cotacao_por_id(cotacao_id)
             if not cotacao:
                 return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+            status = cotacao.get('status') or 'Rascunho'
+            if status == 'Pendente':
+                status = 'Rascunho'
+            if status not in ('Rascunho', 'Em Análise'):
+                return jsonify({'success': False, 'message': f'Não é possível excluir cotações com status "{status}". Apenas cotações em Rascunho ou Em Análise podem ser excluídas.'}), 400
 
             db.deletar_cotacao(cotacao_id)
 

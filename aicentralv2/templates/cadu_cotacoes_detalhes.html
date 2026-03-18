@@ -1873,11 +1873,17 @@ function calcularInvestLiquidoEdit() {
       </div>
       
       <!-- Footer padrão CRM -->
-      <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
-        <button type="button" onclick="voltarBuscaAudiencia()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Voltar</button>
-        <button type="button" id="btn_salvar_audiencia" onclick="salvarNovaAudiencia()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
-          <i class="fas fa-plus mr-1"></i>Adicionar à Cotação
+      <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between sticky bottom-0">
+        <button type="button" id="btn_excluir_audiencia" onclick="excluirAudienciaDoModal()" 
+                class="hidden px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
+          <i class="fas fa-trash-can mr-1"></i>Excluir
         </button>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" onclick="voltarBuscaAudiencia()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Voltar</button>
+          <button type="button" id="btn_salvar_audiencia" onclick="salvarNovaAudiencia()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+            <i class="fas fa-plus mr-1"></i>Adicionar à Cotação
+          </button>
+        </div>
       </div>
     </div>
     
@@ -3825,6 +3831,7 @@ function abrirModalAudiencia() {
   // Limpar flag de edição e resetar label do botão
   delete document.getElementById('form_nova_audiencia').dataset.editandoId;
   document.getElementById('btn_salvar_audiencia').textContent = 'Adicionar à Cotação';
+  document.getElementById('btn_excluir_audiencia').classList.add('hidden');
   
   document.getElementById('modal_adicionar_audiencia').showModal();
 }
@@ -4086,12 +4093,20 @@ async function editarAudienciaCotacao(audienciaId) {
     
     // Alterar label do botão para modo edição
     document.getElementById('btn_salvar_audiencia').textContent = 'Alterar Audiência';
+    document.getElementById('btn_excluir_audiencia').classList.remove('hidden');
     
     document.getElementById('modal_adicionar_audiencia').showModal();
   } catch (error) {
     console.error('Erro:', error);
     showToast('Erro ao carregar audiência para edição', 'error');
   }
+}
+
+function excluirAudienciaDoModal() {
+  const editandoId = document.getElementById('form_nova_audiencia').dataset.editandoId;
+  if (!editandoId) return;
+  document.getElementById('modal_adicionar_audiencia').close();
+  removerAudienciaCotacao(parseInt(editandoId));
 }
 
 // Remover audiência

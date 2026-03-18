@@ -108,6 +108,7 @@
             <th class="font-semibold text-right" style="width: 120px;">Valor</th>
             <th class="font-semibold text-center" style="width: 80px;">Status</th>
             <th class="font-semibold text-center" style="width: 100px;">Itens</th>
+            <th class="font-semibold text-center" style="width: 50px;"></th>
           </tr>
         </thead>
         <tbody class="text-sm">
@@ -221,6 +222,14 @@
                 <span class="text-xs text-gray-500" title="Anexos"><i class="fa-solid fa-paperclip text-gray-400"></i> {{ cotacao.total_anexos or 0 }}</span>
               </div>
             </td>
+
+            <!-- Ações -->
+            <td class="text-center" onclick="event.stopPropagation()">
+              <button onclick="abrirModalCotacao({{ cotacao.id }})" 
+                      class="p-1.5 rounded hover:bg-gray-200 transition-colors" title="Ações">
+                <i class="fa-solid fa-ellipsis-vertical text-sm text-gray-400 hover:text-gray-600"></i>
+              </button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -253,6 +262,86 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Modal Detalhes Cotação -->
+<dialog id="modal_cotacao_lista" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div>
+        <h3 class="font-semibold text-lg text-gray-800" id="mcl_titulo">-</h3>
+        <p class="text-sm text-gray-500" id="mcl_subtitulo">-</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <p class="text-xl font-bold text-gray-800" id="mcl_valor">R$ 0</p>
+          <span class="text-xs px-2 py-0.5 rounded" id="mcl_status_badge">-</span>
+        </div>
+        <button onclick="document.getElementById('modal_cotacao_lista').close()" class="p-2 hover:bg-gray-200 rounded">
+          <i class="fa-solid fa-xmark text-gray-500"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Corpo -->
+    <div class="p-6 space-y-4" style="max-height: 50vh; overflow-y: auto;">
+      <!-- Info Grid -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Cliente</p>
+          <p class="text-sm text-gray-800 font-medium" id="mcl_cliente">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Campanha</p>
+          <p class="text-sm text-gray-800" id="mcl_campanha">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Executivo</p>
+          <p class="text-sm text-gray-800" id="mcl_executivo">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Período</p>
+          <p class="text-sm text-gray-800" id="mcl_periodo">-</p>
+        </div>
+      </div>
+
+      <!-- Contadores -->
+      <div class="flex items-center gap-4 pt-2 border-t border-gray-100">
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+          <i class="fa-solid fa-list text-gray-400 text-sm"></i>
+          <span class="text-sm text-gray-700"><strong id="mcl_total_itens">0</strong> Itens da Proposta</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+          <i class="fa-solid fa-users text-gray-400 text-sm"></i>
+          <span class="text-sm text-gray-700"><strong id="mcl_total_audiencias">0</strong> Audiências</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+          <i class="fa-solid fa-paperclip text-gray-400 text-sm"></i>
+          <span class="text-sm text-gray-700"><strong id="mcl_total_anexos">0</strong> Anexos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+      <div class="flex items-center gap-2">
+        <a id="mcl_link_itens" href="#" 
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+          <i class="fa-solid fa-list text-xs"></i>Itens da Proposta
+        </a>
+        <a id="mcl_link_audiencias" href="#" 
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+          <i class="fa-solid fa-users text-xs"></i>Audiências Selecionadas
+        </a>
+      </div>
+      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()" 
+              class="hidden inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
+        <i class="fa-solid fa-trash-can text-xs"></i>Enviar para Confirmação
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
 
 <script>
 let debounceTimer;
@@ -320,6 +409,104 @@ function filtrarPorStatus(status) {
   rp.set('_restored', '1');
   window.location.href = '/cotacoes?' + rp.toString();
 })();
+
+let _cotacaoModalAtual = null;
+
+async function abrirModalCotacao(cotacaoId) {
+  try {
+    const resp = await fetch(`/api/crm/pipeline/cotacao/${cotacaoId}`);
+    const data = await resp.json();
+    if (!data.success) {
+      showToast(data.message || 'Erro ao carregar cotação', 'error');
+      return;
+    }
+
+    const c = data.cotacao;
+    _cotacaoModalAtual = c;
+
+    document.getElementById('mcl_titulo').textContent = c.numero_cotacao || '-';
+    document.getElementById('mcl_subtitulo').textContent = c.nome_campanha || 'Sem campanha';
+    document.getElementById('mcl_cliente').textContent = c.cliente_nome || 'Sem cliente';
+    document.getElementById('mcl_campanha').textContent = c.nome_campanha || '-';
+    document.getElementById('mcl_executivo').textContent = c.executivo_nome || '-';
+
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '-';
+    const periodo = c.periodo_inicio ? fmtDate(c.periodo_inicio) + (c.periodo_fim ? ' - ' + fmtDate(c.periodo_fim) : '') : '-';
+    document.getElementById('mcl_periodo').textContent = periodo;
+
+    const fmtMoney = (v) => 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    document.getElementById('mcl_valor').textContent = fmtMoney(c.valor_bruto || c.valor_total_proposta);
+
+    const badge = document.getElementById('mcl_status_badge');
+    badge.textContent = c.status || 'Rascunho';
+    badge.className = 'text-xs px-2 py-0.5 rounded ';
+    if (c.status === 'Enviada') badge.className += 'bg-gray-800 text-white font-semibold';
+    else if (c.status === 'Aprovada') badge.className += 'bg-gray-200 text-gray-700';
+    else if (c.status === 'Rejeitada') badge.className += 'bg-gray-300 text-gray-600 line-through';
+    else badge.className += 'bg-gray-100 text-gray-500';
+
+    const totalItens = (c.itens || []).length;
+    const totalAudiencias = (c.audiencias || []).length;
+    const totalAnexos = (c.anexos || []).length;
+    document.getElementById('mcl_total_itens').textContent = totalItens;
+    document.getElementById('mcl_total_audiencias').textContent = totalAudiencias;
+    document.getElementById('mcl_total_anexos').textContent = totalAnexos;
+
+    document.getElementById('mcl_link_itens').href = `/cotacoes/${c.id}/detalhes`;
+    document.getElementById('mcl_link_audiencias').href = `/cotacoes/${c.id}/detalhes`;
+
+    const btnDeletar = document.getElementById('mcl_btn_deletar');
+    const statusPermitido = c.status === 'Rascunho' || c.status === 'Em Análise' || c.status === 'Pendente' || !c.status;
+    btnDeletar.classList.toggle('hidden', !statusPermitido);
+
+    document.getElementById('modal_cotacao_lista').showModal();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao carregar cotação', 'error');
+  }
+}
+
+function confirmarExclusaoCotacao() {
+  if (!_cotacaoModalAtual) return;
+  const c = _cotacaoModalAtual;
+  const totalItens = (c.itens || []).length;
+  const totalAudiencias = (c.audiencias || []).length;
+  const totalAnexos = (c.anexos || []).length;
+
+  document.getElementById('modal_cotacao_lista').close();
+
+  showConfirm({
+    title: 'Excluir Cotação',
+    message: `Tem certeza que deseja excluir a cotação <strong>${c.numero_cotacao}</strong>?`,
+    detail: `
+      <div class="bg-red-50 rounded-lg p-3 space-y-1.5 text-sm border border-red-100">
+        <p class="font-medium text-red-700">Serão excluídos permanentemente:</p>
+        <div class="flex items-center gap-2 text-red-600"><i class="fa-solid fa-list w-4 text-center"></i><span>${totalItens} Iten${totalItens !== 1 ? 's' : ''} da Proposta</span></div>
+        <div class="flex items-center gap-2 text-red-600"><i class="fa-solid fa-users w-4 text-center"></i><span>${totalAudiencias} Audiência${totalAudiencias !== 1 ? 's' : ''} Selecionada${totalAudiencias !== 1 ? 's' : ''}</span></div>
+        <div class="flex items-center gap-2 text-red-600"><i class="fa-solid fa-paperclip w-4 text-center"></i><span>${totalAnexos} Anexo${totalAnexos !== 1 ? 's' : ''}</span></div>
+      </div>
+    `,
+    theme: 'danger',
+    confirmText: 'Excluir Cotação',
+    onConfirm: () => deletarCotacao(c.id)
+  });
+}
+
+async function deletarCotacao(cotacaoId) {
+  try {
+    const resp = await fetch(`/api/cotacoes/${cotacaoId}/deletar`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('Cotação excluída com sucesso!', 'success');
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      showToast(data.message || 'Erro ao excluir cotação', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao excluir cotação', 'error');
+  }
+}
 
 function duplicarCotacao(cotacaoId) {
   if (!confirm('Deseja duplicar esta cotação?')) return;

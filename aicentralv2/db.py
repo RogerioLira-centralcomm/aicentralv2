@@ -5398,12 +5398,32 @@ def atualizar_cotacao(cotacao_id, **kwargs):
 
 
 def deletar_cotacao(cotacao_id, soft_delete=True):
-    """Deleta uma cotação (soft delete por padrão)"""
+    """Deleta uma cotação e seus registros relacionados (soft delete por padrão)"""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             if soft_delete:
-                cursor.execute("UPDATE cadu_cotacoes SET deleted_at = DATE_TRUNC('second', CURRENT_TIMESTAMP) WHERE id = %s", (cotacao_id,))
+                cursor.execute("""
+                    UPDATE cadu_cotacao_linhas
+                    SET is_deleted = true, updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE cotacao_id = %s AND (is_deleted IS NULL OR is_deleted = false)
+                """, (cotacao_id,))
+
+                cursor.execute("""
+                    UPDATE cadu_cotacao_anexos
+                    SET is_deleted = true
+                    WHERE cotacao_id = %s AND (is_deleted IS NULL OR is_deleted = false)
+                """, (cotacao_id,))
+
+                cursor.execute("""
+                    DELETE FROM cadu_cotacao_audiencias WHERE cotacao_id = %s
+                """, (cotacao_id,))
+
+                cursor.execute("""
+                    UPDATE cadu_cotacoes
+                    SET deleted_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                    WHERE id = %s
+                """, (cotacao_id,))
             else:
                 cursor.execute('DELETE FROM cadu_cotacoes WHERE id = %s', (cotacao_id,))
             conn.commit()

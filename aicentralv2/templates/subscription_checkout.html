@@ -1,0 +1,260 @@
+{% extends "base_auth.html" %}
+
+{% block title %}Assinar Plano - Cadu{% endblock %}
+
+{% block styles %}
+<style>
+    .plan-card {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .plan-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    .plan-card.selected {
+        border-color: #06F17B;
+        box-shadow: 0 0 0 2px #06F17B;
+    }
+    .plan-card .plan-badge {
+        display: none;
+    }
+    .plan-card.selected .plan-badge {
+        display: inline-flex;
+    }
+    .step-section {
+        animation: fadeIn 0.3s ease-in;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 pb-12">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="mb-4">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} shadow-sm mb-2">
+            <span>{{ message }}</span>
+            <button class="btn btn-ghost btn-xs" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold">Assinar Plano</h1>
+        <p class="text-base-content/60 text-sm mt-1">Escolha seu plano e preencha os dados de faturamento</p>
+    </div>
+
+    <form id="checkoutForm" novalidate>
+
+        <!-- STEP 1: Selecao de plano -->
+        <div class="step-section mb-8">
+            <h2 class="text-lg font-semibold mb-4">
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold mr-2">1</span>
+                Escolha o plano
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="planCards">
+                {% for plan in plan_definitions %}
+                {% if plan.plan_type in ['pro', 'enterprise'] or plan.slug in ['pro', 'enterprise'] %}
+                <div class="plan-card card bg-base-100 border-2 border-base-300 shadow-sm"
+                     data-plan-id="{{ plan.id }}"
+                     data-plan-type="{{ plan.plan_type or plan.slug }}"
+                     data-plan-name="{{ plan.plan_name or plan.name }}"
+                     data-plan-price="{{ plan.monthly_price or plan.price or 0 }}"
+                     data-tokens="{{ plan.tokens_monthly_limit or plan.tokens_limit or 0 }}"
+                     data-images="{{ plan.image_credits_monthly or plan.image_credits or 0 }}"
+                     data-users="{{ plan.max_users or 5 }}"
+                     onclick="selectPlan(this)">
+                    <div class="card-body p-5">
+                        <div class="flex items-center justify-between">
+                            <h3 class="card-title text-base">{{ plan.plan_name or plan.name }}</h3>
+                            <span class="plan-badge badge badge-success badge-sm">Selecionado</span>
+                        </div>
+                        <p class="text-2xl font-bold mt-2">
+                            R$ {{ "%.2f"|format(plan.monthly_price or plan.price or 0) }}
+                            <span class="text-sm font-normal text-base-content/60">/mês</span>
+                        </p>
+                        <ul class="mt-3 space-y-1 text-sm text-base-content/70">
+                            <li><i class="fas fa-check text-success mr-1"></i> {{ "{:,}".format(plan.tokens_monthly_limit or plan.tokens_limit or 0).replace(",", ".") }} tokens/mês</li>
+                            <li><i class="fas fa-check text-success mr-1"></i> {{ plan.image_credits_monthly or plan.image_credits or 0 }} créditos de imagem</li>
+                            <li><i class="fas fa-check text-success mr-1"></i> {{ plan.max_users or 5 }} usuários</li>
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            <input type="hidden" id="selectedPlanId" name="plan_id" required>
+            <input type="hidden" id="selectedPlanType" name="plan_type">
+            <p id="planError" class="text-error text-xs mt-2 hidden">Selecione um plano para continuar.</p>
+        </div>
+
+        <!-- STEP 2: Dados de faturamento -->
+        <div class="step-section mb-8">
+            <h2 class="text-lg font-semibold mb-4">
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold mr-2">2</span>
+                Dados da empresa
+            </h2>
+
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-5 space-y-4">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">CNPJ *</span></label>
+                            <input type="text" id="cnpj" name="cnpj" class="input input-bordered input-sm w-full"
+                                   placeholder="00.000.000/0000-00" maxlength="18" required
+                                   value="{{ cliente.cnpj or '' }}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">Razão Social *</span></label>
+                            <input type="text" id="razao_social" name="razao_social" class="input input-bordered input-sm w-full"
+                                   required value="{{ cliente.razao_social or '' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label"><span class="label-text text-xs font-medium">Nome Fantasia *</span></label>
+                        <input type="text" id="nome_fantasia" name="nome_fantasia" class="input input-bordered input-sm w-full"
+                               required value="{{ cliente.nome_fantasia or '' }}">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">CEP *</span></label>
+                            <input type="text" id="cep" name="cep" class="input input-bordered input-sm w-full"
+                                   placeholder="00000-000" maxlength="9" required
+                                   value="{{ cliente.cep or '' }}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">Cidade *</span></label>
+                            <input type="text" id="cidade" name="cidade" class="input input-bordered input-sm w-full"
+                                   required value="{{ cliente.cidade or '' }}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">Estado *</span></label>
+                            <select id="estado" name="estado" class="select select-bordered select-sm w-full" required>
+                                <option value="">Selecione</option>
+                                {% for uf in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'] %}
+                                <option value="{{ uf }}" {% if cliente.sigla_estado == uf %}selected{% endif %}>{{ uf }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="form-control md:col-span-2">
+                            <label class="label"><span class="label-text text-xs font-medium">Endereço *</span></label>
+                            <input type="text" id="endereco" name="endereco" class="input input-bordered input-sm w-full"
+                                   placeholder="Rua, Avenida..." required
+                                   value="{{ cliente.logradouro or '' }}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">Bairro</span></label>
+                            <input type="text" id="bairro" name="bairro" class="input input-bordered input-sm w-full"
+                                   value="{{ cliente.bairro or '' }}">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3: Dados do responsavel -->
+        <div class="step-section mb-8">
+            <h2 class="text-lg font-semibold mb-4">
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold mr-2">3</span>
+                Responsável pelo faturamento
+            </h2>
+
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-5 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">Nome do responsável *</span></label>
+                            <input type="text" id="responsavel_nome" name="responsavel_nome"
+                                   class="input input-bordered input-sm w-full" required
+                                   value="{{ session.get('user_name', '') }}">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs font-medium">Email de faturamento *</span></label>
+                            <input type="email" id="email_faturamento" name="email_faturamento"
+                                   class="input input-bordered input-sm w-full" required
+                                   value="{{ session.get('user_email', '') }}">
+                        </div>
+                    </div>
+                    <div class="form-control max-w-xs">
+                        <label class="label"><span class="label-text text-xs font-medium">Telefone *</span></label>
+                        <input type="text" id="telefone" name="telefone"
+                               class="input input-bordered input-sm w-full"
+                               placeholder="(00) 00000-0000" maxlength="15" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESUMO -->
+        <div id="summarySection" class="step-section mb-8 hidden">
+            <h2 class="text-lg font-semibold mb-4">
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-content text-xs font-bold mr-2">4</span>
+                Resumo
+            </h2>
+            <div class="card bg-base-100 border border-base-300 shadow-sm">
+                <div class="card-body p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="font-medium" id="summaryPlanName">-</span>
+                        <span class="text-lg font-bold" id="summaryPrice">-</span>
+                    </div>
+                    <div class="divider my-1"></div>
+                    <ul class="text-sm text-base-content/70 space-y-1">
+                        <li><i class="fas fa-building mr-2 w-4 text-center"></i> <span id="summaryEmpresa">-</span></li>
+                        <li><i class="fas fa-id-card mr-2 w-4 text-center"></i> <span id="summaryCnpj">-</span></li>
+                        <li><i class="fas fa-envelope mr-2 w-4 text-center"></i> <span id="summaryEmail">-</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTAO SUBMIT -->
+        <div class="text-center">
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-wide gap-2">
+                <i class="fas fa-check-circle"></i>
+                Assinar Plano
+            </button>
+            <p class="text-xs text-base-content/50 mt-3">
+                Ao clicar, seu plano será ativado imediatamente. Uma fatura será enviada para aprovação do financeiro.
+            </p>
+        </div>
+
+    </form>
+
+    <!-- Modal de sucesso -->
+    <dialog id="successModal" class="modal">
+        <div class="modal-box text-center">
+            <div class="text-success text-5xl mb-4"><i class="fas fa-check-circle"></i></div>
+            <h3 class="font-bold text-lg">Assinatura realizada!</h3>
+            <p class="py-4 text-sm text-base-content/70">
+                Seu plano foi ativado com sucesso. A equipe financeira entrará em contato para enviar o boleto de pagamento.
+            </p>
+            <p class="text-sm"><strong>Fatura:</strong> <span id="modalInvoiceNumber">-</span></p>
+            <div class="modal-action justify-center">
+                <a href="/" class="btn btn-primary btn-sm">Ir para o início</a>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/subscription_checkout.js') }}"></script>
+{% endblock %}

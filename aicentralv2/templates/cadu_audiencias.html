@@ -79,8 +79,8 @@ select.select:focus {
       
       <!-- Filtros -->
       <div class="flex items-center gap-3 flex-1 justify-center">
-        <input type="text" id="filtro-id" placeholder="ID ou Nome..."
-               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 150px;">
+        <input type="text" id="filtro-id" placeholder="ID audiência, nome ou título..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="width: 300px;">
         
         <select id="filtro-plataforma" 
                 onchange="filtrarPlataformaServer(this.value)"
@@ -97,11 +97,6 @@ select.select:focus {
           {% for categoria in categorias %}
             <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
           {% endfor %}
-        </select>
-        
-        <select id="filtro-subcategoria" disabled
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 disabled:opacity-50" style="min-width: 170px;">
-          <option value="" selected>Todas Subcategorias</option>
         </select>
         
         <!-- Status Icons -->
@@ -192,12 +187,13 @@ select.select:focus {
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% for audiencia in audiencias %}
-            <tr class="hover:bg-gray-50 transition-colors" 
+            <tr class="hover:bg-gray-50 transition-colors"
                 id="audiencia-{{ audiencia.id }}"
                 data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
                 data-categoria-id="{{ audiencia.categoria_id or '' }}"
                 data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
-                data-plataforma-id="{{ audiencia.plataforma_id or '' }}">
+                data-plataforma-id="{{ audiencia.plataforma_id or '' }}"
+                data-titulo-chamativo="{{ audiencia.titulo_chamativo or '' }}">
               <td class="py-2 px-3">
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
                   <code class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">{{ audiencia.id_audiencia_plataforma }}</code>
@@ -297,12 +293,13 @@ select.select:focus {
     {% if audiencias %}
       <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
         {% for audiencia in audiencias %}
-        <div class="card-item bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden" 
+        <div class="card-item bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
              data-audiencia-id="{{ audiencia.id }}"
              data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
              data-categoria-id="{{ audiencia.categoria_id or '' }}"
              data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
-             data-plataforma-id="{{ audiencia.plataforma_id or '' }}">
+             data-plataforma-id="{{ audiencia.plataforma_id or '' }}"
+             data-titulo-chamativo="{{ audiencia.titulo_chamativo or '' }}">
           
           <!-- Imagem -->
           <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
@@ -415,11 +412,12 @@ select.select:focus {
   <div class="block md:hidden space-y-4">
     {% if audiencias %}
       {% for audiencia in audiencias %}
-      <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow" 
+      <div class="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow"
            data-status="{{ 'ativa' if audiencia.is_active else 'inativa' }}"
            data-categoria-id="{{ audiencia.categoria_id or '' }}"
            data-subcategoria-id="{{ audiencia.subcategoria_id or '' }}"
-           data-plataforma-id="{{ audiencia.plataforma_id or '' }}">
+           data-plataforma-id="{{ audiencia.plataforma_id or '' }}"
+           data-titulo-chamativo="{{ audiencia.titulo_chamativo or '' }}">
         <div class="card-body p-4">
           <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block mb-3">
             <div class="flex items-start justify-between">
@@ -583,6 +581,7 @@ async function abrirModalEditarAudiencia(audienciaId) {
 }
 
 async function carregarSubcategoriasModal(categoriaId, subcategoriaSelecionada = null) {
+  console.log('carregarSubcategoriasModal chamada:', categoriaId, subcategoriaSelecionada);
   const select = document.getElementById('subcategoria_id_modal');
   select.innerHTML = '<option value="">Carregando...</option>';
   select.disabled = true;
@@ -594,9 +593,24 @@ async function carregarSubcategoriasModal(categoriaId, subcategoriaSelecionada =
   }
   
   try {
-    const response = await fetch(`/api/cadu-subcategorias?categoria_id=${categoriaId}`);
-    const data = await response.json();
+    const url = `/api/cadu-subcategorias?categoria_id=${categoriaId}`;
+    console.log('Fetch subcategorias modal:', url);
+    const response = await fetch(url);
+    console.log('Response status modal:', response.status, response.redirected);
+    const text = await response.text();
+    console.log('Response text (primeiros 200 chars):', text.substring(0, 200));
     
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error('Resposta não é JSON válido. Possível redirect para login.');
+      select.innerHTML = '<option value="">Erro - sessão expirada?</option>';
+      select.disabled = false;
+      return;
+    }
+    
+    console.log('Subcategorias modal recebidas:', data);
     select.innerHTML = '<option value="">Selecione uma subcategoria</option>';
     
     if (data.success && data.subcategorias && data.subcategorias.length > 0) {
@@ -609,9 +623,12 @@ async function carregarSubcategoriasModal(categoriaId, subcategoriaSelecionada =
         }
         select.appendChild(option);
       });
+      console.log('Subcategorias carregadas no modal:', data.subcategorias.length);
+    } else {
+      console.log('Nenhuma subcategoria encontrada para categoria:', categoriaId);
     }
   } catch (error) {
-    console.error('Erro ao carregar subcategorias:', error);
+    console.error('Erro ao carregar subcategorias modal:', error);
     select.innerHTML = '<option value="">Erro ao carregar</option>';
   } finally {
     select.disabled = false;
@@ -631,7 +648,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const filtroId = document.getElementById('filtro-id');
   const filtroPlataforma = document.getElementById('filtro-plataforma');
   const filtroCategoria = document.getElementById('filtro-categoria');
-  const filtroSubcategoria = document.getElementById('filtro-subcategoria');
   const filtroStatus = document.getElementById('filtro-status');
   const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
   
@@ -639,17 +655,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const btnStatusAtiva = document.getElementById('filtro-status-ativa');
   const btnStatusInativa = document.getElementById('filtro-status-inativa');
   const btnStatusTodos = document.getElementById('filtro-status-todos');
-
-  console.log('Elementos encontrados:', {
-    filtroId: !!filtroId,
-    filtroCategoria: !!filtroCategoria,
-    filtroSubcategoria: !!filtroSubcategoria,
-    filtroStatus: !!filtroStatus,
-    btnLimparFiltros: !!btnLimparFiltros,
-    btnStatusAtiva: !!btnStatusAtiva,
-    btnStatusInativa: !!btnStatusInativa,
-    btnStatusTodos: !!btnStatusTodos
-  });
   
   // ==================== TOGGLE VIEW (TABLE / CARDS) ====================
   let currentView = 'table'; // 'table' ou 'cards'
@@ -840,37 +845,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Carregar subcategorias ao trocar categoria nos filtros
-  filtroCategoria.addEventListener('change', async function() {
-    console.log('🔍 Categoria mudou para:', this.value);
-    const categoriaId = this.value;
-    filtroSubcategoria.innerHTML = '<option value="" selected>Todas as subcategorias</option>';
-    filtroSubcategoria.disabled = true;
-
-    if (categoriaId) {
-      try {
-        const response = await fetch(`/api/cadu-subcategorias?categoria_id=${categoriaId}`);
-        const data = await response.json();
-
-        if (data.success && data.subcategorias.length > 0) {
-          data.subcategorias.forEach(sub => {
-            const option = document.createElement('option');
-            option.value = sub.id;
-            option.textContent = sub.nome;
-            filtroSubcategoria.appendChild(option);
-          });
-          filtroSubcategoria.disabled = false;
-        }
-      } catch (error) {
-        console.error('Erro ao carregar subcategorias:', error);
-      }
-    }
-
+  // Aplicar filtro ao trocar categoria
+  filtroCategoria.addEventListener('change', function() {
     aplicarFiltros();
   });
-
-  // Aplicar filtro ao trocar subcategoria
-  filtroSubcategoria.addEventListener('change', aplicarFiltros);
 
   // Aplicar filtro ao digitar ID
   filtroId.addEventListener('input', aplicarFiltros);
@@ -879,13 +857,10 @@ document.addEventListener('DOMContentLoaded', function() {
   btnLimparFiltros.addEventListener('click', function() {
     filtroId.value = '';
     filtroCategoria.value = '';
-    filtroSubcategoria.innerHTML = '<option value="" selected>Todas subcategorias</option>';
-    filtroSubcategoria.disabled = true;
     atualizarBotoesStatus('');
     setCookie('aud_id', '', 30);
     setCookie('aud_plat', '', 30);
     setCookie('aud_cat', '', 30);
-    setCookie('aud_subcat', '', 30);
     setCookie('aud_status', '', 30);
     window.location.href = '{{ url_for("cadu_audiencias") }}';
   });
@@ -907,32 +882,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const idFiltro = normalizar(filtroId.value.trim());
     const plataformaFiltro = filtroPlataforma.value;
     const categoriaId = filtroCategoria.value;
-    const subcategoriaId = filtroSubcategoria.value;
     const statusFiltro = statusFiltroAtual;
 
     setCookie('aud_id', filtroId.value.trim(), 30);
     setCookie('aud_plat', plataformaFiltro, 30);
     setCookie('aud_cat', categoriaId, 30);
-    setCookie('aud_subcat', subcategoriaId, 30);
     setCookie('aud_status', statusFiltro, 30);
-
-    console.log('Filtros aplicados:', { idFiltro, plataformaFiltro, categoriaId, subcategoriaId, statusFiltro });
 
     // Filtrar linhas da tabela desktop
     const tableRows = document.querySelectorAll('table tbody tr');
     let visibleCount = 0;
     tableRows.forEach(row => {
       const rowCategoriaId = row.getAttribute('data-categoria-id');
-      const rowSubcategoriaId = row.getAttribute('data-subcategoria-id');
       const statusAttr = row.getAttribute('data-status');
       const rowPlataformaId = row.getAttribute('data-plataforma-id') || '';
       const rowId = normalizar(row.cells[0]?.textContent);
       const rowNome = normalizar(row.cells[1]?.textContent);
-      
+      const rowTituloChamativo = normalizar(row.getAttribute('data-titulo-chamativo') || '');
+
       let showRow = true;
 
       if (idFiltro) {
-        if (!rowId.includes(idFiltro) && !rowNome.includes(idFiltro)) {
+        if (!rowId.includes(idFiltro) && !rowNome.includes(idFiltro) && !rowTituloChamativo.includes(idFiltro)) {
           showRow = false;
         }
       }
@@ -945,12 +916,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (categoriaId && showRow) {
         if (String(rowCategoriaId) !== String(categoriaId)) {
-          showRow = false;
-        }
-      }
-
-      if (subcategoriaId && showRow) {
-        if (String(rowSubcategoriaId) !== String(subcategoriaId)) {
           showRow = false;
         }
       }
@@ -972,18 +937,18 @@ document.addEventListener('DOMContentLoaded', function() {
     let visibleCardsCount = 0;
     desktopCards.forEach(card => {
       const cardCategoriaId = card.getAttribute('data-categoria-id');
-      const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
       const statusAttr = card.getAttribute('data-status');
       const cardPlataformaId = card.getAttribute('data-plataforma-id') || '';
       const cardIdElement = card.querySelector('code');
       const cardId = normalizar(cardIdElement ? cardIdElement.textContent : '');
       const cardNomeElement = card.querySelector('h3');
       const cardNome = normalizar(cardNomeElement ? cardNomeElement.textContent : '');
+      const cardTituloChamativo = normalizar(card.getAttribute('data-titulo-chamativo') || '');
 
       let showCard = true;
 
       if (idFiltro) {
-        if (!cardId.includes(idFiltro) && !cardNome.includes(idFiltro)) {
+        if (!cardId.includes(idFiltro) && !cardNome.includes(idFiltro) && !cardTituloChamativo.includes(idFiltro)) {
           showCard = false;
         }
       }
@@ -996,12 +961,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (categoriaId && showCard) {
         if (String(cardCategoriaId) !== String(categoriaId)) {
-          showCard = false;
-        }
-      }
-
-      if (subcategoriaId && showCard) {
-        if (String(cardSubcategoriaId) !== String(subcategoriaId)) {
           showCard = false;
         }
       }
@@ -1020,18 +979,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobileCards = document.querySelectorAll('.block.md\\:hidden .card');
     mobileCards.forEach(card => {
       const cardCategoriaId = card.getAttribute('data-categoria-id');
-      const cardSubcategoriaId = card.getAttribute('data-subcategoria-id');
       const statusAttr = card.getAttribute('data-status');
       const cardPlataformaId = card.getAttribute('data-plataforma-id') || '';
       const cardIdElement = card.querySelector('.badge-neutral');
       const cardId = normalizar(cardIdElement ? cardIdElement.textContent.replace('#', '') : '');
       const cardNomeElement = card.querySelector('h3');
       const cardNome = normalizar(cardNomeElement ? cardNomeElement.textContent : '');
+      const cardTituloChamativo = normalizar(card.getAttribute('data-titulo-chamativo') || '');
 
       let showCard = true;
 
       if (idFiltro) {
-        if (!cardId.includes(idFiltro) && !cardNome.includes(idFiltro)) {
+        if (!cardId.includes(idFiltro) && !cardNome.includes(idFiltro) && !cardTituloChamativo.includes(idFiltro)) {
           showCard = false;
         }
       }
@@ -1044,12 +1003,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (categoriaId && showCard) {
         if (String(cardCategoriaId) !== String(categoriaId)) {
-          showCard = false;
-        }
-      }
-
-      if (subcategoriaId && showCard) {
-        if (String(cardSubcategoriaId) !== String(subcategoriaId)) {
           showCard = false;
         }
       }

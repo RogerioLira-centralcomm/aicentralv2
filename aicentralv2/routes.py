@@ -10,7 +10,10 @@ from functools import wraps
 from datetime import datetime, timedelta
 import secrets
 from aicentralv2 import db, audit
-from aicentralv2.email_service import send_password_reset_email, send_password_changed_email, send_invite_email
+from aicentralv2.email_service import (
+    send_password_reset_email, send_password_changed_email, send_invite_email,
+    send_subscription_confirmation_email, send_new_subscription_internal_email
+)
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 
 # Helper para serializar dados para JSON
@@ -120,6 +123,27 @@ def is_centralcomm_user():
         return nome_fantasia == 'CENTRALCOMM'
     except:
         return False
+
+
+def client_accessible(f):
+    """Decorator para rotas acessiveis por qualquer usuario logado (incluindo clientes nao-CENTRALCOMM)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Faça login para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def client_accessible_api(f):
+    """Decorator para APIs acessiveis por qualquer usuario logado (retorna JSON)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Sessão expirada. Faça login novamente.'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def init_routes(app):
@@ -656,9 +680,11 @@ def init_routes(app):
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """Página de login"""
-        # Se já estiver logado, vai para index
         if 'user_id' in session:
-            return redirect(url_for('index'))
+            if session.get('is_centralcomm', False):
+                return redirect(url_for('index'))
+            else:
+                return redirect(url_for('subscription_checkout'))
         
         # POST - processar login
         if request.method == 'POST':
@@ -677,28 +703,33 @@ def init_routes(app):
                     flash('Usuário inativo. Entre em contato com o administrador.', 'error')
                     return render_template('login_tailwind.html')
                 
-                # VERIFICAR SE É USUÁRIO DO CLIENTE CENTRALCOMM
                 cliente_id = user.get('pk_id_tbl_cliente')
-                if cliente_id:
-                    cliente = db.obter_cliente_por_id(cliente_id)
-                    if not cliente or cliente.get('nome_fantasia', '').upper() != 'CENTRALCOMM':
-                        flash('Acesso restrito. Cliente não autorizado.', 'error')
-                        return render_template('login_tailwind.html')
-                else:
+                if not cliente_id:
                     flash('Acesso restrito. Cliente não autorizado.', 'error')
                     return render_template('login_tailwind.html')
-                
+
+                cliente = db.obter_cliente_por_id(cliente_id)
+                if not cliente:
+                    flash('Acesso restrito. Cliente não autorizado.', 'error')
+                    return render_template('login_tailwind.html')
+
+                is_centralcomm = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
+
                 session.clear()
                 session['user_id'] = user['id_contato_cliente']
                 session['user_name'] = user['nome_completo']
                 session['user_email'] = user['email']
                 session['cliente_id'] = user['pk_id_tbl_cliente']
                 session['user_type'] = user.get('user_type', 'client')
+                session['is_centralcomm'] = is_centralcomm
                 
-                app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']}")
+                app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']} - CENTRALCOMM: {is_centralcomm}")
                 flash(f'Bem-vindo, {user["nome_completo"]}!', 'success')
                 
-                return redirect(url_for('index'))
+                if is_centralcomm:
+                    return redirect(url_for('index'))
+                else:
+                    return redirect(url_for('subscription_checkout'))
             else:
                 flash('Email ou senha incorretos.', 'error')
         
@@ -3550,11 +3581,14 @@ def init_routes(app):
         """API para carregar subcategorias por categoria"""
         try:
             categoria_id = request.args.get('categoria_id', type=int)
+            app.logger.info(f"API subcategorias chamada - categoria_id: {categoria_id}")
             
             if categoria_id:
                 subcategorias = db.obter_cadu_subcategorias(categoria_id=categoria_id)
             else:
                 subcategorias = db.obter_cadu_subcategorias()
+            
+            app.logger.info(f"Subcategorias encontradas: {len(subcategorias)}")
             
             return jsonify({
                 'success': True,
@@ -9460,9 +9494,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             filtros = {k: v for k, v in filtros.items() if v is not None}
 
             view_diarios = request.args.get('view') == 'diarios'
-            if view_diarios:
-                filtros['id_sub_status_pi'] = 3
-                filtros.pop('id_status', None)
 
             from datetime import datetime as dt_cls
             if 'mes_ref_comp' not in filtros:
@@ -10173,5 +10204,212 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if not ok:
             abort(404)
         return jsonify({'success': True})
+
+    # ==================== ASSINATURAS / SUBSCRIPTION ====================
+
+    @app.route('/assinatura/checkout')
+    @client_accessible
+    def subscription_checkout():
+        """Pagina de checkout de assinatura - acessivel por qualquer usuario logado"""
+        try:
+            cliente_id = session.get('cliente_id')
+            cliente = db.obter_cliente_por_id(cliente_id) if cliente_id else {}
+            plan_definitions = db.obter_plan_definitions(apenas_ativos=True)
+            return render_template(
+                'subscription_checkout.html',
+                cliente=cliente or {},
+                plan_definitions=plan_definitions or []
+            )
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar checkout: {e}")
+            flash('Erro ao carregar página de checkout.', 'error')
+            return redirect(url_for('login'))
+
+    @app.route('/api/subscription/checkout', methods=['POST'])
+    @client_accessible_api
+    def api_subscription_checkout():
+        """Processa checkout de assinatura: ativa plano, cria fatura, envia emails"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
+
+            cliente_id = session.get('cliente_id')
+            user_id = session.get('user_id')
+
+            if not cliente_id:
+                return jsonify({'success': False, 'error': 'Cliente não identificado'}), 400
+
+            plan_type = data.get('plan_type', '')
+            plan_id_def = data.get('plan_id')
+            plan_price = data.get('plan_price', 0)
+
+            required_fields = ['cnpj', 'razao_social', 'nome_fantasia', 'cep', 'cidade',
+                               'estado', 'endereco', 'responsavel_nome', 'email_faturamento', 'telefone']
+            missing = [f for f in required_fields if not data.get(f)]
+            if missing or not plan_type or not plan_id_def:
+                return jsonify({'success': False, 'error': 'Preencha todos os campos obrigatórios.'}), 400
+
+            # 1. Atualizar dados de billing do cliente em tbl_cliente
+            db.atualizar_dados_billing_cliente(cliente_id, {
+                'cnpj': data['cnpj'],
+                'razao_social': data['razao_social'],
+                'nome_fantasia': data['nome_fantasia'],
+                'cep': data['cep'],
+                'cidade': data['cidade'],
+                'logradouro': data['endereco'],
+                'bairro': data.get('bairro', ''),
+            })
+
+            # 2. Criar/ativar plano em cadu_client_plans
+            valid_from = datetime.now()
+            valid_until = valid_from + timedelta(days=365)
+
+            plan_data = {
+                'id_cliente': cliente_id,
+                'id_plan_definition': plan_id_def,
+                'tokens_monthly_limit': data.get('tokens_monthly_limit', 100000),
+                'image_credits_monthly': data.get('image_credits_monthly', 50),
+                'max_users': data.get('max_users', 5),
+                'features': '{"all_modes": true, "unlimited_docs": true, "unlimited_conversations": true}',
+                'plan_status': 'active',
+                'valid_from': valid_from,
+                'valid_until': valid_until,
+                'plan_start_date': valid_from,
+                'plan_end_date': valid_until,
+            }
+
+            try:
+                new_plan_id = db.criar_client_plan(plan_data)
+            except Exception as e:
+                app.logger.error(f"Erro ao criar plano: {e}")
+                if 'idx_one_active_plan_per_client' in str(e):
+                    return jsonify({'success': False, 'error': 'Você já possui um plano ativo.'}), 400
+                raise
+
+            # 3. Criar fatura pendente
+            due_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+
+            billing_data = {
+                'cnpj': data['cnpj'],
+                'razao_social': data['razao_social'],
+                'nome_fantasia': data['nome_fantasia'],
+                'cep': data['cep'],
+                'cidade': data['cidade'] + '/' + data['estado'],
+                'endereco': data['endereco'],
+                'responsavel_nome': data['responsavel_nome'],
+                'email_faturamento': data['email_faturamento'],
+                'telefone': data['telefone'],
+            }
+
+            invoice_result = db.criar_invoice_assinatura({
+                'id_cliente': cliente_id,
+                'id_plan': new_plan_id,
+                'plan_type': plan_type,
+                'total': plan_price,
+                'due_date': due_date,
+                'billing_data': billing_data,
+                'created_by': user_id,
+            })
+
+            invoice_number = invoice_result['invoice_number']
+
+            # 4. Enviar emails
+            email_data = {
+                'responsavel_nome': data['responsavel_nome'],
+                'nome_fantasia': data['nome_fantasia'],
+                'razao_social': data['razao_social'],
+                'cnpj': data['cnpj'],
+                'plan_type': plan_type.capitalize(),
+                'valor': f"{float(plan_price):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+                'invoice_number': invoice_number,
+                'due_date': datetime.strptime(due_date, '%Y-%m-%d').strftime('%d/%m/%Y'),
+                'email_faturamento': data['email_faturamento'],
+                'telefone': data['telefone'],
+            }
+
+            try:
+                send_subscription_confirmation_email(data['email_faturamento'], email_data)
+            except Exception as e:
+                app.logger.error(f"Erro ao enviar email de confirmação: {e}")
+
+            try:
+                send_new_subscription_internal_email(email_data)
+            except Exception as e:
+                app.logger.error(f"Erro ao enviar email interno: {e}")
+
+            # 5. Registrar auditoria
+            registrar_auditoria(
+                acao='CREATE',
+                modulo='ASSINATURAS',
+                descricao=f'Nova assinatura plano {plan_type} para cliente {data["nome_fantasia"]}',
+                registro_id=invoice_result['id_invoice'],
+                registro_tipo='subscription_invoice',
+                dados_novos={
+                    'plan_type': plan_type,
+                    'total': plan_price,
+                    'invoice_number': invoice_number,
+                    'cliente_id': cliente_id,
+                }
+            )
+
+            return jsonify({
+                'success': True,
+                'invoice_number': invoice_number,
+                'invoice_id': invoice_result['id_invoice'],
+                'plan_id': new_plan_id,
+            })
+
+        except Exception as e:
+            app.logger.error(f"Erro no checkout de assinatura: {e}")
+            import traceback
+            app.logger.error(traceback.format_exc())
+            return jsonify({'success': False, 'error': 'Erro interno ao processar assinatura.'}), 500
+
+    @app.route('/api/subscription/approve', methods=['POST'])
+    @login_required
+    def api_subscription_approve():
+        """Aprova fatura de assinatura pendente (somente admin/financeiro)"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
+
+            invoice_id = data.get('invoice_id')
+            if not invoice_id:
+                return jsonify({'success': False, 'error': 'invoice_id é obrigatório'}), 400
+
+            result = db.aprovar_invoice_assinatura(invoice_id)
+
+            if result:
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='ASSINATURAS',
+                    descricao=f'Fatura de assinatura #{invoice_id} aprovada',
+                    registro_id=invoice_id,
+                    registro_tipo='subscription_invoice',
+                    dados_novos={'invoice_status': 'paid'}
+                )
+                return jsonify({'success': True, 'message': 'Fatura aprovada com sucesso.'})
+            else:
+                return jsonify({'success': False, 'error': 'Fatura não encontrada ou já processada.'}), 404
+
+        except Exception as e:
+            app.logger.error(f"Erro ao aprovar fatura: {e}")
+            return jsonify({'success': False, 'error': 'Erro interno.'}), 500
+
+    @app.route('/api/subscription/pending', methods=['GET'])
+    @login_required
+    def api_subscription_pending():
+        """Lista faturas de assinatura pendentes (para financeiro)"""
+        try:
+            invoices = db.obter_invoices_assinatura_pendentes()
+            result = []
+            for inv in (invoices or []):
+                result.append(serializar_para_json(dict(inv)))
+            return jsonify({'success': True, 'invoices': result})
+        except Exception as e:
+            app.logger.error(f"Erro ao listar faturas pendentes: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

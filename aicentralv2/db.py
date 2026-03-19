@@ -2181,6 +2181,7 @@ def obter_cadu_audiencias(plataforma_id=None):
                     a.nome,
                     a.slug,
                     a.perfil_socioeconomico,
+                    a.titulo_chamativo,
                     a.categoria_id,
                     a.subcategoria_id,
                     a.campos_com_dados_reais,
@@ -3810,6 +3811,173 @@ def gerar_numero_invoice():
             next_num = result['next_number'] if result else 1
             return f'INV-{next_num:06d}'
     except Exception as e:
+        raise e
+
+
+# ==================== ASSINATURAS / SUBSCRIPTION ====================
+
+def criar_invoice_assinatura(dados):
+    """
+    Cria uma fatura do tipo subscription com billing_data JSON.
+
+    Args:
+        dados (dict): Deve conter id_cliente, plan_type, total, due_date, billing_data (dict),
+                      opcionalmente invoice_number, id_plan, created_by.
+    Returns:
+        dict: {id_invoice, invoice_number}
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            invoice_number = dados.get('invoice_number')
+            if not invoice_number:
+                from datetime import datetime as _dt
+                import secrets as _sec
+                suffix = _sec.token_hex(3).upper()
+                invoice_number = f"INV-{_dt.now().strftime('%Y%m%d')}-{suffix}"
+
+            billing_json = dados.get('billing_data')
+            if isinstance(billing_json, dict):
+                import json
+                billing_json = json.dumps(billing_json, ensure_ascii=False)
+
+            cursor.execute('''
+                INSERT INTO cadu_invoices (
+                    invoice_number, id_cliente, id_plan,
+                    invoice_type, plan_type, total, subtotal,
+                    invoice_status, issue_date, due_date,
+                    billing_data, created_by
+                ) VALUES (
+                    %s, %s, %s,
+                    'subscription', %s, %s, %s,
+                    'pending', CURRENT_DATE, %s,
+                    %s::jsonb, %s
+                ) RETURNING id_invoice, invoice_number
+            ''', (
+                invoice_number,
+                dados['id_cliente'],
+                dados.get('id_plan'),
+                dados['plan_type'],
+                dados['total'],
+                dados.get('subtotal', dados['total']),
+                dados['due_date'],
+                billing_json,
+                dados.get('created_by')
+            ))
+
+            row = cursor.fetchone()
+            conn.commit()
+            return {'id_invoice': row['id_invoice'], 'invoice_number': row['invoice_number']}
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_invoices_assinatura_pendentes():
+    """
+    Retorna faturas de assinatura com status pending, ordenadas por criacao desc.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    i.id_invoice,
+                    i.invoice_number,
+                    i.plan_type,
+                    i.total,
+                    i.due_date,
+                    i.billing_data,
+                    i.created_at,
+                    c.nome_fantasia,
+                    c.razao_social,
+                    c.cnpj
+                FROM cadu_invoices i
+                JOIN tbl_cliente c ON c.id_cliente = i.id_cliente
+                WHERE i.invoice_status = 'pending'
+                  AND i.invoice_type = 'subscription'
+                ORDER BY i.created_at DESC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def aprovar_invoice_assinatura(invoice_id):
+    """
+    Marca uma fatura de assinatura como paga.
+
+    Args:
+        invoice_id (int): ID da fatura (id_invoice)
+    Returns:
+        bool: True se atualizado
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_invoices
+                SET invoice_status = 'paid',
+                    paid_date = CURRENT_DATE,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id_invoice = %s
+                  AND invoice_type = 'subscription'
+                RETURNING id_invoice
+            ''', (invoice_id,))
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_dados_billing_cliente(cliente_id, dados):
+    """
+    Atualiza dados de faturamento em tbl_cliente (CNPJ, razao social, endereco, etc.).
+    Apenas atualiza campos fornecidos no dict.
+
+    Args:
+        cliente_id (int): ID do cliente
+        dados (dict): Campos a atualizar — chaves aceitas:
+            cnpj, razao_social, nome_fantasia, cep, cidade,
+            logradouro, bairro, numero, complemento, pk_id_aux_estado
+    Returns:
+        bool
+    """
+    campos_permitidos = {
+        'cnpj': 'cnpj',
+        'razao_social': 'razao_social',
+        'nome_fantasia': 'nome_fantasia',
+        'cep': 'cep',
+        'cidade': 'cidade',
+        'logradouro': 'logradouro',
+        'bairro': 'bairro',
+        'numero': 'numero',
+        'complemento': 'complemento',
+        'pk_id_aux_estado': 'pk_id_aux_estado',
+    }
+
+    sets = []
+    params = []
+    for chave, coluna in campos_permitidos.items():
+        if chave in dados and dados[chave] is not None:
+            sets.append(f"{coluna} = %s")
+            params.append(dados[chave])
+
+    if not sets:
+        return True
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = f"UPDATE tbl_cliente SET {', '.join(sets)} WHERE id_cliente = %s"
+            params.append(cliente_id)
+            cursor.execute(query, params)
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
         raise e
 
 

@@ -70,7 +70,6 @@
   {# ====== FILTROS ====== #}
   <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3 flex-wrap">
-      {% if request.args.get('view') != 'diarios' %}
       <div class="relative">
         <i class="fa-solid fa-circle-check absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroStatus" onchange="aplicarFiltros()"
@@ -81,7 +80,6 @@
           {% endfor %}
         </select>
       </div>
-      {% endif %}
       <div class="relative">
         <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
         <select id="filtroMesRef" onchange="aplicarFiltros()"
@@ -902,7 +900,7 @@
     const mes = document.getElementById('filtroMesRef').value;
     const exec = document.getElementById('filtroExecutivo').value;
 
-    if (!isDiariosView) setCookie('camppi_status', status, 30);
+    setCookie('camppi_status', status, 30);
     setCookie('cc_filtro_mes', mes, 30);
     setCookie('cc_filtro_exec', exec, 30);
 

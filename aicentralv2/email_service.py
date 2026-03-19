@@ -172,6 +172,61 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
     return result.get('success', False)
 
 
+# ==================== ASSINATURAS ====================
+
+def send_subscription_confirmation_email(email_faturamento, dados):
+    """
+    Envia email de confirmacao de assinatura ao cliente.
+
+    Args:
+        email_faturamento (str): Email de faturamento do cliente
+        dados (dict): responsavel_nome, nome_fantasia, razao_social, cnpj,
+                      plan_type, valor, invoice_number, due_date, email_faturamento
+    Returns:
+        bool
+    """
+    try:
+        html = render_template('emails/externos/assinatura-confirmacao.html', **dados)
+        plan = dados.get('plan_type', 'Pro')
+        return send_email(
+            subject=f'Cadu - Plano {plan} Ativado!',
+            recipients=[email_faturamento],
+            html_body=html
+        )
+    except Exception as e:
+        logger.error(f"Erro ao enviar email de confirmacao de assinatura: {e}")
+        return False
+
+
+def send_new_subscription_internal_email(dados):
+    """
+    Envia notificacao interna (Centralcomm) sobre nova assinatura.
+
+    Args:
+        dados (dict): nome_fantasia, razao_social, cnpj, plan_type, valor,
+                      invoice_number, due_date, responsavel_nome,
+                      email_faturamento, telefone
+    Returns:
+        bool
+    """
+    try:
+        html = render_template('emails/internos/nova-assinatura.html', **dados)
+        financeiro_email = current_app.config.get(
+            'SUBSCRIPTION_NOTIFY_EMAIL',
+            current_app.config.get('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
+        )
+        nome_fantasia = dados.get('nome_fantasia', 'Cliente')
+        plan = dados.get('plan_type', '')
+        return send_email(
+            subject=f'Nova Assinatura - {nome_fantasia} - Plano {plan}',
+            recipients=[financeiro_email],
+            html_body=html
+        )
+    except Exception as e:
+        logger.error(f"Erro ao enviar email interno de nova assinatura: {e}")
+        return False
+
+
 # ==================== TEMPLATES HTML (LEGADO) ====================
 
 def render_template_string(template_string, **context):

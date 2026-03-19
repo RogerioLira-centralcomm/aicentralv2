@@ -2,24 +2,30 @@
 
 {% block title %}Cotações - CentralComm AI{% endblock %}
 
+{% block styles %}
+<style>
+  .badge-status { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-enviada { background: #1f2937; color: #fff; }
+  .badge-aprovada { background: #dcfce7; color: #166534; }
+  .badge-rejeitada { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+  .badge-analise { background: #fef3c7; color: #92400e; }
+  .badge-default { background: #f1f5f9; color: #475569; }
+
+  .lista-table tbody tr { cursor: pointer; transition: background 0.15s ease; }
+  .lista-table tbody tr:hover { background: #f8fafc; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-full mx-auto px-2">
-  <!-- Header Compacto (estilo CRM) -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
-      <!-- Título + Link CRM -->
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold text-gray-800">Cotações</h1>
-        <a href="{{ url_for('crm_pipeline') }}" class="text-xs text-gray-500 hover:text-gray-700">
-          <i class="fa-solid fa-columns mr-1"></i>Pipeline
-        </a>
-      </div>
-      
-      <!-- Filtros Inline -->
-      <form id="filtros_form" class="flex items-center gap-3">
-        <!-- Executivo -->
-        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+<div class="max-w-full mx-auto px-3 pb-6">
+
+  {# ====== FILTROS ====== #}
+  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="relative">
+        <i class="fa-solid fa-user-tie absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 160px;">
           <option value="">Todos executivos</option>
           {% for vendedor in vendedores %}
             <option value="{{ vendedor.id_contato_cliente }}" {% if request.args.get('responsavel_comercial')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
@@ -27,10 +33,11 @@
             </option>
           {% endfor %}
         </select>
-        
-        <!-- Mês -->
-        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
+      </div>
+      <div class="relative">
+        <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 130px;">
           <option value="">Todos meses</option>
           <option value="01" {% if request.args.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
           <option value="02" {% if request.args.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
@@ -45,40 +52,42 @@
           <option value="11" {% if request.args.get('mes') == '11' %}selected{% endif %}>Novembro</option>
           <option value="12" {% if request.args.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
         </select>
-        
-        <!-- Busca Cliente -->
-        <div class="relative">
-          <input type="text" name="busca" id="filtro_busca" 
-                 value="{{ request.args.get('busca', '') }}"
-                 placeholder="Buscar cliente..."
-                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" 
-                 style="min-width: 180px;"
-                 onkeyup="debounceAplicarFiltros()">
-          <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-        </div>
-        
-        <!-- Status Icons -->
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          {% set status_icons = [
-            ('Rascunho', 'fa-file-pen', request.args.get('status') == 'Rascunho'),
-            ('Em Análise', 'fa-magnifying-glass', request.args.get('status') == 'Em Análise'),
-            ('Enviada', 'fa-paper-plane', request.args.get('status') == 'Enviada'),
-            ('Aprovada', 'fa-circle-check', request.args.get('status') == 'Aprovada'),
-            ('Rejeitada', 'fa-circle-xmark', request.args.get('status') == 'Rejeitada')
-          ] %}
-          {% for status, icon, active in status_icons %}
-          <button type="button" onclick="filtrarPorStatus('{{ status }}')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if active %}bg-gray-200{% endif %}" 
-                  title="{{ status }}">
-            <i class="fa-solid {{ icon }} text-sm text-gray-{% if active %}800{% else %}400{% endif %}"></i>
-          </button>
-          {% endfor %}
-        </div>
-      </form>
-      
-      <!-- Botão Nova Cotação -->
-      <a href="{{ url_for('cotacao_nova') }}" class="btn btn-sm text-white" style="background-color: #72cd80; border-color: #72cd80;">
-        <i class="fas fa-plus mr-1"></i>Nova
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <input type="text" name="busca" id="filtro_busca"
+               value="{{ request.args.get('busca', '') }}"
+               placeholder="Buscar cliente..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+               style="min-width: 200px;"
+               onkeyup="debounceAplicarFiltros()">
+      </div>
+      <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+        {% set status_icons = [
+          ('Rascunho', 'fa-file-pen', request.args.get('status') == 'Rascunho'),
+          ('Em Análise', 'fa-magnifying-glass', request.args.get('status') == 'Em Análise'),
+          ('Enviada', 'fa-paper-plane', request.args.get('status') == 'Enviada'),
+          ('Aprovada', 'fa-circle-check', request.args.get('status') == 'Aprovada'),
+          ('Rejeitada', 'fa-circle-xmark', request.args.get('status') == 'Rejeitada')
+        ] %}
+        {% for status, icon, active in status_icons %}
+        <button type="button" onclick="filtrarPorStatus('{{ status }}')"
+                class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors {% if active %}bg-indigo-100{% endif %}"
+                title="{{ status }}">
+          <i class="fa-solid {{ icon }} text-sm {% if active %}text-indigo-600{% else %}text-gray-400{% endif %}"></i>
+        </button>
+        {% endfor %}
+      </div>
+      <a href="{{ url_for('crm_pipeline') }}" class="text-xs text-gray-400 hover:text-indigo-600 transition-colors ml-1">
+        <i class="fa-solid fa-columns mr-1"></i>Pipeline
+      </a>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm text-gray-500" id="totalCotacoes">{{ cotacoes|length if cotacoes else 0 }} {{ 'cotação' if (cotacoes|length if cotacoes else 0) == 1 else 'cotações' }}</span>
+      <a href="{{ url_for('cotacao_nova') }}"
+         class="text-sm font-medium text-white rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5"
+         style="background-color: #72cd80;">
+        <i class="fas fa-plus text-xs"></i> Nova
       </a>
     </div>
   </div>
@@ -87,180 +96,166 @@
     {% if messages %}
       <div class="mb-4 space-y-2">
         {% for category, message in messages %}
-          <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span class="text-sm">{{ message }}</span>
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- elif category == 'warning' %} bg-amber-100 text-amber-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
           </div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <!-- Tabela de Cotações -->
-  <div class="bg-white rounded border border-gray-200 overflow-hidden">
-    {% if cotacoes %}
-      <table class="table table-sm w-full">
-        <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
-          <tr>
-            <th class="font-semibold py-3" style="width: 150px;">Cotação</th>
-            <th class="font-semibold" style="max-width: 280px;">Cliente / Campanha</th>
-            <th class="font-semibold" style="width: 100px;">Executivo</th>
-            <th class="font-semibold text-center" style="width: 120px;">Período</th>
-            <th class="font-semibold text-right" style="width: 120px;">Valor</th>
-            <th class="font-semibold text-center" style="width: 80px;">Status</th>
-            <th class="font-semibold text-center" style="width: 100px;">Itens</th>
-            <th class="font-semibold text-center" style="width: 50px;"></th>
+  {# ====== TABELA COMPACTA ====== #}
+  {% if cotacoes and cotacoes|length > 0 %}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm lista-table">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 150px;">Cotação</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="max-width: 280px;">Cliente / Campanha</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 110px;">Executivo</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 120px;">Período</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 120px;">Valor</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 90px;">Status</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 100px;">Itens</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 50px;">Ações</th>
           </tr>
         </thead>
-        <tbody class="text-sm">
+        <tbody class="divide-y divide-gray-100" id="cotacoesTableBody">
           {% for cotacao in cotacoes %}
           {% set hoje = now().date() %}
           {% set dias_para_inicio = (cotacao.periodo_inicio - hoje).days if cotacao.periodo_inicio else none %}
           {% set status_enviada = cotacao.status == 'Enviada' %}
           {% set sem_responsavel = not cotacao.responsavel_nome %}
           {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
-          
-          <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer {% if urgente %}bg-amber-50{% endif %}" 
+
+          <tr class="{% if urgente %}bg-amber-50/60{% endif %}"
               onclick="window.location.href='/cotacoes/{{ cotacao.id }}/detalhes'">
-            <!-- Cotação -->
-            <td class="py-3" onclick="event.stopPropagation()">
-              <div class="flex flex-col">
-                <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="font-mono text-xs font-semibold text-gray-700 hover:text-gray-900 hover:underline">
-                  {{ cotacao.numero_cotacao }}
-                </a>
-                <span class="text-xs text-gray-400">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '-' }}</span>
-              </div>
+
+            {# — COTAÇÃO — #}
+            <td class="py-2.5 px-3 align-top" onclick="event.stopPropagation()">
+              <a href="/cotacoes/{{ cotacao.id }}/detalhes" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                {{ cotacao.numero_cotacao }}
+              </a>
+              <div class="text-[11px] text-gray-400">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
             </td>
-            
-            <!-- Cliente / Campanha -->
-            <td style="max-width: 280px;">
-              <div class="flex flex-col max-w-[260px]">
-                <span class="font-medium text-gray-800 truncate">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
-                <span class="text-xs text-gray-500 truncate">{{ cotacao.nome_campanha or '-' }}</span>
-              </div>
+
+            {# — CLIENTE / CAMPANHA — #}
+            <td class="py-2.5 px-3 align-top max-w-[280px]">
+              <div class="text-xs font-semibold text-gray-800 truncate">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
+              <div class="text-[11px] text-gray-400 truncate">{{ cotacao.nome_campanha or '—' }}</div>
             </td>
-            
-            <!-- Executivo -->
-            <td>
+
+            {# — EXECUTIVO — #}
+            <td class="py-2.5 px-3 align-top">
               {% if sem_responsavel %}
               <div class="flex items-center gap-1 text-amber-600">
-                <i class="fa-solid fa-triangle-exclamation text-xs"></i>
-                <span class="text-xs font-medium">Sem responsável</span>
+                <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                <span class="text-[11px] font-medium">Sem responsável</span>
               </div>
               {% else %}
-              <span class="text-sm text-gray-700">{{ cotacao.responsavel_nome }}</span>
+              <div class="text-xs text-gray-700 truncate max-w-[100px]">{{ cotacao.responsavel_nome }}</div>
               {% endif %}
             </td>
-            
-            <!-- Período -->
-            <td class="text-center">
+
+            {# — PERÍODO — #}
+            <td class="py-2.5 px-3 text-center align-top whitespace-nowrap">
               {% if cotacao.periodo_inicio %}
-              <div class="flex flex-col items-center">
-                <span class="text-xs text-gray-600">
-                  {{ cotacao.periodo_inicio.strftime('%d/%m') if cotacao.periodo_inicio else '-' }}
-                  {% if cotacao.periodo_fim %} - {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}
-                </span>
-                {% if status_enviada and dias_para_inicio is not none %}
-                  {% if dias_para_inicio < 0 %}
-                  <span class="text-xs font-medium text-red-600"><i class="fa-solid fa-clock mr-1"></i>Já iniciou</span>
-                  {% elif dias_para_inicio == 0 %}
-                  <span class="text-xs font-medium text-red-600"><i class="fa-solid fa-clock mr-1"></i>Inicia hoje!</span>
-                  {% elif dias_para_inicio <= 3 %}
-                  <span class="text-xs font-medium text-red-600"><i class="fa-solid fa-clock mr-1"></i>{{ dias_para_inicio }}d para início</span>
-                  {% elif dias_para_inicio <= 7 %}
-                  <span class="text-xs font-medium text-amber-600"><i class="fa-solid fa-clock mr-1"></i>{{ dias_para_inicio }}d para início</span>
-                  {% else %}
-                  <span class="text-xs text-gray-400">{{ dias_para_inicio }}d para início</span>
-                  {% endif %}
-                {% endif %}
+              <div class="text-[11px] text-gray-600">
+                {{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}
               </div>
+              {% if status_enviada and dias_para_inicio is not none %}
+                {% if dias_para_inicio < 0 %}
+                <div class="text-[10px] font-medium text-red-500">Já iniciou</div>
+                {% elif dias_para_inicio == 0 %}
+                <div class="text-[10px] font-medium text-red-500">Inicia hoje!</div>
+                {% elif dias_para_inicio <= 3 %}
+                <div class="text-[10px] font-medium text-red-500">{{ dias_para_inicio }}d p/ início</div>
+                {% elif dias_para_inicio <= 7 %}
+                <div class="text-[10px] font-medium text-amber-500">{{ dias_para_inicio }}d p/ início</div>
+                {% else %}
+                <div class="text-[10px] text-gray-400">{{ dias_para_inicio }}d p/ início</div>
+                {% endif %}
+              {% endif %}
               {% else %}
-              <span class="text-xs text-gray-400">-</span>
+              <span class="text-[11px] text-gray-400">—</span>
               {% endif %}
             </td>
-            
-            <!-- Valor -->
-            <td class="text-right">
+
+            {# — VALOR — #}
+            <td class="py-2.5 px-3 text-right align-top whitespace-nowrap">
               {% set bruto = cotacao.valor_total_bruto|default(0, true)|float %}
               {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
               {% if bruto > 0 or liquido > 0 %}
-              <div class="flex flex-col">
-                <span class="font-semibold text-gray-800" title="Valor Bruto">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-                <span class="text-xs text-green-600" title="Valor Líquido">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-              </div>
+              <div class="text-[11px] font-semibold text-gray-700">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+              <div class="text-[10px] text-emerald-600">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
               {% else %}
-              <span class="text-gray-400">-</span>
+              <span class="text-[11px] text-gray-400">—</span>
               {% endif %}
             </td>
-            
-            <!-- Status (escala de cinza) -->
-            <td class="text-center">
+
+            {# — STATUS — #}
+            <td class="py-2.5 px-3 text-center align-top">
               {% set status_display = 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status %}
               {% if status_display == 'Enviada' %}
-              <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded bg-gray-800 text-white">
-                {{ status_display }}
-              </span>
+              <span class="badge-status badge-enviada">{{ status_display }}</span>
               {% elif status_display == 'Aprovada' %}
-              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-200 text-gray-700">
-                {{ status_display }}
-              </span>
+              <span class="badge-status badge-aprovada">{{ status_display }}</span>
               {% elif status_display == 'Rejeitada' %}
-              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-300 text-gray-600 line-through">
-                {{ status_display }}
-              </span>
+              <span class="badge-status badge-rejeitada">{{ status_display }}</span>
+              {% elif status_display == 'Em Análise' %}
+              <span class="badge-status badge-analise">{{ status_display }}</span>
               {% else %}
-              <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-500">
-                {{ status_display }}
-              </span>
+              <span class="badge-status badge-default">{{ status_display }}</span>
               {% endif %}
             </td>
-            
-            <!-- Contadores -->
-            <td class="text-center">
-              <div class="flex items-center justify-center gap-2">
-                <span class="text-xs text-gray-500" title="Itens"><i class="fa-solid fa-list text-gray-400"></i> {{ cotacao.total_linhas or 0 }}</span>
-                <span class="text-xs text-gray-500" title="Audiências"><i class="fa-solid fa-users text-gray-400"></i> {{ cotacao.total_audiencias or 0 }}</span>
-                <span class="text-xs text-gray-500" title="Anexos"><i class="fa-solid fa-paperclip text-gray-400"></i> {{ cotacao.total_anexos or 0 }}</span>
+
+            {# — CONTADORES — #}
+            <td class="py-2.5 px-3 text-center align-top">
+              <div class="flex items-center justify-center gap-1.5">
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded-full text-[10px] font-bold {% if (cotacao.total_linhas or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Itens">
+                  <i class="fa-solid fa-list text-[8px] mr-0.5"></i>{{ cotacao.total_linhas or 0 }}
+                </span>
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded-full text-[10px] font-bold {% if (cotacao.total_audiencias or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Audiências">
+                  <i class="fa-solid fa-users text-[8px] mr-0.5"></i>{{ cotacao.total_audiencias or 0 }}
+                </span>
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded-full text-[10px] font-bold {% if (cotacao.total_anexos or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Anexos">
+                  <i class="fa-solid fa-paperclip text-[8px] mr-0.5"></i>{{ cotacao.total_anexos or 0 }}
+                </span>
               </div>
             </td>
 
-            <!-- Ações -->
-            <td class="text-center" onclick="event.stopPropagation()">
-              <button onclick="abrirModalCotacao({{ cotacao.id }})" 
-                      class="p-1.5 rounded hover:bg-gray-200 transition-colors" title="Ações">
-                <i class="fa-solid fa-ellipsis-vertical text-sm text-gray-400 hover:text-gray-600"></i>
+            {# — AÇÕES — #}
+            <td class="py-2.5 px-3 text-center align-top" onclick="event.stopPropagation()">
+              <button onclick="abrirModalCotacao({{ cotacao.id }})"
+                      class="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Detalhes">
+                <i class="fa-solid fa-ellipsis-vertical text-xs"></i>
               </button>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-
-      <!-- Rodapé com contagem -->
-      <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-        <p class="text-sm text-gray-600">
-          <strong>{{ cotacoes|length }}</strong> cotação(ões)
-          {% if request.args.get('status') %}
-          <span class="text-gray-400">• Filtro: {{ request.args.get('status') }}</span>
-          {% endif %}
-        </p>
-        
-        <!-- Legenda rápida -->
-        <div class="flex items-center gap-4 text-xs text-gray-500">
-          <span><i class="fa-solid fa-paper-plane text-gray-800 mr-1"></i>Enviada = Aguardando aprovação</span>
-          <span><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i>Sem responsável</span>
-          <span class="px-2 py-0.5 bg-amber-50 rounded">Urgente (&lt;7 dias)</span>
-        </div>
-      </div>
-    {% else %}
-      <div class="p-8 text-center">
-        <i class="fas fa-file-invoice text-4xl text-gray-300 mb-3"></i>
-        <p class="text-gray-500">Nenhuma cotação encontrada.</p>
-        <a href="{{ url_for('cotacao_nova') }}" class="btn btn-sm mt-4 text-white" style="background-color: #72cd80;">
-          <i class="fas fa-plus mr-2"></i>Criar Cotação
-        </a>
-      </div>
-    {% endif %}
+    </div>
   </div>
+
+  {% else %}
+    <div class="text-center py-16 bg-white rounded-xl border border-gray-200">
+      <i class="fas fa-file-invoice text-6xl text-gray-200 mb-4"></i>
+      <p class="text-gray-400 text-lg mb-2">Nenhuma cotação encontrada.</p>
+      <p class="text-gray-400 text-sm mb-4">Ajuste os filtros ou crie uma nova cotação.</p>
+      <a href="{{ url_for('cotacao_nova') }}"
+         class="inline-flex items-center gap-1.5 text-sm font-medium text-white rounded-lg px-5 py-2 transition-colors shadow-sm"
+         style="background-color: #72cd80;">
+        <i class="fas fa-plus text-xs"></i> Criar Cotação
+      </a>
+    </div>
+  {% endif %}
 </div>
 
 <!-- Modal Detalhes Cotação -->

@@ -8134,6 +8134,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     auxiliares = _carregar_auxiliares_pi()
                     return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
+                if not data.get('periodo_inicio') or not data.get('periodo_fim'):
+                    flash('Data de Início e Término são obrigatórias.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
+
                 id_pi = db.criar_cadu_pi(data)
 
                 registrar_auditoria(
@@ -8192,6 +8197,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 if not data.get('id_pi_tipo'):
                     flash('Tipo PI é obrigatório.', 'error')
+                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares.update(_carregar_auxiliares_campanha())
+                    return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
+
+                if not data.get('periodo_inicio') or not data.get('periodo_fim'):
+                    flash('Data de Início e Término são obrigatórias.', 'error')
                     auxiliares = _carregar_auxiliares_pi()
                     auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, **auxiliares)
@@ -8849,6 +8860,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'status_pi': db.obter_status_pi(),
             'sub_status_pi': db.obter_sub_status_pi(),
             'user_is_executivo': is_executivo,
+            'tipos_cliente': db.obter_tipos_cliente(),
+            'estados': db.obter_estados(),
+            'vendedores_cc': vendedores,
+            'agencias_opts': db.obter_aux_agencia(),
         }
 
     # ==================== OBJETIVOS CAMPANHA PI - ROTAS ====================

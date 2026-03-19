@@ -122,19 +122,34 @@
           </div>
           <div class="relative">
             <label class="block text-xs font-medium text-gray-600 mb-1">Cliente <span class="text-red-500">*</span></label>
-            <input type="text" id="input_cliente_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+            <div class="flex gap-1">
+              <input type="text" id="input_cliente_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+              <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Cliente">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
             <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
             <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
           </div>
           <div class="relative">
             <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
-            <input type="text" id="input_agencia_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+            <div class="flex gap-1">
+              <input type="text" id="input_agencia_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+              <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Nova Agência">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
             <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
             <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
           </div>
           <div class="relative">
             <label class="block text-xs font-medium text-gray-600 mb-1">Parceiro Regional</label>
-            <input type="text" id="input_parceiro_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off">
+            <div class="flex gap-1">
+              <input type="text" id="input_parceiro_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off">
+              <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Parceiro">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
             <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
             <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
           </div>
@@ -228,12 +243,12 @@
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Início</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Início <span class="text-red-500">*</span></label>
             <div class="flex">
               <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_inicio').showPicker()">
                 <i class="fas fa-calendar-alt text-xs"></i>
               </button>
-              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}" required>
             </div>
           </div>
           <!-- Linha 2: Líquido | %Parc | ComissãoParc | Plataformas | Término -->
@@ -263,12 +278,12 @@
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Término <span class="text-red-500">*</span></label>
             <div class="flex">
               <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_fim').showPicker()">
                 <i class="fas fa-calendar-alt text-xs"></i>
               </button>
-              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
+              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}" required>
             </div>
           </div>
         </div>
@@ -1459,5 +1474,338 @@ function abrirViewCampanha(c) {
 })();
 </script>
 {% endif %}
+
+<!-- Modal Criar Novo Cliente (PI) -->
+<dialog id="modal_novo_cliente_pi" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-none overflow-visible">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="ncpi_modal_title">Novo Cliente</h3>
+      <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <form id="ncpi_form" class="space-y-3">
+        <input type="hidden" id="ncpi_contexto" value="cliente">
+
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+          <div class="form-control col-span-1 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
+            <div class="flex gap-0">
+              <label id="ncpi_label_pj" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncpiTogglePessoa('J')">
+                <input type="radio" name="ncpi_pessoa" value="J" class="hidden" checked>
+                <span>PJ</span>
+              </label>
+              <label id="ncpi_label_pf" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="ncpiTogglePessoa('F')">
+                <input type="radio" name="ncpi_pessoa" value="F" class="hidden">
+                <span>PF</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-control col-span-1 md:col-span-2">
+            <label id="ncpi_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
+            <input id="ncpi_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="ncpiMascaraCnpjCpf(this)" maxlength="18">
+          </div>
+          <div class="form-control col-span-1 md:col-span-4">
+            <label class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
+            <input id="ncpi_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+          </div>
+          <div id="ncpi_razao_fields" class="form-control col-span-1 md:col-span-4">
+            <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
+            <input id="ncpi_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+          <div id="ncpi_tipo_fields" class="form-control col-span-1 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
+            <select id="ncpi_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for tipo in tipos_cliente|default([]) %}
+                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control col-span-1 md:col-span-5">
+            <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
+            <select id="ncpi_vendas" name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for v in vendedores_cc|default([]) %}
+                <option value="{{ v.id_contato_cliente }}">{{ v.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="ncpi_agencia_fields" class="form-control col-span-1 md:col-span-3">
+            <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
+            <select id="ncpi_agencia" name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for ag in agencias_opts|default([]) %}
+                <option value="{{ ag.id_agencia }}" data-key="{{ ag.key|default(false) }}">{{ ag.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="ncpi_percentual_fields" class="form-control col-span-1 md:col-span-2" style="display:none;">
+            <label id="ncpi_percentual_label" class="text-xs font-medium text-gray-600 mb-1">Percentual*</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="ncpiMascaraPercentual(this)">
+          </div>
+        </div>
+
+        <div id="ncpi_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
+            <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+          </div>
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
+            <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+          </div>
+        </div>
+
+        <div class="border-t border-gray-200 pt-3 mt-3">
+          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
+          <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
+              <input id="ncpi_cep" name="cep" oninput="ncpiMascaraCep(this)" onkeydown="ncpiBuscarCep(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
+              <select id="ncpi_estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="">UF</option>
+                {% for estado in estados|default([]) %}
+                  <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
+              <input id="ncpi_cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
+              <input id="ncpi_bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+            </div>
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
+              <input id="ncpi_logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-3 mt-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
+              <input name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+            </div>
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
+              <input name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
+          <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+          <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-save mr-2"></i>Cadastrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<script>
+function ncpiMascaraCnpjCpf(input) {
+  var pessoa = document.querySelector('#ncpi_form input[name="ncpi_pessoa"]:checked');
+  var tipo = pessoa ? pessoa.value : 'J';
+  var v = input.value.replace(/\D/g, '');
+  if (tipo === 'F') {
+    v = v.slice(0, 11);
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    input.maxLength = 14;
+  } else {
+    v = v.slice(0, 14);
+    v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+    v = v.replace(/(\d{4})(\d)/, '$1-$2');
+    input.maxLength = 18;
+  }
+  input.value = v;
+}
+
+function ncpiMascaraCep(input) {
+  var v = input.value.replace(/\D/g, '');
+  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
+  input.value = v.slice(0,9);
+}
+
+function ncpiMascaraPercentual(input) {
+  var valor = input.value.replace(/\D/g, '');
+  if (valor.length === 0) { input.value = ''; return; }
+  if (valor.length > 4) valor = valor.substring(0, 4);
+  var numero = parseInt(valor) / 100;
+  input.value = numero.toFixed(2).replace('.', ',');
+}
+
+function abrirModalNovoClientePI(contexto) {
+  var form = document.getElementById('ncpi_form');
+  form.reset();
+  document.getElementById('ncpi_contexto').value = contexto;
+  ncpiTogglePessoa('J');
+
+  var agenciaSelect = document.getElementById('ncpi_agencia');
+  var tipoSelect = document.getElementById('ncpi_tipo_cliente');
+  agenciaSelect.value = '';
+  tipoSelect.value = '';
+
+  var titles = { cliente: 'Novo Cliente', agencia: 'Nova Agência', parceiro: 'Novo Parceiro Regional' };
+  document.getElementById('ncpi_modal_title').textContent = titles[contexto] || 'Novo Cliente';
+
+  var vendasSelect = document.getElementById('ncpi_vendas');
+  var userId = '{{ session.get("user_id", "") }}';
+  if (userId) vendasSelect.value = userId;
+
+  var percFields = document.getElementById('ncpi_percentual_fields');
+  var percInput = percFields.querySelector('input[name="percentual"]');
+
+  if (contexto === 'cliente') {
+    for (var i = 0; i < agenciaSelect.options.length; i++) {
+      if (agenciaSelect.options[i].dataset.key === 'False' || agenciaSelect.options[i].dataset.key === 'false') { agenciaSelect.value = agenciaSelect.options[i].value; break; }
+    }
+    percFields.style.display = 'none';
+    percInput.required = false;
+    percInput.value = '';
+  } else if (contexto === 'agencia') {
+    for (var i = 0; i < agenciaSelect.options.length; i++) {
+      if (agenciaSelect.options[i].dataset.key === 'True' || agenciaSelect.options[i].dataset.key === 'true') { agenciaSelect.value = agenciaSelect.options[i].value; break; }
+    }
+    percFields.style.display = '';
+    percInput.required = true;
+  } else if (contexto === 'parceiro') {
+    for (var i = 0; i < agenciaSelect.options.length; i++) {
+      if (agenciaSelect.options[i].dataset.key === 'False' || agenciaSelect.options[i].dataset.key === 'false') { agenciaSelect.value = agenciaSelect.options[i].value; break; }
+    }
+    for (var i = 0; i < tipoSelect.options.length; i++) {
+      if (tipoSelect.options[i].textContent.trim().toLowerCase().includes('parceiro')) { tipoSelect.value = tipoSelect.options[i].value; break; }
+    }
+    percFields.style.display = '';
+    percInput.required = true;
+  }
+
+  document.getElementById('modal_novo_cliente_pi').showModal();
+}
+
+function ncpiTogglePessoa(tipo) {
+  var lblPj = document.getElementById('ncpi_label_pj');
+  var lblPf = document.getElementById('ncpi_label_pf');
+  var razaoFields = document.getElementById('ncpi_razao_fields');
+  var inscFields = document.getElementById('ncpi_inscricoes_fields');
+  var agenciaFields = document.getElementById('ncpi_agencia_fields');
+  var lblCnpj = document.getElementById('ncpi_label_cnpj');
+  var inputCnpj = document.getElementById('ncpi_cnpj');
+
+  if (tipo === 'J') {
+    lblPj.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700';
+    lblPf.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50';
+    lblPj.querySelector('input').checked = true;
+    razaoFields.style.display = '';
+    inscFields.style.display = '';
+    agenciaFields.style.display = '';
+    lblCnpj.textContent = 'CNPJ*';
+    inputCnpj.placeholder = 'CNPJ';
+    inputCnpj.maxLength = 18;
+    document.getElementById('ncpi_razao_social').required = true;
+  } else {
+    lblPf.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700';
+    lblPj.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50';
+    lblPf.querySelector('input').checked = true;
+    razaoFields.style.display = 'none';
+    inscFields.style.display = 'none';
+    agenciaFields.style.display = 'none';
+    lblCnpj.textContent = 'CPF*';
+    inputCnpj.placeholder = 'CPF';
+    inputCnpj.maxLength = 14;
+    document.getElementById('ncpi_razao_social').required = false;
+  }
+}
+
+async function ncpiBuscarCep(event) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  var cep = document.getElementById('ncpi_cep').value.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  try {
+    var resp = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    var data = await resp.json();
+    if (data.erro) { if (typeof showToast === 'function') showToast('CEP não encontrado', 'warning'); return; }
+    document.getElementById('ncpi_logradouro').value = data.logradouro || '';
+    document.getElementById('ncpi_bairro').value = data.bairro || '';
+    document.getElementById('ncpi_cidade').value = data.localidade || '';
+    var estadoSelect = document.getElementById('ncpi_estado');
+    for (var i = 0; i < estadoSelect.options.length; i++) {
+      if (estadoSelect.options[i].dataset.sigla === data.uf) { estadoSelect.value = estadoSelect.options[i].value; break; }
+    }
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById('ncpi_form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var contexto = document.getElementById('ncpi_contexto').value;
+  var formData = new FormData(this);
+
+  formData.set('_return_json', '1');
+
+  var pessoa = formData.get('ncpi_pessoa');
+  formData.set('pessoa', pessoa);
+  formData.delete('ncpi_pessoa');
+
+  if (pessoa === 'F') {
+    formData.set('pk_id_tbl_agencia', '2');
+    if (!formData.get('razao_social')) {
+      formData.set('razao_social', formData.get('nome_fantasia'));
+    }
+  }
+
+  try {
+    var response = await fetch('/clientes/novo', { method: 'POST', body: formData, redirect: 'follow' });
+    var data = await response.json();
+
+    if (!data.success) {
+      if (typeof showToast === 'function') showToast(data.message || 'Erro ao cadastrar. Verifique os campos obrigatórios.', 'error');
+      return;
+    }
+
+    document.getElementById('modal_novo_cliente_pi').close();
+
+    var novoId = data.id_cliente;
+    var nome = data.nome_fantasia || data.razao_social || 'Novo cliente';
+
+    if (contexto === 'cliente') {
+      document.getElementById('input_cliente_busca').value = nome;
+      document.getElementById('hidden_id_cliente').value = novoId;
+      if (typeof carregarContatos === 'function') carregarContatos(novoId, 'cliente').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('cliente'); });
+    } else if (contexto === 'agencia') {
+      document.getElementById('input_agencia_busca').value = nome;
+      document.getElementById('hidden_id_agencia').value = novoId;
+      if (typeof carregarContatos === 'function') carregarContatos(novoId, 'agencia').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('agencia'); });
+    } else if (contexto === 'parceiro') {
+      document.getElementById('input_parceiro_busca').value = nome;
+      document.getElementById('hidden_id_parceiro').value = novoId;
+      if (typeof carregarContatos === 'function') carregarContatos(novoId, 'parceiro').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('parceiro'); });
+    }
+
+    if (typeof showToast === 'function') showToast(nome + ' cadastrado com sucesso!', 'success');
+  } catch (error) {
+    console.error('Erro:', error);
+    if (typeof showToast === 'function') showToast('Erro ao cadastrar cliente.', 'error');
+  }
+});
+</script>
 
 {% endblock %}

@@ -169,7 +169,7 @@
 
           <tr data-campanha-id="{{ c.id_campanha }}"
               data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "obj_contratados": c.obj_contratados or "", "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": c.totalizador_atingido or "", "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "id_centralx": c.id_centralx or "", "id_criativos_validados": c.id_criativos_validados or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
-              onclick="abrirModalEditar(JSON.parse(this.dataset.camp))" class="cursor-pointer">
+              onclick="try { abrirModalEditar(JSON.parse(this.dataset.camp)); } catch(e) { console.error('Erro ao parsear data-camp:', e, this.dataset.camp); alert('Erro ao abrir edição: ' + e.message); }" class="cursor-pointer">
 
             {# — PERÍODO — #}
             <td class="py-2.5 px-3 align-top whitespace-nowrap">
@@ -234,7 +234,7 @@
             {# — AÇÕES — #}
             <td class="py-2.5 px-3 text-center align-top whitespace-nowrap">
               <div class="flex items-center justify-center gap-0.5">
-                <button onclick="event.stopPropagation(); abrirModalEditar(JSON.parse(this.closest('tr').dataset.camp))"
+                <button onclick="event.stopPropagation(); try { abrirModalEditar(JSON.parse(this.closest('tr').dataset.camp)); } catch(e) { console.error('Erro edit btn:', e); alert('Erro: ' + e.message); }"
                         class="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Editar">
                   <i class="fas fa-edit text-xs"></i>
                 </button>
@@ -250,10 +250,6 @@
                     <i class="fas fa-chart-line text-xs"></i>
                   </a>
                 {% endif %}
-                <button onclick="event.stopPropagation(); navigator.clipboard.writeText('{{ c.codigo_pi or '' }}')"
-                        class="p-1 text-gray-400 hover:text-gray-600 transition-colors" title="Copiar PI">
-                  <i class="fas fa-copy text-xs"></i>
-                </button>
                 <button onclick="event.stopPropagation(); abrirModalDiarios({{ c.id_campanha }}, '{{ c.codigo_pi|e }}', '{{ c.titulo_pi|e }}', '{{ c.nome_campanha|e }}')"
                         class="p-1 text-gray-400 hover:text-amber-600 transition-colors" title="Diários">
                   <i class="fas fa-calendar-day text-xs"></i>
@@ -570,6 +566,8 @@
     <div class="px-6 py-5 max-h-[75vh] overflow-y-auto">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" id="id_centralx" name="id_centralx" value="">
+        <input type="hidden" id="mes_ref" name="mes_ref" value="">
+        <input type="hidden" id="mes_ref_comp" name="mes_ref_comp" value="">
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
 
@@ -628,14 +626,24 @@
             </select>
           </div>
           <div>
-            <label for="periodo_inicio" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Início</label>
-            <input type="date" id="periodo_inicio" name="periodo_inicio"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            <label for="periodo_inicio" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Início <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <input type="date" id="periodo_inicio" name="periodo_inicio" required
+                     class="w-full px-3 py-2.5 pr-9 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <button type="button" onclick="document.getElementById('periodo_inicio').showPicker()" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-calendar-alt text-sm"></i>
+              </button>
+            </div>
           </div>
           <div>
-            <label for="periodo_fim" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Fim</label>
-            <input type="date" id="periodo_fim" name="periodo_fim"
-                   class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            <label for="periodo_fim" class="block text-xs font-semibold text-gray-700 mb-1.5">Data Fim <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <input type="date" id="periodo_fim" name="periodo_fim" required
+                     class="w-full px-3 py-2.5 pr-9 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <button type="button" onclick="document.getElementById('periodo_fim').showPicker()" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-calendar-alt text-sm"></i>
+              </button>
+            </div>
           </div>
 
           <div>
@@ -1247,43 +1255,49 @@
   let currentModalCampData = null;
 
   function abrirModalEditar(c) {
-    currentModalCampId = c.id_campanha;
-    currentModalCampData = c;
-    document.getElementById('modal_title').innerHTML = 'Operação: <span class="font-normal text-gray-200 ml-1">Editar Campanha</span>';
-    document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_editar', id_camp=0) }}".replace('0', c.id_campanha);
+    try {
+      console.log('abrirModalEditar chamada:', c);
+      currentModalCampId = c.id_campanha;
+      currentModalCampData = c;
+      document.getElementById('modal_title').innerHTML = 'Operação: <span class="font-normal text-gray-200 ml-1">Editar Campanha</span>';
+      document.getElementById('campanhaForm').action = "{{ url_for('campanha_pi_editar', id_camp=0) }}".replace('0', c.id_campanha);
 
-    document.getElementById('nome_campanha').value = c.nome_campanha || '';
-    document.getElementById('id_pi').value = c.id_pi || '';
-    document.getElementById('id_cliente').value = c.id_cliente || '';
-    document.getElementById('id_cliente_hidden').value = c.id_cliente || '';
-    document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
-    document.getElementById('id_plataforma').value = c.id_plataforma || '';
-    document.getElementById('id_status').value = c.id_status || '';
-    document.getElementById('id_criativos_validados').value = c.id_criativos_validados || '';
-    document.getElementById('obj_contratados').value = rawParaFormatado(c.obj_contratados, 'numero');
-    document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
-    document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
-    document.getElementById('link_dash').value = c.link_dash || '';
-    document.getElementById('periodo_inicio').value = formatDatetimeForInput(c.periodo_inicio);
-    document.getElementById('periodo_fim').value = formatDatetimeForInput(c.periodo_fim);
-    document.getElementById('under').checked = !!c.under;
-    document.getElementById('totalizador_atingido').value = rawParaFormatado(c.totalizador_atingido, 'numero');
-    document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
-    document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
-    document.getElementById('id_centralx').value = c.id_centralx || '';
+      document.getElementById('nome_campanha').value = c.nome_campanha || '';
+      document.getElementById('id_pi').value = c.id_pi || '';
+      document.getElementById('id_cliente').value = c.id_cliente || '';
+      document.getElementById('id_cliente_hidden').value = c.id_cliente || '';
+      document.getElementById('id_objetivos_campanha').value = c.id_objetivos_campanha || '';
+      document.getElementById('id_plataforma').value = c.id_plataforma || '';
+      document.getElementById('id_status').value = c.id_status || '';
+      document.getElementById('id_criativos_validados').value = c.id_criativos_validados || '';
+      document.getElementById('obj_contratados').value = rawParaFormatado(c.obj_contratados, 'numero');
+      document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
+      document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
+      document.getElementById('link_dash').value = c.link_dash || '';
+      document.getElementById('periodo_inicio').value = formatDateForInput(c.periodo_inicio);
+      document.getElementById('periodo_fim').value = formatDateForInput(c.periodo_fim);
+      document.getElementById('under').checked = !!c.under;
+      document.getElementById('totalizador_atingido').value = rawParaFormatado(c.totalizador_atingido, 'numero');
+      document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
+      document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
+      document.getElementById('id_centralx').value = c.id_centralx || '';
 
-    vrPlatMax = parseRealVal(c.valor_plataformas_pi);
-    calcDistribuicao();
+      vrPlatMax = parseRealVal(c.valor_plataformas_pi);
+      calcDistribuicao();
 
-    const tsBlock = document.getElementById('campanha_timestamps');
-    document.getElementById('campanha_created_at').textContent = c.created_at || '—';
-    document.getElementById('campanha_updated_at').textContent = c.updated_at || '—';
-    tsBlock.classList.toggle('hidden', !c.created_at && !c.updated_at);
+      const tsBlock = document.getElementById('campanha_timestamps');
+      document.getElementById('campanha_created_at').textContent = c.created_at || '—';
+      document.getElementById('campanha_updated_at').textContent = c.updated_at || '—';
+      tsBlock.classList.toggle('hidden', !c.created_at && !c.updated_at);
 
-    const btnDiarios = document.getElementById('btnDiariosCampanha');
-    btnDiarios.classList.remove('hidden');
+      const btnDiarios = document.getElementById('btnDiariosCampanha');
+      btnDiarios.classList.remove('hidden');
 
-    modal_campanha.showModal();
+      modal_campanha.showModal();
+    } catch (error) {
+      console.error('Erro em abrirModalEditar:', error);
+      alert('Erro ao abrir modal de edição: ' + error.message);
+    }
   }
 
   function abrirDiariosDoCampanhaModal() {

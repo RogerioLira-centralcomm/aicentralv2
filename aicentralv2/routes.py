@@ -9535,6 +9535,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return redirect(url_for('cadu_pi_editar', id_pi=int(id_pi_form)))
                 return _redirect_campanhas_pi_preservar_filtros()
 
+            if not data.get('periodo_inicio') or not data.get('periodo_fim'):
+                msg = 'Data Início e Data Fim são obrigatórias!'
+                if is_ajax:
+                    return jsonify({'success': False, 'error': msg}), 400
+                flash(msg, 'error')
+                if return_to_pi and id_pi_form:
+                    return redirect(url_for('cadu_pi_editar', id_pi=int(id_pi_form)))
+                return _redirect_campanhas_pi_preservar_filtros()
+
             id_camp = db.criar_campanha_pi(data)
 
             if id_camp:
@@ -9578,6 +9587,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if is_ajax:
                     return jsonify({'success': False, 'error': 'O nome da campanha é obrigatório!'}), 400
                 flash('O nome da campanha é obrigatório!', 'error')
+                return _redirect_campanhas_pi_preservar_filtros()
+
+            if not data.get('periodo_inicio') or not data.get('periodo_fim'):
+                msg = 'Data Início e Data Fim são obrigatórias!'
+                if is_ajax:
+                    return jsonify({'success': False, 'error': msg}), 400
+                flash(msg, 'error')
                 return _redirect_campanhas_pi_preservar_filtros()
 
             valor_antigo = campanha.get('valor_plataforma')

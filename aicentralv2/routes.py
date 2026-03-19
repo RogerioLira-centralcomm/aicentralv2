@@ -125,6 +125,36 @@ def is_centralcomm_user():
         return False
 
 
+METRICAS_COMERCIAL_EMAILS = ['apolo@centralcomm.media', 'rogerio@centralcomm.media']
+
+def metricas_comercial_required(f):
+    """Decorator que restringe acesso às métricas comerciais aos emails autorizados."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Faça login para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+        user_email = session.get('user_email', '')
+        if user_email not in METRICAS_COMERCIAL_EMAILS:
+            flash('Acesso restrito.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def metricas_comercial_required_api(f):
+    """Versão API do decorator de restrição de métricas comerciais."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Não autenticado'}), 401
+        user_email = session.get('user_email', '')
+        if user_email not in METRICAS_COMERCIAL_EMAILS:
+            return jsonify({'success': False, 'message': 'Acesso restrito'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def client_accessible(f):
     """Decorator para rotas acessiveis por qualquer usuario logado (incluindo clientes nao-CENTRALCOMM)"""
     @wraps(f)
@@ -7684,6 +7714,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     # ==================== MÉTRICAS MENSAIS (ex-SEMANAIS) ====================
 
+    def _sanitize_row(row):
+        """Converte Decimal para float num dict de resultado SQL."""
+        from decimal import Decimal
+        d = dict(row)
+        for k, v in d.items():
+            if isinstance(v, Decimal):
+                d[k] = float(v)
+        return d
+
     def _parsear_periodo_mensal(mes_param):
         """Função auxiliar para parsear o parâmetro 'mes' (YYYY-MM) e retornar (inicio, fim)."""
         from datetime import datetime
@@ -7702,7 +7741,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         return mes_inicio, mes_fim
     
     @app.route('/metricas/semanais')
-    @login_required
+    @metricas_comercial_required
     def metricas_semanais():
         """Página de Métricas Mensais do Comercial"""
         executivos = db.obter_executivos_ativos()
@@ -7715,7 +7754,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         )
     
     @app.route('/api/metricas/semanais/kpis', methods=['GET'])
-    @login_required
+    @metricas_comercial_required_api
     def api_metricas_semanais_kpis():
         """API para KPIs mensais"""
         try:
@@ -7727,15 +7766,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             
             kpis = db.obter_kpis_semanais(mes_inicio, mes_fim, executivo_id, cliente_id)
             
-            novos_clientes = db.obter_novos_clientes_periodo(mes_inicio, mes_fim)
-            novos_contatos = db.obter_novos_contatos_periodo(mes_inicio, mes_fim)
+            novos_clientes = db.obter_novos_clientes_periodo(mes_inicio, mes_fim, executivo_id)
+            novos_contatos = db.obter_novos_contatos_periodo(mes_inicio, mes_fim, executivo_id)
+
+            leads_count = db.obter_leads_count(mes_inicio, mes_fim, executivo_id)
+
             if isinstance(kpis, dict):
                 kpis['novos_clientes'] = novos_clientes
                 kpis['novos_contatos'] = novos_contatos
+                kpis['leads_total'] = leads_count
             
             return jsonify({
                 'success': True,
-                'data': kpis,
+                'data': _sanitize_row(kpis) if isinstance(kpis, dict) else kpis,
                 'periodo': {
                     'inicio': mes_inicio.isoformat(),
                     'fim': mes_fim.isoformat()
@@ -7746,7 +7789,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/por-executivo', methods=['GET'])
-    @login_required
+    @metricas_comercial_required_api
     def api_metricas_semanais_por_executivo():
         """API para cotações por executivo no mês"""
         try:
@@ -7757,14 +7800,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
             dados = db.obter_cotacoes_por_executivo_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
-            
-            return jsonify({'success': True, 'data': [dict(d) for d in dados]})
+
+            return jsonify({'success': True, 'data': [_sanitize_row(d) for d in dados]})
         except Exception as e:
             current_app.logger.error(f"Erro ao obter cotações por executivo: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/evolucao-diaria', methods=['GET'])
-    @login_required
+    @metricas_comercial_required_api
     def api_metricas_semanais_evolucao():
         """API para evolução diária no mês"""
         try:
@@ -7778,17 +7821,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             
             result = []
             for d in dados:
-                item = dict(d)
+                item = _sanitize_row(d)
                 item['data'] = item['data'].isoformat() if item.get('data') else None
                 result.append(item)
-            
+
             return jsonify({'success': True, 'data': result})
         except Exception as e:
             current_app.logger.error(f"Erro ao obter evolução diária: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/distribuicao-status', methods=['GET'])
-    @login_required
+    @metricas_comercial_required_api
     def api_metricas_semanais_status():
         """API para distribuição por status no mês"""
         try:
@@ -7799,14 +7842,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
             dados = db.obter_distribuicao_status_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
-            
-            return jsonify({'success': True, 'data': [dict(d) for d in dados]})
+
+            return jsonify({'success': True, 'data': [_sanitize_row(d) for d in dados]})
         except Exception as e:
             current_app.logger.error(f"Erro ao obter distribuição por status: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/comparativo', methods=['GET'])
-    @login_required
+    @metricas_comercial_required_api
     def api_metricas_semanais_comparativo():
         """API para comparativo semanal dentro do mês"""
         try:
@@ -7817,15 +7860,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
             
             dados = db.obter_kpis_mensais_por_semana(mes_inicio, mes_fim, executivo_id, cliente_id)
-            
-            result = [dict(d) for d in dados]
+
+            result = [_sanitize_row(d) for d in dados]
             return jsonify({'success': True, 'data': result})
         except Exception as e:
             current_app.logger.error(f"Erro ao obter comparativo mensal: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
     
     @app.route('/api/metricas/semanais/cotacoes', methods=['GET'])
-    @login_required
+    @metricas_comercial_required_api
     def api_metricas_semanais_cotacoes():
         """API para lista detalhada de cotações do mês"""
         try:
@@ -7840,7 +7883,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             
             result = []
             for d in dados:
-                item = dict(d)
+                item = _sanitize_row(d)
                 for key in ['created_at', 'updated_at', 'aprovada_em']:
                     if item.get(key):
                         item[key] = item[key].isoformat()
@@ -7852,7 +7895,130 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
 
-    
+    # ==================== DASHBOARD GERENCIAL - NOVAS APIs ====================
+
+    @app.route('/api/metricas/semanais/kpis-base-total', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_kpis_base_total():
+        """Totais all-time para comparativo."""
+        try:
+            data = db.obter_kpis_base_total()
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro KPIs base total: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/funil-comercial', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_funil_comercial():
+        """Pipeline/funil comercial."""
+        try:
+            mes = request.args.get('mes')
+            executivo_id = request.args.get('executivo_id', type=int)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
+            data = db.obter_funil_comercial(mes_inicio, mes_fim, executivo_id)
+            return jsonify({'success': True, 'data': _sanitize_row(data) if isinstance(data, dict) else data})
+        except Exception as e:
+            current_app.logger.error(f"Erro funil comercial: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/leads-por-fonte', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_leads_por_fonte():
+        """Leads agrupados por fonte/tipo_produto."""
+        try:
+            mes = request.args.get('mes')
+            executivo_id = request.args.get('executivo_id', type=int)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
+            data = db.obter_leads_por_fonte(mes_inicio, mes_fim, executivo_id)
+            result = [_sanitize_row(r) for r in data]
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro leads por fonte: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/estagios-cotacoes', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_estagios_cotacoes():
+        """Tempo médio em cada estágio das cotações."""
+        try:
+            mes = request.args.get('mes')
+            executivo_id = request.args.get('executivo_id', type=int)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
+            data = db.obter_estagios_cotacoes(mes_inicio, mes_fim, executivo_id)
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro estágios cotações: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/top-cotacoes-aprovadas', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_top_cotacoes_aprovadas():
+        """TOP 10 cotações aprovadas."""
+        try:
+            mes = request.args.get('mes')
+            executivo_id = request.args.get('executivo_id', type=int)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
+            data = db.obter_top_cotacoes_aprovadas(mes_inicio, mes_fim, executivo_id)
+            result = []
+            for d in data:
+                item = _sanitize_row(d)
+                for key in ['aprovada_em', 'created_at']:
+                    if item.get(key):
+                        item[key] = item[key].isoformat()
+                result.append(item)
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro top cotações: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/leads-por-executivo', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_leads_por_executivo():
+        """Leads agrupados por executivo."""
+        try:
+            mes = request.args.get('mes')
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
+            data = db.obter_leads_por_executivo(mes_inicio, mes_fim)
+            return jsonify({'success': True, 'data': [_sanitize_row(r) for r in data]})
+        except Exception as e:
+            current_app.logger.error(f"Erro leads por executivo: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/leads-detalhado', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_leads_detalhado():
+        """Lista detalhada de leads."""
+        try:
+            mes = request.args.get('mes')
+            executivo_id = request.args.get('executivo_id', type=int)
+            mes_inicio, mes_fim = _parsear_periodo_mensal(mes)
+            data = db.obter_leads_detalhado(mes_inicio, mes_fim, executivo_id)
+            result = []
+            for d in data:
+                item = _sanitize_row(d)
+                for key in ['data_registro', 'data_notificacao']:
+                    if item.get(key):
+                        item[key] = item[key].isoformat()
+                result.append(item)
+            return jsonify({'success': True, 'data': result})
+        except Exception as e:
+            current_app.logger.error(f"Erro leads detalhado: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/metricas/semanais/pis-por-executivo-anual', methods=['GET'])
+    @metricas_comercial_required_api
+    def api_metricas_pis_executivo_anual():
+        """Grid anual de PIs por executivo."""
+        try:
+            from datetime import datetime
+            ano = request.args.get('ano', datetime.now().year, type=int)
+            data = db.obter_pis_por_executivo_anual(ano)
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro PIs por executivo anual: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/admin/clientes/recategorizar', methods=['POST'])
     @login_required
     def admin_recategorizar_clientes():

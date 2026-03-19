@@ -1,223 +1,303 @@
 {% extends "base_tailwind.html" %}
 
-{% block title %}Métricas Mensais - Comercial{% endblock %}
+{% block title %}Dashboard Gerencial Comercial{% endblock %}
 
 {% block styles %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
-    .chart-container {
-        position: relative;
-        height: 280px;
+    .chart-container { position: relative; height: 280px; }
+    .chart-container-lg { position: relative; height: 340px; }
+    .kpi-value { font-variant-numeric: tabular-nums; }
+    .var-up { color: #059669; font-weight: 600; }
+    .var-down { color: #dc2626; font-weight: 600; }
+    .var-neutral { color: #6b7280; }
+
+    input[type="month"], select, input[type="text"] { font-size: 0.8125rem; }
+
+    .funnel-stage {
+        transition: all 0.3s ease;
+        min-width: 90px;
     }
-    .kpi-value {
-        font-variant-numeric: tabular-nums;
+    .funnel-stage:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .funnel-arrow { color: #d1d5db; font-size: 1.25rem; }
+
+    .pi-grid td, .pi-grid th { padding: 0.5rem 0.75rem; font-size: 0.75rem; text-align: right; }
+    .pi-grid th { text-align: center; }
+    .pi-grid .meta-ok { background-color: #ecfdf5; }
+    .pi-grid .meta-fail { background-color: #fef2f2; }
+
+    .section-title {
+        font-size: 0.875rem; font-weight: 700; color: #1E4D4F;
+        border-bottom: 2px solid #1E4D4F; padding-bottom: 0.5rem; margin-bottom: 1rem;
+        text-transform: uppercase; letter-spacing: 0.05em;
     }
-    .variacao-positiva { color: #1E4D4F; font-weight: 600; }
-    .variacao-negativa { color: #374151; }
-    .variacao-neutra { color: #6b7280; }
-    
-    input[type="month"] {
-        min-width: 170px;
-        width: 100%;
-        padding: 0.375rem 0.625rem;
-        font-size: 0.8125rem;
-    }
-    input[type="month"]::-webkit-calendar-picker-indicator {
-        cursor: pointer;
-        opacity: 0.7;
-    }
-    input[type="month"]:focus {
-        outline: 2px solid #1E4D4F;
-        outline-offset: 2px;
-    }
-    .select select:focus {
-        outline: 2px solid #1E4D4F;
-        outline-offset: 2px;
-    }
-    .select select option {
-        padding: 0.5rem;
-        white-space: normal;
-        background-color: hsl(var(--b1));
-        color: hsl(var(--bc));
-    }
-    #filtroBusca:focus {
-        outline: 2px solid #1E4D4F;
-        outline-offset: 2px;
-    }
-    
-    #tabelaCotacoes td {
-        white-space: normal;
-        word-break: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    .week-group-header {
-        background-color: #f3f4f6;
-        font-weight: 600;
-        font-size: 0.8rem;
-        color: #374151;
-    }
-    .table tbody tr:nth-child(even):not(.week-group-header) {
-        background-color: #f9fafb;
+
+    .stat-mini { text-align: center; padding: 0.75rem; }
+    .stat-mini .value { font-size: 1.5rem; font-weight: 800; color: #1E4D4F; }
+    .stat-mini .label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+    .stat-mini .sub { font-size: 0.7rem; color: #9ca3af; margin-top: 0.125rem; }
+
+    @media print {
+        body, html { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        .navbar, .drawer-side, .drawer-toggle, footer, .btm-nav,
+        #btnGerarPDF, .dropdown, label[for="main-drawer"] { display: none !important; }
+        .drawer-content { margin-left: 0 !important; padding: 0 !important; }
+        #dashboardContainer { max-width: 100% !important; padding: 10px !important; }
+        .chart-container { height: 220px !important; break-inside: avoid; }
+        .chart-container-lg { height: 280px !important; break-inside: avoid; }
+        .bg-base-100, .bg-base-200 { background: #fff !important; }
+        table, .overflow-x-auto { break-inside: avoid; }
+        .funnel-stage { min-width: 70px !important; }
+        * { transition: none !important; animation: none !important; }
+        @page { size: A4 landscape; margin: 8mm; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
-    <!-- Header compacto -->
-    <div class="flex flex-wrap items-end justify-between gap-2">
-        <h1 class="text-xl font-bold text-base-content">Métricas Mensais</h1>
-        
-        <div class="flex flex-wrap items-end gap-2">
-            <!-- Mês -->
-            <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-0.5">Mês</label>
-                <input type="month" id="filtroMes" class="input input-bordered input-xs" />
+<div id="dashboardContainer" class="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+
+    <!-- ==================== SEÇÃO 1: HEADER + FILTROS ==================== -->
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h1 class="text-xl font-bold text-base-content">Dashboard Gerencial Comercial</h1>
+            <p class="text-xs text-base-content/50 mt-0.5" id="periodoLabel">Carregando...</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+            <div>
+                <label class="text-xs font-medium text-gray-600 mb-1 block">Mês</label>
+                <input type="month" id="filtroMes"
+                       class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+                       style="min-width: 160px;" />
             </div>
-            
-            <!-- Executivo -->
-            <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-0.5">Executivo</label>
-                <select id="filtroExecutivo" class="select select-bordered select-xs min-w-[240px] max-w-[320px]">
-                    <option value="">Todos</option>
-                    {% for exec in executivos %}
-                    <option value="{{ exec.id }}" {% if default_executivo_id and default_executivo_id == exec.id %}selected{% endif %}>{{ exec.nome }}</option>
+            <div>
+                <label class="text-xs font-medium text-gray-600 mb-1 block">Ano (PIs)</label>
+                <select id="filtroAno"
+                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
+                        style="min-width: 90px;">
+                    {% for y in range(2023, 2027) %}
+                    <option value="{{ y }}">{{ y }}</option>
                     {% endfor %}
                 </select>
             </div>
-            
-            <!-- Busca unificada -->
-            <div class="form-control">
-                <label class="text-xs text-base-content/60 mb-0.5">Buscar</label>
-                <input type="text" id="filtroBusca" class="input input-bordered input-xs min-w-[200px]" 
-                       placeholder="Cliente, campanha, número..." 
-                       autocomplete="off">
+            <div>
+                <label class="text-xs font-medium text-gray-600 mb-1 block">Executivo</label>
+                <select id="filtroExecutivo"
+                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
+                        style="min-width: 220px;">
+                    <option value="">Todos executivos</option>
+                    {% for exec in executivos %}
+                    <option value="{{ exec.id }}">{{ exec.nome }}</option>
+                    {% endfor %}
+                </select>
             </div>
-            
-            <!-- Buscar -->
-            <div class="form-control">
-                <button id="btnAtualizar" class="btn btn-primary btn-xs">Buscar</button>
+            <div>
+                <label class="text-xs font-medium text-gray-600 mb-1 block">&nbsp;</label>
+                <button id="btnGerarPDF" class="btn btn-sm btn-outline gap-1" onclick="gerarPDF()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Gerar PDF
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Período selecionado -->
-    <div class="text-sm text-base-content/50" id="periodoLabel">Carregando...</div>
+    <!-- Base total badge -->
+    <div class="flex flex-wrap gap-3 text-xs" id="baseTotalBadges">
+        <span class="badge badge-ghost badge-sm">Base: <strong class="ml-1" id="base-cotacoes">--</strong> cotações</span>
+        <span class="badge badge-ghost badge-sm">Aprovadas: <strong class="ml-1" id="base-aprovadas">--</strong></span>
+        <span class="badge badge-ghost badge-sm">Leads: <strong class="ml-1" id="base-leads">--</strong></span>
+        <span class="badge badge-ghost badge-sm">Clientes ativos: <strong class="ml-1" id="base-clientes">--</strong></span>
+        <span class="badge badge-ghost badge-sm">Conversão geral: <strong class="ml-1" id="base-conversao">--</strong>%</span>
+        <span class="badge badge-ghost badge-sm">Operação: <strong class="ml-1" id="base-meses">--</strong> meses</span>
+    </div>
 
-    <!-- KPI Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        <!-- Cotações Criadas -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Cotações Criadas</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-cotacoes">
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-            <div class="text-xs text-base-content/50 mt-1" id="kpi-cotacoes-var">--</div>
+    <!-- ==================== SEÇÃO 2: KPI CARDS ==================== -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Leads</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-leads">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-leads-var">vs média --</div>
         </div>
-
-        <!-- Valor Total -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Valor Total Cotado</div>
-            <div class="text-xl font-bold text-primary kpi-value" id="kpi-valor">
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-            <div class="text-xs text-base-content/50 mt-1" id="kpi-valor-var">--</div>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Novos Clientes</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-novos-clientes">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5">cadastrados no mês</div>
         </div>
-
-        <!-- Taxa de Conversão -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Taxa de Conversão</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-conversao">
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-            <div class="text-xs text-base-content/50 mt-1" id="kpi-conversao-detalhe">Aprovadas / Finalizadas</div>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Cotações Criadas</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-cotacoes">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-cotacoes-var">vs média --</div>
         </div>
-
-        <!-- Ticket Médio -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Ticket Médio</div>
-            <div class="text-xl font-bold text-primary kpi-value" id="kpi-ticket">
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-            <div class="text-xs text-base-content/50 mt-1">Valor médio aprovadas</div>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Cotações Aprovadas</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-aprovadas">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-aprovadas-var">vs média --</div>
         </div>
-
-        <!-- Ciclo Médio -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Ciclo Médio</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-ciclo">
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-            <div class="text-xs text-base-content/50 mt-1">Dias até aprovação</div>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Taxa Conversão</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-conversao">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-conversao-detalhe">aprovadas / finalizadas</div>
         </div>
-
-        <!-- Novos Clientes -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Novos Clientes</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-novos-clientes">
-                <span class="loading loading-spinner loading-sm"></span>
-            </div>
-            <div class="text-xs text-base-content/50 mt-1">Cadastrados no mês</div>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Ticket Médio</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-ticket">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5">valor médio aprovadas</div>
         </div>
-
-        <!-- Novos Contatos -->
-        <div class="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div class="text-xs text-base-content/60 mb-2">Novos Contatos</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-novos-contatos">
-                <span class="loading loading-spinner loading-sm"></span>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Ciclo Médio</div>
+            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-ciclo">--</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5">dias até aprovação</div>
+            <div class="text-[0.6rem] text-base-content/50 mt-1 font-medium" id="kpi-dias-mes">--</div>
+        </div>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300 border-l-4 border-l-primary">
+            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Meta Mensal</div>
+            <div class="text-lg font-bold kpi-value" id="kpi-meta">--</div>
+            <div class="w-full bg-base-200 rounded-full h-1.5 mt-1">
+                <div class="bg-primary h-1.5 rounded-full transition-all duration-500" id="kpi-meta-bar" style="width: 0%"></div>
             </div>
-            <div class="text-xs text-base-content/50 mt-1">Cadastrados no mês</div>
+            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-meta-detalhe">de R$ 200.000</div>
         </div>
     </div>
 
-    <!-- Gráficos Row 1 -->
+    <!-- ==================== SEÇÃO 3: FUNIL COMERCIAL ==================== -->
+    <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+        <div class="section-title">Pipeline Comercial</div>
+        <div class="flex items-center justify-between gap-1 overflow-x-auto py-2" id="funnelContainer">
+            <div class="text-center text-xs text-base-content/50 py-8">Carregando pipeline...</div>
+        </div>
+    </div>
+
+    <!-- ==================== SEÇÃO 4: GRÁFICOS GERENCIAIS ==================== -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <!-- Cotações por Executivo -->
         <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Cotações por Executivo</h3>
-            <div class="chart-container">
-                <canvas id="chartExecutivos"></canvas>
-            </div>
+            <h3 class="text-sm font-semibold text-base-content mb-4">Leads por Fonte</h3>
+            <div class="chart-container"><canvas id="chartLeadsFonte"></canvas></div>
         </div>
-
-        <!-- Evolução Diária -->
         <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Evolução Diária</h3>
-            <div class="chart-container">
-                <canvas id="chartEvolucao"></canvas>
-            </div>
+            <h3 class="text-sm font-semibold text-base-content mb-4">Evolução Diária de Vendas <span class="text-xs font-normal text-base-content/50">(linha de meta R$ 200k)</span></h3>
+            <div class="chart-container"><canvas id="chartEvolucao"></canvas></div>
         </div>
-    </div>
-
-    <!-- Gráficos Row 2 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <!-- Distribuição por Status -->
         <div class="bg-base-100 rounded-lg p-5 border border-base-300">
             <h3 class="text-sm font-semibold text-base-content mb-4">Distribuição por Status</h3>
-            <div class="chart-container">
-                <canvas id="chartStatus"></canvas>
-            </div>
+            <div class="chart-container"><canvas id="chartStatus"></canvas></div>
         </div>
-
-        <!-- Comparativo Semanal do Mês -->
         <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Comparativo por Semana do Mês</h3>
-            <div class="chart-container">
-                <canvas id="chartComparativo"></canvas>
+            <h3 class="text-sm font-semibold text-base-content mb-4">Cotações por Executivo</h3>
+            <div class="chart-container"><canvas id="chartExecutivos"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ==================== SEÇÃO 5: ESTÁGIOS DAS COTAÇÕES ==================== -->
+    <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+        <div class="section-title">Estágios das Cotações & Tempo de Conversão</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="estagiosCards">
+            <div class="text-center text-xs text-base-content/50 py-8 col-span-full">Carregando estágios...</div>
+        </div>
+    </div>
+
+    <!-- ==================== SEÇÃO 6: TOP 10 COTAÇÕES APROVADAS ==================== -->
+    <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
+        <div class="p-4 border-b border-base-300">
+            <div class="section-title mb-0 border-0 pb-0">TOP 10 Cotações Aprovadas</div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table table-sm w-full">
+                <thead style="background-color: #1E4D4F;">
+                    <tr class="text-white text-xs">
+                        <th class="font-semibold w-10">#</th>
+                        <th class="font-semibold">Cliente</th>
+                        <th class="font-semibold">Campanha</th>
+                        <th class="font-semibold text-right">Valor Proposta</th>
+                        <th class="font-semibold text-right">Valor Líquido</th>
+                        <th class="font-semibold">Executivo</th>
+                        <th class="font-semibold text-center">Aprovada em</th>
+                        <th class="font-semibold text-center">Ciclo (dias)</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaTop10">
+                    <tr><td colspan="8" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== SEÇÃO 7: LEADS ==================== -->
+    <!-- Leads por Executivo -->
+    <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
+        <div class="p-4 border-b border-base-300">
+            <div class="section-title mb-0 border-0 pb-0">Leads por Executivo</div>
+        </div>
+        <div class="p-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="leadsExecutivoCards">
+                <div class="text-center text-xs text-base-content/50 py-4 col-span-full">Carregando...</div>
             </div>
         </div>
     </div>
 
-    <!-- Tabela Detalhada -->
+    <!-- Tabela de Leads -->
     <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
         <div class="p-4 border-b border-base-300 flex justify-between items-center">
-            <h3 class="text-sm font-semibold text-base-content">Cotações do Mês</h3>
-            <span class="text-xs text-base-content/60" id="totalCotacoesTabela">0 cotações</span>
+            <div class="section-title mb-0 border-0 pb-0">Leads do Mês (Todas as Fontes)</div>
+            <span class="badge badge-ghost badge-sm" id="totalLeadsBadge">0 leads</span>
         </div>
-        
+        <div class="overflow-x-auto" style="max-height: 400px;">
+            <table class="table table-sm table-pin-rows w-full">
+                <thead style="background-color: #1E4D4F;">
+                    <tr class="text-white text-xs">
+                        <th class="font-semibold">Data</th>
+                        <th class="font-semibold">Contato</th>
+                        <th class="font-semibold">Empresa</th>
+                        <th class="font-semibold">Fonte</th>
+                        <th class="font-semibold text-center">Status</th>
+                        <th class="font-semibold">Executivo</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaLeads">
+                    <tr><td colspan="6" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== SEÇÃO 8: PIs POR EXECUTIVO POR MÊS ==================== -->
+    <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
+        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+            <div class="section-title mb-0 border-0 pb-0">PIs por Executivo — Ano <span id="piAnoLabel"></span></div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-base-content/50">Meta mensal: <strong>R$ 200.000</strong></span>
+            </div>
+        </div>
         <div class="overflow-x-auto">
-            <table class="table table-sm w-full">
+            <table class="table table-sm w-full pi-grid" id="tabelaPIs">
+                <thead style="background-color: #1E4D4F;">
+                    <tr class="text-white text-xs">
+                        <th class="font-semibold text-left">Executivo</th>
+                        <th>Jan</th><th>Fev</th><th>Mar</th><th>Abr</th><th>Mai</th><th>Jun</th>
+                        <th>Jul</th><th>Ago</th><th>Set</th><th>Out</th><th>Nov</th><th>Dez</th>
+                        <th class="font-semibold">Total Ano</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaPIsBody">
+                    <tr><td colspan="14" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== TABELA DE COTAÇÕES DO MÊS ==================== -->
+    <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
+        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+            <div class="section-title mb-0 border-0 pb-0">Cotações do Mês</div>
+            <div class="flex items-center gap-2">
+                <input type="text" id="filtroBusca"
+                       class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
+                       placeholder="Buscar cliente, campanha..." autocomplete="off" style="min-width: 200px;">
+                <span class="badge badge-ghost badge-sm" id="totalCotacoesTabela">0 cotações</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto" style="max-height: 500px;">
+            <table class="table table-sm table-pin-rows w-full">
                 <thead style="background-color: #1E4D4F;">
                     <tr class="text-white text-xs">
                         <th class="font-semibold">Número</th>
@@ -231,12 +311,7 @@
                     </tr>
                 </thead>
                 <tbody id="tabelaCotacoes">
-                    <tr>
-                        <td colspan="8" class="text-center py-8 text-base-content/50">
-                            <span class="loading loading-spinner loading-md"></span>
-                            <p class="mt-2">Carregando cotações...</p>
-                        </td>
-                    </tr>
+                    <tr><td colspan="8" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -246,447 +321,606 @@
 
 {% block scripts %}
 <script>
-// ==================== VARIÁVEIS GLOBAIS ====================
-let chartExecutivos = null;
-let chartEvolucao = null;
-let chartStatus = null;
-let chartComparativo = null;
-
 const PRIMARY = '#1E4D4F';
 const PRIMARY_70 = 'rgba(30, 77, 79, 0.7)';
 const PRIMARY_30 = 'rgba(30, 77, 79, 0.3)';
 const PRIMARY_10 = 'rgba(30, 77, 79, 0.1)';
+const ACCENT = '#0d9488';
+const GRAY_700 = '#374151';
 const GRAY_500 = '#6b7280';
 const GRAY_400 = '#9ca3af';
 const GRAY_300 = '#d1d5db';
-const GRAY_700 = '#374151';
+const GRAY_200 = '#e5e7eb';
+const RED_500 = '#ef4444';
+const GREEN_600 = '#059669';
+const META_MENSAL = 200000;
 
 const STATUS_COLORS = {
-    'Em Análise': PRIMARY_70,
-    'Enviada': GRAY_500,
-    'Negociação': PRIMARY,
-    'Aprovada': '#4b5563',
-    'Rejeitada': GRAY_300
+    'Rascunho': GRAY_300,
+    'Em Análise': '#818cf8',
+    'Enviada': '#38bdf8',
+    'Negociação': '#fb923c',
+    'Aprovada': GREEN_600,
+    'Rejeitada': RED_500
 };
 
-// ==================== FUNÇÕES UTILITÁRIAS ====================
-function formatCurrency(value) {
-    if (value === null || value === undefined) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    }).format(value);
-}
+const FUNNEL_COLORS = ['#6366f1','#818cf8','#38bdf8','#fb923c','#059669','#1E4D4F'];
 
-function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num?.toLocaleString('pt-BR') || '0';
-}
+let charts = {};
+let baseTotal = {};
 
-function formatDate(dateStr) {
-    if (!dateStr) return '--';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+function fmt(v) {
+    if (v == null) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(v);
 }
-
-function formatDateTime(dateStr) {
-    if (!dateStr) return '--';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+function fmtK(v) {
+    if (v == null) return 'R$ 0';
+    if (v >= 1000000) return 'R$ ' + (v/1000000).toFixed(1) + 'M';
+    if (v >= 1000) return 'R$ ' + (v/1000).toFixed(0) + 'k';
+    return fmt(v);
 }
-
-function getWeekDayName(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('pt-BR', { weekday: 'short' });
+function fmtN(n) { return (n || 0).toLocaleString('pt-BR'); }
+function fmtDate(s) {
+    if (!s) return '--';
+    return new Date(s).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'});
 }
-
-function getStatusBadgeClass(status) {
-    const map = {
-        'Em Análise': 'bg-gray-200 text-gray-700',
-        'Enviada': 'bg-gray-300 text-gray-800',
-        'Negociação': 'bg-gray-400 text-white',
-        'Aprovada': 'bg-gray-700 text-white',
-        'Rejeitada': 'bg-gray-100 text-gray-500'
+function fmtDateTime(s) {
+    if (!s) return '--';
+    return new Date(s).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function pctVar(atual, media) {
+    if (!media || media === 0) return '';
+    const pct = ((atual - media) / media * 100).toFixed(0);
+    const icon = pct > 0 ? '↑' : pct < 0 ? '↓' : '→';
+    const cls = pct > 0 ? 'var-up' : pct < 0 ? 'var-down' : 'var-neutral';
+    return `<span class="${cls}">${icon} ${Math.abs(pct)}% vs média</span>`;
+}
+function statusBadge(s) {
+    const colors = {
+        'Em Análise': 'bg-indigo-100 text-indigo-700',
+        'Enviada': 'bg-sky-100 text-sky-700',
+        'Negociação': 'bg-orange-100 text-orange-700',
+        'Aprovada': 'bg-emerald-100 text-emerald-700',
+        'Rejeitada': 'bg-red-100 text-red-700',
+        'Rascunho': 'bg-gray-100 text-gray-500'
     };
-    return map[status] || 'bg-gray-100 text-gray-600';
+    return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${colors[s]||'bg-gray-100 text-gray-600'}">${s||'--'}</span>`;
 }
-
-function getVariacaoHTML(valor) {
-    if (valor === null || valor === undefined) return '<span class="variacao-neutra">--</span>';
-    const icon = valor > 0 ? '↑' : valor < 0 ? '↓' : '→';
-    const cls = valor > 0 ? 'variacao-positiva' : valor < 0 ? 'variacao-negativa' : 'variacao-neutra';
-    return `<span class="${cls}">${icon} ${Math.abs(valor).toFixed(1)}%</span>`;
-}
-
-function getWeekNumber(dateStr) {
-    const d = new Date(dateStr);
-    const day = d.getDate();
-    if (day <= 7) return 'Semana 1';
-    if (day <= 14) return 'Semana 2';
-    if (day <= 21) return 'Semana 3';
-    return 'Semana 4';
-}
+function destroyChart(key) { if (charts[key]) { charts[key].destroy(); charts[key] = null; } }
 
 function getFilters() {
+    const p = new URLSearchParams();
     const mes = document.getElementById('filtroMes').value;
-    const executivo = document.getElementById('filtroExecutivo').value;
-    const busca = document.getElementById('filtroBusca').value.trim();
-    
-    const params = new URLSearchParams();
-    if (mes) params.append('mes', mes);
-    if (executivo) params.append('executivo_id', executivo);
-    if (busca) params.append('busca', busca);
-    
-    return params.toString();
+    const exec = document.getElementById('filtroExecutivo').value;
+    if (mes) p.append('mes', mes);
+    if (exec) p.append('executivo_id', exec);
+    return p.toString();
+}
+function getAno() { return document.getElementById('filtroAno').value; }
+
+function getCookie(n) { const m = document.cookie.match(new RegExp('(?:^|; )'+n.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g,'\\$1')+'=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
+function setCookie(n, v, d) { const e = new Date(); e.setDate(e.getDate()+d); document.cookie = n+'='+encodeURIComponent(v)+'; expires='+e.toUTCString()+'; path=/'; }
+
+// ==================== CARREGAR BASE TOTAL ====================
+async function carregarBaseTotal() {
+    try {
+        const r = await fetch('/api/metricas/semanais/kpis-base-total');
+        const j = await r.json();
+        if (j.success) {
+            baseTotal = j.data;
+            document.getElementById('base-cotacoes').textContent = fmtN(baseTotal.total_cotacoes);
+            document.getElementById('base-aprovadas').textContent = fmtN(baseTotal.total_aprovadas);
+            document.getElementById('base-leads').textContent = fmtN(baseTotal.total_leads);
+            document.getElementById('base-clientes').textContent = fmtN(baseTotal.total_clientes);
+            document.getElementById('base-conversao').textContent = baseTotal.taxa_conversao_geral || 0;
+            document.getElementById('base-meses').textContent = baseTotal.meses_operacao || 0;
+        }
+    } catch(e) { console.error('Erro base total:', e); }
 }
 
 // ==================== CARREGAR KPIs ====================
 async function carregarKPIs() {
-    try {
-        const response = await fetch(`/api/metricas/semanais/kpis?${getFilters()}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            const data = result.data;
-            
-            document.getElementById('kpi-cotacoes').textContent = data.cotacoes_criadas || 0;
-            document.getElementById('kpi-valor').textContent = formatCurrency(data.valor_total);
-            document.getElementById('kpi-conversao').textContent = (data.taxa_conversao || 0) + '%';
-            document.getElementById('kpi-ticket').textContent = formatCurrency(data.ticket_medio);
-            document.getElementById('kpi-ciclo').textContent = (data.ciclo_medio_dias || 0) + ' dias';
-            document.getElementById('kpi-novos-clientes').textContent = data.novos_clientes || 0;
-            document.getElementById('kpi-novos-contatos').textContent = data.novos_contatos || 0;
-            
-            if (result.periodo) {
-                const inicio = formatDate(result.periodo.inicio);
-                const fim = formatDate(result.periodo.fim);
-                document.getElementById('periodoLabel').textContent = `Período: ${inicio} a ${fim}`;
-            }
-            
-            document.getElementById('kpi-conversao-detalhe').textContent = 
-                `${data.aprovadas || 0} aprovadas / ${(data.aprovadas || 0) + (data.rejeitadas || 0)} finalizadas`;
-        }
-    } catch (error) {
-        console.error('Erro ao carregar KPIs:', error);
-    }
-}
+    const kpiIds = ['kpi-leads','kpi-novos-clientes','kpi-cotacoes','kpi-aprovadas','kpi-conversao','kpi-ticket','kpi-ciclo','kpi-meta'];
+    kpiIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '...'; });
 
-// ==================== CARREGAR GRÁFICO EXECUTIVOS ====================
-async function carregarGraficoExecutivos() {
     try {
-        const response = await fetch(`/api/metricas/semanais/por-executivo?${getFilters()}`);
-        const result = await response.json();
-        
-        if (result.success && result.data.length > 0) {
-            const ctx = document.getElementById('chartExecutivos').getContext('2d');
-            
-            if (chartExecutivos) chartExecutivos.destroy();
-            
-            chartExecutivos = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: result.data.map(d => d.executivo_nome?.split(' ')[0] || 'N/A'),
-                    datasets: [
-                        {
-                            label: 'Total',
-                            data: result.data.map(d => d.total_cotacoes),
-                            backgroundColor: PRIMARY_70,
-                            borderColor: PRIMARY,
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Aprovadas',
-                            data: result.data.map(d => d.aprovadas),
-                            backgroundColor: GRAY_400,
-                            borderColor: GRAY_500,
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
-                        x: { grid: { display: false } }
-                    }
+        const r = await fetch(`/api/metricas/semanais/kpis?${getFilters()}`);
+        const j = await r.json();
+
+        if (j.success) {
+            const d = j.data;
+
+            document.getElementById('kpi-leads').textContent = fmtN(d.leads_total || 0);
+            document.getElementById('kpi-leads-var').innerHTML = pctVar(d.leads_total || 0, baseTotal.media_leads_mes);
+            document.getElementById('kpi-novos-clientes').textContent = fmtN(d.novos_clientes);
+            document.getElementById('kpi-cotacoes').textContent = fmtN(d.cotacoes_criadas);
+            document.getElementById('kpi-cotacoes-var').innerHTML = pctVar(d.cotacoes_criadas, baseTotal.media_cotacoes_mes);
+            document.getElementById('kpi-aprovadas').textContent = fmtN(d.aprovadas);
+            document.getElementById('kpi-aprovadas-var').innerHTML = pctVar(d.aprovadas, baseTotal.media_aprovadas_mes);
+            document.getElementById('kpi-conversao').textContent = (d.taxa_conversao || 0) + '%';
+            document.getElementById('kpi-conversao-detalhe').textContent = `${d.aprovadas||0} aprov. / ${(d.aprovadas||0)+(d.rejeitadas||0)} finaliz.`;
+            document.getElementById('kpi-ticket').textContent = fmtK(d.ticket_medio);
+            document.getElementById('kpi-ciclo').textContent = (d.ciclo_medio_dias || 0) + ' dias';
+
+            const mesSel = document.getElementById('filtroMes').value;
+            const hoje = new Date();
+            let diasMes;
+            if (mesSel) {
+                const [anoSel, mesSel2] = mesSel.split('-').map(Number);
+                if (anoSel === hoje.getFullYear() && mesSel2 === hoje.getMonth() + 1) {
+                    diasMes = hoje.getDate();
+                } else if (new Date(anoSel, mesSel2 - 1, 1) > hoje) {
+                    diasMes = 0;
+                } else {
+                    diasMes = new Date(anoSel, mesSel2, 0).getDate();
                 }
-            });
+            } else {
+                diasMes = hoje.getDate();
+            }
+            document.getElementById('kpi-dias-mes').textContent = `${diasMes} dia${diasMes !== 1 ? 's' : ''} do mês`;
+
+            const valorAprovado = d.valor_aprovado || 0;
+            const pctMeta = Math.min(Math.round((valorAprovado / META_MENSAL) * 100), 100);
+            document.getElementById('kpi-meta').textContent = fmtK(valorAprovado);
+            document.getElementById('kpi-meta').className = `text-lg font-bold kpi-value ${pctMeta >= 100 ? 'text-success' : pctMeta >= 50 ? 'text-warning' : 'text-error'}`;
+            document.getElementById('kpi-meta-bar').style.width = pctMeta + '%';
+            document.getElementById('kpi-meta-bar').className = `h-1.5 rounded-full transition-all duration-500 ${pctMeta >= 100 ? 'bg-success' : pctMeta >= 50 ? 'bg-warning' : 'bg-error'}`;
+            document.getElementById('kpi-meta-detalhe').textContent = `${pctMeta}% de R$ 200.000`;
+
+            if (j.periodo) {
+                document.getElementById('periodoLabel').textContent = `Período: ${fmtDate(j.periodo.inicio)} a ${fmtDate(j.periodo.fim)}`;
+            }
+        } else {
+            console.error('KPIs API retornou erro:', j.message);
         }
-    } catch (error) {
-        console.error('Erro ao carregar gráfico executivos:', error);
-    }
+    } catch(e) { console.error('Erro KPIs:', e); }
 }
 
-// ==================== CARREGAR GRÁFICO EVOLUÇÃO ====================
+// ==================== CARREGAR FUNIL ====================
+async function carregarFunil() {
+    document.getElementById('funnelContainer').innerHTML = '<div class="text-center text-xs text-base-content/50 py-8 w-full">Carregando pipeline...</div>';
+    try {
+        const r = await fetch(`/api/metricas/semanais/funil-comercial?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success) { console.error('Funil API erro:', j.message); return; }
+        const d = j.data;
+        const stages = [
+            { label: 'Leads', count: d.leads, value: null, color: FUNNEL_COLORS[0] },
+            { label: 'Cotações Criadas', count: d.cotacoes_criadas, value: d.valor_total, color: FUNNEL_COLORS[1] },
+            { label: 'Enviadas', count: d.enviadas, value: null, color: FUNNEL_COLORS[2] },
+            { label: 'Negociação', count: d.negociacao, value: null, color: FUNNEL_COLORS[3] },
+            { label: 'Aprovadas', count: d.aprovadas, value: d.valor_aprovado, color: FUNNEL_COLORS[4] },
+            { label: 'PIs Gerados', count: d.pis_gerados, value: d.valor_pis, color: FUNNEL_COLORS[5] }
+        ];
+        const maxCount = Math.max(...stages.map(s => s.count), 1);
+        const container = document.getElementById('funnelContainer');
+        let html = '';
+        stages.forEach((s, i) => {
+            const pct = Math.max(Math.round((s.count / maxCount) * 100), 15);
+            html += `
+                <div class="funnel-stage flex-1 rounded-lg p-3 text-center text-white" style="background:${s.color}; opacity: ${0.6 + (0.4 * (1 - i/stages.length))}">
+                    <div class="text-2xl font-bold">${fmtN(s.count)}</div>
+                    <div class="text-[0.65rem] font-medium opacity-90 mt-0.5">${s.label}</div>
+                    ${s.value !== null ? `<div class="text-[0.6rem] opacity-75 mt-0.5">${fmtK(s.value)}</div>` : ''}
+                </div>`;
+            if (i < stages.length - 1) {
+                const convRate = stages[i+1].count && s.count ? Math.round(stages[i+1].count / s.count * 100) : 0;
+                html += `<div class="flex flex-col items-center justify-center px-1">
+                    <span class="funnel-arrow">→</span>
+                    <span class="text-[0.6rem] text-base-content/40">${convRate}%</span>
+                </div>`;
+            }
+        });
+        container.innerHTML = html;
+    } catch(e) { console.error('Erro funil:', e); }
+}
+
+// ==================== GRÁFICO LEADS POR FONTE ====================
+async function carregarGraficoLeadsFonte() {
+    try {
+        const r = await fetch(`/api/metricas/semanais/leads-por-fonte?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success || !j.data.length) return;
+        destroyChart('leadsFonte');
+        const ctx = document.getElementById('chartLeadsFonte').getContext('2d');
+        const palette = ['#6366f1','#38bdf8','#fb923c','#059669','#f43f5e','#8b5cf6','#14b8a6','#eab308'];
+        charts.leadsFonte = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: j.data.map(d => (d.fonte||'').replace('ADS_','').replace('_',' ')),
+                datasets: [
+                    { label: 'Notificados', data: j.data.map(d => d.notificados), backgroundColor: PRIMARY_70 },
+                    { label: 'Pendentes', data: j.data.map(d => d.pendentes), backgroundColor: GRAY_300 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position:'top', labels:{boxWidth:12,font:{size:11}} } },
+                scales: {
+                    x: { stacked: true, grid:{display:false} },
+                    y: { stacked: true, beginAtZero:true, ticks:{stepSize:1}, grid:{color:'#f3f4f6'} }
+                }
+            }
+        });
+    } catch(e) { console.error('Erro gráfico leads:', e); }
+}
+
+// ==================== GRÁFICO EVOLUÇÃO COM META ====================
 async function carregarGraficoEvolucao() {
     try {
-        const response = await fetch(`/api/metricas/semanais/evolucao-diaria?${getFilters()}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            const ctx = document.getElementById('chartEvolucao').getContext('2d');
-            
-            if (chartEvolucao) chartEvolucao.destroy();
-            
-            chartEvolucao = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: result.data.map(d => formatDate(d.data)),
-                    datasets: [
-                        {
-                            label: 'Cotações',
-                            data: result.data.map(d => d.total_cotacoes),
-                            borderColor: PRIMARY,
-                            backgroundColor: PRIMARY_10,
-                            fill: true,
-                            tension: 0.3
-                        },
-                        {
-                            label: 'Valor (R$ mil)',
-                            data: result.data.map(d => (d.valor_total || 0) / 1000),
-                            borderColor: GRAY_400,
-                            backgroundColor: 'transparent',
-                            borderDash: [5, 5],
-                            tension: 0.3,
-                            yAxisID: 'y1'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+        const r = await fetch(`/api/metricas/semanais/evolucao-diaria?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success) return;
+        destroyChart('evolucao');
+        const ctx = document.getElementById('chartEvolucao').getContext('2d');
+        let acumulado = 0;
+        const valoresAcumulados = j.data.map(d => { acumulado += (d.valor_total || 0); return acumulado; });
+
+        charts.evolucao = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: j.data.map(d => fmtDate(d.data)),
+                datasets: [
+                    {
+                        label: 'Acumulado (R$)',
+                        data: valoresAcumulados,
+                        borderColor: PRIMARY,
+                        backgroundColor: PRIMARY_10,
+                        fill: true, tension: 0.3, pointRadius: 3
                     },
-                    scales: {
-                        y: { beginAtZero: true, position: 'left', ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
-                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } },
-                        x: { grid: { display: false } }
+                    {
+                        label: 'Dia (R$)',
+                        data: j.data.map(d => d.valor_total || 0),
+                        borderColor: GRAY_400,
+                        backgroundColor: 'transparent',
+                        borderDash: [4,4], tension: 0.3, pointRadius: 2, yAxisID: 'y1'
                     }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position:'top', labels:{boxWidth:12,font:{size:11}} },
+                    annotation: {
+                        annotations: {
+                            metaLine: {
+                                type: 'line', yMin: META_MENSAL, yMax: META_MENSAL,
+                                borderColor: RED_500, borderWidth: 2, borderDash: [6,4],
+                                label: { display: true, content: 'Meta R$ 200k', position: 'end', backgroundColor: RED_500, font:{size:10} }
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: { label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero:true, grid:{color:'#f3f4f6'}, ticks:{ callback: v => fmtK(v) } },
+                    y1: { beginAtZero:true, position:'right', grid:{drawOnChartArea:false}, ticks:{ callback: v => fmtK(v) } },
+                    x: { grid:{display:false} }
                 }
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao carregar gráfico evolução:', error);
-    }
+            }
+        });
+    } catch(e) { console.error('Erro gráfico evolução:', e); }
 }
 
-// ==================== CARREGAR GRÁFICO STATUS ====================
+// ==================== GRÁFICO STATUS ====================
 async function carregarGraficoStatus() {
     try {
-        const response = await fetch(`/api/metricas/semanais/distribuicao-status?${getFilters()}`);
-        const result = await response.json();
-        
-        if (result.success && result.data.length > 0) {
-            const ctx = document.getElementById('chartStatus').getContext('2d');
-            
-            if (chartStatus) chartStatus.destroy();
-            
-            chartStatus = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: result.data.map(d => d.status),
-                    datasets: [{
-                        data: result.data.map(d => d.total),
-                        backgroundColor: result.data.map(d => STATUS_COLORS[d.status] || GRAY_300),
-                        borderWidth: 2,
-                        borderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { 
-                            position: 'right',
-                            labels: { boxWidth: 12, font: { size: 11 }, padding: 15 }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const item = result.data[context.dataIndex];
-                                    return `${item.status}: ${item.total} (${formatCurrency(item.valor)})`;
-                                }
-                            }
-                        }
-                    }
+        const r = await fetch(`/api/metricas/semanais/distribuicao-status?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success || !j.data.length) return;
+        destroyChart('status');
+        const ctx = document.getElementById('chartStatus').getContext('2d');
+        charts.status = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: j.data.map(d => d.status),
+                datasets: [{ data: j.data.map(d => d.total), backgroundColor: j.data.map(d => STATUS_COLORS[d.status]||GRAY_300), borderWidth:2, borderColor:'#fff' }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position:'right', labels:{boxWidth:12,font:{size:11},padding:12} },
+                    tooltip: { callbacks: { label: ctx => { const i = j.data[ctx.dataIndex]; return `${i.status}: ${i.total} (${fmt(i.valor)})`; } } }
                 }
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao carregar gráfico status:', error);
-    }
+            }
+        });
+    } catch(e) { console.error('Erro gráfico status:', e); }
 }
 
-// ==================== CARREGAR GRÁFICO COMPARATIVO (SEMANAS DO MÊS) ====================
-async function carregarGraficoComparativo() {
+// ==================== GRÁFICO EXECUTIVOS ====================
+async function carregarGraficoExecutivos() {
     try {
-        const response = await fetch(`/api/metricas/semanais/comparativo?${getFilters()}`);
-        const result = await response.json();
-        
-        if (result.success && result.data.length > 0) {
-            const ctx = document.getElementById('chartComparativo').getContext('2d');
-            
-            if (chartComparativo) chartComparativo.destroy();
-            
-            const semanas = result.data.map(d => d.semana);
-            
-            chartComparativo = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: semanas,
-                    datasets: [
-                        {
-                            label: 'Cotações',
-                            data: result.data.map(d => d.cotacoes_criadas),
-                            backgroundColor: PRIMARY_70,
-                            borderColor: PRIMARY,
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Aprovadas',
-                            data: result.data.map(d => d.aprovadas),
-                            backgroundColor: GRAY_400,
-                            borderColor: GRAY_500,
-                            borderWidth: 1
-                        }
-                    ]
+        const r = await fetch(`/api/metricas/semanais/por-executivo?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success || !j.data.length) return;
+        destroyChart('executivos');
+        const ctx = document.getElementById('chartExecutivos').getContext('2d');
+        charts.executivos = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: j.data.map(d => (d.executivo_nome||'N/A').split(' ')[0]),
+                datasets: [
+                    { label: 'Total', data: j.data.map(d => d.total_cotacoes), backgroundColor: PRIMARY_70, borderColor: PRIMARY, borderWidth:1 },
+                    { label: 'Aprovadas', data: j.data.map(d => d.aprovadas), backgroundColor: GREEN_600, borderColor: GREEN_600, borderWidth:1 }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position:'top', labels:{boxWidth:12,font:{size:11}} },
+                    tooltip: { callbacks: { afterBody: items => { const d = j.data[items[0].dataIndex]; return `Valor: ${fmt(d.valor_total)}\nConversão: ${d.taxa_conversao||0}%`; } } }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
-                        tooltip: {
-                            callbacks: {
-                                afterBody: function(tooltipItems) {
-                                    const idx = tooltipItems[0].dataIndex;
-                                    const item = result.data[idx];
-                                    return `Valor: ${formatCurrency(item.valor_total)}\nConversão: ${item.taxa_conversao || 0}%`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao carregar gráfico comparativo:', error);
-    }
+                scales: { x:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'#f3f4f6'}}, y:{grid:{display:false}} }
+            }
+        });
+    } catch(e) { console.error('Erro gráfico executivos:', e); }
 }
 
-// ==================== CARREGAR TABELA ====================
+// ==================== ESTÁGIOS DAS COTAÇÕES ====================
+async function carregarEstagios() {
+    try {
+        const r = await fetch(`/api/metricas/semanais/estagios-cotacoes?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success) return;
+        const d = j.data;
+        const container = document.getElementById('estagiosCards');
+        container.innerHTML = `
+            <div class="stat-mini bg-base-200 rounded-lg">
+                <div class="value">${fmtN(d.total_cotacoes)}</div>
+                <div class="label">Cotações no período</div>
+            </div>
+            <div class="stat-mini bg-base-200 rounded-lg">
+                <div class="value">${d.tempo_medio_envio || 0}<span class="text-sm font-normal"> dias</span></div>
+                <div class="label">Tempo médio até envio</div>
+                <div class="sub">Taxa envio: ${d.taxa_envio || 0}%</div>
+            </div>
+            <div class="stat-mini bg-base-200 rounded-lg">
+                <div class="value">${d.tempo_medio_negociacao || 0}<span class="text-sm font-normal"> dias</span></div>
+                <div class="label">Tempo médio negociação</div>
+                <div class="sub">Após envio da proposta</div>
+            </div>
+            <div class="stat-mini bg-base-200 rounded-lg">
+                <div class="value">${d.tempo_medio_ciclo_total || 0}<span class="text-sm font-normal"> dias</span></div>
+                <div class="label">Ciclo total médio</div>
+                <div class="sub">Criação → Aprovação</div>
+            </div>
+            <div class="stat-mini bg-base-200 rounded-lg">
+                <div class="value">${d.taxa_conversao || 0}<span class="text-sm font-normal">%</span></div>
+                <div class="label">Taxa de conversão</div>
+                <div class="sub">${d.aprovadas||0} de ${(d.aprovadas||0)+(d.rejeitadas||0)}</div>
+            </div>
+            <div class="stat-mini bg-base-200 rounded-lg">
+                <div class="value">${d.taxa_aprovacao_pos_envio || 0}<span class="text-sm font-normal">%</span></div>
+                <div class="label">Conversão pós-envio</div>
+                <div class="sub">Enviadas → Aprovadas</div>
+            </div>
+        `;
+    } catch(e) { console.error('Erro estágios:', e); }
+}
+
+// ==================== TOP 10 COTAÇÕES APROVADAS ====================
+async function carregarTop10() {
+    try {
+        const r = await fetch(`/api/metricas/semanais/top-cotacoes-aprovadas?${getFilters()}`);
+        const j = await r.json();
+        const tbody = document.getElementById('tabelaTop10');
+        if (!j.success || !j.data.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-base-content/50">Nenhuma cotação aprovada no período</td></tr>';
+            return;
+        }
+        tbody.innerHTML = j.data.map((d, i) => `
+            <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${d.id}'">
+                <td class="font-bold text-primary">${i+1}</td>
+                <td class="font-medium">${d.cliente || '--'}</td>
+                <td>${d.nome_campanha || '--'}</td>
+                <td class="text-right font-mono">${fmt(d.valor_proposta)}</td>
+                <td class="text-right font-mono font-semibold text-primary">${fmt(d.valor_liquido)}</td>
+                <td>${d.executivo || '--'}</td>
+                <td class="text-center text-xs">${fmtDate(d.aprovada_em)}</td>
+                <td class="text-center">${d.ciclo_dias != null ? Math.round(d.ciclo_dias) + 'd' : '--'}</td>
+            </tr>
+        `).join('');
+    } catch(e) { console.error('Erro top 10:', e); }
+}
+
+// ==================== LEADS POR EXECUTIVO ====================
+async function carregarLeadsPorExecutivo() {
+    const container = document.getElementById('leadsExecutivoCards');
+    container.innerHTML = '<div class="text-center text-xs text-base-content/50 py-4 col-span-full">Carregando...</div>';
+    try {
+        const r = await fetch(`/api/metricas/semanais/leads-por-executivo?${getFilters()}`);
+        const j = await r.json();
+        if (!j.success || !j.data.length) {
+            container.innerHTML = '<div class="text-center text-xs text-base-content/50 py-4 col-span-full">Nenhum lead no período</div>';
+            return;
+        }
+        const totalGeral = j.data.reduce((s, d) => s + d.total, 0);
+        container.innerHTML = j.data.map(d => {
+            const pct = totalGeral > 0 ? Math.round(d.total / totalGeral * 100) : 0;
+            return `
+            <div class="bg-base-200 rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-primary">${fmtN(d.total)}</div>
+                <div class="text-[0.65rem] font-medium text-gray-700 mt-0.5 truncate" title="${d.executivo}">${d.executivo}</div>
+                <div class="w-full bg-base-300 rounded-full h-1 mt-1.5">
+                    <div class="bg-primary h-1 rounded-full" style="width:${pct}%"></div>
+                </div>
+                <div class="flex justify-between text-[0.6rem] text-gray-400 mt-1">
+                    <span>${d.notificados} notif.</span>
+                    <span>${d.pendentes} pend.</span>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { console.error('Erro leads por executivo:', e); }
+}
+
+// ==================== TABELA DE LEADS ====================
+async function carregarLeads() {
+    try {
+        const r = await fetch(`/api/metricas/semanais/leads-detalhado?${getFilters()}`);
+        const j = await r.json();
+        const tbody = document.getElementById('tabelaLeads');
+        const badge = document.getElementById('totalLeadsBadge');
+        if (!j.success || !j.data.length) {
+            badge.textContent = '0 leads';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-base-content/50">Nenhum lead no período</td></tr>';
+            return;
+        }
+        badge.textContent = `${j.data.length} leads`;
+        tbody.innerHTML = j.data.map(d => `
+            <tr class="hover:bg-base-200/50">
+                <td class="text-xs">${fmtDateTime(d.data_registro)}</td>
+                <td class="font-medium">${d.contato_nome || '--'}</td>
+                <td>${d.empresa || '--'}</td>
+                <td><span class="badge badge-sm badge-ghost">${(d.fonte||'').replace('ADS_','')}</span></td>
+                <td class="text-center">${d.notificado ? '<span class="badge badge-sm badge-success">Notificado</span>' : '<span class="badge badge-sm badge-warning">Pendente</span>'}</td>
+                <td class="text-xs">${d.executivo || '--'}</td>
+            </tr>
+        `).join('');
+    } catch(e) { console.error('Erro leads:', e); }
+}
+
+// ==================== TABELA PIs POR EXECUTIVO ANUAL ====================
+async function carregarPIsAnual() {
+    try {
+        const ano = getAno();
+        document.getElementById('piAnoLabel').textContent = ano;
+        const r = await fetch(`/api/metricas/semanais/pis-por-executivo-anual?ano=${ano}`);
+        const j = await r.json();
+        if (!j.success) return;
+        const d = j.data;
+        const tbody = document.getElementById('tabelaPIsBody');
+        const meta = d.meta_mensal || META_MENSAL;
+
+        let html = '';
+        if (!d.executivos || !d.executivos.length) {
+            html = '<tr><td colspan="14" class="text-center py-8 text-base-content/50">Nenhum PI encontrado no ano</td></tr>';
+        } else {
+            d.executivos.forEach(exec => {
+                html += `<tr class="hover:bg-base-200/50">
+                    <td class="text-left font-medium text-xs whitespace-nowrap">${exec.executivo}</td>`;
+                for (let m = 1; m <= 12; m++) {
+                    const mes = exec.meses[String(m)] || {total:0, valor:0};
+                    const cls = mes.valor >= meta ? 'meta-ok' : (mes.total > 0 ? 'meta-fail' : '');
+                    html += `<td class="${cls}">
+                        <div class="font-semibold">${mes.total || '-'}</div>
+                        <div class="text-[0.6rem] text-base-content/50">${mes.valor > 0 ? fmtK(mes.valor) : ''}</div>
+                    </td>`;
+                }
+                html += `<td class="font-bold">
+                    <div>${exec.total_ano}</div>
+                    <div class="text-[0.6rem] text-primary">${fmtK(exec.valor_ano)}</div>
+                </td></tr>`;
+            });
+
+            html += `<tr class="font-bold" style="background:#f3f4f6;">
+                <td class="text-left text-xs">TOTAL</td>`;
+            let totalGeralPis = 0, totalGeralValor = 0;
+            for (let m = 1; m <= 12; m++) {
+                const mes = d.totais_mes[String(m)] || {total:0, valor:0};
+                totalGeralPis += mes.total;
+                totalGeralValor += mes.valor;
+                const cls = mes.valor >= meta ? 'meta-ok' : (mes.total > 0 ? 'meta-fail' : '');
+                html += `<td class="${cls}">
+                    <div>${mes.total || '-'}</div>
+                    <div class="text-[0.6rem] text-primary">${mes.valor > 0 ? fmtK(mes.valor) : ''}</div>
+                </td>`;
+            }
+            html += `<td><div>${totalGeralPis}</div><div class="text-[0.6rem] text-primary">${fmtK(totalGeralValor)}</div></td></tr>`;
+
+            html += `<tr style="background:#fef3c7;">
+                <td class="text-left text-xs font-semibold">META</td>`;
+            for (let m = 1; m <= 12; m++) {
+                html += `<td class="text-xs font-semibold text-warning">${fmtK(meta)}</td>`;
+            }
+            html += `<td class="text-xs font-semibold text-warning">${fmtK(meta * 12)}</td></tr>`;
+        }
+        tbody.innerHTML = html;
+    } catch(e) { console.error('Erro PIs anual:', e); }
+}
+
+// ==================== TABELA DE COTAÇÕES ====================
 async function carregarTabela() {
     try {
-        const response = await fetch(`/api/metricas/semanais/cotacoes?${getFilters()}`);
-        const result = await response.json();
-        
+        const busca = document.getElementById('filtroBusca').value.trim();
+        let params = getFilters();
+        if (busca) params += `&busca=${encodeURIComponent(busca)}`;
+        const r = await fetch(`/api/metricas/semanais/cotacoes?${params}`);
+        const j = await r.json();
         const tbody = document.getElementById('tabelaCotacoes');
         const badge = document.getElementById('totalCotacoesTabela');
-        
-        if (result.success && result.data.length > 0) {
-            badge.textContent = `${result.data.length} cotações`;
-            
-            const grouped = {};
-            result.data.forEach(cot => {
-                const week = getWeekNumber(cot.created_at);
-                if (!grouped[week]) grouped[week] = [];
-                grouped[week].push(cot);
-            });
-            
-            let html = '';
-            const weeks = ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'];
-            weeks.forEach(week => {
-                if (!grouped[week] || grouped[week].length === 0) return;
-                
-                html += `<tr class="week-group-header">
-                    <td colspan="8" class="py-2 px-4">${week} — ${grouped[week].length} cotações</td>
-                </tr>`;
-                
-                grouped[week].forEach(cot => {
-                    html += `
-                        <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}'">
-                            <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
-                            <td class="font-medium">${cot.cliente_nome || '--'}</td>
-                            <td>${cot.nome_campanha || '--'}</td>
-                            <td class="text-right font-medium">${formatCurrency(cot.valor_total_proposta)}</td>
-                            <td class="text-center">
-                                <span class="inline-block px-2 py-0.5 rounded text-xs ${getStatusBadgeClass(cot.status)}">${cot.status || '--'}</span>
-                            </td>
-                            <td>${cot.executivo_nome || '--'}</td>
-                            <td class="text-center">${cot.dias_aberto || 0}</td>
-                            <td class="text-xs text-base-content/60">${formatDateTime(cot.created_at)}</td>
-                        </tr>`;
-                });
-            });
-            
-            tbody.innerHTML = html;
-        } else {
+
+        if (!j.success || !j.data.length) {
             badge.textContent = '0 cotações';
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center py-8 text-base-content/50">
-                        <p>Nenhuma cotação encontrada neste mês</p>
-                    </td>
-                </tr>
-            `;
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-base-content/50">Nenhuma cotação encontrada</td></tr>';
+            return;
         }
-    } catch (error) {
-        console.error('Erro ao carregar tabela:', error);
-    }
+        badge.textContent = `${j.data.length} cotações`;
+        tbody.innerHTML = j.data.map(cot => `
+            <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}'">
+                <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
+                <td class="font-medium">${cot.cliente_nome || '--'}</td>
+                <td>${cot.nome_campanha || '--'}</td>
+                <td class="text-right font-mono">${fmt(cot.valor_total_proposta)}</td>
+                <td class="text-center">${statusBadge(cot.status)}</td>
+                <td class="text-xs">${cot.executivo_nome || '--'}</td>
+                <td class="text-center">${cot.dias_aberto || 0}</td>
+                <td class="text-xs text-base-content/60">${fmtDateTime(cot.created_at)}</td>
+            </tr>
+        `).join('');
+    } catch(e) { console.error('Erro tabela:', e); }
 }
 
-// ==================== CARREGAR TODOS OS DADOS ====================
+// ==================== CARREGAR TUDO ====================
 async function carregarDados() {
-    document.getElementById('btnAtualizar').classList.add('loading');
-    
     await Promise.all([
         carregarKPIs(),
-        carregarGraficoExecutivos(),
+        carregarFunil(),
+        carregarGraficoLeadsFonte(),
         carregarGraficoEvolucao(),
         carregarGraficoStatus(),
-        carregarGraficoComparativo(),
+        carregarGraficoExecutivos(),
+        carregarEstagios(),
+        carregarTop10(),
+        carregarLeadsPorExecutivo(),
+        carregarLeads(),
+        carregarPIsAnual(),
         carregarTabela()
     ]);
-    
-    document.getElementById('btnAtualizar').classList.remove('loading');
 }
 
-// ==================== INICIALIZAÇÃO ====================
+// ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', function() {
     const hoje = new Date();
-    const mesFormatado = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
-    document.getElementById('filtroMes').value = mesFormatado;
-    
-    var cookieExec = getCookie('cc_filtro_exec');
-    if (cookieExec !== null) {
-        var selExec = document.getElementById('filtroExecutivo');
-        for (var i = 0; i < selExec.options.length; i++) {
-            if (selExec.options[i].value === cookieExec) {
-                selExec.value = cookieExec;
-                break;
-            }
+    document.getElementById('filtroMes').value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+    document.getElementById('filtroAno').value = hoje.getFullYear();
+
+    const cookieExec = getCookie('cc_filtro_exec');
+    if (cookieExec) {
+        const sel = document.getElementById('filtroExecutivo');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === cookieExec) { sel.value = cookieExec; break; }
         }
     }
 
-    carregarDados();
-    
-    document.getElementById('btnAtualizar').addEventListener('click', carregarDados);
+    carregarBaseTotal().then(() => carregarDados());
+
+    document.getElementById('filtroMes').addEventListener('change', carregarDados);
+    document.getElementById('filtroAno').addEventListener('change', carregarPIsAnual);
     document.getElementById('filtroExecutivo').addEventListener('change', function() {
         setCookie('cc_filtro_exec', this.value, 30);
+        carregarDados();
     });
     document.getElementById('filtroBusca').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') carregarDados();
+        if (e.key === 'Enter') carregarTabela();
     });
 });
+
+// ==================== GERAR PDF ====================
+function gerarPDF() {
+    window.print();
+}
 </script>
 {% endblock %}

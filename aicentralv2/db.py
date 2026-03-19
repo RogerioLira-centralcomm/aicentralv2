@@ -12,6 +12,7 @@ import os
 import hashlib
 import bcrypt
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import List, Optional
 import re
 import secrets
@@ -6997,6 +6998,7 @@ def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id
                 SELECT 
                     COUNT(*) as cotacoes_criadas,
                     COALESCE(SUM(valor_total_proposta), 0) as valor_total,
+                    COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada'), 0) as valor_aprovado,
                     COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
                     COUNT(*) FILTER (WHERE status = 'Rejeitada') as rejeitadas,
                     COUNT(*) FILTER (WHERE status = 'Enviada') as enviadas,
@@ -7012,21 +7014,26 @@ def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id
                         2
                     ) as ticket_medio,
                     ROUND(
-                        AVG(EXTRACT(DAY FROM (aprovada_em - created_at))) FILTER (WHERE status = 'Aprovada' AND aprovada_em IS NOT NULL),
+                        AVG(EXTRACT(EPOCH FROM (aprovada_em - created_at)) / 86400) FILTER (WHERE status = 'Aprovada' AND aprovada_em IS NOT NULL),
                         1
                     ) as ciclo_medio_dias
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
-                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
             ''', params)
             
             result = cursor.fetchone()
-            return dict(result) if result else {
-                'cotacoes_criadas': 0, 'valor_total': 0, 'aprovadas': 0,
-                'rejeitadas': 0, 'enviadas': 0, 'negociacao': 0,
+            if result:
+                data = dict(result)
+                for k in data:
+                    if isinstance(data[k], Decimal):
+                        data[k] = float(data[k])
+                return data
+            return {
+                'cotacoes_criadas': 0, 'valor_total': 0, 'valor_aprovado': 0,
+                'aprovadas': 0, 'rejeitadas': 0, 'enviadas': 0, 'negociacao': 0,
                 'taxa_conversao': 0, 'ticket_medio': 0, 'ciclo_medio_dias': 0
             }
     except Exception as e:
@@ -7071,7 +7078,6 @@ def obter_cotacoes_por_executivo_semana(semana_inicio, semana_fim, executivo_id=
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = c.responsavel_comercial
                 WHERE c.deleted_at IS NULL
-                  AND (c.status IS NULL OR c.status != 'Rascunho')
                   AND c.created_at >= %s
                   AND c.created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7115,7 +7121,6 @@ def obter_evolucao_diaria_semana(semana_inicio, semana_fim, executivo_id=None, c
                     COUNT(*) FILTER (WHERE status = 'Enviada' OR status = 'Negociação') as em_andamento
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
-                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7157,7 +7162,6 @@ def obter_distribuicao_status_semana(semana_inicio, semana_fim, executivo_id=Non
                     COALESCE(SUM(valor_total_proposta), 0) as valor
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
-                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7208,7 +7212,6 @@ def obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id=None, clie
                     COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
-                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7223,7 +7226,6 @@ def obter_comparativo_semanal(semana_inicio, semana_fim, executivo_id=None, clie
                     COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
-                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7301,7 +7303,6 @@ def obter_cotacoes_detalhadas_semana(semana_inicio, semana_fim, executivo_id=Non
                 LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = c.responsavel_comercial
                 LEFT JOIN tbl_agencia ag ON cli.pk_id_tbl_agencia = ag.id_agencia
                 WHERE c.deleted_at IS NULL
-                  AND (c.status IS NULL OR c.status != 'Rascunho')
                   AND c.created_at >= %s
                   AND c.created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7352,7 +7353,6 @@ def obter_kpis_mensais_por_semana(mes_inicio, mes_fim, executivo_id=None, client
                     ) as taxa_conversao
                 FROM cadu_cotacoes
                 WHERE deleted_at IS NULL
-                  AND (status IS NULL OR status != 'Rascunho')
                   AND created_at >= %s
                   AND created_at < %s + INTERVAL '1 day'
                   {filtros_sql}
@@ -7372,17 +7372,23 @@ def obter_kpis_mensais_por_semana(mes_inicio, mes_fim, executivo_id=None, client
         return []
 
 
-def obter_novos_clientes_periodo(inicio, fim):
-    """Conta novos clientes cadastrados no período."""
+def obter_novos_clientes_periodo(inicio, fim, executivo_id=None):
+    """Conta novos clientes cadastrados no período, filtrando por executivo."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
+            params = [inicio, fim]
+            filtro = ''
+            if executivo_id:
+                filtro = ' AND vendas_central_comm = %s'
+                params.append(int(executivo_id))
+            cursor.execute(f'''
                 SELECT COUNT(*) as total
                 FROM tbl_cliente
                 WHERE data_cadastro >= %s
                   AND data_cadastro < %s + INTERVAL '1 day'
-            ''', [inicio, fim])
+                  {filtro}
+            ''', params)
             result = cursor.fetchone()
             return result['total'] if result else 0
     except Exception as e:
@@ -7390,17 +7396,29 @@ def obter_novos_clientes_periodo(inicio, fim):
         return 0
 
 
-def obter_novos_contatos_periodo(inicio, fim):
-    """Conta novos contatos cadastrados no período."""
+def obter_novos_contatos_periodo(inicio, fim, executivo_id=None):
+    """Conta novos contatos cadastrados no período, filtrando por executivo."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
+            params = [inicio, fim]
+            filtro = ''
+            if executivo_id:
+                filtro = '''
+                    AND EXISTS (
+                        SELECT 1 FROM tbl_cliente cl
+                        WHERE cl.id_cliente = tbl_contato_cliente.pk_id_tbl_cliente
+                          AND cl.vendas_central_comm = %s
+                    )
+                '''
+                params.append(int(executivo_id))
+            cursor.execute(f'''
                 SELECT COUNT(*) as total
                 FROM tbl_contato_cliente
                 WHERE data_cadastro >= %s
                   AND data_cadastro < %s + INTERVAL '1 day'
-            ''', [inicio, fim])
+                  {filtro}
+            ''', params)
             result = cursor.fetchone()
             return result['total'] if result else 0
     except Exception as e:
@@ -7410,22 +7428,34 @@ def obter_novos_contatos_periodo(inicio, fim):
 
 def obter_executivos_ativos():
     """
-    Retorna lista de executivos que têm cotações.
-    
-    Returns:
-        list: Lista de dicts com id e nome dos executivos
+    Retorna todos os executivos comerciais da CentralComm (ativos).
     """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT DISTINCT
-                    e.id_contato_cliente as id,
-                    e.nome_completo as nome
-                FROM tbl_contato_cliente e
-                INNER JOIN cadu_cotacoes c ON c.responsavel_comercial = e.id_contato_cliente
-                WHERE c.deleted_at IS NULL
-                ORDER BY e.nome_completo
+                SELECT
+                    c.id_contato_cliente as id,
+                    c.nome_completo as nome
+                FROM tbl_contato_cliente c
+                JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_cargo_contato car ON c.pk_id_tbl_cargo = car.id_cargo_contato
+                WHERE (
+                    cli.nome_fantasia ILIKE '%%centralcomm%%'
+                    OR cli.razao_social ILIKE '%%centralcomm%%'
+                    OR cli.nome_fantasia ILIKE '%%central comm%%'
+                    OR cli.razao_social ILIKE '%%central comm%%'
+                )
+                AND c.status = TRUE
+                AND COALESCE(cli.status, TRUE) = TRUE
+                AND (
+                    car.descricao ILIKE '%%Executivo de Vendas%%'
+                    OR (
+                        car.descricao ILIKE '%%execut%%'
+                        AND car.descricao ILIKE '%%vend%%'
+                    )
+                )
+                ORDER BY c.nome_completo
             ''')
             return cursor.fetchall()
     except Exception as e:
@@ -9474,3 +9504,431 @@ def get_dashboard_leads(days=90):
     except Exception as e:
         current_app.logger.error(f"Erro dashboard leads: {e}")
         return {'por_executivo': [], 'por_origem': [], 'evolucao': [], 'resumo': {'total': 0, 'notificados': 0, 'pendentes': 0}}
+
+
+# ==================== DASHBOARD GERENCIAL COMERCIAL ====================
+
+META_VENDAS_MENSAL = 200000
+
+
+def _parse_valor_sql():
+    """Retorna expressão SQL para converter vr_liquido_pi (texto) em numeric."""
+    return """
+        CASE
+            WHEN NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+,[0-9]+$'
+                THEN REPLACE(NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), ''), ',', '.')::numeric
+            WHEN NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
+                THEN REPLACE(REPLACE(NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), ''), '.', ''), ',', '.')::numeric
+            WHEN NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+$'
+                THEN NULLIF(REGEXP_REPLACE(vr_liquido_pi, '[^0-9.,]', '', 'g'), '')::numeric
+            ELSE 0
+        END
+    """
+
+
+def obter_kpis_base_total():
+    """Retorna totais all-time para servir de referência comparativa."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COUNT(*) as total_cotacoes,
+                    COALESCE(SUM(valor_total_proposta), 0) as valor_total,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as total_aprovadas,
+                    COUNT(*) FILTER (WHERE status = 'Rejeitada') as total_rejeitadas,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL /
+                        NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada')), 0) * 100, 1
+                    ) as taxa_conversao_geral,
+                    ROUND(
+                        COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada'), 0) /
+                        NULLIF(COUNT(*) FILTER (WHERE status = 'Aprovada'), 0), 2
+                    ) as ticket_medio_geral,
+                    ROUND(
+                        AVG(EXTRACT(EPOCH FROM (aprovada_em - created_at)) / 86400)
+                        FILTER (WHERE status = 'Aprovada' AND aprovada_em IS NOT NULL), 1
+                    ) as ciclo_medio_geral,
+                    MIN(created_at) as primeira_cotacao,
+                    EXTRACT(MONTH FROM AGE(CURRENT_DATE, MIN(created_at)::date)) +
+                    EXTRACT(YEAR FROM AGE(CURRENT_DATE, MIN(created_at)::date)) * 12 as meses_operacao
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+            ''')
+            cot = cursor.fetchone()
+
+            cursor.execute('SELECT COUNT(*) as total FROM tbl_interesse_produto')
+            leads = cursor.fetchone()
+
+            cursor.execute('SELECT COUNT(*) as total FROM tbl_cliente WHERE status = true')
+            clientes = cursor.fetchone()
+
+            meses = max(float(cot['meses_operacao'] or 1), 1)
+
+            return {
+                'total_cotacoes': cot['total_cotacoes'],
+                'valor_total': float(cot['valor_total'] or 0),
+                'total_aprovadas': cot['total_aprovadas'],
+                'taxa_conversao_geral': float(cot['taxa_conversao_geral'] or 0),
+                'ticket_medio_geral': float(cot['ticket_medio_geral'] or 0),
+                'ciclo_medio_geral': float(cot['ciclo_medio_geral'] or 0),
+                'total_leads': leads['total'],
+                'total_clientes': clientes['total'],
+                'media_cotacoes_mes': round(cot['total_cotacoes'] / meses, 1),
+                'media_aprovadas_mes': round(cot['total_aprovadas'] / meses, 1),
+                'media_leads_mes': round(leads['total'] / meses, 1),
+                'meses_operacao': int(meses)
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter KPIs base total: {e}")
+        return {}
+
+
+def obter_funil_comercial(inicio, fim, executivo_id=None):
+    """Retorna contagens por estágio do pipeline comercial."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params_cot = [inicio, fim]
+            params_pi = [inicio, fim]
+            filtro_exec_cot = ''
+            filtro_exec_pi = ''
+
+            if executivo_id:
+                eid = int(executivo_id)
+                filtro_exec_cot = ' AND c.responsavel_comercial = %s'
+                params_cot.append(eid)
+                filtro_exec_pi = ' AND p.id_resp_comercial = %s'
+                params_pi.append(eid)
+
+            leads = obter_leads_count(inicio, fim, executivo_id)
+
+            cursor.execute(f'''
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE c.status = 'Em Análise') as em_analise,
+                    COUNT(*) FILTER (WHERE c.status = 'Enviada') as enviadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Negociação') as negociacao,
+                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') as aprovadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Rejeitada') as rejeitadas,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) as valor_aprovado,
+                    COALESCE(SUM(c.valor_total_proposta), 0) as valor_total
+                FROM cadu_cotacoes c
+                WHERE c.deleted_at IS NULL
+                  AND c.created_at >= %s AND c.created_at < %s + INTERVAL '1 day'
+                  {filtro_exec_cot}
+            ''', params_cot)
+            cot = cursor.fetchone()
+
+            cursor.execute(f'''
+                SELECT COUNT(*) as total,
+                       COALESCE(SUM({_parse_valor_sql()}), 0) as valor_liquido
+                FROM cadu_pi p
+                WHERE p.created_at >= %s AND p.created_at < %s + INTERVAL '1 day'
+                  {filtro_exec_pi}
+            ''', params_pi)
+            pis = cursor.fetchone()
+
+            return {
+                'leads': leads,
+                'cotacoes_criadas': cot['total'],
+                'em_analise': cot['em_analise'],
+                'enviadas': cot['enviadas'],
+                'negociacao': cot['negociacao'],
+                'aprovadas': cot['aprovadas'],
+                'rejeitadas': cot['rejeitadas'],
+                'valor_aprovado': float(cot['valor_aprovado'] or 0),
+                'valor_total': float(cot['valor_total'] or 0),
+                'pis_gerados': pis['total'],
+                'valor_pis': float(pis['valor_liquido'] or 0)
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter funil comercial: {e}")
+        return {}
+
+
+def obter_leads_count(inicio, fim, executivo_id=None):
+    """Conta total de leads no período, filtrando por executivo se informado."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if executivo_id:
+                cursor.execute('''
+                    SELECT COUNT(*) as total
+                    FROM tbl_interesse_produto i
+                    LEFT JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                    LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                    WHERE i.data_registro >= %s AND i.data_registro < %s + INTERVAL '1 day'
+                      AND cli.vendas_central_comm = %s
+                ''', [inicio, fim, int(executivo_id)])
+            else:
+                cursor.execute('''
+                    SELECT COUNT(*) as total
+                    FROM tbl_interesse_produto
+                    WHERE data_registro >= %s AND data_registro < %s + INTERVAL '1 day'
+                ''', [inicio, fim])
+            result = cursor.fetchone()
+            return result['total'] if result else 0
+    except Exception as e:
+        current_app.logger.error(f"Erro ao contar leads: {e}")
+        return 0
+
+
+def obter_leads_por_fonte(inicio, fim, executivo_id=None):
+    """Retorna leads agrupados por tipo_produto no período."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if executivo_id:
+                cursor.execute('''
+                    SELECT
+                        COALESCE(i.tipo_produto, 'Outros') as fonte,
+                        COUNT(*) as total,
+                        COUNT(*) FILTER (WHERE i.notificado = true) as notificados,
+                        COUNT(*) FILTER (WHERE i.notificado = false) as pendentes
+                    FROM tbl_interesse_produto i
+                    LEFT JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                    LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                    WHERE i.data_registro >= %s AND i.data_registro < %s + INTERVAL '1 day'
+                      AND cli.vendas_central_comm = %s
+                    GROUP BY COALESCE(i.tipo_produto, 'Outros')
+                    ORDER BY total DESC
+                ''', [inicio, fim, int(executivo_id)])
+            else:
+                cursor.execute('''
+                    SELECT
+                        COALESCE(tipo_produto, 'Outros') as fonte,
+                        COUNT(*) as total,
+                        COUNT(*) FILTER (WHERE notificado = true) as notificados,
+                        COUNT(*) FILTER (WHERE notificado = false) as pendentes
+                    FROM tbl_interesse_produto
+                    WHERE data_registro >= %s AND data_registro < %s + INTERVAL '1 day'
+                    GROUP BY COALESCE(tipo_produto, 'Outros')
+                    ORDER BY total DESC
+                ''', [inicio, fim])
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter leads por fonte: {e}")
+        return []
+
+
+def obter_estagios_cotacoes(inicio, fim, executivo_id=None):
+    """Retorna métricas de tempo médio em cada estágio das cotações."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [inicio, fim]
+            filtro = ''
+            if executivo_id:
+                filtro = ' AND responsavel_comercial = %s'
+                params.append(int(executivo_id))
+
+            cursor.execute(f'''
+                SELECT
+                    COUNT(*) as total_cotacoes,
+                    ROUND(AVG(
+                        EXTRACT(EPOCH FROM (proposta_enviada_em - created_at)) / 86400
+                    ) FILTER (WHERE proposta_enviada_em IS NOT NULL), 1) as tempo_medio_envio,
+                    ROUND(AVG(
+                        EXTRACT(EPOCH FROM (aprovada_em - proposta_enviada_em)) / 86400
+                    ) FILTER (WHERE aprovada_em IS NOT NULL AND proposta_enviada_em IS NOT NULL), 1) as tempo_medio_negociacao,
+                    ROUND(AVG(
+                        EXTRACT(EPOCH FROM (aprovada_em - created_at)) / 86400
+                    ) FILTER (WHERE aprovada_em IS NOT NULL), 1) as tempo_medio_ciclo_total,
+                    COUNT(*) FILTER (WHERE proposta_enviada_em IS NOT NULL) as total_enviadas,
+                    COUNT(*) FILTER (WHERE aprovada_em IS NOT NULL) as total_com_aprovacao,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
+                    COUNT(*) FILTER (WHERE status = 'Rejeitada') as rejeitadas,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL /
+                        NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada')), 0) * 100, 1
+                    ) as taxa_conversao,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE proposta_enviada_em IS NOT NULL)::DECIMAL /
+                        NULLIF(COUNT(*), 0) * 100, 1
+                    ) as taxa_envio,
+                    ROUND(
+                        COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL /
+                        NULLIF(COUNT(*) FILTER (WHERE proposta_enviada_em IS NOT NULL), 0) * 100, 1
+                    ) as taxa_aprovacao_pos_envio
+                FROM cadu_cotacoes
+                WHERE deleted_at IS NULL
+                  AND created_at >= %s AND created_at < %s + INTERVAL '1 day'
+                  {filtro}
+            ''', params)
+            result = cursor.fetchone()
+            if result:
+                data = dict(result)
+                for k in data:
+                    if isinstance(data[k], Decimal):
+                        data[k] = float(data[k])
+                return data
+            return {}
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter estágios cotações: {e}")
+        return {}
+
+
+def obter_top_cotacoes_aprovadas(inicio, fim, executivo_id=None, limit=10):
+    """Retorna TOP N cotações aprovadas com valor líquido."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [inicio, fim]
+            filtro = ''
+            if executivo_id:
+                filtro = ' AND c.responsavel_comercial = %s'
+                params.append(int(executivo_id))
+            params.append(limit)
+
+            cursor.execute(f'''
+                SELECT
+                    c.id,
+                    c.numero_cotacao,
+                    cli.nome_fantasia as cliente,
+                    c.nome_campanha,
+                    COALESCE(c.valor_total_proposta, 0) as valor_proposta,
+                    COALESCE(
+                        (SELECT SUM(COALESCE(cl.investimento_liquido, 0))
+                         FROM cadu_cotacao_linhas cl
+                         WHERE cl.cotacao_id = c.id AND cl.is_deleted = false
+                           AND cl.is_subtotal = false AND cl.is_header = false), 0
+                    ) as valor_liquido,
+                    e.nome_completo as executivo,
+                    c.aprovada_em,
+                    c.created_at,
+                    ROUND(EXTRACT(EPOCH FROM (c.aprovada_em - c.created_at)) / 86400, 0) as ciclo_dias
+                FROM cadu_cotacoes c
+                LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente e ON c.responsavel_comercial = e.id_contato_cliente
+                WHERE c.status = 'Aprovada'
+                  AND c.deleted_at IS NULL
+                  AND c.aprovada_em >= %s AND c.aprovada_em < %s + INTERVAL '1 day'
+                  {filtro}
+                ORDER BY COALESCE(c.valor_total_proposta, 0) DESC
+                LIMIT %s
+            ''', params)
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter top cotações aprovadas: {e}")
+        return []
+
+
+def obter_leads_por_executivo(inicio, fim):
+    """Retorna leads agrupados por executivo responsável no período."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    COALESCE(vend.nome_completo, 'Sem Executivo') as executivo,
+                    vend.id_contato_cliente as executivo_id,
+                    COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE i.notificado = true) as notificados,
+                    COUNT(*) FILTER (WHERE i.notificado = false) as pendentes
+                FROM tbl_interesse_produto i
+                LEFT JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE i.data_registro >= %s AND i.data_registro < %s + INTERVAL '1 day'
+                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo'), vend.id_contato_cliente
+                ORDER BY total DESC
+            ''', [inicio, fim])
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter leads por executivo: {e}")
+        return []
+
+
+def obter_leads_detalhado(inicio, fim, executivo_id=None):
+    """Retorna lista detalhada de leads no período."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            params = [inicio, fim]
+            filtro = ''
+            if executivo_id:
+                filtro = ' AND cli.vendas_central_comm = %s'
+                params.append(int(executivo_id))
+
+            cursor.execute(f'''
+                SELECT
+                    i.id_interesse,
+                    i.data_registro,
+                    c.nome_completo as contato_nome,
+                    c.email as contato_email,
+                    cli.nome_fantasia as empresa,
+                    COALESCE(i.tipo_produto, 'Manual') as fonte,
+                    i.notificado,
+                    i.data_notificacao,
+                    COALESCE(vend.nome_completo, 'Sem Executivo') as executivo
+                FROM tbl_interesse_produto i
+                LEFT JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE i.data_registro >= %s AND i.data_registro < %s + INTERVAL '1 day'
+                  {filtro}
+                ORDER BY i.data_registro DESC
+                LIMIT 200
+            ''', params)
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter leads detalhado: {e}")
+        return []
+
+
+def obter_pis_por_executivo_anual(ano):
+    """Retorna grid anual de PIs agrupados por executivo e mês."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            parse_valor = _parse_valor_sql()
+            cursor.execute(f'''
+                SELECT
+                    COALESCE(rc.nome_completo, 'Sem Executivo') as executivo,
+                    EXTRACT(MONTH FROM p.created_at)::int as mes,
+                    COUNT(*) as total_pis,
+                    COALESCE(SUM({parse_valor}), 0) as valor_liquido
+                FROM cadu_pi p
+                LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
+                WHERE EXTRACT(YEAR FROM p.created_at) = %s
+                GROUP BY COALESCE(rc.nome_completo, 'Sem Executivo'), EXTRACT(MONTH FROM p.created_at)
+                ORDER BY executivo, mes
+            ''', (ano,))
+            rows = cursor.fetchall()
+
+            executivos = {}
+            for row in rows:
+                nome = row['executivo']
+                if nome not in executivos:
+                    executivos[nome] = {str(m): {'total': 0, 'valor': 0} for m in range(1, 13)}
+                executivos[nome][str(row['mes'])] = {
+                    'total': row['total_pis'],
+                    'valor': float(row['valor_liquido'] or 0)
+                }
+
+            result = []
+            for nome, meses in sorted(executivos.items()):
+                total_ano = sum(m['total'] for m in meses.values())
+                valor_ano = sum(m['valor'] for m in meses.values())
+                result.append({
+                    'executivo': nome,
+                    'meses': meses,
+                    'total_ano': total_ano,
+                    'valor_ano': valor_ano
+                })
+
+            totais_mes = {str(m): {'total': 0, 'valor': 0} for m in range(1, 13)}
+            for exec_data in result:
+                for m_key, m_val in exec_data['meses'].items():
+                    totais_mes[m_key]['total'] += m_val['total']
+                    totais_mes[m_key]['valor'] += m_val['valor']
+
+            return {
+                'executivos': result,
+                'totais_mes': totais_mes,
+                'meta_mensal': META_VENDAS_MENSAL
+            }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter PIs por executivo anual: {e}")
+        return {'executivos': [], 'totais_mes': {}, 'meta_mensal': META_VENDAS_MENSAL}

@@ -9137,6 +9137,7 @@ def get_dashboard_carteira_clientes(days=90):
                 'evolucao': evolucao
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard carteira clientes: {e}")
         return {'por_executivo': [], 'resumo': {}, 'evolucao': []}
 
@@ -9185,6 +9186,7 @@ def get_dashboard_cotacoes_status(days=90):
                 'total': resumo.get('total', 0) if resumo else 0
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard cotacoes: {e}")
         return {'por_status': [], 'evolucao': [], 'total': 0}
 
@@ -9227,6 +9229,7 @@ def get_dashboard_acessos_cadu(days=90):
                 'sessoes_diarias': sessoes_diarias
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard acessos: {e}")
         return {'dau': 0, 'wau': 0, 'mau': 0, 'sessions_today': 0, 'avg_duration': 0, 'sessoes_diarias': []}
 
@@ -9284,21 +9287,46 @@ def get_dashboard_pis_por_mes(days=90):
                 'resumo': resumo or {'total': 0, 'valor_total': 0, 'valor_bruto': 0}
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard PIs: {e}")
         return {'por_mes': [], 'resumo': {'total': 0, 'valor_total': 0, 'valor_bruto': 0}}
 
 
+def _parse_varchar_to_numeric(col):
+    """SQL expression to safely cast a VARCHAR monetary column to numeric.
+    Handles BR formats: 1.021.585 / 1.021,50 / 1021.50 / 1021,50"""
+    raw = f"NULLIF(REGEXP_REPLACE({col}, '[^0-9.,]', '', 'g'), '')"
+    return f"""
+        CASE
+            WHEN {raw} ~ '^[0-9]+,[0-9]+$'
+                THEN REPLACE({raw}, ',', '.')::numeric
+            WHEN {raw} ~ '^[0-9.]+,[0-9]+$'
+                THEN REPLACE(REPLACE({raw}, '.', ''), ',', '.')::numeric
+            WHEN {raw} ~ '^[0-9]+\\.[0-9]{{1,2}}$'
+                THEN {raw}::numeric
+            WHEN {raw} ~ '^[0-9.]+$'
+                THEN REPLACE({raw}, '.', '')::numeric
+            WHEN {raw} ~ '^[0-9]+$'
+                THEN {raw}::numeric
+            ELSE 0
+        END
+    """
+
+
 def get_dashboard_campanhas(days=90):
     conn = get_db()
+    vp = _parse_varchar_to_numeric('c.valor_plataforma')
+    tg = _parse_varchar_to_numeric('c.totalizador_gasto')
+    ta = _parse_varchar_to_numeric('c.totalizador_atingido')
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
+            cursor.execute(f'''
                 SELECT
                     COALESCE(st.descricao, 'Sem Status') AS status_nome,
                     COUNT(*) AS total,
-                    COALESCE(SUM(c.valor_plataforma), 0) AS valor_plataforma,
-                    COALESCE(SUM(c.totalizador_gasto), 0) AS gasto_total,
-                    COALESCE(SUM(c.totalizador_atingido), 0) AS atingido_total
+                    COALESCE(SUM({vp}), 0) AS valor_plataforma,
+                    COALESCE(SUM({tg}), 0) AS gasto_total,
+                    COALESCE(SUM({ta}), 0) AS atingido_total
                 FROM cadu_pi_campanha c
                 LEFT JOIN cadu_pi_camp_status st ON c.id_status = st.id
                 WHERE c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
@@ -9307,12 +9335,12 @@ def get_dashboard_campanhas(days=90):
             ''', (days,))
             por_status = cursor.fetchall()
 
-            cursor.execute('''
+            cursor.execute(f'''
                 SELECT
                     COUNT(*) AS total_campanhas,
-                    COALESCE(SUM(c.valor_plataforma), 0) AS faturamento,
-                    COALESCE(SUM(c.totalizador_gasto), 0) AS gasto,
-                    COALESCE(SUM(c.totalizador_atingido), 0) AS atingido
+                    COALESCE(SUM({vp}), 0) AS faturamento,
+                    COALESCE(SUM({tg}), 0) AS gasto,
+                    COALESCE(SUM({ta}), 0) AS atingido
                 FROM cadu_pi_campanha c
                 WHERE c.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
             ''', (days,))
@@ -9323,6 +9351,7 @@ def get_dashboard_campanhas(days=90):
                 'resumo': resumo or {'total_campanhas': 0, 'faturamento': 0, 'gasto': 0, 'atingido': 0}
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard campanhas: {e}")
         return {'por_status': [], 'resumo': {'total_campanhas': 0, 'faturamento': 0, 'gasto': 0, 'atingido': 0}}
 
@@ -9398,6 +9427,7 @@ def get_dashboard_audiencias(days=90):
                 'total_acessos': total_acessos
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard audiencias: {e}")
         return {'top_audiencias': [], 'top_canais': [], 'evolucao': [], 'total_acessos': 0}
 
@@ -9439,6 +9469,7 @@ def get_dashboard_briefings_por_cliente(days=90):
                 'resumo': resumo or {'total': 0, 'enviados': 0, 'rascunhos': 0, 'enviados_centralcomm': 0}
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard briefings: {e}")
         return {'top_clientes': [], 'resumo': {'total': 0, 'enviados': 0, 'rascunhos': 0, 'enviados_centralcomm': 0}}
 
@@ -9502,6 +9533,7 @@ def get_dashboard_leads(days=90):
                 'resumo': resumo or {'total': 0, 'notificados': 0, 'pendentes': 0}
             }
     except Exception as e:
+        conn.rollback()
         current_app.logger.error(f"Erro dashboard leads: {e}")
         return {'por_executivo': [], 'por_origem': [], 'evolucao': [], 'resumo': {'total': 0, 'notificados': 0, 'pendentes': 0}}
 

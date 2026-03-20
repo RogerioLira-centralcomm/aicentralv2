@@ -102,7 +102,7 @@ def api_cliente_status(cliente_id):
                         COALESCE(SUM(c.valor_total_proposta), 0) AS valor_bruto,
                         COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS valor_liquido
                     FROM cadu_cotacoes c
-                    WHERE c.cliente_id = cli.id_cliente
+                    WHERE c.client_id = cli.id_cliente
                       AND c.deleted_at IS NULL
                       AND DATE_TRUNC('month', c.created_at) = DATE_TRUNC('month', CURRENT_DATE)
                 ) cot ON true
@@ -158,7 +158,7 @@ def api_cliente_status_completo(cliente_id):
                          THEN ROUND(COUNT(*) FILTER (WHERE c.status = '2')::numeric / COUNT(*) * 100, 1)
                          ELSE 0 END AS pct_conversao
                 FROM cadu_cotacoes c
-                WHERE c.cliente_id = %s
+                WHERE c.client_id = %s
                   AND c.deleted_at IS NULL
                   AND EXTRACT(YEAR FROM c.created_at) = %s
             """, (cliente_id, ano))
@@ -186,7 +186,7 @@ def api_cliente_status_completo(cliente_id):
                     COUNT(*) FILTER (WHERE c.status = '2') AS aprovadas,
                     COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS faturamento
                 FROM cadu_cotacoes c
-                WHERE c.cliente_id = %s
+                WHERE c.client_id = %s
                   AND c.deleted_at IS NULL
                   AND EXTRACT(YEAR FROM c.created_at) = %s
                 GROUP BY EXTRACT(MONTH FROM c.created_at)
@@ -202,7 +202,7 @@ def api_cliente_status_completo(cliente_id):
                     c.created_at
                 FROM cadu_cotacoes c
                 LEFT JOIN cadu_cotacoes_status st ON st.id = c.status
-                WHERE c.cliente_id = %s
+                WHERE c.client_id = %s
                   AND c.deleted_at IS NULL
                   AND EXTRACT(YEAR FROM c.created_at) = %s
                 ORDER BY c.created_at DESC

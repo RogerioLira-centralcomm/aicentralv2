@@ -107,7 +107,7 @@ def ia_sugerir_objetivos():
                 SELECT COUNT(*) AS total,
                        COUNT(*) FILTER (WHERE status = '2') AS aprovadas
                 FROM cadu_cotacoes
-                WHERE cliente_id = %s AND deleted_at IS NULL
+                WHERE client_id = %s AND deleted_at IS NULL
                   AND created_at >= CURRENT_DATE - INTERVAL '90 days'
             """, (cliente_id,))
             cot = cur.fetchone()

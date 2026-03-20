@@ -1,44 +1,6 @@
-/* Leads V2 — Dashboard de Prospecção (UX v2) */
+/* Leads V2 — Dashboard de Prospecção (Redesign) */
 
 const SEL_CLS = 'text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400 w-full';
-
-// Toast notification system
-function showToast(msg, type = 'info', duration = 3000) {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
-        document.body.appendChild(container);
-    }
-    const colors = {
-        success: 'background:#dcfce7;color:#15803d;border-color:#86efac',
-        error:   'background:#fee2e2;color:#991b1b;border-color:#fca5a5',
-        warning: 'background:#fef9c3;color:#854d0e;border-color:#fde68a',
-        info:    'background:#dbeafe;color:#1e40af;border-color:#93c5fd',
-    };
-    const icons = {
-        success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
-        error:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-        warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-        info:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
-    };
-    const toast = document.createElement('div');
-    toast.style.cssText = `${colors[type] || colors.info};border:1px solid;border-radius:8px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:380px;animation:toastIn .25s ease`;
-    toast.innerHTML = `${icons[type] || icons.info}<span>${esc(msg)}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.animation = 'toastOut .2s ease forwards';
-        setTimeout(() => toast.remove(), 200);
-    }, duration);
-}
-
-// inject toast animations
-(function(){
-    const s = document.createElement('style');
-    s.textContent = `@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}`;
-    document.head.appendChild(s);
-})();
 
 let selectedLeadId = null;
 let selectedLeadData = null;
@@ -61,6 +23,26 @@ const TIPO_ATIV_COLORS = {
     status_change:'ativ-badge-status_change', outro:'ativ-badge-outro'
 };
 
+const DEFAULT_DESCRIPTIONS = {
+    ligacao: 'Ligar para o contato para...',
+    email_enviado: 'Enviar email de apresentação para...',
+    whatsapp: 'Enviar mensagem WhatsApp para...',
+    reuniao: 'Agendar reunião com...',
+    follow_up: 'Follow-up sobre...',
+    apresentacao: 'Apresentação de serviços para...',
+    proposta_enviada: 'Enviar proposta comercial para...',
+    tentativa_contato: 'Tentativa de contato com...',
+    nota: '',
+    outro: '',
+};
+
+const COMM_TEMPLATES = [
+    {label: '1º Email Apresentação', objetivo: 'Primeiro contato de apresentação da CentralComm e seus serviços', tipo: 'email'},
+    {label: 'Follow-up após contato', objetivo: 'Follow-up após contato inicial, reforçando interesse e próximos passos', tipo: 'email'},
+    {label: 'Agendar reunião', objetivo: 'Agendar reunião para apresentação detalhada de serviços', tipo: 'whatsapp'},
+    {label: 'Proposta comercial', objetivo: 'Enviar proposta comercial personalizada com base nas necessidades identificadas', tipo: 'email'},
+];
+
 const SOCIAL_ICONS = {
     instagram: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>',
     linkedin: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>',
@@ -72,7 +54,8 @@ const SOCIAL_ICONS = {
 // ======================== Init ========================
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadLinks();
+    loadLeads();
+    loadLinksContent();
     document.addEventListener('click', closeMiniModals);
 });
 
@@ -88,10 +71,10 @@ function onExecutivoChange() {
 }
 
 function clearColumns() {
-    const skel = skeletonHtml();
     document.getElementById('col_status').innerHTML = '<div class="leads-empty">Selecione um lead</div>';
     document.getElementById('col_atividades').innerHTML = '<div class="leads-empty">Selecione um lead</div>';
     document.getElementById('col_extrair').innerHTML = '<div class="leads-empty">Selecione um lead</div>';
+    document.getElementById('col_comunicacao').innerHTML = '<div class="leads-empty">Selecione um lead</div>';
 }
 
 function debounceSearch() {
@@ -106,20 +89,29 @@ function skeletonHtml() {
     </div>`;
 }
 
-// ======================== Col 1: Cards ========================
+// ======================== Col 1: Inbox / Cards ========================
 
 async function loadLeads() {
     const execId = getExecutivoId();
-    if (!execId) {
-        document.getElementById('leads_cards').innerHTML = '<div class="leads-empty">Selecione um executivo</div>';
-        document.getElementById('leads_count').textContent = '0';
-        return;
-    }
     const potencial = document.getElementById('filtro_potencial').value;
     const search = document.getElementById('search_leads').value;
-    let url = `/api/leads?id_executivo=${execId}`;
-    if (potencial) url += `&potencial=${potencial}`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const statusFilter = document.getElementById('filtro_status').value;
+
+    let url = '/api/leads?';
+    const params = [];
+
+    if (execId) {
+        params.push(`id_executivo=${execId}`);
+    } else {
+        params.push('sem_responsavel=1');
+        if (!statusFilter) params.push('status=inbox');
+    }
+
+    if (potencial) params.push(`potencial=${potencial}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (statusFilter) params.push(`status=${statusFilter}`);
+
+    url += params.join('&');
 
     try {
         const resp = await fetch(url);
@@ -146,6 +138,7 @@ async function loadLeads() {
                 <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                     <span class="badge badge-xs badge-outline" style="font-size:9px">${esc(l.fonte || '-')}</span>
                     <span class="badge badge-xs ${potencialBadge(l.potencial)}" style="font-size:9px">${esc(l.potencial || 'medio')}</span>
+                    <span class="status-badge status-badge-${l.status || 'inbox'}" style="font-size:9px;padding:1px 6px">${esc(STATUS_LABELS[l.status] || 'Inbox')}</span>
                     <span style="font-size:10px;color:#9ca3af;display:inline-flex;align-items:center;gap:2px">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         ${l.qtd_contatos}
@@ -178,12 +171,16 @@ async function selectLead(leadId) {
     document.getElementById('col_status').innerHTML = skel;
     document.getElementById('col_atividades').innerHTML = skel;
     document.getElementById('col_extrair').innerHTML = skel;
+    document.getElementById('col_comunicacao').innerHTML = skel;
 
     await Promise.all([
         loadLeadStatus(leadId),
         loadLeadAtividades(leadId),
         loadLeadExtrair(leadId),
+        loadLeadComunicacao(leadId),
     ]);
+
+    updateLinksSiteSection();
 }
 
 // ======================== Mini-modal system ========================
@@ -232,7 +229,7 @@ function openMiniModal(anchorEl, options, currentValue, onSelect) {
     }
 }
 
-// ======================== Col 2: Status + Contatos ========================
+// ======================== Col 2: Dados do Lead ========================
 
 async function loadLeadStatus(leadId) {
     const col = document.getElementById('col_status');
@@ -250,10 +247,13 @@ async function loadLeadStatus(leadId) {
         const lead = det.lead;
         const contatos = con.contatos || [];
 
-        const statusDots = {inbox:'#9ca3af', contato:'#3b82f6', qualificado:'#22c55e', proposta:'#eab308', negociacao:'#f97316'};
-
         let html = `<div class="p-3 space-y-3" style="font-size:12px">
-            <div class="font-semibold" style="font-size:13px">${esc(lead.empresa || lead.nome || 'Sem nome')}</div>
+            <div class="flex items-center gap-2">
+                <span class="font-semibold" style="font-size:13px">${esc(lead.empresa || lead.nome || 'Sem nome')}</span>
+                <button onclick="openEditLead()" title="Editar lead" style="color:#9ca3af;background:none;border:none;cursor:pointer;font-size:14px;display:inline-flex;align-items:center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+            </div>
 
             <div class="status-row">
                 <span class="status-row-label">Status</span>
@@ -271,7 +271,9 @@ async function loadLeadStatus(leadId) {
 
             <div class="status-row">
                 <span class="status-row-label">Responsável</span>
-                <span style="font-size:12px;color:#374151">${lead.executivo_nome ? esc(lead.executivo_nome) : '<span style="color:#9ca3af">Não atribuído</span>'}</span>
+                <span class="status-badge" style="background:#f3f4f6;color:#374151;cursor:pointer" onclick="openResponsavelModal(this, ${lead.id_executivo || 'null'})">
+                    ${lead.executivo_nome ? esc(lead.executivo_nome) : '<span style="color:#9ca3af">Não atribuído</span>'} ▾
+                </span>
             </div>
 
             <div style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:4px">
@@ -281,7 +283,7 @@ async function loadLeadStatus(leadId) {
                 </div>
             </div>
 
-            <button onclick="showAddContato()" class="btn btn-xs btn-ghost w-full" style="border:1px dashed #d1d5db;color:#6b7280">+ Adicionar contato</button>
+            <span onclick="showAddContato()" style="display:inline-block;font-size:11px;color:#9ca3af;cursor:pointer;margin-top:4px" class="hover:text-gray-500">+ adicionar contato</span>
             <div id="form_add_contato" class="hidden"></div>
 
             <div style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:4px">
@@ -319,6 +321,17 @@ function openPotencialModal(el, currentValue) {
     );
 }
 
+function openResponsavelModal(el, currentId) {
+    const executivos = window.EXECUTIVOS || [];
+    const options = [
+        {value: '0', label: 'Remover responsável', dot: '#ef4444'},
+        ...executivos.map(e => ({value: String(e.id), label: e.nome, dot: '#3b82f6'}))
+    ];
+    openMiniModal(el, options, currentId ? String(currentId) : '', (val) => {
+        updateStatus('id_executivo', parseInt(val));
+    });
+}
+
 function renderContato(c, totalContatos) {
     const phone = c.telefone ? c.telefone.replace(/\D/g, '') : '';
     const whatsappLink = phone ? `https://wa.me/${phone}` : '';
@@ -340,19 +353,27 @@ function renderContato(c, totalContatos) {
                     ${totalContatos > 1 ? `<button onclick="deleteContato(${c.id})" class="btn btn-ghost btn-xs text-error" title="Excluir" style="min-height:0;height:22px;padding:0 4px">✕</button>` : ''}
                 </div>
             </div>
-            <div class="flex items-center gap-2 mt-1.5">
-                ${whatsappLink ? `<a href="${whatsappLink}" target="_blank" title="WhatsApp" style="color:#25D366;font-size:11px;display:inline-flex;align-items:center;gap:2px">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.025.506 3.934 1.395 5.608L0 24l6.587-1.344A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.882 0-3.674-.508-5.24-1.47l-.376-.222-3.898.795.83-3.756-.244-.388A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-                    WA</a>` : ''}
-                ${mailtoLink ? `<a href="${mailtoLink}" title="Enviar email" style="color:#3b82f6;font-size:11px;display:inline-flex;align-items:center;gap:2px">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
-                    Email</a>` : ''}
-                ${c.telefone ? `<button onclick="copyToClipboard('${esc(c.telefone)}', this)" title="Copiar telefone" style="color:#6b7280;font-size:10px;background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:2px;position:relative">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    Tel</button>` : ''}
-                ${c.email ? `<button onclick="copyToClipboard('${esc(c.email)}', this)" title="Copiar email" style="color:#6b7280;font-size:10px;background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:2px;position:relative">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    Email</button>` : ''}
+            <div class="mt-1.5 space-y-0.5">
+                ${c.email ? `<div class="flex items-center gap-1.5" style="font-size:11px">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
+                    <span style="color:#374151" class="truncate">${esc(c.email)}</span>
+                    <button onclick="copyToClipboard('${esc(c.email)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;position:relative;flex-shrink:0">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                    </button>
+                    ${mailtoLink ? `<a href="${mailtoLink}" title="Enviar email" style="color:#3b82f6;display:inline-flex;flex-shrink:0">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9z"/></svg>
+                    </a>` : ''}
+                </div>` : ''}
+                ${c.telefone ? `<div class="flex items-center gap-1.5" style="font-size:11px">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                    <span style="color:#374151">${esc(c.telefone)}</span>
+                    <button onclick="copyToClipboard('${esc(c.telefone)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;position:relative;flex-shrink:0">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                    </button>
+                    ${whatsappLink ? `<a href="${whatsappLink}" target="_blank" title="WhatsApp" style="color:#25D366;display:inline-flex;flex-shrink:0">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.025.506 3.934 1.395 5.608L0 24l6.587-1.344A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.882 0-3.674-.508-5.24-1.47l-.376-.222-3.898.795.83-3.756-.244-.388A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+                    </a>` : ''}
+                </div>` : ''}
             </div>
         </div>`;
 }
@@ -423,22 +444,37 @@ async function addContato() {
 }
 
 function editContato(id) {
-    const col = document.getElementById('col_status');
-    const contatos = col.querySelectorAll('.contact-card');
     fetch(`/api/leads/${selectedLeadId}/contatos`).then(r => r.json()).then(data => {
         const c = (data.contatos || []).find(ct => ct.id === id);
         if (!c) return;
-        const newNome = prompt('Nome:', c.nome);
-        if (newNome === null) return;
-        const newCargo = prompt('Cargo:', c.cargo || '');
-        const newTelefone = prompt('Telefone:', c.telefone || '');
-        const newEmail = prompt('Email:', c.email || '');
-        fetch(`/api/leads/contatos/${id}`, {
+        document.getElementById('editc_id').value = c.id;
+        document.getElementById('editc_nome').value = c.nome || '';
+        document.getElementById('editc_cargo').value = c.cargo || '';
+        document.getElementById('editc_telefone').value = c.telefone || '';
+        document.getElementById('editc_email').value = c.email || '';
+        document.getElementById('modal_editar_contato').showModal();
+    });
+}
+
+async function saveEditContato() {
+    const id = document.getElementById('editc_id').value;
+    const nome = document.getElementById('editc_nome').value.trim();
+    if (!nome) return showToast('Nome obrigatório', 'warning');
+    try {
+        await fetch(`/api/leads/contatos/${id}`, {
             method: 'PATCH',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({nome: newNome, cargo: newCargo, telefone: newTelefone, email: newEmail}),
-        }).then(() => { loadLeadStatus(selectedLeadId); loadLeads(); });
-    });
+            body: JSON.stringify({
+                nome,
+                cargo: document.getElementById('editc_cargo').value.trim(),
+                telefone: document.getElementById('editc_telefone').value.trim(),
+                email: document.getElementById('editc_email').value.trim(),
+            }),
+        });
+        document.getElementById('modal_editar_contato').close();
+        loadLeadStatus(selectedLeadId);
+        loadLeads();
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 async function deleteContato(id) {
@@ -457,6 +493,49 @@ async function setPrincipal(contatoId) {
     });
     loadLeadStatus(selectedLeadId);
     loadLeads();
+}
+
+// ======================== Lead Edit Modal ========================
+
+function openEditLead() {
+    if (!selectedLeadData) return;
+    const lead = selectedLeadData;
+    document.getElementById('edit_empresa').value = lead.empresa || '';
+    document.getElementById('edit_nome').value = lead.nome || '';
+    document.getElementById('edit_fonte').value = lead.fonte || '';
+    document.getElementById('edit_tipo_lead').value = lead.tipo_lead || 'cliente';
+    document.getElementById('edit_url_site').value = lead.url_site || '';
+    document.getElementById('edit_segmento').value = lead.segmento || '';
+    document.getElementById('edit_observacoes').value = lead.observacoes || '';
+    document.getElementById('modal_editar_lead').showModal();
+}
+
+async function saveEditLead() {
+    if (!selectedLeadId) return;
+    try {
+        const resp = await fetch(`/api/leads/${selectedLeadId}/editar`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                empresa: document.getElementById('edit_empresa').value.trim(),
+                nome: document.getElementById('edit_nome').value.trim(),
+                fonte: document.getElementById('edit_fonte').value.trim(),
+                tipo_lead: document.getElementById('edit_tipo_lead').value,
+                url_site: document.getElementById('edit_url_site').value.trim(),
+                segmento: document.getElementById('edit_segmento').value.trim(),
+                observacoes: document.getElementById('edit_observacoes').value.trim(),
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('modal_editar_lead').close();
+            showToast('Lead atualizado!', 'success');
+            loadLeadStatus(selectedLeadId);
+            loadLeads();
+        } else {
+            showToast(data.message || 'Erro ao atualizar', 'error');
+        }
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 async function converterCliente() {
@@ -503,7 +582,9 @@ async function confirmDesqualificar() {
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-// ======================== Col 3: Atividades ========================
+// ======================== Col 3: Ações ========================
+
+let lastAtivTipoDefault = '';
 
 async function loadLeadAtividades(leadId) {
     const col = document.getElementById('col_atividades');
@@ -534,22 +615,22 @@ async function loadLeadAtividades(leadId) {
         let html = `<div class="p-3" style="display:flex;flex-direction:column;height:100%;font-size:12px">
             <div class="bg-base-200 rounded-lg p-2 space-y-1.5" style="flex-shrink:0">
                 <div class="flex gap-1.5">
-                    <select id="ativ_tipo" class="${SEL_CLS}" style="flex:1">${tipoOptions}</select>
+                    <select id="ativ_tipo" class="${SEL_CLS}" style="flex:1" onchange="onAtivTipoChange()">${tipoOptions}</select>
                     <select id="ativ_contato" class="${SEL_CLS}" style="flex:1">${contatoOptions}</select>
                 </div>
                 <div class="flex gap-1.5 items-center">
                     <label style="font-size:10px;color:#9ca3af;flex-shrink:0">Prazo:</label>
                     <input id="ativ_prazo" type="date" value="${today}" class="${SEL_CLS}" style="flex:1">
                 </div>
-                <textarea id="ativ_descricao" rows="3" class="textarea textarea-xs textarea-bordered w-full" placeholder="Descrição da atividade..." style="font-size:12px"></textarea>
-                <div class="flex gap-1">
-                    <button onclick="melhorarTexto()" class="btn btn-xs btn-ghost flex-1" style="border:1px solid #d1d5db">Melhorar com IA</button>
-                    <button onclick="addAtividade()" class="btn btn-xs btn-primary flex-1">Incluir</button>
+                <textarea id="ativ_descricao" rows="3" class="textarea textarea-xs textarea-bordered w-full" placeholder="Descrição da ação..." style="font-size:12px"></textarea>
+                <div class="flex gap-1 items-center">
+                    <span onclick="melhorarTexto()" style="font-size:10px;color:#6b7280;cursor:pointer;text-decoration:underline" class="hover:text-gray-900">Melhorar com IA</span>
+                    <button onclick="addAtividade()" class="btn btn-xs btn-primary ml-auto" style="min-width:60px">Incluir</button>
                 </div>
             </div>
 
             <div style="flex:1;overflow-y:auto;margin-top:8px;min-height:0">
-                ${pendentes.length === 0 && concluidas.length === 0 ? '<div class="text-xs text-gray-400 text-center" style="padding:20px">Nenhuma atividade</div>' : ''}
+                ${pendentes.length === 0 && concluidas.length === 0 ? '<div class="text-xs text-gray-400 text-center" style="padding:20px">Nenhuma ação registrada</div>' : ''}
                 ${pendentes.map(a => renderAtividade(a)).join('')}
                 ${concluidas.length > 0 ? `
                     <div class="concluidas-toggle" onclick="toggleConcluidas()">
@@ -565,6 +646,16 @@ async function loadLeadAtividades(leadId) {
         col.innerHTML = html;
     } catch (e) {
         col.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
+    }
+}
+
+function onAtivTipoChange() {
+    const tipo = document.getElementById('ativ_tipo').value;
+    const textarea = document.getElementById('ativ_descricao');
+    const currentVal = textarea.value.trim();
+    const isDefault = !currentVal || Object.values(DEFAULT_DESCRIPTIONS).includes(currentVal);
+    if (isDefault && DEFAULT_DESCRIPTIONS[tipo]) {
+        textarea.value = DEFAULT_DESCRIPTIONS[tipo];
     }
 }
 
@@ -669,22 +760,7 @@ async function melhorarTexto() {
     finally { textarea.disabled = false; }
 }
 
-// ======================== Col 4: Extrair + Comunicação IA ========================
-
-function suggestUrlFromContacts() {
-    if (!selectedLeadData) return '';
-    const lead = selectedLeadData;
-    if (lead.url_site) return lead.url_site;
-
-    const contatos = document.querySelectorAll('#contatos_list .contact-card');
-    const emails = [];
-    if (lead.dados_extraidos) {
-        const d = typeof lead.dados_extraidos === 'string' ? JSON.parse(lead.dados_extraidos) : lead.dados_extraidos;
-        if (d.emails_gerais) emails.push(...d.emails_gerais);
-    }
-
-    return '';
-}
+// ======================== Col 4: Extrair Informações ========================
 
 function getEmailDomainUrl(contatos) {
     if (!contatos || !contatos.length) return '';
@@ -744,11 +820,6 @@ async function loadLeadExtrair(leadId) {
                     </button>
                 </div>
                 <div id="extrair_resultado">${dadosHtml}</div>
-
-                <div style="border-top:1px solid #f3f4f6;padding-top:8px">
-                    <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:600;margin-bottom:6px">Comunicação IA</div>
-                    ${renderComunicacao(contatos)}
-                </div>
             </div>`;
     } catch (e) {
         col.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
@@ -809,12 +880,12 @@ function renderDadosExtraidos(d, lead) {
 
         ${premios.length ? `<div style="font-size:11px"><span style="font-weight:600">Prêmios/Certificações:</span> ${premios.map(s => esc(s)).join(', ')}</div>` : ''}
 
-        ${d.telefones_gerais?.length ? `<div style="font-size:11px;display:flex;align-items:center;gap:4px">
+        ${d.telefones_gerais?.length ? `<div style="font-size:11px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
             <span style="font-weight:600">Telefones:</span>
             ${d.telefones_gerais.map(t => `<span>${esc(t)}</span><button onclick="copyToClipboard('${esc(t)}', this)" style="color:#6b7280;background:none;border:none;cursor:pointer;position:relative"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`).join(' ')}
         </div>` : ''}
 
-        ${d.emails_gerais?.length ? `<div style="font-size:11px;display:flex;align-items:center;gap:4px">
+        ${d.emails_gerais?.length ? `<div style="font-size:11px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
             <span style="font-weight:600">Emails:</span>
             ${d.emails_gerais.map(e => `<span>${esc(e)}</span><button onclick="copyToClipboard('${esc(e)}', this)" style="color:#6b7280;background:none;border:none;cursor:pointer;position:relative"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`).join(' ')}
         </div>` : ''}
@@ -836,135 +907,6 @@ function renderDadosExtraidos(d, lead) {
 
         <button onclick="saveExtracted()" class="btn btn-xs btn-success w-full mt-2">Salvar dados no lead</button>
     </div>`;
-}
-
-function renderComunicacao(contatos) {
-    const contatoOptions = contatos.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
-
-    return `
-        <div class="space-y-1.5">
-            <select id="comm_contato" class="${SEL_CLS}">
-                <option value="">Selecionar contato...</option>
-                ${contatoOptions}
-            </select>
-            <div class="flex gap-2" style="font-size:11px">
-                <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                    <input type="radio" name="comm_tipo" value="whatsapp" checked style="width:12px;height:12px"> WhatsApp
-                </label>
-                <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                    <input type="radio" name="comm_tipo" value="email" style="width:12px;height:12px"> Email
-                </label>
-            </div>
-            <input id="comm_objetivo" class="input input-xs input-bordered w-full" placeholder="Objetivo (ex: agendar reunião)" style="font-size:12px">
-            <select id="comm_tamanho" class="${SEL_CLS}">
-                <option value="curto">Curto (2-3 frases)</option>
-                <option value="medio" selected>Médio (1 parágrafo)</option>
-                <option value="longo">Longo (2-3 parágrafos)</option>
-            </select>
-            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#6b7280;cursor:pointer">
-                <input type="checkbox" id="comm_incluir_dados" checked style="width:12px;height:12px"> Incluir dados do lead
-            </label>
-            <button onclick="gerarComunicacao()" class="btn btn-xs btn-primary w-full" id="btn_comm">
-                <span class="loading loading-spinner loading-xs hidden" id="comm_spinner"></span>
-                Gerar com IA
-            </button>
-            <div id="comm_resultado"></div>
-        </div>`;
-}
-
-async function gerarComunicacao() {
-    if (!selectedLeadId) return;
-    const btn = document.getElementById('btn_comm');
-    const spinner = document.getElementById('comm_spinner');
-    btn.disabled = true;
-    spinner.classList.remove('hidden');
-
-    const tipo = document.querySelector('input[name="comm_tipo"]:checked')?.value || 'whatsapp';
-    const objetivo = document.getElementById('comm_objetivo').value.trim();
-    if (!objetivo) { showToast('Informe o objetivo', 'warning'); btn.disabled = false; spinner.classList.add('hidden'); return; }
-
-    try {
-        const resp = await fetch('/api/ia/gerar-comunicacao', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                lead_id: selectedLeadId,
-                tipo,
-                objetivo,
-                tamanho: document.getElementById('comm_tamanho').value,
-                incluir_dados_lead: document.getElementById('comm_incluir_dados').checked,
-                contato_id: document.getElementById('comm_contato').value || null,
-            }),
-        });
-        const data = await resp.json();
-        if (data.success) {
-            renderCommResult(data.texto, data.word_count, tipo);
-        } else {
-            showToast(data.message || 'Erro ao gerar comunicação', 'error');
-        }
-    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
-    finally {
-        btn.disabled = false;
-        spinner.classList.add('hidden');
-    }
-}
-
-function renderCommResult(texto, wordCount, tipo) {
-    const container = document.getElementById('comm_resultado');
-    const isEmail = tipo === 'email';
-    container.innerHTML = `
-        <div class="comm-preview ${isEmail ? 'comm-preview-email' : ''}" style="margin-top:8px">
-            <div id="comm_text" contenteditable="true">${esc(texto)}</div>
-        </div>
-        <div class="flex items-center justify-between mt-1.5" style="font-size:10px;color:#9ca3af">
-            <span>${wordCount} palavras</span>
-            <div class="flex gap-1.5">
-                <button onclick="copyCommText()" class="btn btn-xs btn-ghost" style="font-size:10px;position:relative">Copiar</button>
-                ${isEmail ? `<button onclick="openCommEmail()" class="btn btn-xs btn-ghost" style="font-size:10px">Abrir Email</button>` :
-                    `<button onclick="openCommWhatsApp()" class="btn btn-xs btn-ghost" style="font-size:10px;color:#25D366">Abrir WA</button>`}
-                <button onclick="gerarComunicacao()" class="btn btn-xs btn-ghost" style="font-size:10px">Regenerar</button>
-            </div>
-        </div>`;
-}
-
-function copyCommText() {
-    const el = document.getElementById('comm_text');
-    if (el) {
-        navigator.clipboard.writeText(el.innerText).then(() => {
-            const btn = event.target;
-            const orig = btn.textContent;
-            btn.textContent = 'Copiado!';
-            setTimeout(() => btn.textContent = orig, 1200);
-        });
-    }
-}
-
-function openCommWhatsApp() {
-    const el = document.getElementById('comm_text');
-    if (!el) return;
-    const text = el.innerText;
-    const contatoId = document.getElementById('comm_contato').value;
-    let phone = '';
-    if (selectedLeadData && contatoId) {
-        // try to get phone
-    }
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-}
-
-function openCommEmail() {
-    const el = document.getElementById('comm_text');
-    if (!el) return;
-    const text = el.innerText;
-    const lines = text.split('\n');
-    let subject = '';
-    let body = text;
-    if (lines[0] && lines[0].toLowerCase().startsWith('assunto:')) {
-        subject = lines[0].replace(/^assunto:\s*/i, '').trim();
-        body = lines.slice(1).join('\n').trim();
-    }
-    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailto);
 }
 
 let lastExtractedData = null;
@@ -1055,47 +997,270 @@ async function addExtractedContact(idx) {
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-// ======================== Col 5: Links Úteis ========================
+// ======================== Col 5: Comunicação IA ========================
 
-async function loadLinks() {
-    const col = document.getElementById('col_links');
+async function loadLeadComunicacao(leadId) {
+    const col = document.getElementById('col_comunicacao');
+
+    try {
+        const conResp = await fetch(`/api/leads/${leadId}/contatos`);
+        const conData = await conResp.json();
+        const contatos = conData.contatos || [];
+
+        const contatoOptions = contatos.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+
+        const templatesHtml = COMM_TEMPLATES.map((t, i) =>
+            `<button class="comm-template-btn" onclick="applyCommTemplate(${i})">${esc(t.label)}</button>`
+        ).join(' ');
+
+        col.innerHTML = `
+            <div class="p-3 space-y-3" style="font-size:12px">
+                <div class="flex flex-wrap gap-1.5">${templatesHtml}</div>
+                <div class="space-y-1.5">
+                    <select id="comm_contato" class="${SEL_CLS}">
+                        <option value="">Selecionar contato...</option>
+                        ${contatoOptions}
+                    </select>
+                    <div class="flex gap-2" style="font-size:11px">
+                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                            <input type="radio" name="comm_tipo" value="whatsapp" checked style="width:12px;height:12px"> WhatsApp
+                        </label>
+                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                            <input type="radio" name="comm_tipo" value="email" style="width:12px;height:12px"> Email
+                        </label>
+                    </div>
+                    <input id="comm_objetivo" class="input input-xs input-bordered w-full" placeholder="Objetivo (ex: agendar reunião)" style="font-size:12px">
+                    <div class="flex gap-1.5">
+                        <select id="comm_tamanho" class="${SEL_CLS}" style="flex:1">
+                            <option value="curto">Curto</option>
+                            <option value="medio" selected>Médio</option>
+                            <option value="longo">Longo</option>
+                        </select>
+                        <select id="comm_tom" class="${SEL_CLS}" style="flex:1">
+                            <option value="formal">Formal</option>
+                            <option value="cordial" selected>Cordial</option>
+                            <option value="descontraido">Descontraído</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-wrap gap-3" style="font-size:11px;color:#6b7280">
+                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                            <input type="checkbox" id="comm_incluir_dados" checked style="width:12px;height:12px"> Dados do lead
+                        </label>
+                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                            <input type="checkbox" id="comm_incluir_servicos" style="width:12px;height:12px"> Serviços
+                        </label>
+                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
+                            <input type="checkbox" id="comm_incluir_oportunidades" style="width:12px;height:12px"> Oportunidades
+                        </label>
+                    </div>
+                    <button onclick="gerarComunicacao()" class="btn btn-xs btn-primary w-full" id="btn_comm">
+                        <span class="loading loading-spinner loading-xs hidden" id="comm_spinner"></span>
+                        Gerar com IA
+                    </button>
+                </div>
+            </div>`;
+    } catch (e) {
+        col.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
+    }
+}
+
+function applyCommTemplate(idx) {
+    const t = COMM_TEMPLATES[idx];
+    if (!t) return;
+    document.getElementById('comm_objetivo').value = t.objetivo;
+    const radios = document.querySelectorAll('input[name="comm_tipo"]');
+    radios.forEach(r => { r.checked = r.value === t.tipo; });
+    gerarComunicacao();
+}
+
+async function gerarComunicacao() {
+    if (!selectedLeadId) return;
+    const btn = document.getElementById('btn_comm');
+    const spinner = document.getElementById('comm_spinner');
+    btn.disabled = true;
+    spinner.classList.remove('hidden');
+
+    const tipo = document.querySelector('input[name="comm_tipo"]:checked')?.value || 'whatsapp';
+    const objetivo = document.getElementById('comm_objetivo').value.trim();
+    if (!objetivo) { showToast('Informe o objetivo', 'warning'); btn.disabled = false; spinner.classList.add('hidden'); return; }
+
+    try {
+        const resp = await fetch('/api/ia/gerar-comunicacao', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                lead_id: selectedLeadId,
+                tipo,
+                objetivo,
+                tamanho: document.getElementById('comm_tamanho').value,
+                tom: document.getElementById('comm_tom').value,
+                incluir_dados_lead: document.getElementById('comm_incluir_dados').checked,
+                incluir_servicos: document.getElementById('comm_incluir_servicos').checked,
+                incluir_oportunidades: document.getElementById('comm_incluir_oportunidades').checked,
+                contato_id: document.getElementById('comm_contato').value || null,
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            openCommResultModal(data.texto, data.word_count, tipo);
+        } else {
+            showToast(data.message || 'Erro ao gerar comunicação', 'error');
+        }
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+    finally {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+    }
+}
+
+function openCommResultModal(texto, wordCount, tipo) {
+    const modal = document.getElementById('modal_comunicacao_resultado');
+    const preview = document.getElementById('modal_comm_preview');
+    const textEl = document.getElementById('modal_comm_text');
+    const countEl = document.getElementById('modal_comm_word_count');
+
+    textEl.textContent = texto;
+    countEl.textContent = wordCount + ' palavras';
+
+    if (tipo === 'email') {
+        preview.className = 'comm-preview comm-preview-email';
+    } else {
+        preview.className = 'comm-preview';
+    }
+
+    modal.showModal();
+}
+
+function copyModalCommText() {
+    const el = document.getElementById('modal_comm_text');
+    if (el) {
+        navigator.clipboard.writeText(el.innerText).then(() => {
+            showToast('Texto copiado!', 'success');
+        });
+    }
+}
+
+function openModalCommWA() {
+    const el = document.getElementById('modal_comm_text');
+    if (!el) return;
+    const text = el.innerText;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+}
+
+function openModalCommEmail() {
+    const el = document.getElementById('modal_comm_text');
+    if (!el) return;
+    const text = el.innerText;
+    const lines = text.split('\n');
+    let subject = '';
+    let body = text;
+    if (lines[0] && lines[0].toLowerCase().startsWith('assunto:')) {
+        subject = lines[0].replace(/^assunto:\s*/i, '').trim();
+        body = lines.slice(1).join('\n').trim();
+    }
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailto);
+}
+
+// ======================== Links Úteis Modal ========================
+
+let linksData = [];
+
+async function loadLinksContent() {
     try {
         const resp = await fetch('/api/leads/links-uteis');
         const data = await resp.json();
         if (!data.success) throw new Error(data.message);
+        linksData = data.links || [];
+    } catch (e) {
+        console.error('loadLinksContent:', e);
+    }
+}
 
-        const links = data.links || [];
-        if (links.length === 0) {
-            col.innerHTML = '<div class="leads-empty">Nenhum link cadastrado</div>';
-            return;
-        }
+function openLinksModal() {
+    const container = document.getElementById('links_content');
 
+    if (linksData.length === 0) {
+        container.innerHTML = '<div class="leads-empty">Nenhum link cadastrado</div>';
+    } else {
         const grouped = {};
-        links.forEach(l => {
+        linksData.forEach(l => {
             const cat = l.categoria || 'Outros';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(l);
         });
 
-        col.innerHTML = `<div class="p-3 space-y-3">` +
-            Object.entries(grouped).map(([cat, items]) => `
-                <div>
-                    <div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px">${esc(cat)}</div>
-                    ${items.map(l => `
-                        <a href="${esc(l.url)}" target="_blank" class="block text-xs link link-primary py-0.5 truncate">${esc(l.titulo)}</a>
-                    `).join('')}
-                </div>
-            `).join('') +
-        `</div>`;
-    } catch (e) {
-        col.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
+        container.innerHTML = Object.entries(grouped).map(([cat, items]) => `
+            <div>
+                <div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px">${esc(cat)}</div>
+                ${items.map(l => `
+                    <div class="link-item">
+                        <a href="${esc(l.url)}" target="_blank" class="text-xs link link-primary truncate">${esc(l.titulo)}</a>
+                        <button onclick="copyToClipboard('${esc(l.url)}', this)" title="Copiar link" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;flex-shrink:0;position:relative">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('');
+    }
+
+    updateLinksSiteSection();
+    document.getElementById('modal_links').showModal();
+}
+
+function updateLinksSiteSection() {
+    const section = document.getElementById('links_site_section');
+    if (!section) return;
+    if (selectedLeadData && selectedLeadData.url_site) {
+        section.classList.remove('hidden');
+    } else {
+        section.classList.add('hidden');
+    }
+}
+
+async function extrairLinksDoSite() {
+    if (!selectedLeadId) return;
+    const btn = document.getElementById('btn_extrair_links');
+    const spinner = document.getElementById('extrair_links_spinner');
+    btn.disabled = true;
+    spinner.classList.remove('hidden');
+
+    try {
+        const resp = await fetch(`/api/leads/${selectedLeadId}/extrair-links`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+        });
+        const data = await resp.json();
+        if (data.success) {
+            const links = data.links || [];
+            const container = document.getElementById('links_site_resultado');
+            if (links.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400">Nenhum link encontrado</div>';
+            } else {
+                container.innerHTML = links.slice(0, 30).map(url => `
+                    <div class="link-item">
+                        <a href="${esc(url)}" target="_blank" class="text-xs link link-primary truncate">${esc(url)}</a>
+                        <button onclick="copyToClipboard('${esc(url)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;flex-shrink:0;position:relative">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                    </div>
+                `).join('');
+            }
+        } else {
+            showToast(data.message || 'Erro ao buscar links', 'error');
+        }
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+    finally {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
     }
 }
 
 // ======================== Import Modal ========================
 
 function openImportModal() {
-    if (!getExecutivoId()) return showToast('Selecione um executivo primeiro', 'warning');
     document.getElementById('import_step1').classList.remove('hidden');
     document.getElementById('import_step2').classList.add('hidden');
     document.getElementById('import_texto').value = '';
@@ -1174,7 +1339,7 @@ async function confirmImport() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 leads: selected.map(l => ({empresa: l.empresa, contatos: l.contatos})),
-                id_executivo: parseInt(execId),
+                id_executivo: execId ? parseInt(execId) : null,
                 tipo_lead: tipoLead,
             }),
         });

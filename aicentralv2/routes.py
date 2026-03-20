@@ -10630,11 +10630,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """JSON: leads filtrados para coluna 1 (cards)"""
         try:
             id_executivo = request.args.get('id_executivo', type=int)
-            if id_executivo is None:
-                return jsonify({'success': False, 'message': 'Executivo obrigatório'}), 400
             potencial = request.args.get('potencial') or None
             search = request.args.get('search') or None
-            leads = db.obter_leads_dashboard(id_executivo, potencial, search)
+            status = request.args.get('status') or None
+            sem_responsavel = request.args.get('sem_responsavel', '0') == '1'
+            leads = db.obter_leads_dashboard(
+                id_executivo=id_executivo,
+                potencial=potencial,
+                search=search,
+                status=status,
+                sem_responsavel=sem_responsavel,
+            )
             result = []
             for l in leads:
                 d = dict(l)
@@ -10674,12 +10680,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/leads/<int:lead_id>/status', methods=['PATCH'])
     @login_required
     def api_lead_status(lead_id):
-        """Atualiza status e/ou potencial"""
+        """Atualiza status, potencial e/ou executivo"""
         try:
             data = request.get_json(force=True)
             status = data.get('status')
             potencial = data.get('potencial')
-            ok = db.atualizar_lead_status(lead_id, status, potencial)
+            id_executivo = data.get('id_executivo')
+            ok = db.atualizar_lead_status(lead_id, status, potencial, id_executivo)
             if ok:
                 if status:
                     db.criar_lead_atividade(lead_id, {
@@ -10691,6 +10698,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': ok})
         except Exception as e:
             app.logger.error(f"Erro api_lead_status {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/editar', methods=['PATCH'])
+    @login_required
+    def api_lead_editar(lead_id):
+        """Atualiza dados gerais do lead"""
+        try:
+            data = request.get_json(force=True)
+            ok = db.atualizar_lead_dados(lead_id, data)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_editar {lead_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # --- Contatos ---
@@ -10961,6 +10980,39 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
             app.logger.error(f"Erro api_lead_desqualificar {lead_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    # --- Extrair links do site (Firecrawl) ---
+
+    @app.route('/api/leads/<int:lead_id>/extrair-links', methods=['POST'])
+    @login_required
+    def api_lead_extrair_links(lead_id):
+        """Scrape URL via Firecrawl e retorna links encontrados"""
+        try:
+            import requests as http_requests
+            lead = db.obter_lead_detalhes(lead_id)
+            if not lead:
+                return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
+            url = dict(lead).get('url_site', '')
+            if not url:
+                return jsonify({'success': False, 'message': 'Lead não possui URL do site'}), 400
+
+            firecrawl_key = os.environ.get('FIRECRAWL_API_KEY', '')
+            if not firecrawl_key:
+                return jsonify({'success': False, 'message': 'FIRECRAWL_API_KEY não configurada'}), 500
+
+            fc_resp = http_requests.post(
+                'https://api.firecrawl.dev/v1/scrape',
+                headers={'Authorization': f'Bearer {firecrawl_key}', 'Content-Type': 'application/json'},
+                json={'url': url, 'formats': ['links']},
+                timeout=60,
+            )
+            fc_resp.raise_for_status()
+            fc_data = fc_resp.json()
+            links = fc_data.get('data', {}).get('links', [])
+            return jsonify({'success': True, 'links': links, 'url': url})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_extrair_links {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     # --- Links úteis ---
 
     @app.route('/api/leads/links-uteis')
@@ -11170,6 +11222,18 @@ Retorne apenas o texto melhorado, sem explicações.'''
                 ativ_txt = '; '.join([f"{a.get('tipo','')}: {(a.get('descricao') or '')[:80]}" for a in ultimas_ativ])
                 contexto_parts.append(f"Últimas atividades: {ativ_txt}")
 
+            tom = data.get('tom', 'cordial')
+            tom_map = {'formal': 'formal e corporativo', 'cordial': 'profissional mas cordial', 'descontraido': 'descontraído e amigável'}
+            tom_desc = tom_map.get(tom, 'profissional mas cordial')
+
+            incluir_servicos = data.get('incluir_servicos', False)
+            incluir_oportunidades = data.get('incluir_oportunidades', False)
+
+            if incluir_servicos:
+                contexto_parts.append(f"Serviços da CentralComm: mídia, comunicação, assessoria de imprensa, produção de conteúdo, gestão de redes sociais")
+            if incluir_oportunidades and lead.get('oportunidades_midia'):
+                contexto_parts.append(f"Oportunidades identificadas: {lead['oportunidades_midia'][:300]}")
+
             contexto = '\n'.join(contexto_parts)
 
             openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
@@ -11177,7 +11241,7 @@ Retorne apenas o texto melhorado, sem explicações.'''
 Gere uma mensagem de {tipo_comunicacao} para prospecção comercial.
 
 Regras:
-- Tom profissional mas cordial
+- Tom {tom_desc}
 - Personalizar com dados do lead quando disponíveis
 - Tamanho: {tamanho_desc}
 - Se WhatsApp: use formatação adequada (*negrito*, _itálico_), sem saudação formal longa

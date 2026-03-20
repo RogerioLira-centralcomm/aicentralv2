@@ -196,21 +196,13 @@
           document.getElementById('modalInvoiceNumber').textContent = res.data.invoice_number || '-';
           document.getElementById('successModal').showModal();
         } else {
-          if (typeof showToast === 'function') {
-            showToast(res.data.error || 'Erro ao processar assinatura.', 'error');
-          } else {
-            alert(res.data.error || 'Erro ao processar assinatura.');
-          }
+          showToast(res.data.error || 'Erro ao processar assinatura.', 'error');
         }
       })
       .catch(function (err) {
         btn.classList.remove('loading');
         btn.disabled = false;
-        if (typeof showToast === 'function') {
-          showToast('Erro de conexão. Tente novamente.', 'error');
-        } else {
-          alert('Erro de conexão. Tente novamente.');
-        }
+        showToast('Erro de conexão. Tente novamente.', 'error');
       });
   }
 

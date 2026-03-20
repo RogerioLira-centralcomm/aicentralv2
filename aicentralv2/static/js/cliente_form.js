@@ -231,12 +231,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Regras básicas obrigatórias
             if (pessoaTipo === 'J') {
                 if (!razaoSocial) {
-                    alert('Razão Social é obrigatória!');
+                    showToast('Razão Social é obrigatória!', 'warning');
                     e.preventDefault();
                     return false;
                 }
                 if (!nomeFantasia) {
-                    alert('Nome Fantasia é obrigatório!');
+                    showToast('Nome Fantasia é obrigatório!', 'warning');
                     e.preventDefault();
                     return false;
                 }
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Pessoa Física: Razão Social não é obrigatória
                 if (!nomeFantasia) {
-                    alert('Nome Completo é obrigatório!');
+                    showToast('Nome Completo é obrigatório!', 'warning');
                     e.preventDefault();
                     return false;
                 }

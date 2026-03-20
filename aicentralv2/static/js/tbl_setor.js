@@ -79,11 +79,11 @@ async function handleSubmit(e) {
             window.location.reload();
         } else {
             const data = await response.json();
-            alert(data.message || 'Erro ao salvar setor');
+            showToast(data.message || 'Erro ao salvar setor', 'error');
         }
     } catch (error) {
         console.error('Erro:', error);
-        alert('Erro ao processar a requisição');
+        showToast('Erro ao processar a requisição', 'error');
     }
 }
 
@@ -108,10 +108,10 @@ async function toggleStatus(id, currentStatus) {
             window.location.reload();
         } else {
             const data = await response.json();
-            alert(data.message || 'Erro ao alterar status');
+            showToast(data.message || 'Erro ao alterar status', 'error');
         }
     } catch (error) {
         console.error('Erro:', error);
-        alert('Erro ao processar a requisição');
+        showToast('Erro ao processar a requisição', 'error');
     }
 }

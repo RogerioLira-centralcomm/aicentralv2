@@ -233,7 +233,8 @@
                 'titulo': pi.titulo_pi or '',
                 'cliente': pi.cliente_nome or '',
                 'cnpj': pi.cliente_cnpj or '',
-                'mesRef': pi.mes_ref_comp or ''
+                'mesRef': pi.mes_ref_comp or '',
+                'valorLiquido': pi.valor_liquido or ''
               } %}
               {% if pi.get('nf_id') %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
@@ -323,10 +324,14 @@
     <input type="hidden" id="nf_id">
     <input type="hidden" id="nf_mes_ref_comp">
     <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 gap-x-4 gap-y-2">
         <div>
           <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
           <span class="text-sm font-mono font-semibold text-blue-600" id="nf_info_cod_pi">-</span>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">CNPJ/CPF</span>
+          <span class="text-sm text-gray-600 font-mono whitespace-nowrap" id="nf_info_cnpj">-</span>
         </div>
         <div class="col-span-2">
           <span class="text-[10px] uppercase text-gray-400 font-semibold block">Título PI</span>
@@ -335,10 +340,6 @@
         <div class="col-span-2">
           <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
           <span class="text-sm text-gray-800" id="nf_info_cliente">-</span>
-        </div>
-        <div>
-          <span class="text-[10px] uppercase text-gray-400 font-semibold block">CNPJ/CPF</span>
-          <span class="text-sm text-gray-600 font-mono" id="nf_info_cnpj">-</span>
         </div>
       </div>
     </div>
@@ -629,8 +630,9 @@ function abrirModalNf(idPi, nfId, piInfo) {
   document.getElementById('nf_id_pi').value = idPi;
   document.getElementById('nf_id').value = nfId || '';
   document.getElementById('nf_numero_nota').value = '';
-  document.getElementById('nf_valor').value = '';
-  document.getElementById('nf_data_emissao').value = '';
+  var today = new Date().toISOString().split('T')[0];
+  document.getElementById('nf_valor').value = piInfo.valorLiquido ? fmtValorBrl(piInfo.valorLiquido) : '';
+  document.getElementById('nf_data_emissao').value = today;
   document.getElementById('nf_data_pagamento').value = '';
   document.getElementById('nf_data_pagamento_realizado').value = '';
   document.getElementById('nf_mes_ref_comp').value = piInfo.mesRef || '';
@@ -675,7 +677,7 @@ function salvarNf() {
   var dataPgtoPrev = document.getElementById('nf_data_pagamento').value;
 
   if (!numeroNota || !valor || !dataEmissao || !dataPgtoPrev) {
-    alert('Preencha todos os campos obrigatórios (*)');
+    showToast('Preencha todos os campos obrigatórios (*)', 'warning');
     return;
   }
 
@@ -713,7 +715,7 @@ function salvarNf() {
     window.location.href = '/notas-fiscais';
   })
   .catch(err => {
-    alert('Erro ao salvar nota fiscal: ' + err.message);
+    showToast('Erro ao salvar nota fiscal: ' + err.message, 'error');
   });
 }
 </script>

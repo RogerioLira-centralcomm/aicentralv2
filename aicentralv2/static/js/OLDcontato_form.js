@@ -143,38 +143,38 @@ document.addEventListener('DOMContentLoaded', function() {
             const cargo = cargoEl ? cargoEl.value : '';
             
             if (!nomeCompleto) {
-                alert('Nome Completo é obrigatório!');
+                showToast('Nome Completo é obrigatório!', 'warning');
                 e.preventDefault();
                 return false;
             }
             
             if (!email) {
-                alert('Email é obrigatório!');
+                showToast('Email é obrigatório!', 'warning');
                 e.preventDefault();
                 return false;
             }
             
             if (!cliente) {
-                alert('Selecione um cliente!');
+                showToast('Selecione um cliente!', 'warning');
                 e.preventDefault();
                 return false;
             }
 
             // Validação obrigatória de Setor e Cargo
             if (!setor) {
-                alert('Selecione um setor!');
+                showToast('Selecione um setor!', 'warning');
                 e.preventDefault();
                 return false;
             }
 
             if (!cargo) {
-                alert('Selecione um cargo!');
+                showToast('Selecione um cargo!', 'warning');
                 e.preventDefault();
                 return false;
             }
 
             if (cargoEl && cargoEl.disabled) {
-                alert('Escolha um setor para habilitar os cargos e selecione um cargo.');
+                showToast('Escolha um setor para habilitar os cargos e selecione um cargo.', 'warning');
                 e.preventDefault();
                 return false;
             }
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const selectedOpt = cargoEl.selectedOptions[0];
                 const cargoSetorId = selectedOpt && selectedOpt.dataset ? selectedOpt.dataset.setorId : undefined;
                 if (cargoSetorId && String(cargoSetorId).trim() !== String(setor).trim()) {
-                    alert('O cargo selecionado não pertence ao setor escolhido.');
+                    showToast('O cargo selecionado não pertence ao setor escolhido.', 'warning');
                     e.preventDefault();
                     return false;
                 }
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!isEdit) {
                 const senha = (document.getElementById('senha_visible') || {}).value || '';
                 if (!senha || senha.length < 6) {
-                    alert('Senha deve ter no mínimo 6 caracteres!');
+                    showToast('Senha deve ter no mínimo 6 caracteres!', 'warning');
                     e.preventDefault();
                     return false;
                 }

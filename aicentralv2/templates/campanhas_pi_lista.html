@@ -169,7 +169,7 @@
 
           <tr data-campanha-id="{{ c.id_campanha }}"
               data-camp='{{ {"id_campanha": c.id_campanha, "nome_campanha": c.nome_campanha or "", "codigo_pi": c.codigo_pi or "", "titulo_pi": c.titulo_pi or "", "id_pi": c.id_pi or "", "id_cliente": c.id_cliente or "", "id_objetivos_campanha": c.id_objetivos_campanha or "", "id_plataforma": c.id_plataforma or "", "id_status": c.id_status or "", "obj_contratados": c.obj_contratados or "", "mes_ref": c.mes_ref.strftime("%Y-%m-%d") if c.mes_ref else "", "mes_ref_comp": c.mes_ref_comp or "", "link_dash": c.link_dash or "", "periodo_inicio": c.periodo_inicio.strftime("%Y-%m-%dT%H:%M") if c.periodo_inicio else "", "periodo_fim": c.periodo_fim.strftime("%Y-%m-%dT%H:%M") if c.periodo_fim else "", "under": c.under or false, "totalizador_atingido": c.totalizador_atingido or "", "totalizador_gasto": c.totalizador_gasto or "", "valor_plataforma": c.valor_plataforma or "", "id_centralx": c.id_centralx or "", "id_criativos_validados": c.id_criativos_validados or "", "valor_plataformas_pi": c.valor_plataformas_pi or "", "created_at": c.created_at.strftime("%d/%m/%Y %H:%M") if c.created_at else "", "updated_at": c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else ""} | tojson }}'
-              onclick="try { abrirModalEditar(JSON.parse(this.dataset.camp)); } catch(e) { console.error('Erro ao parsear data-camp:', e, this.dataset.camp); alert('Erro ao abrir edição: ' + e.message); }" class="cursor-pointer">
+              onclick="try { abrirModalEditar(JSON.parse(this.dataset.camp)); } catch(e) { console.error('Erro ao parsear data-camp:', e, this.dataset.camp); showToast('Erro ao abrir edição: ' + e.message, 'error'); }" class="cursor-pointer">
 
             {# — PERÍODO — #}
             <td class="py-2.5 px-3 align-top whitespace-nowrap">
@@ -234,7 +234,7 @@
             {# — AÇÕES — #}
             <td class="py-2.5 px-3 text-center align-top whitespace-nowrap">
               <div class="flex items-center justify-center gap-0.5">
-                <button onclick="event.stopPropagation(); try { abrirModalEditar(JSON.parse(this.closest('tr').dataset.camp)); } catch(e) { console.error('Erro edit btn:', e); alert('Erro: ' + e.message); }"
+                <button onclick="event.stopPropagation(); try { abrirModalEditar(JSON.parse(this.closest('tr').dataset.camp)); } catch(e) { console.error('Erro edit btn:', e); showToast('Erro: ' + e.message, 'error'); }"
                         class="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Editar">
                   <i class="fas fa-edit text-xs"></i>
                 </button>
@@ -1296,7 +1296,7 @@
       modal_campanha.showModal();
     } catch (error) {
       console.error('Erro em abrirModalEditar:', error);
-      alert('Erro ao abrir modal de edição: ' + error.message);
+      showToast('Erro ao abrir modal de edição: ' + error.message, 'error');
     }
   }
 

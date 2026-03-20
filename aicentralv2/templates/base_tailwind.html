@@ -120,12 +120,25 @@
         
         /* Navbar menu active state */
         .menu li > a.active {
-            background-color: oklch(0.85 0.15 145 / 0.15);
-            color: oklch(0.55 0.2 145);
+            background-color: #e8f5e9 !important;
+            color: #1E4D4F !important;
             font-weight: 600;
         }
         .menu li > a.active i {
-            color: oklch(0.55 0.2 145);
+            color: #1E4D4F !important;
+        }
+
+        /* Fix: menu hover/focus must keep readable text */
+        .dropdown-content.menu li > a:hover,
+        .dropdown-content.menu li > a:focus,
+        .dropdown-content.menu li > a:focus-visible {
+            background-color: #f3f4f6 !important;
+            color: #1f2937 !important;
+        }
+        .dropdown-content.menu li > a.active:hover,
+        .dropdown-content.menu li > a.active:focus {
+            background-color: #d1fae5 !important;
+            color: #1E4D4F !important;
         }
 
         /* Navbar link styling */
@@ -150,10 +163,23 @@
             font-weight: 600;
         }
 
-        /* Navbar dropdown panel */
+        /* Navbar dropdown panel — hover driven */
         .navbar-dropdown .dropdown-content {
             min-width: 14rem;
             z-index: 999 !important;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.15s, visibility 0.15s, transform 0.15s;
+            display: block !important;
+            pointer-events: none;
+        }
+        .navbar-dropdown:hover > .dropdown-content,
+        .navbar-dropdown.dd-open > .dropdown-content {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
         }
 
         /* Mobile drawer menu styling */
@@ -237,7 +263,7 @@
                             Comercial
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
-                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
+                        <ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
                             <li><a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">Clientes</a></li>
                             <li><a href="{{ url_for('leads_list') }}" class="{% if request.endpoint == 'leads_list' %}active{% endif %}">Leads</a></li>
                             <li><a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">Cotações</a></li>
@@ -255,7 +281,7 @@
                             PIs
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
-                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                        <ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-1 border border-base-200">
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">Em aprovação</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">Em configuração</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">Em andamento</a></li>
@@ -270,7 +296,7 @@
                             Campanhas
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
-                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-1 border border-base-200">
+                        <ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-52 mt-1 border border-base-200">
                             <li><a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">Dashboard</a></li>
                             <li><a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' and not request.args.get('view') %}active{% endif %}">Acompanhamento</a></li>
                             <li><a href="{{ url_for('campanhas_pi_lista', view='diarios') }}" class="{% if request.args.get('view') == 'diarios' %}active{% endif %}">Diários Geral</a></li>
@@ -283,7 +309,7 @@
                             Cadu
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
-                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
+                        <ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
                             <li><a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">Interesses</a></li>
                             <li><a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">Métricas Plataforma</a></li>
                             {% if session.get('user_email') in ['apolo@centralcomm.media', 'rogerio@centralcomm.media'] %}
@@ -303,7 +329,7 @@
                             Administração
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
-                        <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
+                        <ul class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
                             <li><a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">Tipos de Cliente</a></li>
                             <li><a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">Setores</a></li>
                             <li><a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">Cargos</a></li>
@@ -592,14 +618,18 @@
             document.body.classList.remove('no-fouc');
             document.body.classList.add('fouc-ready');
 
-            // Close navbar dropdowns when clicking outside
-            document.addEventListener('click', function(e) {
-                document.querySelectorAll('.navbar-dropdown').forEach(function(dd) {
-                    if (!dd.contains(e.target)) {
-                        dd.removeAttribute('open');
-                        var trigger = dd.querySelector('[tabindex]');
-                        if (trigger) trigger.blur();
-                    }
+            // Navbar dropdowns: open on hover, close on leave
+            var closeTimer = null;
+            document.querySelectorAll('.navbar-dropdown').forEach(function(dd) {
+                dd.addEventListener('mouseenter', function() {
+                    clearTimeout(closeTimer);
+                    document.querySelectorAll('.navbar-dropdown').forEach(function(o) {
+                        if (o !== dd) { o.classList.remove('dd-open'); var t = o.querySelector('[tabindex]'); if (t) t.blur(); }
+                    });
+                    dd.classList.add('dd-open');
+                });
+                dd.addEventListener('mouseleave', function() {
+                    closeTimer = setTimeout(function() { dd.classList.remove('dd-open'); }, 150);
                 });
             });
 
@@ -608,6 +638,18 @@
                 link.addEventListener('click', function() {
                     var dd = this.closest('.navbar-dropdown');
                     if (dd) {
+                        dd.classList.remove('dd-open');
+                        var trigger = dd.querySelector('[tabindex]');
+                        if (trigger) trigger.blur();
+                    }
+                });
+            });
+
+            // Close on click outside (fallback)
+            document.addEventListener('click', function(e) {
+                document.querySelectorAll('.navbar-dropdown').forEach(function(dd) {
+                    if (!dd.contains(e.target)) {
+                        dd.classList.remove('dd-open');
                         var trigger = dd.querySelector('[tabindex]');
                         if (trigger) trigger.blur();
                     }
@@ -628,6 +670,44 @@
         function closeFlashMessage(element) {
             element.parentElement.remove();
         }
+
+        // ==================== TOAST GLOBAL ====================
+        (function(){
+            const s = document.createElement('style');
+            s.textContent = '@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}';
+            document.head.appendChild(s);
+        })();
+        window.showToast = function(msg, type, duration) {
+            type = type || 'info';
+            duration = duration || 3500;
+            var container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+                document.body.appendChild(container);
+            }
+            var colors = {
+                success: 'background:#dcfce7;color:#15803d;border-color:#86efac',
+                error:   'background:#fee2e2;color:#991b1b;border-color:#fca5a5',
+                warning: 'background:#fef9c3;color:#854d0e;border-color:#fde68a',
+                info:    'background:#dbeafe;color:#1e40af;border-color:#93c5fd'
+            };
+            var icons = {
+                success: '<i class="fas fa-check-circle"></i>',
+                error:   '<i class="fas fa-times-circle"></i>',
+                warning: '<i class="fas fa-exclamation-triangle"></i>',
+                info:    '<i class="fas fa-info-circle"></i>'
+            };
+            var toast = document.createElement('div');
+            toast.style.cssText = (colors[type]||colors.info)+';border:1px solid;border-radius:8px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:400px;animation:toastIn .25s ease';
+            toast.innerHTML = (icons[type]||icons.info)+'<span>'+msg+'</span>';
+            container.appendChild(toast);
+            setTimeout(function(){
+                toast.style.animation = 'toastOut .2s ease forwards';
+                setTimeout(function(){ toast.remove(); }, 200);
+            }, duration);
+        };
 
         // ==================== CONFIRMAÇÃO GLOBAL ====================
         (function() {

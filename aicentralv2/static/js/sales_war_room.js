@@ -292,7 +292,7 @@
             carregarHistoricoTabela(clienteId);
         } catch (e) {
             console.error(e);
-            alert('Erro ao salvar histórico.');
+            showToast('Erro ao salvar histórico.', 'error');
         }
     }
 
@@ -424,7 +424,7 @@
                         });
                     } catch (e) {
                         console.error(e);
-                        alert('Erro ao atualizar status.');
+                        showToast('Erro ao atualizar status.', 'error');
                     }
                 });
             });
@@ -432,7 +432,7 @@
             $('#btn-add-atividade')?.addEventListener('click', async () => {
                 const descricao = $('#input-atividade').value.trim();
                 const dataAtiv = $('#input-atividade-data').value;
-                if (!descricao || !dataAtiv) { alert('Preencha descrição e data.'); return; }
+                if (!descricao || !dataAtiv) { showToast('Preencha descrição e data.', 'warning'); return; }
 
                 const btn = $('#btn-add-atividade');
                 btn.classList.add('loading');
@@ -457,7 +457,7 @@
                     carregarAtividades(clienteId, contatoId);
                 } catch (e) {
                     console.error(e);
-                    alert('Erro ao criar atividade.');
+                    showToast('Erro ao criar atividade.', 'error');
                 } finally {
                     btn.classList.remove('loading');
                 }
@@ -529,7 +529,7 @@
                     carregarObjetivos(clienteId);
                 } catch (e) {
                     console.error(e);
-                    alert('Erro ao criar objetivo.');
+                    showToast('Erro ao criar objetivo.', 'error');
                 }
             });
 
@@ -584,7 +584,7 @@
                     });
                 } catch (e) {
                     console.error(e);
-                    alert('Erro ao obter sugestões da IA.');
+                    showToast('Erro ao obter sugestões da IA.', 'error');
                 } finally {
                     btn.classList.remove('loading');
                 }
@@ -788,7 +788,7 @@
         const produto = $('#com-produto').value;
         const canal = $('#com-canal').value.trim();
 
-        if (!objetivo) { alert('Preencha o objetivo da mensagem.'); return; }
+        if (!objetivo) { showToast('Preencha o objetivo da mensagem.', 'warning'); return; }
 
         const btn = $('#btn-gerar-comunicacao');
         btn.classList.add('loading');
@@ -805,7 +805,7 @@
             $('#com-preview').classList.remove('hidden');
         } catch (e) {
             console.error(e);
-            alert('Erro ao gerar comunicação.');
+            showToast('Erro ao gerar comunicação.', 'error');
         } finally {
             btn.classList.remove('loading');
         }

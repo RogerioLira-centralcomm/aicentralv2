@@ -316,13 +316,13 @@
       const data = await response.json();
       
       if (data.success) {
-        alert(data.message);
+        showToast(data.message, 'success');
         location.reload();
       } else {
-        alert('Erro: ' + data.message);
+        showToast('Erro: ' + data.message, 'error');
       }
     } catch (error) {
-      alert('Erro ao recategorizar: ' + error.message);
+      showToast('Erro ao recategorizar: ' + error.message, 'error');
     }
   }
 </script>

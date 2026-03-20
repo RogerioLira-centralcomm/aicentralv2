@@ -556,6 +556,28 @@ html body select option {
     background-color: #ffffff !important;
 }
 
+/* Fix DaisyUI menu hover/focus: prevent same-color bg+text */
+[data-theme="centralcomm"] .menu li > a:hover,
+[data-theme="centralcomm"] .menu li > a:focus,
+[data-theme="centralcomm"] .menu li > a:focus-visible,
+[data-theme="centralcomm"] .menu li > button:hover,
+[data-theme="centralcomm"] .menu li > button:focus {
+    background-color: #f3f4f6 !important;
+    color: #1f2937 !important;
+}
+
+[data-theme="centralcomm"] .menu li > a.active,
+[data-theme="centralcomm"] .menu li > a[aria-current="page"] {
+    background-color: #e8f5e9 !important;
+    color: #1E4D4F !important;
+}
+
+[data-theme="centralcomm"] .menu li > a.active:hover,
+[data-theme="centralcomm"] .menu li > a.active:focus {
+    background-color: #d1fae5 !important;
+    color: #1E4D4F !important;
+}
+
 /* Utility classes */
 .text-truncate {
     overflow: hidden;

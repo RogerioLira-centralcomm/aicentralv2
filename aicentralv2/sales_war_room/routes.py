@@ -98,9 +98,9 @@ def api_cliente_status(cliente_id):
                 LEFT JOIN LATERAL (
                     SELECT
                         COUNT(*) AS total_cotacoes,
-                        COUNT(*) FILTER (WHERE c.status = 2) AS cotacoes_aprovadas,
+                        COUNT(*) FILTER (WHERE c.status = '2') AS cotacoes_aprovadas,
                         COALESCE(SUM(c.valor_total_proposta), 0) AS valor_bruto,
-                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 2), 0) AS valor_liquido
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS valor_liquido
                     FROM cadu_cotacoes c
                     WHERE c.cliente_id = cli.id_cliente
                       AND c.deleted_at IS NULL
@@ -151,11 +151,11 @@ def api_cliente_status_completo(cliente_id):
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_cotacoes,
-                    COUNT(*) FILTER (WHERE c.status = 2) AS cotacoes_aprovadas,
+                    COUNT(*) FILTER (WHERE c.status = '2') AS cotacoes_aprovadas,
                     COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 2), 0) AS valor_aprovado,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS valor_aprovado,
                     CASE WHEN COUNT(*) > 0
-                         THEN ROUND(COUNT(*) FILTER (WHERE c.status = 2)::numeric / COUNT(*) * 100, 1)
+                         THEN ROUND(COUNT(*) FILTER (WHERE c.status = '2')::numeric / COUNT(*) * 100, 1)
                          ELSE 0 END AS pct_conversao
                 FROM cadu_cotacoes c
                 WHERE c.cliente_id = %s
@@ -183,8 +183,8 @@ def api_cliente_status_completo(cliente_id):
                 SELECT
                     EXTRACT(MONTH FROM c.created_at)::int AS mes,
                     COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE c.status = 2) AS aprovadas,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 2), 0) AS faturamento
+                    COUNT(*) FILTER (WHERE c.status = '2') AS aprovadas,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS faturamento
                 FROM cadu_cotacoes c
                 WHERE c.cliente_id = %s
                   AND c.deleted_at IS NULL

@@ -459,7 +459,7 @@ function abrirModalNfView(nfId, codPi, clienteNome) {
 
       document.getElementById('modal_nf_view').showModal();
     })
-    .catch(function(e) { alert('Erro ao carregar nota fiscal'); console.error(e); });
+    .catch(function(e) { showToast('Erro ao carregar nota fiscal', 'error'); console.error(e); });
 }
 
 function habilitarEdicaoNf() {
@@ -499,7 +499,7 @@ function salvarNfView() {
   var dataPagReal = document.getElementById('vnf_data_pagamento_realizado').value;
 
   if (statusVal === STATUS_PAG_REALIZADO && !dataPagReal) {
-    alert('Para o status "Pagamento Realizado" é obrigatório preencher a data de pagamento realizado.');
+    showToast('Para o status "Pagamento Realizado" é obrigatório preencher a data de pagamento realizado.', 'warning');
     document.getElementById('vnf_data_pagamento_realizado').focus();
     return;
   }
@@ -528,7 +528,7 @@ function salvarNfView() {
     window.location.reload();
   })
   .catch(function(err) {
-    alert('Erro ao salvar nota fiscal: ' + err.message);
+    showToast('Erro ao salvar nota fiscal: ' + err.message, 'error');
   });
 }
 </script>

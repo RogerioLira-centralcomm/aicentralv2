@@ -2522,7 +2522,7 @@ async function enviarEmailPorTipo() {
         mensagemErro += `${index + 1}. ${erro}\n`;
       });
       mensagemErro += '\nConfigure o link público antes de enviar o email.';
-      alert(mensagemErro);
+      showToast(mensagemErro, 'warning', 6000);
       return;
     }
   }

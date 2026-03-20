@@ -326,12 +326,12 @@ function toggleStatus(contatoId) {
             updatePagination();
             updateDebugInfo();
         } else {
-            alert(data.error || 'Erro ao alterar status');
+            showToast(data.error || 'Erro ao alterar status', 'error');
         }
     })
     .catch(error => {
         console.error('Erro:', error);
-        alert('Erro ao alterar status');
+        showToast('Erro ao alterar status', 'error');
     });
     
     return false;
@@ -371,17 +371,17 @@ function handleImportSubmit(event) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(data.message || 'Contatos importados com sucesso!');
+            showToast(data.message || 'Contatos importados com sucesso!', 'success');
             location.reload();
         } else {
-            alert(data.error || 'Erro ao importar contatos');
+            showToast(data.error || 'Erro ao importar contatos', 'error');
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-file-import mr-2"></i>Importar';
         }
     })
     .catch(error => {
         console.error('Erro:', error);
-        alert('Erro ao importar contatos');
+        showToast('Erro ao importar contatos', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-file-import mr-2"></i>Importar';
     });

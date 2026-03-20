@@ -1,4 +1,4 @@
-/* Leads V2 — Dashboard de Prospecção */
+/* Leads V2 — Dashboard de Prospecção (Redesign) */
 
 .leads-page {
     display: flex;
@@ -21,7 +21,7 @@
 
 .leads-grid {
     display: grid;
-    grid-template-columns: minmax(200px, 280px) 1fr 1.1fr 1.1fr minmax(180px, 220px);
+    grid-template-columns: minmax(200px, 280px) 1fr 1.1fr 1.1fr 1fr;
     gap: 1px;
     flex: 1;
     min-height: 0;
@@ -33,6 +33,11 @@
     flex-direction: column;
     background: white;
     min-height: 0;
+    min-width: 0;
+}
+
+.leads-col-extrair {
+    min-width: 0;
 }
 
 .leads-col-header {
@@ -313,6 +318,8 @@
 /* Extraction result enhanced */
 .extract-section {
     font-size: 12px;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .extract-section h4 {
@@ -402,6 +409,47 @@
 
 .concluidas-toggle:hover { color: #6b7280; }
 
+/* Extraction column stable width */
+#extrair_resultado {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Comm template buttons */
+.comm-template-btn {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 10px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.comm-template-btn:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+/* Link item with copy */
+.link-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.link-item a {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Responsive: stack columns on small screens */
 @media (max-width: 1200px) {
     .leads-grid {
@@ -428,6 +476,6 @@
 /* 1366px compat */
 @media (max-width: 1400px) {
     .leads-grid {
-        grid-template-columns: minmax(180px, 250px) 1fr 1fr 1fr minmax(160px, 200px);
+        grid-template-columns: minmax(180px, 250px) 1fr 1fr 1fr 1fr;
     }
 }

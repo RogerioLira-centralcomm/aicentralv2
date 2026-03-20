@@ -10178,26 +10178,34 @@ def excluir_cadu_lead(lead_id):
 # CADU LEADS V2 — Dashboard de Prospecção
 # ============================================================================
 
-def obter_leads_dashboard(id_executivo, potencial=None, search=None):
+def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status=None, sem_responsavel=False):
     """Cards da coluna 1: leads ativos com contagem de contatos e dias sem atividade."""
     conn = get_db()
     try:
         params = []
-        where_extra = ''
+        where_clauses = ["l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')"]
 
-        if str(id_executivo) == '0':
-            exec_filter = 'l.id_executivo IS NULL'
-        else:
-            exec_filter = 'l.id_executivo = %s'
-            params.append(id_executivo)
+        if sem_responsavel:
+            where_clauses.append('l.id_executivo IS NULL')
+        elif id_executivo is not None:
+            if str(id_executivo) == '0':
+                where_clauses.append('l.id_executivo IS NULL')
+            else:
+                where_clauses.append('l.id_executivo = %s')
+                params.append(id_executivo)
 
+        if status:
+            where_clauses.append('l.status = %s')
+            params.append(status)
         if potencial:
-            where_extra += ' AND l.potencial = %s'
+            where_clauses.append('l.potencial = %s')
             params.append(potencial)
         if search:
-            where_extra += ' AND (l.empresa ILIKE %s OR l.nome ILIKE %s)'
+            where_clauses.append('(l.empresa ILIKE %s OR l.nome ILIKE %s)')
             term = f'%{search}%'
             params.extend([term, term])
+
+        where_sql = ' AND '.join(where_clauses)
 
         with conn.cursor() as cursor:
             cursor.execute(f'''
@@ -10218,9 +10226,7 @@ def obter_leads_dashboard(id_executivo, potencial=None, search=None):
                     )::int AS dias_sem_atividade
                 FROM cadu_leads l
                 LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.principal = TRUE
-                WHERE {exec_filter}
-                  AND l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')
-                  {where_extra}
+                WHERE {where_sql}
                 ORDER BY dias_sem_atividade DESC NULLS LAST, l.created_at DESC
             ''', params)
             return cursor.fetchall()
@@ -10248,8 +10254,8 @@ def obter_lead_detalhes(lead_id):
         raise
 
 
-def atualizar_lead_status(lead_id, status=None, potencial=None):
-    """Atualiza status e/ou potencial de um lead."""
+def atualizar_lead_status(lead_id, status=None, potencial=None, id_executivo=None):
+    """Atualiza status, potencial e/ou executivo de um lead."""
     conn = get_db()
     try:
         sets = []
@@ -10260,6 +10266,43 @@ def atualizar_lead_status(lead_id, status=None, potencial=None):
         if potencial is not None:
             sets.append('potencial = %s')
             params.append(potencial)
+        if id_executivo is not None:
+            if id_executivo == 0 or id_executivo == '0':
+                sets.append('id_executivo = NULL')
+            else:
+                sets.append('id_executivo = %s')
+                params.append(id_executivo)
+        if not sets:
+            return False
+        sets.append('updated_at = CURRENT_TIMESTAMP')
+        params.append(lead_id)
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE cadu_leads SET {', '.join(sets)} WHERE id = %s",
+                params
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_lead_dados(lead_id, dados):
+    """Atualiza campos gerais de um lead."""
+    conn = get_db()
+    try:
+        allowed_fields = [
+            'empresa', 'nome', 'fonte', 'tipo_lead', 'url_site',
+            'segmento', 'potencial', 'status', 'observacoes',
+        ]
+        sets = []
+        params = []
+        for field in allowed_fields:
+            if field in dados:
+                sets.append(f'{field} = %s')
+                params.append(dados[field] or None)
         if not sets:
             return False
         sets.append('updated_at = CURRENT_TIMESTAMP')

@@ -167,7 +167,9 @@ window.togglePassword = function(fieldId) {
  * Mostra alerta
  */
 function showAlert(message) {
-    alert(message);
+    if (typeof showToast === 'function') {
+        showToast(message, 'warning');
+    }
 }
 
 console.log('%c✨ Reset Password Ready', 'color: #667eea; font-weight: bold;');

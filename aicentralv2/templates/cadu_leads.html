@@ -17,12 +17,16 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Incluir Leads
       </button>
+      <button onclick="openLinksModal()" class="btn btn-sm btn-ghost gap-1" style="border:1px solid #e5e7eb">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        Links
+      </button>
     </div>
     <div class="flex items-center gap-2">
       <label class="text-sm text-gray-500 font-medium">Executivo:</label>
       <select id="filtro_executivo" onchange="onExecutivoChange()"
               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 220px;">
-        <option value="">Selecione...</option>
+        <option value="">Todos (Inbox)</option>
         {% for ex in executivos %}
           <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
         {% endfor %}
@@ -34,57 +38,66 @@
   <!-- ===== 5 Columns ===== -->
   <div class="leads-grid">
 
-    <!-- Col 1: Qualificação (Cards) -->
+    <!-- Col 1: Inbox / Listagem -->
     <div class="leads-col">
       <div class="leads-col-header">
-        <span>Qualificação</span>
+        <span>Inbox</span>
         <span id="leads_count" class="badge badge-ghost badge-sm">0</span>
       </div>
       <div class="leads-col-toolbar">
         <input type="text" id="search_leads" placeholder="Buscar..."
                class="input input-xs input-bordered w-full" oninput="debounceSearch()">
         <select id="filtro_potencial" onchange="loadLeads()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 90px;">
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 80px;">
           <option value="">Potencial</option>
           <option value="alto">Alto</option>
           <option value="medio">Médio</option>
           <option value="baixo">Baixo</option>
         </select>
+        <select id="filtro_status" onchange="loadLeads()"
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 80px;">
+          <option value="">Status</option>
+          <option value="inbox">Inbox</option>
+          <option value="contato">Contato</option>
+          <option value="qualificado">Qualificado</option>
+          <option value="proposta">Proposta</option>
+          <option value="negociacao">Negociação</option>
+        </select>
       </div>
       <div id="leads_cards" class="leads-col-scroll">
-        <div class="leads-empty">Selecione um executivo</div>
+        <div class="leads-empty">Carregando...</div>
       </div>
     </div>
 
-    <!-- Col 2: Status + Contatos -->
+    <!-- Col 2: Dados do Lead -->
     <div class="leads-col">
-      <div class="leads-col-header">Status & Contatos</div>
+      <div class="leads-col-header">Dados do Lead</div>
       <div id="col_status" class="leads-col-scroll">
         <div class="leads-empty">Selecione um lead</div>
       </div>
     </div>
 
-    <!-- Col 3: Atividades -->
+    <!-- Col 3: Ações -->
     <div class="leads-col">
-      <div class="leads-col-header">Atividades</div>
+      <div class="leads-col-header">Ações</div>
       <div id="col_atividades" class="leads-col-scroll">
         <div class="leads-empty">Selecione um lead</div>
       </div>
     </div>
 
     <!-- Col 4: Extrair Informações -->
-    <div class="leads-col">
+    <div class="leads-col leads-col-extrair">
       <div class="leads-col-header">Extrair Informações</div>
       <div id="col_extrair" class="leads-col-scroll">
         <div class="leads-empty">Selecione um lead</div>
       </div>
     </div>
 
-    <!-- Col 5: Links Úteis -->
+    <!-- Col 5: Comunicação IA -->
     <div class="leads-col">
-      <div class="leads-col-header">Links Úteis</div>
-      <div id="col_links" class="leads-col-scroll">
-        <div class="leads-empty">Carregando...</div>
+      <div class="leads-col-header">Comunicação IA</div>
+      <div id="col_comunicacao" class="leads-col-scroll">
+        <div class="leads-empty">Selecione um lead</div>
       </div>
     </div>
 
@@ -153,6 +166,122 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
+<!-- ===== Modal Editar Lead ===== -->
+<dialog id="modal_editar_lead" class="modal">
+  <div class="modal-box w-11/12 max-w-lg">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Editar Lead</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="label label-text text-xs font-semibold">Empresa</label>
+        <input id="edit_empresa" class="input input-sm input-bordered w-full" placeholder="Nome da empresa">
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Nome (contato)</label>
+        <input id="edit_nome" class="input input-sm input-bordered w-full" placeholder="Nome do contato principal">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Fonte</label>
+          <input id="edit_fonte" class="input input-sm input-bordered w-full" placeholder="Ex: site, indicação...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Tipo</label>
+          <select id="edit_tipo_lead" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="cliente">Cliente</option>
+            <option value="agencia">Agência</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">URL do site</label>
+        <input id="edit_url_site" class="input input-sm input-bordered w-full" placeholder="https://...">
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Segmento</label>
+        <input id="edit_segmento" class="input input-sm input-bordered w-full" placeholder="Ex: Tecnologia, Saúde...">
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Observações</label>
+        <textarea id="edit_observacoes" class="textarea textarea-sm textarea-bordered w-full" rows="3" placeholder="Observações..."></textarea>
+      </div>
+    </div>
+    <div class="modal-action">
+      <button onclick="saveEditLead()" class="btn btn-primary btn-sm">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Editar Contato ===== -->
+<dialog id="modal_editar_contato" class="modal">
+  <div class="modal-box w-96">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Editar Contato</h3>
+    <input type="hidden" id="editc_id">
+    <div class="space-y-2">
+      <input id="editc_nome" class="input input-sm input-bordered w-full" placeholder="Nome *">
+      <input id="editc_cargo" class="input input-sm input-bordered w-full" placeholder="Cargo">
+      <input id="editc_telefone" class="input input-sm input-bordered w-full" placeholder="Telefone">
+      <input id="editc_email" class="input input-sm input-bordered w-full" placeholder="Email">
+    </div>
+    <div class="modal-action">
+      <button onclick="saveEditContato()" class="btn btn-primary btn-sm">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Links Úteis ===== -->
+<dialog id="modal_links" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Links Úteis</h3>
+    <div id="links_content" class="space-y-4 max-h-96 overflow-y-auto">
+      <div class="leads-empty">Carregando...</div>
+    </div>
+    <div id="links_site_section" class="hidden mt-4 pt-4" style="border-top:1px solid #e5e7eb">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-semibold text-gray-700">Links do Site do Lead</span>
+        <button onclick="extrairLinksDoSite()" class="btn btn-xs btn-primary" id="btn_extrair_links">
+          <span class="loading loading-spinner loading-xs hidden" id="extrair_links_spinner"></span>
+          Buscar links do site
+        </button>
+      </div>
+      <div id="links_site_resultado" class="space-y-1"></div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Resultado Comunicação ===== -->
+<dialog id="modal_comunicacao_resultado" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Comunicação Gerada</h3>
+    <div class="comm-preview" id="modal_comm_preview">
+      <div id="modal_comm_text" contenteditable="true"></div>
+    </div>
+    <div class="flex items-center justify-between mt-3" style="font-size:12px;color:#9ca3af">
+      <span id="modal_comm_word_count"></span>
+      <div class="flex gap-2">
+        <button onclick="copyModalCommText()" class="btn btn-xs btn-ghost">Copiar</button>
+        <button onclick="openModalCommWA()" class="btn btn-xs btn-ghost" style="color:#25D366">Abrir WA</button>
+        <button onclick="openModalCommEmail()" class="btn btn-xs btn-ghost" style="color:#3b82f6">Abrir Email</button>
+        <button onclick="gerarComunicacao()" class="btn btn-xs btn-primary">Regenerar</button>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+window.EXECUTIVOS = [
+  {% for ex in executivos %}
+    {id: {{ ex.id_contato_cliente }}, nome: "{{ ex.nome_completo|e }}"}{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+</script>
 {% endblock %}
 
 {% block scripts %}

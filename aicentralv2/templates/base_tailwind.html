@@ -341,11 +341,11 @@
                         </ul>
                     </div>
 
-                    <!-- Administração -->
+                    <!-- Parâmetros -->
                     {% if session.user_type in ['admin', 'superadmin'] or true %}
                     <div class="nav-dd">
                         <div tabindex="0" role="button" class="nav-item">
-                            Administração
+                            Parâmetros
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-56 border border-base-200">
@@ -573,11 +573,11 @@
                             </details>
                         </li>
 
-                        <!-- Administração (merged) -->
+                        <!-- Parâmetros (merged) -->
                         {% if session.user_type in ['admin', 'superadmin'] or true %}
                         <li class="mt-4">
                             <details>
-                                <summary>Administração</summary>
+                                <summary>Parâmetros</summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">
@@ -660,7 +660,7 @@
             });
 
             // Subitems: navigate on hover (like click)
-            document.querySelectorAll('.nav-dd-menu a[href]').forEach(function(link) {
+            document.querySelectorAll('.nav-dd-menu a[href], a.nav-item[href]').forEach(function(link) {
                 var navTimer;
                 link.addEventListener('mouseenter', function() {
                     navTimer = setTimeout(function() {

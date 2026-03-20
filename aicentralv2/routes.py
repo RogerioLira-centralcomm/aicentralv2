@@ -10630,7 +10630,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """JSON: leads filtrados para coluna 1 (cards)"""
         try:
             id_executivo = request.args.get('id_executivo', type=int)
-            if not id_executivo:
+            if id_executivo is None:
                 return jsonify({'success': False, 'message': 'Executivo obrigatório'}), 400
             potencial = request.args.get('potencial') or None
             search = request.args.get('search') or None
@@ -10654,6 +10654,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def api_lead_detalhes(lead_id):
         """JSON: detalhes completos de um lead"""
         try:
+            from datetime import date as date_type
             lead = db.obter_lead_detalhes(lead_id)
             if not lead:
                 return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
@@ -10661,6 +10662,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             for k, v in d.items():
                 if isinstance(v, datetime):
                     d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                elif isinstance(v, date_type):
+                    d[k] = v.isoformat()
                 elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
                     d[k] = float(v)
             return jsonify({'success': True, 'lead': d})
@@ -10767,6 +10770,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def api_lead_atividades(lead_id):
         """Lista atividades de um lead"""
         try:
+            from datetime import date as date_type
             atividades = db.obter_lead_atividades(lead_id)
             result = []
             for a in atividades:
@@ -10774,6 +10778,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 for k, v in d.items():
                     if isinstance(v, datetime):
                         d[k] = v.strftime('%d/%m/%Y %H:%M')
+                    elif isinstance(v, date_type):
+                        d[k] = v.isoformat()
                 result.append(d)
             return jsonify({'success': True, 'atividades': result})
         except Exception as e:
@@ -10792,6 +10798,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': True, 'id': novo_id})
         except Exception as e:
             app.logger.error(f"Erro api_lead_atividade_criar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/atividades/<int:atividade_id>/concluir', methods=['PATCH'])
+    @login_required
+    def api_lead_atividade_concluir(atividade_id):
+        """Toggle concluida em atividade"""
+        try:
+            data = request.get_json(force=True)
+            concluida = bool(data.get('concluida', False))
+            ok = db.concluir_atividade(atividade_id, concluida)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_atividade_concluir {atividade_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # --- Extração (Firecrawl + Gemini) ---
@@ -10825,12 +10844,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'message': 'Nenhum conteúdo extraído da URL'}), 400
 
             openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
-            system_prompt = '''Extraia informações desta página web. Retorne APENAS JSON válido, sem explicações.
+            system_prompt = '''Extraia informações desta página web de empresa/agência. Retorne APENAS JSON válido, sem explicações.
 
 {
     "nome_empresa": "",
-    "descricao": "",
-    "segmento": "",
+    "descricao": "descrição curta da empresa (2-3 frases)",
+    "segmento": "ex: Tecnologia, Saúde, Educação, Agência de Publicidade",
+    "porte_estimado": "micro|pequena|media|grande (baseado em sinais do site)",
+    "mercado_alvo": "quem são os clientes típicos desta empresa",
     "servicos": [],
     "contatos_encontrados": [
         { "nome": "", "cargo": "", "telefone": "", "email": "" }
@@ -10843,6 +10864,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     },
     "endereco": "",
     "clientes_mencionados": [],
+    "presenca_digital": "avaliação breve da presença digital (site profissional, redes ativas, blog, SEO)",
+    "oportunidades_midia": "oportunidades de mídia/comunicação identificadas para prospecção",
+    "premios_certificacoes": [],
     "observacoes": ""
 }
 
@@ -11089,6 +11113,106 @@ Retorne apenas o texto melhorado, sem explicações.'''
             return jsonify({'success': True, 'texto': texto_melhorado})
         except Exception as e:
             app.logger.error(f"Erro api_ia_melhorar_texto: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/ia/gerar-comunicacao', methods=['POST'])
+    @login_required
+    def api_ia_gerar_comunicacao():
+        """Gera comunicação personalizada para lead usando contexto completo"""
+        try:
+            import requests as http_requests
+            data = request.get_json(force=True)
+            lead_id = data.get('lead_id')
+            tipo_comunicacao = data.get('tipo', 'whatsapp')
+            objetivo = data.get('objetivo', '')
+            tamanho = data.get('tamanho', 'medio')
+            incluir_dados_lead = data.get('incluir_dados_lead', True)
+            contato_id = data.get('contato_id')
+
+            if not lead_id:
+                return jsonify({'success': False, 'message': 'lead_id obrigatório'}), 400
+
+            lead_det = db.obter_lead_detalhes(lead_id)
+            if not lead_det:
+                return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
+
+            lead = dict(lead_det)
+            contatos = [dict(c) for c in db.obter_lead_contatos(lead_id)]
+            atividades = [dict(a) for a in db.obter_lead_atividades(lead_id)]
+
+            contato_alvo = None
+            if contato_id:
+                contato_alvo = next((c for c in contatos if c['id'] == int(contato_id)), None)
+            if not contato_alvo and contatos:
+                contato_alvo = next((c for c in contatos if c.get('principal')), contatos[0])
+
+            tamanho_map = {'curto': '2-3 frases', 'medio': '1 parágrafo', 'longo': '2-3 parágrafos'}
+            tamanho_desc = tamanho_map.get(tamanho, '1 parágrafo')
+
+            contexto_parts = []
+            contexto_parts.append(f"Empresa: {lead.get('empresa') or lead.get('nome') or 'N/A'}")
+            if contato_alvo:
+                contexto_parts.append(f"Contato: {contato_alvo.get('nome', '')} ({contato_alvo.get('cargo', 'sem cargo')})")
+            if incluir_dados_lead:
+                if lead.get('segmento'):
+                    contexto_parts.append(f"Segmento: {lead['segmento']}")
+                if lead.get('descricao_empresa'):
+                    contexto_parts.append(f"Descrição: {lead['descricao_empresa'][:200]}")
+                if lead.get('servicos'):
+                    servicos = lead['servicos'] if isinstance(lead['servicos'], list) else []
+                    if servicos:
+                        contexto_parts.append(f"Serviços: {', '.join(servicos[:5])}")
+                if lead.get('oportunidades_midia'):
+                    contexto_parts.append(f"Oportunidades: {lead['oportunidades_midia'][:200]}")
+
+            ultimas_ativ = atividades[:3]
+            if ultimas_ativ:
+                ativ_txt = '; '.join([f"{a.get('tipo','')}: {(a.get('descricao') or '')[:80]}" for a in ultimas_ativ])
+                contexto_parts.append(f"Últimas atividades: {ativ_txt}")
+
+            contexto = '\n'.join(contexto_parts)
+
+            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            system_prompt = f'''Você é um executivo de vendas da CentralComm, uma empresa de mídia e comunicação.
+Gere uma mensagem de {tipo_comunicacao} para prospecção comercial.
+
+Regras:
+- Tom profissional mas cordial
+- Personalizar com dados do lead quando disponíveis
+- Tamanho: {tamanho_desc}
+- Se WhatsApp: use formatação adequada (*negrito*, _itálico_), sem saudação formal longa
+- Se Email: inclua assunto na primeira linha (Assunto: ...), saudação e despedida profissionais
+- Não use emojis em excesso
+- Foque no valor que a CentralComm pode agregar
+- Retorne APENAS o texto da mensagem, sem explicações'''
+
+            user_msg = f"Objetivo: {objetivo}\n\nContexto do lead:\n{contexto}"
+
+            ai_resp = http_requests.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'HTTP-Referer': 'https://centralcomm.media',
+                    'X-Title': 'CentralComm AI',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': 'google/gemini-2.5-flash',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': user_msg},
+                    ],
+                    'temperature': 0.5,
+                    'max_tokens': 2000,
+                },
+                timeout=60,
+            )
+            ai_resp.raise_for_status()
+            texto_gerado = ai_resp.json()['choices'][0]['message']['content']
+            word_count = len(texto_gerado.split())
+            return jsonify({'success': True, 'texto': texto_gerado, 'word_count': word_count})
+        except Exception as e:
+            app.logger.error(f"Erro api_ia_gerar_comunicacao: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

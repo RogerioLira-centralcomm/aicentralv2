@@ -243,6 +243,9 @@
                             <li><a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">Cotações</a></li>
                             <li><a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">Briefings</a></li>
                             <li><a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">PI Recebido</a></li>
+                            {% if is_centralcomm_user %}
+                            <li><a href="{{ url_for('sales_war_room.index') }}" class="{% if request.endpoint == 'sales_war_room.index' %}active{% endif %}">Sales War Room</a></li>
+                            {% endif %}
                         </ul>
                     </div>
 
@@ -405,6 +408,13 @@
                                             PI Recebido
                                         </a>
                                     </li>
+                                    {% if is_centralcomm_user %}
+                                    <li>
+                                        <a href="{{ url_for('sales_war_room.index') }}" class="{% if request.endpoint == 'sales_war_room.index' %}active{% endif %}">
+                                            Sales War Room
+                                        </a>
+                                    </li>
+                                    {% endif %}
                                 </ul>
                             </details>
                         </li>

@@ -127,6 +127,10 @@ def create_app(config_class=Config):
         from .intelligence_routes.intelligence import bp as intelligence_bp
         app.register_blueprint(intelligence_bp)
         
+        # Registrar blueprint do Sales War Room
+        from .sales_war_room import bp as sales_war_room_bp
+        app.register_blueprint(sales_war_room_bp)
+        
         app.logger.info("OK Rotas registradas")
     except Exception as e:
         app.logger.error(f"FALHA Erro ao registrar rotas: {e}")

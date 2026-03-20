@@ -249,7 +249,7 @@
               {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, null, {{ pi_info|tojson }})'
                       class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
-                      title="Criar Nota Fiscal">
+                      title="Vincular Nota Fiscal">
                 <i class="fa-solid fa-plus text-[10px]"></i>
                 Vincular NF
               </button>
@@ -659,7 +659,7 @@ function abrirModalNf(idPi, nfId, piInfo) {
       })
       .catch(() => {});
   } else {
-    document.getElementById('modal_nf_title').textContent = 'Criar Nota Fiscal';
+    document.getElementById('modal_nf_title').textContent = 'Vincular Nota Fiscal';
     editWrapper.classList.add('hidden');
   }
 

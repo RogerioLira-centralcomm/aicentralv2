@@ -1,0 +1,100 @@
+<dialog id="modal-contato" class="modal">
+    <div class="modal-box w-11/12 max-w-3xl bg-base-100 p-0 rounded-lg">
+        <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="font-bold text-lg" id="modal-contato-nome">Contato</h3>
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost">✕</button></form>
+        </div>
+
+        <div class="tabs tabs-bordered w-full px-4 pt-2">
+            <a class="tab tab-active" data-modal-tab="dados">Dados</a>
+            <a class="tab" data-modal-tab="comunicacao">Comunicação IA</a>
+        </div>
+
+        <!-- Tab: Dados -->
+        <div class="p-4" id="tab-dados">
+            <div class="grid grid-cols-2 gap-3 mb-4" id="contato-info"></div>
+            <h4 class="text-sm font-semibold mb-2">Atividades com este contato</h4>
+            <div class="max-h-48 overflow-y-auto" id="contato-atividades-lista"></div>
+        </div>
+
+        <!-- Tab: Comunicação IA -->
+        <div class="p-4 hidden" id="tab-comunicacao">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="label label-text text-xs">Tipo</label>
+                    <div class="flex gap-2">
+                        <label class="label cursor-pointer gap-1">
+                            <input type="radio" name="com-tipo" value="whatsapp" class="radio radio-xs radio-success" checked />
+                            <span class="label-text text-xs">WhatsApp</span>
+                        </label>
+                        <label class="label cursor-pointer gap-1">
+                            <input type="radio" name="com-tipo" value="email" class="radio radio-xs radio-info" />
+                            <span class="label-text text-xs">Email</span>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="label label-text text-xs">Tamanho</label>
+                    <div class="flex gap-2">
+                        <label class="label cursor-pointer gap-1">
+                            <input type="radio" name="com-tamanho" value="curto" class="radio radio-xs" />
+                            <span class="label-text text-xs">Curto</span>
+                        </label>
+                        <label class="label cursor-pointer gap-1">
+                            <input type="radio" name="com-tamanho" value="medio" class="radio radio-xs" checked />
+                            <span class="label-text text-xs">Médio</span>
+                        </label>
+                        <label class="label cursor-pointer gap-1">
+                            <input type="radio" name="com-tamanho" value="longo" class="radio radio-xs" />
+                            <span class="label-text text-xs">Longo</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="label label-text text-xs">Objetivo da mensagem</label>
+                <textarea id="com-objetivo" class="textarea textarea-bordered textarea-sm w-full" rows="2"
+                          placeholder="Ex: retomar contato e apresentar CTV"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="label label-text text-xs">Produto</label>
+                    <select id="com-produto"
+                            class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none w-full">
+                        <option value="">Nenhum</option>
+                        <option value="programatica">Mídia Programática</option>
+                        <option value="interativos">Formatos Interativos</option>
+                        <option value="serasa_ads">Serasa Ads</option>
+                        <option value="cadu">Cadu (SaaS)</option>
+                        <option value="ctv">CTV</option>
+                        <option value="audio">Áudio Digital</option>
+                        <option value="portais">Mídia em Portais</option>
+                        <option value="performance">Performance</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="label label-text text-xs">Canal / Audiência</label>
+                    <input type="text" id="com-canal" class="input input-bordered input-sm w-full"
+                           placeholder="Opcional" />
+                </div>
+            </div>
+
+            <button id="btn-gerar-comunicacao" class="btn btn-primary btn-sm w-full mb-3">
+                Gerar com IA
+            </button>
+
+            <div id="com-preview" class="hidden">
+                <div class="bg-base-200 rounded-lg p-3 mb-3 whitespace-pre-wrap text-sm" id="com-texto"></div>
+                <div class="flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline" id="btn-copiar">Copiar</button>
+                    <button class="btn btn-sm btn-success" id="btn-abrir-whatsapp">Abrir WhatsApp</button>
+                    <button class="btn btn-sm btn-info" id="btn-abrir-email">Abrir Email</button>
+                    <button class="btn btn-sm btn-ghost" id="btn-regenerar">Regenerar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>

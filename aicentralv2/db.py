@@ -10182,8 +10182,14 @@ def obter_leads_dashboard(id_executivo, potencial=None, search=None):
     """Cards da coluna 1: leads ativos com contagem de contatos e dias sem atividade."""
     conn = get_db()
     try:
-        params = [id_executivo]
+        params = []
         where_extra = ''
+
+        if str(id_executivo) == '0':
+            exec_filter = 'l.id_executivo IS NULL'
+        else:
+            exec_filter = 'l.id_executivo = %s'
+            params.append(id_executivo)
 
         if potencial:
             where_extra += ' AND l.potencial = %s'
@@ -10212,7 +10218,7 @@ def obter_leads_dashboard(id_executivo, potencial=None, search=None):
                     )::int AS dias_sem_atividade
                 FROM cadu_leads l
                 LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.principal = TRUE
-                WHERE l.id_executivo = %s
+                WHERE {exec_filter}
                   AND l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')
                   {where_extra}
                 ORDER BY dias_sem_atividade DESC NULLS LAST, l.created_at DESC
@@ -10414,7 +10420,9 @@ def obter_lead_atividades(lead_id):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT
-                    a.*,
+                    a.id, a.id_lead, a.tipo, a.descricao, a.id_contato,
+                    a.id_usuario, a.usuario_nome, a.created_at,
+                    a.data_prazo, a.concluida, a.data_conclusao,
                     c.nome AS contato_nome
                 FROM cadu_lead_atividades a
                 LEFT JOIN cadu_lead_contatos c ON a.id_contato = c.id
@@ -10434,8 +10442,8 @@ def criar_lead_atividade(lead_id, dados):
         with conn.cursor() as cursor:
             cursor.execute('''
                 INSERT INTO cadu_lead_atividades
-                    (id_lead, tipo, descricao, id_contato, id_usuario, usuario_nome)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (id_lead, tipo, descricao, id_contato, id_usuario, usuario_nome, data_prazo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (
                 lead_id,
@@ -10444,6 +10452,7 @@ def criar_lead_atividade(lead_id, dados):
                 dados.get('id_contato'),
                 dados.get('id_usuario'),
                 dados.get('usuario_nome'),
+                dados.get('data_prazo') or None,
             ))
             novo_id = cursor.fetchone()['id']
 
@@ -10453,6 +10462,26 @@ def criar_lead_atividade(lead_id, dados):
             )
             conn.commit()
             return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def concluir_atividade(atividade_id, concluida):
+    """Toggle concluida em uma atividade e define data_conclusao."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_lead_atividades
+                SET concluida = %s,
+                    data_conclusao = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE NULL END
+                WHERE id = %s
+                RETURNING id
+            ''', (concluida, concluida, atividade_id))
+            conn.commit()
+            row = cursor.fetchone()
+            return row is not None
     except Exception as e:
         conn.rollback()
         raise e
@@ -10476,6 +10505,12 @@ def salvar_dados_extraidos(lead_id, dados):
                     servicos = %s,
                     clientes_mencionados = %s,
                     dados_extraidos = %s::jsonb,
+                    favicon_url = %s,
+                    porte_estimado = %s,
+                    mercado_alvo = %s,
+                    presenca_digital = %s,
+                    oportunidades_midia = %s,
+                    premios_certificacoes = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             ''', (
@@ -10486,6 +10521,12 @@ def salvar_dados_extraidos(lead_id, dados):
                 dados.get('servicos'),
                 dados.get('clientes_mencionados'),
                 extraidos,
+                dados.get('favicon_url'),
+                dados.get('porte_estimado'),
+                dados.get('mercado_alvo'),
+                dados.get('presenca_digital'),
+                dados.get('oportunidades_midia'),
+                dados.get('premios_certificacoes'),
                 lead_id,
             ))
             conn.commit()

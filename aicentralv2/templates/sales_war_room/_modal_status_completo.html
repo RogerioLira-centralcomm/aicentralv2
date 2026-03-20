@@ -1,0 +1,51 @@
+<dialog id="modal-status-completo" class="modal">
+    <div class="modal-box w-11/12 max-w-5xl bg-base-100 p-0 rounded-lg">
+        <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="font-bold text-lg" id="modal-status-titulo">Visão Gerencial</h3>
+            <div class="flex items-center gap-2">
+                <select id="modal-status-ano"
+                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
+                        style="min-width: 90px;"></select>
+                <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost">✕</button></form>
+            </div>
+        </div>
+
+        <div class="p-4 overflow-y-auto max-h-[75vh]" id="modal-status-body">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" id="modal-status-kpis"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-base-200 rounded-lg p-3">
+                    <h4 class="text-xs font-semibold mb-2 opacity-70">Cotações por Mês</h4>
+                    <canvas id="chart-cotacoes-mes" height="180"></canvas>
+                </div>
+                <div class="bg-base-200 rounded-lg p-3">
+                    <h4 class="text-xs font-semibold mb-2 opacity-70">Faturamento Mensal</h4>
+                    <canvas id="chart-faturamento" height="180"></canvas>
+                </div>
+                <div class="bg-base-200 rounded-lg p-3">
+                    <h4 class="text-xs font-semibold mb-2 opacity-70">Taxa de Conversão</h4>
+                    <canvas id="chart-conversao" height="180"></canvas>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold mb-2">Cotações do Ano</h4>
+                <div class="overflow-x-auto">
+                    <table class="table table-xs table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Nº</th>
+                                <th>Campanha</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-status-tabela"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>

@@ -1,0 +1,39 @@
+{% extends "base_tailwind.html" %}
+{% block title %}Sales War Room - CentralX{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales_war_room.css') }}">
+
+<div class="flex items-center gap-4 mb-4 flex-wrap">
+    <h1 class="text-xl font-bold whitespace-nowrap">Sales War Room</h1>
+
+    <select id="filtro-executivo"
+            class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
+            style="min-width: 220px;">
+        <option value="">Selecione o executivo</option>
+        {% for ex in executivos %}
+        <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+        {% endfor %}
+    </select>
+
+    <div class="flex gap-1">
+        <button class="btn btn-sm filtro-tipo active" data-tipo="">Todos</button>
+        <button class="btn btn-sm filtro-tipo" data-tipo="governo">Governo</button>
+        <button class="btn btn-sm filtro-tipo" data-tipo="privado">Privado</button>
+    </div>
+</div>
+
+<div id="swr-grid" class="swr-grid">
+    {% include "sales_war_room/_coluna_clientes.html" %}
+    {% include "sales_war_room/_coluna_status.html" %}
+    {% include "sales_war_room/_coluna_contatos.html" %}
+    {% include "sales_war_room/_coluna_atividades.html" %}
+    {% include "sales_war_room/_coluna_objetivos.html" %}
+</div>
+
+{% include "sales_war_room/_modal_status_completo.html" %}
+{% include "sales_war_room/_modal_contato.html" %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/sales_war_room.js') }}"></script>
+{% endblock %}

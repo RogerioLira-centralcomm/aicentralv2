@@ -1,0 +1,159 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Leads - CentralComm AI{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leads.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="leads-page">
+
+  <!-- ===== Top Bar ===== -->
+  <div class="leads-topbar">
+    <div class="flex items-center gap-3">
+      <h1 class="text-lg font-semibold text-gray-800">Leads</h1>
+      <button onclick="openImportModal()" class="btn btn-sm btn-primary gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Incluir Leads
+      </button>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-gray-500 font-medium">Executivo:</label>
+      <select id="filtro_executivo" onchange="onExecutivoChange()"
+              class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 220px;">
+        <option value="">Selecione...</option>
+        {% for ex in executivos %}
+          <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- ===== 5 Columns ===== -->
+  <div class="leads-grid">
+
+    <!-- Col 1: Qualificação (Cards) -->
+    <div class="leads-col">
+      <div class="leads-col-header">
+        <span>Qualificação</span>
+        <span id="leads_count" class="badge badge-ghost badge-sm">0</span>
+      </div>
+      <div class="leads-col-toolbar">
+        <input type="text" id="search_leads" placeholder="Buscar..."
+               class="input input-xs input-bordered w-full" oninput="debounceSearch()">
+        <select id="filtro_potencial" onchange="loadLeads()"
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 90px;">
+          <option value="">Potencial</option>
+          <option value="alto">Alto</option>
+          <option value="medio">Médio</option>
+          <option value="baixo">Baixo</option>
+        </select>
+      </div>
+      <div id="leads_cards" class="leads-col-scroll">
+        <div class="leads-empty">Selecione um executivo</div>
+      </div>
+    </div>
+
+    <!-- Col 2: Status + Contatos -->
+    <div class="leads-col">
+      <div class="leads-col-header">Status & Contatos</div>
+      <div id="col_status" class="leads-col-scroll">
+        <div class="leads-empty">Selecione um lead</div>
+      </div>
+    </div>
+
+    <!-- Col 3: Atividades -->
+    <div class="leads-col">
+      <div class="leads-col-header">Atividades</div>
+      <div id="col_atividades" class="leads-col-scroll">
+        <div class="leads-empty">Selecione um lead</div>
+      </div>
+    </div>
+
+    <!-- Col 4: Extrair Informações -->
+    <div class="leads-col">
+      <div class="leads-col-header">Extrair Informações</div>
+      <div id="col_extrair" class="leads-col-scroll">
+        <div class="leads-empty">Selecione um lead</div>
+      </div>
+    </div>
+
+    <!-- Col 5: Links Úteis -->
+    <div class="leads-col">
+      <div class="leads-col-header">Links Úteis</div>
+      <div id="col_links" class="leads-col-scroll">
+        <div class="leads-empty">Carregando...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Modal Importação ===== -->
+<dialog id="modal_importar" class="modal">
+  <div class="modal-box w-11/12 max-w-4xl">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Incluir Leads em Massa</h3>
+
+    <!-- Step 1: Input -->
+    <div id="import_step1">
+      <div class="flex gap-4 mb-3">
+        <label class="label cursor-pointer gap-2">
+          <input type="radio" name="tipo_lead_import" value="cliente" class="radio radio-sm radio-primary" checked>
+          <span class="label-text">Cliente</span>
+        </label>
+        <label class="label cursor-pointer gap-2">
+          <input type="radio" name="tipo_lead_import" value="agencia" class="radio radio-sm radio-primary">
+          <span class="label-text">Agência</span>
+        </label>
+      </div>
+      <textarea id="import_texto" rows="12" placeholder="Cole aqui os dados dos leads...&#10;&#10;Exemplo:&#10;Agência ABC&#10;João Silva, Diretor, (11) 99999-1234, joao@agencia.com&#10;Maria Santos, Mídia, 11988887777, maria@agencia.com&#10;&#10;Empresa XYZ&#10;Pedro Costa - pedro@xyz.com - CEO"
+                class="textarea textarea-bordered w-full text-sm font-mono"></textarea>
+      <div class="modal-action">
+        <button onclick="processImport()" class="btn btn-primary" id="btn_processar">
+          <span class="loading loading-spinner loading-sm hidden" id="import_spinner"></span>
+          Processar com IA
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Review -->
+    <div id="import_step2" class="hidden">
+      <div id="import_preview" class="space-y-3 max-h-96 overflow-y-auto"></div>
+      <div class="modal-action">
+        <button onclick="backToStep1()" class="btn btn-ghost">Voltar</button>
+        <button onclick="confirmImport()" class="btn btn-primary" id="btn_importar">Importar Selecionados</button>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Desqualificar ===== -->
+<dialog id="modal_desqualificar" class="modal">
+  <div class="modal-box w-96">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Desqualificar Lead</h3>
+    <select id="motivo_desqualificacao" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 w-full mb-4">
+      <option value="">Selecione o motivo...</option>
+      <option value="contato_errado">Contato errado</option>
+      <option value="sem_orcamento">Sem orçamento</option>
+      <option value="fora_perfil">Fora do perfil</option>
+      <option value="duplicado">Duplicado</option>
+      <option value="spam">Spam</option>
+      <option value="sem_interesse">Sem interesse</option>
+      <option value="concorrencia">Concorrência</option>
+    </select>
+    <div class="modal-action">
+      <button onclick="confirmDesqualificar()" class="btn btn-error btn-sm">Confirmar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/leads.js') }}"></script>
+{% endblock %}

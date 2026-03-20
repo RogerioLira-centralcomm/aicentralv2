@@ -1,0 +1,132 @@
+/* Leads V2 — Dashboard de Prospecção */
+
+.leads-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+}
+
+.leads-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.leads-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1.1fr 1.1fr 0.6fr;
+    gap: 1px;
+    flex: 1;
+    min-height: 0;
+    background: #e5e7eb;
+}
+
+.leads-col {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    min-height: 0;
+}
+
+.leads-col-header {
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    border-bottom: 1px solid #f3f4f6;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.leads-col-toolbar {
+    padding: 6px 8px;
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #f3f4f6;
+    flex-shrink: 0;
+}
+
+.leads-col-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.leads-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 120px;
+    color: #9ca3af;
+    font-size: 13px;
+}
+
+/* Lead Cards */
+.lead-card {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.lead-card:hover {
+    background-color: #f9fafb;
+}
+
+.lead-card-active {
+    background-color: #eff6ff;
+    border-left: 3px solid #3b82f6;
+}
+
+/* Scrollbar */
+.leads-col-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.leads-col-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.leads-col-scroll::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+}
+
+.leads-col-scroll::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Responsive: stack columns on small screens */
+@media (max-width: 1200px) {
+    .leads-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-rows: auto auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .leads-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .leads-page {
+        height: auto;
+        overflow: visible;
+    }
+
+    .leads-col-scroll {
+        max-height: 400px;
+    }
+}

@@ -9932,3 +9932,725 @@ def obter_pis_por_executivo_anual(ano):
     except Exception as e:
         current_app.logger.error(f"Erro ao obter PIs por executivo anual: {e}")
         return {'executivos': [], 'totais_mes': {}, 'meta_mensal': META_VENDAS_MENSAL}
+
+
+# ============================================================================
+# CADU LEADS
+# ============================================================================
+
+def obter_cadu_leads_paginado(page=1, per_page=25, filtros=None):
+    """Retorna leads com paginação server-side e filtros."""
+    conn = get_db()
+    filtros = filtros or {}
+    offset = (page - 1) * per_page
+
+    try:
+        base_query = '''
+            SELECT
+                l.*,
+                e.nome_completo AS executivo_nome
+            FROM cadu_leads l
+            LEFT JOIN tbl_contato_cliente e ON l.id_executivo = e.id_contato_cliente
+            WHERE 1=1
+        '''
+
+        params = []
+        count_params = []
+        where_clauses = []
+
+        if filtros.get('status'):
+            where_clauses.append('l.status = %s')
+            params.append(filtros['status'])
+            count_params.append(filtros['status'])
+
+        if filtros.get('origem'):
+            where_clauses.append('l.origem = %s')
+            params.append(filtros['origem'])
+            count_params.append(filtros['origem'])
+
+        if filtros.get('fonte'):
+            where_clauses.append('l.fonte = %s')
+            params.append(filtros['fonte'])
+            count_params.append(filtros['fonte'])
+
+        if filtros.get('executivo_id'):
+            where_clauses.append('l.id_executivo = %s')
+            params.append(filtros['executivo_id'])
+            count_params.append(filtros['executivo_id'])
+
+        if filtros.get('search'):
+            where_clauses.append(
+                '(l.nome ILIKE %s OR l.email ILIKE %s OR l.empresa ILIKE %s)'
+            )
+            term = f"%{filtros['search']}%"
+            params.extend([term, term, term])
+            count_params.extend([term, term, term])
+
+        where_sql = ''
+        if where_clauses:
+            where_sql = ' AND ' + ' AND '.join(where_clauses)
+
+        query = base_query + where_sql + '''
+            ORDER BY l.created_at DESC
+            LIMIT %s OFFSET %s
+        '''
+        params.extend([per_page, offset])
+
+        count_query = '''
+            SELECT COUNT(*) FROM cadu_leads l WHERE 1=1
+        ''' + where_sql
+
+        with conn.cursor() as cursor:
+            cursor.execute(count_query, count_params)
+            total = cursor.fetchone()['count']
+
+            cursor.execute(query, params)
+            leads = cursor.fetchall()
+
+        pages = (total + per_page - 1) // per_page
+
+        return {
+            'leads': leads,
+            'total': total,
+            'pages': pages,
+            'page': page,
+            'per_page': per_page
+        }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter leads paginados: {e}")
+        raise
+
+
+def obter_cadu_lead_por_id(lead_id):
+    """Retorna um lead por ID com nome do executivo."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    l.*,
+                    e.nome_completo AS executivo_nome
+                FROM cadu_leads l
+                LEFT JOIN tbl_contato_cliente e ON l.id_executivo = e.id_contato_cliente
+                WHERE l.id = %s
+            ''', (lead_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter lead {lead_id}: {e}")
+        raise
+
+
+def criar_cadu_lead(dados):
+    """Cria um novo lead. Recebe dict com os campos e retorna o id criado."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_leads (
+                    nome, email, telefone, empresa, cargo, mensagem,
+                    origem, canal, interesse, fonte,
+                    ip, user_agent, referrer, pagina_origem,
+                    status, motivo_desqualificacao,
+                    qualificacao_score, qualificacao_notas,
+                    id_executivo, atribuido_em,
+                    valor_estimado, valor_fechado,
+                    notas_internas, importado_por, lote_importacao
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s,
+                    %s, %s, %s
+                ) RETURNING id
+            ''', (
+                dados.get('nome'),
+                dados.get('email'),
+                dados.get('telefone'),
+                dados.get('empresa'),
+                dados.get('cargo'),
+                dados.get('mensagem'),
+                dados.get('origem', 'manual'),
+                dados.get('canal'),
+                dados.get('interesse'),
+                dados.get('fonte', 'site'),
+                dados.get('ip'),
+                dados.get('user_agent'),
+                dados.get('referrer'),
+                dados.get('pagina_origem'),
+                dados.get('status', 'inbox'),
+                dados.get('motivo_desqualificacao'),
+                dados.get('qualificacao_score', 0),
+                dados.get('qualificacao_notas'),
+                dados.get('id_executivo'),
+                dados.get('atribuido_em'),
+                dados.get('valor_estimado'),
+                dados.get('valor_fechado'),
+                dados.get('notas_internas'),
+                dados.get('importado_por'),
+                dados.get('lote_importacao'),
+            ))
+            novo_id = cursor.fetchone()['id']
+            conn.commit()
+            return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cadu_lead(lead_id, dados):
+    """Atualiza um lead existente."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_leads SET
+                    nome = %s,
+                    email = %s,
+                    telefone = %s,
+                    empresa = %s,
+                    cargo = %s,
+                    mensagem = %s,
+                    origem = %s,
+                    canal = %s,
+                    interesse = %s,
+                    fonte = %s,
+                    status = %s,
+                    motivo_desqualificacao = %s,
+                    qualificacao_score = %s,
+                    qualificacao_notas = %s,
+                    id_executivo = %s,
+                    atribuido_em = %s,
+                    valor_estimado = %s,
+                    valor_fechado = %s,
+                    notas_internas = %s,
+                    contatado_em = %s,
+                    fechado_em = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (
+                dados.get('nome'),
+                dados.get('email'),
+                dados.get('telefone'),
+                dados.get('empresa'),
+                dados.get('cargo'),
+                dados.get('mensagem'),
+                dados.get('origem'),
+                dados.get('canal'),
+                dados.get('interesse'),
+                dados.get('fonte'),
+                dados.get('status'),
+                dados.get('motivo_desqualificacao'),
+                dados.get('qualificacao_score', 0),
+                dados.get('qualificacao_notas'),
+                dados.get('id_executivo'),
+                dados.get('atribuido_em'),
+                dados.get('valor_estimado'),
+                dados.get('valor_fechado'),
+                dados.get('notas_internas'),
+                dados.get('contatado_em'),
+                dados.get('fechado_em'),
+                lead_id,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_cadu_lead(lead_id):
+    """Exclui um lead do banco."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_leads WHERE id = %s', (lead_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ============================================================================
+# CADU LEADS V2 — Dashboard de Prospecção
+# ============================================================================
+
+def obter_leads_dashboard(id_executivo, potencial=None, search=None):
+    """Cards da coluna 1: leads ativos com contagem de contatos e dias sem atividade."""
+    conn = get_db()
+    try:
+        params = [id_executivo]
+        where_extra = ''
+
+        if potencial:
+            where_extra += ' AND l.potencial = %s'
+            params.append(potencial)
+        if search:
+            where_extra += ' AND (l.empresa ILIKE %s OR l.nome ILIKE %s)'
+            term = f'%{search}%'
+            params.extend([term, term])
+
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                SELECT
+                    l.id,
+                    COALESCE(l.empresa, l.nome) AS nome_lead,
+                    l.tipo_lead,
+                    l.fonte,
+                    l.potencial,
+                    l.status,
+                    cp.nome AS contato_principal_nome,
+                    (SELECT COUNT(*) FROM cadu_lead_contatos c WHERE c.id_lead = l.id) AS qtd_contatos,
+                    COALESCE(
+                        EXTRACT(DAY FROM NOW() - (
+                            SELECT MAX(a.created_at) FROM cadu_lead_atividades a WHERE a.id_lead = l.id
+                        )),
+                        EXTRACT(DAY FROM NOW() - l.updated_at)
+                    )::int AS dias_sem_atividade
+                FROM cadu_leads l
+                LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.principal = TRUE
+                WHERE l.id_executivo = %s
+                  AND l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')
+                  {where_extra}
+                ORDER BY dias_sem_atividade DESC NULLS LAST, l.created_at DESC
+            ''', params)
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_leads_dashboard: {e}")
+        raise
+
+
+def obter_lead_detalhes(lead_id):
+    """Detalhes completos de um lead (colunas 2-4)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    l.*,
+                    e.nome_completo AS executivo_nome
+                FROM cadu_leads l
+                LEFT JOIN tbl_contato_cliente e ON l.id_executivo = e.id_contato_cliente
+                WHERE l.id = %s
+            ''', (lead_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_lead_detalhes {lead_id}: {e}")
+        raise
+
+
+def atualizar_lead_status(lead_id, status=None, potencial=None):
+    """Atualiza status e/ou potencial de um lead."""
+    conn = get_db()
+    try:
+        sets = []
+        params = []
+        if status is not None:
+            sets.append('status = %s')
+            params.append(status)
+        if potencial is not None:
+            sets.append('potencial = %s')
+            params.append(potencial)
+        if not sets:
+            return False
+        sets.append('updated_at = CURRENT_TIMESTAMP')
+        params.append(lead_id)
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE cadu_leads SET {', '.join(sets)} WHERE id = %s",
+                params
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_lead_contatos(lead_id):
+    """Lista contatos de um lead."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT * FROM cadu_lead_contatos
+                WHERE id_lead = %s
+                ORDER BY principal DESC, nome ASC
+            ''', (lead_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_lead_contatos {lead_id}: {e}")
+        raise
+
+
+def criar_lead_contato(lead_id, dados):
+    """Cria contato vinculado a um lead. Retorna id."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            is_principal = dados.get('principal', False)
+
+            if is_principal:
+                cursor.execute(
+                    'UPDATE cadu_lead_contatos SET principal = FALSE WHERE id_lead = %s',
+                    (lead_id,)
+                )
+
+            cursor.execute('''
+                INSERT INTO cadu_lead_contatos (id_lead, nome, cargo, telefone, email, principal, observacoes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (
+                lead_id,
+                dados.get('nome'),
+                dados.get('cargo'),
+                dados.get('telefone'),
+                dados.get('email'),
+                is_principal,
+                dados.get('observacoes'),
+            ))
+            novo_id = cursor.fetchone()['id']
+
+            if is_principal:
+                _sync_contato_principal_para_lead(cursor, lead_id, dados)
+
+            conn.commit()
+            return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_lead_contato(contato_id, dados):
+    """Atualiza um contato existente."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_lead_contatos SET
+                    nome = %s, cargo = %s, telefone = %s, email = %s,
+                    observacoes = %s, updated_at = NOW()
+                WHERE id = %s
+                RETURNING id_lead, principal
+            ''', (
+                dados.get('nome'),
+                dados.get('cargo'),
+                dados.get('telefone'),
+                dados.get('email'),
+                dados.get('observacoes'),
+                contato_id,
+            ))
+            row = cursor.fetchone()
+            if row and row['principal']:
+                _sync_contato_principal_para_lead(cursor, row['id_lead'], dados)
+
+            conn.commit()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_lead_contato(contato_id):
+    """Remove um contato."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_lead_contatos WHERE id = %s', (contato_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def definir_contato_principal(lead_id, contato_id):
+    """Define um contato como principal e sincroniza com cadu_leads."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'UPDATE cadu_lead_contatos SET principal = FALSE WHERE id_lead = %s',
+                (lead_id,)
+            )
+            cursor.execute(
+                'UPDATE cadu_lead_contatos SET principal = TRUE WHERE id = %s AND id_lead = %s RETURNING nome, cargo, telefone, email',
+                (contato_id, lead_id)
+            )
+            contato = cursor.fetchone()
+            if contato:
+                _sync_contato_principal_para_lead(cursor, lead_id, contato)
+            conn.commit()
+            return contato is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def _sync_contato_principal_para_lead(cursor, lead_id, dados):
+    """Mantém campos legados em cadu_leads sincronizados com o contato principal."""
+    cursor.execute('''
+        UPDATE cadu_leads SET
+            nome = %s, cargo = %s, telefone = %s, email = %s,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    ''', (
+        dados.get('nome'),
+        dados.get('cargo'),
+        dados.get('telefone'),
+        dados.get('email'),
+        lead_id,
+    ))
+
+
+def obter_lead_atividades(lead_id):
+    """Atividades de um lead com nome do contato, mais recente primeiro."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    a.*,
+                    c.nome AS contato_nome
+                FROM cadu_lead_atividades a
+                LEFT JOIN cadu_lead_contatos c ON a.id_contato = c.id
+                WHERE a.id_lead = %s
+                ORDER BY a.created_at DESC
+            ''', (lead_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_lead_atividades {lead_id}: {e}")
+        raise
+
+
+def criar_lead_atividade(lead_id, dados):
+    """Registra atividade em um lead."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_lead_atividades
+                    (id_lead, tipo, descricao, id_contato, id_usuario, usuario_nome)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (
+                lead_id,
+                dados.get('tipo'),
+                dados.get('descricao'),
+                dados.get('id_contato'),
+                dados.get('id_usuario'),
+                dados.get('usuario_nome'),
+            ))
+            novo_id = cursor.fetchone()['id']
+
+            cursor.execute(
+                'UPDATE cadu_leads SET updated_at = CURRENT_TIMESTAMP WHERE id = %s',
+                (lead_id,)
+            )
+            conn.commit()
+            return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def salvar_dados_extraidos(lead_id, dados):
+    """Salva dados extraídos via Firecrawl/Gemini em um lead."""
+    import json
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            redes = json.dumps(dados.get('redes_sociais')) if dados.get('redes_sociais') else None
+            extraidos = json.dumps(dados.get('dados_extraidos')) if dados.get('dados_extraidos') else None
+
+            cursor.execute('''
+                UPDATE cadu_leads SET
+                    url_site = %s,
+                    descricao_empresa = %s,
+                    segmento = %s,
+                    redes_sociais = %s::jsonb,
+                    servicos = %s,
+                    clientes_mencionados = %s,
+                    dados_extraidos = %s::jsonb,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (
+                dados.get('url_site'),
+                dados.get('descricao_empresa'),
+                dados.get('segmento'),
+                redes,
+                dados.get('servicos'),
+                dados.get('clientes_mencionados'),
+                extraidos,
+                lead_id,
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_links_uteis():
+    """Retorna links úteis ativos ordenados."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT * FROM cadu_lead_links_uteis
+                WHERE ativo = TRUE
+                ORDER BY ordem ASC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_links_uteis: {e}")
+        raise
+
+
+def importar_leads_batch(leads_data, id_executivo, tipo_lead):
+    """Importação em massa: cria leads + contatos + atividade de importação.
+    Retorna lista de IDs criados."""
+    conn = get_db()
+    import uuid
+    lote = str(uuid.uuid4())[:8]
+    ids_criados = []
+
+    try:
+        with conn.cursor() as cursor:
+            for lead_item in leads_data:
+                contatos = lead_item.get('contatos', [])
+                principal = next((c for c in contatos if c.get('principal')), contatos[0] if contatos else {})
+
+                cursor.execute('''
+                    INSERT INTO cadu_leads (
+                        empresa, nome, email, telefone, cargo,
+                        fonte, status, id_executivo, atribuido_em,
+                        tipo_lead, lote_importacao
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s)
+                    RETURNING id
+                ''', (
+                    lead_item.get('empresa'),
+                    principal.get('nome'),
+                    principal.get('email'),
+                    principal.get('telefone'),
+                    principal.get('cargo'),
+                    'manual',
+                    'inbox',
+                    id_executivo,
+                    tipo_lead,
+                    lote,
+                ))
+                lead_id = cursor.fetchone()['id']
+                ids_criados.append(lead_id)
+
+                for contato in contatos:
+                    cursor.execute('''
+                        INSERT INTO cadu_lead_contatos
+                            (id_lead, nome, cargo, telefone, email, principal)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    ''', (
+                        lead_id,
+                        contato.get('nome'),
+                        contato.get('cargo'),
+                        contato.get('telefone'),
+                        contato.get('email'),
+                        contato.get('principal', False),
+                    ))
+
+                cursor.execute('''
+                    INSERT INTO cadu_lead_atividades
+                        (id_lead, tipo, descricao, id_usuario)
+                    VALUES (%s, 'importacao', %s, %s)
+                ''', (
+                    lead_id,
+                    f'Lead importado via importação em massa (lote {lote})',
+                    id_executivo,
+                ))
+
+            conn.commit()
+        return ids_criados
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def desqualificar_lead(lead_id, motivo):
+    """Desqualifica um lead."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_leads SET
+                    status = 'nao_qualificado',
+                    motivo_desqualificacao = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (motivo, lead_id))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def converter_lead_cliente(lead_id):
+    """Converte lead em cliente: cria tbl_cliente, atualiza lead.
+    Retorna id do cliente criado."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT * FROM cadu_leads WHERE id = %s', (lead_id,))
+            lead = cursor.fetchone()
+            if not lead:
+                return None
+
+            nome_empresa = lead.get('empresa') or lead.get('nome') or 'Lead sem nome'
+
+            cursor.execute('''
+                INSERT INTO tbl_cliente (
+                    razao_social, nome_fantasia, pessoa, status,
+                    vendas_central_comm
+                ) VALUES (%s, %s, 'J', TRUE, %s)
+                RETURNING id_cliente
+            ''', (
+                nome_empresa,
+                nome_empresa,
+                lead.get('id_executivo'),
+            ))
+            cliente_id = cursor.fetchone()['id_cliente']
+
+            cursor.execute('''
+                SELECT * FROM cadu_lead_contatos WHERE id_lead = %s
+            ''', (lead_id,))
+            contatos = cursor.fetchall()
+
+            for contato in contatos:
+                cursor.execute('''
+                    INSERT INTO tbl_contato_cliente (
+                        pk_id_tbl_cliente, nome_completo, email, telefone
+                    ) VALUES (%s, %s, %s, %s)
+                ''', (
+                    cliente_id,
+                    contato.get('nome'),
+                    contato.get('email'),
+                    contato.get('telefone'),
+                ))
+
+            cursor.execute('''
+                UPDATE cadu_leads SET
+                    status = 'fechado_ganho',
+                    convertido_cliente_id = %s,
+                    data_conversao = NOW(),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            ''', (cliente_id, lead_id))
+
+            conn.commit()
+            return cliente_id
+    except Exception as e:
+        conn.rollback()
+        raise e

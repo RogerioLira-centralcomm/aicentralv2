@@ -9,6 +9,7 @@ from flask import session, redirect, url_for, flash, request, render_template, j
 from functools import wraps
 from datetime import datetime, timedelta
 import secrets
+import os
 from aicentralv2 import db, audit
 from aicentralv2.email_service import (
     send_password_reset_email, send_password_changed_email, send_invite_email,
@@ -10608,5 +10609,486 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except Exception as e:
             app.logger.error(f"Erro ao listar faturas pendentes: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
+
+    # ==================== CADU LEADS V2 — Dashboard de Prospecção ====================
+
+    @app.route('/leads')
+    @login_required
+    def leads_list():
+        """Página principal do dashboard de leads"""
+        try:
+            executivos = db.obter_vendedores_centralcomm() or []
+            return render_template('cadu_leads.html', executivos=executivos)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar página de leads: {e}")
+            flash('Erro ao carregar leads.', 'error')
+            return render_template('cadu_leads.html', executivos=[])
+
+    @app.route('/api/leads')
+    @login_required
+    def api_leads_list():
+        """JSON: leads filtrados para coluna 1 (cards)"""
+        try:
+            id_executivo = request.args.get('id_executivo', type=int)
+            if not id_executivo:
+                return jsonify({'success': False, 'message': 'Executivo obrigatório'}), 400
+            potencial = request.args.get('potencial') or None
+            search = request.args.get('search') or None
+            leads = db.obter_leads_dashboard(id_executivo, potencial, search)
+            result = []
+            for l in leads:
+                d = dict(l)
+                for k, v in d.items():
+                    if isinstance(v, datetime):
+                        d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                    elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
+                        d[k] = float(v)
+                result.append(d)
+            return jsonify({'success': True, 'leads': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_leads_list: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/detalhes')
+    @login_required
+    def api_lead_detalhes(lead_id):
+        """JSON: detalhes completos de um lead"""
+        try:
+            lead = db.obter_lead_detalhes(lead_id)
+            if not lead:
+                return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
+            d = dict(lead)
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
+                    d[k] = float(v)
+            return jsonify({'success': True, 'lead': d})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_detalhes {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/status', methods=['PATCH'])
+    @login_required
+    def api_lead_status(lead_id):
+        """Atualiza status e/ou potencial"""
+        try:
+            data = request.get_json(force=True)
+            status = data.get('status')
+            potencial = data.get('potencial')
+            ok = db.atualizar_lead_status(lead_id, status, potencial)
+            if ok:
+                if status:
+                    db.criar_lead_atividade(lead_id, {
+                        'tipo': 'status_change',
+                        'descricao': f'Status alterado para {status}',
+                        'id_usuario': session.get('user_id'),
+                        'usuario_nome': session.get('user_name'),
+                    })
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_status {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Contatos ---
+
+    @app.route('/api/leads/<int:lead_id>/contatos')
+    @login_required
+    def api_lead_contatos(lead_id):
+        """Lista contatos de um lead"""
+        try:
+            contatos = db.obter_lead_contatos(lead_id)
+            result = [dict(c) for c in contatos]
+            for c in result:
+                for k, v in c.items():
+                    if isinstance(v, datetime):
+                        c[k] = v.strftime('%Y-%m-%dT%H:%M')
+            return jsonify({'success': True, 'contatos': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_contatos {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/contatos', methods=['POST'])
+    @login_required
+    def api_lead_contato_criar(lead_id):
+        """Cria contato vinculado a um lead"""
+        try:
+            data = request.get_json(force=True)
+            if not data.get('nome'):
+                return jsonify({'success': False, 'message': 'Nome obrigatório'}), 400
+            novo_id = db.criar_lead_contato(lead_id, data)
+            return jsonify({'success': True, 'id': novo_id})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_contato_criar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/contatos/<int:contato_id>', methods=['PATCH'])
+    @login_required
+    def api_lead_contato_editar(contato_id):
+        """Edita contato existente"""
+        try:
+            data = request.get_json(force=True)
+            ok = db.atualizar_lead_contato(contato_id, data)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_contato_editar {contato_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/contatos/<int:contato_id>', methods=['DELETE'])
+    @login_required
+    def api_lead_contato_excluir(contato_id):
+        """Remove contato"""
+        try:
+            ok = db.excluir_lead_contato(contato_id)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_contato_excluir {contato_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/contatos/<int:contato_id>/principal', methods=['PATCH'])
+    @login_required
+    def api_lead_contato_principal(contato_id):
+        """Define contato como principal"""
+        try:
+            data = request.get_json(force=True)
+            lead_id = data.get('lead_id')
+            if not lead_id:
+                return jsonify({'success': False, 'message': 'lead_id obrigatório'}), 400
+            ok = db.definir_contato_principal(lead_id, contato_id)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_contato_principal {contato_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Atividades ---
+
+    @app.route('/api/leads/<int:lead_id>/atividades')
+    @login_required
+    def api_lead_atividades(lead_id):
+        """Lista atividades de um lead"""
+        try:
+            atividades = db.obter_lead_atividades(lead_id)
+            result = []
+            for a in atividades:
+                d = dict(a)
+                for k, v in d.items():
+                    if isinstance(v, datetime):
+                        d[k] = v.strftime('%d/%m/%Y %H:%M')
+                result.append(d)
+            return jsonify({'success': True, 'atividades': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_atividades {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/atividades', methods=['POST'])
+    @login_required
+    def api_lead_atividade_criar(lead_id):
+        """Registra atividade em um lead"""
+        try:
+            data = request.get_json(force=True)
+            data['id_usuario'] = session.get('user_id')
+            data['usuario_nome'] = session.get('user_name')
+            novo_id = db.criar_lead_atividade(lead_id, data)
+            return jsonify({'success': True, 'id': novo_id})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_atividade_criar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Extração (Firecrawl + Gemini) ---
+
+    @app.route('/api/leads/<int:lead_id>/extrair-url', methods=['POST'])
+    @login_required
+    def api_lead_extrair_url(lead_id):
+        """Scrape URL via Firecrawl e estrutura com Gemini"""
+        try:
+            import requests as http_requests
+            data = request.get_json(force=True)
+            url = data.get('url', '').strip()
+            if not url:
+                return jsonify({'success': False, 'message': 'URL obrigatória'}), 400
+
+            firecrawl_key = os.environ.get('FIRECRAWL_API_KEY', '')
+            if not firecrawl_key:
+                return jsonify({'success': False, 'message': 'FIRECRAWL_API_KEY não configurada'}), 500
+
+            fc_resp = http_requests.post(
+                'https://api.firecrawl.dev/v1/scrape',
+                headers={'Authorization': f'Bearer {firecrawl_key}', 'Content-Type': 'application/json'},
+                json={'url': url, 'formats': ['markdown']},
+                timeout=60,
+            )
+            fc_resp.raise_for_status()
+            fc_data = fc_resp.json()
+            markdown_content = fc_data.get('data', {}).get('markdown', '')
+
+            if not markdown_content:
+                return jsonify({'success': False, 'message': 'Nenhum conteúdo extraído da URL'}), 400
+
+            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            system_prompt = '''Extraia informações desta página web. Retorne APENAS JSON válido, sem explicações.
+
+{
+    "nome_empresa": "",
+    "descricao": "",
+    "segmento": "",
+    "servicos": [],
+    "contatos_encontrados": [
+        { "nome": "", "cargo": "", "telefone": "", "email": "" }
+    ],
+    "telefones_gerais": [],
+    "emails_gerais": [],
+    "redes_sociais": {
+        "instagram": "", "linkedin": "", "facebook": "",
+        "twitter": "", "youtube": ""
+    },
+    "endereco": "",
+    "clientes_mencionados": [],
+    "observacoes": ""
+}
+
+Se não encontrar um campo, deixe vazio. Não invente dados.'''
+
+            ai_resp = http_requests.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'HTTP-Referer': 'https://centralcomm.media',
+                    'X-Title': 'CentralComm AI',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': 'google/gemini-2.5-flash',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': f'URL: {url}\n\nConteúdo:\n{markdown_content[:12000]}'},
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 3000,
+                },
+                timeout=120,
+            )
+            ai_resp.raise_for_status()
+            ai_text = ai_resp.json()['choices'][0]['message']['content']
+
+            import json as json_mod
+            ai_text_clean = ai_text.strip()
+            if ai_text_clean.startswith('```'):
+                ai_text_clean = ai_text_clean.split('\n', 1)[1] if '\n' in ai_text_clean else ai_text_clean[3:]
+                if ai_text_clean.endswith('```'):
+                    ai_text_clean = ai_text_clean[:-3]
+            dados_extraidos = json_mod.loads(ai_text_clean)
+
+            return jsonify({'success': True, 'dados': dados_extraidos, 'url': url})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_extrair_url {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/salvar-dados-extraidos', methods=['POST'])
+    @login_required
+    def api_lead_salvar_extraidos(lead_id):
+        """Salva dados extraídos no lead"""
+        try:
+            data = request.get_json(force=True)
+            ok = db.salvar_dados_extraidos(lead_id, data)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_salvar_extraidos {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Ações (converter / desqualificar) ---
+
+    @app.route('/api/leads/<int:lead_id>/converter-cliente', methods=['POST'])
+    @login_required
+    def api_lead_converter(lead_id):
+        """Converte lead em cliente"""
+        try:
+            cliente_id = db.converter_lead_cliente(lead_id)
+            if cliente_id:
+                registrar_auditoria(
+                    acao='converter',
+                    modulo='leads',
+                    descricao=f'Lead {lead_id} convertido em cliente {cliente_id}',
+                    registro_id=lead_id,
+                    registro_tipo='cadu_lead',
+                )
+                return jsonify({'success': True, 'cliente_id': cliente_id})
+            return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_converter {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/desqualificar', methods=['POST'])
+    @login_required
+    def api_lead_desqualificar(lead_id):
+        """Desqualifica lead"""
+        try:
+            data = request.get_json(force=True)
+            motivo = data.get('motivo', '')
+            ok = db.desqualificar_lead(lead_id, motivo)
+            if ok:
+                db.criar_lead_atividade(lead_id, {
+                    'tipo': 'status_change',
+                    'descricao': f'Lead desqualificado: {motivo}',
+                    'id_usuario': session.get('user_id'),
+                    'usuario_nome': session.get('user_name'),
+                })
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_desqualificar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Links úteis ---
+
+    @app.route('/api/leads/links-uteis')
+    @login_required
+    def api_leads_links_uteis():
+        """Retorna links úteis ativos"""
+        try:
+            links = db.obter_links_uteis()
+            result = [dict(l) for l in links]
+            for l in result:
+                for k, v in l.items():
+                    if isinstance(v, datetime):
+                        l[k] = v.strftime('%Y-%m-%dT%H:%M')
+            return jsonify({'success': True, 'links': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_leads_links_uteis: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Importação em massa ---
+
+    @app.route('/api/leads/processar-importacao', methods=['POST'])
+    @login_required
+    def api_leads_processar_importacao():
+        """Processa texto livre com Gemini para estruturar leads"""
+        try:
+            import requests as http_requests
+            data = request.get_json(force=True)
+            texto_bruto = data.get('texto_bruto', '').strip()
+            if not texto_bruto:
+                return jsonify({'success': False, 'message': 'Texto obrigatório'}), 400
+
+            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            system_prompt = '''Você é um processador de dados de leads comerciais. Receba texto livre com informações de empresas e contatos e extraia dados estruturados.
+
+Regras:
+- Agrupe contatos por empresa. Uma empresa pode ter 1 ou mais contatos.
+- Se o texto menciona um nome de empresa seguido de pessoas, agrupe-os.
+- Se uma pessoa aparece sem empresa clara, crie um lead separado usando o nome da pessoa como empresa temporária.
+- Normalize telefones: apenas números com DDI+DDD (ex: 5511999991234). Se não tiver DDI, assuma 55.
+- Extraia: nome, cargo, telefone, email de cada pessoa.
+- O primeiro contato de cada empresa é marcado como principal.
+- Não invente dados.
+
+Retorne APENAS JSON válido:
+[
+    {
+        "empresa": "Nome da Empresa",
+        "contatos": [
+            { "nome": "", "cargo": "", "telefone": "", "email": "", "principal": true },
+            { "nome": "", "cargo": "", "telefone": "", "email": "", "principal": false }
+        ]
+    }
+]'''
+
+            ai_resp = http_requests.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'HTTP-Referer': 'https://centralcomm.media',
+                    'X-Title': 'CentralComm AI',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': 'google/gemini-2.5-flash',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': texto_bruto},
+                    ],
+                    'temperature': 0.1,
+                    'max_tokens': 4000,
+                },
+                timeout=120,
+            )
+            ai_resp.raise_for_status()
+            ai_text = ai_resp.json()['choices'][0]['message']['content']
+
+            import json as json_mod
+            ai_text_clean = ai_text.strip()
+            if ai_text_clean.startswith('```'):
+                ai_text_clean = ai_text_clean.split('\n', 1)[1] if '\n' in ai_text_clean else ai_text_clean[3:]
+                if ai_text_clean.endswith('```'):
+                    ai_text_clean = ai_text_clean[:-3]
+            leads_parsed = json_mod.loads(ai_text_clean)
+
+            return jsonify({'success': True, 'leads': leads_parsed})
+        except Exception as e:
+            app.logger.error(f"Erro api_leads_processar_importacao: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/importar', methods=['POST'])
+    @login_required
+    def api_leads_importar():
+        """Importa leads processados em batch"""
+        try:
+            data = request.get_json(force=True)
+            leads_data = data.get('leads', [])
+            id_executivo = data.get('id_executivo')
+            tipo_lead = data.get('tipo_lead', 'cliente')
+            if not leads_data or not id_executivo:
+                return jsonify({'success': False, 'message': 'Dados e executivo obrigatórios'}), 400
+
+            ids = db.importar_leads_batch(leads_data, id_executivo, tipo_lead)
+            return jsonify({'success': True, 'ids': ids, 'total': len(ids)})
+        except Exception as e:
+            app.logger.error(f"Erro api_leads_importar: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- IA: melhorar texto ---
+
+    @app.route('/api/ia/melhorar-texto', methods=['POST'])
+    @login_required
+    def api_ia_melhorar_texto():
+        """Melhora texto com Gemini"""
+        try:
+            import requests as http_requests
+            data = request.get_json(force=True)
+            texto = data.get('texto', '').strip()
+            if not texto:
+                return jsonify({'success': False, 'message': 'Texto obrigatório'}), 400
+
+            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            system_prompt = '''Você é um assistente comercial. Receba o texto do executivo de vendas sobre uma interação com lead e:
+1. Corrija erros de português
+2. Amplie brevemente mantendo o sentido original
+3. Mantenha tom profissional e objetivo
+4. Não invente informações que não estão no texto original
+Retorne apenas o texto melhorado, sem explicações.'''
+
+            ai_resp = http_requests.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'HTTP-Referer': 'https://centralcomm.media',
+                    'X-Title': 'CentralComm AI',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': 'google/gemini-2.5-flash',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': texto},
+                    ],
+                    'temperature': 0.3,
+                    'max_tokens': 2000,
+                },
+                timeout=60,
+            )
+            ai_resp.raise_for_status()
+            texto_melhorado = ai_resp.json()['choices'][0]['message']['content']
+            return jsonify({'success': True, 'texto': texto_melhorado})
+        except Exception as e:
+            app.logger.error(f"Erro api_ia_melhorar_texto: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

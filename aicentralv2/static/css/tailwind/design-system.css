@@ -3,6 +3,72 @@
  * Arquivo de personalização do Tailwind CSS
  */
 
+/*
+ * Tema DaisyUI "centralcomm" — definido aqui porque o DaisyUI via CDN
+ * não conhece temas customizados do tailwind.config.js.
+ * Sem isso, componentes DaisyUI (select, input, btn) ficam sem cor de texto.
+ */
+[data-theme="centralcomm"] {
+  --p: 0.196 0.042 176.5;           /* primary #1E4D4F */
+  --pf: 0.152 0.034 176.5;          /* primary-focus #153638 */
+  --pc: 1 0 0;                      /* primary-content #ffffff */
+  --s: 0.78 0.16 80;                /* secondary #F3B71B */
+  --sf: 0.72 0.15 80;               /* secondary-focus #d4a018 */
+  --sc: 1 0 0;                      /* secondary-content #ffffff */
+  --a: 0.78 0.18 120;               /* accent #9CCF31 */
+  --af: 0.72 0.17 120;              /* accent-focus #8ab82c */
+  --ac: 1 0 0;                      /* accent-content #ffffff */
+  --n: 0.33 0.02 260;               /* neutral #3d4451 */
+  --nf: 0.25 0.02 260;              /* neutral-focus #2a2e37 */
+  --nc: 1 0 0;                      /* neutral-content #ffffff */
+  --b1: 1 0 0;                      /* base-100 #ffffff */
+  --b2: 0.97 0.002 250;             /* base-200 #F8F9FA */
+  --b3: 0.90 0.005 250;             /* base-300 #DEE2E6 */
+  --bc: 0.21 0.02 260;              /* base-content #1f2937 */
+  --in: 0.62 0.15 245;              /* info #2094f3 */
+  --su: 0.60 0.15 145;              /* success #28A745 */
+  --wa: 0.82 0.15 85;               /* warning #FFC107 */
+  --er: 0.55 0.2 25;                /* error #DC3545 */
+  --inc: 1 0 0;
+  --suc: 1 0 0;
+  --wac: 0.21 0.02 260;
+  --erc: 1 0 0;
+  --rounded-box: 0.5rem;
+  --rounded-btn: 0.25rem;
+  --rounded-badge: 9999px;
+  --animation-btn: 0.25s;
+  --animation-input: 0.2s;
+  --btn-focus-scale: 0.95;
+  --border-btn: 1px;
+  --tab-border: 1px;
+  --tab-radius: 0.5rem;
+  color-scheme: light;
+  --fallback-p: #1E4D4F;
+  --fallback-pf: #153638;
+  --fallback-pc: #ffffff;
+  --fallback-s: #F3B71B;
+  --fallback-sf: #d4a018;
+  --fallback-sc: #ffffff;
+  --fallback-a: #9CCF31;
+  --fallback-af: #8ab82c;
+  --fallback-ac: #ffffff;
+  --fallback-n: #3d4451;
+  --fallback-nf: #2a2e37;
+  --fallback-nc: #ffffff;
+  --fallback-b1: #ffffff;
+  --fallback-b2: #F8F9FA;
+  --fallback-b3: #DEE2E6;
+  --fallback-bc: #1f2937;
+  --fallback-in: #2094f3;
+  --fallback-su: #28A745;
+  --fallback-wa: #FFC107;
+  --fallback-er: #DC3545;
+  --fallback-inc: #ffffff;
+  --fallback-suc: #ffffff;
+  --fallback-wac: #1f2937;
+  --fallback-erc: #ffffff;
+}
+
 :root {
   /* Cores primárias */
   --color-primary: #1E4D4F;
@@ -469,18 +535,25 @@ textarea:focus {
     box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.1);
 }
 
-select:not([multiple]):not([size]) {
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    appearance: none !important;
-    padding-right: 2.5rem !important;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 0.6rem center !important;
-    background-size: 1rem !important;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
+/* Selects sem DaisyUI: seta customizada */
+select:not([multiple]):not([size]):not(.select) {
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    background-size: 1rem;
+}
+
+/* Garantir texto visível em TODOS os selects (DaisyUI e plain) */
+html body select,
+html body select.select,
+html body .select {
+    color: #1f2937 !important;
+}
+
+html body select option {
+    color: #1f2937 !important;
+    background-color: #ffffff !important;
 }
 
 /* Utility classes */

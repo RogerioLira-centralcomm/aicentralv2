@@ -239,6 +239,7 @@
                         </div>
                         <ul tabindex="0" class="dropdown-content z-50 menu p-2 shadow-lg bg-base-100 rounded-box w-56 mt-1 border border-base-200">
                             <li><a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">Clientes</a></li>
+                            <li><a href="{{ url_for('leads_list') }}" class="{% if request.endpoint == 'leads_list' %}active{% endif %}">Leads</a></li>
                             <li><a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">Cotações</a></li>
                             <li><a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">Briefings</a></li>
                             <li><a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">PI Recebido</a></li>
@@ -376,12 +377,17 @@
 
                         <!-- Comercial -->
                         <li class="mt-2">
-                            <details {% if request.endpoint in ['clientes', 'cotacoes_list', 'briefing_list', 'cadu_pi_novo', 'metricas_semanais'] %}open{% endif %}>
+                            <details {% if request.endpoint in ['clientes', 'leads_list', 'cotacoes_list', 'briefing_list', 'cadu_pi_novo', 'metricas_semanais'] %}open{% endif %}>
                                 <summary>Comercial</summary>
                                 <ul>
                                     <li>
                                         <a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">
                                             Clientes
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('leads_list') }}" class="{% if request.endpoint == 'leads_list' %}active{% endif %}">
+                                            Leads
                                         </a>
                                     </li>
                                     <li>

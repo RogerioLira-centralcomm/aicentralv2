@@ -105,9 +105,11 @@
           {% for nf in notas %}
           <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
               data-nf-id="{{ nf.id }}"
+              data-nf-status="{{ nf.status or '' }}"
               data-cod-pi="{{ nf.codigo_pi_cc or '' }}"
               data-cliente="{{ nf.cliente_nome or '' }}"
-              onclick="abrirModalNfView(this.dataset.nfId, this.dataset.codPi, this.dataset.cliente)"
+              data-numero-nota="{{ nf.numero_nota or '' }}"
+              onclick="onClickNfRow(this)"
               title="Clique para ver detalhes">
             <td class="py-2.5">
               <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[90px]" title="{{ nf.codigo_pi_cc or '-' }}">{{ nf.codigo_pi_cc or '-' }}</span>
@@ -257,6 +259,55 @@
           <i class="fa-solid fa-floppy-disk mr-1"></i> Salvar
         </button>
       </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Modal Rápido: Confirmar Pagamento -->
+<dialog id="modal_nf_pagamento" class="modal">
+  <div class="modal-box max-w-sm">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">Confirmar Pagamento</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+    </div>
+    <input type="hidden" id="pnf_id">
+
+    <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
+          <span class="text-sm font-mono font-semibold text-blue-600" id="pnf_cod_pi">-</span>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Nº Nota</span>
+          <span class="text-sm text-gray-800 font-medium" id="pnf_numero_nota">-</span>
+        </div>
+        <div class="col-span-2">
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
+          <span class="text-sm text-gray-800 font-medium" id="pnf_cliente">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-3">
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Status</label>
+        <select id="pnf_status" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700">
+          <option value="3">Pagamento Realizado</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Data Pagamento Realizado</label>
+        <input type="date" id="pnf_data_pagamento" class="input input-bordered input-sm w-full" onclick="this.showPicker()">
+      </div>
+    </div>
+
+    <div class="modal-action">
+      <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
+      <button class="btn btn-primary btn-sm" onclick="salvarPagamentoRapido()">
+        <i class="fa-solid fa-check mr-1"></i> Confirmar Pagamento
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -423,6 +474,88 @@ var STATUS_PAG_REALIZADO = null;
     }
   }
 })();
+
+var STATUS_AGUARDANDO_PAGAMENTO = '2';
+
+function onClickNfRow(row) {
+  var nfId = row.dataset.nfId;
+  var nfStatus = String(row.dataset.nfStatus);
+  var codPi = row.dataset.codPi;
+  var cliente = row.dataset.cliente;
+  var numeroNota = row.dataset.numeroNota;
+
+  if (nfStatus === STATUS_AGUARDANDO_PAGAMENTO) {
+    abrirModalPagamento(nfId, codPi, cliente, numeroNota);
+  } else {
+    abrirModalNfView(nfId, codPi, cliente);
+  }
+}
+
+function abrirModalPagamento(nfId, codPi, clienteNome, numeroNota) {
+  document.getElementById('pnf_id').value = nfId;
+  document.getElementById('pnf_cod_pi').textContent = codPi || '-';
+  document.getElementById('pnf_cliente').textContent = clienteNome || '-';
+  document.getElementById('pnf_numero_nota').textContent = numeroNota || '-';
+  document.getElementById('pnf_status').value = '3';
+
+  var hoje = new Date();
+  var yyyy = hoje.getFullYear();
+  var mm = String(hoje.getMonth() + 1).padStart(2, '0');
+  var dd = String(hoje.getDate()).padStart(2, '0');
+  document.getElementById('pnf_data_pagamento').value = yyyy + '-' + mm + '-' + dd;
+
+  document.getElementById('modal_nf_pagamento').showModal();
+}
+
+function salvarPagamentoRapido() {
+  var nfId = document.getElementById('pnf_id').value;
+  var statusVal = document.getElementById('pnf_status').value;
+  var dataPag = document.getElementById('pnf_data_pagamento').value;
+
+  if (!dataPag) {
+    showToast('Informe a data de pagamento realizado.', 'warning');
+    document.getElementById('pnf_data_pagamento').focus();
+    return;
+  }
+
+  fetch('/api/cadu_pi_nota_fiscal/' + nfId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      status: parseInt(statusVal),
+      data_pagamento_realizado: dataPag
+    })
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Erro ao salvar');
+    return r.json();
+  })
+  .then(function() {
+    document.getElementById('modal_nf_pagamento').close();
+
+    var row = document.querySelector('tr[data-nf-id="' + nfId + '"]');
+    if (row) {
+      row.dataset.nfStatus = statusVal;
+
+      var statusTd = row.querySelector('td:last-child');
+      if (statusTd) {
+        statusTd.innerHTML = '<span class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-green-100 text-green-700">Pagamento Realizado</span>';
+      }
+
+      var parts = dataPag.split('-');
+      var dataFmt = parts[2] + '/' + parts[1] + '/' + parts[0];
+      var cells = row.querySelectorAll('td');
+      if (cells.length >= 7) {
+        cells[6].innerHTML = '<span class="text-xs text-green-600 font-medium">' + dataFmt + '</span>';
+      }
+    }
+
+    showToast('Pagamento confirmado com sucesso!', 'success');
+  })
+  .catch(function(err) {
+    showToast('Erro ao confirmar pagamento: ' + err.message, 'error');
+  });
+}
 
 function abrirModalNfView(nfId, codPi, clienteNome) {
   document.getElementById('vnf_id').value = nfId;

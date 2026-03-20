@@ -7608,33 +7608,38 @@ def criar_nota_fiscal(data):
 
 
 def atualizar_nota_fiscal(id_nota, data):
-    """Atualiza uma nota fiscal existente"""
+    """Atualiza uma nota fiscal existente (somente campos fornecidos)"""
+    field_map = {
+        'valor': 'valor',
+        'data_emissao': 'data_emissao',
+        'data_pagamento_previsto': 'data_pag_prevista',
+        'data_pagamento_realizado': 'data_pag_realizado',
+        'numero_nota': 'numero_nota',
+        'mes_ref_comp': 'mes_ref_comp',
+        'id_pi': 'id_pi',
+        'status': 'status',
+    }
+
+    sets = []
+    params = []
+    for json_key, col in field_map.items():
+        if json_key in data:
+            sets.append(f'{col} = %s')
+            params.append(data[json_key])
+
+    if not sets:
+        return False
+
+    sets.append("updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)")
+    params.append(id_nota)
+
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
-                UPDATE cadu_pi_nota_fiscal
-                SET valor = %s,
-                    data_emissao = %s,
-                    data_pag_prevista = %s,
-                    data_pag_realizado = %s,
-                    numero_nota = %s,
-                    mes_ref_comp = %s,
-                    id_pi = %s,
-                    status = %s,
-                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
-                WHERE id = %s
-            ''', (
-                data.get('valor'),
-                data.get('data_emissao'),
-                data.get('data_pagamento_previsto'),
-                data.get('data_pagamento_realizado'),
-                data.get('numero_nota'),
-                data.get('mes_ref_comp'),
-                data.get('id_pi'),
-                data.get('status'),
-                id_nota
-            ))
+            cursor.execute(
+                f"UPDATE cadu_pi_nota_fiscal SET {', '.join(sets)} WHERE id = %s",
+                params
+            )
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:

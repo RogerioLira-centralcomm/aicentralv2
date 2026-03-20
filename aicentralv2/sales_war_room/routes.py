@@ -98,9 +98,9 @@ def api_cliente_status(cliente_id):
                 LEFT JOIN LATERAL (
                     SELECT
                         COUNT(*) AS total_cotacoes,
-                        COUNT(*) FILTER (WHERE c.status = '2') AS cotacoes_aprovadas,
+                        COUNT(*) FILTER (WHERE c.status = 'Aprovada') AS cotacoes_aprovadas,
                         COALESCE(SUM(c.valor_total_proposta), 0) AS valor_bruto,
-                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS valor_liquido
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) AS valor_liquido
                     FROM cadu_cotacoes c
                     WHERE c.client_id = cli.id_cliente
                       AND c.deleted_at IS NULL
@@ -151,11 +151,11 @@ def api_cliente_status_completo(cliente_id):
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_cotacoes,
-                    COUNT(*) FILTER (WHERE c.status = '2') AS cotacoes_aprovadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') AS cotacoes_aprovadas,
                     COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS valor_aprovado,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) AS valor_aprovado,
                     CASE WHEN COUNT(*) > 0
-                         THEN ROUND(COUNT(*) FILTER (WHERE c.status = '2')::numeric / COUNT(*) * 100, 1)
+                         THEN ROUND(COUNT(*) FILTER (WHERE c.status = 'Aprovada')::numeric / COUNT(*) * 100, 1)
                          ELSE 0 END AS pct_conversao
                 FROM cadu_cotacoes c
                 WHERE c.client_id = %s
@@ -168,7 +168,21 @@ def api_cliente_status_completo(cliente_id):
                 SELECT
                     COUNT(*) AS total_pis,
                     COUNT(*) FILTER (WHERE p.id_status_pi = 4) AS pis_concluidos,
-                    COALESCE(SUM(p.vr_bruto_pi), 0) AS valor_pis
+                    COALESCE(SUM(
+                        CASE
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+,[0-9]+$'
+                                THEN REPLACE(NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ''), ',', '.')::numeric
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
+                                THEN REPLACE(REPLACE(NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ''), '.', ''), ',', '.')::numeric
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+\.[0-9]{1,2}$'
+                                THEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '')::numeric
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+$'
+                                THEN REPLACE(NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ''), '.', '')::numeric
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+$'
+                                THEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '')::numeric
+                            ELSE 0
+                        END
+                    ), 0) AS valor_pis
                 FROM cadu_pi p
                 WHERE p.id_cliente = %s
                   AND EXTRACT(YEAR FROM p.created_at) = %s
@@ -183,8 +197,8 @@ def api_cliente_status_completo(cliente_id):
                 SELECT
                     EXTRACT(MONTH FROM c.created_at)::int AS mes,
                     COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE c.status = '2') AS aprovadas,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = '2'), 0) AS faturamento
+                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') AS aprovadas,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) AS faturamento
                 FROM cadu_cotacoes c
                 WHERE c.client_id = %s
                   AND c.deleted_at IS NULL
@@ -198,10 +212,9 @@ def api_cliente_status_completo(cliente_id):
                 SELECT
                     c.id, c.numero_cotacao, c.nome_campanha,
                     c.valor_total_proposta, c.status,
-                    st.descricao AS status_descricao,
+                    c.status AS status_descricao,
                     c.created_at
                 FROM cadu_cotacoes c
-                LEFT JOIN cadu_cotacoes_status st ON st.id = c.status
                 WHERE c.client_id = %s
                   AND c.deleted_at IS NULL
                   AND EXTRACT(YEAR FROM c.created_at) = %s

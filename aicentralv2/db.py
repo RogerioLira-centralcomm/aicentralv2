@@ -438,7 +438,7 @@ def obter_setores(apenas_ativos=True):
         return cursor.fetchall()
 
 
-def obter_vendedores_centralcomm():
+def obter_vendedores_centralcomm(incluir_usuario_comercial=False):
     """Retorna contatos do cliente CENTRALCOMM com cargo de Executivo de Vendas (apenas ativos).
 
     Critérios flexíveis:
@@ -448,8 +448,9 @@ def obter_vendedores_centralcomm():
     """
     conn = get_db()
     with conn.cursor() as cur:
+        filtro_usuario = "" if incluir_usuario_comercial else "AND c.nome_completo != 'Usuário Comercial'"
         cur.execute(
-            '''
+            f'''
             SELECT c.id_contato_cliente, c.nome_completo
             FROM tbl_contato_cliente c
             JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
@@ -462,6 +463,7 @@ def obter_vendedores_centralcomm():
             )
               AND c.status = TRUE
               AND COALESCE(cli.status, TRUE) = TRUE
+              {filtro_usuario}
               AND (
                 car.descricao ILIKE '%Executivo de Vendas%'
                  OR (
@@ -7946,37 +7948,21 @@ def criar_cadu_pi(data):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
-                INSERT INTO cadu_pi (
-                    id_cliente, titulo_pi, codigo_pi_cc, id_pi_tipo,
-                    pi_tem_agencia, id_agencia, perc_cms_agencia,
-                    "Id_parc_reg", perc_cms_parc_reg,
-                    vr_bruto_pi, vr_liquido_pi, vr_cms_agencia, vr_cms_parc_com,
-                    vr_liquido_pr_pi, vr_platafor_max_pi, total_platafor_max_pi,
-                    periodo_inicio, periodo_fim, mes_ref, mes_ref_comp,
-                    id_resp_comercial,
-                    id_cont_cliente_financ, id_cont_cliente_midia,
-                    id_cont_agen_financ, id_cont_agen_midia,
-                    id_cont_parc_reg_financ, id_cont_parc_reg_midia,
-                    id_status_pi, id_sub_status_pi,
-                    observacoes_financeiro, observacoes_operacao,
-                    created_at, updated_at
-                ) VALUES (
-                    %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s,
-                    %s, %s,
-                    %s, %s,
-                    %s, %s,
-                    %s, %s,
-                    %s, %s,
-                    DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP)
-                ) RETURNING id_pi
-            ''', (
+            campos = [
+                'id_cliente', 'titulo_pi', 'codigo_pi_cc', 'id_pi_tipo',
+                'pi_tem_agencia', 'id_agencia', 'perc_cms_agencia',
+                '"Id_parc_reg"', 'perc_cms_parc_reg',
+                'vr_bruto_pi', 'vr_liquido_pi', 'vr_cms_agencia', 'vr_cms_parc_com',
+                'vr_liquido_pr_pi', 'vr_platafor_max_pi', 'total_platafor_max_pi',
+                'periodo_inicio', 'periodo_fim', 'mes_ref', 'mes_ref_comp',
+                'id_resp_comercial',
+                'id_cont_cliente_financ', 'id_cont_cliente_midia',
+                'id_cont_agen_financ', 'id_cont_agen_midia',
+                'id_cont_parc_reg_financ', 'id_cont_parc_reg_midia',
+                'id_status_pi', 'id_sub_status_pi',
+                'observacoes_financeiro', 'observacoes_operacao',
+            ]
+            valores = [
                 data.get('id_cliente'),
                 data.get('titulo_pi'),
                 data.get('codigo_pi_cc'),
@@ -8008,13 +7994,135 @@ def criar_cadu_pi(data):
                 data.get('id_sub_status_pi'),
                 data.get('obs_financeiro'),
                 data.get('obs_operacao'),
-            ))
+            ]
+
+            if data.get('cotacao_id'):
+                campos.append('cotacao_id')
+                valores.append(data['cotacao_id'])
+
+            placeholders = ', '.join(['%s'] * len(valores))
+            campos_sql = ', '.join(campos)
+
+            cursor.execute(f'''
+                INSERT INTO cadu_pi (
+                    {campos_sql},
+                    created_at, updated_at
+                ) VALUES (
+                    {placeholders},
+                    DATE_TRUNC('second', CURRENT_TIMESTAMP), DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                ) RETURNING id_pi
+            ''', valores)
             result = cursor.fetchone()
             conn.commit()
             return result['id_pi'] if result else None
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def gerar_pi_de_cotacao(cotacao_id):
+    """Gera um PI automaticamente a partir de uma cotação aprovada.
+    Retorna o id_pi gerado ou None se já existir PI vinculado."""
+    from datetime import datetime
+
+    conn = get_db()
+
+    with conn.cursor() as cursor:
+        cursor.execute('SELECT id_pi FROM cadu_pi WHERE cotacao_id = %s LIMIT 1', (cotacao_id,))
+        if cursor.fetchone():
+            return None
+
+    cotacao = obter_cotacao_por_id(cotacao_id)
+    if not cotacao:
+        raise ValueError(f'Cotação {cotacao_id} não encontrada')
+
+    linhas = obter_linhas_cotacao(cotacao_id)
+
+    # --- Inferir tipo PI a partir das plataformas das linhas ---
+    id_pi_tipo = None
+    if linhas:
+        plataformas = {(l.get('plataforma') or '').strip().lower() for l in linhas if not l.get('is_subtotal')}
+        plataformas.discard('')
+        if plataformas:
+            tipos = obter_tipos_pi() or []
+            for tipo in tipos:
+                desc_lower = (tipo.get('descricao') or '').lower()
+                for plat in plataformas:
+                    if plat in desc_lower or desc_lower in plat:
+                        id_pi_tipo = tipo['id']
+                        break
+                if id_pi_tipo:
+                    break
+            if not id_pi_tipo and tipos:
+                id_pi_tipo = tipos[0]['id']
+
+    # --- Calcular valores financeiros ---
+    valor_bruto = cotacao.get('valor_total_proposta') or 0
+    if not valor_bruto and linhas:
+        valor_bruto = sum((l.get('investimento_bruto') or l.get('valor_total') or 0) for l in linhas if not l.get('is_subtotal'))
+
+    valor_liquido = valor_bruto
+    if linhas:
+        soma_liquido = sum((l.get('investimento_liquido') or 0) for l in linhas if not l.get('is_subtotal'))
+        if soma_liquido > 0:
+            valor_liquido = soma_liquido
+
+    perc_agencia = cotacao.get('agencia_percentual') or 0
+    perc_parceiro = cotacao.get('parceiro_percentual') or 0
+    comissao_agencia = round(valor_bruto * perc_agencia / 100, 2) if perc_agencia else 0
+    comissao_parceiro = round(valor_bruto * perc_parceiro / 100, 2) if perc_parceiro else 0
+
+    # --- mes_ref / mes_ref_comp a partir de periodo_inicio ---
+    mes_ref = None
+    mes_ref_comp = None
+    periodo_inicio = cotacao.get('periodo_inicio')
+    if periodo_inicio:
+        if isinstance(periodo_inicio, str):
+            try:
+                periodo_inicio = datetime.fromisoformat(periodo_inicio)
+            except ValueError:
+                periodo_inicio = None
+        if periodo_inicio:
+            meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+            mes_ref = meses[periodo_inicio.month - 1]
+            mes_ref_comp = f"{periodo_inicio.month:02d}/{periodo_inicio.year}"
+
+    data = {
+        'id_cliente': cotacao.get('client_id'),
+        'titulo_pi': cotacao.get('nome_campanha'),
+        'codigo_pi_cc': None,
+        'id_pi_tipo': id_pi_tipo,
+        'tem_agencia': bool(cotacao.get('agencia_id')),
+        'id_agencia': cotacao.get('agencia_id'),
+        'perc_comissao_agencia': perc_agencia,
+        'id_parceiro': cotacao.get('id_parceiro'),
+        'perc_comissao_parceiro': perc_parceiro,
+        'valor_bruto': valor_bruto,
+        'valor_liquido': valor_liquido,
+        'comissao_agencia': comissao_agencia,
+        'comissao_parceiro': comissao_parceiro,
+        'valor_liquido_pr': None,
+        'valor_plataformas': None,
+        'periodo_inicio': cotacao.get('periodo_inicio'),
+        'periodo_fim': cotacao.get('periodo_fim'),
+        'mes_ref': mes_ref,
+        'mes_ref_comp': mes_ref_comp,
+        'resp_comercial': cotacao.get('responsavel_comercial'),
+        'contato_fin_cliente': cotacao.get('client_user_id'),
+        'contato_midia_cliente': cotacao.get('client_user_id'),
+        'contato_fin_agencia': cotacao.get('agencia_user_id'),
+        'contato_midia_agencia': cotacao.get('agencia_user_id'),
+        'contato_fin_parceiro': cotacao.get('parceiro_user_id'),
+        'contato_midia_parceiro': cotacao.get('parceiro_user_id'),
+        'id_status_pi': 1,
+        'id_sub_status_pi': 1,
+        'obs_financeiro': None,
+        'obs_operacao': f'PI gerado automaticamente da cotação #{cotacao_id}',
+        'cotacao_id': cotacao_id,
+    }
+
+    return criar_cadu_pi(data)
 
 
 def atualizar_cadu_pi(id_pi, data):
@@ -9110,6 +9218,7 @@ def get_dashboard_carteira_clientes(days=90):
                     COUNT(cli.id_cliente) FILTER (WHERE cli.status = true) AS clientes_ativos
                 FROM tbl_cliente cli
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
                 GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo')
                 ORDER BY total_clientes DESC
             ''')
@@ -9118,10 +9227,12 @@ def get_dashboard_carteira_clientes(days=90):
             cursor.execute('''
                 SELECT
                     COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE status = true) AS ativos,
-                    COUNT(*) FILTER (WHERE status = false) AS inativos,
-                    COUNT(*) FILTER (WHERE data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day') AS novos_periodo
-                FROM tbl_cliente
+                    COUNT(*) FILTER (WHERE cli.status = true) AS ativos,
+                    COUNT(*) FILTER (WHERE cli.status = false) AS inativos,
+                    COUNT(*) FILTER (WHERE cli.data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day') AS novos_periodo
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
             ''', (days,))
             resumo = cursor.fetchone()
 
@@ -9494,6 +9605,7 @@ def get_dashboard_leads(days=90):
                 LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
                 WHERE i.data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                  AND COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
                 GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo')
                 ORDER BY total_leads DESC
             ''', (days,))
@@ -9524,10 +9636,14 @@ def get_dashboard_leads(days=90):
             cursor.execute('''
                 SELECT
                     COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE notificado = true) AS notificados,
-                    COUNT(*) FILTER (WHERE notificado = false) AS pendentes
-                FROM tbl_interesse_produto
-                WHERE data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    COUNT(*) FILTER (WHERE i.notificado = true) AS notificados,
+                    COUNT(*) FILTER (WHERE i.notificado = false) AS pendentes
+                FROM tbl_interesse_produto i
+                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
+                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE i.data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
+                  AND COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
             ''', (days,))
             resumo = cursor.fetchone()
 

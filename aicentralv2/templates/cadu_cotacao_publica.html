@@ -201,7 +201,83 @@
     <!-- Conteúdo Principal -->
     <main class="max-w-6xl mx-auto px-3 py-8">
         <div class="space-y-4">
-                
+
+                <!-- Card: Informações do Cliente -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-building text-gray-400 text-xs"></i>
+                            Informações do Cliente
+                        </h2>
+                    </div>
+                    <div class="p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {% if cliente %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Cliente</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cliente.nome_fantasia or cliente.razao_social }}</p>
+                                {% if cliente_contato %}
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <i class="fas fa-user text-[10px] mr-1"></i>{{ cliente_contato.nome_completo }}
+                                </p>
+                                {% if cliente_contato.email %}
+                                <p class="text-xs text-gray-400">
+                                    <i class="fas fa-envelope text-[10px] mr-1"></i>{{ cliente_contato.email }}
+                                </p>
+                                {% endif %}
+                                {% if cliente_contato.telefone %}
+                                <p class="text-xs text-gray-400">
+                                    <i class="fas fa-phone text-[10px] mr-1"></i>{{ cliente_contato.telefone }}
+                                </p>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if agencia %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Agência</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ agencia.nome_fantasia or agencia.razao_social }}</p>
+                                {% if agencia_contato %}
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <i class="fas fa-user text-[10px] mr-1"></i>{{ agencia_contato.nome_completo }}
+                                </p>
+                                {% if agencia_contato.email %}
+                                <p class="text-xs text-gray-400">
+                                    <i class="fas fa-envelope text-[10px] mr-1"></i>{{ agencia_contato.email }}
+                                </p>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if parceiro %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Parceiro</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ parceiro.nome_fantasia or parceiro.razao_social }}</p>
+                                {% if parceiro_contato %}
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <i class="fas fa-user text-[10px] mr-1"></i>{{ parceiro_contato.nome_completo }}
+                                </p>
+                                {% if parceiro_contato.email %}
+                                <p class="text-xs text-gray-400">
+                                    <i class="fas fa-envelope text-[10px] mr-1"></i>{{ parceiro_contato.email }}
+                                </p>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if responsavel %}
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Executivo Responsável</p>
+                            <p class="font-medium text-gray-800 text-sm">{{ responsavel.nome_completo }}</p>
+                            {% if responsavel.email %}
+                            <p class="text-xs text-gray-400">{{ responsavel.email }}</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
                 <!-- Card: Informações da Campanha -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
                     <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
@@ -212,6 +288,12 @@
                     </div>
                     <div class="p-4">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {% if cotacao.created_at %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Criação</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.created_at.strftime('%d/%m/%Y') }}</p>
+                            </div>
+                            {% endif %}
                             {% if cotacao.periodo_inicio %}
                             <div>
                                 <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Início</p>
@@ -224,21 +306,54 @@
                                 <p class="font-medium text-gray-800 text-sm">{{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}</p>
                             </div>
                             {% endif %}
-                            {% if responsavel %}
-                            <div class="col-span-2">
-                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Executivo Responsável</p>
-                                <p class="font-medium text-gray-800 text-sm">{{ responsavel.nome_completo }}</p>
-                                {% if responsavel.email %}
-                                <p class="text-xs text-gray-500">{{ responsavel.email }}</p>
-                                {% endif %}
+                            {% if cotacao.dias_campanha %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Duração</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.dias_campanha }} mês(es)</p>
                             </div>
                             {% endif %}
                         </div>
-                        
+
+                        <!-- Plataformas (badges) -->
+                        {% if linhas %}
+                        {% set plataformas_set = [] %}
+                        {% for linha in linhas if not linha.is_subtotal and linha.plataforma %}
+                            {% if linha.plataforma not in plataformas_set %}
+                                {% if plataformas_set.append(linha.plataforma) %}{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if plataformas_set|length > 0 %}
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Plataformas</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for plat in plataformas_set %}
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <i class="fas fa-desktop text-[10px] mr-1"></i>{{ plat }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+
                         {% if cotacao.objetivo_campanha %}
                         <div class="mt-4 pt-4 border-t border-gray-100">
                             <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Objetivo da Campanha</p>
                             <p class="text-gray-700 text-sm whitespace-pre-wrap">{{ cotacao.objetivo_campanha }}</p>
+                        </div>
+                        {% endif %}
+
+                        {% if briefing %}
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Briefing Vinculado</p>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                    <i class="fas fa-file-alt text-[10px] mr-1"></i>{{ briefing.titulo }}
+                                </span>
+                                {% if briefing.status %}
+                                <span class="text-xs text-gray-500">({{ briefing.status }})</span>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
                     </div>
@@ -259,12 +374,13 @@
                             <thead class="bg-gray-50 border-b border-gray-100">
                                 <tr class="text-[10px] text-gray-500 uppercase tracking-wider">
                                     <th class="px-3 py-2 text-left font-medium">Plataforma</th>
-                                    <th class="px-3 py-2 text-left font-medium">Produto</th>
+                                    <th class="px-3 py-2 text-left font-medium">Segmentação</th>
+                                    <th class="px-3 py-2 text-left font-medium">KPI</th>
+                                    <th class="px-3 py-2 text-left font-medium">Período</th>
                                     <th class="px-3 py-2 text-right font-medium">Volume</th>
                                     <th class="px-3 py-2 text-left font-medium">Formato</th>
-                                    <th class="px-3 py-2 text-right font-medium">Val. Unit.</th>
-                                    <th class="px-3 py-2 text-right font-medium">Desc.</th>
-                                    <th class="px-3 py-2 text-right font-medium">Total</th>
+                                    <th class="px-3 py-2 text-right font-medium">Bruto</th>
+                                    <th class="px-3 py-2 text-right font-medium">Líquido</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-50">
@@ -279,26 +395,27 @@
                                             </span>
                                         {% endif %}
                                     </td>
-                                    <td class="px-3 py-2.5 text-xs text-gray-700">{{ linha.produto or '-' }}</td>
+                                    <td class="px-3 py-2.5 text-xs text-gray-700">{{ linha.segmentacao or '-' }}</td>
+                                    <td class="px-3 py-2.5 text-xs text-gray-700">{{ linha.objetivo_kpi or '-' }}</td>
+                                    <td class="px-3 py-2.5 text-xs text-gray-700">
+                                        {% if linha.data_inicio and linha.data_fim %}
+                                            {{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio.strftime is defined else linha.data_inicio }} - {{ linha.data_fim.strftime('%d/%m') if linha.data_fim.strftime is defined else linha.data_fim }}
+                                        {% else %}-{% endif %}
+                                    </td>
                                     <td class="px-3 py-2.5 text-xs text-gray-700 text-right">
                                         {% if linha.volume_contratado %}
                                             {{ "{:,}".format(linha.volume_contratado).replace(',', '.') }}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td class="px-3 py-2.5 text-xs text-gray-700">{{ linha.formato_compra or linha.formatos or '-' }}</td>
-                                    <td class="px-3 py-2.5 text-xs text-gray-700 text-right">
-                                        {% if linha.valor_unitario %}
-                                            R$ {{ "{:,.2f}".format(linha.valor_unitario).replace(',', '_').replace('.', ',').replace('_', '.') }}
-                                        {% else %}-{% endif %}
-                                    </td>
-                                    <td class="px-3 py-2.5 text-xs text-gray-700 text-right">
-                                        {% if linha.desconto_percentual %}
-                                            <span class="text-red-500 font-medium">{{ "{:,.2f}".format(linha.desconto_percentual).replace(',', '_').replace('.', ',').replace('_', '.') }}%</span>
+                                    <td class="px-3 py-2.5 text-xs font-semibold text-gray-800 text-right">
+                                        {% if linha.investimento_bruto or linha.valor_total %}
+                                            R$ {{ "{:,.2f}".format(linha.investimento_bruto or linha.valor_total).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                         {% else %}-{% endif %}
                                     </td>
                                     <td class="px-3 py-2.5 text-xs font-semibold text-gray-800 text-right">
-                                        {% if linha.valor_total or linha.investimento_bruto %}
-                                            R$ {{ "{:,.2f}".format(linha.valor_total or linha.investimento_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                                        {% if linha.investimento_liquido %}
+                                            R$ {{ "{:,.2f}".format(linha.investimento_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}
                                         {% else %}-{% endif %}
                                     </td>
                                 </tr>
@@ -309,6 +426,15 @@
                                     <td colspan="6" class="px-3 py-2.5 text-right font-semibold text-xs">Total Itens</td>
                                     <td class="px-3 py-2.5 text-right font-bold text-sm">
                                         R$ {{ "{:,.2f}".format(linhas|sum(attribute='investimento_bruto') or linhas|sum(attribute='valor_total') or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right font-bold text-sm">
+                                        {% set total_liquido_itens = namespace(val=0) %}
+                                        {% for l in linhas if not l.is_subtotal and l.investimento_liquido %}
+                                            {% set total_liquido_itens.val = total_liquido_itens.val + l.investimento_liquido %}
+                                        {% endfor %}
+                                        {% if total_liquido_itens.val > 0 %}
+                                            R$ {{ "{:,.2f}".format(total_liquido_itens.val).replace(',', '_').replace('.', ',').replace('_', '.') }}
+                                        {% else %}-{% endif %}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -342,9 +468,14 @@
                                     </span>
                                     <div class="min-w-0 flex-1">
                                         <p class="font-medium text-gray-800 text-sm truncate">{{ audiencia.audiencia_nome }}</p>
-                                        {% if audiencia.audiencia_publico %}
-                                        <p class="text-xs text-gray-500 truncate">{{ audiencia.audiencia_publico }}</p>
-                                        {% endif %}
+                                        <div class="flex items-center gap-2">
+                                            {% if audiencia.audiencia_categoria %}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">{{ audiencia.audiencia_categoria }}</span>
+                                            {% endif %}
+                                            {% if audiencia.audiencia_publico %}
+                                            <p class="text-xs text-gray-500 truncate">{{ audiencia.audiencia_publico }}</p>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-4 flex-shrink-0 ml-3">
@@ -374,6 +505,121 @@
                     </div>
                     {% endif %}
                 </div>
+
+                <!-- Card: Resumo Total da Proposta -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-calculator text-gray-400 text-xs"></i>
+                            Resumo Total da Proposta
+                        </h2>
+                    </div>
+                    <div class="p-4">
+                        {% set total_bruto_itens = (linhas|sum(attribute='investimento_bruto') or 0) if linhas else 0 %}
+                        {% set total_audiencias_val = (audiencias|sum(attribute='investimento_sugerido') or 0) if audiencias else 0 %}
+                        {% set subtotal_val = total_bruto_itens + total_audiencias_val %}
+                        {% set desconto_val = cotacao.desconto_total or 0 %}
+                        {% set desconto_perc = cotacao.desconto_percentual or 0 %}
+                        {% set total_final = cotacao.valor_total_proposta or subtotal_val %}
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-600">Total Itens (bruto)</span>
+                                <span class="font-medium text-gray-800">R$ {{ "{:,.2f}".format(total_bruto_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                            </div>
+                            {% set total_liq_calc = namespace(val=0) %}
+                            {% if linhas %}
+                            {% for l in linhas if not l.is_subtotal and l.investimento_liquido %}
+                                {% set total_liq_calc.val = total_liq_calc.val + l.investimento_liquido %}
+                            {% endfor %}
+                            {% endif %}
+                            {% if total_liq_calc.val > 0 %}
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-600">Total Itens (líquido)</span>
+                                <span class="font-medium text-gray-800">R$ {{ "{:,.2f}".format(total_liq_calc.val).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                            </div>
+                            {% endif %}
+                            {% if total_audiencias_val > 0 %}
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-600">Total Audiências</span>
+                                <span class="font-medium text-gray-800">R$ {{ "{:,.2f}".format(total_audiencias_val).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-2">
+                                <span class="text-gray-600">Subtotal</span>
+                                <span class="font-medium text-gray-800">R$ {{ "{:,.2f}".format(subtotal_val).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                            </div>
+                            {% if desconto_val > 0 or desconto_perc > 0 %}
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-red-500">
+                                    Desconto
+                                    {% if desconto_perc %} ({{ "{:,.2f}".format(desconto_perc).replace(',', '_').replace('.', ',').replace('_', '.') }}%){% endif %}
+                                </span>
+                                <span class="font-medium text-red-500">- R$ {{ "{:,.2f}".format(desconto_val).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="flex justify-between items-center text-base border-t-2 border-gray-200 pt-3 mt-2">
+                                <span class="font-bold text-gray-800">Valor Final</span>
+                                <span class="font-bold text-lg" style="color: #72cd80;">R$ {{ "{:,.2f}".format(total_final).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: Condições Comerciais -->
+                {% if cotacao.condicoes_comerciais %}
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-handshake text-gray-400 text-xs"></i>
+                            Condições Comerciais
+                        </h2>
+                    </div>
+                    <div class="p-4">
+                        <p class="text-gray-700 text-sm whitespace-pre-wrap">{{ cotacao.condicoes_comerciais }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Card: Informações Adicionais -->
+                {% if cotacao.objetivo_campanha or cotacao.praca or cotacao.dias_campanha or cotacao.budget_estimado %}
+                <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden card-hover">
+                    <div class="px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                        <h2 class="font-semibold text-gray-800 flex items-center gap-1.5 text-sm">
+                            <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                            Informações Adicionais
+                        </h2>
+                    </div>
+                    <div class="p-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {% if cotacao.praca %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Praça</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.praca }}</p>
+                            </div>
+                            {% endif %}
+                            {% if cotacao.dias_campanha %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Período</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.dias_campanha }} mês(es)</p>
+                            </div>
+                            {% endif %}
+                            {% if cotacao.budget_estimado %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Budget Estimado</p>
+                                <p class="font-medium text-gray-800 text-sm">R$ {{ "{:,.2f}".format(cotacao.budget_estimado).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
+                            </div>
+                            {% endif %}
+                            {% if cotacao.origem %}
+                            <div>
+                                <p class="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Origem</p>
+                                <p class="font-medium text-gray-800 text-sm">{{ cotacao.origem }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
         </div>
     </main>

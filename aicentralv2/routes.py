@@ -910,7 +910,7 @@ def init_routes(app):
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
-        vendedores_cc = db.obter_vendedores_centralcomm()
+        vendedores_cc = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True)
         cliente = db.obter_cliente_por_id(cliente_id)
 
         # Garante que o vendedor atualmente vinculado apareça na lista, mesmo que esteja inativo ou fora do filtro
@@ -2210,7 +2210,7 @@ def init_routes(app):
             if executivo_id:
                 filtros['executivo_id'] = executivo_id
 
-            vendedores_auto = db.obter_vendedores_centralcomm()
+            vendedores_auto = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True)
 
             # Filtro por status - Default: ativo
             status_filter = request.args.get('status', 'ativo')
@@ -2245,7 +2245,7 @@ def init_routes(app):
             
             # Obter executivos para o filtro
             try:
-                vendedores_cc = db.obter_vendedores_centralcomm()
+                vendedores_cc = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True)
             except Exception as _e:
                 app.logger.warning(f"Falha ao obter vendedores CentralComm: {_e}")
                 vendedores_cc = []
@@ -2792,7 +2792,7 @@ def init_routes(app):
         agencias = db.obter_aux_agencia()
         tipos_cliente = db.obter_tipos_cliente()
         estados = db.obter_estados()
-        vendedores_cc = db.obter_vendedores_centralcomm()
+        vendedores_cc = db.obter_vendedores_centralcomm(incluir_usuario_comercial=True)
         
         if request.method == 'POST':
             is_ajax = request.form.get('_return_json')
@@ -4952,7 +4952,43 @@ def init_routes(app):
             agencia_info = None
             if cotacao.get('agencia_id'):
                 agencia_info = db.obter_cliente_por_id(cotacao['agencia_id'])
-            
+
+            # Buscar informações do parceiro
+            parceiro_info = None
+            parceiro_contato = None
+            if cotacao.get('id_parceiro'):
+                parceiro_info = db.obter_cliente_por_id(cotacao['id_parceiro'])
+            if cotacao.get('parceiro_user_id'):
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        SELECT nome_completo, email, telefone
+                        FROM tbl_contato_cliente
+                        WHERE id_contato_cliente = %s AND status = TRUE
+                    ''', (cotacao['parceiro_user_id'],))
+                    parceiro_contato = cursor.fetchone()
+
+            # Buscar contato do cliente
+            cliente_contato = None
+            if cotacao.get('client_user_id'):
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        SELECT nome_completo, email, telefone
+                        FROM tbl_contato_cliente
+                        WHERE id_contato_cliente = %s AND status = TRUE
+                    ''', (cotacao['client_user_id'],))
+                    cliente_contato = cursor.fetchone()
+
+            # Buscar contato da agência
+            agencia_contato = None
+            if cotacao.get('agencia_user_id'):
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        SELECT nome_completo, email, telefone
+                        FROM tbl_contato_cliente
+                        WHERE id_contato_cliente = %s AND status = TRUE
+                    ''', (cotacao['agencia_user_id'],))
+                    agencia_contato = cursor.fetchone()
+
             briefing_atual = None
             if cotacao.get('briefing_id'):
                 briefing_atual = db.obter_briefing_por_id(cotacao['briefing_id'])
@@ -4970,7 +5006,11 @@ def init_routes(app):
             return render_template('cadu_cotacao_publica.html', 
                                   cotacao=cotacao,
                                   cliente=cliente_info,
+                                  cliente_contato=cliente_contato,
                                   agencia=agencia_info,
+                                  agencia_contato=agencia_contato,
+                                  parceiro=parceiro_info,
+                                  parceiro_contato=parceiro_contato,
                                   responsavel=responsavel_info,
                                   briefing=briefing_atual,
                                   linhas=linhas,
@@ -5319,7 +5359,16 @@ def init_routes(app):
                 conn.commit()
             
             app.logger.info(f"Cotação {cotacao['id']} aprovada via link público")
-            
+
+            # Gerar PI automaticamente
+            id_pi_gerado = None
+            try:
+                id_pi_gerado = db.gerar_pi_de_cotacao(cotacao['id'])
+                if id_pi_gerado:
+                    app.logger.info(f"PI {id_pi_gerado} gerado automaticamente para cotação {cotacao['id']} (aprovação pública)")
+            except Exception as pi_err:
+                app.logger.error(f"Erro ao gerar PI da cotação {cotacao['id']}: {pi_err}", exc_info=True)
+
             return jsonify({'success': True, 'message': 'Cotação aprovada com sucesso!'})
             
         except Exception as e:
@@ -5496,6 +5545,16 @@ def init_routes(app):
             # Atualizar no banco
             db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
 
+            # Se status mudou para 'Aprovada', gerar PI automaticamente
+            id_pi_gerado = None
+            if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+                try:
+                    id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id)
+                    if id_pi_gerado:
+                        app.logger.info(f"PI {id_pi_gerado} gerado automaticamente para cotação {cotacao_id}")
+                except Exception as pi_err:
+                    app.logger.error(f"Erro ao gerar PI da cotação {cotacao_id}: {pi_err}", exc_info=True)
+
             # Registrar auditoria
             registrar_auditoria(
                 acao='UPDATE',
@@ -5507,7 +5566,11 @@ def init_routes(app):
                 dados_novos=dados_novos
             )
 
-            return jsonify({'success': True, 'message': 'Cotação atualizada com sucesso'})
+            response_data = {'success': True, 'message': 'Cotação atualizada com sucesso'}
+            if id_pi_gerado:
+                response_data['id_pi'] = id_pi_gerado
+                response_data['message'] = 'Cotação aprovada e PI gerado com sucesso'
+            return jsonify(response_data)
 
         except Exception as e:
             app.logger.error(f"Erro ao atualizar cotação via API: {str(e)}", exc_info=True)

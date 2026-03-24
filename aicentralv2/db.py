@@ -10332,12 +10332,13 @@ def excluir_cadu_lead(lead_id):
 # CADU LEADS V2 — Dashboard de Prospecção
 # ============================================================================
 
-def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status=None, sem_responsavel=False):
+def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status=None, sem_responsavel=False, id_lista=None):
     """Cards da coluna 1: leads ativos com contagem de contatos e dias sem atividade."""
     conn = get_db()
     try:
         params = []
         where_clauses = ["l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')"]
+        extra_joins = ''
 
         if sem_responsavel:
             where_clauses.append('l.id_executivo IS NULL')
@@ -10358,6 +10359,9 @@ def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status
             where_clauses.append('(l.empresa ILIKE %s OR l.nome ILIKE %s)')
             term = f'%{search}%'
             params.extend([term, term])
+        if id_lista:
+            extra_joins = 'JOIN cadu_lead_lista_membros flm ON flm.id_lead = l.id AND flm.id_lista = %s'
+            params.append(id_lista)
 
         where_sql = ' AND '.join(where_clauses)
 
@@ -10377,9 +10381,15 @@ def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status
                             SELECT MAX(a.created_at) FROM cadu_lead_atividades a WHERE a.id_lead = l.id
                         )),
                         EXTRACT(DAY FROM NOW() - l.updated_at)
-                    )::int AS dias_sem_atividade
+                    )::int AS dias_sem_atividade,
+                    (SELECT STRING_AGG(ll.nome || '::' || ll.cor, '|||')
+                     FROM cadu_lead_lista_membros lm2
+                     JOIN cadu_lead_listas ll ON ll.id = lm2.id_lista
+                     WHERE lm2.id_lead = l.id
+                    ) AS listas_nomes
                 FROM cadu_leads l
                 LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.principal = TRUE
+                {extra_joins}
                 WHERE {where_sql}
                 ORDER BY dias_sem_atividade DESC NULLS LAST, l.created_at DESC
             ''', params)
@@ -10932,6 +10942,179 @@ def converter_lead_cliente(lead_id):
 
             conn.commit()
             return cliente_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== CADU LEAD LISTAS (Pastas de Organização) ====================
+
+def obter_lead_listas():
+    """Lista todas as listas com contagem de membros."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT l.*,
+                       (SELECT COUNT(*) FROM cadu_lead_lista_membros m WHERE m.id_lista = l.id) AS total_membros
+                FROM cadu_lead_listas l
+                ORDER BY l.nome
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_lead_listas: {e}")
+        raise
+
+
+def criar_lead_lista(dados):
+    """Cria nova lista de leads."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_lead_listas (nome, descricao, cor, created_by)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+            ''', (
+                dados.get('nome'),
+                dados.get('descricao'),
+                dados.get('cor', '#6366f1'),
+                dados.get('created_by'),
+            ))
+            lista_id = cursor.fetchone()['id']
+            conn.commit()
+            return lista_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_lead_lista(lista_id, dados):
+    """Atualiza nome, descrição e/ou cor de uma lista."""
+    conn = get_db()
+    try:
+        sets = []
+        params = []
+        if 'nome' in dados:
+            sets.append('nome = %s')
+            params.append(dados['nome'])
+        if 'descricao' in dados:
+            sets.append('descricao = %s')
+            params.append(dados['descricao'])
+        if 'cor' in dados:
+            sets.append('cor = %s')
+            params.append(dados['cor'])
+        if not sets:
+            return False
+        sets.append('updated_at = CURRENT_TIMESTAMP')
+        params.append(lista_id)
+        with conn.cursor() as cursor:
+            cursor.execute(f"UPDATE cadu_lead_listas SET {', '.join(sets)} WHERE id = %s", params)
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_lead_lista(lista_id):
+    """Deleta uma lista (CASCADE remove membros)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_lead_listas WHERE id = %s', (lista_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_membros_lista(lista_id):
+    """Retorna leads de uma lista com dados básicos."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT l.id, COALESCE(l.empresa, l.nome) AS nome_lead,
+                       l.tipo_lead, l.status, l.potencial, l.fonte,
+                       m.adicionado_em
+                FROM cadu_lead_lista_membros m
+                JOIN cadu_leads l ON l.id = m.id_lead
+                WHERE m.id_lista = %s
+                ORDER BY m.adicionado_em DESC
+            ''', (lista_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_membros_lista {lista_id}: {e}")
+        raise
+
+
+def adicionar_lead_a_lista(lista_id, lead_id, adicionado_por=None):
+    """Adiciona um lead a uma lista (ignora se já existe)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_lead_lista_membros (id_lista, id_lead, adicionado_por)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (id_lista, id_lead) DO NOTHING
+            ''', (lista_id, lead_id, adicionado_por))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def remover_lead_de_lista(lista_id, lead_id):
+    """Remove um lead de uma lista."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'DELETE FROM cadu_lead_lista_membros WHERE id_lista = %s AND id_lead = %s',
+                (lista_id, lead_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_listas_do_lead(lead_id):
+    """Listas a que um lead pertence (para exibir badges no detalhe)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT l.id, l.nome, l.cor
+                FROM cadu_lead_lista_membros m
+                JOIN cadu_lead_listas l ON l.id = m.id_lista
+                WHERE m.id_lead = %s
+                ORDER BY l.nome
+            ''', (lead_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_listas_do_lead {lead_id}: {e}")
+        raise
+
+
+def adicionar_leads_batch_a_lista(lista_id, lead_ids, adicionado_por=None):
+    """Adiciona vários leads a uma lista de uma vez."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            from psycopg2.extras import execute_values
+            values = [(lista_id, lid, adicionado_por) for lid in lead_ids]
+            execute_values(
+                cursor,
+                'INSERT INTO cadu_lead_lista_membros (id_lista, id_lead, adicionado_por) VALUES %s ON CONFLICT (id_lista, id_lead) DO NOTHING',
+                values,
+            )
+            conn.commit()
+            return cursor.rowcount
     except Exception as e:
         conn.rollback()
         raise e

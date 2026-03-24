@@ -7,6 +7,8 @@ let selectedLeadData = null;
 let importParsedLeads = [];
 let searchTimeout = null;
 let showConcluidas = false;
+let selectedListaId = null;
+let allListas = [];
 
 const FREE_DOMAINS = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','icloud.com','aol.com','msn.com','uol.com.br','bol.com.br','terra.com.br','ig.com.br','globo.com','protonmail.com'];
 
@@ -59,6 +61,7 @@ const SOCIAL_ICONS = {
 // ======================== Init ========================
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadLeadListas();
     loadLeads();
     loadLinksContent();
     document.addEventListener('click', closeMiniModals);
@@ -115,6 +118,7 @@ async function loadLeads() {
     if (potencial) params.push(`potencial=${potencial}`);
     if (search) params.push(`search=${encodeURIComponent(search)}`);
     if (statusFilter) params.push(`status=${statusFilter}`);
+    if (selectedListaId) params.push(`id_lista=${selectedListaId}`);
 
     url += params.join('&');
 
@@ -153,6 +157,7 @@ async function loadLeads() {
                         ${l.dias_sem_atividade != null ? l.dias_sem_atividade + 'd' : '-'}
                     </span>
                 </div>
+                ${l.listas_nomes ? `<div class="flex gap-1 mt-1 flex-wrap">${l.listas_nomes.split('|||').map(item => { const [n,c] = item.split('::'); return `<span class="badge badge-xs" style="font-size:8px;background:${esc(c||'#6366f1')}20;color:${esc(c||'#6366f1')};border:1px solid ${esc(c||'#6366f1')}40">${esc(n)}</span>`; }).join('')}</div>` : ''}
             </div>`;
         }).join('');
     } catch (e) {
@@ -185,6 +190,7 @@ async function selectLead(leadId) {
         loadLeadComunicacao(leadId),
     ]);
 
+    loadLeadListasBadges(leadId);
     updateLinksSiteSection();
 }
 
@@ -279,6 +285,16 @@ async function loadLeadStatus(leadId) {
                 <span class="status-badge" style="background:#f3f4f6;color:#374151;cursor:pointer" onclick="openResponsavelModal(this, ${lead.id_executivo || 'null'})">
                     ${lead.executivo_nome ? esc(lead.executivo_nome) : '<span style="color:#9ca3af">Não atribuído</span>'} ▾
                 </span>
+            </div>
+
+            <div id="lead_listas_section" style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:4px">
+                <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:600;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+                    Listas
+                    <span onclick="openAddToListaModal()" style="cursor:pointer;font-size:11px;color:#6366f1;text-transform:none;font-weight:500">+ adicionar</span>
+                </div>
+                <div id="lead_listas_badges" class="flex gap-1 flex-wrap mb-1" style="min-height:20px">
+                    <span style="font-size:10px;color:#9ca3af">Carregando...</span>
+                </div>
             </div>
 
             <div style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:4px">
@@ -377,7 +393,7 @@ function renderContato(c, totalContatos) {
                 </div>` : ''}
                 ${c.telefone ? `<div class="contact-field-row">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="flex-shrink:0"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                    <span class="contact-field-value">${esc(c.telefone)}</span>
+                    <span class="contact-field-value">${esc(maskPhone(c.telefone))}</span>
                     <div class="contact-field-actions">
                         <button onclick="copyToClipboard('${esc(c.telefone)}', this)" title="Copiar telefone" class="contact-copy-btn">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -428,13 +444,14 @@ function showAddContato() {
         <div class="bg-base-200 rounded-lg p-2 space-y-1 mt-2">
             <input id="nc_nome" class="input input-xs input-bordered w-full" placeholder="Nome *">
             <input id="nc_cargo" class="input input-xs input-bordered w-full" placeholder="Cargo">
-            <input id="nc_telefone" class="input input-xs input-bordered w-full" placeholder="Telefone">
+            <input id="nc_telefone" class="input input-xs input-bordered w-full" placeholder="(00) 00000-0000">
             <input id="nc_email" class="input input-xs input-bordered w-full" placeholder="Email">
             <div class="flex gap-1 mt-1">
                 <button onclick="addContato()" class="leads-action-btn leads-action-btn-incluir" style="flex:1">Salvar</button>
                 <button onclick="document.getElementById('form_add_contato').classList.add('hidden')" class="leads-action-btn" style="flex:1;background:#f3f4f6;color:#6b7280">Cancelar</button>
             </div>
         </div>`;
+    applyPhoneMask('nc_telefone');
 }
 
 async function addContato() {
@@ -464,8 +481,9 @@ function editContato(id) {
         document.getElementById('editc_id').value = c.id;
         document.getElementById('editc_nome').value = c.nome || '';
         document.getElementById('editc_cargo').value = c.cargo || '';
-        document.getElementById('editc_telefone').value = c.telefone || '';
+        document.getElementById('editc_telefone').value = c.telefone ? maskPhone(c.telefone) : '';
         document.getElementById('editc_email').value = c.email || '';
+        applyPhoneMask('editc_telefone');
         document.getElementById('modal_editar_contato').showModal();
     });
 }
@@ -1555,7 +1573,215 @@ async function confirmImport() {
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
+// ======================== Listas de Leads ========================
+
+async function loadLeadListas() {
+    try {
+        const resp = await fetch('/api/leads/listas');
+        const data = await resp.json();
+        if (!data.success) return;
+        allListas = data.listas;
+        renderListasSidebar();
+    } catch (e) {
+        console.error('loadLeadListas:', e);
+    }
+}
+
+function renderListasSidebar() {
+    const container = document.getElementById('listas_sidebar');
+    if (!container) return;
+
+    if (allListas.length === 0) {
+        container.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:4px 0">Nenhuma lista criada</div>';
+        return;
+    }
+
+    container.innerHTML = allListas.map(l => `
+        <div class="listas-sidebar-item ${selectedListaId === l.id ? 'active' : ''}"
+             onclick="selectLista(${l.id})" data-lista-id="${l.id}">
+            <span class="listas-sidebar-dot" style="background:${esc(l.cor || '#6366f1')}"></span>
+            <span class="flex-1 truncate">${esc(l.nome)}</span>
+            <span style="font-size:10px;color:#9ca3af">${l.total_membros || 0}</span>
+            <span class="listas-sidebar-actions" onclick="event.stopPropagation()">
+                <span onclick="openEditListaModal(${l.id})" title="Editar" style="cursor:pointer;color:#9ca3af;font-size:12px">✎</span>
+                <span onclick="deleteLista(${l.id})" title="Excluir" style="cursor:pointer;color:#ef4444;font-size:12px">✕</span>
+            </span>
+        </div>
+    `).join('');
+}
+
+function selectLista(listaId) {
+    if (selectedListaId === listaId) {
+        selectedListaId = null;
+    } else {
+        selectedListaId = listaId;
+    }
+    renderListasSidebar();
+    loadLeads();
+}
+
+function openCreateListaModal() {
+    const modal = document.getElementById('modal_lista');
+    document.getElementById('lista_modal_title').textContent = 'Nova Lista';
+    document.getElementById('lista_id').value = '';
+    document.getElementById('lista_nome').value = '';
+    document.getElementById('lista_descricao').value = '';
+    document.getElementById('lista_cor').value = '#6366f1';
+    modal.showModal();
+}
+
+function openEditListaModal(listaId) {
+    const lista = allListas.find(l => l.id === listaId);
+    if (!lista) return;
+    const modal = document.getElementById('modal_lista');
+    document.getElementById('lista_modal_title').textContent = 'Editar Lista';
+    document.getElementById('lista_id').value = lista.id;
+    document.getElementById('lista_nome').value = lista.nome;
+    document.getElementById('lista_descricao').value = lista.descricao || '';
+    document.getElementById('lista_cor').value = lista.cor || '#6366f1';
+    modal.showModal();
+}
+
+async function saveLista() {
+    const id = document.getElementById('lista_id').value;
+    const nome = document.getElementById('lista_nome').value.trim();
+    if (!nome) return;
+    const body = {
+        nome,
+        descricao: document.getElementById('lista_descricao').value.trim(),
+        cor: document.getElementById('lista_cor').value,
+    };
+    try {
+        const url = id ? `/api/leads/listas/${id}` : '/api/leads/listas';
+        const method = id ? 'PATCH' : 'POST';
+        const resp = await fetch(url, {
+            method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        document.getElementById('modal_lista').close();
+        await loadLeadListas();
+    } catch (e) {
+        console.error('saveLista:', e);
+        alert('Erro ao salvar lista: ' + e.message);
+    }
+}
+
+async function deleteLista(listaId) {
+    if (!confirm('Excluir esta lista? Os leads não serão afetados.')) return;
+    try {
+        const resp = await fetch(`/api/leads/listas/${listaId}`, {method: 'DELETE'});
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        if (selectedListaId === listaId) {
+            selectedListaId = null;
+            loadLeads();
+        }
+        await loadLeadListas();
+    } catch (e) {
+        console.error('deleteLista:', e);
+        alert('Erro ao excluir lista: ' + e.message);
+    }
+}
+
+async function loadLeadListasBadges(leadId) {
+    const container = document.getElementById('lead_listas_badges');
+    if (!container) return;
+    try {
+        const resp = await fetch(`/api/leads/${leadId}/listas`);
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        if (data.listas.length === 0) {
+            container.innerHTML = '<span style="font-size:10px;color:#9ca3af">Nenhuma lista</span>';
+            return;
+        }
+        container.innerHTML = data.listas.map(l => `
+            <span class="badge badge-sm" style="font-size:10px;background:${esc(l.cor||'#6366f1')}20;color:${esc(l.cor||'#6366f1')};border:1px solid ${esc(l.cor||'#6366f1')}40;gap:4px;cursor:default">
+                ${esc(l.nome)}
+                <span onclick="removeLeadFromLista(${l.id}, ${leadId})" style="cursor:pointer;font-size:10px;opacity:0.6" title="Remover da lista">✕</span>
+            </span>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<span style="font-size:10px;color:#ef4444">Erro</span>';
+    }
+}
+
+function openAddToListaModal() {
+    if (!selectedLeadId) return;
+    const modal = document.getElementById('modal_add_to_lista');
+    const container = document.getElementById('add_to_lista_options');
+    if (allListas.length === 0) {
+        container.innerHTML = '<div style="font-size:12px;color:#9ca3af">Nenhuma lista criada. Crie uma lista primeiro.</div>';
+    } else {
+        container.innerHTML = allListas.map(l => `
+            <label class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer" style="font-size:12px">
+                <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" value="${l.id}" data-lista-id="${l.id}">
+                <span class="listas-sidebar-dot" style="background:${esc(l.cor||'#6366f1')}"></span>
+                ${esc(l.nome)}
+                <span style="color:#9ca3af;margin-left:auto">${l.total_membros || 0}</span>
+            </label>
+        `).join('');
+    }
+    modal.showModal();
+}
+
+async function confirmAddToListas() {
+    if (!selectedLeadId) return;
+    const checkboxes = document.querySelectorAll('#add_to_lista_options input[type="checkbox"]:checked');
+    const promises = [];
+    checkboxes.forEach(cb => {
+        const listaId = cb.dataset.listaId;
+        promises.push(
+            fetch(`/api/leads/listas/${listaId}/membros`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lead_id: selectedLeadId}),
+            })
+        );
+    });
+    if (promises.length === 0) {
+        document.getElementById('modal_add_to_lista').close();
+        return;
+    }
+    try {
+        await Promise.all(promises);
+        document.getElementById('modal_add_to_lista').close();
+        loadLeadListasBadges(selectedLeadId);
+        loadLeadListas();
+        loadLeads();
+    } catch (e) {
+        console.error('confirmAddToListas:', e);
+    }
+}
+
+async function removeLeadFromLista(listaId, leadId) {
+    try {
+        const resp = await fetch(`/api/leads/listas/${listaId}/membros/${leadId}`, {method: 'DELETE'});
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message);
+        loadLeadListasBadges(leadId);
+        loadLeadListas();
+        loadLeads();
+    } catch (e) {
+        console.error('removeLeadFromLista:', e);
+    }
+}
+
 // ======================== Util ========================
+
+function maskPhone(v) {
+    v = v.replace(/\D/g, '').slice(0, 11);
+    if (v.length > 10) v = v.replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+    else if (v.length > 6) v = v.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
+    else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,5})/, '($1) $2');
+    return v;
+}
+
+function applyPhoneMask(inputId) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    el.addEventListener('input', function () { this.value = maskPhone(this.value); });
+}
 
 function esc(str) {
     if (str == null) return '';

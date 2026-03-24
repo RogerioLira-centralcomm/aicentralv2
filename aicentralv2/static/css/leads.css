@@ -709,6 +709,51 @@
     background: #1d4ed8;
 }
 
+/* Listas sidebar */
+.listas-sidebar-wrapper {
+    padding: 6px 8px 4px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.listas-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    color: #374151;
+    transition: background 0.15s;
+}
+
+.listas-sidebar-item:hover {
+    background: #f3f4f6;
+}
+
+.listas-sidebar-item.active {
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 600;
+}
+
+.listas-sidebar-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.listas-sidebar-actions {
+    display: none;
+    gap: 4px;
+    align-items: center;
+}
+
+.listas-sidebar-item:hover .listas-sidebar-actions {
+    display: flex;
+}
+
 /* 1366px compat */
 @media (max-width: 1400px) {
     .leads-grid {

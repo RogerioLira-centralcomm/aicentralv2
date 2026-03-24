@@ -10700,12 +10700,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             search = request.args.get('search') or None
             status = request.args.get('status') or None
             sem_responsavel = request.args.get('sem_responsavel', '0') == '1'
+            id_lista = request.args.get('id_lista', type=int)
             leads = db.obter_leads_dashboard(
                 id_executivo=id_executivo,
                 potencial=potencial,
                 search=search,
                 status=status,
                 sem_responsavel=sem_responsavel,
+                id_lista=id_lista,
             )
             result = []
             for l in leads:
@@ -11371,6 +11373,140 @@ REGRAS DE ESTILO:
             return jsonify({'success': True, 'texto': texto_gerado, 'word_count': word_count})
         except Exception as e:
             app.logger.error(f"Erro api_ia_gerar_comunicacao: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Listas de Leads (pastas) ---
+
+    @app.route('/api/leads/listas')
+    @login_required
+    def api_lead_listas_list():
+        """Lista todas as listas de leads"""
+        try:
+            listas = db.obter_lead_listas()
+            result = []
+            for l in listas:
+                d = dict(l)
+                for k, v in d.items():
+                    if isinstance(v, datetime):
+                        d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                result.append(d)
+            return jsonify({'success': True, 'listas': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_listas_list: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/listas', methods=['POST'])
+    @login_required
+    def api_lead_lista_criar():
+        """Cria nova lista de leads"""
+        try:
+            data = request.get_json(force=True)
+            nome = data.get('nome', '').strip()
+            if not nome:
+                return jsonify({'success': False, 'message': 'Nome obrigatório'}), 400
+            dados = {
+                'nome': nome,
+                'descricao': data.get('descricao', '').strip() or None,
+                'cor': data.get('cor', '#6366f1'),
+                'created_by': session.get('user_id'),
+            }
+            lista_id = db.criar_lead_lista(dados)
+            return jsonify({'success': True, 'id': lista_id})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_lista_criar: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/listas/<int:lista_id>', methods=['PATCH'])
+    @login_required
+    def api_lead_lista_atualizar(lista_id):
+        """Atualiza uma lista de leads"""
+        try:
+            data = request.get_json(force=True)
+            dados = {}
+            if 'nome' in data:
+                dados['nome'] = data['nome'].strip()
+            if 'descricao' in data:
+                dados['descricao'] = data['descricao'].strip() or None
+            if 'cor' in data:
+                dados['cor'] = data['cor']
+            ok = db.atualizar_lead_lista(lista_id, dados)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_lista_atualizar {lista_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/listas/<int:lista_id>', methods=['DELETE'])
+    @login_required
+    def api_lead_lista_excluir(lista_id):
+        """Exclui uma lista de leads"""
+        try:
+            ok = db.excluir_lead_lista(lista_id)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_lista_excluir {lista_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/listas/<int:lista_id>/membros')
+    @login_required
+    def api_lead_lista_membros(lista_id):
+        """Lista membros de uma lista"""
+        try:
+            membros = db.obter_membros_lista(lista_id)
+            result = []
+            for m in membros:
+                d = dict(m)
+                for k, v in d.items():
+                    if isinstance(v, datetime):
+                        d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                result.append(d)
+            return jsonify({'success': True, 'membros': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_lista_membros {lista_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/listas/<int:lista_id>/membros', methods=['POST'])
+    @login_required
+    def api_lead_lista_adicionar_membros(lista_id):
+        """Adiciona lead(s) a uma lista"""
+        try:
+            data = request.get_json(force=True)
+            lead_ids = data.get('lead_ids', [])
+            lead_id = data.get('lead_id')
+            user_id = session.get('user_id')
+            if lead_id:
+                lead_ids = [lead_id]
+            if not lead_ids:
+                return jsonify({'success': False, 'message': 'lead_id ou lead_ids obrigatório'}), 400
+            if len(lead_ids) == 1:
+                db.adicionar_lead_a_lista(lista_id, lead_ids[0], user_id)
+            else:
+                db.adicionar_leads_batch_a_lista(lista_id, lead_ids, user_id)
+            return jsonify({'success': True})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_lista_adicionar_membros {lista_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/listas/<int:lista_id>/membros/<int:lead_id>', methods=['DELETE'])
+    @login_required
+    def api_lead_lista_remover_membro(lista_id, lead_id):
+        """Remove lead de uma lista"""
+        try:
+            ok = db.remover_lead_de_lista(lista_id, lead_id)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_lista_remover_membro {lista_id}/{lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/listas')
+    @login_required
+    def api_lead_listas_do_lead(lead_id):
+        """Listas a que um lead pertence"""
+        try:
+            listas = db.obter_listas_do_lead(lead_id)
+            result = [dict(l) for l in listas]
+            return jsonify({'success': True, 'listas': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_listas_do_lead {lead_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

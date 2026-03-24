@@ -13,12 +13,14 @@
   <div class="leads-topbar">
     <div class="flex items-center gap-3">
       <h1 class="text-lg font-semibold text-gray-800">Leads</h1>
-      <button onclick="openImportModal()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 16px;font-size:13px;font-weight:600;border-radius:8px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
+      <button onclick="openImportModal()"
+              style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;font-size:13px;font-weight:600;background:#2563eb;color:#ffffff;border:none;border-radius:8px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
         Incluir Leads
       </button>
-      <button onclick="openLinksModal()" class="btn btn-sm btn-ghost gap-1" style="border:1px solid #e5e7eb">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+      <button onclick="openLinksModal()"
+              style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:500;background:#ffffff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
         Links
       </button>
     </div>
@@ -44,6 +46,16 @@
         <span>Inbox</span>
         <span id="leads_count" class="badge badge-ghost badge-sm">0</span>
       </div>
+
+      <!-- Listas (pastas) -->
+      <div class="listas-sidebar-wrapper">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px;margin-bottom:4px">
+          <span style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:600;letter-spacing:0.5px">Listas</span>
+          <span onclick="openCreateListaModal()" style="cursor:pointer;font-size:14px;color:#6366f1;line-height:1" title="Nova lista">+</span>
+        </div>
+        <div id="listas_sidebar"></div>
+      </div>
+
       <div class="leads-col-toolbar">
         <input type="text" id="search_leads" placeholder="Buscar..."
                class="input input-xs input-bordered w-full" oninput="debounceSearch()">
@@ -148,10 +160,11 @@
       </div>
       <textarea id="import_texto" rows="10" placeholder="Cole aqui os dados dos leads...&#10;&#10;Exemplo:&#10;Agência ABC&#10;João Silva, Diretor, (11) 99999-1234, joao@agencia.com&#10;Maria Santos, Mídia, 11988887777, maria@agencia.com&#10;&#10;Empresa XYZ&#10;Pedro Costa - pedro@xyz.com - CEO"
                 class="textarea textarea-bordered w-full text-sm font-mono"></textarea>
-      <div class="modal-action">
-        <button onclick="processImport()" class="leads-action-btn leads-action-btn-gerar" id="btn_processar" style="flex:0;padding:10px 24px;font-size:13px">
+      <div style="display:flex;justify-content:flex-end;padding-top:16px">
+        <button onclick="processImport()" id="btn_processar"
+                style="display:inline-flex;align-items:center;gap:8px;padding:10px 24px;font-size:13px;font-weight:600;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer">
           <span class="loading loading-spinner loading-sm hidden" id="import_spinner"></span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           Processar com IA
         </button>
       </div>
@@ -160,10 +173,10 @@
     <!-- Step 2: Review -->
     <div id="import_step2" class="hidden">
       <div id="import_preview" class="space-y-3 max-h-96 overflow-y-auto"></div>
-      <div class="modal-action">
-        <button onclick="backToStep1()" class="leads-action-btn" style="flex:0;padding:10px 20px;font-size:13px;background:#f3f4f6;color:#6b7280">Voltar</button>
-        <button onclick="confirmImport()" class="leads-action-btn leads-action-btn-convert" id="btn_importar" style="flex:0;padding:10px 24px;font-size:13px;font-weight:600">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <div class="modal-action" style="justify-content:flex-end">
+        <button onclick="backToStep1()" class="leads-action-btn" style="flex:0;padding:10px 20px;font-size:13px;background:#f3f4f6;color:#374151">Voltar</button>
+        <button onclick="confirmImport()" class="leads-action-btn leads-action-btn-incluir" id="btn_importar" style="flex:0;padding:10px 24px;font-size:13px;font-weight:600">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Importar Selecionados
         </button>
       </div>
@@ -285,7 +298,7 @@
     <div class="space-y-2">
       <input id="editc_nome" class="input input-sm input-bordered w-full" placeholder="Nome *">
       <input id="editc_cargo" class="input input-sm input-bordered w-full" placeholder="Cargo">
-      <input id="editc_telefone" class="input input-sm input-bordered w-full" placeholder="Telefone">
+      <input id="editc_telefone" class="input input-sm input-bordered w-full" placeholder="(00) 00000-0000">
       <input id="editc_email" class="input input-sm input-bordered w-full" placeholder="Email">
     </div>
     <div class="modal-action">
@@ -349,6 +362,55 @@
     <p class="text-xs text-gray-500 mb-3">Os contatos e atividades do lead selecionado serão movidos para o lead atual. O lead selecionado será excluído.</p>
     <input id="merge_search" class="input input-sm input-bordered w-full mb-3" placeholder="Buscar lead por nome..." oninput="searchMergeLeads()">
     <div id="merge_results" class="space-y-1 max-h-60 overflow-y-auto"></div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Criar/Editar Lista ===== -->
+<dialog id="modal_lista" class="modal">
+  <div class="modal-box w-96">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 id="lista_modal_title" class="font-bold text-lg mb-4">Nova Lista</h3>
+    <input type="hidden" id="lista_id">
+    <div class="space-y-3">
+      <div>
+        <label class="label label-text text-xs font-semibold">Nome *</label>
+        <input id="lista_nome" class="input input-sm input-bordered w-full" placeholder="Ex: BR Geral, Streaming..." maxlength="100">
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Descrição</label>
+        <textarea id="lista_descricao" class="textarea textarea-sm textarea-bordered w-full" rows="2" placeholder="Descrição opcional..."></textarea>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Cor</label>
+        <div class="flex items-center gap-2">
+          <input id="lista_cor" type="color" value="#6366f1" class="w-8 h-8 rounded cursor-pointer" style="border:1px solid #e5e7eb;padding:1px">
+          <span style="font-size:11px;color:#9ca3af">Cor da badge</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-action">
+      <button onclick="saveLista()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Adicionar Lead a Listas ===== -->
+<dialog id="modal_add_to_lista" class="modal">
+  <div class="modal-box w-96">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Adicionar a Listas</h3>
+    <div id="add_to_lista_options" class="space-y-1 max-h-60 overflow-y-auto"></div>
+    <div class="modal-action">
+      <button onclick="confirmAddToListas()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Adicionar
+      </button>
+    </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>

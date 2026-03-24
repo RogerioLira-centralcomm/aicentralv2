@@ -105,7 +105,7 @@ def ia_sugerir_objetivos():
 
             cur.execute("""
                 SELECT COUNT(*) AS total,
-                       COUNT(*) FILTER (WHERE status = 'Aprovada') AS aprovadas
+                       COUNT(*) FILTER (WHERE status IN ('Aprovada', '3')) AS aprovadas
                 FROM cadu_cotacoes
                 WHERE client_id = %s AND deleted_at IS NULL
                   AND created_at >= CURRENT_DATE - INTERVAL '90 days'
@@ -162,6 +162,92 @@ def ia_sugerir_objetivos():
         return jsonify({'success': True, 'objetivos': objetivos})
     except Exception as e:
         current_app.logger.error(f"Erro ia_sugerir_objetivos: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# --------------- Sugerir Atividade ---------------
+
+@bp.route('/api/ia/sugerir-atividade', methods=['POST'])
+@login_required
+def ia_sugerir_atividade():
+    data = request.get_json() or {}
+    cliente_id = data.get('cliente_id')
+    if not cliente_id:
+        return jsonify({'success': False, 'error': 'cliente_id obrigatório'}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT cli.nome_fantasia, cli.categoria_abc
+                FROM tbl_cliente cli
+                WHERE cli.id_cliente = %s
+            """, (cliente_id,))
+            cliente = cur.fetchone()
+
+            if not cliente:
+                return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
+
+            cur.execute("""
+                SELECT c.nome_completo, cg.descricao AS cargo
+                FROM tbl_contato_cliente c
+                LEFT JOIN tbl_cargo_contato cg ON cg.id_cargo_contato = c.pk_id_tbl_cargo
+                WHERE c.pk_id_tbl_cliente = %s AND c.status = true
+                ORDER BY c.nome_completo LIMIT 5
+            """, (cliente_id,))
+            contatos = cur.fetchall()
+
+            cur.execute("""
+                SELECT COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE status IN ('Aprovada', '3')) AS aprovadas
+                FROM cadu_cotacoes
+                WHERE client_id = %s AND deleted_at IS NULL
+                  AND created_at >= CURRENT_DATE - INTERVAL '90 days'
+            """, (cliente_id,))
+            cot = cur.fetchone()
+
+            cur.execute("""
+                SELECT descricao, status, tipo, titulo
+                FROM sales_atividades
+                WHERE cliente_id = %s
+                ORDER BY data_atividade DESC LIMIT 5
+            """, (cliente_id,))
+            ultimas = cur.fetchall()
+
+        contatos_str = ", ".join(
+            f"{c['nome_completo']} ({c['cargo'] or 'sem cargo'})" for c in contatos
+        ) if contatos else "Nenhum contato"
+
+        ultimas_str = "\n".join(
+            f"- [{a['status']}] {a['titulo'] or a['descricao']}" for a in ultimas
+        ) if ultimas else "Sem atividades recentes"
+
+        contexto = (
+            f"Cliente: {cliente['nome_fantasia']}\n"
+            f"Categoria: {cliente['categoria_abc'] or 'N/A'}\n"
+            f"Contatos: {contatos_str}\n"
+            f"Cotações 90 dias: {cot['total']} (aprovadas: {cot['aprovadas']})\n"
+            f"Últimas atividades:\n{ultimas_str}"
+        )
+
+        system_prompt = (
+            "Você é um assistente comercial da CENTRALCOMM (mídia digital).\n"
+            "Com base no contexto do cliente, sugira UMA atividade de acompanhamento.\n"
+            "Responda APENAS em JSON com: {\"tipo\": \"...\", \"titulo\": \"...\", \"descricao\": \"...\"}\n"
+            "Tipos válidos: ligacao, almoco, reuniao, projeto, planejamento, cadu, atividade\n"
+            "Seja breve e prático."
+        )
+
+        import json as json_mod
+        resultado = _call_openrouter(system_prompt, contexto, max_tokens=300, temperature=0.7)
+        resultado = resultado.strip()
+        if resultado.startswith('```'):
+            resultado = resultado.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
+        sugestao = json_mod.loads(resultado)
+
+        return jsonify({'success': True, 'sugestao': sugestao})
+    except Exception as e:
+        current_app.logger.error(f"Erro ia_sugerir_atividade: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

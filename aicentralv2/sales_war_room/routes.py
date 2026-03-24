@@ -1,7 +1,26 @@
+import re
 from flask import render_template, request, jsonify, session, current_app
 from ..auth import login_required
 from ..db import get_db
 from . import bp
+
+
+def _parse_vr_bruto(raw):
+    """Parse vr_bruto_pi text (e.g. 'R$ 1.234,56', '10000.50', '10000') to float."""
+    if not raw:
+        return 0.0
+    s = str(raw).strip()
+    s = re.sub(r'[^\d.,]', '', s)
+    if not s:
+        return 0.0
+    if ',' in s:
+        s = s.replace('.', '').replace(',', '.')
+    elif s.count('.') > 1:
+        s = s.replace('.', '')
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
 
 
 @bp.route('/')
@@ -92,15 +111,16 @@ def api_cliente_status(cliente_id):
                     COALESCE(cot.valor_bruto, 0) AS valor_bruto,
                     COALESCE(cot.valor_liquido, 0) AS valor_liquido,
                     COALESCE(pi_data.total_pis, 0) AS total_pis,
-                    COALESCE(pi_data.pis_concluidos, 0) AS pis_concluidos
+                    COALESCE(pi_data.pis_concluidos, 0) AS pis_concluidos,
+                    COALESCE(pi_data.valor_pis, 0) AS valor_pis
                 FROM tbl_cliente cli
                 LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = cli.vendas_central_comm
                 LEFT JOIN LATERAL (
                     SELECT
                         COUNT(*) AS total_cotacoes,
-                        COUNT(*) FILTER (WHERE c.status = 'Aprovada') AS cotacoes_aprovadas,
+                        COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3')) AS cotacoes_aprovadas,
                         COALESCE(SUM(c.valor_total_proposta), 0) AS valor_bruto,
-                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) AS valor_liquido
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3')), 0) AS valor_liquido
                     FROM cadu_cotacoes c
                     WHERE c.client_id = cli.id_cliente
                       AND c.deleted_at IS NULL
@@ -109,8 +129,26 @@ def api_cliente_status(cliente_id):
                 LEFT JOIN LATERAL (
                     SELECT
                         COUNT(*) AS total_pis,
-                        COUNT(*) FILTER (WHERE p.id_status_pi = 4) AS pis_concluidos
+                        COUNT(*) FILTER (WHERE sp.descricao ILIKE '%%fatur%%'
+                                           OR sp.descricao ILIKE '%%nf emitida%%'
+                                           OR sp.descricao ILIKE '%%conclu%%'
+                                           OR sp.descricao ILIKE '%%finaliz%%') AS pis_concluidos,
+                        COALESCE(SUM(
+                            CASE
+                                WHEN p.vr_bruto_pi IS NULL OR TRIM(p.vr_bruto_pi) = '' THEN 0
+                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+,[0-9]+$'
+                                    THEN REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ',', '.')::numeric
+                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
+                                    THEN REPLACE(REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '.', ''), ',', '.')::numeric
+                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+\.[0-9]{1,2}$'
+                                    THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.]', '', 'g')::numeric
+                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g'), '') IS NOT NULL
+                                    THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g')::numeric
+                                ELSE 0
+                            END
+                        ), 0) AS valor_pis
                     FROM cadu_pi p
+                    LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
                     WHERE p.id_cliente = cli.id_cliente
                       AND DATE_TRUNC('month', p.created_at) = DATE_TRUNC('month', CURRENT_DATE)
                 ) pi_data ON true
@@ -121,7 +159,7 @@ def api_cliente_status(cliente_id):
         if not status:
             return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
 
-        for key in ('valor_bruto', 'valor_liquido'):
+        for key in ('valor_bruto', 'valor_liquido', 'valor_pis'):
             status[key] = float(status[key]) if status[key] else 0
 
         pct = 0
@@ -151,11 +189,11 @@ def api_cliente_status_completo(cliente_id):
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_cotacoes,
-                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') AS cotacoes_aprovadas,
+                    COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3')) AS cotacoes_aprovadas,
                     COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) AS valor_aprovado,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3')), 0) AS valor_aprovado,
                     CASE WHEN COUNT(*) > 0
-                         THEN ROUND(COUNT(*) FILTER (WHERE c.status = 'Aprovada')::numeric / COUNT(*) * 100, 1)
+                         THEN ROUND(COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3'))::numeric / COUNT(*) * 100, 1)
                          ELSE 0 END AS pct_conversao
                 FROM cadu_cotacoes c
                 WHERE c.client_id = %s
@@ -167,23 +205,26 @@ def api_cliente_status_completo(cliente_id):
             cur.execute("""
                 SELECT
                     COUNT(*) AS total_pis,
-                    COUNT(*) FILTER (WHERE p.id_status_pi = 4) AS pis_concluidos,
+                    COUNT(*) FILTER (WHERE sp.descricao ILIKE '%%fatur%%'
+                                       OR sp.descricao ILIKE '%%nf emitida%%'
+                                       OR sp.descricao ILIKE '%%conclu%%'
+                                       OR sp.descricao ILIKE '%%finaliz%%') AS pis_concluidos,
                     COALESCE(SUM(
                         CASE
+                            WHEN p.vr_bruto_pi IS NULL OR TRIM(p.vr_bruto_pi) = '' THEN 0
                             WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+,[0-9]+$'
-                                THEN REPLACE(NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ''), ',', '.')::numeric
+                                THEN REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ',', '.')::numeric
                             WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
-                                THEN REPLACE(REPLACE(NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ''), '.', ''), ',', '.')::numeric
+                                THEN REPLACE(REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '.', ''), ',', '.')::numeric
                             WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+\.[0-9]{1,2}$'
-                                THEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '')::numeric
-                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+$'
-                                THEN REPLACE(NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ''), '.', '')::numeric
-                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+$'
-                                THEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '')::numeric
+                                THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.]', '', 'g')::numeric
+                            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g'), '') IS NOT NULL
+                                THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g')::numeric
                             ELSE 0
                         END
                     ), 0) AS valor_pis
                 FROM cadu_pi p
+                LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
                 WHERE p.id_cliente = %s
                   AND EXTRACT(YEAR FROM p.created_at) = %s
             """, (cliente_id, ano))
@@ -197,8 +238,8 @@ def api_cliente_status_completo(cliente_id):
                 SELECT
                     EXTRACT(MONTH FROM c.created_at)::int AS mes,
                     COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') AS aprovadas,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) AS faturamento
+                    COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3')) AS aprovadas,
+                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3')), 0) AS faturamento
                 FROM cadu_cotacoes c
                 WHERE c.client_id = %s
                   AND c.deleted_at IS NULL
@@ -211,7 +252,7 @@ def api_cliente_status_completo(cliente_id):
             cur.execute("""
                 SELECT
                     c.id, c.numero_cotacao, c.nome_campanha,
-                    c.valor_total_proposta, c.status,
+                    c.valor_total_proposta,
                     c.status AS status_descricao,
                     c.created_at
                 FROM cadu_cotacoes c
@@ -221,6 +262,36 @@ def api_cliente_status_completo(cliente_id):
                 ORDER BY c.created_at DESC
             """, (cliente_id, ano))
             cotacoes_lista = cur.fetchall()
+
+            try:
+                cur.execute("""
+                    SELECT
+                        p.id_pi AS id,
+                        p.codigo_pi_cc AS numero_pi,
+                        p.titulo_pi AS campanha,
+                        p.vr_bruto_pi AS vr_bruto_raw,
+                        sp.descricao AS status_descricao,
+                        p.created_at
+                    FROM cadu_pi p
+                    LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
+                    WHERE p.id_cliente = %s
+                      AND EXTRACT(YEAR FROM p.created_at) = %s
+                    ORDER BY p.created_at DESC
+                """, (cliente_id, ano))
+                pis_lista = cur.fetchall()
+
+                cur.execute("""
+                    SELECT
+                        EXTRACT(MONTH FROM p.created_at)::int AS mes,
+                        p.vr_bruto_pi AS vr_bruto_raw
+                    FROM cadu_pi p
+                    WHERE p.id_cliente = %s
+                      AND EXTRACT(YEAR FROM p.created_at) = %s
+                """, (cliente_id, ano))
+                pis_mes_raw = cur.fetchall()
+            except Exception:
+                pis_lista = []
+                pis_mes_raw = []
 
         for c in cotacoes_lista:
             if c.get('valor_total_proposta'):
@@ -235,6 +306,17 @@ def api_cliente_status_completo(cliente_id):
             resumo_cotacoes[key] = float(resumo_cotacoes[key])
         resumo_pis['valor_pis'] = float(resumo_pis['valor_pis'])
 
+        for p in pis_lista:
+            p['valor_bruto'] = _parse_vr_bruto(p.pop('vr_bruto_raw', None))
+            if p.get('created_at'):
+                p['created_at'] = p['created_at'].isoformat()
+
+        faturamento_mensal = [0.0] * 12
+        for row in pis_mes_raw:
+            idx = (row.get('mes') or 1) - 1
+            if 0 <= idx < 12:
+                faturamento_mensal[idx] += _parse_vr_bruto(row.get('vr_bruto_raw'))
+
         return jsonify({
             'success': True,
             'ano': ano,
@@ -242,7 +324,9 @@ def api_cliente_status_completo(cliente_id):
             'resumo_pis': resumo_pis,
             'ticket_medio': round(ticket_medio, 2),
             'por_mes': por_mes,
-            'cotacoes': cotacoes_lista
+            'faturamento_mensal': faturamento_mensal,
+            'cotacoes': cotacoes_lista,
+            'pis_lista': pis_lista
         })
     except Exception as e:
         current_app.logger.error(f"Erro api_cliente_status_completo: {e}", exc_info=True)
@@ -413,6 +497,30 @@ def api_contato_detalhes(contato_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# --------------- Helpers: column existence cache ---------------
+
+_col_cache = {}
+
+def _check_column_exists(cur, table, column):
+    key = f"{table}.{column}"
+    if key not in _col_cache:
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = %s AND column_name = %s
+            ) AS col_exists
+        """, (table, column))
+        row = cur.fetchone()
+        _col_cache[key] = row['col_exists'] if isinstance(row, dict) else row[0]
+    return _col_cache[key]
+
+def _check_atividades_columns(cur):
+    return _check_column_exists(cur, 'sales_atividades', 'tipo')
+
+def _check_objetivos_columns(cur):
+    return _check_column_exists(cur, 'sales_objetivos_cliente', 'data_prazo')
+
+
 # --------------- Column 4: Atividades ---------------
 
 @bp.route('/api/cliente/<int:cliente_id>/atividades')
@@ -422,24 +530,47 @@ def api_cliente_atividades(cliente_id):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            query = """
-                SELECT
-                    sa.id, sa.descricao, sa.data_atividade, sa.status,
-                    sa.contato_id, sa.created_at,
-                    c.nome_completo AS contato_nome,
-                    ex.nome_completo AS responsavel_nome
-                FROM sales_atividades sa
-                LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
-                LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
-                WHERE sa.cliente_id = %s
-            """
+            has_new_cols = _check_atividades_columns(cur)
+            if has_new_cols:
+                query = """
+                    SELECT
+                        sa.id, sa.descricao, sa.data_atividade, sa.status,
+                        sa.contato_id, sa.created_at,
+                        COALESCE(sa.tipo, 'atividade') AS tipo,
+                        sa.data_prazo,
+                        sa.titulo,
+                        c.nome_completo AS contato_nome,
+                        ex.nome_completo AS responsavel_nome
+                    FROM sales_atividades sa
+                    LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
+                    LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
+                    WHERE sa.cliente_id = %s
+                """
+            else:
+                query = """
+                    SELECT
+                        sa.id, sa.descricao, sa.data_atividade, sa.status,
+                        sa.contato_id, sa.created_at,
+                        'atividade' AS tipo,
+                        NULL AS data_prazo,
+                        NULL AS titulo,
+                        c.nome_completo AS contato_nome,
+                        ex.nome_completo AS responsavel_nome
+                    FROM sales_atividades sa
+                    LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
+                    LEFT JOIN tbl_contato_cliente ex ON ex.id_contato_cliente = sa.executivo_id
+                    WHERE sa.cliente_id = %s
+                """
             params = [cliente_id]
 
             if contato_id:
                 query += " AND sa.contato_id = %s"
                 params.append(contato_id)
 
-            query += " ORDER BY CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, sa.data_atividade DESC"
+            if has_new_cols:
+                query += " ORDER BY CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, sa.data_prazo ASC NULLS LAST, sa.data_atividade DESC"
+            else:
+                query += " ORDER BY CASE sa.status WHEN 'pendente' THEN 1 WHEN 'em_andamento' THEN 2 ELSE 3 END, sa.data_atividade DESC"
 
             cur.execute(query, params)
             atividades = cur.fetchall()
@@ -447,6 +578,8 @@ def api_cliente_atividades(cliente_id):
         for a in atividades:
             if a.get('data_atividade'):
                 a['data_atividade'] = a['data_atividade'].isoformat()
+            if a.get('data_prazo'):
+                a['data_prazo'] = a['data_prazo'].isoformat()
             if a.get('created_at'):
                 a['created_at'] = a['created_at'].isoformat()
 
@@ -463,6 +596,9 @@ def api_criar_atividade(cliente_id):
     descricao = (data.get('descricao') or '').strip()
     data_atividade = data.get('data_atividade')
     contato_id = data.get('contato_id') or None
+    tipo = data.get('tipo', 'atividade')
+    titulo = (data.get('titulo') or '').strip() or None
+    data_prazo = data.get('data_prazo') or None
 
     if not descricao or not data_atividade:
         return jsonify({'success': False, 'error': 'Descrição e data são obrigatórios'}), 400
@@ -471,11 +607,18 @@ def api_criar_atividade(cliente_id):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO sales_atividades (cliente_id, contato_id, executivo_id, descricao, data_atividade)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-            """, (cliente_id, contato_id, executivo_id, descricao, data_atividade))
+            if _check_atividades_columns(cur):
+                cur.execute("""
+                    INSERT INTO sales_atividades (cliente_id, contato_id, executivo_id, descricao, data_atividade, tipo, titulo, data_prazo)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (cliente_id, contato_id, executivo_id, descricao, data_atividade, tipo, titulo, data_prazo))
+            else:
+                cur.execute("""
+                    INSERT INTO sales_atividades (cliente_id, contato_id, executivo_id, descricao, data_atividade)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (cliente_id, contato_id, executivo_id, descricao, data_atividade))
             row = cur.fetchone()
         conn.commit()
         return jsonify({'success': True, 'id': row['id']})
@@ -521,17 +664,27 @@ def api_cliente_objetivos(cliente_id):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, texto, conquistado, data_conquista, created_at
-                FROM sales_objetivos_cliente
-                WHERE cliente_id = %s
-                ORDER BY conquistado ASC, created_at DESC
-            """, (cliente_id,))
+            if _check_objetivos_columns(cur):
+                cur.execute("""
+                    SELECT id, texto, conquistado, data_conquista, data_prazo, created_at
+                    FROM sales_objetivos_cliente
+                    WHERE cliente_id = %s
+                    ORDER BY conquistado ASC, created_at DESC
+                """, (cliente_id,))
+            else:
+                cur.execute("""
+                    SELECT id, texto, conquistado, data_conquista, NULL AS data_prazo, created_at
+                    FROM sales_objetivos_cliente
+                    WHERE cliente_id = %s
+                    ORDER BY conquistado ASC, created_at DESC
+                """, (cliente_id,))
             objetivos = cur.fetchall()
 
         for o in objetivos:
             if o.get('data_conquista'):
                 o['data_conquista'] = o['data_conquista'].isoformat()
+            if o.get('data_prazo'):
+                o['data_prazo'] = o['data_prazo'].isoformat()
             if o.get('created_at'):
                 o['created_at'] = o['created_at'].isoformat()
 
@@ -546,6 +699,7 @@ def api_cliente_objetivos(cliente_id):
 def api_criar_objetivo(cliente_id):
     data = request.get_json() or {}
     texto = (data.get('texto') or '').strip()
+    data_prazo = data.get('data_prazo') or None
     if not texto:
         return jsonify({'success': False, 'error': 'Texto obrigatório'}), 400
 
@@ -553,11 +707,18 @@ def api_criar_objetivo(cliente_id):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO sales_objetivos_cliente (cliente_id, executivo_id, texto)
-                VALUES (%s, %s, %s)
-                RETURNING id
-            """, (cliente_id, executivo_id, texto))
+            if _check_objetivos_columns(cur) and data_prazo:
+                cur.execute("""
+                    INSERT INTO sales_objetivos_cliente (cliente_id, executivo_id, texto, data_prazo)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                """, (cliente_id, executivo_id, texto, data_prazo))
+            else:
+                cur.execute("""
+                    INSERT INTO sales_objetivos_cliente (cliente_id, executivo_id, texto)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                """, (cliente_id, executivo_id, texto))
             row = cur.fetchone()
         conn.commit()
         return jsonify({'success': True, 'id': row['id']})

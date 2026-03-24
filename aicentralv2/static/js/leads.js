@@ -37,10 +37,15 @@ const DEFAULT_DESCRIPTIONS = {
 };
 
 const COMM_TEMPLATES = [
-    {label: '1º Email Apresentação', objetivo: 'Primeiro contato de apresentação da CentralComm e seus serviços', tipo: 'email'},
-    {label: 'Follow-up após contato', objetivo: 'Follow-up após contato inicial, reforçando interesse e próximos passos', tipo: 'email'},
-    {label: 'Agendar reunião', objetivo: 'Agendar reunião para apresentação detalhada de serviços', tipo: 'whatsapp'},
-    {label: 'Proposta comercial', objetivo: 'Enviar proposta comercial personalizada com base nas necessidades identificadas', tipo: 'email'},
+    {label: 'Apresentar CentralComm', objetivo: 'Apresentar a CentralComm como parceira estratégica em comunicação e mídia, destacando expertise em assessoria de imprensa, produção de conteúdo, gestão de redes sociais e formatos inovadores de mídia', tipo: 'email'},
+    {label: 'Apresentar Cadu (IA)', objetivo: 'Apresentar o Cadu, assistente de inteligência artificial da CentralComm, destacando como ele automatiza e potencializa a comunicação corporativa com análise de dados, geração de conteúdo e insights estratégicos', tipo: 'whatsapp'},
+    {label: 'Detalhar Funcionalidades', objetivo: 'Detalhar as funcionalidades e serviços completos da CentralComm: assessoria de imprensa, produção audiovisual, gestão de redes sociais, planejamento de mídia, comunicação corporativa, eventos e branding', tipo: 'email'},
+    {label: 'Apresentar Canais', objetivo: 'Apresentar os canais de comunicação e mídia da CentralComm, incluindo portais, redes sociais, newsletters, podcasts, vídeos e parcerias estratégicas com veículos de imprensa', tipo: 'email'},
+    {label: 'Formatos Interativos', objetivo: 'Apresentar os formatos interativos e inovadores de mídia disponíveis na CentralComm: branded content, infográficos interativos, webinars, lives, stories patrocinados e experiências imersivas', tipo: 'email'},
+    {label: 'Follow-up pós Reunião', objetivo: 'Follow-up após reunião realizada, reforçar os pontos discutidos, alinhar expectativas e definir próximos passos concretos para a parceria', tipo: 'email'},
+    {label: 'Follow-up sem Contato', objetivo: 'Follow-up cordial após tentativas sem retorno, reforçar o valor da parceria e oferecer uma nova oportunidade de conversa sem pressão', tipo: 'whatsapp'},
+    {label: 'Convite Evento RJ', objetivo: 'Convite para evento ou encontro exclusivo da CentralComm no Rio de Janeiro, com networking e apresentação de cases e novidades em comunicação e mídia', tipo: 'email'},
+    {label: 'Convite Evento BH', objetivo: 'Convite para evento ou encontro exclusivo da CentralComm em Belo Horizonte, com networking e apresentação de cases e novidades em comunicação e mídia', tipo: 'email'},
 ];
 
 const SOCIAL_ICONS = {
@@ -283,17 +288,22 @@ async function loadLeadStatus(leadId) {
                 </div>
             </div>
 
-            <span onclick="showAddContato()" style="display:inline-block;font-size:11px;color:#9ca3af;cursor:pointer;margin-top:4px" class="hover:text-gray-500">+ adicionar contato</span>
+            <div class="flex items-center gap-3 mt-1">
+                <span onclick="showAddContato()" style="font-size:11px;color:#9ca3af;cursor:pointer" class="hover:text-gray-500">+ adicionar contato</span>
+                <span onclick="openMergeModal()" style="font-size:11px;color:#9ca3af;cursor:pointer" class="hover:text-gray-500">⤵ mesclar com outro lead</span>
+            </div>
             <div id="form_add_contato" class="hidden"></div>
 
-            <div style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:4px">
-                <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:600;margin-bottom:6px">Ações</div>
-                <div class="flex gap-2">
-                    <button onclick="converterCliente()" class="btn btn-xs btn-success flex-1 gap-1">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                        Converter
+            <div style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:8px">
+                <div style="display:flex;gap:6px;overflow:hidden;max-width:100%">
+                    <button onclick="converterCliente()" class="leads-action-btn leads-action-btn-convert" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span style="overflow:hidden;text-overflow:ellipsis">Converter</span>
                     </button>
-                    <button onclick="openDesqualificar()" class="btn btn-xs btn-outline btn-error flex-1">Desqualificar</button>
+                    <button onclick="openDesqualificar()" class="leads-action-btn leads-action-btn-disqualify" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                        <span style="overflow:hidden;text-overflow:ellipsis">Desqualificar</span>
+                    </button>
                 </div>
             </div>
         </div>`;
@@ -339,41 +349,45 @@ function renderContato(c, totalContatos) {
 
     return `
         <div class="contact-card">
-            <div class="flex items-start justify-between">
-                <div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="font-semibold" style="font-size:12px">${esc(c.nome)}</span>
-                        ${c.principal ? '<span style="background:#dcfce7;color:#15803d;font-size:9px;padding:1px 6px;border-radius:9999px">principal</span>' : ''}
-                    </div>
-                    ${c.cargo ? `<div style="color:#9ca3af;font-size:11px">${esc(c.cargo)}</div>` : ''}
+            <div class="flex items-start justify-between mb-2">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" style="flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span class="font-semibold" style="font-size:12px">${esc(c.nome)}</span>
+                    ${c.principal ? '<span style="background:#dcfce7;color:#15803d;font-size:9px;padding:1px 6px;border-radius:9999px;font-weight:500">principal</span>' : ''}
                 </div>
                 <div class="contact-actions-hover flex gap-0.5">
                     ${!c.principal ? `<button onclick="setPrincipal(${c.id})" class="btn btn-ghost btn-xs" title="Tornar principal" style="min-height:0;height:22px;padding:0 4px">★</button>` : ''}
                     <button onclick="editContato(${c.id})" class="btn btn-ghost btn-xs" title="Editar" style="min-height:0;height:22px;padding:0 4px">✎</button>
-                    ${totalContatos > 1 ? `<button onclick="deleteContato(${c.id})" class="btn btn-ghost btn-xs text-error" title="Excluir" style="min-height:0;height:22px;padding:0 4px">✕</button>` : ''}
+                    ${totalContatos > 1 ? `<button onclick="deleteContato(${c.id})" class="btn btn-ghost btn-xs" title="Excluir" style="min-height:0;height:22px;padding:0 4px;color:#9ca3af">✕</button>` : ''}
                 </div>
             </div>
-            <div class="mt-1.5 space-y-0.5">
-                ${c.email ? `<div class="flex items-center gap-1.5" style="font-size:11px">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
-                    <span style="color:#374151" class="truncate">${esc(c.email)}</span>
-                    <button onclick="copyToClipboard('${esc(c.email)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;position:relative;flex-shrink:0">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    </button>
-                    ${mailtoLink ? `<a href="${mailtoLink}" title="Enviar email" style="color:#3b82f6;display:inline-flex;flex-shrink:0">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9z"/></svg>
-                    </a>` : ''}
+            ${c.cargo ? `<div style="color:#9ca3af;font-size:11px;margin-bottom:6px;padding-left:22px">${esc(c.cargo)}</div>` : ''}
+            <div class="contact-fields">
+                ${c.email ? `<div class="contact-field-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="flex-shrink:0"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
+                    <span class="contact-field-value">${esc(c.email)}</span>
+                    <div class="contact-field-actions">
+                        <button onclick="copyToClipboard('${esc(c.email)}', this)" title="Copiar email" class="contact-copy-btn">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                        ${mailtoLink ? `<a href="${mailtoLink}" title="Enviar email" class="contact-action-btn contact-action-email">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9z"/></svg>
+                        </a>` : ''}
+                    </div>
                 </div>` : ''}
-                ${c.telefone ? `<div class="flex items-center gap-1.5" style="font-size:11px">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                    <span style="color:#374151">${esc(c.telefone)}</span>
-                    <button onclick="copyToClipboard('${esc(c.telefone)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;position:relative;flex-shrink:0">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    </button>
-                    ${whatsappLink ? `<a href="${whatsappLink}" target="_blank" title="WhatsApp" style="color:#25D366;display:inline-flex;flex-shrink:0">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.025.506 3.934 1.395 5.608L0 24l6.587-1.344A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.882 0-3.674-.508-5.24-1.47l-.376-.222-3.898.795.83-3.756-.244-.388A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-                    </a>` : ''}
+                ${c.telefone ? `<div class="contact-field-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="flex-shrink:0"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                    <span class="contact-field-value">${esc(c.telefone)}</span>
+                    <div class="contact-field-actions">
+                        <button onclick="copyToClipboard('${esc(c.telefone)}', this)" title="Copiar telefone" class="contact-copy-btn">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                        ${whatsappLink ? `<a href="${whatsappLink}" target="_blank" title="WhatsApp" class="contact-action-btn contact-action-wa">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.025.506 3.934 1.395 5.608L0 24l6.587-1.344A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.882 0-3.674-.508-5.24-1.47l-.376-.222-3.898.795.83-3.756-.244-.388A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+                        </a>` : ''}
+                    </div>
                 </div>` : ''}
+                ${!c.email && !c.telefone ? '<div style="font-size:10px;color:#d1d5db;padding-left:22px">Sem dados de contato</div>' : ''}
             </div>
         </div>`;
 }
@@ -417,8 +431,8 @@ function showAddContato() {
             <input id="nc_telefone" class="input input-xs input-bordered w-full" placeholder="Telefone">
             <input id="nc_email" class="input input-xs input-bordered w-full" placeholder="Email">
             <div class="flex gap-1 mt-1">
-                <button onclick="addContato()" class="btn btn-xs btn-primary flex-1">Salvar</button>
-                <button onclick="document.getElementById('form_add_contato').classList.add('hidden')" class="btn btn-xs btn-ghost flex-1">Cancelar</button>
+                <button onclick="addContato()" class="leads-action-btn leads-action-btn-incluir" style="flex:1">Salvar</button>
+                <button onclick="document.getElementById('form_add_contato').classList.add('hidden')" class="leads-action-btn" style="flex:1;background:#f3f4f6;color:#6b7280">Cancelar</button>
             </div>
         </div>`;
 }
@@ -507,12 +521,16 @@ function openEditLead() {
     document.getElementById('edit_url_site').value = lead.url_site || '';
     document.getElementById('edit_segmento').value = lead.segmento || '';
     document.getElementById('edit_observacoes').value = lead.observacoes || '';
+    document.getElementById('edit_status').value = lead.status || 'inbox';
+    document.getElementById('edit_potencial').value = lead.potencial || 'medio';
+    document.getElementById('edit_responsavel').value = lead.id_executivo || '';
     document.getElementById('modal_editar_lead').showModal();
 }
 
 async function saveEditLead() {
     if (!selectedLeadId) return;
     try {
+        const editExecVal = document.getElementById('edit_responsavel').value;
         const resp = await fetch(`/api/leads/${selectedLeadId}/editar`, {
             method: 'PATCH',
             headers: {'Content-Type': 'application/json'},
@@ -524,6 +542,9 @@ async function saveEditLead() {
                 url_site: document.getElementById('edit_url_site').value.trim(),
                 segmento: document.getElementById('edit_segmento').value.trim(),
                 observacoes: document.getElementById('edit_observacoes').value.trim(),
+                status: document.getElementById('edit_status').value,
+                potencial: document.getElementById('edit_potencial').value,
+                id_executivo: editExecVal ? parseInt(editExecVal) : 0,
             }),
         });
         const data = await resp.json();
@@ -551,6 +572,71 @@ async function converterCliente() {
             loadLeads();
         } else {
             showToast(data.message || 'Erro ao converter', 'error');
+        }
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+// ======================== Merge Leads ========================
+
+function openMergeModal() {
+    if (!selectedLeadId) return;
+    document.getElementById('merge_search').value = '';
+    document.getElementById('merge_results').innerHTML = '<div class="text-xs text-gray-400 text-center py-4">Digite para buscar leads...</div>';
+    document.getElementById('modal_mesclar').showModal();
+    if (selectedLeadData) {
+        document.getElementById('merge_search').value = selectedLeadData.empresa || '';
+        searchMergeLeads();
+    }
+}
+
+let mergeSearchTimeout = null;
+async function searchMergeLeads() {
+    clearTimeout(mergeSearchTimeout);
+    mergeSearchTimeout = setTimeout(async () => {
+        const q = document.getElementById('merge_search').value.trim();
+        if (q.length < 2) {
+            document.getElementById('merge_results').innerHTML = '<div class="text-xs text-gray-400 text-center py-4">Digite ao menos 2 caracteres...</div>';
+            return;
+        }
+        try {
+            const resp = await fetch(`/api/leads?search=${encodeURIComponent(q)}`);
+            const data = await resp.json();
+            const leads = (data.leads || []).filter(l => l.id !== selectedLeadId);
+            const container = document.getElementById('merge_results');
+            if (leads.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400 text-center py-4">Nenhum lead encontrado</div>';
+                return;
+            }
+            container.innerHTML = leads.map(l => `
+                <div class="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer" onclick="confirmMerge(${l.id}, '${esc(l.nome_lead).replace(/'/g, "\\'")}')">
+                    <div>
+                        <div class="text-sm font-medium">${esc(l.nome_lead)}</div>
+                        <div class="text-xs text-gray-400">${esc(l.fonte || '-')} | ${l.qtd_contatos} contato(s)</div>
+                    </div>
+                    <span class="badge badge-xs badge-ghost">Mesclar</span>
+                </div>
+            `).join('');
+        } catch (e) { console.error('searchMergeLeads:', e); }
+    }, 350);
+}
+
+async function confirmMerge(secundarioId, nome) {
+    if (!confirm(`Mesclar "${nome}" com o lead atual? Contatos e atividades serão movidos e "${nome}" será excluído.`)) return;
+    try {
+        const resp = await fetch(`/api/leads/${selectedLeadId}/mesclar`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lead_secundario_id: secundarioId}),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('modal_mesclar').close();
+            showToast('Leads mesclados com sucesso!', 'success');
+            loadLeadStatus(selectedLeadId);
+            loadLeadAtividades(selectedLeadId);
+            loadLeads();
+        } else {
+            showToast(data.message || 'Erro ao mesclar', 'error');
         }
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
@@ -585,6 +671,7 @@ async function confirmDesqualificar() {
 // ======================== Col 3: Ações ========================
 
 let lastAtivTipoDefault = '';
+let showNewAtivForm = false;
 
 async function loadLeadAtividades(leadId) {
     const col = document.getElementById('col_atividades');
@@ -612,25 +699,73 @@ async function loadLeadAtividades(leadId) {
         const pendentes = atividades.filter(a => !a.concluida);
         const concluidas = atividades.filter(a => a.concluida);
 
+        let sugestaoHtml = '';
+        if (pendentes.length === 0) {
+            const principal = contatos.find(c => c.principal) || contatos[0];
+            if (principal) {
+                const hasEmail = !!principal.email;
+                const hasPhone = !!principal.telefone;
+                if (hasEmail || hasPhone) {
+                    const sugTipo = hasEmail ? 'email_enviado' : 'whatsapp';
+                    const sugLabel = hasEmail ? 'Enviar email' : 'Enviar WhatsApp';
+                    const sugDesc = hasEmail
+                        ? `Enviar email de apresentação para ${principal.nome}`
+                        : `Enviar mensagem WhatsApp para ${principal.nome}`;
+                    const sugIcon = hasEmail
+                        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>'
+                        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.025.506 3.934 1.395 5.608L0 24l6.587-1.344A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.882 0-3.674-.508-5.24-1.47l-.376-.222-3.898.795.83-3.756-.244-.388A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>';
+                    sugestaoHtml = `
+                        <div class="ativ-sugestao" onclick="applySugestao('${sugTipo}', '${sugDesc.replace(/'/g, "\\'")}')">
+                            <div class="flex items-center gap-2">
+                                <span style="color:#f59e0b;flex-shrink:0">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                </span>
+                                <div>
+                                    <div style="font-weight:600;font-size:11px">Sugestão: ${sugLabel}</div>
+                                    <div style="font-size:10px;color:#6b7280">para ${esc(principal.nome)}</div>
+                                </div>
+                                <span class="ml-auto">${sugIcon}</span>
+                            </div>
+                        </div>`;
+                }
+            }
+        }
+
+        const formDisplay = showNewAtivForm ? 'block' : 'none';
+        const toggleBtnText = showNewAtivForm ? '' : '+ Nova Ação';
+
         let html = `<div class="p-3" style="display:flex;flex-direction:column;height:100%;font-size:12px">
-            <div class="bg-base-200 rounded-lg p-2 space-y-1.5" style="flex-shrink:0">
-                <div class="flex gap-1.5">
-                    <select id="ativ_tipo" class="${SEL_CLS}" style="flex:1" onchange="onAtivTipoChange()">${tipoOptions}</select>
-                    <select id="ativ_contato" class="${SEL_CLS}" style="flex:1">${contatoOptions}</select>
-                </div>
-                <div class="flex gap-1.5 items-center">
-                    <label style="font-size:10px;color:#9ca3af;flex-shrink:0">Prazo:</label>
-                    <input id="ativ_prazo" type="date" value="${today}" class="${SEL_CLS}" style="flex:1">
-                </div>
-                <textarea id="ativ_descricao" rows="3" class="textarea textarea-xs textarea-bordered w-full" placeholder="Descrição da ação..." style="font-size:12px"></textarea>
-                <div class="flex gap-1 items-center">
-                    <span onclick="melhorarTexto()" style="font-size:10px;color:#6b7280;cursor:pointer;text-decoration:underline" class="hover:text-gray-900">Melhorar com IA</span>
-                    <button onclick="addAtividade()" class="btn btn-xs btn-primary ml-auto" style="min-width:60px">Incluir</button>
+            ${sugestaoHtml}
+
+            ${!showNewAtivForm ? `<button onclick="toggleAtivForm()" class="leads-action-btn leads-action-btn-nova">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
+                Nova Ação
+            </button>` : ''}
+
+            <div id="ativ_form_container" style="display:${formDisplay};flex-shrink:0">
+                <div class="bg-base-200 rounded-lg p-2 space-y-1.5 mb-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <span style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase">Nova Ação</span>
+                        <button onclick="toggleAtivForm()" class="btn btn-ghost btn-xs" style="min-height:0;height:18px;padding:0 4px;font-size:14px">✕</button>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <select id="ativ_tipo" class="${SEL_CLS}" style="flex:1" onchange="onAtivTipoChange()">${tipoOptions}</select>
+                        <select id="ativ_contato" class="${SEL_CLS}" style="flex:1">${contatoOptions}</select>
+                    </div>
+                    <div class="flex gap-1.5 items-center">
+                        <label style="font-size:10px;color:#9ca3af;flex-shrink:0">Prazo:</label>
+                        <input id="ativ_prazo" type="date" value="${today}" class="${SEL_CLS}" style="flex:1">
+                    </div>
+                    <textarea id="ativ_descricao" rows="2" class="textarea textarea-xs textarea-bordered w-full" placeholder="Descrição da ação..." style="font-size:12px"></textarea>
+                    <div class="flex gap-1 items-center">
+                        <span onclick="melhorarTexto()" style="font-size:10px;color:#6b7280;cursor:pointer;text-decoration:underline" class="hover:text-gray-900">Melhorar com IA</span>
+                        <button onclick="addAtividade()" class="leads-action-btn leads-action-btn-incluir ml-auto">Incluir</button>
+                    </div>
                 </div>
             </div>
 
-            <div style="flex:1;overflow-y:auto;margin-top:8px;min-height:0">
-                ${pendentes.length === 0 && concluidas.length === 0 ? '<div class="text-xs text-gray-400 text-center" style="padding:20px">Nenhuma ação registrada</div>' : ''}
+            <div style="flex:1;overflow-y:auto;min-height:0">
+                ${pendentes.length === 0 && concluidas.length === 0 && !sugestaoHtml ? '<div class="text-xs text-gray-400 text-center" style="padding:20px">Nenhuma ação registrada</div>' : ''}
                 ${pendentes.map(a => renderAtividade(a)).join('')}
                 ${concluidas.length > 0 ? `
                     <div class="concluidas-toggle" onclick="toggleConcluidas()">
@@ -649,6 +784,23 @@ async function loadLeadAtividades(leadId) {
     }
 }
 
+function toggleAtivForm() {
+    showNewAtivForm = !showNewAtivForm;
+    if (selectedLeadId) loadLeadAtividades(selectedLeadId);
+}
+
+function applySugestao(tipo, descricao) {
+    showNewAtivForm = true;
+    if (selectedLeadId) {
+        loadLeadAtividades(selectedLeadId).then(() => {
+            const tipoEl = document.getElementById('ativ_tipo');
+            const descEl = document.getElementById('ativ_descricao');
+            if (tipoEl) tipoEl.value = tipo;
+            if (descEl) descEl.value = descricao;
+        });
+    }
+}
+
 function onAtivTipoChange() {
     const tipo = document.getElementById('ativ_tipo').value;
     const textarea = document.getElementById('ativ_descricao');
@@ -659,20 +811,37 @@ function onAtivTipoChange() {
     }
 }
 
+const TIPO_ATIV_ICONS = {
+    reuniao: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    ligacao: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>',
+    whatsapp: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>',
+    email_enviado: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>',
+    email: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>',
+    nota: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    follow_up: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
+    apresentacao: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+    proposta_enviada: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>',
+    tentativa_contato: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0119 8.95M15.05 1A9 9 0 0123 8.94"/><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3"/></svg>',
+    status_change: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
+    importacao: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    outro: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>',
+};
+
 function renderAtividade(a) {
     const tipo = a.tipo || 'outro';
     const badgeCls = TIPO_ATIV_COLORS[tipo] || 'ativ-badge-outro';
     const prazoHtml = a.data_prazo ? getPrazoHtml(a.data_prazo) : '';
     const descId = `desc_${a.id}`;
+    const icon = TIPO_ATIV_ICONS[tipo] || TIPO_ATIV_ICONS.outro;
 
     return `
-        <div class="ativ-card ${a.concluida ? 'ativ-card-concluida' : ''}">
+        <div class="ativ-card ${a.concluida ? 'ativ-card-concluida' : ''} ${a.data_prazo && !a.concluida && isPrazoOverdue(a.data_prazo) ? 'ativ-card-overdue' : ''}">
             <div class="flex items-center gap-1.5 mb-1">
                 <label style="display:flex;align-items:center;cursor:pointer;flex-shrink:0">
                     <input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleConcluida(${a.id}, this.checked)"
                            style="width:14px;height:14px;cursor:pointer;accent-color:#22c55e">
                 </label>
-                <span class="ativ-badge ${badgeCls}">${tipo.replace(/_/g, ' ')}</span>
+                <span class="ativ-badge ${badgeCls}" style="display:inline-flex;align-items:center;gap:3px">${icon} ${tipo.replace(/_/g, ' ')}</span>
                 <span style="font-size:10px;color:#9ca3af;margin-left:auto">${esc(a.created_at)}</span>
             </div>
             <div class="ativ-desc" id="${descId}" onclick="this.classList.toggle('expanded')" style="cursor:pointer">${esc(a.descricao || '')}</div>
@@ -682,6 +851,13 @@ function renderAtividade(a) {
                 ${prazoHtml}
             </div>
         </div>`;
+}
+
+function isPrazoOverdue(prazoStr) {
+    const prazo = new Date(prazoStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    return prazo < today;
 }
 
 function getPrazoHtml(prazoStr) {
@@ -814,8 +990,9 @@ async function loadLeadExtrair(leadId) {
                         <input id="extrair_url" type="url" class="input input-xs input-bordered w-full" placeholder="https://..."
                                value="${esc(suggestedUrl)}" style="font-size:12px">
                     </div>
-                    <button onclick="extractUrl()" class="btn btn-xs btn-primary w-full" id="btn_extrair">
+                    <button onclick="extractUrl()" class="leads-action-btn leads-action-btn-extrair" id="btn_extrair">
                         <span class="loading loading-spinner loading-xs hidden" id="extrair_spinner"></span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                         Extrair com IA
                     </button>
                 </div>
@@ -900,12 +1077,15 @@ function renderDadosExtraidos(d, lead) {
                         <div style="font-weight:600;font-size:11px">${esc(c.nome || '?')}</div>
                         <div style="color:#9ca3af;font-size:10px">${[c.cargo, c.email, c.telefone].filter(Boolean).map(v => esc(v)).join(' | ')}</div>
                     </div>
-                    <button onclick="addExtractedContact(${i})" class="btn btn-xs btn-outline btn-primary" style="font-size:10px">+ Add</button>
+                    <button onclick="addExtractedContact(${i})" class="leads-action-btn leads-action-btn-merge" style="font-size:10px;flex:0;padding:4px 10px">+ Add</button>
                 </div>
             `).join('')}
         ` : ''}
 
-        <button onclick="saveExtracted()" class="btn btn-xs btn-success w-full mt-2">Salvar dados no lead</button>
+        <button onclick="saveExtracted()" class="leads-action-btn leads-action-btn-convert mt-2" style="width:100%">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Salvar dados no lead
+        </button>
     </div>`;
 }
 
@@ -1009,27 +1189,45 @@ async function loadLeadComunicacao(leadId) {
 
         const contatoOptions = contatos.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
 
-        const templatesHtml = COMM_TEMPLATES.map((t, i) =>
-            `<button class="comm-template-btn" onclick="applyCommTemplate(${i})">${esc(t.label)}</button>`
-        ).join(' ');
+        const apresentacaoTemplates = COMM_TEMPLATES.filter((_, i) => i <= 4);
+        const followupTemplates = COMM_TEMPLATES.filter((_, i) => i === 5 || i === 6);
+        const eventoTemplates = COMM_TEMPLATES.filter((_, i) => i >= 7);
+
+        function renderTemplateGroup(label, templates, startIdx) {
+            return `<div class="comm-group">
+                <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;font-weight:600;margin-bottom:3px">${label}</div>
+                <div class="flex flex-wrap gap-1">${templates.map((t, i) => {
+                    const globalIdx = COMM_TEMPLATES.indexOf(t);
+                    const icon = t.tipo === 'whatsapp' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="#25D366" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479c0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>'
+                        : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="flex-shrink:0"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>';
+                    return `<button class="comm-template-btn" onclick="applyCommTemplate(${globalIdx})" style="display:inline-flex;align-items:center;gap:3px">${icon} ${esc(t.label)}</button>`;
+                }).join('')}</div>
+            </div>`;
+        }
 
         col.innerHTML = `
-            <div class="p-3 space-y-3" style="font-size:12px">
-                <div class="flex flex-wrap gap-1.5">${templatesHtml}</div>
-                <div class="space-y-1.5">
-                    <select id="comm_contato" class="${SEL_CLS}">
-                        <option value="">Selecionar contato...</option>
-                        ${contatoOptions}
-                    </select>
-                    <div class="flex gap-2" style="font-size:11px">
-                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                            <input type="radio" name="comm_tipo" value="whatsapp" checked style="width:12px;height:12px"> WhatsApp
-                        </label>
-                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                            <input type="radio" name="comm_tipo" value="email" style="width:12px;height:12px"> Email
-                        </label>
+            <div class="p-3 space-y-2" style="font-size:12px">
+                <div class="space-y-2">
+                    ${renderTemplateGroup('Apresentação', apresentacaoTemplates, 0)}
+                    ${renderTemplateGroup('Follow-up', followupTemplates, 5)}
+                    ${renderTemplateGroup('Eventos', eventoTemplates, 7)}
+                </div>
+                <div style="border-top:1px solid #f3f4f6;padding-top:8px" class="space-y-1.5">
+                    <div class="flex gap-1.5">
+                        <select id="comm_contato" class="${SEL_CLS}" style="flex:1">
+                            <option value="">Contato...</option>
+                            ${contatoOptions}
+                        </select>
+                        <div class="flex gap-1.5 items-center" style="font-size:11px;flex-shrink:0">
+                            <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
+                                <input type="radio" name="comm_tipo" value="whatsapp" checked style="width:11px;height:11px"> WA
+                            </label>
+                            <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
+                                <input type="radio" name="comm_tipo" value="email" style="width:11px;height:11px"> Email
+                            </label>
+                        </div>
                     </div>
-                    <input id="comm_objetivo" class="input input-xs input-bordered w-full" placeholder="Objetivo (ex: agendar reunião)" style="font-size:12px">
+                    <input id="comm_objetivo" class="input input-xs input-bordered w-full" placeholder="Objetivo personalizado..." style="font-size:11px">
                     <div class="flex gap-1.5">
                         <select id="comm_tamanho" class="${SEL_CLS}" style="flex:1">
                             <option value="curto">Curto</option>
@@ -1042,19 +1240,20 @@ async function loadLeadComunicacao(leadId) {
                             <option value="descontraido">Descontraído</option>
                         </select>
                     </div>
-                    <div class="flex flex-wrap gap-3" style="font-size:11px;color:#6b7280">
-                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                            <input type="checkbox" id="comm_incluir_dados" checked style="width:12px;height:12px"> Dados do lead
+                    <div class="flex flex-wrap gap-2" style="font-size:10px;color:#6b7280">
+                        <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
+                            <input type="checkbox" id="comm_incluir_dados" checked style="width:11px;height:11px"> Dados
                         </label>
-                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                            <input type="checkbox" id="comm_incluir_servicos" style="width:12px;height:12px"> Serviços
+                        <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
+                            <input type="checkbox" id="comm_incluir_servicos" style="width:11px;height:11px"> Serviços
                         </label>
-                        <label style="display:flex;align-items:center;gap:3px;cursor:pointer">
-                            <input type="checkbox" id="comm_incluir_oportunidades" style="width:12px;height:12px"> Oportunidades
+                        <label style="display:flex;align-items:center;gap:2px;cursor:pointer">
+                            <input type="checkbox" id="comm_incluir_oportunidades" style="width:11px;height:11px"> Oportunidades
                         </label>
                     </div>
-                    <button onclick="gerarComunicacao()" class="btn btn-xs btn-primary w-full" id="btn_comm">
+                    <button onclick="gerarComunicacao()" class="leads-action-btn leads-action-btn-gerar" id="btn_comm">
                         <span class="loading loading-spinner loading-xs hidden" id="comm_spinner"></span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                         Gerar com IA
                     </button>
                 </div>
@@ -1330,8 +1529,9 @@ async function confirmImport() {
     const selected = importParsedLeads.filter(l => l._selected);
     if (selected.length === 0) return showToast('Selecione ao menos um lead', 'warning');
 
-    const execId = getExecutivoId();
+    const importExecId = document.getElementById('import_responsavel').value;
     const tipoLead = document.querySelector('input[name="tipo_lead_import"]:checked').value;
+    const fonte = document.getElementById('import_fonte').value;
 
     try {
         const resp = await fetch('/api/leads/importar', {
@@ -1339,8 +1539,9 @@ async function confirmImport() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 leads: selected.map(l => ({empresa: l.empresa, contatos: l.contatos})),
-                id_executivo: execId ? parseInt(execId) : null,
+                id_executivo: importExecId ? parseInt(importExecId) : null,
                 tipo_lead: tipoLead,
+                fonte: fonte,
             }),
         });
         const data = await resp.json();

@@ -8221,7 +8221,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 if return_url and return_url.startswith('/cadu_pi'):
                     anchor = f'#pi-{id_pi}'
                     return redirect(f'{return_url}{anchor}')
-                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=data.get('id_sub_status_pi', 1)))
+                return redirect(url_for('cadu_pi_lista', id_sub_status_pi=data.get('id_sub_status_pi', 2)))
             except Exception as e:
                 app.logger.error(f"Erro ao criar PI: {e}", exc_info=True)
                 flash(f'Erro ao criar PI: {str(e)}', 'error')
@@ -8423,7 +8423,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     cursor.execute('''
                         UPDATE cadu_pi
                         SET id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'Campanha em análise' LIMIT 1),
-                            id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em configuração' LIMIT 1),
+                            id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em aprovação' LIMIT 1),
                             updated_at = date_trunc('second', CURRENT_TIMESTAMP)
                         WHERE id_pi = %s
                     ''', (id_pi,))
@@ -8499,8 +8499,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
                     'datafim': fmt_data_curta(pi.get('periodo_fim')),
                     'pastagooglepecas': pi.get('googled_pi_pecas') or '',
-                    'instrucoesoperacao': pi.get('observacoes_operacao') or '',
-                    'instrucoesfinanceiro': pi.get('observacoes_financeiro') or '',
+                    'instrucoesoperacao': (pi.get('observacoes_operacao') or '').strip() or 'Sem instruções',
+                    'instrucoesfinanceiro': (pi.get('observacoes_financeiro') or '').strip() or 'Sem instruções',
                     'nomerespPI': pi.get('resp_comercial_nome') or '',
                     'titulo': pi.get('titulo_pi') or '',
                     'pi_tem_agencia': 'sim' if tem_agencia else 'não',
@@ -8538,7 +8538,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 registro_id=id_pi,
                 registro_tipo='cadu_pi',
                 dados_anteriores={'id_status_pi': pi.get('id_status_pi'), 'id_sub_status_pi': pi.get('id_sub_status_pi')},
-                dados_novos={'status': 'Campanha em análise', 'sub_status': 'Em configuração'}
+                dados_novos={'status': 'Campanha em análise', 'sub_status': 'Em aprovação'}
             )
 
             if webhook_erros:
@@ -8614,7 +8614,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
                     'datafim': fmt_data_curta(pi.get('periodo_fim')),
                     'pastagooglepecas': pi.get('googled_pi_pecas') or '',
-                    'instrucoesoperacao': pi.get('observacoes_operacao') or '',
+                    'instrucoesoperacao': (pi.get('observacoes_operacao') or '').strip() or 'Sem instruções',
                     'nomerespPI': pi.get('resp_comercial_nome') or '',
                     'titulo': pi.get('titulo_pi') or '',
                     'pi_tem_agencia': 'sim' if tem_agencia else 'não',
@@ -8714,7 +8714,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
                     'datafim': fmt_data_curta(pi.get('periodo_fim')),
                     'pastaassinadas': pi.get('googled_pi_arq_ass') or '',
-                    'instrucoesfinanceiro': pi.get('observacoes_financeiro') or '',
+                    'instrucoesfinanceiro': (pi.get('observacoes_financeiro') or '').strip() or 'Sem instruções',
                     'nomerespPI': pi.get('resp_comercial_nome') or '',
                     'titulo': pi.get('titulo_pi') or '',
                     'pi_tem_agencia': 'sim' if tem_agencia else 'não',
@@ -8893,7 +8893,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'contato_fin_parceiro': request.form.get('contato_fin_parceiro', type=int),
             'contato_midia_parceiro': request.form.get('contato_midia_parceiro', type=int),
             'id_status_pi': request.form.get('id_status_pi', type=int) or 1,
-            'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int) or 1,
+            'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int) or 2,
             'obs_financeiro': request.form.get('obs_financeiro', '').strip() or None,
             'obs_operacao': request.form.get('obs_operacao', '').strip() or None,
         }
@@ -10778,6 +10778,23 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro api_lead_editar {lead_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/leads/<int:lead_id>/mesclar', methods=['POST'])
+    @login_required
+    def api_lead_mesclar(lead_id):
+        """Mescla outro lead neste (move contatos/atividades, exclui o secundário)"""
+        try:
+            data = request.get_json(force=True)
+            lead_secundario_id = data.get('lead_secundario_id')
+            if not lead_secundario_id:
+                return jsonify({'success': False, 'message': 'lead_secundario_id obrigatório'}), 400
+            if int(lead_secundario_id) == lead_id:
+                return jsonify({'success': False, 'message': 'Não é possível mesclar um lead com ele mesmo'}), 400
+            ok = db.mesclar_leads(lead_id, int(lead_secundario_id))
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_mesclar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     # --- Contatos ---
 
     @app.route('/api/leads/<int:lead_id>/contatos')
@@ -11175,12 +11192,13 @@ Retorne APENAS JSON válido:
         try:
             data = request.get_json(force=True)
             leads_data = data.get('leads', [])
-            id_executivo = data.get('id_executivo')
+            id_executivo = data.get('id_executivo') or None
             tipo_lead = data.get('tipo_lead', 'cliente')
-            if not leads_data or not id_executivo:
-                return jsonify({'success': False, 'message': 'Dados e executivo obrigatórios'}), 400
+            fonte = data.get('fonte', 'manual')
+            if not leads_data:
+                return jsonify({'success': False, 'message': 'Dados obrigatórios'}), 400
 
-            ids = db.importar_leads_batch(leads_data, id_executivo, tipo_lead)
+            ids = db.importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte)
             return jsonify({'success': True, 'ids': ids, 'total': len(ids)})
         except Exception as e:
             app.logger.error(f"Erro api_leads_importar: {e}")
@@ -11303,18 +11321,28 @@ Retorne apenas o texto melhorado, sem explicações.'''
             contexto = '\n'.join(contexto_parts)
 
             openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
-            system_prompt = f'''Você é um executivo de vendas da CentralComm, uma empresa de mídia e comunicação.
-Gere uma mensagem de {tipo_comunicacao} para prospecção comercial.
+            system_prompt = f'''Você é um executivo de vendas sênior da CentralComm, referência nacional em comunicação corporativa e mídia.
 
-Regras:
+SOBRE A CENTRALCOMM:
+- Empresa de comunicação e mídia com atuação em assessoria de imprensa, produção de conteúdo, gestão de redes sociais, planejamento de mídia, comunicação corporativa, eventos e branding
+- Diferencial: abordagem integrada que une estratégia, criatividade e tecnologia
+- Possui o Cadu, um assistente de IA que automatiza e potencializa a comunicação corporativa com análise de dados, geração de conteúdo inteligente e insights estratégicos
+- Oferece formatos interativos e inovadores: branded content, infográficos interativos, webinars, lives, stories patrocinados e experiências imersivas
+- Canais proprietários incluem portais de notícias, newsletters segmentadas, podcasts e parcerias estratégicas com grandes veículos
+- Atua com escritórios no Rio de Janeiro e Belo Horizonte
+
+TAREFA: Gere uma mensagem de {tipo_comunicacao} para prospecção comercial.
+
+REGRAS DE ESTILO:
 - Tom {tom_desc}
-- Personalizar com dados do lead quando disponíveis
+- Personalizar com dados do lead quando disponíveis — mencionando empresa, segmento, desafios identificados
 - Tamanho: {tamanho_desc}
-- Se WhatsApp: use formatação adequada (*negrito*, _itálico_), sem saudação formal longa
-- Se Email: inclua assunto na primeira linha (Assunto: ...), saudação e despedida profissionais
-- Não use emojis em excesso
-- Foque no valor que a CentralComm pode agregar
-- Retorne APENAS o texto da mensagem, sem explicações'''
+- Se WhatsApp: use formatação adequada (*negrito*, _itálico_), direto ao ponto, mensagem conversacional e natural
+- Se Email: inclua assunto criativo na primeira linha (Assunto: ...), saudação e despedida profissionais
+- Evite clichês de vendas como "a melhor solução" ou "líder do mercado"
+- Use dados concretos e cases quando possível
+- Foque no valor e nos resultados que a CentralComm pode gerar para o negócio do lead
+- Retorne APENAS o texto da mensagem, sem explicações ou comentários adicionais'''
 
             user_msg = f"Objetivo: {objetivo}\n\nContexto do lead:\n{contexto}"
 

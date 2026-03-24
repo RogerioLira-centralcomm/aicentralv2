@@ -13,8 +13,8 @@
   <div class="leads-topbar">
     <div class="flex items-center gap-3">
       <h1 class="text-lg font-semibold text-gray-800">Leads</h1>
-      <button onclick="openImportModal()" class="btn btn-sm btn-primary gap-1">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      <button onclick="openImportModal()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 16px;font-size:13px;font-weight:600;border-radius:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
         Incluir Leads
       </button>
       <button onclick="openLinksModal()" class="btn btn-sm btn-ghost gap-1" style="border:1px solid #e5e7eb">
@@ -112,21 +112,46 @@
 
     <!-- Step 1: Input -->
     <div id="import_step1">
-      <div class="flex gap-4 mb-3">
-        <label class="label cursor-pointer gap-2">
-          <input type="radio" name="tipo_lead_import" value="cliente" class="radio radio-sm radio-primary" checked>
-          <span class="label-text">Cliente</span>
-        </label>
-        <label class="label cursor-pointer gap-2">
-          <input type="radio" name="tipo_lead_import" value="agencia" class="radio radio-sm radio-primary">
-          <span class="label-text">Agência</span>
-        </label>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Tipo do Lead</label>
+          <div class="flex gap-4">
+            <label class="label cursor-pointer gap-2">
+              <input type="radio" name="tipo_lead_import" value="cliente" class="radio radio-sm radio-primary" checked>
+              <span class="label-text">Cliente</span>
+            </label>
+            <label class="label cursor-pointer gap-2">
+              <input type="radio" name="tipo_lead_import" value="agencia" class="radio radio-sm radio-primary">
+              <span class="label-text">Agência</span>
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Fonte</label>
+          <select id="import_fonte" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full focus:outline-none focus:border-gray-400">
+            <option value="manual">Manual</option>
+            <option value="site">Site</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="indicacao">Indicação</option>
+            <option value="evento">Evento</option>
+          </select>
+        </div>
       </div>
-      <textarea id="import_texto" rows="12" placeholder="Cole aqui os dados dos leads...&#10;&#10;Exemplo:&#10;Agência ABC&#10;João Silva, Diretor, (11) 99999-1234, joao@agencia.com&#10;Maria Santos, Mídia, 11988887777, maria@agencia.com&#10;&#10;Empresa XYZ&#10;Pedro Costa - pedro@xyz.com - CEO"
+      <div class="mb-3">
+        <label class="label label-text text-xs font-semibold">Responsável</label>
+        <select id="import_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full focus:outline-none focus:border-gray-400">
+          <option value="">Sem responsável (Inbox)</option>
+          {% for ex in executivos %}
+            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <textarea id="import_texto" rows="10" placeholder="Cole aqui os dados dos leads...&#10;&#10;Exemplo:&#10;Agência ABC&#10;João Silva, Diretor, (11) 99999-1234, joao@agencia.com&#10;Maria Santos, Mídia, 11988887777, maria@agencia.com&#10;&#10;Empresa XYZ&#10;Pedro Costa - pedro@xyz.com - CEO"
                 class="textarea textarea-bordered w-full text-sm font-mono"></textarea>
       <div class="modal-action">
-        <button onclick="processImport()" class="btn btn-primary" id="btn_processar">
+        <button onclick="processImport()" class="leads-action-btn leads-action-btn-gerar" id="btn_processar" style="flex:0;padding:10px 24px;font-size:13px">
           <span class="loading loading-spinner loading-sm hidden" id="import_spinner"></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           Processar com IA
         </button>
       </div>
@@ -136,8 +161,11 @@
     <div id="import_step2" class="hidden">
       <div id="import_preview" class="space-y-3 max-h-96 overflow-y-auto"></div>
       <div class="modal-action">
-        <button onclick="backToStep1()" class="btn btn-ghost">Voltar</button>
-        <button onclick="confirmImport()" class="btn btn-primary" id="btn_importar">Importar Selecionados</button>
+        <button onclick="backToStep1()" class="leads-action-btn" style="flex:0;padding:10px 20px;font-size:13px;background:#f3f4f6;color:#6b7280">Voltar</button>
+        <button onclick="confirmImport()" class="leads-action-btn leads-action-btn-convert" id="btn_importar" style="flex:0;padding:10px 24px;font-size:13px;font-weight:600">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Importar Selecionados
+        </button>
       </div>
     </div>
   </div>
@@ -160,7 +188,10 @@
       <option value="concorrencia">Concorrência</option>
     </select>
     <div class="modal-action">
-      <button onclick="confirmDesqualificar()" class="btn btn-error btn-sm">Confirmar</button>
+      <button onclick="confirmDesqualificar()" class="leads-action-btn leads-action-btn-disqualify" style="flex:0;padding:8px 20px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+        Confirmar
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -180,10 +211,24 @@
         <label class="label label-text text-xs font-semibold">Nome (contato)</label>
         <input id="edit_nome" class="input input-sm input-bordered w-full" placeholder="Nome do contato principal">
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-3 gap-3">
         <div>
-          <label class="label label-text text-xs font-semibold">Fonte</label>
-          <input id="edit_fonte" class="input input-sm input-bordered w-full" placeholder="Ex: site, indicação...">
+          <label class="label label-text text-xs font-semibold">Status</label>
+          <select id="edit_status" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="inbox">Inbox</option>
+            <option value="contato">Contato</option>
+            <option value="qualificado">Qualificado</option>
+            <option value="proposta">Proposta</option>
+            <option value="negociacao">Negociação</option>
+          </select>
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Potencial</label>
+          <select id="edit_potencial" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="alto">Alto</option>
+            <option value="medio">Médio</option>
+            <option value="baixo">Baixo</option>
+          </select>
         </div>
         <div>
           <label class="label label-text text-xs font-semibold">Tipo</label>
@@ -194,12 +239,27 @@
         </div>
       </div>
       <div>
-        <label class="label label-text text-xs font-semibold">URL do site</label>
-        <input id="edit_url_site" class="input input-sm input-bordered w-full" placeholder="https://...">
+        <label class="label label-text text-xs font-semibold">Responsável</label>
+        <select id="edit_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+          <option value="">Sem responsável</option>
+          {% for ex in executivos %}
+            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Fonte</label>
+          <input id="edit_fonte" class="input input-sm input-bordered w-full" placeholder="Ex: site, indicação...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Segmento</label>
+          <input id="edit_segmento" class="input input-sm input-bordered w-full" placeholder="Ex: Tecnologia, Saúde...">
+        </div>
       </div>
       <div>
-        <label class="label label-text text-xs font-semibold">Segmento</label>
-        <input id="edit_segmento" class="input input-sm input-bordered w-full" placeholder="Ex: Tecnologia, Saúde...">
+        <label class="label label-text text-xs font-semibold">URL do site</label>
+        <input id="edit_url_site" class="input input-sm input-bordered w-full" placeholder="https://...">
       </div>
       <div>
         <label class="label label-text text-xs font-semibold">Observações</label>
@@ -207,7 +267,10 @@
       </div>
     </div>
     <div class="modal-action">
-      <button onclick="saveEditLead()" class="btn btn-primary btn-sm">Salvar</button>
+      <button onclick="saveEditLead()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Salvar
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -226,7 +289,10 @@
       <input id="editc_email" class="input input-sm input-bordered w-full" placeholder="Email">
     </div>
     <div class="modal-action">
-      <button onclick="saveEditContato()" class="btn btn-primary btn-sm">Salvar</button>
+      <button onclick="saveEditContato()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Salvar
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -243,7 +309,7 @@
     <div id="links_site_section" class="hidden mt-4 pt-4" style="border-top:1px solid #e5e7eb">
       <div class="flex items-center justify-between mb-2">
         <span class="text-sm font-semibold text-gray-700">Links do Site do Lead</span>
-        <button onclick="extrairLinksDoSite()" class="btn btn-xs btn-primary" id="btn_extrair_links">
+        <button onclick="extrairLinksDoSite()" class="leads-action-btn leads-action-btn-incluir" id="btn_extrair_links" style="flex:0;padding:4px 12px;font-size:11px">
           <span class="loading loading-spinner loading-xs hidden" id="extrair_links_spinner"></span>
           Buscar links do site
         </button>
@@ -265,12 +331,24 @@
     <div class="flex items-center justify-between mt-3" style="font-size:12px;color:#9ca3af">
       <span id="modal_comm_word_count"></span>
       <div class="flex gap-2">
-        <button onclick="copyModalCommText()" class="btn btn-xs btn-ghost">Copiar</button>
-        <button onclick="openModalCommWA()" class="btn btn-xs btn-ghost" style="color:#25D366">Abrir WA</button>
-        <button onclick="openModalCommEmail()" class="btn btn-xs btn-ghost" style="color:#3b82f6">Abrir Email</button>
-        <button onclick="gerarComunicacao()" class="btn btn-xs btn-primary">Regenerar</button>
+        <button onclick="copyModalCommText()" class="leads-action-btn" style="flex:0;padding:5px 12px;background:#f3f4f6;color:#374151;font-size:11px">Copiar</button>
+        <button onclick="openModalCommWA()" class="leads-action-btn" style="flex:0;padding:5px 12px;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-size:11px">Abrir WA</button>
+        <button onclick="openModalCommEmail()" class="leads-action-btn" style="flex:0;padding:5px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:11px">Abrir Email</button>
+        <button onclick="gerarComunicacao()" class="leads-action-btn leads-action-btn-gerar" style="flex:0;padding:5px 12px;font-size:11px">Regenerar</button>
       </div>
     </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Mesclar Leads ===== -->
+<dialog id="modal_mesclar" class="modal">
+  <div class="modal-box w-96">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Mesclar com outro Lead</h3>
+    <p class="text-xs text-gray-500 mb-3">Os contatos e atividades do lead selecionado serão movidos para o lead atual. O lead selecionado será excluído.</p>
+    <input id="merge_search" class="input input-sm input-bordered w-full mb-3" placeholder="Buscar lead por nome..." oninput="searchMergeLeads()">
+    <div id="merge_results" class="space-y-1 max-h-60 overflow-y-auto"></div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>

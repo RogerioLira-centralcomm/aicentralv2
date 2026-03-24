@@ -286,9 +286,11 @@
                             <li><a href="{{ url_for('clientes') }}" class="{% if request.endpoint == 'clientes' %}active{% endif %}">Clientes</a></li>
                             <li><a href="{{ url_for('cotacoes_list') }}" class="{% if request.endpoint == 'cotacoes_list' %}active{% endif %}">Cotações</a></li>
                             <li><a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">Briefings</a></li>
+                            <li class="disabled" style="pointer-events:none"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0"><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"><span style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;white-space:nowrap">PI</span><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"></div></li>
                             <li><a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">PI Recebido</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">Em configuração</a></li>
                             {% if is_centralcomm_user %}
+                            <li class="disabled" style="pointer-events:none"><div style="padding:2px 0;margin:2px 0"><hr style="border:none;border-top:1px solid #e5e7eb"></div></li>
                             <li><a href="{{ url_for('sales_war_room.index') }}" class="{% if request.endpoint == 'sales_war_room.index' %}active{% endif %}">Sales War Room</a></li>
                             {% endif %}
                         </ul>
@@ -301,9 +303,11 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
+                            <li class="disabled" style="pointer-events:none"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0"><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"><span style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;white-space:nowrap">PI</span><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"></div></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">Em aprovação</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">Em andamento</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'operacao' %}active{% endif %}">Em faturamento</a></li>
+                            <li class="disabled" style="pointer-events:none"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0"><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"><span style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;white-space:nowrap">Campanhas</span><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"></div></li>
                             <li><a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">Dashboard</a></li>
                             <li><a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' and not request.args.get('view') %}active{% endif %}">Acompanhamento</a></li>
                             <li><a href="{{ url_for('campanhas_pi_lista', view='diarios') }}" class="{% if request.args.get('view') == 'diarios' %}active{% endif %}">Diários Geral</a></li>
@@ -448,6 +452,7 @@
                                             Briefings
                                         </a>
                                     </li>
+                                    <li class="disabled" style="pointer-events:none"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0"><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"><span style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;white-space:nowrap">PI</span><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"></div></li>
                                     <li>
                                         <a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">
                                             PI Recebido
@@ -459,6 +464,7 @@
                                         </a>
                                     </li>
                                     {% if is_centralcomm_user %}
+                                    <li class="disabled" style="pointer-events:none"><div style="padding:2px 0;margin:2px 0"><hr style="border:none;border-top:1px solid #e5e7eb"></div></li>
                                     <li>
                                         <a href="{{ url_for('sales_war_room.index') }}" class="{% if request.endpoint == 'sales_war_room.index' %}active{% endif %}">
                                             Sales War Room
@@ -474,6 +480,7 @@
                             <details {% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') in ['1','2','3','4'] or request.endpoint in ['campanhas_pi', 'campanhas_pi_lista'] %}open{% endif %}>
                                 <summary>Operação</summary>
                                 <ul>
+                                    <li class="disabled" style="pointer-events:none"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0"><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"><span style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;white-space:nowrap">PI</span><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"></div></li>
                                     <li>
                                         <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">
                                             Em aprovação
@@ -489,6 +496,7 @@
                                             Em faturamento
                                         </a>
                                     </li>
+                                    <li class="disabled" style="pointer-events:none"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;margin:2px 0"><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"><span style="font-size:10px;color:#9ca3af;font-weight:600;letter-spacing:0.05em;white-space:nowrap">Campanhas</span><hr style="flex:1;border:none;border-top:1px solid #e5e7eb"></div></li>
                                     <li>
                                         <a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">
                                             Dashboard
@@ -659,18 +667,7 @@
                 });
             });
 
-            // Subitems: navigate on hover (like click)
-            document.querySelectorAll('.nav-dd-menu a[href], a.nav-item[href]').forEach(function(link) {
-                var navTimer;
-                link.addEventListener('mouseenter', function() {
-                    navTimer = setTimeout(function() {
-                        window.location.href = link.href;
-                    }, 400);
-                });
-                link.addEventListener('mouseleave', function() {
-                    clearTimeout(navTimer);
-                });
-            });
+            // Subitems: prevent default focus/blur interference, navigate on click (natural <a> behavior)
 
             document.addEventListener('click', function(e) {
                 if (!e.target.closest('.nav-dd')) {

@@ -7927,7 +7927,8 @@ def obter_cadu_pi_por_id(id_pi):
                     ssp.display as sub_status_descricao,
                     rc.nome_completo as resp_comercial_nome,
                     rc.email as resp_comercial_email,
-                    (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links
+                    (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links,
+                    (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
@@ -10452,6 +10453,17 @@ def atualizar_lead_dados(lead_id, dados):
         ]
         sets = []
         params = []
+
+        if 'id_executivo' in dados:
+            val = dados['id_executivo']
+            if val == 0 or val == '0' or val is None:
+                sets.append('id_executivo = NULL')
+                sets.append('atribuido_em = NULL')
+            else:
+                sets.append('id_executivo = %s')
+                params.append(val)
+                sets.append('atribuido_em = CURRENT_TIMESTAMP')
+
         for field in allowed_fields:
             if field in dados:
                 sets.append(f'{field} = %s')
@@ -10468,6 +10480,38 @@ def atualizar_lead_dados(lead_id, dados):
             )
             conn.commit()
             return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def mesclar_leads(lead_principal_id, lead_secundario_id):
+    """Mescla dois leads: move contatos, atividades e links do secundário para o principal, depois exclui o secundário."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'UPDATE cadu_lead_contatos SET id_lead = %s, principal = FALSE WHERE id_lead = %s',
+                (lead_principal_id, lead_secundario_id)
+            )
+            cursor.execute(
+                'UPDATE cadu_lead_atividades SET id_lead = %s WHERE id_lead = %s',
+                (lead_principal_id, lead_secundario_id)
+            )
+            cursor.execute(
+                'DELETE FROM cadu_lead_links_uteis WHERE id_lead = %s',
+                (lead_secundario_id,)
+            )
+            cursor.execute(
+                'DELETE FROM cadu_leads WHERE id = %s',
+                (lead_secundario_id,)
+            )
+            cursor.execute(
+                'UPDATE cadu_leads SET updated_at = CURRENT_TIMESTAMP WHERE id = %s',
+                (lead_principal_id,)
+            )
+            conn.commit()
+            return True
     except Exception as e:
         conn.rollback()
         raise e
@@ -10748,7 +10792,7 @@ def obter_links_uteis():
         raise
 
 
-def importar_leads_batch(leads_data, id_executivo, tipo_lead):
+def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual'):
     """Importação em massa: cria leads + contatos + atividade de importação.
     Retorna lista de IDs criados."""
     conn = get_db()
@@ -10775,7 +10819,7 @@ def importar_leads_batch(leads_data, id_executivo, tipo_lead):
                     principal.get('email'),
                     principal.get('telefone'),
                     principal.get('cargo'),
-                    'manual',
+                    fonte or 'manual',
                     'inbox',
                     id_executivo,
                     tipo_lead,

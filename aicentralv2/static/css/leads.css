@@ -21,7 +21,7 @@
 
 .leads-grid {
     display: grid;
-    grid-template-columns: minmax(200px, 280px) 1fr 1.1fr 1.1fr 1fr;
+    grid-template-columns: minmax(180px, 250px) minmax(200px, 1fr) minmax(180px, 1fr) minmax(200px, 1fr) minmax(200px, 1.2fr);
     gap: 1px;
     flex: 1;
     min-height: 0;
@@ -278,6 +278,96 @@
     opacity: 1;
 }
 
+.contact-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.contact-field-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0 3px 22px;
+    font-size: 11px;
+    border-radius: 4px;
+    transition: background 0.1s;
+}
+
+.contact-field-row:hover {
+    background: #f3f4f6;
+}
+
+.contact-field-value {
+    color: #374151;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.contact-field-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.contact-field-row:hover .contact-field-actions {
+    opacity: 1;
+}
+
+.contact-copy-btn {
+    color: #9ca3af;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    position: relative;
+    transition: background 0.1s, color 0.1s;
+}
+
+.contact-copy-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.contact-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    transition: background 0.1s;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.contact-action-email {
+    color: #3b82f6;
+}
+
+.contact-action-email:hover {
+    background: #eff6ff;
+}
+
+.contact-action-wa {
+    color: #25D366;
+}
+
+.contact-action-wa:hover {
+    background: #f0fdf4;
+}
+
 /* Communication preview card */
 .comm-preview {
     background: #f0fdf4;
@@ -377,6 +467,13 @@
 
 .social-icon-link:hover { background: #e5e7eb; }
 
+/* Col 2 inner content overflow control */
+#col_status > div {
+    overflow: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 /* Status row for Col 2 */
 .status-row {
     display: flex;
@@ -392,6 +489,28 @@
     text-transform: uppercase;
     min-width: 70px;
     flex-shrink: 0;
+}
+
+/* Auto-suggestion card */
+.ativ-sugestao {
+    background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ativ-sugestao:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.15);
+}
+
+/* Overdue activity highlight */
+.ativ-card-overdue {
+    border-left-color: #ef4444;
+    background: #fef2f2;
 }
 
 /* Concluidas toggle */
@@ -413,6 +532,11 @@
 #extrair_resultado {
     overflow-wrap: break-word;
     word-break: break-word;
+}
+
+/* Comm template groups */
+.comm-group {
+    padding-bottom: 4px;
 }
 
 /* Comm template buttons */
@@ -473,9 +597,121 @@
     }
 }
 
+/* ===== Leads action buttons ===== */
+.leads-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.leads-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.leads-action-btn:active {
+    transform: translateY(0);
+}
+
+.leads-action-btn-convert {
+    background: #22c55e;
+    color: #ffffff;
+}
+
+.leads-action-btn-convert:hover {
+    background: #16a34a;
+}
+
+.leads-action-btn-disqualify {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.leads-action-btn-disqualify:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.leads-action-btn-merge {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.leads-action-btn-merge:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+.leads-action-btn-nova {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.leads-action-btn-nova:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+.leads-action-btn-incluir {
+    background: #2563eb;
+    color: #ffffff;
+    padding: 5px 14px;
+    min-width: 70px;
+    flex: 0;
+}
+
+.leads-action-btn-incluir:hover {
+    background: #1d4ed8;
+}
+
+.leads-action-btn-gerar {
+    background: #7c3aed;
+    color: #ffffff;
+    padding: 7px 14px;
+    width: 100%;
+    font-weight: 600;
+}
+
+.leads-action-btn-gerar:hover {
+    background: #6d28d9;
+}
+
+.leads-action-btn-extrair {
+    background: #2563eb;
+    color: #ffffff;
+    padding: 7px 14px;
+    width: 100%;
+}
+
+.leads-action-btn-extrair:hover {
+    background: #1d4ed8;
+}
+
 /* 1366px compat */
 @media (max-width: 1400px) {
     .leads-grid {
-        grid-template-columns: minmax(180px, 250px) 1fr 1fr 1fr 1fr;
+        grid-template-columns: minmax(160px, 220px) 1fr 1fr 1fr 1fr;
     }
 }

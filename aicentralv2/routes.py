@@ -10693,21 +10693,25 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/leads')
     @login_required
     def api_leads_list():
-        """JSON: leads filtrados para coluna 1 (cards)"""
+        """JSON: leads filtrados para sidebar (cards)"""
         try:
             id_executivo = request.args.get('id_executivo', type=int)
             potencial = request.args.get('potencial') or None
             search = request.args.get('search') or None
             status = request.args.get('status') or None
+            fonte = request.args.get('fonte') or None
+            tipo_lead = request.args.get('tipo_lead') or None
+            canal = request.args.get('canal') or None
             sem_responsavel = request.args.get('sem_responsavel', '0') == '1'
-            id_lista = request.args.get('id_lista', type=int)
             leads = db.obter_leads_dashboard(
                 id_executivo=id_executivo,
                 potencial=potencial,
                 search=search,
                 status=status,
                 sem_responsavel=sem_responsavel,
-                id_lista=id_lista,
+                fonte=fonte,
+                tipo_lead=tipo_lead,
+                canal=canal,
             )
             result = []
             for l in leads:
@@ -11375,138 +11379,157 @@ REGRAS DE ESTILO:
             app.logger.error(f"Erro api_ia_gerar_comunicacao: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    # --- Listas de Leads (pastas) ---
+    # --- Leads: Kanban, Relatório, Novo Lead ---
 
-    @app.route('/api/leads/listas')
+    @app.route('/api/leads/novo', methods=['POST'])
     @login_required
-    def api_lead_listas_list():
-        """Lista todas as listas de leads"""
+    def api_lead_criar():
+        """Cria um novo lead individual"""
         try:
-            listas = db.obter_lead_listas()
+            data = request.get_json(force=True)
+            nome = (data.get('nome') or '').strip()
+            email = (data.get('email') or '').strip()
+            if not nome:
+                return jsonify({'success': False, 'message': 'Nome é obrigatório'}), 400
+            dados = {
+                'nome': nome,
+                'email': email,
+                'telefone': (data.get('telefone') or '').strip() or None,
+                'empresa': (data.get('empresa') or '').strip() or None,
+                'cargo': (data.get('cargo') or '').strip() or None,
+                'mensagem': (data.get('mensagem') or '').strip() or None,
+                'origem': (data.get('origem') or '').strip() or None,
+                'canal': (data.get('canal') or '').strip() or None,
+                'interesse': (data.get('interesse') or '').strip() or None,
+                'fonte': data.get('fonte', 'manual'),
+                'status': data.get('status', 'inbox'),
+                'potencial': data.get('potencial', 'medio'),
+                'tipo_lead': data.get('tipo_lead', 'cliente'),
+                'valor_estimado': data.get('valor_estimado') or None,
+                'id_executivo': data.get('id_executivo') or None,
+                'url_site': (data.get('url_site') or '').strip() or None,
+                'segmento': (data.get('segmento') or '').strip() or None,
+                'notas_internas': (data.get('notas_internas') or '').strip() or None,
+                'id_usuario': session.get('user_id'),
+                'usuario_nome': session.get('user_name', ''),
+            }
+            lead_id = db.criar_lead(dados)
+            return jsonify({'success': True, 'id': lead_id})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_criar: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/kanban')
+    @login_required
+    def api_leads_kanban():
+        """JSON: leads para board Kanban, agrupados por status"""
+        try:
+            id_executivo = request.args.get('id_executivo', type=int)
+            leads = db.obter_leads_kanban(id_executivo=id_executivo)
             result = []
-            for l in listas:
+            for l in leads:
                 d = dict(l)
                 for k, v in d.items():
                     if isinstance(v, datetime):
                         d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                    elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
+                        d[k] = float(v)
                 result.append(d)
-            return jsonify({'success': True, 'listas': result})
+            return jsonify({'success': True, 'leads': result})
         except Exception as e:
-            app.logger.error(f"Erro api_lead_listas_list: {e}")
+            app.logger.error(f"Erro api_leads_kanban: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/leads/listas', methods=['POST'])
+    @app.route('/api/leads/<int:lead_id>/kanban-move', methods=['PATCH'])
     @login_required
-    def api_lead_lista_criar():
-        """Cria nova lista de leads"""
+    def api_lead_kanban_move(lead_id):
+        """Move lead para novo status (drag-and-drop Kanban)"""
         try:
             data = request.get_json(force=True)
-            nome = data.get('nome', '').strip()
-            if not nome:
-                return jsonify({'success': False, 'message': 'Nome obrigatório'}), 400
-            dados = {
-                'nome': nome,
-                'descricao': data.get('descricao', '').strip() or None,
-                'cor': data.get('cor', '#6366f1'),
-                'created_by': session.get('user_id'),
-            }
-            lista_id = db.criar_lead_lista(dados)
-            return jsonify({'success': True, 'id': lista_id})
-        except Exception as e:
-            app.logger.error(f"Erro api_lead_lista_criar: {e}")
-            return jsonify({'success': False, 'message': str(e)}), 500
-
-    @app.route('/api/leads/listas/<int:lista_id>', methods=['PATCH'])
-    @login_required
-    def api_lead_lista_atualizar(lista_id):
-        """Atualiza uma lista de leads"""
-        try:
-            data = request.get_json(force=True)
-            dados = {}
-            if 'nome' in data:
-                dados['nome'] = data['nome'].strip()
-            if 'descricao' in data:
-                dados['descricao'] = data['descricao'].strip() or None
-            if 'cor' in data:
-                dados['cor'] = data['cor']
-            ok = db.atualizar_lead_lista(lista_id, dados)
+            new_status = data.get('status')
+            valid = ('inbox','contato','qualificado','nao_qualificado','proposta','negociacao','fechado_ganho','fechado_perdido')
+            if new_status not in valid:
+                return jsonify({'success': False, 'message': 'Status inválido'}), 400
+            ok = db.atualizar_lead_status(lead_id, status=new_status)
             return jsonify({'success': ok})
         except Exception as e:
-            app.logger.error(f"Erro api_lead_lista_atualizar {lista_id}: {e}")
+            app.logger.error(f"Erro api_lead_kanban_move {lead_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/leads/listas/<int:lista_id>', methods=['DELETE'])
+    @app.route('/api/leads/relatorio-executivo')
     @login_required
-    def api_lead_lista_excluir(lista_id):
-        """Exclui uma lista de leads"""
+    def api_leads_relatorio_executivo():
+        """Relatório de métricas por executivo (pipeline + atividades)"""
         try:
-            ok = db.excluir_lead_lista(lista_id)
-            return jsonify({'success': ok})
+            ano = request.args.get('ano', type=int)
+            mes = request.args.get('mes', type=int)
+            id_executivo = request.args.get('id_executivo', type=int)
+
+            pipeline = db.obter_executivo_mensal(ano=ano, mes=mes, id_executivo=id_executivo)
+            atividades = db.obter_executivo_atividades_mensal(ano=ano, mes=mes, id_executivo=id_executivo)
+
+            def serialize(rows):
+                result = []
+                for r in rows:
+                    d = dict(r)
+                    for k, v in d.items():
+                        if isinstance(v, datetime):
+                            d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                        elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
+                            d[k] = float(v)
+                    result.append(d)
+                return result
+
+            return jsonify({
+                'success': True,
+                'pipeline': serialize(pipeline),
+                'atividades': serialize(atividades),
+            })
         except Exception as e:
-            app.logger.error(f"Erro api_lead_lista_excluir {lista_id}: {e}")
+            app.logger.error(f"Erro api_leads_relatorio_executivo: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/leads/listas/<int:lista_id>/membros')
+    @app.route('/api/leads/engajamento')
     @login_required
-    def api_lead_lista_membros(lista_id):
-        """Lista membros de uma lista"""
+    def api_leads_engajamento():
+        """Dados de engajamento por lead"""
         try:
-            membros = db.obter_membros_lista(lista_id)
+            id_executivo = request.args.get('id_executivo', type=int)
+            leads = db.obter_leads_engajamento(id_executivo=id_executivo)
             result = []
-            for m in membros:
+            for l in leads:
+                d = dict(l)
+                for k, v in d.items():
+                    if isinstance(v, datetime):
+                        d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                    elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
+                        d[k] = float(v)
+                result.append(d)
+            return jsonify({'success': True, 'leads': result})
+        except Exception as e:
+            app.logger.error(f"Erro api_leads_engajamento: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/metricas-geral')
+    @login_required
+    def api_leads_metricas_geral():
+        """Métricas gerais por origem/canal"""
+        try:
+            ano = request.args.get('ano', type=int)
+            mes = request.args.get('mes', type=int)
+            metricas = db.obter_leads_metricas(ano=ano, mes=mes)
+            result = []
+            for m in metricas:
                 d = dict(m)
                 for k, v in d.items():
                     if isinstance(v, datetime):
                         d[k] = v.strftime('%Y-%m-%dT%H:%M')
+                    elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
+                        d[k] = float(v)
                 result.append(d)
-            return jsonify({'success': True, 'membros': result})
+            return jsonify({'success': True, 'metricas': result})
         except Exception as e:
-            app.logger.error(f"Erro api_lead_lista_membros {lista_id}: {e}")
-            return jsonify({'success': False, 'message': str(e)}), 500
-
-    @app.route('/api/leads/listas/<int:lista_id>/membros', methods=['POST'])
-    @login_required
-    def api_lead_lista_adicionar_membros(lista_id):
-        """Adiciona lead(s) a uma lista"""
-        try:
-            data = request.get_json(force=True)
-            lead_ids = data.get('lead_ids', [])
-            lead_id = data.get('lead_id')
-            user_id = session.get('user_id')
-            if lead_id:
-                lead_ids = [lead_id]
-            if not lead_ids:
-                return jsonify({'success': False, 'message': 'lead_id ou lead_ids obrigatório'}), 400
-            if len(lead_ids) == 1:
-                db.adicionar_lead_a_lista(lista_id, lead_ids[0], user_id)
-            else:
-                db.adicionar_leads_batch_a_lista(lista_id, lead_ids, user_id)
-            return jsonify({'success': True})
-        except Exception as e:
-            app.logger.error(f"Erro api_lead_lista_adicionar_membros {lista_id}: {e}")
-            return jsonify({'success': False, 'message': str(e)}), 500
-
-    @app.route('/api/leads/listas/<int:lista_id>/membros/<int:lead_id>', methods=['DELETE'])
-    @login_required
-    def api_lead_lista_remover_membro(lista_id, lead_id):
-        """Remove lead de uma lista"""
-        try:
-            ok = db.remover_lead_de_lista(lista_id, lead_id)
-            return jsonify({'success': ok})
-        except Exception as e:
-            app.logger.error(f"Erro api_lead_lista_remover_membro {lista_id}/{lead_id}: {e}")
-            return jsonify({'success': False, 'message': str(e)}), 500
-
-    @app.route('/api/leads/<int:lead_id>/listas')
-    @login_required
-    def api_lead_listas_do_lead(lead_id):
-        """Listas a que um lead pertence"""
-        try:
-            listas = db.obter_listas_do_lead(lead_id)
-            result = [dict(l) for l in listas]
-            return jsonify({'success': True, 'listas': result})
-        except Exception as e:
-            app.logger.error(f"Erro api_lead_listas_do_lead {lead_id}: {e}")
+            app.logger.error(f"Erro api_leads_metricas_geral: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     # ==================== UP AUDIÊNCIA ====================

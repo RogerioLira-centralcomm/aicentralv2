@@ -11,63 +11,82 @@
 
   <!-- ===== Top Bar ===== -->
   <div class="leads-topbar">
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 flex-wrap">
       <h1 class="text-lg font-semibold text-gray-800">Leads</h1>
-      <button onclick="openImportModal()"
-              style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;font-size:13px;font-weight:600;background:#2563eb;color:#ffffff;border:none;border-radius:8px;cursor:pointer">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
-        Incluir Leads
+
+      <button onclick="openNewLeadModal()"
+              style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:600;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>
+        Novo Lead
       </button>
+
+      <button onclick="openImportModal()"
+              style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:500;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Importar
+      </button>
+
       <button onclick="openLinksModal()"
-              style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:500;background:#ffffff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
+              style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:500;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
         Links
       </button>
+
+      <button onclick="openRelatorioExecutivo()"
+              style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:500;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Relatório
+      </button>
     </div>
-    <div class="flex items-center gap-2">
-      <label class="text-sm text-gray-500 font-medium">Executivo:</label>
-      <select id="filtro_executivo" onchange="onExecutivoChange()"
-              class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 220px;">
-        <option value="">Todos (Inbox)</option>
-        {% for ex in executivos %}
-          <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
-        {% endfor %}
-        <option value="0">Sem executivo</option>
-      </select>
+
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" id="btn_view_list" onclick="toggleView('list')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Lista
+        </button>
+        <button class="view-toggle-btn" id="btn_view_kanban" onclick="toggleView('kanban')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/></svg>
+          Kanban
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 font-medium">Executivo:</label>
+        <select id="filtro_executivo" onchange="onExecutivoChange()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 200px;">
+          <option value="">Todos (Inbox)</option>
+          {% for ex in executivos %}
+            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+          {% endfor %}
+          <option value="0">Sem executivo</option>
+        </select>
+      </div>
     </div>
   </div>
 
-  <!-- ===== 5 Columns ===== -->
-  <div class="leads-grid">
+  <!-- ===== View: Lista (sidebar + detail) ===== -->
+  <div id="view_list" class="leads-grid" style="flex:1;min-height:0">
 
-    <!-- Col 1: Inbox / Listagem -->
+    <!-- Col 1: Sidebar / Listagem -->
     <div class="leads-col">
       <div class="leads-col-header">
-        <span>Inbox</span>
+        <span>Leads</span>
         <span id="leads_count" class="badge badge-ghost badge-sm">0</span>
-      </div>
-
-      <!-- Listas (pastas) -->
-      <div class="listas-sidebar-wrapper">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 2px;margin-bottom:4px">
-          <span style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:600;letter-spacing:0.5px">Listas</span>
-          <span onclick="openCreateListaModal()" style="cursor:pointer;font-size:14px;color:#6366f1;line-height:1" title="Nova lista">+</span>
-        </div>
-        <div id="listas_sidebar"></div>
       </div>
 
       <div class="leads-col-toolbar">
         <input type="text" id="search_leads" placeholder="Buscar..."
                class="input input-xs input-bordered w-full" oninput="debounceSearch()">
         <select id="filtro_potencial" onchange="loadLeads()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 80px;">
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 75px;">
           <option value="">Potencial</option>
           <option value="alto">Alto</option>
           <option value="medio">Médio</option>
           <option value="baixo">Baixo</option>
         </select>
         <select id="filtro_status" onchange="loadLeads()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 80px;">
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 75px;">
           <option value="">Status</option>
           <option value="inbox">Inbox</option>
           <option value="contato">Contato</option>
@@ -75,88 +94,239 @@
           <option value="proposta">Proposta</option>
           <option value="negociacao">Negociação</option>
         </select>
+        <select id="filtro_fonte" onchange="loadLeads()"
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 70px;">
+          <option value="">Fonte</option>
+          <option value="site">Site</option>
+          <option value="manual">Manual</option>
+          <option value="import">Import</option>
+          <option value="indicacao">Indicação</option>
+          <option value="evento">Evento</option>
+        </select>
       </div>
       <div id="leads_cards" class="leads-col-scroll">
         <div class="leads-empty">Carregando...</div>
       </div>
     </div>
 
-    <!-- Col 2: Dados do Lead -->
+    <!-- Col 2: Detail with Tabs -->
     <div class="leads-col">
-      <div class="leads-col-header">Dados do Lead</div>
-      <div id="col_status" class="leads-col-scroll">
+      <div class="lead-tabs" id="lead_tabs" style="display:none">
+        <button class="lead-tab lead-tab-active" data-tab="dados" onclick="switchTab('dados')">Dados</button>
+        <button class="lead-tab" data-tab="contatos" onclick="switchTab('contatos')">Contatos</button>
+        <button class="lead-tab" data-tab="atividades" onclick="switchTab('atividades')">Atividades</button>
+        <button class="lead-tab" data-tab="extracao" onclick="switchTab('extracao')">Extração</button>
+        <button class="lead-tab" data-tab="comunicacao" onclick="switchTab('comunicacao')">Comunicação IA</button>
+      </div>
+      <div id="lead_detail_area" class="leads-col-scroll">
         <div class="leads-empty">Selecione um lead</div>
       </div>
+      <div id="tab_dados" class="lead-tab-content" style="display:none"></div>
+      <div id="tab_contatos" class="lead-tab-content" style="display:none"></div>
+      <div id="tab_atividades" class="lead-tab-content" style="display:none"></div>
+      <div id="tab_extracao" class="lead-tab-content" style="display:none"></div>
+      <div id="tab_comunicacao" class="lead-tab-content" style="display:none"></div>
     </div>
-
-    <!-- Col 3: Ações -->
-    <div class="leads-col">
-      <div class="leads-col-header">Ações</div>
-      <div id="col_atividades" class="leads-col-scroll">
-        <div class="leads-empty">Selecione um lead</div>
-      </div>
-    </div>
-
-    <!-- Col 4: Extrair Informações -->
-    <div class="leads-col leads-col-extrair">
-      <div class="leads-col-header">Extrair Informações</div>
-      <div id="col_extrair" class="leads-col-scroll">
-        <div class="leads-empty">Selecione um lead</div>
-      </div>
-    </div>
-
-    <!-- Col 5: Comunicação IA -->
-    <div class="leads-col">
-      <div class="leads-col-header">Comunicação IA</div>
-      <div id="col_comunicacao" class="leads-col-scroll">
-        <div class="leads-empty">Selecione um lead</div>
-      </div>
-    </div>
-
   </div>
+
+  <!-- ===== View: Kanban ===== -->
+  <div id="view_kanban" class="kanban-board" style="display:none">
+    <div class="kanban-column" data-status="inbox">
+      <div class="kanban-column-header">
+        <span style="color:#4b5563">Inbox</span>
+        <span class="kanban-column-count" data-count="inbox">0</span>
+      </div>
+      <div class="kanban-column-scroll" data-drop="inbox"></div>
+    </div>
+    <div class="kanban-column" data-status="contato">
+      <div class="kanban-column-header">
+        <span style="color:#1d4ed8">Contato</span>
+        <span class="kanban-column-count" data-count="contato">0</span>
+      </div>
+      <div class="kanban-column-scroll" data-drop="contato"></div>
+    </div>
+    <div class="kanban-column" data-status="qualificado">
+      <div class="kanban-column-header">
+        <span style="color:#15803d">Qualificado</span>
+        <span class="kanban-column-count" data-count="qualificado">0</span>
+      </div>
+      <div class="kanban-column-scroll" data-drop="qualificado"></div>
+    </div>
+    <div class="kanban-column" data-status="proposta">
+      <div class="kanban-column-header">
+        <span style="color:#a16207">Proposta</span>
+        <span class="kanban-column-count" data-count="proposta">0</span>
+      </div>
+      <div class="kanban-column-scroll" data-drop="proposta"></div>
+    </div>
+    <div class="kanban-column" data-status="negociacao">
+      <div class="kanban-column-header">
+        <span style="color:#c2410c">Negociação</span>
+        <span class="kanban-column-count" data-count="negociacao">0</span>
+      </div>
+      <div class="kanban-column-scroll" data-drop="negociacao"></div>
+    </div>
+    <div class="kanban-column" data-status="fechado_ganho">
+      <div class="kanban-column-header">
+        <span style="color:#065f46">Fechado ✓</span>
+        <span class="kanban-column-count" data-count="fechado_ganho">0</span>
+      </div>
+      <div class="kanban-column-scroll" data-drop="fechado_ganho"></div>
+    </div>
+  </div>
+
 </div>
+
+<!-- ===== Modal Novo Lead ===== -->
+<dialog id="modal_novo_lead" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-4">Novo Lead</h3>
+    <div class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Nome *</label>
+          <input id="new_nome" class="input input-sm input-bordered w-full" placeholder="Nome do contato">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Email</label>
+          <input id="new_email" class="input input-sm input-bordered w-full" placeholder="email@empresa.com" type="email">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Telefone</label>
+          <input id="new_telefone" class="input input-sm input-bordered w-full" placeholder="(00) 00000-0000" oninput="applyPhoneMask(this)">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Empresa</label>
+          <input id="new_empresa" class="input input-sm input-bordered w-full" placeholder="Nome da empresa">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Cargo</label>
+          <input id="new_cargo" class="input input-sm input-bordered w-full" placeholder="Ex: Diretor, CEO...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">URL do Site</label>
+          <input id="new_url_site" class="input input-sm input-bordered w-full" placeholder="https://...">
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Fonte</label>
+          <select id="new_fonte" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="manual">Manual</option>
+            <option value="site">Site</option>
+            <option value="indicacao">Indicação</option>
+            <option value="evento">Evento</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Potencial</label>
+          <select id="new_potencial" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="alto">Alto</option>
+            <option value="medio" selected>Médio</option>
+            <option value="baixo">Baixo</option>
+          </select>
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Tipo</label>
+          <select id="new_tipo_lead" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="cliente">Cliente</option>
+            <option value="parceiro">Parceiro</option>
+            <option value="fornecedor">Fornecedor</option>
+            <option value="midia">Mídia</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Origem</label>
+          <input id="new_origem" class="input input-sm input-bordered w-full" placeholder="Ex: lp-netflix, contato...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Canal</label>
+          <input id="new_canal" class="input input-sm input-bordered w-full" placeholder="Ex: Google, LinkedIn...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Interesse</label>
+          <input id="new_interesse" class="input input-sm input-bordered w-full" placeholder="Ex: Mídia digital...">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Segmento</label>
+          <input id="new_segmento" class="input input-sm input-bordered w-full" placeholder="Ex: Tecnologia, Saúde...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Valor Estimado (R$)</label>
+          <input id="new_valor_estimado" class="input input-sm input-bordered w-full" type="number" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Responsável</label>
+        <select id="new_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+          <option value="">Sem responsável (Inbox)</option>
+          {% for ex in executivos %}
+            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Observações internas</label>
+        <textarea id="new_notas_internas" class="textarea textarea-sm textarea-bordered w-full" rows="2" placeholder="Notas internas..."></textarea>
+      </div>
+    </div>
+    <div class="modal-action">
+      <button onclick="saveNewLead()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Salvar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 
 <!-- ===== Modal Importação ===== -->
 <dialog id="modal_importar" class="modal">
   <div class="modal-box w-11/12 max-w-4xl">
     <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-lg mb-4">Incluir Leads em Massa</h3>
-
-    <!-- Step 1: Input -->
     <div id="import_step1">
-      <div class="grid grid-cols-2 gap-3 mb-3">
+      <div class="grid grid-cols-3 gap-3 mb-3">
         <div>
           <label class="label label-text text-xs font-semibold">Tipo do Lead</label>
-          <div class="flex gap-4">
-            <label class="label cursor-pointer gap-2">
-              <input type="radio" name="tipo_lead_import" value="cliente" class="radio radio-sm radio-primary" checked>
-              <span class="label-text">Cliente</span>
-            </label>
-            <label class="label cursor-pointer gap-2">
-              <input type="radio" name="tipo_lead_import" value="agencia" class="radio radio-sm radio-primary">
-              <span class="label-text">Agência</span>
-            </label>
-          </div>
+          <select id="import_tipo" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="cliente">Cliente</option>
+            <option value="parceiro">Parceiro</option>
+            <option value="fornecedor">Fornecedor</option>
+            <option value="midia">Mídia</option>
+            <option value="outro">Outro</option>
+          </select>
         </div>
         <div>
           <label class="label label-text text-xs font-semibold">Fonte</label>
-          <select id="import_fonte" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full focus:outline-none focus:border-gray-400">
+          <select id="import_fonte" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
             <option value="manual">Manual</option>
+            <option value="import">Import</option>
             <option value="site">Site</option>
-            <option value="whatsapp">WhatsApp</option>
             <option value="indicacao">Indicação</option>
             <option value="evento">Evento</option>
           </select>
         </div>
-      </div>
-      <div class="mb-3">
-        <label class="label label-text text-xs font-semibold">Responsável</label>
-        <select id="import_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full focus:outline-none focus:border-gray-400">
-          <option value="">Sem responsável (Inbox)</option>
-          {% for ex in executivos %}
-            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
-          {% endfor %}
-        </select>
+        <div>
+          <label class="label label-text text-xs font-semibold">Responsável</label>
+          <select id="import_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="">Sem responsável (Inbox)</option>
+            {% for ex in executivos %}
+              <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <textarea id="import_texto" rows="10" placeholder="Cole aqui os dados dos leads...&#10;&#10;Exemplo:&#10;Agência ABC&#10;João Silva, Diretor, (11) 99999-1234, joao@agencia.com&#10;Maria Santos, Mídia, 11988887777, maria@agencia.com&#10;&#10;Empresa XYZ&#10;Pedro Costa - pedro@xyz.com - CEO"
                 class="textarea textarea-bordered w-full text-sm font-mono"></textarea>
@@ -169,14 +339,11 @@
         </button>
       </div>
     </div>
-
-    <!-- Step 2: Review -->
     <div id="import_step2" class="hidden">
       <div id="import_preview" class="space-y-3 max-h-96 overflow-y-auto"></div>
       <div class="modal-action" style="justify-content:flex-end">
         <button onclick="backToStep1()" class="leads-action-btn" style="flex:0;padding:10px 20px;font-size:13px;background:#f3f4f6;color:#374151">Voltar</button>
         <button onclick="confirmImport()" class="leads-action-btn leads-action-btn-incluir" id="btn_importar" style="flex:0;padding:10px 24px;font-size:13px;font-weight:600">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Importar Selecionados
         </button>
       </div>
@@ -202,7 +369,6 @@
     </select>
     <div class="modal-action">
       <button onclick="confirmDesqualificar()" class="leads-action-btn leads-action-btn-disqualify" style="flex:0;padding:8px 20px;font-size:12px;font-weight:600">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
         Confirmar
       </button>
     </div>
@@ -212,17 +378,19 @@
 
 <!-- ===== Modal Editar Lead ===== -->
 <dialog id="modal_editar_lead" class="modal">
-  <div class="modal-box w-11/12 max-w-lg">
+  <div class="modal-box w-11/12 max-w-2xl">
     <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
     <h3 class="font-bold text-lg mb-4">Editar Lead</h3>
     <div class="space-y-3">
-      <div>
-        <label class="label label-text text-xs font-semibold">Empresa</label>
-        <input id="edit_empresa" class="input input-sm input-bordered w-full" placeholder="Nome da empresa">
-      </div>
-      <div>
-        <label class="label label-text text-xs font-semibold">Nome (contato)</label>
-        <input id="edit_nome" class="input input-sm input-bordered w-full" placeholder="Nome do contato principal">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Empresa</label>
+          <input id="edit_empresa" class="input input-sm input-bordered w-full" placeholder="Nome da empresa">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Nome (contato)</label>
+          <input id="edit_nome" class="input input-sm input-bordered w-full" placeholder="Nome do contato principal">
+        </div>
       </div>
       <div class="grid grid-cols-3 gap-3">
         <div>
@@ -233,6 +401,8 @@
             <option value="qualificado">Qualificado</option>
             <option value="proposta">Proposta</option>
             <option value="negociacao">Negociação</option>
+            <option value="fechado_ganho">Fechado (Ganho)</option>
+            <option value="fechado_perdido">Fechado (Perdido)</option>
           </select>
         </div>
         <div>
@@ -247,36 +417,95 @@
           <label class="label label-text text-xs font-semibold">Tipo</label>
           <select id="edit_tipo_lead" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
             <option value="cliente">Cliente</option>
-            <option value="agencia">Agência</option>
+            <option value="parceiro">Parceiro</option>
+            <option value="fornecedor">Fornecedor</option>
+            <option value="midia">Mídia</option>
+            <option value="outro">Outro</option>
           </select>
         </div>
-      </div>
-      <div>
-        <label class="label label-text text-xs font-semibold">Responsável</label>
-        <select id="edit_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
-          <option value="">Sem responsável</option>
-          {% for ex in executivos %}
-            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
-          {% endfor %}
-        </select>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="label label-text text-xs font-semibold">Fonte</label>
-          <input id="edit_fonte" class="input input-sm input-bordered w-full" placeholder="Ex: site, indicação...">
+          <select id="edit_fonte" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="manual">Manual</option>
+            <option value="site">Site</option>
+            <option value="import">Import</option>
+            <option value="indicacao">Indicação</option>
+            <option value="evento">Evento</option>
+            <option value="outro">Outro</option>
+          </select>
         </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Responsável</label>
+          <select id="edit_responsavel" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="">Sem responsável</option>
+            {% for ex in executivos %}
+              <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Origem</label>
+          <input id="edit_origem" class="input input-sm input-bordered w-full" placeholder="Ex: lp-netflix...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Canal</label>
+          <input id="edit_canal" class="input input-sm input-bordered w-full" placeholder="Ex: Google...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Interesse</label>
+          <input id="edit_interesse" class="input input-sm input-bordered w-full" placeholder="Ex: Mídia...">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="label label-text text-xs font-semibold">Segmento</label>
           <input id="edit_segmento" class="input input-sm input-bordered w-full" placeholder="Ex: Tecnologia, Saúde...">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Porte Estimado</label>
+          <select id="edit_porte_estimado" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
+            <option value="">Não definido</option>
+            <option value="micro">Micro</option>
+            <option value="pequeno">Pequeno</option>
+            <option value="medio">Médio</option>
+            <option value="grande">Grande</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
         </div>
       </div>
       <div>
         <label class="label label-text text-xs font-semibold">URL do site</label>
         <input id="edit_url_site" class="input input-sm input-bordered w-full" placeholder="https://...">
       </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-text text-xs font-semibold">Valor Estimado (R$)</label>
+          <input id="edit_valor_estimado" class="input input-sm input-bordered w-full" type="number" step="0.01" placeholder="0,00">
+        </div>
+        <div>
+          <label class="label label-text text-xs font-semibold">Valor Fechado (R$)</label>
+          <input id="edit_valor_fechado" class="input input-sm input-bordered w-full" type="number" step="0.01" placeholder="0,00">
+        </div>
+      </div>
       <div>
-        <label class="label label-text text-xs font-semibold">Observações</label>
-        <textarea id="edit_observacoes" class="textarea textarea-sm textarea-bordered w-full" rows="3" placeholder="Observações..."></textarea>
+        <label class="label label-text text-xs font-semibold">Score de Qualificação (0-100)</label>
+        <div class="flex items-center gap-3">
+          <input id="edit_qualificacao_score" type="range" min="0" max="100" value="0" class="range range-sm range-primary flex-1"
+                 oninput="document.getElementById('edit_score_display').textContent = this.value">
+          <span id="edit_score_display" class="text-sm font-bold text-gray-700" style="min-width:30px">0</span>
+        </div>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Notas de Qualificação</label>
+        <textarea id="edit_qualificacao_notas" class="textarea textarea-sm textarea-bordered w-full" rows="2" placeholder="Observações sobre a qualificação..."></textarea>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Notas Internas</label>
+        <textarea id="edit_notas_internas" class="textarea textarea-sm textarea-bordered w-full" rows="2" placeholder="Observações internas..."></textarea>
       </div>
     </div>
     <div class="modal-action">
@@ -298,6 +527,7 @@
     <div class="space-y-2">
       <input id="editc_nome" class="input input-sm input-bordered w-full" placeholder="Nome *">
       <input id="editc_cargo" class="input input-sm input-bordered w-full" placeholder="Cargo">
+      <input id="editc_departamento" class="input input-sm input-bordered w-full" placeholder="Departamento">
       <input id="editc_telefone" class="input input-sm input-bordered w-full" placeholder="(00) 00000-0000">
       <input id="editc_email" class="input input-sm input-bordered w-full" placeholder="Email">
     </div>
@@ -366,50 +596,39 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- ===== Modal Criar/Editar Lista ===== -->
-<dialog id="modal_lista" class="modal">
-  <div class="modal-box w-96">
+<!-- ===== Modal Relatório Executivo ===== -->
+<dialog id="modal_relatorio" class="modal">
+  <div class="modal-box w-11/12 max-w-6xl max-h-[90vh]">
     <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-    <h3 id="lista_modal_title" class="font-bold text-lg mb-4">Nova Lista</h3>
-    <input type="hidden" id="lista_id">
-    <div class="space-y-3">
-      <div>
-        <label class="label label-text text-xs font-semibold">Nome *</label>
-        <input id="lista_nome" class="input input-sm input-bordered w-full" placeholder="Ex: BR Geral, Streaming..." maxlength="100">
-      </div>
-      <div>
-        <label class="label label-text text-xs font-semibold">Descrição</label>
-        <textarea id="lista_descricao" class="textarea textarea-sm textarea-bordered w-full" rows="2" placeholder="Descrição opcional..."></textarea>
-      </div>
-      <div>
-        <label class="label label-text text-xs font-semibold">Cor</label>
-        <div class="flex items-center gap-2">
-          <input id="lista_cor" type="color" value="#6366f1" class="w-8 h-8 rounded cursor-pointer" style="border:1px solid #e5e7eb;padding:1px">
-          <span style="font-size:11px;color:#9ca3af">Cor da badge</span>
-        </div>
-      </div>
+    <h3 class="font-bold text-lg mb-4">Relatório por Executivo</h3>
+    <div class="flex items-center gap-3 mb-4 flex-wrap">
+      <select id="rel_ano" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700" onchange="loadRelatorio()">
+        <option value="">Ano</option>
+      </select>
+      <select id="rel_mes" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700" onchange="loadRelatorio()">
+        <option value="">Mês</option>
+        <option value="1">Janeiro</option>
+        <option value="2">Fevereiro</option>
+        <option value="3">Março</option>
+        <option value="4">Abril</option>
+        <option value="5">Maio</option>
+        <option value="6">Junho</option>
+        <option value="7">Julho</option>
+        <option value="8">Agosto</option>
+        <option value="9">Setembro</option>
+        <option value="10">Outubro</option>
+        <option value="11">Novembro</option>
+        <option value="12">Dezembro</option>
+      </select>
+      <select id="rel_executivo" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700" onchange="loadRelatorio()">
+        <option value="">Todos os executivos</option>
+        {% for ex in executivos %}
+          <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+        {% endfor %}
+      </select>
     </div>
-    <div class="modal-action">
-      <button onclick="saveLista()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Salvar
-      </button>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
-</dialog>
-
-<!-- ===== Modal Adicionar Lead a Listas ===== -->
-<dialog id="modal_add_to_lista" class="modal">
-  <div class="modal-box w-96">
-    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-    <h3 class="font-bold text-lg mb-4">Adicionar a Listas</h3>
-    <div id="add_to_lista_options" class="space-y-1 max-h-60 overflow-y-auto"></div>
-    <div class="modal-action">
-      <button onclick="confirmAddToListas()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Adicionar
-      </button>
+    <div id="relatorio_content" class="overflow-y-auto" style="max-height: calc(90vh - 200px)">
+      <div class="leads-empty">Selecione ano e mês para gerar o relatório</div>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>

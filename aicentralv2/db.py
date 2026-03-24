@@ -10332,13 +10332,13 @@ def excluir_cadu_lead(lead_id):
 # CADU LEADS V2 — Dashboard de Prospecção
 # ============================================================================
 
-def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status=None, sem_responsavel=False, id_lista=None):
-    """Cards da coluna 1: leads ativos com contagem de contatos e dias sem atividade."""
+def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status=None,
+                          sem_responsavel=False, fonte=None, tipo_lead=None, canal=None):
+    """Cards da coluna lateral: leads ativos com contagem de contatos e dias sem atividade."""
     conn = get_db()
     try:
         params = []
         where_clauses = ["l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')"]
-        extra_joins = ''
 
         if sem_responsavel:
             where_clauses.append('l.id_executivo IS NULL')
@@ -10355,13 +10355,19 @@ def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status
         if potencial:
             where_clauses.append('l.potencial = %s')
             params.append(potencial)
+        if fonte:
+            where_clauses.append('l.fonte = %s')
+            params.append(fonte)
+        if tipo_lead:
+            where_clauses.append('l.tipo_lead = %s')
+            params.append(tipo_lead)
+        if canal:
+            where_clauses.append('l.canal ILIKE %s')
+            params.append(f'%{canal}%')
         if search:
-            where_clauses.append('(l.empresa ILIKE %s OR l.nome ILIKE %s)')
+            where_clauses.append('(l.empresa ILIKE %s OR l.nome ILIKE %s OR l.email ILIKE %s)')
             term = f'%{search}%'
-            params.extend([term, term])
-        if id_lista:
-            extra_joins = 'JOIN cadu_lead_lista_membros flm ON flm.id_lead = l.id AND flm.id_lista = %s'
-            params.append(id_lista)
+            params.extend([term, term, term])
 
         where_sql = ' AND '.join(where_clauses)
 
@@ -10374,6 +10380,12 @@ def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status
                     l.fonte,
                     l.potencial,
                     l.status,
+                    l.qualificacao_score,
+                    l.valor_estimado,
+                    l.canal,
+                    l.segmento,
+                    l.porte_estimado,
+                    l.created_at,
                     cp.nome AS contato_principal_nome,
                     (SELECT COUNT(*) FROM cadu_lead_contatos c WHERE c.id_lead = l.id) AS qtd_contatos,
                     COALESCE(
@@ -10381,15 +10393,9 @@ def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status
                             SELECT MAX(a.created_at) FROM cadu_lead_atividades a WHERE a.id_lead = l.id
                         )),
                         EXTRACT(DAY FROM NOW() - l.updated_at)
-                    )::int AS dias_sem_atividade,
-                    (SELECT STRING_AGG(ll.nome || '::' || ll.cor, '|||')
-                     FROM cadu_lead_lista_membros lm2
-                     JOIN cadu_lead_listas ll ON ll.id = lm2.id_lista
-                     WHERE lm2.id_lead = l.id
-                    ) AS listas_nomes
+                    )::int AS dias_sem_atividade
                 FROM cadu_leads l
-                LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.principal = TRUE
-                {extra_joins}
+                LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.is_principal = TRUE
                 WHERE {where_sql}
                 ORDER BY dias_sem_atividade DESC NULLS LAST, l.created_at DESC
             ''', params)
@@ -10458,8 +10464,12 @@ def atualizar_lead_dados(lead_id, dados):
     conn = get_db()
     try:
         allowed_fields = [
-            'empresa', 'nome', 'fonte', 'tipo_lead', 'url_site',
-            'segmento', 'potencial', 'status', 'observacoes',
+            'empresa', 'nome', 'email', 'telefone', 'cargo', 'mensagem',
+            'origem', 'canal', 'interesse', 'fonte',
+            'qualificacao_score', 'qualificacao_notas',
+            'valor_estimado', 'valor_fechado', 'notas_internas',
+            'url_site', 'segmento', 'porte_estimado', 'mercado_alvo',
+            'potencial', 'tipo_lead', 'status',
         ]
         sets = []
         params = []
@@ -10501,7 +10511,7 @@ def mesclar_leads(lead_principal_id, lead_secundario_id):
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                'UPDATE cadu_lead_contatos SET id_lead = %s, principal = FALSE WHERE id_lead = %s',
+                'UPDATE cadu_lead_contatos SET id_lead = %s, is_principal = FALSE WHERE id_lead = %s',
                 (lead_principal_id, lead_secundario_id)
             )
             cursor.execute(
@@ -10535,7 +10545,7 @@ def obter_lead_contatos(lead_id):
             cursor.execute('''
                 SELECT * FROM cadu_lead_contatos
                 WHERE id_lead = %s
-                ORDER BY principal DESC, nome ASC
+                ORDER BY is_principal DESC, nome ASC
             ''', (lead_id,))
             return cursor.fetchall()
     except Exception as e:
@@ -10548,17 +10558,17 @@ def criar_lead_contato(lead_id, dados):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            is_principal = dados.get('principal', False)
+            is_principal = dados.get('principal', False) or dados.get('is_principal', False)
 
             if is_principal:
                 cursor.execute(
-                    'UPDATE cadu_lead_contatos SET principal = FALSE WHERE id_lead = %s',
+                    'UPDATE cadu_lead_contatos SET is_principal = FALSE WHERE id_lead = %s',
                     (lead_id,)
                 )
 
             cursor.execute('''
-                INSERT INTO cadu_lead_contatos (id_lead, nome, cargo, telefone, email, principal, observacoes)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO cadu_lead_contatos (id_lead, nome, cargo, telefone, email, departamento, is_principal, notas)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (
                 lead_id,
@@ -10566,8 +10576,9 @@ def criar_lead_contato(lead_id, dados):
                 dados.get('cargo'),
                 dados.get('telefone'),
                 dados.get('email'),
+                dados.get('departamento'),
                 is_principal,
-                dados.get('observacoes'),
+                dados.get('notas') or dados.get('observacoes'),
             ))
             novo_id = cursor.fetchone()['id']
 
@@ -10589,19 +10600,20 @@ def atualizar_lead_contato(contato_id, dados):
             cursor.execute('''
                 UPDATE cadu_lead_contatos SET
                     nome = %s, cargo = %s, telefone = %s, email = %s,
-                    observacoes = %s, updated_at = NOW()
+                    departamento = %s, notas = %s, updated_at = NOW()
                 WHERE id = %s
-                RETURNING id_lead, principal
+                RETURNING id_lead, is_principal
             ''', (
                 dados.get('nome'),
                 dados.get('cargo'),
                 dados.get('telefone'),
                 dados.get('email'),
-                dados.get('observacoes'),
+                dados.get('departamento'),
+                dados.get('notas') or dados.get('observacoes'),
                 contato_id,
             ))
             row = cursor.fetchone()
-            if row and row['principal']:
+            if row and row['is_principal']:
                 _sync_contato_principal_para_lead(cursor, row['id_lead'], dados)
 
             conn.commit()
@@ -10630,11 +10642,11 @@ def definir_contato_principal(lead_id, contato_id):
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                'UPDATE cadu_lead_contatos SET principal = FALSE WHERE id_lead = %s',
+                'UPDATE cadu_lead_contatos SET is_principal = FALSE WHERE id_lead = %s',
                 (lead_id,)
             )
             cursor.execute(
-                'UPDATE cadu_lead_contatos SET principal = TRUE WHERE id = %s AND id_lead = %s RETURNING nome, cargo, telefone, email',
+                'UPDATE cadu_lead_contatos SET is_principal = TRUE WHERE id = %s AND id_lead = %s RETURNING nome, cargo, telefone, email',
                 (contato_id, lead_id)
             )
             contato = cursor.fetchone()
@@ -10802,13 +10814,16 @@ def obter_links_uteis():
         raise
 
 
-def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual'):
+def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual', canal=None, origem=None):
     """Importação em massa: cria leads + contatos + atividade de importação.
     Retorna lista de IDs criados."""
     conn = get_db()
     import uuid
-    lote = str(uuid.uuid4())[:8]
+    lote = f'import-{uuid.uuid4().hex[:8]}'
     ids_criados = []
+    valid_fontes = ('site', 'import', 'manual', 'indicacao', 'evento', 'outro')
+    if fonte not in valid_fontes:
+        fonte = 'manual'
 
     try:
         with conn.cursor() as cursor:
@@ -10819,21 +10834,27 @@ def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual'):
                 cursor.execute('''
                     INSERT INTO cadu_leads (
                         empresa, nome, email, telefone, cargo,
-                        fonte, status, id_executivo, atribuido_em,
-                        tipo_lead, lote_importacao
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s)
+                        fonte, origem, canal, status, id_executivo, atribuido_em,
+                        tipo_lead, lote_importacao, importado_por
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                              CASE WHEN %s IS NOT NULL THEN NOW() END,
+                              %s, %s, %s)
                     RETURNING id
                 ''', (
                     lead_item.get('empresa'),
                     principal.get('nome'),
-                    principal.get('email'),
+                    principal.get('email', ''),
                     principal.get('telefone'),
                     principal.get('cargo'),
-                    fonte or 'manual',
+                    fonte,
+                    origem or lead_item.get('origem'),
+                    canal or lead_item.get('canal'),
                     'inbox',
-                    id_executivo,
+                    id_executivo or None,
+                    id_executivo or None,
                     tipo_lead,
                     lote,
+                    id_executivo,
                 ))
                 lead_id = cursor.fetchone()['id']
                 ids_criados.append(lead_id)
@@ -10841,7 +10862,7 @@ def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual'):
                 for contato in contatos:
                     cursor.execute('''
                         INSERT INTO cadu_lead_contatos
-                            (id_lead, nome, cargo, telefone, email, principal)
+                            (id_lead, nome, cargo, telefone, email, is_principal)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     ''', (
                         lead_id,
@@ -10947,174 +10968,194 @@ def converter_lead_cliente(lead_id):
         raise e
 
 
-# ==================== CADU LEAD LISTAS (Pastas de Organização) ====================
+# ==================== CADU LEADS — Novas funções (Kanban, Relatórios, Engajamento) ====================
 
-def obter_lead_listas():
-    """Lista todas as listas com contagem de membros."""
+def criar_lead(dados):
+    """Cria um lead individual. Retorna id do lead criado."""
     conn = get_db()
     try:
+        valid_fontes = ('site', 'import', 'manual', 'indicacao', 'evento', 'outro')
+        fonte = dados.get('fonte', 'manual')
+        if fonte not in valid_fontes:
+            fonte = 'manual'
+
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT l.*,
-                       (SELECT COUNT(*) FROM cadu_lead_lista_membros m WHERE m.id_lista = l.id) AS total_membros
-                FROM cadu_lead_listas l
-                ORDER BY l.nome
-            ''')
-            return cursor.fetchall()
-    except Exception as e:
-        current_app.logger.error(f"Erro obter_lead_listas: {e}")
-        raise
-
-
-def criar_lead_lista(dados):
-    """Cria nova lista de leads."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                INSERT INTO cadu_lead_listas (nome, descricao, cor, created_by)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO cadu_leads (
+                    nome, email, telefone, empresa, cargo, mensagem,
+                    origem, canal, interesse, fonte,
+                    status, potencial, tipo_lead,
+                    valor_estimado, id_executivo, atribuido_em,
+                    url_site, segmento, notas_internas
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, CASE WHEN %s IS NOT NULL THEN NOW() END,
+                    %s, %s, %s
+                )
                 RETURNING id
             ''', (
                 dados.get('nome'),
-                dados.get('descricao'),
-                dados.get('cor', '#6366f1'),
-                dados.get('created_by'),
+                dados.get('email', ''),
+                dados.get('telefone'),
+                dados.get('empresa'),
+                dados.get('cargo'),
+                dados.get('mensagem'),
+                dados.get('origem'),
+                dados.get('canal'),
+                dados.get('interesse'),
+                fonte,
+                dados.get('status', 'inbox'),
+                dados.get('potencial', 'medio'),
+                dados.get('tipo_lead', 'cliente'),
+                dados.get('valor_estimado'),
+                dados.get('id_executivo') or None,
+                dados.get('id_executivo') or None,
+                dados.get('url_site'),
+                dados.get('segmento'),
+                dados.get('notas_internas'),
             ))
-            lista_id = cursor.fetchone()['id']
+            lead_id = cursor.fetchone()['id']
+
+            if dados.get('nome'):
+                cursor.execute('''
+                    INSERT INTO cadu_lead_contatos
+                        (id_lead, nome, cargo, telefone, email, is_principal)
+                    VALUES (%s, %s, %s, %s, %s, TRUE)
+                ''', (
+                    lead_id,
+                    dados.get('nome'),
+                    dados.get('cargo'),
+                    dados.get('telefone'),
+                    dados.get('email'),
+                ))
+
+            cursor.execute('''
+                INSERT INTO cadu_lead_atividades
+                    (id_lead, tipo, descricao, id_usuario, usuario_nome)
+                VALUES (%s, 'nota', 'Lead criado manualmente', %s, %s)
+            ''', (lead_id, dados.get('id_usuario'), dados.get('usuario_nome')))
+
             conn.commit()
-            return lista_id
+            return lead_id
     except Exception as e:
         conn.rollback()
         raise e
 
 
-def atualizar_lead_lista(lista_id, dados):
-    """Atualiza nome, descrição e/ou cor de uma lista."""
+def obter_leads_kanban(id_executivo=None):
+    """Retorna leads ativos agrupados por status para o board Kanban."""
     conn = get_db()
     try:
-        sets = []
         params = []
-        if 'nome' in dados:
-            sets.append('nome = %s')
-            params.append(dados['nome'])
-        if 'descricao' in dados:
-            sets.append('descricao = %s')
-            params.append(dados['descricao'])
-        if 'cor' in dados:
-            sets.append('cor = %s')
-            params.append(dados['cor'])
-        if not sets:
-            return False
-        sets.append('updated_at = CURRENT_TIMESTAMP')
-        params.append(lista_id)
+        where_clause = ''
+        if id_executivo is not None:
+            if str(id_executivo) == '0':
+                where_clause = 'WHERE id_executivo IS NULL'
+            else:
+                where_clause = 'WHERE id_executivo = %s'
+                params.append(id_executivo)
+
         with conn.cursor() as cursor:
-            cursor.execute(f"UPDATE cadu_lead_listas SET {', '.join(sets)} WHERE id = %s", params)
-            conn.commit()
-            return cursor.rowcount > 0
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-
-def excluir_lead_lista(lista_id):
-    """Deleta uma lista (CASCADE remove membros)."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('DELETE FROM cadu_lead_listas WHERE id = %s', (lista_id,))
-            conn.commit()
-            return cursor.rowcount > 0
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-
-def obter_membros_lista(lista_id):
-    """Retorna leads de uma lista com dados básicos."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                SELECT l.id, COALESCE(l.empresa, l.nome) AS nome_lead,
-                       l.tipo_lead, l.status, l.potencial, l.fonte,
-                       m.adicionado_em
-                FROM cadu_lead_lista_membros m
-                JOIN cadu_leads l ON l.id = m.id_lead
-                WHERE m.id_lista = %s
-                ORDER BY m.adicionado_em DESC
-            ''', (lista_id,))
+            cursor.execute(f'''
+                SELECT * FROM vw_leads_kanban
+                {where_clause}
+            ''', params)
             return cursor.fetchall()
     except Exception as e:
-        current_app.logger.error(f"Erro obter_membros_lista {lista_id}: {e}")
+        current_app.logger.error(f"Erro obter_leads_kanban: {e}")
         raise
 
 
-def adicionar_lead_a_lista(lista_id, lead_id, adicionado_por=None):
-    """Adiciona um lead a uma lista (ignora se já existe)."""
+def obter_executivo_mensal(ano=None, mes=None, id_executivo=None):
+    """Métricas mensais de pipeline por executivo (view vw_executivo_mensal)."""
     conn = get_db()
     try:
+        params = []
+        clauses = []
+        if ano:
+            clauses.append('ano = %s')
+            params.append(ano)
+        if mes:
+            clauses.append('mes = %s')
+            params.append(mes)
+        if id_executivo:
+            clauses.append('id_executivo = %s')
+            params.append(id_executivo)
+
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+
         with conn.cursor() as cursor:
-            cursor.execute('''
-                INSERT INTO cadu_lead_lista_membros (id_lista, id_lead, adicionado_por)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (id_lista, id_lead) DO NOTHING
-            ''', (lista_id, lead_id, adicionado_por))
-            conn.commit()
-            return cursor.rowcount > 0
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-
-def remover_lead_de_lista(lista_id, lead_id):
-    """Remove um lead de uma lista."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                'DELETE FROM cadu_lead_lista_membros WHERE id_lista = %s AND id_lead = %s',
-                (lista_id, lead_id)
-            )
-            conn.commit()
-            return cursor.rowcount > 0
-    except Exception as e:
-        conn.rollback()
-        raise e
-
-
-def obter_listas_do_lead(lead_id):
-    """Listas a que um lead pertence (para exibir badges no detalhe)."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                SELECT l.id, l.nome, l.cor
-                FROM cadu_lead_lista_membros m
-                JOIN cadu_lead_listas l ON l.id = m.id_lista
-                WHERE m.id_lead = %s
-                ORDER BY l.nome
-            ''', (lead_id,))
+            cursor.execute(f'SELECT * FROM vw_executivo_mensal {where_sql}', params)
             return cursor.fetchall()
     except Exception as e:
-        current_app.logger.error(f"Erro obter_listas_do_lead {lead_id}: {e}")
+        current_app.logger.error(f"Erro obter_executivo_mensal: {e}")
         raise
 
 
-def adicionar_leads_batch_a_lista(lista_id, lead_ids, adicionado_por=None):
-    """Adiciona vários leads a uma lista de uma vez."""
+def obter_executivo_atividades_mensal(ano=None, mes=None, id_executivo=None):
+    """Atividades mensais por executivo (view vw_executivo_atividades_mensal)."""
     conn = get_db()
     try:
+        params = []
+        clauses = []
+        if ano:
+            clauses.append('ano = %s')
+            params.append(ano)
+        if mes:
+            clauses.append('mes = %s')
+            params.append(mes)
+        if id_executivo:
+            clauses.append('id_executivo = %s')
+            params.append(id_executivo)
+
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+
         with conn.cursor() as cursor:
-            from psycopg2.extras import execute_values
-            values = [(lista_id, lid, adicionado_por) for lid in lead_ids]
-            execute_values(
-                cursor,
-                'INSERT INTO cadu_lead_lista_membros (id_lista, id_lead, adicionado_por) VALUES %s ON CONFLICT (id_lista, id_lead) DO NOTHING',
-                values,
-            )
-            conn.commit()
-            return cursor.rowcount
+            cursor.execute(f'SELECT * FROM vw_executivo_atividades_mensal {where_sql}', params)
+            return cursor.fetchall()
     except Exception as e:
-        conn.rollback()
-        raise e
+        current_app.logger.error(f"Erro obter_executivo_atividades_mensal: {e}")
+        raise
+
+
+def obter_leads_engajamento(id_executivo=None):
+    """Dados de engajamento por lead (view vw_leads_engajamento)."""
+    conn = get_db()
+    try:
+        params = []
+        where_clause = ''
+        if id_executivo:
+            where_clause = 'WHERE id_executivo = %s'
+            params.append(id_executivo)
+
+        with conn.cursor() as cursor:
+            cursor.execute(f'SELECT * FROM vw_leads_engajamento {where_clause} LIMIT 200', params)
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_leads_engajamento: {e}")
+        raise
+
+
+def obter_leads_metricas(ano=None, mes=None):
+    """Métricas gerais por origem/canal (view vw_leads_metricas)."""
+    conn = get_db()
+    try:
+        params = []
+        clauses = []
+        if ano:
+            clauses.append('ano = %s')
+            params.append(ano)
+        if mes:
+            clauses.append('mes = %s')
+            params.append(mes)
+
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+
+        with conn.cursor() as cursor:
+            cursor.execute(f'SELECT * FROM vw_leads_metricas {where_sql}', params)
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_leads_metricas: {e}")
+        raise

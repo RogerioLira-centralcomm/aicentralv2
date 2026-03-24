@@ -303,7 +303,7 @@
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=1) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '1' %}active{% endif %}">Em aprovação</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=3) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '3' %}active{% endif %}">Em andamento</a></li>
-                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">Em faturamento</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'operacao' %}active{% endif %}">Em faturamento</a></li>
                             <li><a href="{{ url_for('campanhas_pi') }}" class="{% if request.endpoint == 'campanhas_pi' %}active{% endif %}">Dashboard</a></li>
                             <li><a href="{{ url_for('campanhas_pi_lista') }}" class="{% if request.endpoint == 'campanhas_pi_lista' and not request.args.get('view') %}active{% endif %}">Acompanhamento</a></li>
                             <li><a href="{{ url_for('campanhas_pi_lista', view='diarios') }}" class="{% if request.args.get('view') == 'diarios' %}active{% endif %}">Diários Geral</a></li>
@@ -317,7 +317,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
-                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">Em faturamento</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'faturamento' %}active{% endif %}">Em faturamento</a></li>
                             <li><a href="{{ url_for('notas_fiscais_lista') }}" class="{% if request.endpoint == 'notas_fiscais_lista' %}active{% endif %}">Notas Fiscais</a></li>
                         </ul>
                     </div>
@@ -485,7 +485,7 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'operacao' %}active{% endif %}">
                                             Em faturamento
                                         </a>
                                     </li>
@@ -514,7 +514,7 @@
                                 <summary>Faturamento</summary>
                                 <ul>
                                     <li>
-                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' %}active{% endif %}">
+                                        <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'faturamento' %}active{% endif %}">
                                             Em faturamento
                                         </a>
                                     </li>

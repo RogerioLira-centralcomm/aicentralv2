@@ -248,12 +248,19 @@
                 {{ pi.nf_status_descricao or 'Ver' }}
               </button>
               {% else %}
+                {% if origem_lista == 'operacao' %}
+              <span class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-orange-600">
+                <i class="fa-solid fa-file-invoice text-[10px]"></i>
+                Vincular NF
+              </span>
+                {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, null, {{ pi_info|tojson }})'
                       class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
                       title="Vincular Nota Fiscal">
                 <i class="fa-solid fa-plus text-[10px]"></i>
                 Vincular NF
               </button>
+                {% endif %}
               {% endif %}
             </td>
             {% endif %}
@@ -402,6 +409,7 @@ function debounceAplicarFiltros() {
 }
 
 let subStatusAtual = '{{ filtros.get("id_sub_status_pi", "") }}';
+let origemLista = new URLSearchParams(window.location.search).get('origem') || '';
 
 function aplicarFiltros() {
   const params = new URLSearchParams();
@@ -418,6 +426,7 @@ function aplicarFiltros() {
   if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
   if (mes) params.set('mes_ref_comp', mes);
   if (busca) params.set('busca', busca);
+  if (origemLista) params.set('origem', origemLista);
   params.set('_f', '1');
 
   window.location.href = '/cadu_pi' + (params.toString() ? '?' + params.toString() : '');
@@ -458,6 +467,7 @@ function filtrarSubStatus(key) {
     if (matched) { rp.set('mes_ref_comp', cMes); needsRedirect = true; }
   }
   if (!needsRedirect) return;
+  if (origemLista && !rp.has('origem')) rp.set('origem', origemLista);
   rp.set('_restored', '1');
   window.location.href = '/cadu_pi?' + rp.toString();
 })();

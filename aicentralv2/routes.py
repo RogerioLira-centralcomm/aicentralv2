@@ -8147,6 +8147,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if request.args.get('busca', '').strip():
                 filtros['search'] = request.args.get('busca').strip()
 
+            origem_lista = request.args.get('origem', '')
+
             if filtros.get('id_cliente'):
                 cli_info = db.obter_cliente_por_id(filtros['id_cliente'])
                 if cli_info:
@@ -8168,7 +8170,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    meses_ref=meses_ref,
                                    filtros=filtros,
                                    statuses_nf=statuses_nf,
-                                   user_is_executivo=user_is_executivo)
+                                   user_is_executivo=user_is_executivo,
+                                   origem_lista=origem_lista)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
             flash('Erro ao carregar lista de PIs.', 'error')

@@ -940,6 +940,14 @@ def init_routes(app):
             return redirect(url_for('clientes'))
         
         if request.method == 'POST':
+            is_ajax = request.form.get('_return_json')
+
+            def _edit_error(msg):
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 400
+                flash(msg, 'error')
+                return redirect(url_for('clientes'))
+
             try:
                 razao_social = request.form.get('razao_social', '').strip()
                 nome_fantasia = request.form.get('nome_fantasia', '').strip()
@@ -962,47 +970,39 @@ def init_routes(app):
                 # Obrigatoriedades por tipo de pessoa (edição)
                 if pessoa == 'J':
                     if not razao_social or not nome_fantasia:
-                        flash('Razão Social e Nome Fantasia obrigatórios!', 'error')
-                        return redirect(url_for('clientes'))
+                        return _edit_error('Razão Social e Nome Fantasia obrigatórios!')
                 else:
                     if not nome_fantasia:
-                        flash('Nome Completo é obrigatório!', 'error')
-                        return redirect(url_for('clientes'))
+                        return _edit_error('Nome Completo é obrigatório!')
                 
                 if not cnpj:
-                    flash('CNPJ/CPF é obrigatório!', 'error')
-                    return redirect(url_for('clientes'))
-                
-                if not id_tipo_cliente:
-                    flash('Tipo de Cliente é obrigatório!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _edit_error('CNPJ/CPF é obrigatório!')
                 
                 # Validação de CPF quando Pessoa Física
                 if pessoa == 'F':
                     if not db.validar_cpf(cnpj):
-                        flash('CPF inválido!', 'error')
-                        return redirect(url_for('clientes'))
-                    # Ajustes padrão para PF
+                        return _edit_error('CPF inválido!')
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
                     inscricao_estadual = 'ISENTO'
                     inscricao_municipal = 'ISENTO'
+                    if not id_tipo_cliente:
+                        id_tipo_cliente = None
+                else:
+                    if not id_tipo_cliente:
+                        return _edit_error('Tipo de Cliente é obrigatório!')
 
                 # Validações de unicidade na edição (exclui o próprio cliente)
                 try:
                     if db.cliente_existe_por_cnpj(cnpj, excluir_id=cliente_id):
-                        flash('CNPJ já cadastrado em outro cliente.', 'error')
-                        return redirect(url_for('clientes'))
+                        return _edit_error('CNPJ já cadastrado em outro cliente.')
                     if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social, excluir_id=cliente_id):
-                        flash('Razão Social já cadastrada em outro cliente.', 'error')
-                        return redirect(url_for('clientes'))
+                        return _edit_error('Razão Social já cadastrada em outro cliente.')
                     if db.cliente_existe_por_nome_fantasia(nome_fantasia, excluir_id=cliente_id):
-                        flash('Nome Fantasia já cadastrado em outro cliente.', 'error')
-                        return redirect(url_for('clientes'))
+                        return _edit_error('Nome Fantasia já cadastrado em outro cliente.')
                 except Exception as ve:
                     app.logger.error(f"Erro ao validar duplicidades: {ve}")
-                    flash('Erro ao validar unicidade. Tente novamente.', 'error')
-                    return redirect(url_for('clientes'))
+                    return _edit_error('Erro ao validar unicidade. Tente novamente.')
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
@@ -1012,21 +1012,18 @@ def init_routes(app):
                 status = status_val == '1'
                 
                 if not vendas_central_comm:
-                    flash('Vendas CentralComm é obrigatório!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _edit_error('Vendas CentralComm é obrigatório!')
                 
                 # Se for pessoa física, força agência 2
                 if pessoa == 'F':
                     pk_id_tbl_agencia = 2
                 elif not pk_id_tbl_agencia:
-                    flash('Agência é obrigatória para Pessoa Jurídica!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _edit_error('Agência é obrigatória para Pessoa Jurídica!')
 
                 # Converter percentual para float se fornecido
                 percentual_valor = None
                 if percentual:
                     try:
-                        # Substituir vírgula por ponto para conversão
                         percentual_normalizado = percentual.replace(',', '.')
                         percentual_valor = float(percentual_normalizado)
                     except ValueError:
@@ -1054,8 +1051,7 @@ def init_routes(app):
                     numero=numero,
                     complemento=complemento
                 ):
-                    flash('Cliente não encontrado!', 'error')
-                    return redirect(url_for('clientes'))
+                    return _edit_error('Cliente não encontrado!')
                 
                 # Registro de auditoria
                 registrar_auditoria(
@@ -1068,10 +1064,15 @@ def init_routes(app):
                     dados_novos={'nome_fantasia': nome_fantasia, 'cnpj': cnpj, 'pessoa': pessoa}
                 )
                 
+                if is_ajax:
+                    return jsonify({'success': True, 'id_cliente': cliente_id, 'nome_fantasia': nome_fantasia})
+
                 flash(f'Cliente "{nome_fantasia}" atualizado!', 'success')
                 return redirect(url_for('clientes'))
             except Exception as e:
                 app.logger.error(f"Erro ao atualizar cliente: {e}")
+                if is_ajax:
+                    return jsonify({'success': False, 'message': str(e)}), 400
                 flash('Erro ao atualizar.', 'error')
                 return redirect(url_for('clientes'))
         
@@ -2833,18 +2834,19 @@ def init_routes(app):
                 if not cnpj:
                     return _val_error('CNPJ/CPF é obrigatório!')
                 
-                if not id_tipo_cliente:
-                    return _val_error('Tipo de Cliente é obrigatório!')
-                
                 # Validação de CPF quando Pessoa Física
                 if pessoa == 'F':
                     if not db.validar_cpf(cnpj):
                         return _val_error('CPF inválido!')
-                    # Ajustes padrão para PF
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
                     inscricao_estadual = 'ISENTO'
                     inscricao_municipal = 'ISENTO'
+                    if not id_tipo_cliente:
+                        id_tipo_cliente = None
+                else:
+                    if not id_tipo_cliente:
+                        return _val_error('Tipo de Cliente é obrigatório!')
 
                 # Validações de unicidade (CNPJ, Razão Social, Nome Fantasia)
                 try:

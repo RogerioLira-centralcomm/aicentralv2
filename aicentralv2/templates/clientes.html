@@ -458,7 +458,7 @@
           <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
             <div class="form-control">
               <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
-              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP (Enter para buscar)">
+              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000">
             </div>
             <div class="form-control">
               <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
@@ -614,7 +614,7 @@
 
     <div class="modal-action mt-6">
       <button type="button" onclick="modal_detalhes.close()" class="btn btn-ghost btn-sm">Fechar</button>
-      <button type="button" onclick="editarClienteDoModal()" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
+      <button type="button" onclick="editarClienteDoModal()" class="btn btn-sm bg-gray-800 text-white border-gray-800 hover:bg-gray-700">
         <i class="fas fa-edit mr-2"></i>Editar Cliente
       </button>
     </div>
@@ -714,35 +714,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handler para submit do formulário
     formCliente.addEventListener('submit', async function(e) {
       e.preventDefault();
-      
+
       const clienteId = document.getElementById('cliente_id').value;
       const formData = new FormData(formCliente);
+      formData.set('_return_json', '1');
       const url = clienteId ? `/clientes/${clienteId}/editar` : '/clientes/novo';
-      
+
       try {
         const response = await fetch(url, {
           method: 'POST',
-          body: formData
+          body: formData,
+          redirect: 'manual'
         });
-        
-        if (response.ok || response.redirected) {
-          // Fechar modal
+
+        const data = await response.json().catch(() => null);
+
+        if (data && data.success) {
           modal_cliente.close();
-          
+
           if (clienteId) {
-            // EDIÇÃO: Recarregar página para garantir dados atualizados
             showToast('Cliente atualizado com sucesso!', 'success');
             window.location.reload();
           } else {
-            // NOVO CLIENTE: Extrair ID do redirecionamento e buscar dados
-            const urlParams = new URL(response.url);
-            const novoClienteId = urlParams.pathname.match(/\/clientes\/(\d+)/)?.[1];
-            
+            const novoClienteId = data.id_cliente;
+
             if (novoClienteId) {
               const clienteResponse = await fetch(`/api/cliente/${novoClienteId}`);
               const cliente = await clienteResponse.json();
-              
-              // Criar nova linha na tabela
+
               const tbody = document.querySelector('table tbody');
               const novaLinha = document.createElement('tr');
               novaLinha.className = 'hover';
@@ -778,24 +777,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     <button onclick="abrirModalEditar(${cliente.id_cliente})" class="btn btn-xs btn-circle btn-outline btn-primary" title="Editar">
                       <i class="fas fa-edit"></i>
                     </button>
-                    <button id="btn_detalhes_${cliente.id_cliente}" 
-                       onclick="abrirModalDetalhes(${cliente.id_cliente})" 
-                       class="btn btn-xs btn-circle btn-outline btn-info" 
+                    <button id="btn_detalhes_${cliente.id_cliente}"
+                       onclick="abrirModalDetalhes(${cliente.id_cliente})"
+                       class="btn btn-xs btn-circle btn-outline btn-info"
                        title="Detalhes">
                       <i class="fas fa-eye"></i>
                     </button>
                   </div>
                 </td>
               `;
-              
-              // Adicionar linha ao topo da tabela
+
               tbody.insertBefore(novaLinha, tbody.firstChild);
+              showToast(`Cliente "${data.nome_fantasia}" criado com sucesso!`, 'success');
             } else {
+              showToast('Cliente criado com sucesso!', 'success');
               window.location.reload();
             }
           }
         } else {
-          showToast('Erro ao salvar cliente.', 'error');
+          const msg = (data && data.message) || 'Erro ao salvar cliente.';
+          showToast(msg, 'error');
         }
       } catch (error) {
         console.error('Erro:', error);
@@ -810,11 +811,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Função para abrir modal para novo cliente
 function abrirModalNovo() {
-  // Limpar formulário
   document.getElementById('form_cliente').reset();
   document.getElementById('modal_title').textContent = 'Novo Cliente';
   document.getElementById('cliente_id').value = '';
   document.getElementById('btn_submit_text').textContent = 'Cadastrar';
+  _ultimoCepBuscado = '';
   
   // Resetar para Pessoa Jurídica
   document.querySelector('input[name="pessoa"][value="J"]').checked = true;
@@ -906,9 +907,11 @@ async function abrirModalEditar(clienteId) {
     document.getElementById('status_toggle_container').style.display = '';
     toggleStatusField(!!cliente.status);
 
+    _ultimoCepBuscado = cliente.cep ? cliente.cep.replace(/\D/g, '') : '';
+
     // Atualizar campos visíveis baseado no tipo de pessoa
     togglePessoaFieldsModal();
-    
+
     // Preencher aba de detalhes
     preencherAbaDetalhes(cliente, contatos);
     
@@ -945,6 +948,17 @@ function mascaraPercentual(input) {
   
   // Formata com 2 casas decimais e substitui ponto por vírgula
   input.value = numero.toFixed(2).replace('.', ',');
+}
+
+function _selecionarOptionPorTexto(selectEl, texto) {
+  if (!selectEl) return;
+  const normalizado = texto.trim().toLowerCase();
+  for (const opt of selectEl.options) {
+    if (opt.text.trim().toLowerCase() === normalizado) {
+      selectEl.value = opt.value;
+      return;
+    }
+  }
 }
 
 function togglePessoaFieldsModal() {
@@ -984,15 +998,23 @@ function togglePessoaFieldsModal() {
   const razaoSocialFields = document.getElementById('razao_social_fields');
   const inputRazaoSocial = document.getElementById('input_razao_social');
   
+  const selectAgencia = document.querySelector('select[name="pk_id_tbl_agencia"]');
+  const percentualFields = document.getElementById('percentual_fields');
+
   if (pessoa === 'F') {
-    // Pessoa Física
+    // Pessoa Física — campos ocultos com valores automáticos
     tipoClienteField.style.display = 'none';
     selectTipoCliente.required = false;
     agenciaFields.style.display = 'none';
+    if (selectAgencia) selectAgencia.required = false;
+    if (percentualFields) percentualFields.style.display = 'none';
     inscricoesFields.style.display = 'none';
     razaoSocialFields.style.display = 'none';
     inputRazaoSocial.required = false;
-    
+
+    _selecionarOptionPorTexto(selectTipoCliente, 'Privado');
+    _selecionarOptionPorTexto(selectAgencia, 'Não');
+
     document.getElementById('label_cnpj').innerText = 'CPF *';
     document.getElementById('input_cnpj').placeholder = 'Digite o CPF';
     document.getElementById('label_nome_fantasia').innerText = 'Nome Completo *';
@@ -1002,10 +1024,12 @@ function togglePessoaFieldsModal() {
     tipoClienteField.style.display = '';
     selectTipoCliente.required = true;
     agenciaFields.style.display = '';
+    if (selectAgencia) selectAgencia.required = true;
+    if (percentualFields) percentualFields.style.display = '';
     inscricoesFields.style.display = '';
     razaoSocialFields.style.display = '';
     inputRazaoSocial.required = true;
-    
+
     document.getElementById('label_cnpj').innerText = 'CNPJ *';
     document.getElementById('input_cnpj').placeholder = 'Digite o CNPJ';
     document.getElementById('label_nome_fantasia').innerText = 'Nome Fantasia *';
@@ -1242,9 +1266,13 @@ async function onCnpjCpfBlur() {
 }
 
 function mascaraCep(input) {
-  let v = input.value.replace(/\D/g, '');
-  if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5,8);
-  input.value = v.slice(0,9);
+  const digits = input.value.replace(/\D/g, '').slice(0, 8);
+  let formatted = digits;
+  if (digits.length > 5) formatted = digits.slice(0,5) + '-' + digits.slice(5);
+  input.value = formatted;
+  if (digits.length === 8) {
+    buscarEnderecoPorCep(digits);
+  }
 }
 
 function mascaraCnpjCpf(input) {
@@ -1278,29 +1306,34 @@ function buscarCepEnter(event) {
   }
 }
 
+let _ultimoCepBuscado = '';
+
 function buscarEnderecoPorCep(cep) {
   cep = cep.replace(/\D/g, '');
-  
-  // Validar tamanho do CEP
+
   if (cep.length === 0) {
     showToast('Digite um CEP para buscar', 'warning');
     return;
   }
-  
+
   if (cep.length !== 8) {
     showToast('CEP inválido! Deve ter 8 dígitos', 'error');
     return;
   }
-  
-  // Validar se não é um CEP com todos dígitos iguais (inválido)
+
   if (/^(\d)\1{7}$/.test(cep)) {
     showToast('CEP inválido!', 'error');
     return;
   }
-  
-  // Mostrar loading
+
+  if (cep === _ultimoCepBuscado) return;
+  _ultimoCepBuscado = cep;
+
+  const cepInput = document.getElementById('cep');
+  cepInput.classList.add('opacity-50');
+  cepInput.style.pointerEvents = 'none';
   showToast('Buscando endereço...', 'info');
-  
+
   fetch('https://viacep.com.br/ws/' + cep + '/json/')
     .then(response => response.json())
     .then(data => {
@@ -1309,14 +1342,21 @@ function buscarEnderecoPorCep(cep) {
         document.getElementById('cidade').value = data.localidade || '';
         document.getElementById('bairro').value = data.bairro || '';
         document.getElementById('logradouro').value = data.logradouro || '';
-        showToast('Endereço carregado com sucesso!', 'success');
+        showToast('Endereço preenchido!', 'success');
+        document.getElementById('numero').focus();
       } else {
-        showToast('CEP inválido ou não encontrado!', 'error');
+        showToast('CEP não encontrado!', 'error');
+        _ultimoCepBuscado = '';
       }
     })
     .catch(e => {
       console.error('Erro ao buscar CEP:', e);
       showToast('Erro ao buscar CEP. Tente novamente.', 'error');
+      _ultimoCepBuscado = '';
+    })
+    .finally(() => {
+      cepInput.classList.remove('opacity-50');
+      cepInput.style.pointerEvents = '';
     });
 }
 

@@ -1007,7 +1007,11 @@ function togglePessoaFieldsModal() {
     selectTipoCliente.required = false;
     agenciaFields.style.display = 'none';
     if (selectAgencia) selectAgencia.required = false;
-    if (percentualFields) percentualFields.style.display = 'none';
+    if (percentualFields) {
+      percentualFields.style.display = 'none';
+      const inputPercentual = percentualFields.querySelector('input[name="percentual"]');
+      if (inputPercentual) inputPercentual.value = '';
+    }
     inscricoesFields.style.display = 'none';
     razaoSocialFields.style.display = 'none';
     inputRazaoSocial.required = false;

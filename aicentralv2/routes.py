@@ -1020,9 +1020,8 @@ def init_routes(app):
                 elif not pk_id_tbl_agencia:
                     return _edit_error('Agência é obrigatória para Pessoa Jurídica!')
 
-                # Converter percentual para float se fornecido
                 percentual_valor = None
-                if percentual:
+                if pessoa == 'J' and percentual:
                     try:
                         percentual_normalizado = percentual.replace(',', '.')
                         percentual_valor = float(percentual_normalizado)
@@ -2885,11 +2884,9 @@ def init_routes(app):
                         if not percentual:
                             return _val_error('Percentual é obrigatório quando Agência = Sim.')
 
-                # Converter percentual para float se fornecido
                 percentual_valor = None
-                if percentual:
+                if pessoa == 'J' and percentual:
                     try:
-                        # Substituir vírgula por ponto para conversão
                         percentual_normalizado = percentual.replace(',', '.')
                         percentual_valor = float(percentual_normalizado)
                     except ValueError:

@@ -3,7 +3,7 @@
 {% block title %}Leads - CentralComm AI{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/leads.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leads.css') }}?v={{ range(10000,99999) | random }}">
 {% endblock %}
 
 {% block content %}
@@ -710,5 +710,5 @@ window.EXECUTIVOS = [
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/leads.js') }}"></script>
+<script src="{{ url_for('static', filename='js/leads.js') }}?v={{ range(10000,99999) | random }}"></script>
 {% endblock %}

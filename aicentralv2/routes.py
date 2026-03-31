@@ -7770,10 +7770,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             for b in briefings:
                 data.append({
                     'date': b['date'].isoformat() if b.get('date') else None,
-                    'briefings_created': b.get('briefings_created', 0),
-                    'briefings_submitted': b.get('briefings_submitted', 0),
-                    'briefings_viewed': b.get('briefings_viewed', 0),
-                    'conversion_rate': float(b.get('conversion_rate', 0)) if b.get('conversion_rate') else 0
+                    'briefings_created': int(b.get('briefings_created', 0) or 0),
+                    'briefings_submitted': int(b.get('briefings_submitted', 0) or 0)
                 })
             
             return jsonify({'success': True, 'data': data})
@@ -7794,10 +7792,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             for c in cotacoes:
                 data.append({
                     'date': c['date'].isoformat() if c.get('date') else None,
-                    'cotacoes_created': c.get('cotacoes_created', 0),
-                    'cotacoes_sent': c.get('cotacoes_sent', 0),
-                    'total_value': float(c.get('total_value', 0)) if c.get('total_value') else 0,
-                    'avg_value': float(c.get('avg_value', 0)) if c.get('avg_value') else 0
+                    'cotacoes_created': int(c.get('cotacoes_created', 0) or 0),
+                    'total_value': float(c.get('total_value', 0) or 0),
+                    'avg_value': float(c.get('avg_value', 0) or 0)
                 })
             
             return jsonify({'success': True, 'data': data})

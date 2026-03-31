@@ -6367,47 +6367,75 @@ def get_analytics_user_engagement(limit=50):
 
 def get_analytics_briefings_metrics(days=30):
     """
-    Obtém métricas diárias de briefings
+    Obtém métricas diárias de briefings a partir da tabela cadu_briefings
     """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT 
-                    date,
-                    briefings_created,
-                    briefings_submitted,
-                    briefings_viewed,
-                    conversion_rate
-                FROM v_analytics_briefings_metrics
-                WHERE date >= CURRENT_DATE - INTERVAL '%s days'
-                ORDER BY date ASC
-            ''', (days,))
+                SELECT
+                    d::date AS date,
+                    COALESCE(b.briefings_created, 0) AS briefings_created,
+                    COALESCE(b.briefings_submitted, 0) AS briefings_submitted
+                FROM generate_series(
+                    CURRENT_DATE - %s * INTERVAL '1 day',
+                    CURRENT_DATE,
+                    '1 day'
+                ) AS d
+                LEFT JOIN (
+                    SELECT
+                        DATE(created_at) AS date,
+                        COUNT(*) AS briefings_created,
+                        COUNT(*) FILTER (WHERE enviado_para_centralcomm = true) AS briefings_submitted
+                    FROM cadu_briefings
+                    WHERE deleted_at IS NULL
+                      AND created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    GROUP BY DATE(created_at)
+                ) b ON d::date = b.date
+                ORDER BY d ASC
+            ''', (days, days))
             return cursor.fetchall()
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Erro get_analytics_briefings_metrics: {e}")
         return []
 
 
 def get_analytics_cotacoes_metrics(days=30):
     """
-    Obtém métricas diárias de cotações
+    Obtém métricas diárias de cotações a partir da tabela cadu_cotacoes
     """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT 
-                    date,
-                    cotacoes_created,
-                    cotacoes_sent,
-                    total_value,
-                    avg_value
-                FROM v_analytics_cotacoes_metrics
-                WHERE date >= CURRENT_DATE - INTERVAL '%s days'
-                ORDER BY date ASC
-            ''', (days,))
+                SELECT
+                    d::date AS date,
+                    COALESCE(c.cotacoes_created, 0) AS cotacoes_created,
+                    COALESCE(c.total_value, 0) AS total_value,
+                    COALESCE(c.avg_value, 0) AS avg_value
+                FROM generate_series(
+                    CURRENT_DATE - %s * INTERVAL '1 day',
+                    CURRENT_DATE,
+                    '1 day'
+                ) AS d
+                LEFT JOIN (
+                    SELECT
+                        DATE(created_at) AS date,
+                        COUNT(*) AS cotacoes_created,
+                        COALESCE(SUM(valor_total_proposta), 0) AS total_value,
+                        COALESCE(AVG(valor_total_proposta), 0) AS avg_value
+                    FROM cadu_cotacoes
+                    WHERE deleted_at IS NULL
+                      AND created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    GROUP BY DATE(created_at)
+                ) c ON d::date = c.date
+                ORDER BY d ASC
+            ''', (days, days))
             return cursor.fetchall()
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Erro get_analytics_cotacoes_metrics: {e}")
         return []
 
 

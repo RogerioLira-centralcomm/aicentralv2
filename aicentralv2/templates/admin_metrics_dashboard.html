@@ -581,7 +581,17 @@ async function loadBriefingsCotacoesChart() {
         if (briefingsResult.success && cotacoesResult.success) {
             const briefingsData = briefingsResult.data;
             const cotacoesData = cotacoesResult.data;
-            
+
+            const briefingsMap = {};
+            briefingsData.forEach(d => { if (d.date) briefingsMap[d.date] = d.briefings_created || 0; });
+            const cotacoesMap = {};
+            cotacoesData.forEach(d => { if (d.date) cotacoesMap[d.date] = d.cotacoes_created || 0; });
+
+            const allDates = [...new Set([
+                ...Object.keys(briefingsMap),
+                ...Object.keys(cotacoesMap)
+            ])].sort();
+
             const ctx = document.getElementById('briefingsCotacoesChart').getContext('2d');
             
             if (briefingsCotacoesChart) {
@@ -591,16 +601,16 @@ async function loadBriefingsCotacoesChart() {
             briefingsCotacoesChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: briefingsData.map(d => formatDateShort(d.date)),
+                    labels: allDates.map(d => formatDateShort(d)),
                     datasets: [{
                         label: 'Briefings Criados',
-                        data: briefingsData.map(d => d.briefings_created),
+                        data: allDates.map(d => briefingsMap[d] || 0),
                         backgroundColor: 'rgba(59, 130, 246, 0.7)',
                         borderColor: '#3B82F6',
                         borderWidth: 1
                     }, {
                         label: 'Cotações Criadas',
-                        data: cotacoesData.map(d => d.cotacoes_created),
+                        data: allDates.map(d => cotacoesMap[d] || 0),
                         backgroundColor: 'rgba(34, 197, 94, 0.7)',
                         borderColor: '#22C55E',
                         borderWidth: 1

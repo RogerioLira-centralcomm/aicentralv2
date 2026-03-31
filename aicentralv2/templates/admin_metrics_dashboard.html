@@ -90,6 +90,43 @@
         </div>
     </div>
 
+    <!-- Status Monitor - Cadu -->
+    <div id="status-monitor" class="bg-base-100 rounded-xl p-4 border border-base-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div id="status-indicator" class="relative flex h-4 w-4">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-base-content/30 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-4 w-4 bg-base-content/30"></span>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold text-base-content text-sm">Cadu Login</span>
+                    <span id="status-badge" class="badge badge-sm badge-ghost">Verificando...</span>
+                </div>
+                <a href="https://cadu.centralcomm.media/login" target="_blank" class="text-xs text-base-content/50 hover:text-primary transition-colors">
+                    cadu.centralcomm.media/login
+                    <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
+                </a>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 text-xs text-base-content/60">
+            <div id="status-response-time" class="flex items-center gap-1" title="Tempo de resposta">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>--</span>
+            </div>
+            <div id="status-http-code" class="flex items-center gap-1" title="HTTP Status">
+                <i class="fas fa-code"></i>
+                <span>--</span>
+            </div>
+            <div id="status-last-check" class="flex items-center gap-1" title="Última verificação">
+                <i class="fas fa-clock"></i>
+                <span>--</span>
+            </div>
+            <button id="pingNowBtn" class="btn btn-ghost btn-xs" title="Verificar agora" onclick="checkCaduStatus()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
     <!-- KPI Cards Row 1 -->
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <!-- DAU -->
@@ -377,14 +414,13 @@ let currentDays = 30;
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboardData();
+    startPingMonitor();
     
-    // Evento de mudança de período
     document.getElementById('periodoSelect').addEventListener('change', function() {
         currentDays = parseInt(this.value);
         loadDashboardData();
     });
     
-    // Botão refresh
     document.getElementById('refreshBtn').addEventListener('click', loadDashboardData);
 });
 
@@ -415,45 +451,63 @@ async function loadDashboardData() {
 
 // Carregar overview (KPIs)
 async function loadOverview() {
+    const fallback = () => {
+        document.getElementById('kpi-dau').textContent = '0';
+        document.getElementById('kpi-wau').textContent = '0';
+        document.getElementById('kpi-mau').textContent = '0';
+        document.getElementById('kpi-sessions').textContent = '0';
+        document.getElementById('kpi-pageviews').textContent = '0';
+        document.getElementById('kpi-avgtime').textContent = '0s';
+        document.getElementById('kpi-dau-change').textContent = '0%';
+        document.getElementById('kpi-briefings').textContent = '0';
+        document.getElementById('kpi-briefings-sent').textContent = '0 enviados';
+        document.getElementById('kpi-cotacoes').textContent = '0';
+        document.getElementById('kpi-cotacoes-valor').textContent = 'R$ 0,00';
+        document.getElementById('kpi-audiencias').textContent = '0';
+        document.getElementById('kpi-pages-session').textContent = '0.0';
+    };
+
     try {
         const response = await fetch('/api/admin/metrics/overview');
         const result = await response.json();
         
-        if (result.success) {
-            const data = result.data;
-            
-            // Atualizar KPIs
-            document.getElementById('kpi-dau').textContent = formatNumber(data.dau?.value || 0);
-            document.getElementById('kpi-wau').textContent = formatNumber(data.wau?.value || 0);
-            document.getElementById('kpi-mau').textContent = formatNumber(data.mau?.value || 0);
-            document.getElementById('kpi-sessions').textContent = formatNumber(data.sessions_today || 0);
-            document.getElementById('kpi-pageviews').textContent = formatNumber(data.pageviews_hoje || 0);
-            document.getElementById('kpi-avgtime').textContent = formatDuration(data.avg_session_duration || 0);
-            
-            // DAU change badge
-            const dauChange = data.dau?.change_percent || 0;
-            const dauBadge = document.getElementById('kpi-dau-change');
-            if (dauChange > 0) {
-                dauBadge.className = 'badge badge-sm badge-success';
-                dauBadge.textContent = `+${dauChange}%`;
-            } else if (dauChange < 0) {
-                dauBadge.className = 'badge badge-sm badge-error';
-                dauBadge.textContent = `${dauChange}%`;
-            } else {
-                dauBadge.className = 'badge badge-sm badge-ghost';
-                dauBadge.textContent = '0%';
-            }
-            
-            // Briefings e Cotações
-            document.getElementById('kpi-briefings').textContent = formatNumber(data.briefings_criados_hoje || 0);
-            document.getElementById('kpi-briefings-sent').textContent = `${data.briefings_enviados_hoje || 0} enviados`;
-            document.getElementById('kpi-cotacoes').textContent = formatNumber(data.cotacoes_criadas_hoje || 0);
-            document.getElementById('kpi-cotacoes-valor').textContent = formatCurrency(data.cotacoes_valor_hoje || 0);
-            document.getElementById('kpi-audiencias').textContent = formatNumber(data.audiencias_hoje || 0);
-            document.getElementById('kpi-pages-session').textContent = (data.avg_pages_per_session || 0).toFixed(1);
+        if (!result.success) {
+            console.warn('Overview API retornou erro:', result.message);
+            fallback();
+            return;
         }
+
+        const data = result.data;
+        
+        document.getElementById('kpi-dau').textContent = formatNumber(data.dau?.value || 0);
+        document.getElementById('kpi-wau').textContent = formatNumber(data.wau?.value || 0);
+        document.getElementById('kpi-mau').textContent = formatNumber(data.mau?.value || 0);
+        document.getElementById('kpi-sessions').textContent = formatNumber(data.sessions_today || 0);
+        document.getElementById('kpi-pageviews').textContent = formatNumber(data.pageviews_hoje || 0);
+        document.getElementById('kpi-avgtime').textContent = formatDuration(data.avg_session_duration || 0);
+        
+        const dauChange = data.dau?.change_percent || 0;
+        const dauBadge = document.getElementById('kpi-dau-change');
+        if (dauChange > 0) {
+            dauBadge.className = 'badge badge-sm badge-success';
+            dauBadge.textContent = `+${dauChange}%`;
+        } else if (dauChange < 0) {
+            dauBadge.className = 'badge badge-sm badge-error';
+            dauBadge.textContent = `${dauChange}%`;
+        } else {
+            dauBadge.className = 'badge badge-sm badge-ghost';
+            dauBadge.textContent = '0%';
+        }
+        
+        document.getElementById('kpi-briefings').textContent = formatNumber(data.briefings_criados_hoje || 0);
+        document.getElementById('kpi-briefings-sent').textContent = `${data.briefings_enviados_hoje || 0} enviados`;
+        document.getElementById('kpi-cotacoes').textContent = formatNumber(data.cotacoes_criadas_hoje || 0);
+        document.getElementById('kpi-cotacoes-valor').textContent = formatCurrency(data.cotacoes_valor_hoje || 0);
+        document.getElementById('kpi-audiencias').textContent = formatNumber(data.audiencias_hoje || 0);
+        document.getElementById('kpi-pages-session').textContent = parseFloat(data.avg_pages_per_session || 0).toFixed(1);
     } catch (error) {
         console.error('Erro ao carregar overview:', error);
+        fallback();
     }
 }
 
@@ -675,6 +729,73 @@ async function loadAudienciasFunnel() {
     } catch (error) {
         console.error('Erro ao carregar funil:', error);
     }
+}
+
+// ==================== Status Monitor ====================
+const PING_INTERVAL_MS = 2 * 60 * 1000; // 2 minutos
+let pingTimer = null;
+let pingHistory = [];
+
+async function checkCaduStatus() {
+    const btn = document.getElementById('pingNowBtn');
+    btn.classList.add('loading', 'loading-spinner');
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/admin/ping-status?url=' + encodeURIComponent('https://cadu.centralcomm.media/login'));
+        const data = await response.json();
+        updateStatusUI(data);
+    } catch {
+        updateStatusUI({ is_up: false, error: 'Falha na requisição', status_code: null, response_time_ms: null, checked_at: new Date().toISOString() });
+    } finally {
+        btn.classList.remove('loading', 'loading-spinner');
+        btn.disabled = false;
+    }
+}
+
+function updateStatusUI(data) {
+    const indicator = document.getElementById('status-indicator');
+    const badge = document.getElementById('status-badge');
+    const responseTime = document.getElementById('status-response-time').querySelector('span');
+    const httpCode = document.getElementById('status-http-code').querySelector('span');
+    const lastCheck = document.getElementById('status-last-check').querySelector('span');
+    const monitor = document.getElementById('status-monitor');
+
+    if (data.is_up) {
+        indicator.innerHTML = `
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
+        badge.className = 'badge badge-sm badge-success';
+        badge.textContent = 'Online';
+        monitor.className = 'bg-base-100 rounded-xl p-4 border border-success/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
+    } else {
+        indicator.innerHTML = `
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-error"></span>`;
+        badge.className = 'badge badge-sm badge-error';
+        badge.textContent = data.error || 'Offline';
+        monitor.className = 'bg-base-100 rounded-xl p-4 border border-error/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
+    }
+
+    responseTime.textContent = data.response_time_ms != null ? data.response_time_ms + 'ms' : '--';
+    httpCode.textContent = data.status_code != null ? data.status_code : '--';
+
+    if (data.checked_at) {
+        const d = new Date(data.checked_at);
+        lastCheck.textContent = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    pingHistory.push({
+        time: new Date(),
+        up: data.is_up,
+        ms: data.response_time_ms
+    });
+    if (pingHistory.length > 100) pingHistory.shift();
+}
+
+function startPingMonitor() {
+    checkCaduStatus();
+    pingTimer = setInterval(checkCaduStatus, PING_INTERVAL_MS);
 }
 
 // Helpers

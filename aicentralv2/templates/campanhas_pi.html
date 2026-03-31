@@ -149,10 +149,6 @@
       </div>
     </div>
     <div class="flex items-center gap-2">
-      <button onclick="toggleBulkEdit()" id="btnBulkEdit"
-              class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors">
-        <i class="fas fa-pen-to-square mr-1"></i> Edição em Massa
-      </button>
     </div>
   </div>
 
@@ -632,16 +628,7 @@
   </div>
 </div>
 
-{# ====== BARRA DE EDIÇÃO EM MASSA ====== #}
-<div id="bulkSaveBar" class="items-center justify-between">
-  <span><i class="fas fa-pen-to-square mr-2"></i> Modo edição em massa ativo</span>
-  <div class="flex gap-2">
-    <button onclick="toggleBulkEdit()" class="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors">Cancelar</button>
-    <button onclick="salvarMassa()" class="px-4 py-2 text-sm bg-green-600 hover:bg-green-500 rounded text-white font-semibold transition-colors">
-      <i class="fas fa-save mr-1"></i> Salvar Todos
-    </button>
-  </div>
-</div>
+{# Barra de edição em massa removida da visão Dashboard #}
 
 {# ====== MODAL DE CRIAÇÃO/EDIÇÃO ====== #}
 <dialog id="modal_campanha" class="modal">
@@ -1597,29 +1584,6 @@
           });
       }
     });
-  }
-
-  // ==================== BULK EDIT ====================
-  let bulkMode = false;
-
-  function toggleBulkEdit() {
-    bulkMode = !bulkMode;
-    const btn = document.getElementById('btnBulkEdit');
-    const bar = document.getElementById('bulkSaveBar');
-
-    if (bulkMode) {
-      btn.classList.add('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
-      bar.classList.add('active');
-      if (typeof showToast === 'function') showToast('Edição em massa disponível apenas via tabela. Use filtros e ações.', 'info');
-    } else {
-      btn.classList.remove('bg-yellow-100', 'border-yellow-400', 'text-yellow-800');
-      bar.classList.remove('active');
-    }
-  }
-
-  function salvarMassa() {
-    if (typeof showToast === 'function') showToast('Use a edição individual pelo sidebar para atualizar campanhas.', 'info');
-    toggleBulkEdit();
   }
 
   // ==================== KEYBOARD ====================

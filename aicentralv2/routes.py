@@ -7848,6 +7848,77 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Página do Dashboard de Métricas Admin"""
         return render_template('admin_metrics_dashboard.html')
 
+    @app.route('/api/admin/ping-status', methods=['GET'])
+    @login_required
+    def api_admin_ping_status():
+        """Ping externo para verificar status do Cadu"""
+        import requests as req
+        import time
+
+        url = request.args.get('url', 'https://cadu.centralcomm.media/login')
+        headers = {
+            'User-Agent': 'CaduMonitor/1.0 (CentralComm; status-check)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+        start = time.time()
+        try:
+            resp = req.get(url, timeout=15, headers=headers, allow_redirects=True, verify=True)
+            elapsed_ms = round((time.time() - start) * 1000)
+            is_up = resp.status_code < 500
+            return jsonify({
+                'success': True,
+                'url': url,
+                'status_code': resp.status_code,
+                'response_time_ms': elapsed_ms,
+                'is_up': is_up,
+                'checked_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        except req.exceptions.Timeout:
+            elapsed_ms = round((time.time() - start) * 1000)
+            return jsonify({
+                'success': True,
+                'url': url,
+                'status_code': None,
+                'response_time_ms': elapsed_ms,
+                'is_up': False,
+                'error': 'Timeout',
+                'checked_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        except req.exceptions.SSLError:
+            elapsed_ms = round((time.time() - start) * 1000)
+            return jsonify({
+                'success': True,
+                'url': url,
+                'status_code': None,
+                'response_time_ms': elapsed_ms,
+                'is_up': False,
+                'error': 'Erro SSL',
+                'checked_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        except req.exceptions.ConnectionError:
+            elapsed_ms = round((time.time() - start) * 1000)
+            return jsonify({
+                'success': True,
+                'url': url,
+                'status_code': None,
+                'response_time_ms': elapsed_ms,
+                'is_up': False,
+                'error': 'Conexão recusada',
+                'checked_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        except Exception as e:
+            elapsed_ms = round((time.time() - start) * 1000)
+            return jsonify({
+                'success': True,
+                'url': url,
+                'status_code': None,
+                'response_time_ms': elapsed_ms,
+                'is_up': False,
+                'error': str(e),
+                'checked_at': datetime.utcnow().isoformat() + 'Z'
+            })
+
     # ==================== MÉTRICAS MENSAIS (ex-SEMANAIS) ====================
 
     def _sanitize_row(row):

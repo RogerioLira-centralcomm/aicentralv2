@@ -6216,27 +6216,36 @@ def get_analytics_overview():
             ''')
             audiencias = cursor.fetchone()
             
+            def _num(val, default=0):
+                """Converte Decimal/None para float seguro para JSON."""
+                if val is None:
+                    return default
+                return float(val)
+
+            dau_today = _num(dau_mau.get('dau_today')) if dau_mau else 0
+            dau_yesterday = _num(dau_mau.get('dau_yesterday'), 1) if dau_mau else 1
+
             return {
                 'dau': {
-                    'value': dau_mau.get('dau_today', 0) if dau_mau else 0,
-                    'previous': dau_mau.get('dau_yesterday', 0) if dau_mau else 0,
-                    'change_percent': round(((dau_mau.get('dau_today', 0) - dau_mau.get('dau_yesterday', 1)) / max(dau_mau.get('dau_yesterday', 1), 1)) * 100, 1) if dau_mau else 0
+                    'value': int(dau_today),
+                    'previous': int(dau_yesterday),
+                    'change_percent': round(((dau_today - dau_yesterday) / max(dau_yesterday, 1)) * 100, 1)
                 },
                 'mau': {
-                    'value': dau_mau.get('mau', 0) if dau_mau else 0
+                    'value': int(_num(dau_mau.get('mau')) if dau_mau else 0)
                 },
                 'wau': {
-                    'value': dau_mau.get('wau', 0) if dau_mau else 0
+                    'value': int(_num(dau_mau.get('wau')) if dau_mau else 0)
                 },
-                'sessions_today': dau_mau.get('sessions_today', 0) if dau_mau else 0,
-                'avg_session_duration': dau_mau.get('avg_session_duration_today', 0) if dau_mau else 0,
-                'avg_pages_per_session': dau_mau.get('avg_pages_per_session_today', 0) if dau_mau else 0,
-                'briefings_criados_hoje': briefings.get('criados_hoje', 0) if briefings else 0,
-                'briefings_enviados_hoje': briefings.get('enviados_hoje', 0) if briefings else 0,
-                'cotacoes_criadas_hoje': cotacoes.get('criadas_hoje', 0) if cotacoes else 0,
-                'cotacoes_valor_hoje': float(cotacoes.get('valor_total_hoje', 0)) if cotacoes else 0,
-                'pageviews_hoje': pageviews.get('pageviews_hoje', 0) if pageviews else 0,
-                'audiencias_hoje': audiencias.get('audiencias_hoje', 0) if audiencias else 0
+                'sessions_today': int(_num(dau_mau.get('sessions_today')) if dau_mau else 0),
+                'avg_session_duration': _num(dau_mau.get('avg_session_duration_today')) if dau_mau else 0,
+                'avg_pages_per_session': _num(dau_mau.get('avg_pages_per_session_today')) if dau_mau else 0,
+                'briefings_criados_hoje': int(_num(briefings.get('criados_hoje')) if briefings else 0),
+                'briefings_enviados_hoje': int(_num(briefings.get('enviados_hoje')) if briefings else 0),
+                'cotacoes_criadas_hoje': int(_num(cotacoes.get('criadas_hoje')) if cotacoes else 0),
+                'cotacoes_valor_hoje': _num(cotacoes.get('valor_total_hoje')) if cotacoes else 0,
+                'pageviews_hoje': int(_num(pageviews.get('pageviews_hoje')) if pageviews else 0),
+                'audiencias_hoje': int(_num(audiencias.get('audiencias_hoje')) if audiencias else 0)
             }
     except Exception as e:
         # Se as tabelas não existem, retornar dados zerados

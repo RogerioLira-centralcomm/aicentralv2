@@ -10824,11 +10824,61 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Página principal do dashboard de leads"""
         try:
             executivos = db.obter_vendedores_centralcomm() or []
-            return render_template('cadu_leads.html', executivos=executivos)
+            tipos_cliente = db.obter_tipos_cliente() or []
+            agencias = db.obter_aux_agencia() or []
+            estados = db.obter_estados() or []
+            return render_template('cadu_leads.html',
+                                   executivos=executivos,
+                                   tipos_cliente=tipos_cliente,
+                                   agencias=agencias,
+                                   estados=estados)
         except Exception as e:
             app.logger.error(f"Erro ao carregar página de leads: {e}")
             flash('Erro ao carregar leads.', 'error')
-            return render_template('cadu_leads.html', executivos=[])
+            return render_template('cadu_leads.html', executivos=[], tipos_cliente=[], agencias=[], estados=[])
+
+    @app.route('/leads/analise')
+    @login_required
+    def leads_analise():
+        """Página de análise de leads"""
+        try:
+            executivos = db.obter_vendedores_centralcomm() or []
+            return render_template('leads_analise.html', executivos=executivos)
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar análise de leads: {e}")
+            flash('Erro ao carregar análise.', 'error')
+            return render_template('leads_analise.html', executivos=[])
+
+    @app.route('/api/leads/analise')
+    @login_required
+    def api_leads_analise():
+        """Dados consolidados para análise de leads"""
+        try:
+            data_inicio = request.args.get('data_inicio')
+            data_fim = request.args.get('data_fim')
+            id_executivo = request.args.get('id_executivo', type=int)
+
+            dados = db.obter_leads_analise(
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                id_executivo=id_executivo
+            )
+
+            def serialize(obj):
+                if isinstance(obj, dict):
+                    return {k: serialize(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [serialize(i) for i in obj]
+                elif isinstance(obj, datetime):
+                    return obj.strftime('%Y-%m-%dT%H:%M')
+                elif hasattr(obj, '__float__') and not isinstance(obj, (int, float, bool)):
+                    return float(obj)
+                return obj
+
+            return jsonify({'success': True, 'data': serialize(dados)})
+        except Exception as e:
+            app.logger.error(f"Erro api_leads_analise: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/leads')
     @login_required
@@ -11172,9 +11222,47 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
     @app.route('/api/leads/<int:lead_id>/converter-cliente', methods=['POST'])
     @login_required
     def api_lead_converter(lead_id):
-        """Converte lead em cliente"""
+        """Converte lead em cliente com dados completos"""
         try:
-            cliente_id = db.converter_lead_cliente(lead_id)
+            data = request.get_json(force=True) if request.is_json else {}
+
+            if not data.get('cnpj'):
+                return jsonify({'success': False, 'message': 'CNPJ/CPF obrigatório'}), 400
+
+            cnpj_limpo = ''.join(c for c in data['cnpj'] if c.isdigit())
+            pessoa = data.get('pessoa', 'J')
+
+            if pessoa == 'F':
+                if not db.validar_cpf(cnpj_limpo):
+                    return jsonify({'success': False, 'message': 'CPF inválido'}), 400
+            else:
+                if len(cnpj_limpo) != 14:
+                    return jsonify({'success': False, 'message': 'CNPJ inválido'}), 400
+
+            existente = db.cliente_existe_por_cnpj(cnpj_limpo)
+            if existente:
+                return jsonify({'success': False, 'message': 'CNPJ/CPF já cadastrado', 'ja_cadastrado': True}), 400
+
+            cliente_data = {
+                'cnpj': cnpj_limpo,
+                'pessoa': pessoa,
+                'razao_social': data.get('razao_social', ''),
+                'nome_fantasia': data.get('nome_fantasia', ''),
+                'id_tipo_cliente': data.get('id_tipo_cliente'),
+                'vendas_central_comm': data.get('vendas_central_comm'),
+                'pk_id_tbl_agencia': data.get('pk_id_tbl_agencia'),
+                'inscricao_estadual': data.get('inscricao_estadual'),
+                'inscricao_municipal': data.get('inscricao_municipal'),
+                'cep': data.get('cep'),
+                'pk_id_aux_estado': data.get('pk_id_aux_estado'),
+                'cidade': data.get('cidade'),
+                'bairro': data.get('bairro'),
+                'logradouro': data.get('logradouro'),
+                'numero': data.get('numero'),
+                'complemento': data.get('complemento'),
+            }
+
+            cliente_id = db.converter_lead_cliente_completo(lead_id, cliente_data)
             if cliente_id:
                 registrar_auditoria(
                     acao='converter',
@@ -11587,7 +11675,7 @@ REGRAS DE ESTILO:
         try:
             data = request.get_json(force=True)
             new_status = data.get('status')
-            valid = ('inbox','contato','qualificado','nao_qualificado','proposta','negociacao','fechado_ganho','fechado_perdido')
+            valid = ('inbox','tentativa_contato','reuniao_agendada','nutricao','nao_qualificado','fechado_ganho','fechado_perdido')
             if new_status not in valid:
                 return jsonify({'success': False, 'message': 'Status inválido'}), 400
             ok = db.atualizar_lead_status(lead_id, status=new_status)

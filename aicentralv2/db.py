@@ -10902,14 +10902,15 @@ def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual', ca
                 contatos = lead_item.get('contatos', [])
                 principal = next((c for c in contatos if c.get('principal')), contatos[0] if contatos else {})
 
+                exec_id = id_executivo or None
+                atribuido = datetime.now() if exec_id else None
+
                 cursor.execute('''
                     INSERT INTO cadu_leads (
                         empresa, nome, email, telefone, cargo,
                         fonte, origem, canal, status, id_executivo, atribuido_em,
                         tipo_lead, lote_importacao, importado_por
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                              CASE WHEN %s IS NOT NULL THEN NOW() END,
-                              %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 ''', (
                     lead_item.get('empresa'),
@@ -10918,14 +10919,14 @@ def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual', ca
                     principal.get('telefone'),
                     principal.get('cargo'),
                     fonte,
-                    origem or lead_item.get('origem'),
-                    canal or lead_item.get('canal'),
+                    origem or lead_item.get('origem') or 'importacao',
+                    canal or lead_item.get('canal') or 'importacao',
                     'inbox',
-                    id_executivo or None,
-                    id_executivo or None,
+                    exec_id,
+                    atribuido,
                     tipo_lead,
                     lote,
-                    id_executivo,
+                    exec_id,
                 ))
                 lead_id = cursor.fetchone()['id']
                 ids_criados.append(lead_id)
@@ -10981,7 +10982,13 @@ def desqualificar_lead(lead_id, motivo):
 
 
 def converter_lead_cliente(lead_id):
-    """Converte lead em cliente: cria tbl_cliente, atualiza lead.
+    """Converte lead em cliente (legado, sem dados completos)."""
+    return converter_lead_cliente_completo(lead_id, {})
+
+
+def converter_lead_cliente_completo(lead_id, cliente_data):
+    """Converte lead em cliente com dados completos: CNPJ, endereço, tipo, agência.
+    Cria tbl_cliente, migra contatos, atualiza lead.
     Retorna id do cliente criado."""
     conn = get_db()
     try:
@@ -10991,24 +10998,40 @@ def converter_lead_cliente(lead_id):
             if not lead:
                 return None
 
-            nome_empresa = lead.get('empresa') or lead.get('nome') or 'Lead sem nome'
+            razao = cliente_data.get('razao_social') or lead.get('empresa') or lead.get('nome') or 'Lead sem nome'
+            fantasia = cliente_data.get('nome_fantasia') or razao
+            pessoa = cliente_data.get('pessoa', 'J')
+            exec_id = cliente_data.get('vendas_central_comm') or lead.get('id_executivo')
 
             cursor.execute('''
                 INSERT INTO tbl_cliente (
-                    razao_social, nome_fantasia, pessoa, status,
-                    vendas_central_comm
-                ) VALUES (%s, %s, 'J', TRUE, %s)
+                    cnpj, razao_social, nome_fantasia, pessoa, status,
+                    id_tipo_cliente, vendas_central_comm, pk_id_tbl_agencia,
+                    inscricao_estadual, inscricao_municipal,
+                    cep, pk_id_aux_estado, cidade, bairro, logradouro, numero, complemento
+                ) VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_cliente
             ''', (
-                nome_empresa,
-                nome_empresa,
-                lead.get('id_executivo'),
+                cliente_data.get('cnpj'),
+                razao,
+                fantasia,
+                pessoa,
+                cliente_data.get('id_tipo_cliente'),
+                exec_id,
+                cliente_data.get('pk_id_tbl_agencia'),
+                cliente_data.get('inscricao_estadual'),
+                cliente_data.get('inscricao_municipal'),
+                cliente_data.get('cep'),
+                cliente_data.get('pk_id_aux_estado') or None,
+                cliente_data.get('cidade'),
+                cliente_data.get('bairro'),
+                cliente_data.get('logradouro'),
+                cliente_data.get('numero'),
+                cliente_data.get('complemento'),
             ))
             cliente_id = cursor.fetchone()['id_cliente']
 
-            cursor.execute('''
-                SELECT * FROM cadu_lead_contatos WHERE id_lead = %s
-            ''', (lead_id,))
+            cursor.execute('SELECT * FROM cadu_lead_contatos WHERE id_lead = %s', (lead_id,))
             contatos = cursor.fetchall()
 
             for contato in contatos:
@@ -11206,6 +11229,181 @@ def obter_leads_engajamento(id_executivo=None):
             return cursor.fetchall()
     except Exception as e:
         current_app.logger.error(f"Erro obter_leads_engajamento: {e}")
+        raise
+
+
+def obter_leads_analise(data_inicio=None, data_fim=None, id_executivo=None):
+    """Dados consolidados para a página de análise de leads."""
+    conn = get_db()
+    try:
+        base_params = []
+        base_clauses = []
+        if data_inicio:
+            base_clauses.append('l.created_at >= %s')
+            base_params.append(data_inicio)
+        if data_fim:
+            base_clauses.append('l.created_at <= %s')
+            base_params.append(data_fim)
+        if id_executivo:
+            base_clauses.append('l.id_executivo = %s')
+            base_params.append(id_executivo)
+
+        where_sql = f"WHERE {' AND '.join(base_clauses)}" if base_clauses else ''
+
+        result = {}
+
+        with conn.cursor() as cursor:
+            # KPIs gerais
+            cursor.execute(f'''
+                SELECT
+                    COUNT(*) as total_leads,
+                    SUM(CASE WHEN l.status = 'fechado_ganho' THEN 1 ELSE 0 END) as convertidos,
+                    SUM(CASE WHEN l.status = 'nao_qualificado' THEN 1 ELSE 0 END) as desqualificados,
+                    SUM(CASE WHEN l.status = 'fechado_perdido' THEN 1 ELSE 0 END) as perdidos,
+                    ROUND(
+                        CASE WHEN COUNT(*) > 0
+                            THEN SUM(CASE WHEN l.status = 'fechado_ganho' THEN 1 ELSE 0 END) * 100.0 / COUNT(*)
+                            ELSE 0
+                        END, 1
+                    ) as taxa_conversao,
+                    COALESCE(SUM(l.valor_fechado), 0) as receita_total
+                FROM cadu_leads l
+                {where_sql}
+            ''', base_params)
+            row = cursor.fetchone()
+            result['kpis'] = dict(row) if row else {}
+
+            # Tempo médio de conversão (inbox -> fechado_ganho)
+            conv_params = list(base_params)
+            conv_clauses = list(base_clauses)
+            conv_clauses.append("l.status = 'fechado_ganho'")
+            conv_clauses.append("l.fechado_em IS NOT NULL")
+            conv_where = f"WHERE {' AND '.join(conv_clauses)}" if conv_clauses else ''
+
+            cursor.execute(f'''
+                SELECT
+                    ROUND(AVG(EXTRACT(EPOCH FROM (l.fechado_em - l.created_at)) / 86400), 1) as avg_dias_conversao,
+                    MIN(EXTRACT(EPOCH FROM (l.fechado_em - l.created_at)) / 86400) as min_dias,
+                    MAX(EXTRACT(EPOCH FROM (l.fechado_em - l.created_at)) / 86400) as max_dias,
+                    COUNT(*) as total_convertidos
+                FROM cadu_leads l
+                {conv_where}
+            ''', conv_params)
+            row = cursor.fetchone()
+            result['tempo_conversao'] = dict(row) if row else {}
+
+            # Tempo médio por status (baseado em atividades de status_change)
+            status_params = list(base_params)
+            status_clauses = []
+            if data_inicio:
+                status_clauses.append('a.created_at >= %s')
+            if data_fim:
+                status_clauses.append('a.created_at <= %s')
+            if id_executivo:
+                status_clauses.append('l.id_executivo = %s')
+            status_clauses.append("a.tipo = 'status_change'")
+            status_where = f"WHERE {' AND '.join(status_clauses)}" if status_clauses else ''
+
+            cursor.execute(f'''
+                SELECT
+                    a.descricao as status_destino,
+                    COUNT(*) as transicoes,
+                    ROUND(AVG(EXTRACT(EPOCH FROM (a.created_at - l.created_at)) / 86400), 1) as avg_dias_desde_criacao
+                FROM cadu_lead_atividades a
+                JOIN cadu_leads l ON l.id = a.lead_id
+                {status_where}
+                GROUP BY a.descricao
+                ORDER BY avg_dias_desde_criacao
+            ''', status_params)
+            result['tempo_por_status'] = [dict(r) for r in cursor.fetchall()]
+
+            # Produtividade por executivo
+            cursor.execute(f'''
+                SELECT
+                    l.id_executivo,
+                    COUNT(*) as total_leads,
+                    SUM(CASE WHEN l.status = 'fechado_ganho' THEN 1 ELSE 0 END) as convertidos,
+                    SUM(CASE WHEN l.status = 'nao_qualificado' THEN 1 ELSE 0 END) as desqualificados,
+                    ROUND(
+                        CASE WHEN COUNT(*) > 0
+                            THEN SUM(CASE WHEN l.status = 'fechado_ganho' THEN 1 ELSE 0 END) * 100.0 / COUNT(*)
+                            ELSE 0
+                        END, 1
+                    ) as taxa_conversao,
+                    COALESCE(SUM(l.valor_fechado), 0) as receita,
+                    ROUND(AVG(
+                        CASE WHEN l.status = 'fechado_ganho' AND l.fechado_em IS NOT NULL
+                            THEN EXTRACT(EPOCH FROM (l.fechado_em - l.created_at)) / 86400
+                            ELSE NULL
+                        END
+                    ), 1) as avg_dias_conversao,
+                    ROUND(AVG(
+                        CASE WHEN l.contatado_em IS NOT NULL
+                            THEN EXTRACT(EPOCH FROM (l.contatado_em - l.created_at)) / 3600
+                            ELSE NULL
+                        END
+                    ), 1) as avg_horas_primeiro_contato,
+                    (SELECT COUNT(*) FROM cadu_lead_atividades a2
+                     WHERE a2.lead_id = ANY(ARRAY_AGG(l.id))
+                    ) as total_atividades
+                FROM cadu_leads l
+                {where_sql}
+                GROUP BY l.id_executivo
+                ORDER BY convertidos DESC, total_leads DESC
+            ''', base_params)
+            result['produtividade_executivo'] = [dict(r) for r in cursor.fetchall()]
+
+            # Atividades por executivo (query separada para evitar subquery correlacionada)
+            ativ_params = list(base_params)
+            ativ_clauses = list(base_clauses)
+            ativ_where = f"WHERE {' AND '.join(ativ_clauses)}" if ativ_clauses else ''
+
+            cursor.execute(f'''
+                SELECT
+                    l.id_executivo,
+                    COUNT(a.id) as total_atividades,
+                    SUM(CASE WHEN a.tipo = 'ligacao' THEN 1 ELSE 0 END) as ligacoes,
+                    SUM(CASE WHEN a.tipo = 'whatsapp' THEN 1 ELSE 0 END) as whatsapp,
+                    SUM(CASE WHEN a.tipo IN ('email', 'email_enviado') THEN 1 ELSE 0 END) as emails,
+                    SUM(CASE WHEN a.tipo = 'reuniao' THEN 1 ELSE 0 END) as reunioes,
+                    SUM(CASE WHEN a.tipo = 'tentativa_contato' THEN 1 ELSE 0 END) as tentativas_contato,
+                    COUNT(DISTINCT a.lead_id) as leads_trabalhados
+                FROM cadu_leads l
+                LEFT JOIN cadu_lead_atividades a ON a.lead_id = l.id
+                {ativ_where}
+                GROUP BY l.id_executivo
+                ORDER BY total_atividades DESC
+            ''', ativ_params)
+            result['atividades_executivo'] = [dict(r) for r in cursor.fetchall()]
+
+            # Leads desqualificados no período
+            desq_params = list(base_params)
+            desq_clauses = list(base_clauses)
+            desq_clauses.append("l.status = 'nao_qualificado'")
+            desq_where = f"WHERE {' AND '.join(desq_clauses)}"
+
+            cursor.execute(f'''
+                SELECT
+                    l.id,
+                    l.empresa,
+                    l.nome,
+                    l.email,
+                    l.motivo_desqualificacao,
+                    l.id_executivo,
+                    l.created_at,
+                    l.updated_at,
+                    l.fonte,
+                    l.valor_estimado
+                FROM cadu_leads l
+                {desq_where}
+                ORDER BY l.updated_at DESC
+                LIMIT 200
+            ''', desq_params)
+            result['desqualificados'] = [dict(r) for r in cursor.fetchall()]
+
+        return result
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_leads_analise: {e}")
         raise
 
 

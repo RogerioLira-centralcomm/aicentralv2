@@ -293,6 +293,9 @@
                             <li class="disabled" style="pointer-events:none"><div style="padding:2px 0;margin:2px 0"><hr style="border:none;border-top:1px solid #e5e7eb"></div></li>
                             <li><a href="{{ url_for('sales_war_room.index') }}" class="{% if request.endpoint == 'sales_war_room.index' %}active{% endif %}">Sales War Room</a></li>
                             {% endif %}
+                            {% if session.get('user_email') in ['apolo@centralcomm.media', 'rogerio@centralcomm.media'] %}
+                            <li><a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">Métricas Comercial</a></li>
+                            {% endif %}
                         </ul>
                     </div>
 
@@ -335,9 +338,6 @@
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-56 border border-base-200">
                             <li><a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">Interesses</a></li>
                             <li><a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">Métricas Plataforma</a></li>
-                            {% if session.get('user_email') in ['apolo@centralcomm.media', 'rogerio@centralcomm.media'] %}
-                            <li><a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">Métricas Comercial</a></li>
-                            {% endif %}
                             <li><a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">Nova Audiência</a></li>
                             <li><a href="{{ url_for('cadu_audiencias') }}" class="{% if request.endpoint == 'cadu_audiencias' %}active{% endif %}">Audiências</a></li>
                             <li><a href="{{ url_for('cadu_categorias') }}" class="{% if request.endpoint == 'cadu_categorias' %}active{% endif %}">Categorias</a></li>
@@ -429,7 +429,7 @@
 
                         <!-- Comercial -->
                         <li class="mt-2">
-                            <details {% if request.endpoint in ['clientes', 'leads_list', 'cotacoes_list', 'briefing_list', 'cadu_pi_novo', 'metricas_semanais'] %}open{% endif %}>
+                            <details {% if request.endpoint in ['clientes', 'leads_list', 'cotacoes_list', 'briefing_list', 'cadu_pi_novo', 'sales_war_room.index', 'metricas_semanais'] %}open{% endif %}>
                                 <summary>Comercial</summary>
                                 <ul>
                                     <li>
@@ -468,6 +468,13 @@
                                     <li>
                                         <a href="{{ url_for('sales_war_room.index') }}" class="{% if request.endpoint == 'sales_war_room.index' %}active{% endif %}">
                                             Sales War Room
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {% if session.get('user_email') in ['apolo@centralcomm.media', 'rogerio@centralcomm.media'] %}
+                                    <li>
+                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
+                                            Métricas Comercial
                                         </a>
                                     </li>
                                     {% endif %}
@@ -550,13 +557,6 @@
                                             Métricas Plataforma
                                         </a>
                                     </li>
-                                    {% if session.get('user_email') in ['apolo@centralcomm.media', 'rogerio@centralcomm.media'] %}
-                                    <li>
-                                        <a href="{{ url_for('metricas_semanais') }}" class="{% if request.endpoint == 'metricas_semanais' %}active{% endif %}">
-                                            Métricas Comercial
-                                        </a>
-                                    </li>
-                                    {% endif %}
                                     <li>
                                         <a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">
                                             Nova Audiência

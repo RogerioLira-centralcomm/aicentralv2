@@ -26,17 +26,11 @@
         Importar
       </button>
 
-      <button onclick="openLinksModal()"
-              style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:500;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-        Links
-      </button>
-
-      <button onclick="openRelatorioExecutivo()"
-              style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:500;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
+      <a href="{{ url_for('leads_analise') }}"
+         style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:13px;font-weight:500;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;text-decoration:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-        Relatório
-      </button>
+        Análise
+      </a>
     </div>
 
     <div class="flex items-center gap-3 flex-wrap">
@@ -89,10 +83,9 @@
                 class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 75px;">
           <option value="">Status</option>
           <option value="inbox">Inbox</option>
-          <option value="contato">Contato</option>
-          <option value="qualificado">Qualificado</option>
-          <option value="proposta">Proposta</option>
-          <option value="negociacao">Negociação</option>
+          <option value="tentativa_contato">Tentativa de Contato</option>
+          <option value="reuniao_agendada">Reunião Agendada</option>
+          <option value="nutricao">Nutrição</option>
         </select>
         <select id="filtro_fonte" onchange="loadLeads()"
                 class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 70px;">
@@ -138,40 +131,26 @@
       </div>
       <div class="kanban-column-scroll" data-drop="inbox"></div>
     </div>
-    <div class="kanban-column" data-status="contato">
+    <div class="kanban-column" data-status="tentativa_contato">
       <div class="kanban-column-header">
-        <span style="color:#1d4ed8">Contato</span>
-        <span class="kanban-column-count" data-count="contato">0</span>
+        <span style="color:#1d4ed8">Tentativa de Contato</span>
+        <span class="kanban-column-count" data-count="tentativa_contato">0</span>
       </div>
-      <div class="kanban-column-scroll" data-drop="contato"></div>
+      <div class="kanban-column-scroll" data-drop="tentativa_contato"></div>
     </div>
-    <div class="kanban-column" data-status="qualificado">
+    <div class="kanban-column" data-status="reuniao_agendada">
       <div class="kanban-column-header">
-        <span style="color:#15803d">Qualificado</span>
-        <span class="kanban-column-count" data-count="qualificado">0</span>
+        <span style="color:#15803d">Reunião Agendada</span>
+        <span class="kanban-column-count" data-count="reuniao_agendada">0</span>
       </div>
-      <div class="kanban-column-scroll" data-drop="qualificado"></div>
+      <div class="kanban-column-scroll" data-drop="reuniao_agendada"></div>
     </div>
-    <div class="kanban-column" data-status="proposta">
+    <div class="kanban-column" data-status="nutricao">
       <div class="kanban-column-header">
-        <span style="color:#a16207">Proposta</span>
-        <span class="kanban-column-count" data-count="proposta">0</span>
+        <span style="color:#a16207">Nutrição</span>
+        <span class="kanban-column-count" data-count="nutricao">0</span>
       </div>
-      <div class="kanban-column-scroll" data-drop="proposta"></div>
-    </div>
-    <div class="kanban-column" data-status="negociacao">
-      <div class="kanban-column-header">
-        <span style="color:#c2410c">Negociação</span>
-        <span class="kanban-column-count" data-count="negociacao">0</span>
-      </div>
-      <div class="kanban-column-scroll" data-drop="negociacao"></div>
-    </div>
-    <div class="kanban-column" data-status="fechado_ganho">
-      <div class="kanban-column-header">
-        <span style="color:#065f46">Fechado ✓</span>
-        <span class="kanban-column-count" data-count="fechado_ganho">0</span>
-      </div>
-      <div class="kanban-column-scroll" data-drop="fechado_ganho"></div>
+      <div class="kanban-column-scroll" data-drop="nutricao"></div>
     </div>
   </div>
 
@@ -340,10 +319,14 @@
       </div>
     </div>
     <div id="import_step2" class="hidden">
-      <div id="import_preview" class="space-y-3 max-h-96 overflow-y-auto"></div>
-      <div class="modal-action" style="justify-content:flex-end">
-        <button onclick="backToStep1()" class="leads-action-btn" style="flex:0;padding:10px 20px;font-size:13px;background:#f3f4f6;color:#374151">Voltar</button>
-        <button onclick="confirmImport()" class="leads-action-btn leads-action-btn-incluir" id="btn_importar" style="flex:0;padding:10px 24px;font-size:13px;font-weight:600">
+      <div id="import_preview" class="space-y-3 max-h-96 overflow-y-auto" style="padding:4px 0"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:16px;flex-wrap:wrap">
+        <button onclick="backToStep1()"
+                style="display:inline-flex;align-items:center;gap:6px;padding:10px 24px;font-size:13px;font-weight:500;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer;white-space:nowrap">
+          Voltar
+        </button>
+        <button onclick="confirmImport()" id="btn_importar"
+                style="display:inline-flex;align-items:center;gap:6px;padding:10px 24px;font-size:13px;font-weight:600;background:#059669;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap">
           Importar Selecionados
         </button>
       </div>
@@ -397,12 +380,9 @@
           <label class="label label-text text-xs font-semibold">Status</label>
           <select id="edit_status" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full">
             <option value="inbox">Inbox</option>
-            <option value="contato">Contato</option>
-            <option value="qualificado">Qualificado</option>
-            <option value="proposta">Proposta</option>
-            <option value="negociacao">Negociação</option>
-            <option value="fechado_ganho">Fechado (Ganho)</option>
-            <option value="fechado_perdido">Fechado (Perdido)</option>
+            <option value="tentativa_contato">Tentativa de Contato</option>
+            <option value="reuniao_agendada">Reunião Agendada</option>
+            <option value="nutricao">Nutrição</option>
           </select>
         </div>
         <div>
@@ -541,28 +521,6 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- ===== Modal Links Úteis ===== -->
-<dialog id="modal_links" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
-    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-    <h3 class="font-bold text-lg mb-4">Links Úteis</h3>
-    <div id="links_content" class="space-y-4 max-h-96 overflow-y-auto">
-      <div class="leads-empty">Carregando...</div>
-    </div>
-    <div id="links_site_section" class="hidden mt-4 pt-4" style="border-top:1px solid #e5e7eb">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm font-semibold text-gray-700">Links do Site do Lead</span>
-        <button onclick="extrairLinksDoSite()" class="leads-action-btn leads-action-btn-incluir" id="btn_extrair_links" style="flex:0;padding:4px 12px;font-size:11px">
-          <span class="loading loading-spinner loading-xs hidden" id="extrair_links_spinner"></span>
-          Buscar links do site
-        </button>
-      </div>
-      <div id="links_site_resultado" class="space-y-1"></div>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop"><button>close</button></form>
-</dialog>
-
 <!-- ===== Modal Resultado Comunicação ===== -->
 <dialog id="modal_comunicacao_resultado" class="modal">
   <div class="modal-box w-11/12 max-w-2xl">
@@ -596,39 +554,147 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- ===== Modal Relatório Executivo ===== -->
-<dialog id="modal_relatorio" class="modal">
-  <div class="modal-box w-11/12 max-w-6xl max-h-[90vh]">
+<!-- ===== Modal Converter Lead em Cliente ===== -->
+<dialog id="modal_converter" class="modal">
+  <div class="modal-box w-11/12 max-w-4xl max-h-[90vh]">
     <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
-    <h3 class="font-bold text-lg mb-4">Relatório por Executivo</h3>
-    <div class="flex items-center gap-3 mb-4 flex-wrap">
-      <select id="rel_ano" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700" onchange="loadRelatorio()">
-        <option value="">Ano</option>
-      </select>
-      <select id="rel_mes" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700" onchange="loadRelatorio()">
-        <option value="">Mês</option>
-        <option value="1">Janeiro</option>
-        <option value="2">Fevereiro</option>
-        <option value="3">Março</option>
-        <option value="4">Abril</option>
-        <option value="5">Maio</option>
-        <option value="6">Junho</option>
-        <option value="7">Julho</option>
-        <option value="8">Agosto</option>
-        <option value="9">Setembro</option>
-        <option value="10">Outubro</option>
-        <option value="11">Novembro</option>
-        <option value="12">Dezembro</option>
-      </select>
-      <select id="rel_executivo" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700" onchange="loadRelatorio()">
-        <option value="">Todos os executivos</option>
-        {% for ex in executivos %}
-          <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div id="relatorio_content" class="overflow-y-auto" style="max-height: calc(90vh - 200px)">
-      <div class="leads-empty">Selecione ano e mês para gerar o relatório</div>
+    <h3 class="font-bold text-lg mb-4">Converter Lead em Cliente</h3>
+
+    <div id="converter_form_content">
+      <!-- Linha 1: Pessoa + CNPJ/CPF + Nome Fantasia + Razão Social -->
+      <div class="grid grid-cols-12 gap-3 mb-3">
+        <div class="col-span-2">
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Pessoa*</label>
+          <div style="display:flex;gap:0">
+            <label id="cv_label_pj" onclick="cvTogglePessoa('J')"
+                   style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #22c55e;border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:#f0fdf4;color:#15803d">
+              <input type="radio" name="cv_pessoa" value="J" checked style="display:none"> PJ
+            </label>
+            <label id="cv_label_pf" onclick="cvTogglePessoa('F')"
+                   style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #d1d5db;border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:#fff;color:#6b7280">
+              <input type="radio" name="cv_pessoa" value="F" style="display:none"> PF
+            </label>
+          </div>
+        </div>
+        <div class="col-span-3">
+          <label id="cv_label_cnpj" class="text-xs font-medium text-gray-600 mb-1 block">CNPJ*</label>
+          <input id="cv_cnpj" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00.000.000/0000-00" oninput="cvMascaraCnpjCpf(this)" onblur="cvOnCnpjBlur()" maxlength="18">
+          <span id="cv_cnpj_msg" class="text-xs mt-0.5 block" style="min-height:16px"></span>
+        </div>
+        <div class="col-span-4">
+          <label id="cv_label_fantasia" class="text-xs font-medium text-gray-600 mb-1 block">Nome Fantasia*</label>
+          <input id="cv_nome_fantasia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia" required>
+        </div>
+        <div id="cv_razao_container" class="col-span-3">
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Razão Social*</label>
+          <input id="cv_razao_social" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social" required>
+        </div>
+      </div>
+
+      <!-- Linha 2: Tipo + Executivo + Agência -->
+      <div class="grid grid-cols-12 gap-3 mb-3">
+        <div class="col-span-3">
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Tipo*</label>
+          <select id="cv_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <option value="">Selecione</option>
+            {% for tipo in tipos_cliente %}
+              <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-span-5">
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Executivo de Vendas*</label>
+          <select id="cv_executivo" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <option value="">Selecione</option>
+            {% for ex in executivos %}
+              <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="cv_agencia_container" class="col-span-4">
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Agência*</label>
+          <select id="cv_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <option value="">Selecione</option>
+            {% for agencia in agencias %}
+              <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Linha 3: Inscrições -->
+      <div id="cv_inscricoes" class="grid grid-cols-4 gap-3 mb-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Insc. Estadual</label>
+          <input id="cv_ie" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Insc. Municipal</label>
+          <input id="cv_im" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+        </div>
+      </div>
+
+      <!-- Endereço -->
+      <div style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:8px">
+        <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
+        <div class="grid grid-cols-7 gap-3">
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">CEP</label>
+            <input id="cv_cep" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000" oninput="cvMascaraCep(this)">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">UF</label>
+            <select id="cv_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <option value="">UF</option>
+              {% for estado in estados %}
+                <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Cidade</label>
+            <input id="cv_cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Bairro</label>
+            <input id="cv_bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+          </div>
+          <div class="col-span-3">
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Logradouro</label>
+            <input id="cv_logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-3 mt-3">
+          <div>
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Nº</label>
+            <input id="cv_numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+          </div>
+          <div class="col-span-3">
+            <label class="text-xs font-medium text-gray-600 mb-1 block">Complemento</label>
+            <input id="cv_complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+          </div>
+        </div>
+      </div>
+
+      <!-- Contatos do Lead -->
+      <div style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px">
+        <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Contatos do Lead (serão migrados)</h4>
+        <div id="cv_contatos_list" class="space-y-2">
+          <div class="text-xs text-gray-400">Carregando contatos...</div>
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:16px;margin-top:16px;border-top:1px solid #e5e7eb">
+        <button onclick="document.getElementById('modal_converter').close()"
+                style="padding:10px 24px;font-size:13px;font-weight:500;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;cursor:pointer">
+          Cancelar
+        </button>
+        <button onclick="cvSubmitConversao()" id="cv_btn_submit"
+                style="padding:10px 24px;font-size:13px;font-weight:600;background:#059669;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap">
+          Converter em Cliente
+        </button>
+      </div>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>

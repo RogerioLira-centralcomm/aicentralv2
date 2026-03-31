@@ -1,0 +1,137 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Análise de Leads - CentralComm AI{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leads_analise.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="analise-page">
+
+  <!-- Top Bar -->
+  <div class="analise-topbar">
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('leads_list') }}" class="analise-back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7l-7 7 7 7"/></svg>
+      </a>
+      <h1 class="text-lg font-semibold text-gray-800">Análise de Leads</h1>
+    </div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 font-medium">De:</label>
+        <input type="date" id="filtro_data_inicio" class="analise-input" onchange="loadAnalise()">
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 font-medium">Até:</label>
+        <input type="date" id="filtro_data_fim" class="analise-input" onchange="loadAnalise()">
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 font-medium">Executivo:</label>
+        <select id="filtro_executivo" class="analise-input" style="min-width:200px" onchange="loadAnalise()">
+          <option value="">Todos</option>
+          {% for ex in executivos %}
+            <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div id="section_kpis" class="analise-kpis">
+    <div class="analise-kpi-card">
+      <div class="analise-kpi-value" id="kpi_total">-</div>
+      <div class="analise-kpi-label">Total de Leads</div>
+    </div>
+    <div class="analise-kpi-card">
+      <div class="analise-kpi-value analise-kpi-success" id="kpi_convertidos">-</div>
+      <div class="analise-kpi-label">Convertidos</div>
+    </div>
+    <div class="analise-kpi-card">
+      <div class="analise-kpi-value analise-kpi-danger" id="kpi_desqualificados">-</div>
+      <div class="analise-kpi-label">Desqualificados</div>
+    </div>
+    <div class="analise-kpi-card">
+      <div class="analise-kpi-value analise-kpi-warning" id="kpi_perdidos">-</div>
+      <div class="analise-kpi-label">Perdidos</div>
+    </div>
+    <div class="analise-kpi-card">
+      <div class="analise-kpi-value" id="kpi_taxa">-</div>
+      <div class="analise-kpi-label">Taxa de Conversão</div>
+    </div>
+    <div class="analise-kpi-card">
+      <div class="analise-kpi-value analise-kpi-success" id="kpi_receita">-</div>
+      <div class="analise-kpi-label">Receita Total</div>
+    </div>
+  </div>
+
+  <!-- Tempo médio de conversão -->
+  <div class="analise-section">
+    <h2 class="analise-section-title">Tempo Médio de Conversão</h2>
+    <div id="section_tempo_conversao" class="analise-tempo-grid">
+      <div class="analise-tempo-card">
+        <div class="analise-tempo-value" id="tempo_avg">-</div>
+        <div class="analise-tempo-label">Média (dias)</div>
+      </div>
+      <div class="analise-tempo-card">
+        <div class="analise-tempo-value" id="tempo_min">-</div>
+        <div class="analise-tempo-label">Mínimo (dias)</div>
+      </div>
+      <div class="analise-tempo-card">
+        <div class="analise-tempo-value" id="tempo_max">-</div>
+        <div class="analise-tempo-label">Máximo (dias)</div>
+      </div>
+      <div class="analise-tempo-card">
+        <div class="analise-tempo-value" id="tempo_total_conv">-</div>
+        <div class="analise-tempo-label">Total Convertidos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tempo médio por status -->
+  <div class="analise-section">
+    <h2 class="analise-section-title">Tempo Médio por Status</h2>
+    <div id="section_tempo_status" class="overflow-x-auto">
+      <div class="analise-empty">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Produtividade por Executivo (foco) -->
+  <div class="analise-section analise-section-highlight">
+    <h2 class="analise-section-title">Produtividade por Executivo</h2>
+    <div id="section_produtividade" class="overflow-x-auto">
+      <div class="analise-empty">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Atividades por Executivo -->
+  <div class="analise-section">
+    <h2 class="analise-section-title">Atividades por Executivo</h2>
+    <div id="section_atividades" class="overflow-x-auto">
+      <div class="analise-empty">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Leads Desqualificados -->
+  <div class="analise-section">
+    <h2 class="analise-section-title">Leads Desqualificados no Período</h2>
+    <div id="section_desqualificados" class="overflow-x-auto">
+      <div class="analise-empty">Carregando...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+window.EXECUTIVOS = [
+  {% for ex in executivos %}
+    {id: {{ ex.id_contato_cliente }}, nome: "{{ ex.nome_completo|e }}"}{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/leads_analise.js') }}"></script>
+{% endblock %}

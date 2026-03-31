@@ -12,9 +12,9 @@ let currentTab = 'dados';
 
 const FREE_DOMAINS = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','icloud.com','aol.com','msn.com','uol.com.br','bol.com.br','terra.com.br','ig.com.br','globo.com','protonmail.com'];
 
-const STATUS_LABELS = {inbox:'Inbox', contato:'Contato', qualificado:'Qualificado', nao_qualificado:'Não Qualificado', proposta:'Proposta', negociacao:'Negociação', fechado_ganho:'Fechado (Ganho)', fechado_perdido:'Fechado (Perdido)'};
-const STATUS_LIST = ['inbox','contato','qualificado','proposta','negociacao'];
-const KANBAN_STATUSES = ['inbox','contato','qualificado','proposta','negociacao','fechado_ganho'];
+const STATUS_LABELS = {inbox:'Inbox', tentativa_contato:'Tentativa de Contato', reuniao_agendada:'Reunião Agendada', nutricao:'Nutrição', nao_qualificado:'Não Qualificado', fechado_ganho:'Fechado (Ganho)', fechado_perdido:'Fechado (Perdido)'};
+const STATUS_LIST = ['inbox','tentativa_contato','reuniao_agendada','nutricao'];
+const KANBAN_STATUSES = ['inbox','tentativa_contato','reuniao_agendada','nutricao'];
 const POTENCIAL_LIST = ['alto','medio','baixo'];
 const POTENCIAL_LABELS = {alto:'Alto', medio:'Médio', baixo:'Baixo'};
 
@@ -65,8 +65,6 @@ const SOCIAL_ICONS = {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadLeads();
-    loadLinksContent();
-    initRelatorioAnos();
     initKanbanDragDrop();
 });
 
@@ -285,6 +283,22 @@ async function loadTabDados(leadId) {
                     </div>
                 </div>
 
+                <!-- Ações -->
+                <div class="flex gap-2 flex-wrap" style="padding:8px 0 4px;border-bottom:1px solid #f3f4f6;margin-bottom:4px">
+                    <button onclick="openEditLead()" class="leads-action-btn" style="flex:1;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:11px">
+                        Editar
+                    </button>
+                    <button onclick="converterCliente()" class="leads-action-btn leads-action-btn-convert" style="flex:1;font-size:11px">
+                        Converter
+                    </button>
+                    <button onclick="openMergeModal()" class="leads-action-btn leads-action-btn-merge" style="flex:1;font-size:11px">
+                        Mesclar
+                    </button>
+                    <button onclick="openDesqualificar()" class="leads-action-btn leads-action-btn-disqualify" style="flex:1;font-size:11px">
+                        Desqualificar
+                    </button>
+                </div>
+
                 <!-- Informações principais -->
                 <div class="detail-section">
                     <div class="detail-section-title">Informações</div>
@@ -360,21 +374,6 @@ async function loadTabDados(leadId) {
                     ${l.lote_importacao ? `<div class="detail-field"><span class="detail-field-label">Lote Import.</span><span class="detail-field-value">${esc(l.lote_importacao)}</span></div>` : ''}
                 </div>
 
-                <!-- Ações -->
-                <div class="flex gap-2 flex-wrap" style="padding-top:8px;border-top:1px solid #f3f4f6">
-                    <button onclick="openEditLead()" class="leads-action-btn" style="flex:1;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:11px">
-                        Editar
-                    </button>
-                    <button onclick="converterCliente()" class="leads-action-btn leads-action-btn-convert" style="flex:1;font-size:11px">
-                        Converter
-                    </button>
-                    <button onclick="openMergeModal()" class="leads-action-btn leads-action-btn-merge" style="flex:1;font-size:11px">
-                        Mesclar
-                    </button>
-                    <button onclick="openDesqualificar()" class="leads-action-btn leads-action-btn-disqualify" style="flex:1;font-size:11px">
-                        Desqualificar
-                    </button>
-                </div>
             </div>`;
     } catch (e) {
         container.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
@@ -1200,16 +1199,269 @@ async function saveEditLead() {
 }
 
 async function converterCliente() {
-    if (!selectedLeadId || !confirm('Converter este lead em cliente?')) return;
+    if (!selectedLeadId || !selectedLeadData) return;
+    const l = selectedLeadData;
+
+    document.getElementById('cv_cnpj').value = '';
+    document.getElementById('cv_cnpj_msg').textContent = '';
+    document.getElementById('cv_nome_fantasia').value = l.empresa || '';
+    document.getElementById('cv_razao_social').value = l.empresa || '';
+    document.getElementById('cv_ie').value = '';
+    document.getElementById('cv_im').value = '';
+    document.getElementById('cv_cep').value = '';
+    document.getElementById('cv_estado').value = '';
+    document.getElementById('cv_cidade').value = '';
+    document.getElementById('cv_bairro').value = '';
+    document.getElementById('cv_logradouro').value = '';
+    document.getElementById('cv_numero').value = '';
+    document.getElementById('cv_complemento').value = '';
+
+    if (l.id_executivo) {
+        document.getElementById('cv_executivo').value = l.id_executivo;
+    } else {
+        document.getElementById('cv_executivo').value = '';
+    }
+    document.getElementById('cv_tipo_cliente').value = '';
+    document.getElementById('cv_agencia').value = '';
+
+    cvTogglePessoa('J');
+    cvLoadContatos();
+
+    document.getElementById('modal_converter').showModal();
+}
+
+// ======================== Converter: helpers ========================
+
+function cvTogglePessoa(tipo) {
+    const lblJ = document.getElementById('cv_label_pj');
+    const lblF = document.getElementById('cv_label_pf');
+    const lblCnpj = document.getElementById('cv_label_cnpj');
+    const lblFantasia = document.getElementById('cv_label_fantasia');
+    const razaoContainer = document.getElementById('cv_razao_container');
+    const inscricoes = document.getElementById('cv_inscricoes');
+    const agenciaContainer = document.getElementById('cv_agencia_container');
+
+    if (tipo === 'J') {
+        lblJ.querySelector('input').checked = true;
+        lblJ.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #22c55e;border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:#f0fdf4;color:#15803d';
+        lblF.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #d1d5db;border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:#fff;color:#6b7280';
+        lblCnpj.textContent = 'CNPJ*';
+        lblFantasia.textContent = 'Nome Fantasia*';
+        razaoContainer.style.display = '';
+        inscricoes.style.display = '';
+        agenciaContainer.style.display = '';
+        document.getElementById('cv_cnpj').placeholder = '00.000.000/0000-00';
+        document.getElementById('cv_cnpj').maxLength = 18;
+    } else {
+        lblF.querySelector('input').checked = true;
+        lblF.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #22c55e;border-radius:0 8px 8px 0;font-size:12px;font-weight:600;background:#f0fdf4;color:#15803d';
+        lblJ.style.cssText = 'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 12px;border:2px solid #d1d5db;border-radius:8px 0 0 8px;font-size:12px;font-weight:600;background:#fff;color:#6b7280';
+        lblCnpj.textContent = 'CPF*';
+        lblFantasia.textContent = 'Nome Completo*';
+        razaoContainer.style.display = 'none';
+        inscricoes.style.display = 'none';
+        agenciaContainer.style.display = 'none';
+        document.getElementById('cv_cnpj').placeholder = '000.000.000-00';
+        document.getElementById('cv_cnpj').maxLength = 14;
+    }
+    document.getElementById('cv_cnpj').value = '';
+    document.getElementById('cv_cnpj_msg').textContent = '';
+}
+
+function cvMascaraCnpjCpf(input) {
+    const pessoa = document.querySelector('input[name="cv_pessoa"]:checked')?.value || 'J';
+    let v = input.value.replace(/\D/g, '');
+    if (pessoa === 'F') {
+        if (v.length > 11) v = v.slice(0, 11);
+        v = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+        if (v.length > 14) v = v.slice(0, 14);
+        v = v.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+    }
+    input.value = v;
+}
+
+function cvMascaraCep(input) {
+    let v = input.value.replace(/\D/g, '');
+    if (v.length > 8) v = v.slice(0, 8);
+    if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+    input.value = v;
+}
+
+function cvValidarCPF(cpf) {
+    cpf = cpf.replace(/\D/g, '');
+    if (cpf.length !== 11 || /^([0-9])\1+$/.test(cpf)) return false;
+    let soma = 0, resto;
+    for (let i = 1; i <= 9; i++) soma += parseInt(cpf.substring(i-1, i)) * (11 - i);
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpf.substring(9, 10))) return false;
+    soma = 0;
+    for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i-1, i)) * (12 - i);
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    return resto === parseInt(cpf.substring(10, 11));
+}
+
+async function cvOnCnpjBlur() {
+    const pessoa = document.querySelector('input[name="cv_pessoa"]:checked')?.value || 'J';
+    const doc = document.getElementById('cv_cnpj').value.replace(/\D/g, '');
+    const msg = document.getElementById('cv_cnpj_msg');
+    if (!doc) return;
+
+    if (pessoa === 'F') {
+        if (!cvValidarCPF(doc)) {
+            msg.textContent = 'CPF inválido!';
+            msg.style.color = '#dc2626';
+            return;
+        }
+        msg.textContent = '';
+        try {
+            const resp = await fetch(`/api/verifica_documento?doc=${encodeURIComponent(doc)}&tipo=F`);
+            const data = await resp.json();
+            if (data.existe) {
+                msg.textContent = 'CPF já cadastrado!';
+                msg.style.color = '#dc2626';
+            }
+        } catch (e) { console.error(e); }
+    } else {
+        if (doc.length !== 14) {
+            msg.textContent = 'CNPJ inválido!';
+            msg.style.color = '#dc2626';
+            return;
+        }
+        msg.textContent = 'Buscando dados do CNPJ...';
+        msg.style.color = '#2563eb';
+        try {
+            const resp = await fetch('/api/buscar_cnpj/' + doc);
+            const result = await resp.json();
+            if (result.success) {
+                const d = result.data;
+                if (d.razao_social) document.getElementById('cv_razao_social').value = d.razao_social;
+                if (d.nome_fantasia) document.getElementById('cv_nome_fantasia').value = d.nome_fantasia;
+                else if (d.razao_social) document.getElementById('cv_nome_fantasia').value = d.razao_social;
+                if (d.inscricao_estadual) document.getElementById('cv_ie').value = d.inscricao_estadual;
+                if (d.inscricao_municipal) document.getElementById('cv_im').value = d.inscricao_municipal;
+                if (d.cep) {
+                    let cep = d.cep.replace(/\D/g, '');
+                    if (cep.length === 8) cep = cep.slice(0, 5) + '-' + cep.slice(5);
+                    document.getElementById('cv_cep').value = cep;
+                }
+                if (d.uf) {
+                    const sel = document.getElementById('cv_estado');
+                    for (const opt of sel.options) {
+                        if (opt.dataset.sigla === d.uf) { sel.value = opt.value; break; }
+                    }
+                }
+                if (d.municipio) document.getElementById('cv_cidade').value = d.municipio;
+                if (d.bairro) document.getElementById('cv_bairro').value = d.bairro;
+                if (d.logradouro) document.getElementById('cv_logradouro').value = d.logradouro;
+                if (d.numero) document.getElementById('cv_numero').value = d.numero;
+                if (d.complemento) document.getElementById('cv_complemento').value = d.complemento;
+                msg.textContent = '';
+                showToast('Dados do CNPJ carregados!', 'success');
+            } else {
+                msg.textContent = result.message || 'CNPJ inválido!';
+                msg.style.color = '#dc2626';
+                if (result.ja_cadastrado) showToast(result.message, 'error');
+            }
+        } catch (e) {
+            msg.textContent = 'Erro ao consultar CNPJ';
+            msg.style.color = '#dc2626';
+        }
+    }
+}
+
+async function cvLoadContatos() {
+    const container = document.getElementById('cv_contatos_list');
+    if (!selectedLeadId) { container.innerHTML = '<div class="text-xs text-gray-400">Nenhum contato</div>'; return; }
     try {
-        const resp = await fetch(`/api/leads/${selectedLeadId}/converter-cliente`, {method: 'POST'});
+        const resp = await fetch(`/api/leads/${selectedLeadId}/contatos`);
+        const data = await resp.json();
+        const contatos = data.contatos || [];
+        if (contatos.length === 0) {
+            container.innerHTML = '<div class="text-xs text-gray-400">Nenhum contato cadastrado neste lead</div>';
+            return;
+        }
+        container.innerHTML = contatos.map(c => `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:12px">
+                <span style="font-weight:600;color:#111827;min-width:120px">${esc(c.nome || '-')}</span>
+                <span style="color:#6b7280">${esc(c.cargo || '')}</span>
+                <span style="color:#6b7280">${esc(c.telefone || '')}</span>
+                <span style="color:#2563eb">${esc(c.email || '')}</span>
+                ${c.is_principal ? '<span style="color:#059669;font-weight:600;font-size:10px">PRINCIPAL</span>' : ''}
+            </div>`).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="text-xs text-red-500">Erro ao carregar contatos</div>';
+    }
+}
+
+async function cvSubmitConversao() {
+    const pessoa = document.querySelector('input[name="cv_pessoa"]:checked')?.value || 'J';
+    const cnpj = document.getElementById('cv_cnpj').value.replace(/\D/g, '');
+    const nomeFantasia = document.getElementById('cv_nome_fantasia').value.trim();
+    const razaoSocial = document.getElementById('cv_razao_social').value.trim();
+    const tipoCliente = document.getElementById('cv_tipo_cliente').value;
+    const executivo = document.getElementById('cv_executivo').value;
+    const agencia = document.getElementById('cv_agencia').value;
+
+    if (!cnpj) return showToast('Informe o CNPJ/CPF', 'warning');
+    if (pessoa === 'F' && !cvValidarCPF(cnpj)) return showToast('CPF inválido', 'warning');
+    if (pessoa === 'J' && cnpj.length !== 14) return showToast('CNPJ inválido', 'warning');
+    if (!nomeFantasia) return showToast('Informe o Nome Fantasia', 'warning');
+    if (pessoa === 'J' && !razaoSocial) return showToast('Informe a Razão Social', 'warning');
+    if (!tipoCliente) return showToast('Selecione o Tipo de Cliente', 'warning');
+    if (!executivo) return showToast('Selecione o Executivo', 'warning');
+    if (pessoa === 'J' && !agencia) return showToast('Selecione a Agência', 'warning');
+
+    const msgEl = document.getElementById('cv_cnpj_msg');
+    if (msgEl.textContent.includes('já cadastrado')) return showToast('CNPJ/CPF já cadastrado', 'error');
+
+    const payload = {
+        pessoa,
+        cnpj,
+        nome_fantasia: nomeFantasia,
+        razao_social: pessoa === 'J' ? razaoSocial : nomeFantasia,
+        id_tipo_cliente: parseInt(tipoCliente),
+        vendas_central_comm: parseInt(executivo),
+        pk_id_tbl_agencia: pessoa === 'J' ? parseInt(agencia) : 2,
+        inscricao_estadual: document.getElementById('cv_ie').value.trim() || null,
+        inscricao_municipal: document.getElementById('cv_im').value.trim() || null,
+        cep: document.getElementById('cv_cep').value.replace(/\D/g, '') || null,
+        pk_id_aux_estado: document.getElementById('cv_estado').value || null,
+        cidade: document.getElementById('cv_cidade').value.trim() || null,
+        bairro: document.getElementById('cv_bairro').value.trim() || null,
+        logradouro: document.getElementById('cv_logradouro').value.trim() || null,
+        numero: document.getElementById('cv_numero').value.trim() || null,
+        complemento: document.getElementById('cv_complemento').value.trim() || null,
+    };
+
+    const btn = document.getElementById('cv_btn_submit');
+    btn.disabled = true;
+    btn.textContent = 'Convertendo...';
+
+    try {
+        const resp = await fetch(`/api/leads/${selectedLeadId}/converter-cliente`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
         const data = await resp.json();
         if (data.success) {
-            showToast('Lead convertido em cliente!', 'success');
+            document.getElementById('modal_converter').close();
+            showToast('Lead convertido em cliente com sucesso!', 'success');
             loadTabDados(selectedLeadId);
             loadLeads();
-        } else showToast(data.message || 'Erro', 'error');
-    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+            if (currentView === 'kanban') loadKanban();
+        } else {
+            showToast(data.message || 'Erro ao converter', 'error');
+        }
+    } catch (e) {
+        showToast('Erro: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Converter em Cliente';
+    }
 }
 
 function openMergeModal() {
@@ -1419,193 +1671,6 @@ function initKanbanDragDrop() {
     });
 }
 
-// ======================== Relatório Executivo ========================
-
-function initRelatorioAnos() {
-    const sel = document.getElementById('rel_ano');
-    if (!sel) return;
-    const year = new Date().getFullYear();
-    for (let y = year; y >= year - 3; y--) {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        sel.appendChild(opt);
-    }
-    sel.value = year;
-    document.getElementById('rel_mes').value = new Date().getMonth() + 1;
-}
-
-function openRelatorioExecutivo() {
-    document.getElementById('modal_relatorio').showModal();
-    loadRelatorio();
-}
-
-async function loadRelatorio() {
-    const ano = document.getElementById('rel_ano').value;
-    const mes = document.getElementById('rel_mes').value;
-    const execId = document.getElementById('rel_executivo').value;
-    const container = document.getElementById('relatorio_content');
-
-    if (!ano || !mes) {
-        container.innerHTML = '<div class="leads-empty">Selecione ano e mês</div>';
-        return;
-    }
-
-    container.innerHTML = skeletonHtml();
-
-    try {
-        let url = `/api/leads/relatorio-executivo?ano=${ano}&mes=${mes}`;
-        if (execId) url += `&id_executivo=${execId}`;
-
-        const resp = await fetch(url);
-        const data = await resp.json();
-        if (!data.success) throw new Error(data.message);
-
-        const pipeline = data.pipeline || [];
-        const atividades = data.atividades || [];
-
-        if (pipeline.length === 0 && atividades.length === 0) {
-            container.innerHTML = '<div class="leads-empty">Sem dados para o período selecionado</div>';
-            return;
-        }
-
-        const execNames = {};
-        (window.EXECUTIVOS || []).forEach(e => execNames[e.id] = e.nome);
-
-        let html = '<div class="space-y-6">';
-
-        if (pipeline.length > 0) {
-            const totals = pipeline.reduce((acc, r) => {
-                acc.cadastrados += r.leads_cadastrados || 0;
-                acc.ganhos += r.ganhos || 0;
-                acc.perdidos += r.perdidos || 0;
-                acc.receita += r.receita_fechada || 0;
-                acc.pipeline += r.valor_pipeline || 0;
-                return acc;
-            }, {cadastrados:0, ganhos:0, perdidos:0, receita:0, pipeline:0});
-
-            html += `<div>
-                <h4 class="font-semibold text-gray-700 mb-3">Pipeline</h4>
-                <div class="relatorio-grid">
-                    <div class="relatorio-kpi-card"><div class="relatorio-kpi-value">${totals.cadastrados}</div><div class="relatorio-kpi-label">Leads Cadastrados</div></div>
-                    <div class="relatorio-kpi-card"><div class="relatorio-kpi-value" style="color:#059669">${totals.ganhos}</div><div class="relatorio-kpi-label">Ganhos</div></div>
-                    <div class="relatorio-kpi-card"><div class="relatorio-kpi-value" style="color:#dc2626">${totals.perdidos}</div><div class="relatorio-kpi-label">Perdidos</div></div>
-                    <div class="relatorio-kpi-card"><div class="relatorio-kpi-value" style="color:#059669">R$ ${Number(totals.receita).toLocaleString('pt-BR')}</div><div class="relatorio-kpi-label">Receita Fechada</div></div>
-                    <div class="relatorio-kpi-card"><div class="relatorio-kpi-value">R$ ${Number(totals.pipeline).toLocaleString('pt-BR')}</div><div class="relatorio-kpi-label">Pipeline Total</div></div>
-                </div>
-                <table class="relatorio-table">
-                    <thead><tr>
-                        <th>Executivo</th><th>Cadastrados</th><th>Inbox</th><th>Contato</th><th>Qualificados</th>
-                        <th>Proposta</th><th>Negociação</th><th>Ganhos</th><th>Perdidos</th>
-                        <th>Taxa Conv.</th><th>Receita</th><th>Tempo Resp. (h)</th>
-                    </tr></thead>
-                    <tbody>${pipeline.map(r => `<tr>
-                        <td class="font-semibold">${esc(execNames[r.id_executivo] || '#' + r.id_executivo)}</td>
-                        <td>${r.leads_cadastrados}</td><td>${r.inbox}</td><td>${r.em_contato}</td>
-                        <td>${r.qualificados}</td><td>${r.com_proposta}</td><td>${r.em_negociacao}</td>
-                        <td style="color:#059669;font-weight:600">${r.ganhos}</td>
-                        <td style="color:#dc2626">${r.perdidos}</td>
-                        <td>${r.taxa_conversao || 0}%</td>
-                        <td>R$ ${Number(r.receita_fechada || 0).toLocaleString('pt-BR')}</td>
-                        <td>${r.avg_horas_primeiro_contato || '-'}</td>
-                    </tr>`).join('')}</tbody>
-                </table>
-            </div>`;
-        }
-
-        if (atividades.length > 0) {
-            html += `<div>
-                <h4 class="font-semibold text-gray-700 mb-3">Atividades</h4>
-                <table class="relatorio-table">
-                    <thead><tr>
-                        <th>Executivo</th><th>Total</th><th>Ligações</th><th>WhatsApp</th><th>Emails</th>
-                        <th>Reuniões</th><th>Propostas</th><th>Follow-ups</th>
-                        <th>Leads Trab.</th><th>Ativ./Lead</th><th>Dias Ativos</th>
-                    </tr></thead>
-                    <tbody>${atividades.map(r => `<tr>
-                        <td class="font-semibold">${esc(execNames[r.id_executivo] || '#' + r.id_executivo)}</td>
-                        <td class="font-semibold">${r.total_atividades}</td>
-                        <td>${r.ligacoes}</td><td>${r.whatsapp}</td><td>${r.emails_enviados}</td>
-                        <td>${r.reunioes}</td><td>${r.propostas_enviadas}</td><td>${r.follow_ups}</td>
-                        <td>${r.leads_trabalhados}</td><td>${r.atividades_por_lead || '-'}</td><td>${r.dias_ativos}</td>
-                    </tr>`).join('')}</tbody>
-                </table>
-            </div>`;
-        }
-
-        html += '</div>';
-        container.innerHTML = html;
-    } catch (e) {
-        container.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
-    }
-}
-
-// ======================== Links Modal ========================
-
-let linksData = [];
-
-async function loadLinksContent() {
-    try {
-        const resp = await fetch('/api/leads/links-uteis');
-        const data = await resp.json();
-        if (data.success) linksData = data.links || [];
-    } catch (e) { console.error('loadLinksContent:', e); }
-}
-
-function openLinksModal() {
-    const container = document.getElementById('links_content');
-    if (linksData.length === 0) {
-        container.innerHTML = '<div class="leads-empty">Nenhum link cadastrado</div>';
-    } else {
-        const grouped = {};
-        linksData.forEach(l => {
-            const cat = l.categoria || 'Outros';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(l);
-        });
-        container.innerHTML = Object.entries(grouped).map(([cat, items]) => `
-            <div>
-                <div style="font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;margin-bottom:4px">${esc(cat)}</div>
-                ${items.map(l => `<div class="link-item">
-                    <a href="${esc(l.url)}" target="_blank" class="text-xs link link-primary truncate">${esc(l.titulo)}</a>
-                    <button onclick="copyToClipboard('${esc(l.url)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;flex-shrink:0;position:relative">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    </button>
-                </div>`).join('')}
-            </div>`).join('');
-    }
-    updateLinksSiteSection();
-    document.getElementById('modal_links').showModal();
-}
-
-function updateLinksSiteSection() {
-    const section = document.getElementById('links_site_section');
-    if (!section) return;
-    section.classList.toggle('hidden', !(selectedLeadData && selectedLeadData.url_site));
-}
-
-async function extrairLinksDoSite() {
-    if (!selectedLeadId) return;
-    const btn = document.getElementById('btn_extrair_links');
-    const spinner = document.getElementById('extrair_links_spinner');
-    btn.disabled = true;
-    spinner.classList.remove('hidden');
-    try {
-        const resp = await fetch(`/api/leads/${selectedLeadId}/extrair-links`, {method: 'POST', headers: {'Content-Type': 'application/json'}});
-        const data = await resp.json();
-        if (data.success) {
-            const links = data.links || [];
-            const container = document.getElementById('links_site_resultado');
-            container.innerHTML = links.length === 0 ? '<div class="text-xs text-gray-400">Nenhum link encontrado</div>' :
-                links.slice(0, 30).map(url => `<div class="link-item"><a href="${esc(url)}" target="_blank" class="text-xs link link-primary truncate">${esc(url)}</a>
-                    <button onclick="copyToClipboard('${esc(url)}', this)" title="Copiar" style="color:#9ca3af;background:none;border:none;cursor:pointer;display:inline-flex;flex-shrink:0;position:relative">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    </button></div>`).join('');
-        } else showToast(data.message || 'Erro', 'error');
-    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
-    finally { btn.disabled = false; spinner.classList.add('hidden'); }
-}
-
 // ======================== Import Modal ========================
 
 function openImportModal() {
@@ -1640,18 +1705,32 @@ async function processImport() {
 }
 
 function renderImportPreview() {
-    document.getElementById('import_preview').innerHTML = importParsedLeads.map((l, i) => `
-        <div class="bg-base-200 rounded-lg p-3">
-            <label class="flex items-center gap-2 mb-2 cursor-pointer">
-                <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" ${l._selected ? 'checked' : ''} onchange="importParsedLeads[${i}]._selected = this.checked">
-                <span class="font-semibold text-sm">${esc(l.empresa)}</span>
+    const count = importParsedLeads.filter(l => l._selected).length;
+    document.getElementById('import_preview').innerHTML =
+        `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span class="text-sm text-gray-500">${count} de ${importParsedLeads.length} selecionado(s)</span>
+            <button onclick="toggleAllImport()" style="font-size:12px;color:#2563eb;background:none;border:none;cursor:pointer;font-weight:500">
+                ${count === importParsedLeads.length ? 'Desmarcar todos' : 'Selecionar todos'}
+            </button>
+        </div>` +
+        importParsedLeads.map((l, i) => `
+        <div style="background:#f9fafb;border:1px solid ${l._selected ? '#bfdbfe' : '#e5e7eb'};border-radius:10px;padding:12px;transition:border-color .15s">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px">
+                <input type="checkbox" style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer;flex-shrink:0" ${l._selected ? 'checked' : ''} onchange="importParsedLeads[${i}]._selected=this.checked;renderImportPreview()">
+                <span class="font-semibold text-sm">${esc(l.empresa || 'Sem empresa')}</span>
             </label>
-            <div class="space-y-1 ml-6">
+            <div style="margin-left:28px" class="space-y-1">
                 ${(l.contatos || []).map(c => `<div class="text-xs text-gray-600">
-                    ${esc(c.nome)}${c.cargo ? ` (${esc(c.cargo)})` : ''}${c.telefone ? ` | ${esc(c.telefone)}` : ''}${c.email ? ` | ${esc(c.email)}` : ''}${c.principal ? ' ★' : ''}
+                    ${esc(c.nome || '')}${c.cargo ? ` (${esc(c.cargo)})` : ''}${c.telefone ? ` | ${esc(c.telefone)}` : ''}${c.email ? ` | ${esc(c.email)}` : ''}${c.principal ? ' ★' : ''}
                 </div>`).join('')}
             </div>
         </div>`).join('');
+}
+
+function toggleAllImport() {
+    const allSelected = importParsedLeads.every(l => l._selected);
+    importParsedLeads.forEach(l => l._selected = !allSelected);
+    renderImportPreview();
 }
 
 function backToStep1() {

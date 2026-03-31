@@ -637,7 +637,11 @@ function toggleChartPIs(mode) {
     if (!lastPIsData) return;
 
     const porMes = lastPIsData;
-    const meses = [...new Set(porMes.map(p => p.mes))].sort();
+    const meses = [...new Set(porMes.map(p => p.mes))].sort((a, b) => {
+        const [ma, ya] = a.split('/').map(Number);
+        const [mb, yb] = b.split('/').map(Number);
+        return ya !== yb ? ya - yb : ma - mb;
+    });
 
     let datasets, options;
 

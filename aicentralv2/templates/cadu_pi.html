@@ -249,9 +249,9 @@
               </button>
               {% else %}
                 {% if origem_lista == 'operacao' %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-orange-600">
-                <i class="fa-solid fa-file-invoice text-[10px]"></i>
-                Vincular NF
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 text-gray-500">
+                <i class="fa-solid fa-file-circle-xmark text-[10px]"></i>
+                Sem NF
               </span>
                 {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, null, {{ pi_info|tojson }})'

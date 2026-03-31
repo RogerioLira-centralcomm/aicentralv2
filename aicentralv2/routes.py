@@ -1092,6 +1092,59 @@ def init_routes(app):
             app.logger.error(f"Erro ao buscar cliente {cliente_id}: {e}")
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/cliente/<int:cliente_id>/excluir', methods=['DELETE'])
+    @login_required
+    def api_excluir_cliente(cliente_id):
+        """API para excluir cliente, desde que não haja PIs ou cotações vinculados."""
+        try:
+            cliente = db.obter_cliente_por_id(cliente_id)
+            if not cliente:
+                return jsonify({'success': False, 'message': 'Cliente não encontrado.'}), 404
+
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT COUNT(*) as total FROM cadu_pi WHERE id_cliente = %s', (cliente_id,))
+                total_pis = cursor.fetchone()['total']
+
+                cursor.execute('SELECT COUNT(*) as total FROM cadu_cotacoes WHERE client_id = %s AND deleted_at IS NULL', (cliente_id,))
+                total_cotacoes = cursor.fetchone()['total']
+
+                impedimentos = []
+                if total_pis:
+                    impedimentos.append(f'{total_pis} PI(s)')
+                if total_cotacoes:
+                    impedimentos.append(f'{total_cotacoes} cotação(ões)')
+
+                if impedimentos:
+                    detalhe = ' e '.join(impedimentos)
+                    return jsonify({
+                        'success': False,
+                        'message': f'Cliente possui {detalhe}. Não é possível excluir.'
+                    }), 409
+
+                cursor.execute('DELETE FROM cadu_user_invites WHERE id_cliente = %s', (cliente_id,))
+                cursor.execute('DELETE FROM cadu_client_plans WHERE id_cliente = %s', (cliente_id,))
+                cursor.execute('DELETE FROM tbl_contato_cliente WHERE pk_id_tbl_cliente = %s', (cliente_id,))
+                cursor.execute('DELETE FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
+
+            conn.commit()
+
+            registrar_auditoria(
+                acao='DELETE',
+                modulo='CLIENTES',
+                descricao=f'Cliente excluído: {cliente.get("nome_fantasia") or cliente.get("razao_social")}',
+                registro_id=cliente_id,
+                registro_tipo='cliente',
+                dados_anteriores=dict(cliente)
+            )
+
+            nome = cliente.get('nome_fantasia') or cliente.get('razao_social')
+            return jsonify({'success': True, 'message': f'Cliente "{nome}" excluído com sucesso!'})
+
+        except Exception as e:
+            app.logger.error(f"Erro ao excluir cliente {cliente_id}: {e}")
+            return jsonify({'success': False, 'message': f'Erro ao excluir cliente: {str(e)}'}), 500
+
     def _parse_brl_float(value):
         """Converte valor monetário BR (R$ 1.234,56 ou 1234.56) para float."""
         if not value:
@@ -1450,6 +1503,17 @@ def init_routes(app):
                 total_cotacoes = cursor.fetchone()['total']
                 if total_cotacoes:
                     vinculos.append(f'{total_cotacoes} cotação(ões)')
+
+                cursor.execute('''
+                    SELECT COUNT(*) as total FROM cadu_pi
+                    WHERE id_resp_comercial = %s
+                       OR id_cont_cliente_financ = %s OR id_cont_cliente_midia = %s
+                       OR id_cont_agen_financ = %s OR id_cont_agen_midia = %s
+                       OR id_cont_parc_reg_financ = %s OR id_cont_parc_reg_midia = %s
+                ''', (contato_id,) * 7)
+                total_pis = cursor.fetchone()['total']
+                if total_pis:
+                    vinculos.append(f'{total_pis} PI(s)')
 
                 if vinculos:
                     detalhe = ', '.join(vinculos)
@@ -7416,7 +7480,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             result = {
                 'por_executivo': [dict(r) for r in (data.get('por_executivo') or [])],
                 'resumo': dict(data.get('resumo') or {}),
-                'evolucao': [{'semana': r['semana'].isoformat() if r.get('semana') else None, 'novos': r.get('novos', 0)} for r in (data.get('evolucao') or [])]
+                'classificacoes': data.get('classificacoes') or []
             }
             return jsonify({'success': True, 'data': result})
         except Exception as e:
@@ -7453,11 +7517,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'unique_users': s.get('unique_users', 0)
                 })
             result = {
-                'dau': data.get('dau', 0),
-                'wau': data.get('wau', 0),
-                'mau': data.get('mau', 0),
-                'sessions_today': data.get('sessions_today', 0),
-                'avg_duration': data.get('avg_duration', 0),
+                'sessoes': data.get('sessoes', 0),
+                'usuarios': data.get('usuarios', 0),
+                'media_dia': data.get('media_dia', 0),
+                'pageviews': data.get('pageviews', 0),
                 'sessoes_diarias': sessoes
             }
             return jsonify({'success': True, 'data': result})
@@ -7473,7 +7536,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             data = db.get_dashboard_pis_por_mes(days)
             resumo = data.get('resumo') or {}
             result = {
-                'por_mes': [{'mes': r.get('mes', ''), 'status_nome': r.get('status_nome', ''), 'total': r.get('total', 0), 'valor_total': float(r.get('valor_total', 0))} for r in (data.get('por_mes') or [])],
+                'por_mes': [{'mes': r.get('mes', ''), 'status_nome': r.get('status_nome', ''), 'total': r.get('total', 0), 'valor_liquido': float(r.get('valor_liquido', 0)), 'valor_bruto': float(r.get('valor_bruto', 0))} for r in (data.get('por_mes') or [])],
                 'resumo': {
                     'total': resumo.get('total', 0),
                     'valor_total': float(resumo.get('valor_total', 0)),

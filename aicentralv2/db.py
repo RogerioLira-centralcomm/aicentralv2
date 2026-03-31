@@ -9214,49 +9214,66 @@ def get_dashboard_carteira_clientes(days=90):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT
+                    COALESCE(cli.categoria_abc, 'N/D') AS classificacao,
+                    COUNT(cli.id_cliente) AS total
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                WHERE COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
+                  AND cli.status = true
+                GROUP BY classificacao
+                ORDER BY classificacao
+            ''')
+            por_classificacao = cursor.fetchall()
+
+            cursor.execute('''
+                SELECT
                     COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
                     COUNT(cli.id_cliente) AS total_clientes,
-                    COUNT(cli.id_cliente) FILTER (WHERE cli.status = true) AS clientes_ativos
+                    COALESCE(cli.categoria_abc, 'N/D') AS classificacao
                 FROM tbl_cliente cli
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
                 WHERE COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
-                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo')
-                ORDER BY total_clientes DESC
+                  AND cli.status = true
+                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo'), classificacao
+                ORDER BY executivo, classificacao
             ''')
-            por_executivo = cursor.fetchall()
+            por_executivo_raw = cursor.fetchall()
+
+            exec_map = {}
+            for row in por_executivo_raw:
+                exec_name = row['executivo']
+                if exec_name not in exec_map:
+                    exec_map[exec_name] = {'executivo': exec_name, 'total_clientes': 0}
+                exec_map[exec_name][row['classificacao']] = row['total_clientes']
+                exec_map[exec_name]['total_clientes'] += row['total_clientes']
+            por_executivo = sorted(exec_map.values(), key=lambda x: x['total_clientes'], reverse=True)
+
+            total_ativos = sum(c['total'] for c in por_classificacao)
+            resumo = {'total': total_ativos}
+            for c in por_classificacao:
+                resumo[c['classificacao']] = c['total']
 
             cursor.execute('''
-                SELECT
-                    COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE cli.status = true) AS ativos,
-                    COUNT(*) FILTER (WHERE cli.status = false) AS inativos,
-                    COUNT(*) FILTER (WHERE cli.data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day') AS novos_periodo
+                SELECT COUNT(*) AS novos
                 FROM tbl_cliente cli
                 LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
                 WHERE COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
+                  AND cli.status = true
+                  AND cli.data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day'
             ''', (days,))
-            resumo = cursor.fetchone()
+            resumo['novos'] = cursor.fetchone()['novos']
 
-            cursor.execute('''
-                SELECT
-                    DATE_TRUNC('week', data_cadastro)::date AS semana,
-                    COUNT(*) AS novos
-                FROM tbl_cliente
-                WHERE data_cadastro >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY DATE_TRUNC('week', data_cadastro)
-                ORDER BY semana
-            ''', (days,))
-            evolucao = cursor.fetchall()
+            classificacoes = [c['classificacao'] for c in por_classificacao]
 
             return {
                 'por_executivo': por_executivo,
                 'resumo': resumo,
-                'evolucao': evolucao
+                'classificacoes': classificacoes
             }
     except Exception as e:
         conn.rollback()
         current_app.logger.error(f"Erro dashboard carteira clientes: {e}")
-        return {'por_executivo': [], 'resumo': {}, 'evolucao': []}
+        return {'por_executivo': [], 'resumo': {}, 'classificacoes': []}
 
 
 def get_dashboard_cotacoes_status(days=90):
@@ -9312,20 +9329,6 @@ def get_dashboard_acessos_cadu(days=90):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            dau = mau = wau = sessions_today = 0
-            avg_duration = 0
-            try:
-                cursor.execute('SELECT * FROM v_analytics_dau_mau LIMIT 1')
-                row = cursor.fetchone()
-                if row:
-                    dau = row.get('dau', 0) or 0
-                    wau = row.get('wau', 0) or 0
-                    mau = row.get('mau', 0) or 0
-                    sessions_today = row.get('sessions_today', 0) or 0
-                    avg_duration = float(row.get('avg_session_duration_today', 0) or 0)
-            except Exception:
-                pass
-
             sessoes_diarias = []
             try:
                 cursor.execute('''
@@ -9337,12 +9340,27 @@ def get_dashboard_acessos_cadu(days=90):
             except Exception:
                 pass
 
+            total_sessoes = sum(r.get('total_sessions', 0) or 0 for r in sessoes_diarias)
+            total_dias = len(sessoes_diarias) or 1
+            media_dia = round(total_sessoes / total_dias, 1)
+            total_pageviews = sum(r.get('total_pageviews', 0) or 0 for r in sessoes_diarias)
+
+            usuarios_periodo = 0
+            try:
+                cursor.execute('''
+                    SELECT COUNT(DISTINCT user_id) AS total
+                    FROM cadu_analytics_sessions
+                    WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                ''', (days,))
+                usuarios_periodo = cursor.fetchone()['total'] or 0
+            except Exception:
+                pass
+
             return {
-                'dau': dau,
-                'wau': wau,
-                'mau': mau,
-                'sessions_today': sessions_today,
-                'avg_duration': avg_duration,
+                'sessoes': total_sessoes,
+                'usuarios': usuarios_periodo,
+                'media_dia': media_dia,
+                'pageviews': total_pageviews,
                 'sessoes_diarias': sessoes_diarias
             }
     except Exception as e:
@@ -9355,11 +9373,15 @@ def get_dashboard_pis_por_mes(days=90):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
+            liq_expr = _parse_varchar_to_numeric('p.vr_liquido_pi')
+            bruto_expr = _parse_varchar_to_numeric('p.vr_bruto_pi')
+            cursor.execute(f'''
                 SELECT
                     COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'MM/YY')) AS mes,
                     COALESCE(sp.descricao, 'Sem Status') AS status_nome,
-                    COUNT(*) AS total
+                    COUNT(*) AS total,
+                    COALESCE(SUM({liq_expr}), 0) AS valor_liquido,
+                    COALESCE(SUM({bruto_expr}), 0) AS valor_bruto
                 FROM cadu_pi p
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 WHERE p.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'

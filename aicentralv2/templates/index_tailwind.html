@@ -109,24 +109,12 @@
                     </h3>
                     <span class="badge badge-primary badge-outline badge-sm" id="sec1-badge">--</span>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mb-4">
+                <div id="sec1-kpis" class="grid gap-3 mb-4">
                     <div class="text-center">
-                        <div class="kpi-number text-primary" id="sec1-total">
+                        <div class="text-xl font-bold text-primary" id="sec1-total">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
                         <div class="kpi-label text-base-content/60 mt-1">Total</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="kpi-number text-success" id="sec1-ativos">
-                            <span class="loading loading-spinner loading-sm"></span>
-                        </div>
-                        <div class="kpi-label text-base-content/60 mt-1">Ativos</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="kpi-number text-accent" id="sec1-novos">
-                            <span class="loading loading-spinner loading-sm"></span>
-                        </div>
-                        <div class="kpi-label text-base-content/60 mt-1">Novos</div>
                     </div>
                 </div>
                 <div class="chart-container">
@@ -145,24 +133,12 @@
                     </h3>
                     <span class="badge badge-secondary badge-outline badge-sm" id="sec2-badge">--</span>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mb-4" id="sec2-kpis">
+                <div class="grid gap-3 mb-4" id="sec2-kpis">
                     <div class="text-center">
-                        <div class="kpi-number text-success" id="sec2-aprovadas">
+                        <div class="text-xl font-bold text-primary">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
-                        <div class="kpi-label text-base-content/60 mt-1">Aprovadas</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="kpi-number text-error" id="sec2-rejeitadas">
-                            <span class="loading loading-spinner loading-sm"></span>
-                        </div>
-                        <div class="kpi-label text-base-content/60 mt-1">Rejeitadas</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="kpi-number text-warning" id="sec2-outras">
-                            <span class="loading loading-spinner loading-sm"></span>
-                        </div>
-                        <div class="kpi-label text-base-content/60 mt-1">Outras</div>
+                        <div class="kpi-label text-base-content/60 mt-1">Total</div>
                     </div>
                 </div>
                 <div class="chart-container">
@@ -183,28 +159,28 @@
                 </div>
                 <div class="grid grid-cols-4 gap-3 mb-4">
                     <div class="text-center">
-                        <div class="kpi-number text-primary" id="sec3-dau">
+                        <div class="text-xl font-bold text-primary" id="sec3-sessoes">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
-                        <div class="kpi-label text-base-content/60 mt-1">DAU</div>
+                        <div class="kpi-label text-base-content/60 mt-1">Sessões</div>
                     </div>
                     <div class="text-center">
-                        <div class="kpi-number text-secondary" id="sec3-wau">
+                        <div class="text-xl font-bold text-secondary" id="sec3-usuarios">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
-                        <div class="kpi-label text-base-content/60 mt-1">WAU</div>
+                        <div class="kpi-label text-base-content/60 mt-1">Usuários</div>
                     </div>
                     <div class="text-center">
-                        <div class="kpi-number text-accent" id="sec3-mau">
+                        <div class="text-xl font-bold text-accent" id="sec3-media">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
-                        <div class="kpi-label text-base-content/60 mt-1">MAU</div>
+                        <div class="kpi-label text-base-content/60 mt-1">Média/dia</div>
                     </div>
                     <div class="text-center">
-                        <div class="kpi-number text-info" id="sec3-sessions">
+                        <div class="text-xl font-bold text-info" id="sec3-pageviews">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
-                        <div class="kpi-label text-base-content/60 mt-1">Sessões Hoje</div>
+                        <div class="kpi-label text-base-content/60 mt-1">Pageviews</div>
                     </div>
                 </div>
                 <div class="chart-container">
@@ -225,23 +201,27 @@
                 </div>
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="text-center">
-                        <div class="kpi-number text-primary" id="sec4-total">
+                        <div class="text-xl font-bold text-primary" id="sec4-total">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
                         <div class="kpi-label text-base-content/60 mt-1">Total PIs</div>
                     </div>
                     <div class="text-center">
-                        <div class="kpi-number text-success" id="sec4-valor">
+                        <div class="text-xl font-bold text-success" id="sec4-valor">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
                         <div class="kpi-label text-base-content/60 mt-1">Vlr Líquido</div>
                     </div>
                     <div class="text-center">
-                        <div class="kpi-number text-secondary" id="sec4-bruto">
+                        <div class="text-xl font-bold text-secondary" id="sec4-bruto">
                             <span class="loading loading-spinner loading-sm"></span>
                         </div>
                         <div class="kpi-label text-base-content/60 mt-1">Vlr Bruto</div>
                     </div>
+                </div>
+                <div class="flex justify-center gap-1 mb-2">
+                    <button id="btnPIsQuant" class="px-3 py-1 text-xs rounded-l font-medium bg-primary text-primary-content" onclick="toggleChartPIs('quant')">Quant</button>
+                    <button id="btnPIsValores" class="px-3 py-1 text-xs rounded-r font-medium bg-base-200 text-base-content/70" onclick="toggleChartPIs('valores')">Valores</button>
                 </div>
                 <div class="chart-container">
                     <canvas id="chartPIs"></canvas>
@@ -456,35 +436,44 @@ async function loadCarteira() {
         const d = json.data;
         const r = d.resumo || {};
 
-        document.getElementById('sec1-total').textContent = formatNumber(r.total || 0);
-        document.getElementById('sec1-ativos').textContent = formatNumber(r.ativos || 0);
-        document.getElementById('sec1-novos').textContent = formatNumber(r.novos_periodo || 0);
-        document.getElementById('sec1-badge').textContent = `${r.ativos || 0} ativos`;
+        const classificacoes = d.classificacoes || [];
+        const classColors = ['#22c55e', '#eab308', '#64748b', '#3b82f6', '#ef4444', '#8b5cf6'];
+        const classTextColors = ['text-success', 'text-warning', 'text-accent', 'text-info', 'text-error', 'text-secondary'];
+
+        const kpisContainer = document.getElementById('sec1-kpis');
+        kpisContainer.style.gridTemplateColumns = `repeat(${1 + classificacoes.length}, minmax(0, 1fr))`;
+        const totalCols = 2 + classificacoes.length;
+        kpisContainer.style.gridTemplateColumns = `repeat(${totalCols}, minmax(0, 1fr))`;
+        kpisContainer.innerHTML = `<div class="text-center"><div class="text-xl font-bold text-primary">${formatNumber(r.total || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Total</div></div>`;
+        classificacoes.forEach((cls, i) => {
+            const color = classTextColors[i % classTextColors.length];
+            kpisContainer.innerHTML += `<div class="text-center"><div class="text-xl font-bold ${color}">${formatNumber(r[cls] || 0)}</div><div class="kpi-label text-base-content/60 mt-1">${cls}</div></div>`;
+        });
+        kpisContainer.innerHTML += `<div class="text-center"><div class="text-xl font-bold text-info">${formatNumber(r.novos || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Novos</div></div>`;
+
+        document.getElementById('sec1-badge').textContent = `${r.novos || 0} novos`;
 
         destroyChart('chartCarteira');
         const execs = d.por_executivo || [];
+        const datasets = classificacoes.map((cls, i) => ({
+            label: cls,
+            data: execs.map(e => e[cls] || 0),
+            backgroundColor: classColors[i % classColors.length],
+            borderRadius: 4
+        }));
+
         charts.chartCarteira = new Chart(document.getElementById('chartCarteira'), {
             type: 'bar',
             data: {
                 labels: execs.map(e => truncLabel(e.executivo, 18)),
-                datasets: [{
-                    label: 'Clientes Ativos',
-                    data: execs.map(e => e.clientes_ativos),
-                    backgroundColor: COLORS.primary,
-                    borderRadius: 4
-                }, {
-                    label: 'Total',
-                    data: execs.map(e => e.total_clientes),
-                    backgroundColor: COLORS.accent + '66',
-                    borderRadius: 4
-                }]
+                datasets: datasets
             },
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: { x: { beginAtZero: true } }
+                scales: { x: { beginAtZero: true, stacked: true }, y: { stacked: true } }
             }
         });
     } catch (e) { console.error('Erro carteira:', e); }
@@ -499,17 +488,30 @@ async function loadCotacoes() {
         const d = json.data;
 
         const statusList = d.por_status || [];
-        let aprovadas = 0, rejeitadas = 0, totalGeral = d.total || 0;
-        statusList.forEach(s => {
-            const nome = (s.status_nome || '').toLowerCase().trim();
-            if (nome.includes('aprovad')) aprovadas += s.total;
-            else if (nome.includes('rejeitad') || nome.includes('recusad')) rejeitadas += s.total;
-        });
-        const outras = totalGeral - aprovadas - rejeitadas;
+        const totalGeral = d.total || 0;
 
-        document.getElementById('sec2-aprovadas').textContent = formatNumber(aprovadas);
-        document.getElementById('sec2-rejeitadas').textContent = formatNumber(rejeitadas);
-        document.getElementById('sec2-outras').textContent = formatNumber(outras > 0 ? outras : 0);
+        const statusColors = {
+            'aprovada': 'text-success', 'rejeitada': 'text-error', 'recusada': 'text-error',
+            'rascunho': 'text-warning', 'enviada': 'text-info', 'expirada': 'text-accent',
+            'em análise': 'text-primary'
+        };
+        const getStatusColor = (nome) => {
+            const lower = nome.toLowerCase().trim();
+            for (const [key, color] of Object.entries(statusColors)) {
+                if (lower.includes(key)) return color;
+            }
+            return 'text-secondary';
+        };
+
+        const kpis2 = document.getElementById('sec2-kpis');
+        const cols2 = 1 + statusList.length;
+        kpis2.style.gridTemplateColumns = `repeat(${cols2}, minmax(0, 1fr))`;
+        kpis2.innerHTML = `<div class="text-center"><div class="text-xl font-bold text-primary">${formatNumber(totalGeral)}</div><div class="kpi-label text-base-content/60 mt-1">Total</div></div>`;
+        statusList.forEach(s => {
+            const color = getStatusColor(s.status_nome);
+            kpis2.innerHTML += `<div class="text-center"><div class="text-xl font-bold ${color}">${formatNumber(s.total)}</div><div class="kpi-label text-base-content/60 mt-1">${s.status_nome}</div></div>`;
+        });
+
         document.getElementById('sec2-badge').textContent = `${totalGeral} total`;
 
         destroyChart('chartCotacoes');
@@ -546,11 +548,11 @@ async function loadAcessos() {
         if (!json.success) return;
         const d = json.data;
 
-        document.getElementById('sec3-dau').textContent = formatNumber(d.dau || 0);
-        document.getElementById('sec3-wau').textContent = formatNumber(d.wau || 0);
-        document.getElementById('sec3-mau').textContent = formatNumber(d.mau || 0);
-        document.getElementById('sec3-sessions').textContent = formatNumber(d.sessions_today || 0);
-        document.getElementById('sec3-badge').textContent = `MAU ${d.mau || 0}`;
+        document.getElementById('sec3-sessoes').textContent = formatNumber(d.sessoes || 0);
+        document.getElementById('sec3-usuarios').textContent = formatNumber(d.usuarios || 0);
+        document.getElementById('sec3-media').textContent = d.media_dia || 0;
+        document.getElementById('sec3-pageviews').textContent = formatNumber(d.pageviews || 0);
+        document.getElementById('sec3-badge').textContent = `${d.usuarios || 0} usuários`;
 
         destroyChart('chartAcessos');
         const sessoes = d.sessoes_diarias || [];
@@ -584,6 +586,78 @@ async function loadAcessos() {
 }
 
 // ======================== SEÇÃO 4: PIs por Mês ========================
+let lastPIsData = null;
+
+function toggleChartPIs(mode) {
+    const btnQuant = document.getElementById('btnPIsQuant');
+    const btnValores = document.getElementById('btnPIsValores');
+    if (mode === 'quant') {
+        btnQuant.className = 'px-3 py-1 text-xs rounded-l font-medium bg-primary text-primary-content';
+        btnValores.className = 'px-3 py-1 text-xs rounded-r font-medium bg-base-200 text-base-content/70';
+    } else {
+        btnQuant.className = 'px-3 py-1 text-xs rounded-l font-medium bg-base-200 text-base-content/70';
+        btnValores.className = 'px-3 py-1 text-xs rounded-r font-medium bg-primary text-primary-content';
+    }
+
+    destroyChart('chartPIs');
+    if (!lastPIsData) return;
+
+    const porMes = lastPIsData;
+    const meses = [...new Set(porMes.map(p => p.mes))].sort();
+
+    let datasets, options;
+
+    if (mode === 'quant') {
+        const statusNomes = [...new Set(porMes.map(p => p.status_nome))];
+        datasets = statusNomes.map((nome, i) => ({
+            label: nome,
+            data: meses.map(m => {
+                const item = porMes.find(p => p.mes === m && p.status_nome === nome);
+                return item ? item.total : 0;
+            }),
+            backgroundColor: COLORS.chart[i % COLORS.chart.length],
+            borderRadius: 3
+        }));
+        options = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+            scales: { y: { beginAtZero: true } }
+        };
+    } else {
+        const liqPorMes = {};
+        const brutoPorMes = {};
+        porMes.forEach(p => {
+            liqPorMes[p.mes] = (liqPorMes[p.mes] || 0) + (p.valor_liquido || 0);
+            brutoPorMes[p.mes] = (brutoPorMes[p.mes] || 0) + (p.valor_bruto || 0);
+        });
+        datasets = [
+            {
+                label: 'Vlr Líquido',
+                data: meses.map(m => liqPorMes[m] || 0),
+                backgroundColor: COLORS.success,
+                borderRadius: 3
+            },
+            {
+                label: 'Vlr Bruto',
+                data: meses.map(m => brutoPorMes[m] || 0),
+                backgroundColor: COLORS.secondary,
+                borderRadius: 3
+            }
+        ];
+        options = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+            scales: { y: { beginAtZero: true, ticks: { callback: v => formatCurrencyShort(v) } } }
+        };
+    }
+
+    charts.chartPIs = new Chart(document.getElementById('chartPIs'), {
+        type: 'bar',
+        data: { labels: meses, datasets },
+        options
+    });
+}
+
 async function loadPIs() {
     try {
         const res = await fetch(`/api/dashboard/pis-mensal?days=${currentDays}`);
@@ -597,29 +671,8 @@ async function loadPIs() {
         document.getElementById('sec4-bruto').textContent = formatCurrencyShort(r.valor_bruto || 0);
         document.getElementById('sec4-badge').textContent = `${r.total || 0} PIs`;
 
-        destroyChart('chartPIs');
-        const porMes = d.por_mes || [];
-        const meses = [...new Set(porMes.map(p => p.mes))].sort();
-        const statusNomes = [...new Set(porMes.map(p => p.status_nome))];
-        const datasets = statusNomes.map((nome, i) => ({
-            label: nome,
-            data: meses.map(m => {
-                const item = porMes.find(p => p.mes === m && p.status_nome === nome);
-                return item ? item.total : 0;
-            }),
-            backgroundColor: COLORS.chart[i % COLORS.chart.length],
-            borderRadius: 3
-        }));
-
-        charts.chartPIs = new Chart(document.getElementById('chartPIs'), {
-            type: 'bar',
-            data: { labels: meses, datasets },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
+        lastPIsData = d.por_mes || [];
+        toggleChartPIs('quant');
     } catch (e) { console.error('Erro PIs:', e); }
 }
 

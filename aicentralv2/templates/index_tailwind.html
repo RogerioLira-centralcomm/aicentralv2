@@ -17,9 +17,9 @@
         height: 280px;
     }
     .kpi-number {
-        font-size: 2rem;
-        font-weight: 800;
-        line-height: 1;
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1.2;
     }
     .kpi-label {
         font-size: 0.7rem;
@@ -185,6 +185,26 @@
                 </div>
                 <div class="chart-container">
                     <canvas id="chartAcessos"></canvas>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-base-300">
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-success" id="sec3-dau">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">DAU (Hoje)</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-warning" id="sec3-wau">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">WAU (Semana)</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-lg font-bold text-error" id="sec3-mau">
+                            <span class="loading loading-spinner loading-sm"></span>
+                        </div>
+                        <div class="kpi-label text-base-content/60 mt-1">MAU (Mês)</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -394,6 +414,7 @@ let currentDays = 9999;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadAllSections();
+    loadActiveUsersMetrics();
 
     document.getElementById('globalPeriodo').addEventListener('change', function() {
         currentDays = parseInt(this.value);
@@ -405,6 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     setInterval(loadAllSections, 300000);
+    setInterval(loadActiveUsersMetrics, 300000);
 });
 
 async function loadAllSections() {
@@ -583,6 +605,18 @@ async function loadAcessos() {
             }
         });
     } catch (e) { console.error('Erro acessos:', e); }
+}
+
+async function loadActiveUsersMetrics() {
+    try {
+        const res = await fetch('/api/dashboard/active-users-metrics');
+        const json = await res.json();
+        if (!json.success) return;
+        const d = json.data;
+        document.getElementById('sec3-dau').textContent = formatNumber(d.dau || 0);
+        document.getElementById('sec3-wau').textContent = formatNumber(d.wau || 0);
+        document.getElementById('sec3-mau').textContent = formatNumber(d.mau || 0);
+    } catch (e) { console.error('Erro active-users-metrics:', e); }
 }
 
 // ======================== SEÇÃO 4: PIs por Mês ========================

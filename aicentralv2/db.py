@@ -6138,6 +6138,25 @@ def listar_projetos(filtros=None):
 
 # ==================== ANALYTICS - MÉTRICAS E DASHBOARD ====================
 
+def get_dashboard_active_users_metrics():
+    """Retorna DAU, WAU e MAU a partir da view v_analytics_dau_mau."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT dau_today, wau, mau FROM v_analytics_dau_mau')
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'dau': row.get('dau_today', 0) or 0,
+                    'wau': row.get('wau', 0) or 0,
+                    'mau': row.get('mau', 0) or 0
+                }
+            return {'dau': 0, 'wau': 0, 'mau': 0}
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def get_analytics_overview():
     """
     Obtém métricas principais do dashboard: DAU, MAU, Sessões, etc.
@@ -9619,39 +9638,36 @@ def get_dashboard_leads(days=90):
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT
-                    COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
-                    COUNT(i.id_interesse) AS total_leads,
-                    COUNT(i.id_interesse) FILTER (WHERE i.notificado = true) AS notificados,
-                    COUNT(i.id_interesse) FILTER (WHERE i.notificado = false) AS pendentes
-                FROM tbl_interesse_produto i
-                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
-                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
-                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
-                WHERE i.data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
-                  AND COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
-                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo')
+                    COALESCE(e.nome_completo, 'Sem Executivo') AS executivo,
+                    COUNT(*) AS total_leads,
+                    COUNT(*) FILTER (WHERE l.id_executivo IS NOT NULL) AS notificados,
+                    COUNT(*) FILTER (WHERE l.id_executivo IS NULL) AS pendentes
+                FROM cadu_leads l
+                LEFT JOIN tbl_contato_cliente e ON l.id_executivo = e.id_contato_cliente
+                WHERE l.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY COALESCE(e.nome_completo, 'Sem Executivo')
                 ORDER BY total_leads DESC
             ''', (days,))
             por_executivo = cursor.fetchall()
 
             cursor.execute('''
                 SELECT
-                    tipo_produto,
+                    COALESCE(fonte, 'N/A') AS tipo_produto,
                     COUNT(*) AS total
-                FROM tbl_interesse_produto
-                WHERE data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY tipo_produto
+                FROM cadu_leads
+                WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY COALESCE(fonte, 'N/A')
                 ORDER BY total DESC
             ''', (days,))
             por_origem = cursor.fetchall()
 
             cursor.execute('''
                 SELECT
-                    DATE_TRUNC('week', data_registro)::date AS semana,
+                    DATE_TRUNC('week', created_at)::date AS semana,
                     COUNT(*) AS total
-                FROM tbl_interesse_produto
-                WHERE data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY DATE_TRUNC('week', data_registro)
+                FROM cadu_leads
+                WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY DATE_TRUNC('week', created_at)
                 ORDER BY semana
             ''', (days,))
             evolucao = cursor.fetchall()
@@ -9659,14 +9675,10 @@ def get_dashboard_leads(days=90):
             cursor.execute('''
                 SELECT
                     COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE i.notificado = true) AS notificados,
-                    COUNT(*) FILTER (WHERE i.notificado = false) AS pendentes
-                FROM tbl_interesse_produto i
-                INNER JOIN tbl_contato_cliente c ON i.fk_id_contato_cliente = c.id_contato_cliente
-                LEFT JOIN tbl_cliente cli ON c.pk_id_tbl_cliente = cli.id_cliente
-                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
-                WHERE i.data_registro >= CURRENT_DATE - %s * INTERVAL '1 day'
-                  AND COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
+                    COUNT(*) FILTER (WHERE id_executivo IS NOT NULL) AS notificados,
+                    COUNT(*) FILTER (WHERE id_executivo IS NULL) AS pendentes
+                FROM cadu_leads
+                WHERE created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
             ''', (days,))
             resumo = cursor.fetchone()
 

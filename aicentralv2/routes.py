@@ -7503,6 +7503,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             current_app.logger.error(f"Erro dashboard cotacoes: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/dashboard/active-users-metrics', methods=['GET'])
+    @login_required
+    def api_dashboard_active_users_metrics():
+        try:
+            data = db.get_dashboard_active_users_metrics()
+            return jsonify({'success': True, 'data': data})
+        except Exception as e:
+            current_app.logger.error(f"Erro dashboard active-users-metrics: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/api/dashboard/acessos-cadu', methods=['GET'])
     @login_required
     def api_dashboard_acessos_cadu():

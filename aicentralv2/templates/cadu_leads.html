@@ -49,7 +49,7 @@
         <label class="text-sm text-gray-500 font-medium">Executivo:</label>
         <select id="filtro_executivo" onchange="onExecutivoChange()"
                 class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 200px;">
-          <option value="">Todos (Inbox)</option>
+          <option value="">Sem responsável (Inbox)</option>
           {% for ex in executivos %}
             <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
           {% endfor %}
@@ -67,7 +67,9 @@
       <div class="leads-col-header">
         <div style="display:flex;align-items:center;gap:6px;flex:1">
           <span>Clientes</span>
-          <span id="leads_count" class="badge badge-ghost badge-sm" title="Total de contatos">0</span>
+          <span id="leads_count" class="badge badge-ghost badge-sm" title="Total de clientes">0</span>
+          <span style="color:#cbd5e1">·</span>
+          <span style="font-size:11px;color:#94a3b8" title="Total de contatos"><span id="contatos_count">0</span> contatos</span>
         </div>
         <button onclick="toggleSidebar()" class="sidebar-toggle-btn" title="Recolher lista">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -113,6 +115,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         Clientes
         <span id="leads_count_collapsed" class="badge badge-ghost badge-sm" style="font-size:9px">0</span>
+        <span style="font-size:8px;color:#94a3b8"><span id="contatos_count_collapsed">0</span> cont.</span>
       </button>
     </div>
 

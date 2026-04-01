@@ -211,6 +211,16 @@
 .pipeline-dot-reuniao_agendada { background: #22c55e; }
 .pipeline-dot-nutricao { background: #f59e0b; }
 
+.lead-group-potencial {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
 .lead-group-contacts {
     padding: 0 0 4px 22px;
 }

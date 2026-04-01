@@ -149,6 +149,7 @@ async function loadLeads() {
     } else if (execId) {
         params.push(`id_executivo=${execId}`);
     } else {
+        params.push('sem_responsavel=1');
         if (!status) params.push('status=inbox');
     }
     if (potencial) params.push(`potencial=${potencial}`);
@@ -169,7 +170,7 @@ async function loadLeads() {
         const contatosData = await contatosResp.json();
         if (!leadsData.success) throw new Error(leadsData.message);
 
-        const leads = leadsData.leads || [];
+        const leads = (leadsData.leads || []).sort((a, b) => (a.nome_lead || '').localeCompare(b.nome_lead || '', 'pt-BR'));
         const allContatos = contatosData.success ? (contatosData.contatos || []) : [];
 
         const contatosByLead = {};
@@ -178,10 +179,15 @@ async function loadLeads() {
             contatosByLead[c.lead_id].push(c);
         });
 
+        const totalClientes = leads.length;
         const totalContatos = leads.reduce((sum, l) => sum + (contatosByLead[l.id] || []).length, 0);
-        document.getElementById('leads_count').textContent = totalContatos;
+        document.getElementById('leads_count').textContent = totalClientes;
         const countCollapsed = document.getElementById('leads_count_collapsed');
-        if (countCollapsed) countCollapsed.textContent = totalContatos;
+        if (countCollapsed) countCollapsed.textContent = totalClientes;
+        const contatosCountEl = document.getElementById('contatos_count');
+        if (contatosCountEl) contatosCountEl.textContent = totalContatos;
+        const contatosCountCollapsed = document.getElementById('contatos_count_collapsed');
+        if (contatosCountCollapsed) contatosCountCollapsed.textContent = totalContatos;
         const container = document.getElementById('leads_cards');
 
         if (leads.length === 0) {
@@ -202,11 +208,10 @@ async function loadLeads() {
                         <div class="lead-group-name">${esc(l.nome_lead)}</div>
                         <div class="lead-group-meta">
                             ${contatos.length > 0 ? `<span>${contatos.length} contato${contatos.length > 1 ? 's' : ''}</span>` : '<span style="color:#d1d5db">Sem contatos</span>'}
-                            ${l.potencial ? `<span class="potencial-badge-${l.potencial}" style="font-size:9px;padding:0 5px;border-radius:9999px">${POTENCIAL_LABELS[l.potencial] || l.potencial}</span>` : ''}
                             ${l.valor_estimado ? `<span style="color:#059669;font-weight:600">R$ ${Number(l.valor_estimado).toLocaleString('pt-BR')}</span>` : ''}
                         </div>
                     </div>
-                    ${contatos.length > 0 ? `<div class="lead-group-dots">${contatos.map(c => `<span class="pipeline-dot pipeline-dot-${c.status_pipeline || 'inbox'}" title="${esc(c.contato_nome)}: ${STATUS_LABELS[c.status_pipeline] || c.status_pipeline || 'Inbox'}"></span>`).join('')}</div>` : ''}
+                    ${l.potencial ? `<span class="lead-group-potencial potencial-badge-${l.potencial}">${POTENCIAL_LABELS[l.potencial] || l.potencial}</span>` : ''}
                 </div>
                 <div class="lead-group-contacts" id="lead_contacts_${l.id}" style="${isExpanded ? '' : 'display:none'}">
                     ${contatos.map(c => `

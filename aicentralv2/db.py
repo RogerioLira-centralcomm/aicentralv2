@@ -208,6 +208,24 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_audiencia ON cadu_cotacao_audiencias(audiencia_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_incluido ON cadu_cotacao_audiencias(incluido_proposta)')
 
+            # Pipeline por contato: status_pipeline em cadu_lead_contatos
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_lead_contatos' AND column_name = 'status_pipeline'
+                    ) THEN
+                        ALTER TABLE cadu_lead_contatos ADD COLUMN status_pipeline VARCHAR(50) DEFAULT 'inbox';
+                        UPDATE cadu_lead_contatos c
+                            SET status_pipeline = COALESCE(l.status, 'inbox')
+                            FROM cadu_leads l
+                            WHERE c.id_lead = l.id;
+                    END IF;
+                END $$;
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_lead_contatos_pipeline ON cadu_lead_contatos(status_pipeline)')
+
         conn.commit()
     app.logger.info("OK Banco de dados inicializado")
 
@@ -10887,11 +10905,12 @@ def obter_links_uteis():
 
 def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual', canal=None, origem=None):
     """Importação em massa: cria leads + contatos + atividade de importação.
-    Retorna lista de IDs criados."""
+    Se o cliente já existir (pelo nome da empresa), adiciona apenas contatos novos.
+    Retorna lista de IDs (criados ou existentes)."""
     conn = get_db()
     import uuid
     lote = f'import-{uuid.uuid4().hex[:8]}'
-    ids_criados = []
+    ids_resultado = []
     valid_fontes = ('site', 'import', 'manual', 'indicacao', 'evento', 'outro')
     if fonte not in valid_fontes:
         fonte = 'manual'
@@ -10901,62 +10920,112 @@ def importar_leads_batch(leads_data, id_executivo, tipo_lead, fonte='manual', ca
             for lead_item in leads_data:
                 contatos = lead_item.get('contatos', [])
                 principal = next((c for c in contatos if c.get('principal')), contatos[0] if contatos else {})
+                empresa = lead_item.get('empresa') or ''
+                nome_lead = principal.get('nome', '')
 
-                exec_id = id_executivo or None
-                atribuido = datetime.now() if exec_id else None
+                lead_id = None
+                is_existing = False
 
-                cursor.execute('''
-                    INSERT INTO cadu_leads (
-                        empresa, nome, email, telefone, cargo,
-                        fonte, origem, canal, status, id_executivo, atribuido_em,
-                        tipo_lead, lote_importacao, importado_por
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                ''', (
-                    lead_item.get('empresa'),
-                    principal.get('nome'),
-                    principal.get('email', ''),
-                    principal.get('telefone'),
-                    principal.get('cargo'),
-                    fonte,
-                    origem or lead_item.get('origem') or 'importacao',
-                    canal or lead_item.get('canal') or 'importacao',
-                    'inbox',
-                    exec_id,
-                    atribuido,
-                    tipo_lead,
-                    lote,
-                    exec_id,
-                ))
-                lead_id = cursor.fetchone()['id']
-                ids_criados.append(lead_id)
+                if empresa.strip():
+                    cursor.execute(
+                        "SELECT id FROM cadu_leads WHERE LOWER(TRIM(empresa)) = LOWER(TRIM(%s)) LIMIT 1",
+                        (empresa,)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        lead_id = row['id']
+                        is_existing = True
 
+                if not lead_id and nome_lead.strip():
+                    cursor.execute(
+                        "SELECT id FROM cadu_leads WHERE LOWER(TRIM(nome)) = LOWER(TRIM(%s)) AND (empresa IS NULL OR empresa = '') LIMIT 1",
+                        (nome_lead,)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        lead_id = row['id']
+                        is_existing = True
+
+                if not is_existing:
+                    exec_id = id_executivo or None
+                    atribuido = datetime.now() if exec_id else None
+                    cursor.execute('''
+                        INSERT INTO cadu_leads (
+                            empresa, nome, email, telefone, cargo,
+                            fonte, origem, canal, status, id_executivo, atribuido_em,
+                            tipo_lead, lote_importacao, importado_por
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    ''', (
+                        empresa,
+                        nome_lead,
+                        principal.get('email', ''),
+                        principal.get('telefone'),
+                        principal.get('cargo'),
+                        fonte,
+                        origem or lead_item.get('origem') or 'importacao',
+                        canal or lead_item.get('canal') or 'importacao',
+                        'inbox',
+                        exec_id,
+                        atribuido,
+                        tipo_lead,
+                        lote,
+                        exec_id,
+                    ))
+                    lead_id = cursor.fetchone()['id']
+
+                ids_resultado.append(lead_id)
+
+                if is_existing:
+                    cursor.execute(
+                        "SELECT LOWER(TRIM(nome)) as nome_lower, LOWER(TRIM(COALESCE(email,''))) as email_lower FROM cadu_lead_contatos WHERE id_lead = %s",
+                        (lead_id,)
+                    )
+                    existing = {(r['nome_lower'], r['email_lower']) for r in cursor.fetchall()}
+
+                contatos_adicionados = 0
                 for contato in contatos:
+                    c_nome = (contato.get('nome') or '').strip()
+                    c_email = (contato.get('email') or '').strip()
+                    if not c_nome:
+                        continue
+
+                    if is_existing:
+                        key = (c_nome.lower(), c_email.lower())
+                        if key in existing:
+                            continue
+
                     cursor.execute('''
                         INSERT INTO cadu_lead_contatos
-                            (id_lead, nome, cargo, telefone, email, is_principal)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                            (id_lead, nome, cargo, telefone, email, is_principal, status_pipeline)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'inbox')
                     ''', (
                         lead_id,
-                        contato.get('nome'),
+                        c_nome,
                         contato.get('cargo'),
                         contato.get('telefone'),
-                        contato.get('email'),
-                        contato.get('principal', False),
+                        c_email or None,
+                        contato.get('principal', False) if not is_existing else False,
+                    ))
+                    contatos_adicionados += 1
+
+                desc = (f'Contatos importados para lead existente ({contatos_adicionados} novos, lote {lote})'
+                        if is_existing
+                        else f'Lead importado via importação em massa (lote {lote})')
+                if contatos_adicionados > 0 or not is_existing:
+                    cursor.execute('''
+                        INSERT INTO cadu_lead_atividades
+                            (id_lead, tipo, descricao, id_usuario)
+                        VALUES (%s, %s, %s, %s)
+                    ''', (
+                        lead_id,
+                        'contato_add' if is_existing else 'importacao',
+                        desc,
+                        id_executivo,
                     ))
 
-                cursor.execute('''
-                    INSERT INTO cadu_lead_atividades
-                        (id_lead, tipo, descricao, id_usuario)
-                    VALUES (%s, 'importacao', %s, %s)
-                ''', (
-                    lead_id,
-                    f'Lead importado via importação em massa (lote {lote})',
-                    id_executivo,
-                ))
-
             conn.commit()
-        return ids_criados
+        return ids_resultado
     except Exception as e:
         conn.rollback()
         raise e
@@ -11139,7 +11208,7 @@ def criar_lead(dados):
 
 
 def obter_leads_kanban(id_executivo=None):
-    """Retorna leads ativos agrupados por status para o board Kanban."""
+    """Retorna leads ativos agrupados por status para o board Kanban (legado)."""
     conn = get_db()
     try:
         params = []
@@ -11160,6 +11229,66 @@ def obter_leads_kanban(id_executivo=None):
     except Exception as e:
         current_app.logger.error(f"Erro obter_leads_kanban: {e}")
         raise
+
+
+def obter_contatos_kanban(id_executivo=None):
+    """Retorna contatos com status_pipeline e info do lead para o board Kanban."""
+    conn = get_db()
+    try:
+        params = []
+        where_clauses = [
+            "l.status NOT IN ('nao_qualificado', 'fechado_perdido', 'fechado_ganho')"
+        ]
+        if id_executivo is not None:
+            if str(id_executivo) == '0':
+                where_clauses.append('l.id_executivo IS NULL')
+            else:
+                where_clauses.append('l.id_executivo = %s')
+                params.append(id_executivo)
+
+        where_sql = ' AND '.join(where_clauses)
+
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                SELECT
+                    c.id AS contato_id,
+                    c.nome AS contato_nome,
+                    c.cargo,
+                    c.telefone,
+                    c.email,
+                    c.is_principal,
+                    COALESCE(c.status_pipeline, 'inbox') AS status_pipeline,
+                    l.id AS lead_id,
+                    COALESCE(l.empresa, l.nome) AS empresa,
+                    l.potencial,
+                    l.qualificacao_score,
+                    l.valor_estimado,
+                    l.id_executivo
+                FROM cadu_lead_contatos c
+                JOIN cadu_leads l ON c.id_lead = l.id
+                WHERE {where_sql}
+                ORDER BY c.is_principal DESC, c.nome ASC
+            ''', params)
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_contatos_kanban: {e}")
+        raise
+
+
+def atualizar_contato_pipeline(contato_id, status):
+    """Atualiza o status_pipeline de um contato."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'UPDATE cadu_lead_contatos SET status_pipeline = %s, updated_at = NOW() WHERE id = %s',
+                (status, contato_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
 
 
 def obter_executivo_mensal(ano=None, mes=None, id_executivo=None):

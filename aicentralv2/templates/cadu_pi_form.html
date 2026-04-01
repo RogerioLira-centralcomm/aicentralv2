@@ -88,11 +88,11 @@
       <div class="mb-4">
         <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Dados do PI</h2>
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
-          <div class="col-span-1 md:col-span-3">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Código PI</label>
-            <input type="text" name="codigo_pi_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}">
+          <div class="col-span-1 md:col-span-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Código PI <span class="text-red-500">*</span></label>
+            <input type="text" name="codigo_pi_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}" required>
           </div>
-          <div class="col-span-1 md:col-span-3">
+          <div class="col-span-1 md:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1">Tipo PI <span class="text-red-500">*</span></label>
             <select name="id_pi_tipo" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
               <option value="">Selecione...</option>
@@ -101,7 +101,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-span-2 md:col-span-6">
+          <div class="col-span-1 md:col-span-3">
             <label class="block text-xs font-medium text-gray-600 mb-1">Executivo de Vendas <span class="text-red-500">*</span></label>
             <select name="resp_comercial" id="sel_resp_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" onchange="onExecutivoChange()" required>
               <option value="">Selecione...</option>
@@ -110,16 +110,16 @@
               {% endfor %}
             </select>
           </div>
-        </div>
-      </div>
-
-      <!-- LINHA 2: Título + Cliente + Agência + Parceiro -->
-      <div class="mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
+          <div class="col-span-2 md:col-span-5">
             <label class="block text-xs font-medium text-gray-600 mb-1">Título do PI <span class="text-red-500">*</span></label>
             <input type="text" name="titulo_pi" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.titulo_pi if pi else '' }}" required placeholder="Ex: Campanha XYZ">
           </div>
+        </div>
+      </div>
+
+      <!-- LINHA 2: Cliente + Agência + Parceiro (3 colunas, alinhado com Contatos) -->
+      <div class="mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="relative">
             <label class="block text-xs font-medium text-gray-600 mb-1">Cliente <span class="text-red-500">*</span></label>
             <div class="flex gap-1">
@@ -166,13 +166,13 @@
             <div class="space-y-2">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</p>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia <span class="text-red-500">*</span></label>
                 <select name="contato_midia_cliente" id="sel_contato_midia_cliente" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o cliente primeiro</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro <span class="text-red-500">*</span></label>
                 <select name="contato_fin_cliente" id="sel_contato_fin_cliente" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o cliente primeiro</option>
                 </select>
@@ -181,13 +181,13 @@
             <div class="space-y-2">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Agência</p>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia <span class="text-red-500 contato-req-ag hidden">*</span></label>
                 <select name="contato_midia_agencia" id="sel_contato_midia_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione a agência primeiro</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro <span class="text-red-500 contato-req-ag hidden">*</span></label>
                 <select name="contato_fin_agencia" id="sel_contato_fin_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione a agência primeiro</option>
                 </select>
@@ -196,13 +196,13 @@
             <div class="space-y-2">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parceiro</p>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia <span class="text-red-500 contato-req-parc hidden">*</span></label>
                 <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o parceiro primeiro</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro <span class="text-red-500 contato-req-parc hidden">*</span></label>
                 <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o parceiro primeiro</option>
                 </select>
@@ -289,7 +289,7 @@
         </div>
       </div>
 
-      {% if modo == 'editar' and pi %}
+      {% if modo == 'editar' and pi and pi.id_sub_status_pi|string != '2' %}
       <!-- Dados Campanhas -->
       <div class="mb-3 bg-white border border-gray-200 rounded overflow-hidden">
         <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
@@ -443,6 +443,16 @@
     fin.disabled = true;
   }
 
+  function atualizarAsteriscosContatos() {
+    var agTemId = !!els.agenciaHidden().value;
+    document.querySelectorAll('.contato-req-ag').forEach(function(el) {
+      el.classList.toggle('hidden', !agTemId);
+    });
+    var parcTemId = !!els.parceiroHidden().value;
+    document.querySelectorAll('.contato-req-parc').forEach(function(el) {
+      el.classList.toggle('hidden', !parcTemId);
+    });
+  }
 
   window.onExecutivoChange = function() {
     const execId = getExecutivoId();
@@ -457,6 +467,7 @@
     els.agenciaDropdown().classList.add('hidden');
     resetContactSelects('cliente');
     resetContactSelects('agencia');
+    atualizarAsteriscosContatos();
   };
 
   function escapeHtml(str) {
@@ -480,9 +491,7 @@
   }
 
   async function buscarClientes(termo) {
-    const execId = getExecutivoId();
     const body = { nome: termo, razao: termo, agencia: false };
-    if (execId) body.vendedor_id = parseInt(execId);
     try {
       const resp = await fetch('/api/clientes/buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await resp.json();
@@ -491,9 +500,7 @@
   }
 
   async function buscarAgencias(termo) {
-    const execId = getExecutivoId();
     const body = { nome: termo, razao: termo, agencia: true };
-    if (execId) body.vendedor_id = parseInt(execId);
     try {
       const resp = await fetch('/api/clientes/buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await resp.json();
@@ -564,6 +571,7 @@
     els.agenciaBusca().value = nome;
     els.agenciaHidden().value = id;
     els.agenciaDropdown().classList.add('hidden');
+    atualizarAsteriscosContatos();
     carregarContatos(id, 'agencia').then(function() { abrirContatosESinalizar('agencia'); });
     if (percentual) {
       var percInput = els.percComissaoAg();
@@ -580,6 +588,7 @@
     els.parceiroBusca().value = nome;
     els.parceiroHidden().value = id;
     els.parceiroDropdown().classList.add('hidden');
+    atualizarAsteriscosContatos();
     carregarContatos(id, 'parceiro').then(function() { abrirContatosESinalizar('parceiro'); });
     if (percentual) {
       var percInput = els.percComissaoParc();
@@ -605,6 +614,7 @@
     clearTimeout(debounceAgencia);
     els.agenciaHidden().value = '';
     resetContactSelects('agencia');
+    atualizarAsteriscosContatos();
     var percInput = els.percComissaoAg();
     percInput.readOnly = false;
     percInput.classList.remove('bg-gray-100');
@@ -620,6 +630,7 @@
     clearTimeout(debounceParceiro);
     els.parceiroHidden().value = '';
     resetContactSelects('parceiro');
+    atualizarAsteriscosContatos();
     var percInput = els.percComissaoParc();
     percInput.readOnly = false;
     percInput.classList.remove('bg-gray-100');
@@ -656,6 +667,38 @@
       els.clienteBusca().classList.add('bg-red-50');
       setTimeout(function() { els.clienteBusca().classList.remove('border-red-400', 'bg-red-50'); }, 3000);
       if (typeof showToast === 'function') showToast('Selecione um cliente', 'error');
+      return;
+    }
+
+    var contatosFaltando = [];
+    var camposFoco = [];
+
+    var pares = [
+      { id: els.clienteHidden().value, label: 'Cliente', midia: els.contatoMidiaCliente(), fin: els.contatoFinCliente() },
+      { id: els.agenciaHidden().value,  label: 'Agência', midia: els.contatoMidiaAgencia(), fin: els.contatoFinAgencia() },
+      { id: els.parceiroHidden().value, label: 'Parceiro', midia: els.contatoMidiaParceiro(), fin: els.contatoFinParceiro() }
+    ];
+
+    pares.forEach(function(p) {
+      if (!p.id) return;
+      if (!p.midia.value) { contatosFaltando.push(p.label + ' - Resp. Mídia'); camposFoco.push(p.midia); }
+      if (!p.fin.value)   { contatosFaltando.push(p.label + ' - Resp. Financeiro'); camposFoco.push(p.fin); }
+    });
+
+    if (contatosFaltando.length > 0) {
+      e.preventDefault();
+      var details = document.getElementById('details_contatos');
+      if (!details.open) details.open = true;
+      setTimeout(function() {
+        camposFoco.forEach(function(el) {
+          el.classList.add('border-red-400', 'bg-red-50');
+          setTimeout(function() { el.classList.remove('border-red-400', 'bg-red-50'); }, 4000);
+        });
+        camposFoco[0].focus();
+        camposFoco[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 150);
+      if (typeof showToast === 'function') showToast('Preencha os contatos: ' + contatosFaltando.join(', '), 'error');
+      return;
     }
   });
 
@@ -743,6 +786,8 @@
         {{ (pi.contato_fin_parceiro if pi and pi.contato_fin_parceiro else '')|tojson }}
       );
     }
+
+    atualizarAsteriscosContatos();
   });
 })();
 </script>
@@ -1793,10 +1838,12 @@ document.getElementById('ncpi_form').addEventListener('submit', async function(e
     } else if (contexto === 'agencia') {
       document.getElementById('input_agencia_busca').value = nome;
       document.getElementById('hidden_id_agencia').value = novoId;
+      if (typeof atualizarAsteriscosContatos === 'function') atualizarAsteriscosContatos();
       if (typeof carregarContatos === 'function') carregarContatos(novoId, 'agencia').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('agencia'); });
     } else if (contexto === 'parceiro') {
       document.getElementById('input_parceiro_busca').value = nome;
       document.getElementById('hidden_id_parceiro').value = novoId;
+      if (typeof atualizarAsteriscosContatos === 'function') atualizarAsteriscosContatos();
       if (typeof carregarContatos === 'function') carregarContatos(novoId, 'parceiro').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('parceiro'); });
     }
 

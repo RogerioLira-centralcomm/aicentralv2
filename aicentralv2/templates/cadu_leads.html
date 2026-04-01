@@ -62,11 +62,16 @@
   <!-- ===== View: Lista (sidebar + detail) ===== -->
   <div id="view_list" class="leads-grid" style="flex:1;min-height:0">
 
-    <!-- Col 1: Sidebar / Listagem -->
-    <div class="leads-col">
+    <!-- Col 1: Sidebar / Listagem (retratil) -->
+    <div class="leads-sidebar" id="leads_sidebar">
       <div class="leads-col-header">
-        <span>Leads</span>
-        <span id="leads_count" class="badge badge-ghost badge-sm">0</span>
+        <div style="display:flex;align-items:center;gap:6px;flex:1">
+          <span>Clientes</span>
+          <span id="leads_count" class="badge badge-ghost badge-sm" title="Total de contatos">0</span>
+        </div>
+        <button onclick="toggleSidebar()" class="sidebar-toggle-btn" title="Recolher lista">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
       </div>
 
       <div class="leads-col-toolbar">
@@ -102,23 +107,47 @@
       </div>
     </div>
 
-    <!-- Col 2: Detail with Tabs -->
-    <div class="leads-col">
-      <div class="lead-tabs" id="lead_tabs" style="display:none">
-        <button class="lead-tab lead-tab-active" data-tab="dados" onclick="switchTab('dados')">Dados</button>
-        <button class="lead-tab" data-tab="contatos" onclick="switchTab('contatos')">Contatos</button>
-        <button class="lead-tab" data-tab="atividades" onclick="switchTab('atividades')">Atividades</button>
-        <button class="lead-tab" data-tab="extracao" onclick="switchTab('extracao')">Extração</button>
-        <button class="lead-tab" data-tab="comunicacao" onclick="switchTab('comunicacao')">Comunicação IA</button>
+    <!-- Collapsed sidebar strip -->
+    <div id="sidebar_collapsed" class="sidebar-collapsed" style="display:none">
+      <button onclick="toggleSidebar()" class="sidebar-expand-btn" title="Expandir lista">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        Clientes
+        <span id="leads_count_collapsed" class="badge badge-ghost badge-sm" style="font-size:9px">0</span>
+      </button>
+    </div>
+
+    <!-- Placeholder: no lead selected -->
+    <div id="lead_placeholder" class="leads-col">
+      <div class="leads-empty">Selecione um lead</div>
+    </div>
+
+    <!-- Mesa de Trabalho: 3 colunas -->
+    <div id="mesa_trabalho" class="mesa-trabalho" style="display:none">
+      <div class="mesa-col">
+        <div class="mesa-col-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Dados & Contatos
+        </div>
+        <div class="mesa-col-scroll" id="col_dados_contatos"></div>
       </div>
-      <div id="lead_detail_area" class="leads-col-scroll">
-        <div class="leads-empty">Selecione um lead</div>
+      <div class="mesa-col">
+        <div class="mesa-col-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Atividades
+          <button onclick="openNovaAtividadeModal()" class="mesa-col-header-btn" title="Nova atividade">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14m-7-7h14"/></svg>
+            Nova
+          </button>
+        </div>
+        <div class="mesa-col-scroll" id="col_atividades"></div>
       </div>
-      <div id="tab_dados" class="lead-tab-content" style="display:none"></div>
-      <div id="tab_contatos" class="lead-tab-content" style="display:none"></div>
-      <div id="tab_atividades" class="lead-tab-content" style="display:none"></div>
-      <div id="tab_extracao" class="lead-tab-content" style="display:none"></div>
-      <div id="tab_comunicacao" class="lead-tab-content" style="display:none"></div>
+      <div class="mesa-col">
+        <div class="mesa-col-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Comunicação IA
+        </div>
+        <div class="mesa-col-scroll" id="col_comunicacao"></div>
+      </div>
     </div>
   </div>
 
@@ -695,6 +724,52 @@
           Converter em Cliente
         </button>
       </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ===== Modal Nova Atividade (estilo Pipedrive) ===== -->
+<dialog id="modal_nova_atividade" class="modal">
+  <div class="modal-box w-11/12 max-w-lg">
+    <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+    <h3 class="font-bold text-lg mb-3">Nova Atividade</h3>
+    <div id="modal_ativ_sugestao"></div>
+    <div class="ativ-type-grid" id="modal_ativ_tipos"></div>
+    <div class="space-y-3">
+      <div>
+        <label class="label label-text text-xs font-semibold">Contato *</label>
+        <select id="modal_ativ_contato" class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 w-full focus:outline-none focus:border-gray-400">
+          <option value="">Selecione um contato...</option>
+        </select>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Descrição</label>
+        <div style="position:relative">
+          <textarea id="modal_ativ_desc" class="textarea textarea-sm textarea-bordered w-full" rows="3" placeholder="Descreva a atividade..."></textarea>
+          <button onclick="melhorarTextoModal()" class="btn btn-xs btn-ghost absolute" style="right:4px;bottom:4px;font-size:10px;color:#7c3aed" title="Melhorar com IA" id="btn_melhorar_texto">
+            <span class="loading loading-spinner loading-xs hidden" id="melhorar_spinner"></span>
+            ✨ Melhorar
+          </button>
+        </div>
+      </div>
+      <div>
+        <label class="label label-text text-xs font-semibold">Prazo</label>
+        <div class="prazo-shortcuts">
+          <button type="button" class="prazo-shortcut-btn" onclick="setPrazoShortcut(0)">Hoje</button>
+          <button type="button" class="prazo-shortcut-btn" onclick="setPrazoShortcut(1)">Amanhã</button>
+          <button type="button" class="prazo-shortcut-btn" onclick="setPrazoShortcut(3)">+3 dias</button>
+          <button type="button" class="prazo-shortcut-btn" onclick="setPrazoShortcut(7)">+7 dias</button>
+          <button type="button" class="prazo-shortcut-btn" onclick="setPrazoShortcut(-1)">Personalizado</button>
+        </div>
+        <input id="modal_ativ_prazo" type="date" class="input input-sm input-bordered w-full" style="display:none">
+      </div>
+    </div>
+    <div class="modal-action">
+      <button onclick="saveNovaAtividade()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:8px 24px;font-size:12px;font-weight:600">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Registrar
+      </button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>

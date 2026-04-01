@@ -191,7 +191,7 @@
       </div>
 
       <!-- LINHA 2: Datas e Valores -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <!-- Início -->
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Início *</label>
@@ -218,14 +218,6 @@
           <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
           <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
         </div>
-        <!-- Valor Total (somente em modo edição) -->
-        {% if modo == 'editar' %}
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Valor Total (R$)</label>
-          <input type="text" id="valor_total_proposta" name="valor_total_proposta_display" value="{{ "%.2f"|format(cotacao.valor_total_proposta) if cotacao and cotacao.valor_total_proposta else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'valor_total_proposta_hidden')">
-          <input type="hidden" id="valor_total_proposta_hidden" name="valor_total_proposta">
-        </div>
-        {% endif %}
       </div>
 
       {% if modo == 'editar' %}
@@ -249,24 +241,23 @@
       </div>
       {% endif %}
 
-      <!-- LINHA 4: Objetivo e Observações lado a lado -->
+      <!-- LINHA 4: Objetivo da Campanha (full width) -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Objetivo da Campanha</label>
+        <textarea name="objetivo_campanha" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Descreva o objetivo...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+      </div>
+
+      <!-- LINHA 5: Observações lado a lado -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Objetivo da Campanha</label>
-          <textarea name="objetivo_campanha" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Descreva o objetivo...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-        </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Observações</label>
           <textarea name="observacoes" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas gerais...">{{ cotacao.observacoes if cotacao else '' }}</textarea>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Observações Internas</label>
+          <textarea name="observacoes_internas" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas internas (não visíveis ao cliente)...">{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+        </div>
       </div>
-
-      {% if modo == 'editar' %}
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Observações Internas</label>
-        <textarea name="observacoes_internas" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas internas (não visíveis ao cliente)...">{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
-      </div>
-      {% endif %}
 
       <input type="hidden" name="origem" value="Admin">
     </form>
@@ -658,7 +649,7 @@ function formatarMoedaReal(input, hiddenFieldId) {
 
 // Ao submeter o formulário, garantir que os valores corretos são enviados
 document.getElementById('cotacao_form').addEventListener('submit', function(e) {
-  const campos = ['budget_estimado', 'valor_total_proposta'];
+  const campos = ['budget_estimado'];
   campos.forEach(campo => {
     const displayInput = document.getElementById(campo);
     const hiddenInput = document.getElementById(campo + '_hidden');
@@ -672,7 +663,7 @@ document.getElementById('cotacao_form').addEventListener('submit', function(e) {
 
 // Ao carregar a página, formatar os valores se existirem
 document.addEventListener('DOMContentLoaded', function() {
-  const campos = ['budget_estimado', 'valor_total_proposta'];
+  const campos = ['budget_estimado'];
   campos.forEach(campo => {
     const displayInput = document.getElementById(campo);
     if (displayInput && displayInput.value) {

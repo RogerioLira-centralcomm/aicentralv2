@@ -11422,7 +11422,7 @@ Retorne APENAS JSON válido:
     @app.route('/api/leads/importar', methods=['POST'])
     @login_required
     def api_leads_importar():
-        """Importa leads processados em batch"""
+        """Importa leads processados em batch. Verifica duplicatas por nome de empresa."""
         try:
             data = request.get_json(force=True)
             leads_data = data.get('leads', [])
@@ -11483,6 +11483,92 @@ Retorne apenas o texto melhorado, sem explicações.'''
             return jsonify({'success': True, 'texto': texto_melhorado})
         except Exception as e:
             app.logger.error(f"Erro api_ia_melhorar_texto: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/ia/sugerir-atividade', methods=['POST'])
+    @login_required
+    def api_ia_sugerir_atividade():
+        """Sugere próxima atividade para um lead baseado no histórico"""
+        try:
+            import requests as http_requests
+            import json as json_mod
+            data = request.get_json(force=True)
+            lead_id = data.get('lead_id')
+            if not lead_id:
+                return jsonify({'success': False, 'message': 'lead_id obrigatório'}), 400
+
+            lead = db.obter_lead_detalhes(lead_id)
+            if not lead:
+                return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
+
+            atividades = db.obter_lead_atividades(lead_id)
+            contatos = db.obter_lead_contatos(lead_id)
+
+            historico_text = ''
+            for a in (atividades or [])[:10]:
+                d = dict(a)
+                historico_text += f"- {d.get('tipo', '')}: {d.get('descricao', '')} ({d.get('created_at', '')})\n"
+
+            contatos_text = ''
+            for c in (contatos or []):
+                cd = dict(c)
+                contatos_text += f"- {cd.get('nome', '')} ({cd.get('cargo', '')})\n"
+
+            lead_dict = dict(lead)
+            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            system_prompt = '''Você é um assistente de vendas da CentralComm (comunicação e mídia).
+Analise o histórico de atividades de um lead e sugira a PRÓXIMA atividade mais adequada.
+
+Responda APENAS em JSON válido:
+{
+    "tipo": "ligacao|email_enviado|whatsapp|reuniao|follow_up|apresentacao|proposta_enviada|nota",
+    "descricao": "breve descrição da atividade sugerida",
+    "prazo_dias": 0,
+    "motivo": "breve explicação de por que essa é a melhor próxima ação"
+}'''
+
+            context = f"""Lead: {lead_dict.get('empresa', '')} - {lead_dict.get('nome', '')}
+Status: {lead_dict.get('status', '')}
+Potencial: {lead_dict.get('potencial', '')}
+
+Contatos:
+{contatos_text or 'Nenhum contato cadastrado'}
+
+Últimas atividades:
+{historico_text or 'Nenhuma atividade registrada'}"""
+
+            ai_resp = http_requests.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'HTTP-Referer': 'https://centralcomm.media',
+                    'X-Title': 'CentralComm AI',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': 'google/gemini-2.5-flash',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': context},
+                    ],
+                    'temperature': 0.3,
+                    'max_tokens': 500,
+                },
+                timeout=30,
+            )
+            ai_resp.raise_for_status()
+            ai_text = ai_resp.json()['choices'][0]['message']['content']
+
+            ai_text_clean = ai_text.strip()
+            if ai_text_clean.startswith('```'):
+                ai_text_clean = ai_text_clean.split('\n', 1)[1] if '\n' in ai_text_clean else ai_text_clean[3:]
+                if ai_text_clean.endswith('```'):
+                    ai_text_clean = ai_text_clean[:-3]
+            sugestao = json_mod.loads(ai_text_clean)
+
+            return jsonify({'success': True, 'sugestao': sugestao})
+        except Exception as e:
+            app.logger.error(f"Erro api_ia_sugerir_atividade: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/ia/gerar-comunicacao', methods=['POST'])
@@ -11650,20 +11736,20 @@ REGRAS DE ESTILO:
     @app.route('/api/leads/kanban')
     @login_required
     def api_leads_kanban():
-        """JSON: leads para board Kanban, agrupados por status"""
+        """JSON: contatos para board Kanban, agrupados por status_pipeline"""
         try:
             id_executivo = request.args.get('id_executivo', type=int)
-            leads = db.obter_leads_kanban(id_executivo=id_executivo)
+            contatos = db.obter_contatos_kanban(id_executivo=id_executivo)
             result = []
-            for l in leads:
-                d = dict(l)
+            for c in contatos:
+                d = dict(c)
                 for k, v in d.items():
                     if isinstance(v, datetime):
                         d[k] = v.strftime('%Y-%m-%dT%H:%M')
                     elif hasattr(v, '__float__') and not isinstance(v, (int, float, bool)):
                         d[k] = float(v)
                 result.append(d)
-            return jsonify({'success': True, 'leads': result})
+            return jsonify({'success': True, 'contatos': result})
         except Exception as e:
             app.logger.error(f"Erro api_leads_kanban: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
@@ -11671,7 +11757,7 @@ REGRAS DE ESTILO:
     @app.route('/api/leads/<int:lead_id>/kanban-move', methods=['PATCH'])
     @login_required
     def api_lead_kanban_move(lead_id):
-        """Move lead para novo status (drag-and-drop Kanban)"""
+        """Move lead para novo status (legado, mantido para compatibilidade)"""
         try:
             data = request.get_json(force=True)
             new_status = data.get('status')
@@ -11682,6 +11768,22 @@ REGRAS DE ESTILO:
             return jsonify({'success': ok})
         except Exception as e:
             app.logger.error(f"Erro api_lead_kanban_move {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/contatos/<int:contato_id>/pipeline-move', methods=['PATCH'])
+    @login_required
+    def api_contato_pipeline_move(contato_id):
+        """Move contato para novo estágio do pipeline (drag-and-drop Kanban)"""
+        try:
+            data = request.get_json(force=True)
+            new_status = data.get('status')
+            valid = ('inbox', 'tentativa_contato', 'reuniao_agendada', 'nutricao')
+            if new_status not in valid:
+                return jsonify({'success': False, 'message': 'Status inválido'}), 400
+            ok = db.atualizar_contato_pipeline(contato_id, new_status)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_contato_pipeline_move {contato_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/leads/relatorio-executivo')

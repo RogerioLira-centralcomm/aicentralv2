@@ -8,7 +8,10 @@ let importParsedLeads = [];
 let searchTimeout = null;
 let showConcluidas = false;
 let currentView = 'list';
-let currentTab = 'dados';
+let sidebarCollapsed = false;
+let modalAtivSelectedTipo = null;
+let expandedLeadGroups = new Set();
+let selectedContactId = null;
 
 const FREE_DOMAINS = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','icloud.com','aol.com','msn.com','uol.com.br','bol.com.br','terra.com.br','ig.com.br','globo.com','protonmail.com'];
 
@@ -84,12 +87,15 @@ function onExecutivoChange() {
 }
 
 function clearDetail() {
-    document.getElementById('lead_tabs').style.display = 'none';
-    document.getElementById('lead_detail_area').innerHTML = '<div class="leads-empty">Selecione um lead</div>';
-    document.getElementById('lead_detail_area').style.display = '';
-    ['tab_dados','tab_contatos','tab_atividades','tab_extracao','tab_comunicacao'].forEach(id => {
-        document.getElementById(id).style.display = 'none';
+    selectedLeadId = null;
+    selectedContactId = null;
+    document.getElementById('mesa_trabalho').style.display = 'none';
+    document.getElementById('lead_placeholder').style.display = '';
+    ['col_dados_contatos','col_atividades','col_comunicacao'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = '';
     });
+    document.querySelectorAll('.contact-pipeline-item').forEach(el => el.classList.remove('contact-selected'));
 }
 
 function debounceSearch() {
@@ -150,13 +156,32 @@ async function loadLeads() {
     if (status) params.push(`status=${status}`);
     if (fonte) params.push(`fonte=${fonte}`);
 
-    try {
-        const resp = await fetch(url + params.join('&'));
-        const data = await resp.json();
-        if (!data.success) throw new Error(data.message);
+    let kanbanUrl = '/api/leads/kanban';
+    if (execId && execId !== '0') kanbanUrl += `?id_executivo=${execId}`;
+    else if (execId === '0') kanbanUrl += '?id_executivo=0';
 
-        const leads = data.leads || [];
-        document.getElementById('leads_count').textContent = leads.length;
+    try {
+        const [leadsResp, contatosResp] = await Promise.all([
+            fetch(url + params.join('&')),
+            fetch(kanbanUrl),
+        ]);
+        const leadsData = await leadsResp.json();
+        const contatosData = await contatosResp.json();
+        if (!leadsData.success) throw new Error(leadsData.message);
+
+        const leads = leadsData.leads || [];
+        const allContatos = contatosData.success ? (contatosData.contatos || []) : [];
+
+        const contatosByLead = {};
+        allContatos.forEach(c => {
+            if (!contatosByLead[c.lead_id]) contatosByLead[c.lead_id] = [];
+            contatosByLead[c.lead_id].push(c);
+        });
+
+        const totalContatos = leads.reduce((sum, l) => sum + (contatosByLead[l.id] || []).length, 0);
+        document.getElementById('leads_count').textContent = totalContatos;
+        const countCollapsed = document.getElementById('leads_count_collapsed');
+        if (countCollapsed) countCollapsed.textContent = totalContatos;
         const container = document.getElementById('leads_cards');
 
         if (leads.length === 0) {
@@ -165,22 +190,35 @@ async function loadLeads() {
         }
 
         container.innerHTML = leads.map(l => {
-            const scoreCls = (l.qualificacao_score || 0) >= 70 ? 'high' : (l.qualificacao_score || 0) >= 30 ? 'mid' : 'low';
-            return `<div class="lead-card ${selectedLeadId === l.id ? 'lead-card-active' : ''}" onclick="selectLead(${l.id})">
-                <div class="flex items-center justify-between">
-                    <span class="font-semibold text-gray-800 truncate">${esc(l.nome_lead)}</span>
-                    <span class="status-badge status-badge-${l.status}" style="font-size:9px;padding:1px 6px">${STATUS_LABELS[l.status] || l.status}</span>
+            const contatos = contatosByLead[l.id] || [];
+            const isExpanded = expandedLeadGroups.has(l.id) || selectedLeadId === l.id;
+            const isActive = selectedLeadId === l.id;
+            return `<div class="lead-group ${isActive ? 'lead-group-active' : ''}" data-lead-id="${l.id}">
+                <div class="lead-group-header" onclick="selectLead(${l.id})">
+                    <button class="lead-group-toggle ${isExpanded ? 'expanded' : ''}" onclick="event.stopPropagation();toggleLeadGroup(${l.id})" title="${isExpanded ? 'Recolher' : 'Expandir'}">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <div class="lead-group-info">
+                        <div class="lead-group-name">${esc(l.nome_lead)}</div>
+                        <div class="lead-group-meta">
+                            ${contatos.length > 0 ? `<span>${contatos.length} contato${contatos.length > 1 ? 's' : ''}</span>` : '<span style="color:#d1d5db">Sem contatos</span>'}
+                            ${l.potencial ? `<span class="potencial-badge-${l.potencial}" style="font-size:9px;padding:0 5px;border-radius:9999px">${POTENCIAL_LABELS[l.potencial] || l.potencial}</span>` : ''}
+                            ${l.valor_estimado ? `<span style="color:#059669;font-weight:600">R$ ${Number(l.valor_estimado).toLocaleString('pt-BR')}</span>` : ''}
+                        </div>
+                    </div>
+                    ${contatos.length > 0 ? `<div class="lead-group-dots">${contatos.map(c => `<span class="pipeline-dot pipeline-dot-${c.status_pipeline || 'inbox'}" title="${esc(c.contato_nome)}: ${STATUS_LABELS[c.status_pipeline] || c.status_pipeline || 'Inbox'}"></span>`).join('')}</div>` : ''}
                 </div>
-                <div class="flex items-center gap-2 mt-1" style="font-size:10px;color:#9ca3af">
-                    ${l.contato_principal_nome ? `<span>${esc(l.contato_principal_nome)}</span>` : ''}
-                    ${l.qtd_contatos > 0 ? `<span>${l.qtd_contatos} contato${l.qtd_contatos > 1 ? 's' : ''}</span>` : ''}
-                </div>
-                <div class="flex items-center gap-2 mt-1 flex-wrap">
-                    ${l.potencial ? `<span class="potencial-badge-${l.potencial}" style="font-size:9px;padding:1px 6px;border-radius:9999px">${POTENCIAL_LABELS[l.potencial] || l.potencial}</span>` : ''}
-                    ${l.fonte ? `<span style="font-size:9px;color:#6b7280">${esc(l.fonte)}</span>` : ''}
-                    ${l.valor_estimado ? `<span style="font-size:9px;color:#059669;font-weight:600">R$ ${Number(l.valor_estimado).toLocaleString('pt-BR')}</span>` : ''}
-                    ${l.qualificacao_score ? `<span class="score-gauge"><span class="score-gauge-bar"><span class="score-gauge-fill ${scoreCls}" style="width:${l.qualificacao_score}%"></span></span>${l.qualificacao_score}</span>` : ''}
-                    ${l.dias_sem_atividade > 7 ? `<span style="font-size:9px;color:#ef4444">${l.dias_sem_atividade}d</span>` : ''}
+                <div class="lead-group-contacts" id="lead_contacts_${l.id}" style="${isExpanded ? '' : 'display:none'}">
+                    ${contatos.map(c => `
+                        <div class="contact-pipeline-item ${selectedContactId === c.contato_id ? 'contact-selected' : ''}" data-contato-sidebar="${c.contato_id}" onclick="event.stopPropagation();selectContact(${c.contato_id}, ${l.id})">
+                            <span class="pipeline-status-dot pipeline-dot-${c.status_pipeline || 'inbox'}"></span>
+                            <div class="contact-pipeline-info">
+                                <span class="contact-pipeline-name">${esc(c.contato_nome)}${c.is_principal ? ' <span class="contact-principal-tag">Principal</span>' : ''}</span>
+                                ${c.cargo ? `<span class="contact-pipeline-cargo">${esc(c.cargo)}</span>` : ''}
+                            </div>
+                            <span class="contact-pipeline-badge pipeline-badge-${c.status_pipeline || 'inbox'}">${STATUS_LABELS[c.status_pipeline] || c.status_pipeline || 'Inbox'}</span>
+                        </div>
+                    `).join('')}
                 </div>
             </div>`;
         }).join('');
@@ -189,68 +227,140 @@ async function loadLeads() {
     }
 }
 
+function toggleLeadGroup(leadId) {
+    const el = document.getElementById(`lead_contacts_${leadId}`);
+    if (!el) return;
+    const isVisible = el.style.display !== 'none';
+    el.style.display = isVisible ? 'none' : '';
+    if (isVisible) expandedLeadGroups.delete(leadId);
+    else expandedLeadGroups.add(leadId);
+    const toggle = el.previousElementSibling?.querySelector('.lead-group-toggle');
+    if (toggle) toggle.classList.toggle('expanded', !isVisible);
+}
+
 function potencialBadge(p) {
     if (!p) return '';
     return `<span class="potencial-badge-${p}" style="font-size:9px;padding:1px 6px;border-radius:9999px">${POTENCIAL_LABELS[p] || p}</span>`;
 }
 
-// ======================== Select Lead & Tabs ========================
+// ======================== Select Contact & Lead ========================
+
+async function selectContact(contatoId, leadId) {
+    const needsReload = selectedLeadId !== leadId;
+    selectedContactId = contatoId;
+    selectedLeadId = leadId;
+
+    document.querySelectorAll('.contact-pipeline-item').forEach(el => el.classList.remove('contact-selected'));
+    document.querySelectorAll('.lead-group').forEach(el => el.classList.remove('lead-group-active'));
+    const sidebarItem = document.querySelector(`[data-contato-sidebar="${contatoId}"]`);
+    if (sidebarItem) sidebarItem.classList.add('contact-selected');
+    const activeGroup = document.querySelector(`.lead-group[data-lead-id="${leadId}"]`);
+    if (activeGroup) activeGroup.classList.add('lead-group-active');
+
+    expandedLeadGroups.add(leadId);
+    const contactsEl = document.getElementById(`lead_contacts_${leadId}`);
+    if (contactsEl && contactsEl.style.display === 'none') {
+        contactsEl.style.display = '';
+        const toggle = contactsEl.previousElementSibling?.querySelector('.lead-group-toggle');
+        if (toggle) toggle.classList.add('expanded');
+    }
+
+    if (needsReload) {
+        document.getElementById('lead_placeholder').style.display = 'none';
+        document.getElementById('mesa_trabalho').style.display = '';
+
+        const col1 = document.getElementById('col_dados_contatos');
+        col1.innerHTML = `
+            <div id="section_dados">${skeletonHtml()}</div>
+            <div id="section_contatos" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px"></div>
+            <div id="section_extracao" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px">
+                <button onclick="loadTabExtracao(selectedLeadId)" class="extracao-toggle-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    Extração IA
+                </button>
+            </div>
+        `;
+
+        document.getElementById('col_atividades').innerHTML = skeletonHtml();
+        document.getElementById('col_comunicacao').innerHTML = skeletonHtml();
+
+        await Promise.all([
+            loadTabDados(leadId),
+            loadTabContatos(leadId),
+            loadTabAtividades(leadId),
+            loadTabComunicacao(leadId),
+        ]);
+    } else {
+        highlightContactInWorkspace(contatoId);
+        preselectContactInComm(contatoId);
+    }
+}
 
 async function selectLead(leadId) {
     selectedLeadId = leadId;
+    selectedContactId = null;
 
-    document.querySelectorAll('.lead-card').forEach(el => el.classList.remove('lead-card-active'));
-    event?.target?.closest?.('.lead-card')?.classList.add('lead-card-active');
+    document.querySelectorAll('.contact-pipeline-item').forEach(el => el.classList.remove('contact-selected'));
+    document.querySelectorAll('.lead-group').forEach(el => el.classList.remove('lead-group-active'));
+    const activeGroup = document.querySelector(`.lead-group[data-lead-id="${leadId}"]`);
+    if (activeGroup) activeGroup.classList.add('lead-group-active');
 
-    document.getElementById('lead_tabs').style.display = 'flex';
-    document.getElementById('lead_detail_area').style.display = 'none';
+    document.getElementById('lead_placeholder').style.display = 'none';
+    document.getElementById('mesa_trabalho').style.display = '';
 
-    const tabDados = document.getElementById('tab_dados');
-    tabDados.innerHTML = skeletonHtml();
-    tabDados.style.display = '';
+    expandedLeadGroups.add(leadId);
+    const contactsEl = document.getElementById(`lead_contacts_${leadId}`);
+    if (contactsEl && contactsEl.style.display === 'none') {
+        contactsEl.style.display = '';
+        const toggle = contactsEl.previousElementSibling?.querySelector('.lead-group-toggle');
+        if (toggle) toggle.classList.add('expanded');
+    }
 
-    ['tab_contatos','tab_atividades','tab_extracao','tab_comunicacao'].forEach(id => {
-        document.getElementById(id).style.display = 'none';
-        document.getElementById(id).innerHTML = '';
-    });
+    const col1 = document.getElementById('col_dados_contatos');
+    col1.innerHTML = `
+        <div id="section_dados">${skeletonHtml()}</div>
+        <div id="section_contatos" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px"></div>
+        <div id="section_extracao" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px">
+            <button onclick="loadTabExtracao(selectedLeadId)" class="extracao-toggle-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                Extração IA
+            </button>
+        </div>
+    `;
 
-    currentTab = 'dados';
-    document.querySelectorAll('.lead-tab').forEach(t => {
-        t.classList.toggle('lead-tab-active', t.dataset.tab === 'dados');
-    });
+    document.getElementById('col_atividades').innerHTML = skeletonHtml();
+    document.getElementById('col_comunicacao').innerHTML = skeletonHtml();
 
-    await loadTabDados(leadId);
+    await Promise.all([
+        loadTabDados(leadId),
+        loadTabContatos(leadId),
+        loadTabAtividades(leadId),
+        loadTabComunicacao(leadId),
+    ]);
+}
+
+function highlightContactInWorkspace(contatoId) {
+    document.querySelectorAll('.contact-card').forEach(el => el.classList.remove('contact-card-selected'));
+    const card = document.querySelector(`.contact-card[data-contact-id="${contatoId}"]`);
+    if (card) {
+        card.classList.add('contact-card-selected');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function preselectContactInComm(contatoId) {
+    const commSelect = document.getElementById('comm_contato');
+    if (commSelect) commSelect.value = contatoId;
 }
 
 function switchTab(tabName) {
-    currentTab = tabName;
-    document.querySelectorAll('.lead-tab').forEach(t => {
-        t.classList.toggle('lead-tab-active', t.dataset.tab === tabName);
-    });
-
-    const tabs = ['dados','contatos','atividades','extracao','comunicacao'];
-    tabs.forEach(t => {
-        document.getElementById('tab_' + t).style.display = t === tabName ? '' : 'none';
-    });
-
-    if (!selectedLeadId) return;
-
-    const container = document.getElementById('tab_' + tabName);
-    if (container.innerHTML.trim() === '' || container.innerHTML.includes('skeleton-line')) {
-        switch(tabName) {
-            case 'dados': loadTabDados(selectedLeadId); break;
-            case 'contatos': loadTabContatos(selectedLeadId); break;
-            case 'atividades': loadTabAtividades(selectedLeadId); break;
-            case 'extracao': loadTabExtracao(selectedLeadId); break;
-            case 'comunicacao': loadTabComunicacao(selectedLeadId); break;
-        }
-    }
+    // Legacy no-op: tabs replaced by 3-column mesa de trabalho
 }
 
 // ======================== Tab: Dados ========================
 
 async function loadTabDados(leadId) {
-    const container = document.getElementById('tab_dados');
+    const container = document.getElementById('section_dados');
     try {
         const resp = await fetch(`/api/leads/${leadId}/detalhes`);
         const data = await resp.json();
@@ -458,7 +568,7 @@ async function updateResponsavel(execId) {
 // ======================== Tab: Contatos ========================
 
 async function loadTabContatos(leadId) {
-    const container = document.getElementById('tab_contatos');
+    const container = document.getElementById('section_contatos');
     container.innerHTML = skeletonHtml();
 
     try {
@@ -488,7 +598,7 @@ function renderContato(c) {
     const phone = c.telefone ? c.telefone.replace(/\D/g, '') : '';
     const waLink = phone ? `https://wa.me/55${phone}` : '';
 
-    return `<div class="contact-card">
+    return `<div class="contact-card ${selectedContactId === c.id ? 'contact-card-selected' : ''}" data-contact-id="${c.id}">
         <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-1.5">
                 <span style="font-weight:600;font-size:12px">${esc(c.nome)}</span>
@@ -618,7 +728,8 @@ async function setPrincipal(contatoId) {
 // ======================== Tab: Atividades ========================
 
 async function loadTabAtividades(leadId) {
-    const container = document.getElementById('tab_atividades');
+    const container = document.getElementById('col_atividades');
+    if (!container) return;
     container.innerHTML = skeletonHtml();
 
     try {
@@ -627,50 +738,13 @@ async function loadTabAtividades(leadId) {
         if (!data.success) throw new Error(data.message);
         const atividades = data.atividades || [];
 
-        const tipos = ['nota','ligacao','email_enviado','whatsapp','reuniao','follow_up','apresentacao','proposta_enviada','tentativa_contato','outro'];
-
-        let sugestao = '';
-        const lastAtiv = atividades.find(a => a.tipo !== 'status_change' && a.tipo !== 'importacao');
-        if (!lastAtiv) {
-            sugestao = `<div class="ativ-sugestao" onclick="applySugestao('ligacao', 'Primeiro contato com o lead')">
-                <div style="font-size:10px;color:#92400e;font-weight:600">Sugestão</div>
-                <div style="font-size:11px;color:#78350f">Registrar primeiro contato</div>
-            </div>`;
-        }
-
-        let contatoOptions = '';
-        try {
-            const cr = await fetch(`/api/leads/${leadId}/contatos`);
-            const cd = await cr.json();
-            contatoOptions = (cd.contatos || []).map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
-        } catch(e) {}
-
         const pendentes = atividades.filter(a => !a.concluida);
         const concluidas = atividades.filter(a => a.concluida);
 
         container.innerHTML = `
             <div class="space-y-2" style="font-size:12px">
-                ${sugestao}
-                <div id="ativ_form_area" style="display:none">
-                    <div class="bg-base-200 rounded-lg p-2 space-y-1.5 mb-2">
-                        <div class="flex gap-1.5">
-                            <select id="ativ_tipo" class="${SEL_CLS}" onchange="onAtivTipoChange()" style="flex:1">
-                                ${tipos.map(t => `<option value="${t}">${t.replace(/_/g, ' ')}</option>`).join('')}
-                            </select>
-                            <select id="ativ_contato" class="${SEL_CLS}" style="flex:1">
-                                <option value="">Contato (opcional)</option>
-                                ${contatoOptions}
-                            </select>
-                        </div>
-                        <textarea id="ativ_desc" class="textarea textarea-xs textarea-bordered w-full" rows="2" placeholder="Descreva..."></textarea>
-                        <div class="flex gap-1.5 items-center">
-                            <input id="ativ_prazo" type="date" class="input input-xs input-bordered" style="flex:1">
-                            <button onclick="addAtividade()" class="leads-action-btn leads-action-btn-incluir" style="flex:0;padding:4px 14px;font-size:11px">Registrar</button>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="toggleAtivForm()" class="leads-action-btn leads-action-btn-nova" id="btn_toggle_ativ">+ Nova Atividade</button>
                 <div id="ativ_list">
+                    ${pendentes.length === 0 && concluidas.length === 0 ? '<div class="leads-empty" style="min-height:60px">Nenhuma atividade</div>' : ''}
                     ${pendentes.map(a => renderAtividade(a)).join('')}
                     ${concluidas.length > 0 ? `
                         <div class="concluidas-toggle" onclick="toggleConcluidas()">
@@ -693,29 +767,27 @@ function renderAtividade(a) {
     const typeBadge = TIPO_ATIV_COLORS[a.tipo] || 'ativ-badge-outro';
     const isOverdue = isPrazoOverdue(a);
     const prazoHtml = getPrazoHtml(a);
-    const contatoLabel = a.contato_nome ? ` → ${esc(a.contato_nome)}` : '';
+    const contatoLabel = a.contato_nome ? `${esc(a.contato_nome)}` : '';
+    const isSystem = a.tipo === 'status_change' || a.tipo === 'importacao' || a.tipo === 'contato_add' || a.tipo === 'contato_remove';
 
     return `<div class="ativ-card ${a.concluida ? 'ativ-card-concluida' : ''} ${isOverdue ? 'ativ-card-overdue' : ''}">
-        <div class="flex items-center justify-between mb-1">
-            <div class="flex items-center gap-1.5">
-                <span class="ativ-badge ${typeBadge}">${a.tipo.replace(/_/g, ' ')}</span>
-                ${contatoLabel ? `<span style="font-size:10px;color:#6b7280">${contatoLabel}</span>` : ''}
-            </div>
-            <div class="flex items-center gap-2">
-                ${prazoHtml}
-                <span style="font-size:9px;color:#9ca3af">${dateStr}</span>
+        <div class="flex items-start gap-2">
+            ${!isSystem ? `<input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleConcluida(${a.id}, this.checked)" class="ativ-checkbox">` : '<div style="width:16px;flex-shrink:0"></div>'}
+            <div style="flex:1;min-width:0">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="ativ-badge ${typeBadge}">${a.tipo.replace(/_/g, ' ')}</span>
+                        ${contatoLabel ? `<span style="font-size:10px;color:#6b7280">→ ${contatoLabel}</span>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2" style="flex-shrink:0">
+                        ${prazoHtml}
+                        <span style="font-size:9px;color:#9ca3af">${dateStr}</span>
+                    </div>
+                </div>
+                <div class="ativ-desc" onclick="this.classList.toggle('expanded')">${esc(a.descricao || '')}</div>
+                ${a.usuario_nome ? `<div style="font-size:9px;color:#9ca3af;margin-top:2px">por ${esc(a.usuario_nome)}</div>` : ''}
             </div>
         </div>
-        <div class="ativ-desc" onclick="this.classList.toggle('expanded')">${esc(a.descricao || '')}</div>
-        ${a.data_prazo && !a.concluida ? `
-            <label style="display:flex;align-items:center;gap:4px;margin-top:4px;cursor:pointer;font-size:10px;color:#6b7280">
-                <input type="checkbox" onchange="toggleConcluida(${a.id}, this.checked)" style="width:12px;height:12px"> Concluir
-            </label>` : ''}
-        ${a.concluida ? `
-            <label style="display:flex;align-items:center;gap:4px;margin-top:4px;cursor:pointer;font-size:10px;color:#6b7280">
-                <input type="checkbox" checked onchange="toggleConcluida(${a.id}, this.checked)" style="width:12px;height:12px"> Concluída
-            </label>` : ''}
-        ${a.usuario_nome ? `<div style="font-size:9px;color:#9ca3af;margin-top:2px">por ${esc(a.usuario_nome)}</div>` : ''}
     </div>`;
 }
 
@@ -796,8 +868,8 @@ async function toggleConcluida(atividadeId, concluida) {
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-async function melhorarTexto() {
-    const desc = document.getElementById('ativ_desc');
+async function melhorarTexto(textareaId) {
+    const desc = document.getElementById(textareaId || 'modal_ativ_desc');
     if (!desc || !desc.value.trim()) return;
     try {
         const resp = await fetch('/api/ia/melhorar-texto', {
@@ -813,7 +885,7 @@ async function melhorarTexto() {
 // ======================== Tab: Extração ========================
 
 async function loadTabExtracao(leadId) {
-    const container = document.getElementById('tab_extracao');
+    const container = document.getElementById('section_extracao');
     container.innerHTML = skeletonHtml();
 
     try {
@@ -994,14 +1066,18 @@ async function addExtractedContact(idx) {
 // ======================== Tab: Comunicação IA ========================
 
 async function loadTabComunicacao(leadId) {
-    const container = document.getElementById('tab_comunicacao');
+    const container = document.getElementById('col_comunicacao');
+    if (!container) return;
     container.innerHTML = skeletonHtml();
 
     try {
         const conResp = await fetch(`/api/leads/${leadId}/contatos`);
         const conData = await conResp.json();
         const contatos = conData.contatos || [];
-        const contatoOptions = contatos.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+        const contatoOptions = contatos.map(c => {
+            const isSelected = selectedContactId ? c.id === selectedContactId : c.is_principal;
+            return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(c.nome)}</option>`;
+        }).join('');
 
         const apresentacaoTemplates = COMM_TEMPLATES.filter((_, i) => i <= 4);
         const followupTemplates = COMM_TEMPLATES.filter((_, i) => i === 5 || i === 6);
@@ -1062,14 +1138,11 @@ async function loadTabComunicacao(leadId) {
 function applyCommTemplate(idx) {
     const t = COMM_TEMPLATES[idx];
     if (!t) return;
-    if (currentTab !== 'comunicacao') switchTab('comunicacao');
-    setTimeout(() => {
-        const obj = document.getElementById('comm_objetivo');
-        if (obj) obj.value = t.objetivo;
-        const radios = document.querySelectorAll('input[name="comm_tipo"]');
-        radios.forEach(r => { r.checked = r.value === t.tipo; });
-        gerarComunicacao();
-    }, 100);
+    const obj = document.getElementById('comm_objetivo');
+    if (obj) obj.value = t.objetivo;
+    const radios = document.querySelectorAll('input[name="comm_tipo"]');
+    radios.forEach(r => { r.checked = r.value === t.tipo; });
+    gerarComunicacao();
 }
 
 async function gerarComunicacao() {
@@ -1592,8 +1665,9 @@ async function loadKanban() {
 
         const grouped = {};
         KANBAN_STATUSES.forEach(s => grouped[s] = []);
-        (data.leads || []).forEach(l => {
-            if (grouped[l.status]) grouped[l.status].push(l);
+        (data.contatos || []).forEach(c => {
+            const st = c.status_pipeline || 'inbox';
+            if (grouped[st]) grouped[st].push(c);
         });
 
         KANBAN_STATUSES.forEach(status => {
@@ -1602,15 +1676,26 @@ async function loadKanban() {
             if (!col) return;
 
             countEl.textContent = grouped[status].length;
-            col.innerHTML = grouped[status].map(l => `
-                <div class="kanban-card" draggable="true" data-lead-id="${l.id}" onclick="selectLeadFromKanban(${l.id})">
-                    <div class="kanban-card-title">${esc(l.nome || l.empresa || 'Lead #' + l.id)}</div>
-                    ${l.empresa ? `<div class="kanban-card-company">${esc(l.empresa)}</div>` : ''}
-                    <div class="kanban-card-meta">
-                        ${l.potencial ? potencialBadge(l.potencial) : ''}
-                        ${l.qualificacao_score ? `<span style="font-size:10px;color:#6b7280">${l.qualificacao_score}pts</span>` : ''}
-                        ${l.valor_estimado ? `<span class="kanban-card-value">R$ ${Number(l.valor_estimado).toLocaleString('pt-BR')}</span>` : ''}
+
+            const byClient = {};
+            grouped[status].forEach(c => {
+                const key = c.lead_id;
+                if (!byClient[key]) byClient[key] = { empresa: c.empresa || 'Sem empresa', lead_id: c.lead_id, contatos: [] };
+                byClient[key].contatos.push(c);
+            });
+
+            col.innerHTML = Object.values(byClient).map(group => `
+                <div class="kanban-client-group">
+                    <div class="kanban-client-header" onclick="selectLeadFromKanban(${group.lead_id})">
+                        <span class="kanban-client-name">${esc(group.empresa)}</span>
+                        <span class="kanban-client-count">${group.contatos.length}</span>
                     </div>
+                    ${group.contatos.map(c => `
+                        <div class="kanban-card" draggable="true" data-contato-id="${c.contato_id}" data-lead-id="${c.lead_id}" onclick="event.stopPropagation();selectContactFromKanban(${c.contato_id}, ${c.lead_id})">
+                            <div class="kanban-card-title">${esc(c.contato_nome)}${c.is_principal ? ' <span style="font-size:8px;background:#dcfce7;color:#15803d;padding:0 4px;border-radius:9999px;vertical-align:middle">★</span>' : ''}</div>
+                            ${c.cargo ? `<div style="font-size:10px;color:#6b7280">${esc(c.cargo)}</div>` : ''}
+                        </div>
+                    `).join('')}
                 </div>
             `).join('');
         });
@@ -1626,39 +1711,35 @@ function selectLeadFromKanban(leadId) {
     setTimeout(() => selectLead(leadId), 200);
 }
 
+function selectContactFromKanban(contatoId, leadId) {
+    toggleView('list');
+    setTimeout(() => selectContact(contatoId, leadId), 200);
+}
+
 function initKanbanDragDrop() {
     document.querySelectorAll('.kanban-card[draggable="true"]').forEach(card => {
         card.addEventListener('dragstart', e => {
             card.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', card.dataset.leadId);
+            e.dataTransfer.setData('text/plain', card.dataset.contatoId);
             e.dataTransfer.effectAllowed = 'move';
         });
         card.addEventListener('dragend', () => {
             card.classList.remove('dragging');
-            document.querySelectorAll('.kanban-column').forEach(col => col.classList.remove('drag-over'));
+            document.querySelectorAll('.kanban-column').forEach(c => c.classList.remove('drag-over'));
         });
     });
 
-    document.querySelectorAll('.kanban-column-scroll').forEach(dropZone => {
-        dropZone.addEventListener('dragover', e => {
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        col.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; col.classList.add('drag-over'); });
+        col.addEventListener('dragleave', e => { if (e.relatedTarget && !col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+        col.addEventListener('drop', async e => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            dropZone.closest('.kanban-column').classList.add('drag-over');
-        });
-        dropZone.addEventListener('dragleave', e => {
-            if (!dropZone.contains(e.relatedTarget)) {
-                dropZone.closest('.kanban-column').classList.remove('drag-over');
-            }
-        });
-        dropZone.addEventListener('drop', async e => {
-            e.preventDefault();
-            dropZone.closest('.kanban-column').classList.remove('drag-over');
-            const leadId = e.dataTransfer.getData('text/plain');
-            const newStatus = dropZone.dataset.drop;
-            if (!leadId || !newStatus) return;
-
+            col.classList.remove('drag-over');
+            const contatoId = e.dataTransfer.getData('text/plain');
+            const newStatus = col.dataset.status;
+            if (!contatoId || !newStatus) return;
             try {
-                const resp = await fetch(`/api/leads/${leadId}/kanban-move`, {
+                const resp = await fetch(`/api/leads/contatos/${contatoId}/pipeline-move`, {
                     method: 'PATCH',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({status: newStatus}),
@@ -1809,4 +1890,189 @@ function showToast(msg, type) {
     toast.innerHTML = `<span>${esc(msg)}</span>`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
+}
+
+// ======================== Sidebar Toggle ========================
+
+function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    const sidebar = document.getElementById('leads_sidebar');
+    const collapsed = document.getElementById('sidebar_collapsed');
+    const grid = document.getElementById('view_list');
+
+    if (sidebarCollapsed) {
+        sidebar.style.display = 'none';
+        collapsed.style.display = '';
+        grid.classList.add('has-sidebar-collapsed');
+        const count = document.getElementById('leads_count').textContent;
+        document.getElementById('leads_count_collapsed').textContent = count;
+    } else {
+        sidebar.style.display = '';
+        collapsed.style.display = 'none';
+        grid.classList.remove('has-sidebar-collapsed');
+    }
+}
+
+// ======================== Nova Atividade Modal ========================
+
+const ATIV_TYPE_ICONS = {
+    ligacao: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>',
+    email_enviado: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>',
+    whatsapp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>',
+    reuniao: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    follow_up: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>',
+    apresentacao: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h20v14H2z"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>',
+    proposta_enviada: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    nota: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+};
+
+const ATIV_TYPE_LABELS = {
+    ligacao: 'Ligação', email_enviado: 'Email', whatsapp: 'WhatsApp',
+    reuniao: 'Reunião', follow_up: 'Follow-up', apresentacao: 'Apresentação',
+    proposta_enviada: 'Proposta', nota: 'Nota',
+};
+
+async function openNovaAtividadeModal() {
+    if (!selectedLeadId) return showToast('Selecione um lead', 'warning');
+
+    modalAtivSelectedTipo = null;
+    const tiposGrid = document.getElementById('modal_ativ_tipos');
+    tiposGrid.innerHTML = Object.entries(ATIV_TYPE_LABELS).map(([key, label]) => {
+        return `<button type="button" class="ativ-type-btn" data-tipo="${key}" onclick="selectAtivType('${key}')">
+            ${ATIV_TYPE_ICONS[key] || ''}
+            <span>${label}</span>
+        </button>`;
+    }).join('');
+
+    document.getElementById('modal_ativ_desc').value = '';
+    document.getElementById('modal_ativ_prazo').value = '';
+    document.getElementById('modal_ativ_prazo').style.display = 'none';
+    document.querySelectorAll('.prazo-shortcut-btn').forEach(b => b.classList.remove('active'));
+
+    try {
+        const cr = await fetch(`/api/leads/${selectedLeadId}/contatos`);
+        const cd = await cr.json();
+        const contatos = cd.contatos || [];
+        const sel = document.getElementById('modal_ativ_contato');
+        sel.innerHTML = '<option value="">Selecione um contato...</option>' +
+            contatos.map(c => {
+                const isSelected = selectedContactId ? c.id === selectedContactId : c.is_principal;
+                return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(c.nome)}${c.cargo ? ' (' + esc(c.cargo) + ')' : ''}</option>`;
+            }).join('');
+    } catch (e) {}
+
+    document.getElementById('modal_nova_atividade').showModal();
+
+    fetchSugestaoIA(selectedLeadId);
+}
+
+function selectAtivType(tipo) {
+    modalAtivSelectedTipo = tipo;
+    document.querySelectorAll('.ativ-type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tipo === tipo);
+    });
+    const desc = document.getElementById('modal_ativ_desc');
+    if (DEFAULT_DESCRIPTIONS[tipo] && !desc.value.trim()) {
+        desc.value = DEFAULT_DESCRIPTIONS[tipo];
+    }
+}
+
+function setPrazoShortcut(days) {
+    const input = document.getElementById('modal_ativ_prazo');
+    document.querySelectorAll('.prazo-shortcut-btn').forEach(b => b.classList.remove('active'));
+
+    if (days === -1) {
+        input.style.display = '';
+        input.focus();
+        return;
+    }
+
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    const iso = date.toISOString().split('T')[0];
+    input.value = iso;
+    input.style.display = '';
+
+    event?.target?.classList?.add('active');
+}
+
+async function saveNovaAtividade() {
+    if (!selectedLeadId) return;
+    if (!modalAtivSelectedTipo) return showToast('Selecione o tipo da atividade', 'warning');
+    const contato = document.getElementById('modal_ativ_contato').value;
+    if (!contato) return showToast('Selecione um contato', 'warning');
+    const descricao = document.getElementById('modal_ativ_desc').value.trim();
+    if (!descricao) return showToast('Descreva a atividade', 'warning');
+    const prazo = document.getElementById('modal_ativ_prazo').value || null;
+
+    try {
+        await fetch(`/api/leads/${selectedLeadId}/atividades`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tipo: modalAtivSelectedTipo,
+                descricao,
+                id_contato: contato,
+                data_prazo: prazo,
+            }),
+        });
+        document.getElementById('modal_nova_atividade').close();
+        showToast('Atividade registrada!', 'success');
+        loadTabAtividades(selectedLeadId);
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function fetchSugestaoIA(leadId) {
+    const container = document.getElementById('modal_ativ_sugestao');
+    if (!container) return;
+    container.innerHTML = '<div style="font-size:10px;color:#9ca3af;padding:4px 0">Buscando sugestão IA...</div>';
+
+    try {
+        const resp = await fetch('/api/ia/sugerir-atividade', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({lead_id: leadId}),
+        });
+        const data = await resp.json();
+        if (data.success && data.sugestao) {
+            const s = data.sugestao;
+            container.innerHTML = `
+                <div class="sugestao-ia-chip" onclick="applySugestaoIA(this)" data-tipo="${esc(s.tipo)}" data-desc="${esc(s.descricao)}" data-prazo="${s.prazo_dias || 0}">
+                    <div>
+                        <div class="sugestao-label">Sugestão IA</div>
+                        <div class="sugestao-text">${esc(s.descricao)}</div>
+                        <div style="font-size:9px;color:#a16207;margin-top:2px">${esc(s.motivo || '')}</div>
+                    </div>
+                </div>`;
+        } else {
+            container.innerHTML = '';
+        }
+    } catch (e) {
+        container.innerHTML = '';
+    }
+}
+
+function applySugestaoIA(chip) {
+    const tipo = chip.dataset.tipo;
+    const desc = chip.dataset.desc;
+    const prazoDias = parseInt(chip.dataset.prazo) || 0;
+
+    if (tipo) selectAtivType(tipo);
+    if (desc) document.getElementById('modal_ativ_desc').value = desc;
+    if (prazoDias > 0) setPrazoShortcut(prazoDias);
+
+    chip.style.opacity = '0.5';
+    chip.style.pointerEvents = 'none';
+}
+
+async function melhorarTextoModal() {
+    const btn = document.getElementById('btn_melhorar_texto');
+    const spinner = document.getElementById('melhorar_spinner');
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.classList.remove('hidden');
+
+    await melhorarTexto('modal_ativ_desc');
+
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.classList.add('hidden');
 }

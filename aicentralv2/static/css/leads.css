@@ -916,6 +916,34 @@
 }
 .leads-action-btn-extrair:hover { background: #1d4ed8; }
 
+/* ===== Kanban Toolbar ===== */
+.kanban-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    flex-shrink: 0;
+}
+
+.kanban-toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.kanban-toolbar-btn:hover { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+.kanban-toolbar-btn.toggle-all-expanded { color: #3b82f6; border-color: #93c5fd; }
+
 /* ===== Kanban Board ===== */
 .kanban-board {
     display: flex;
@@ -990,6 +1018,24 @@
 
 .kanban-client-header:hover { background: #eff6ff; }
 
+.kanban-group-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: transform 0.15s, color 0.15s;
+}
+.kanban-group-toggle:hover { color: #374151; background: #e5e7eb; }
+.kanban-group-toggle.expanded { transform: rotate(90deg); }
+
+.kanban-client-contacts { }
+
 .kanban-client-name {
     font-size: 11px;
     font-weight: 700;
@@ -999,6 +1045,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+    flex: 1;
 }
 
 .kanban-client-count {
@@ -1188,6 +1236,9 @@
 }
 
 .sidebar-toggle-btn:hover { color: #374151; background: #f3f4f6; }
+
+#btn_toggle_all_contacts { margin-left: auto; margin-right: 0; }
+#btn_toggle_all_contacts.toggle-all-expanded { color: #3b82f6; }
 
 .sidebar-collapsed {
     display: flex;

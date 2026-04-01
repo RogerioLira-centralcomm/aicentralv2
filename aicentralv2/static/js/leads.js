@@ -11,6 +11,7 @@ let currentView = 'list';
 let sidebarCollapsed = false;
 let modalAtivSelectedTipo = null;
 let expandedLeadGroups = new Set();
+let expandedKanbanGroups = new Set();
 let selectedContactId = null;
 
 const FREE_DOMAINS = ['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','icloud.com','aol.com','msn.com','uol.com.br','bol.com.br','terra.com.br','ig.com.br','globo.com','protonmail.com'];
@@ -227,6 +228,7 @@ async function loadLeads() {
                 </div>
             </div>`;
         }).join('');
+        updateToggleAllIcon();
     } catch (e) {
         document.getElementById('leads_cards').innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
     }
@@ -241,6 +243,74 @@ function toggleLeadGroup(leadId) {
     else expandedLeadGroups.add(leadId);
     const toggle = el.previousElementSibling?.querySelector('.lead-group-toggle');
     if (toggle) toggle.classList.toggle('expanded', !isVisible);
+    updateToggleAllIcon();
+}
+
+function toggleAllContacts() {
+    const groups = document.querySelectorAll('.lead-group-contacts');
+    if (groups.length === 0) return;
+    const anyExpanded = [...groups].some(el => el.style.display !== 'none');
+    const shouldCollapse = anyExpanded;
+
+    groups.forEach(el => {
+        el.style.display = shouldCollapse ? 'none' : '';
+        const leadId = parseInt(el.id.replace('lead_contacts_', ''));
+        if (shouldCollapse) expandedLeadGroups.delete(leadId);
+        else expandedLeadGroups.add(leadId);
+        const toggle = el.previousElementSibling?.querySelector('.lead-group-toggle');
+        if (toggle) toggle.classList.toggle('expanded', !shouldCollapse);
+    });
+
+    updateToggleAllIcon();
+}
+
+function updateToggleAllIcon() {
+    const btn = document.getElementById('btn_toggle_all_contacts');
+    if (!btn) return;
+    const groups = document.querySelectorAll('.lead-group-contacts');
+    const anyExpanded = [...groups].some(el => el.style.display !== 'none');
+    btn.title = anyExpanded ? 'Recolher todos os contatos' : 'Expandir todos os contatos';
+    btn.classList.toggle('toggle-all-expanded', anyExpanded);
+}
+
+function toggleKanbanGroup(status, leadId) {
+    const key = `${status}_${leadId}`;
+    const el = document.getElementById(`kanban_contacts_${key}`);
+    if (!el) return;
+    const isVisible = el.style.display !== 'none';
+    el.style.display = isVisible ? 'none' : '';
+    if (isVisible) expandedKanbanGroups.delete(key);
+    else expandedKanbanGroups.add(key);
+    const toggle = el.previousElementSibling?.querySelector('.kanban-group-toggle');
+    if (toggle) toggle.classList.toggle('expanded', !isVisible);
+    updateKanbanToggleAllIcon();
+}
+
+function toggleAllKanbanContacts() {
+    const groups = document.querySelectorAll('.kanban-client-contacts');
+    if (groups.length === 0) return;
+    const anyExpanded = [...groups].some(el => el.style.display !== 'none');
+    const shouldCollapse = anyExpanded;
+
+    groups.forEach(el => {
+        el.style.display = shouldCollapse ? 'none' : '';
+        const key = el.id.replace('kanban_contacts_', '');
+        if (shouldCollapse) expandedKanbanGroups.delete(key);
+        else expandedKanbanGroups.add(key);
+        const toggle = el.previousElementSibling?.querySelector('.kanban-group-toggle');
+        if (toggle) toggle.classList.toggle('expanded', !shouldCollapse);
+    });
+
+    updateKanbanToggleAllIcon();
+}
+
+function updateKanbanToggleAllIcon() {
+    const btn = document.getElementById('btn_toggle_all_kanban');
+    if (!btn) return;
+    const groups = document.querySelectorAll('.kanban-client-contacts');
+    const anyExpanded = [...groups].some(el => el.style.display !== 'none');
+    btn.title = anyExpanded ? 'Recolher todos' : 'Expandir todos';
+    btn.classList.toggle('toggle-all-expanded', anyExpanded);
 }
 
 function potencialBadge(p) {
@@ -1689,23 +1759,31 @@ async function loadKanban() {
                 byClient[key].contatos.push(c);
             });
 
-            col.innerHTML = Object.values(byClient).map(group => `
+            col.innerHTML = Object.values(byClient).map(group => {
+                const isExp = expandedKanbanGroups.has(`${status}_${group.lead_id}`);
+                return `
                 <div class="kanban-client-group">
-                    <div class="kanban-client-header" onclick="selectLeadFromKanban(${group.lead_id})">
-                        <span class="kanban-client-name">${esc(group.empresa)}</span>
+                    <div class="kanban-client-header">
+                        <button class="kanban-group-toggle ${isExp ? 'expanded' : ''}" onclick="event.stopPropagation();toggleKanbanGroup('${status}', ${group.lead_id})" title="${isExp ? 'Recolher' : 'Expandir'}">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <span class="kanban-client-name" onclick="selectLeadFromKanban(${group.lead_id})">${esc(group.empresa)}</span>
                         <span class="kanban-client-count">${group.contatos.length}</span>
                     </div>
-                    ${group.contatos.map(c => `
-                        <div class="kanban-card" draggable="true" data-contato-id="${c.contato_id}" data-lead-id="${c.lead_id}" onclick="event.stopPropagation();selectContactFromKanban(${c.contato_id}, ${c.lead_id})">
-                            <div class="kanban-card-title">${esc(c.contato_nome)}${c.is_principal ? ' <span style="font-size:8px;background:#dcfce7;color:#15803d;padding:0 4px;border-radius:9999px;vertical-align:middle">★</span>' : ''}</div>
-                            ${c.cargo ? `<div style="font-size:10px;color:#6b7280">${esc(c.cargo)}</div>` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            `).join('');
+                    <div class="kanban-client-contacts" id="kanban_contacts_${status}_${group.lead_id}" style="${isExp ? '' : 'display:none'}">
+                        ${group.contatos.map(c => `
+                            <div class="kanban-card" draggable="true" data-contato-id="${c.contato_id}" data-lead-id="${c.lead_id}" onclick="event.stopPropagation();selectContactFromKanban(${c.contato_id}, ${c.lead_id})">
+                                <div class="kanban-card-title">${esc(c.contato_nome)}${c.is_principal ? ' <span style="font-size:8px;background:#dcfce7;color:#15803d;padding:0 4px;border-radius:9999px;vertical-align:middle">★</span>' : ''}</div>
+                                ${c.cargo ? `<div style="font-size:10px;color:#6b7280">${esc(c.cargo)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }).join('');
         });
 
         initKanbanDragDrop();
+        updateKanbanToggleAllIcon();
     } catch (e) {
         console.error('loadKanban:', e);
     }

@@ -71,6 +71,9 @@
           <span style="color:#cbd5e1">·</span>
           <span style="font-size:11px;color:#94a3b8" title="Total de contatos"><span id="contatos_count">0</span> contatos</span>
         </div>
+        <button id="btn_toggle_all_contacts" onclick="toggleAllContacts()" class="sidebar-toggle-btn" title="Expandir/Recolher todos os contatos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
+        </button>
         <button onclick="toggleSidebar()" class="sidebar-toggle-btn" title="Recolher lista">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
@@ -155,7 +158,14 @@
   </div>
 
   <!-- ===== View: Kanban ===== -->
-  <div id="view_kanban" class="kanban-board" style="display:none">
+  <div id="view_kanban" style="display:none;flex-direction:column;flex:1;min-height:0">
+    <div class="kanban-toolbar">
+      <button id="btn_toggle_all_kanban" onclick="toggleAllKanbanContacts()" class="kanban-toolbar-btn" title="Expandir/Recolher todos">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
+        <span>Expandir/Recolher</span>
+      </button>
+    </div>
+    <div class="kanban-board">
     <div class="kanban-column" data-status="inbox">
       <div class="kanban-column-header">
         <span style="color:#4b5563">Inbox</span>
@@ -183,6 +193,7 @@
         <span class="kanban-column-count" data-count="nutricao">0</span>
       </div>
       <div class="kanban-column-scroll" data-drop="nutricao"></div>
+    </div>
     </div>
   </div>
 

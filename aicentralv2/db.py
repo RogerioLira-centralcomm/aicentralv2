@@ -11371,7 +11371,7 @@ def obter_leads_analise(data_inicio=None, data_fim=None, id_executivo=None):
             base_clauses.append('l.created_at >= %s')
             base_params.append(data_inicio)
         if data_fim:
-            base_clauses.append('l.created_at <= %s')
+            base_clauses.append('l.created_at < %s::date + 1')
             base_params.append(data_fim)
         if id_executivo:
             base_clauses.append('l.id_executivo = %s')
@@ -11427,7 +11427,7 @@ def obter_leads_analise(data_inicio=None, data_fim=None, id_executivo=None):
             if data_inicio:
                 status_clauses.append('a.created_at >= %s')
             if data_fim:
-                status_clauses.append('a.created_at <= %s')
+                status_clauses.append('a.created_at < %s::date + 1')
             if id_executivo:
                 status_clauses.append('l.id_executivo = %s')
             status_clauses.append("a.tipo = 'status_change'")
@@ -11439,7 +11439,7 @@ def obter_leads_analise(data_inicio=None, data_fim=None, id_executivo=None):
                     COUNT(*) as transicoes,
                     ROUND(AVG(EXTRACT(EPOCH FROM (a.created_at - l.created_at)) / 86400), 1) as avg_dias_desde_criacao
                 FROM cadu_lead_atividades a
-                JOIN cadu_leads l ON l.id = a.lead_id
+                JOIN cadu_leads l ON l.id = a.id_lead
                 {status_where}
                 GROUP BY a.descricao
                 ORDER BY avg_dias_desde_criacao
@@ -11473,7 +11473,7 @@ def obter_leads_analise(data_inicio=None, data_fim=None, id_executivo=None):
                         END
                     ), 1) as avg_horas_primeiro_contato,
                     (SELECT COUNT(*) FROM cadu_lead_atividades a2
-                     WHERE a2.lead_id = ANY(ARRAY_AGG(l.id))
+                     WHERE a2.id_lead = ANY(ARRAY_AGG(l.id))
                     ) as total_atividades
                 FROM cadu_leads l
                 {where_sql}
@@ -11496,9 +11496,9 @@ def obter_leads_analise(data_inicio=None, data_fim=None, id_executivo=None):
                     SUM(CASE WHEN a.tipo IN ('email', 'email_enviado') THEN 1 ELSE 0 END) as emails,
                     SUM(CASE WHEN a.tipo = 'reuniao' THEN 1 ELSE 0 END) as reunioes,
                     SUM(CASE WHEN a.tipo = 'tentativa_contato' THEN 1 ELSE 0 END) as tentativas_contato,
-                    COUNT(DISTINCT a.lead_id) as leads_trabalhados
+                    COUNT(DISTINCT a.id_lead) as leads_trabalhados
                 FROM cadu_leads l
-                LEFT JOIN cadu_lead_atividades a ON a.lead_id = l.id
+                LEFT JOIN cadu_lead_atividades a ON a.id_lead = l.id
                 {ativ_where}
                 GROUP BY l.id_executivo
                 ORDER BY total_atividades DESC

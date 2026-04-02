@@ -39,22 +39,52 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-white rounded border border-gray-200 p-4">
-    <form id="cotacao_form" method="POST" class="space-y-4">
-      
-      <!-- LINHA 1: Informações Básicas -->
-      <div>
-        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Informações Básicas</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {% if modo == 'editar' and cotacao %}
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Nº Cotação</label>
-            <input type="text" value="{{ cotacao.numero_cotacao }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" disabled>
-          </div>
-          {% endif %}
+  <form id="cotacao_form" method="POST">
 
-          <!-- Cliente e Contato do Cliente (empilhados) -->
-          <div class="space-y-2">
+    <!-- Card 1: Identificação -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Identificação</h2>
+
+        {% if modo == 'editar' and cotacao %}
+        <div class="mb-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Nº Cotação</label>
+          <input type="text" value="{{ cotacao.numero_cotacao }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" disabled>
+        </div>
+        {% endif %}
+
+        <div class="w-full mb-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">
+            Nome da Campanha *
+            {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'nome_campanha')">Corrigir</button>{% endif %}
+          </label>
+          <input type="text" name="nome_campanha" id="nome_campanha"
+                 value="{{ cotacao.nome_campanha if cotacao else '' }}"
+                 class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none"
+                 placeholder="Ex: Campanha Verão 2025" required
+                 {% if modo == 'editar' %}readonly{% endif %}>
+        </div>
+
+        <div class="w-full md:w-1/2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
+          <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+            <option value="">Selecione...</option>
+            {% for vendedor in vendedores %}
+            <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Envolvidos -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Envolvidos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+          <!-- Coluna 1: Cliente -->
+          <div class="bg-base-200/50 p-4 border border-base-200 rounded-box space-y-2">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
               <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
@@ -83,8 +113,8 @@
             </div>
           </div>
 
-          <!-- Agência e Contato Agência (empilhados) -->
-          <div id="bloco_agencia" class="space-y-2">
+          <!-- Coluna 2: Agência -->
+          <div id="bloco_agencia" class="bg-base-200/50 p-4 border border-base-200 rounded-box space-y-2">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
               <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
@@ -116,8 +146,8 @@
             </div>
           </div>
 
-          <!-- Parceiro e Contato Parceiro (empilhados) -->
-          <div id="bloco_parceiro" class="space-y-2">
+          <!-- Coluna 3: Parceiro -->
+          <div id="bloco_parceiro" class="bg-base-200/50 p-4 border border-base-200 rounded-box space-y-2">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Parceiro</label>
               <input type="hidden" name="id_parceiro" id="id_parceiro" value="{% if modo == 'editar' and cotacao and cotacao.id_parceiro %}{{ cotacao.id_parceiro }}{% endif %}">
@@ -149,81 +179,81 @@
             </div>
           </div>
 
-          <!-- Dados da Campanha -->
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Nome da Campanha *</label>
-            <input type="text" name="nome_campanha" value="{{ cotacao.nome_campanha if cotacao else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Ex: Campanha Verão 2025" required>
-          </div>
+        </div>
+      </div>
+    </div>
 
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
-            <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
-              <option value="">Selecione...</option>
-              {% for vendedor in vendedores %}
-              <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
-              {% endfor %}
-            </select>
+    <!-- Card 3: Briefing (Opcional) -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6 overflow-visible">
+      <div class="card-body p-4 overflow-visible">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Briefing (Opcional)</h2>
+        <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
+        <div class="relative">
+          <div class="join w-full">
+            <input type="text"
+                   id="briefing_busca"
+                   class="input input-bordered input-sm join-item flex-1"
+                   placeholder="Digite para buscar briefing..."
+                   value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
+                   oninput="buscarBriefingsAutocomplete(this.value)"
+                   onfocus="mostrarSugestoesBriefing()"
+                   autocomplete="off">
+            <button type="button" id="briefing_btn_busca" class="btn btn-sm join-item" style="background-color:#72cd80;border-color:#72cd80;color:#fff;" onclick="mostrarSugestoesBriefing()" title="Buscar briefing">
+              <i class="fas fa-search text-xs"></i>
+            </button>
+            <button type="button" id="briefing_btn_limpar" class="btn btn-sm join-item bg-gray-100 border-gray-300 hover:bg-red-100 text-gray-500 hover:text-red-600" onclick="limparBriefingSelecionado()" title="Limpar briefing">
+              <i class="fas fa-times text-xs"></i>
+            </button>
           </div>
+          <div id="briefing_sugestoes" class="absolute z-50 w-full bg-white border border-gray-200 rounded-b shadow-lg max-h-48 overflow-y-auto hidden">
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <!-- Card 4: Prazos -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Prazos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Briefing</label>
-            <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
-            <div class="relative">
-              <div class="flex gap-1 items-center">
-                <input type="text" 
-                       id="briefing_busca" 
-                       class="flex-1 text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
-                       placeholder="Digite para buscar briefing..."
-                       value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
-                       oninput="buscarBriefingsAutocomplete(this.value)"
-                       onfocus="mostrarSugestoesBriefing()"
-                       autocomplete="off">
-                <button type="button" onclick="limparBriefingSelecionado()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
-                  <i class="fas fa-times text-xs"></i>
-                </button>
-              </div>
-              <div id="briefing_sugestoes" class="absolute z-50 w-full bg-white border border-gray-200 rounded-b shadow-lg max-h-48 overflow-y-auto hidden">
-                <!-- Sugestões serão inseridas aqui -->
-              </div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Início *</label>
+            <div class="join w-full">
+              <button type="button" class="btn btn-sm btn-square join-item" onclick="document.getElementById('periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-xs"></i>
+              </button>
+              <input type="date" id="periodo_inicio" name="periodo_inicio"
+                     value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
+                     class="input input-bordered input-sm join-item flex-1"
+                     onclick="this.showPicker()" required>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- LINHA 2: Datas e Valores -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <!-- Início -->
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Início *</label>
-          <div class="flex">
-            <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('periodo_inicio').showPicker()">
-              <i class="fas fa-calendar-alt text-xs"></i>
-            </button>
-            <input type="date" id="periodo_inicio" name="periodo_inicio" value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}" class="flex-1 text-sm border border-gray-200 rounded-r px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
+            <div class="join w-full">
+              <button type="button" class="btn btn-sm btn-square join-item" onclick="document.getElementById('periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-xs"></i>
+              </button>
+              <input type="date" id="periodo_fim" name="periodo_fim"
+                     value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
+                     class="input input-bordered input-sm join-item flex-1"
+                     onclick="this.showPicker()">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Budget Est. (R$)</label>
+            <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+            <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
           </div>
         </div>
-        <!-- Término -->
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
-          <div class="flex">
-            <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('periodo_fim').showPicker()">
-              <i class="fas fa-calendar-alt text-xs"></i>
-            </button>
-            <input type="date" id="periodo_fim" name="periodo_fim" value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}" class="flex-1 text-sm border border-gray-200 rounded-r px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
-          </div>
-        </div>
-        <!-- Budget Estimado -->
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Budget Est. (R$)</label>
-          <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
-          <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
-        </div>
       </div>
+    </div>
 
-      {% if modo == 'editar' %}
-      <!-- LINHA 3: Status (só em edição) -->
-      <div>
-        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Status</h2>
+    {% if modo == 'editar' %}
+    <!-- Card Status (apenas em edição) -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Status</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
@@ -239,29 +269,55 @@
           </div>
         </div>
       </div>
-      {% endif %}
+    </div>
+    {% endif %}
 
-      <!-- LINHA 4: Objetivo da Campanha (full width) -->
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Objetivo da Campanha</label>
-        <textarea name="objetivo_campanha" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Descreva o objetivo...">{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-      </div>
+    <!-- Card 5: Escopo e Notas -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Escopo e Notas</h2>
 
-      <!-- LINHA 5: Observações lado a lado -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Observações</label>
-          <textarea name="observacoes" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas gerais...">{{ cotacao.observacoes if cotacao else '' }}</textarea>
+        <div class="w-full mb-3">
+          <label class="block text-xs font-medium text-gray-600 mb-1">
+            Objetivo da Campanha
+            {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'objetivo_campanha')">Corrigir</button>{% endif %}
+          </label>
+          <textarea name="objetivo_campanha" id="objetivo_campanha"
+                    class="w-full text-sm border border-gray-200 rounded px-3 py-2 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none resize-none"
+                    rows="2" placeholder="Descreva o objetivo..."
+                    {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Observações Internas</label>
-          <textarea name="observacoes_internas" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2" placeholder="Notas internas (não visíveis ao cliente)...">{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+
+        <div class="bg-base-200 p-4 rounded-lg">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Anotações da Cotação</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Observações Gerais
+                {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'observacoes')">Corrigir</button>{% endif %}
+              </label>
+              <textarea name="observacoes" id="observacoes"
+                        class="w-full text-sm border border-gray-200 rounded px-3 py-2 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none resize-none"
+                        rows="2" placeholder="Notas gerais..."
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes if cotacao else '' }}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Observações Internas
+                {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'observacoes_internas')">Corrigir</button>{% endif %}
+              </label>
+              <textarea name="observacoes_internas" id="observacoes_internas"
+                        class="w-full text-sm border border-gray-200 rounded px-3 py-2 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none resize-none"
+                        rows="2" placeholder="Notas internas (não visíveis ao cliente)..."
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+            </div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <input type="hidden" name="origem" value="Admin">
-    </form>
-  </div>
+    <input type="hidden" name="origem" value="Admin">
+  </form>
 </div>
 
 <!-- Modal de Busca de Cliente -->
@@ -518,6 +574,37 @@
 </dialog>
 
 <script>
+// ============================================
+// FUNÇÕES UTILITÁRIAS
+// ============================================
+
+function tornarEditavel(btn, fieldId) {
+  const field = document.getElementById(fieldId);
+  field.removeAttribute('readonly');
+  field.classList.remove('bg-gray-100');
+  field.classList.add('bg-white');
+  field.focus();
+  btn.style.display = 'none';
+}
+
+function atualizarEstadoBriefing() {
+  const clienteId = document.getElementById('client_id').value;
+  const agenciaId = document.getElementById('agencia_id').value;
+  const disabled = !clienteId && !agenciaId;
+
+  const briefingBusca = document.getElementById('briefing_busca');
+  const briefingBtnBusca = document.getElementById('briefing_btn_busca');
+  const briefingBtnLimpar = document.getElementById('briefing_btn_limpar');
+
+  if (briefingBusca) briefingBusca.disabled = disabled;
+  if (briefingBtnBusca) briefingBtnBusca.disabled = disabled;
+  if (briefingBtnLimpar) briefingBtnLimpar.disabled = disabled;
+}
+
+// ============================================
+// BUSCA DE CLIENTES (MODAL)
+// ============================================
+
 async function buscarClientesModal() {
   const termo = document.getElementById('busca_cliente_modal').value.trim();
   const resultados = document.getElementById('resultados_modal');
@@ -534,7 +621,7 @@ async function buscarClientesModal() {
       body: JSON.stringify({
         nome: termo,
         razao: termo,
-        agencia: false  // Filtrar apenas clientes (não agências)
+        agencia: false
       })
     });
 
@@ -571,20 +658,16 @@ function limparBuscaModal() {
 }
 
 async function selecionarClienteForm(clienteId, nomeFantasia) {
-  // Preencher campo hidden
   document.getElementById('client_id').value = clienteId;
-  
-  // Atualizar texto exibido
   document.getElementById('nome_cliente_selecionado').textContent = nomeFantasia;
-  
-  // Disparar evento change para carregar contatos e briefings
+
   const event = new Event('change', { bubbles: true });
   document.getElementById('client_id').dispatchEvent(event);
-  
-  // Fechar modal
+
   document.getElementById('modal_escolher_cliente').close();
-  
-  // Buscar dados do cliente e auto-preencher responsável comercial
+
+  atualizarEstadoBriefing();
+
   try {
     const response = await fetch(`/api/cliente/${clienteId}`);
     if (response.ok) {
@@ -603,28 +686,29 @@ async function selecionarClienteForm(clienteId, nomeFantasia) {
 </script>
 
 <script>
-// Auto-preencher datas ao carregar (somente para nova cotação)
+// ============================================
+// AUTO-PREENCHIMENTO DE DATAS E MOEDA
+// ============================================
+
 document.addEventListener('DOMContentLoaded', function() {
     const periodoInicio = document.getElementById('periodo_inicio');
     const periodoFim = document.getElementById('periodo_fim');
     
-    // Só preencher se os campos estiverem vazios (nova cotação)
     if (periodoInicio && !periodoInicio.value) {
         const hoje = new Date();
         const dataInicio = new Date(hoje);
-        dataInicio.setDate(dataInicio.getDate() + 7); // +7 dias
+        dataInicio.setDate(dataInicio.getDate() + 7);
         periodoInicio.value = dataInicio.toISOString().split('T')[0];
     }
     
     if (periodoFim && !periodoFim.value) {
         const hoje = new Date();
         const dataFim = new Date(hoje);
-        dataFim.setDate(dataFim.getDate() + 37); // +37 dias
+        dataFim.setDate(dataFim.getDate() + 37);
         periodoFim.value = dataFim.toISOString().split('T')[0];
     }
 });
 
-// Formatar moeda brasileira em tempo real
 function formatarMoedaReal(input, hiddenFieldId) {
   let value = input.value.replace(/\D/g, '');
   
@@ -634,7 +718,6 @@ function formatarMoedaReal(input, hiddenFieldId) {
     return;
   }
   
-  // Converter para número com 2 casas decimais
   value = (parseInt(value, 10) / 100).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -642,12 +725,10 @@ function formatarMoedaReal(input, hiddenFieldId) {
   
   input.value = value;
   
-  // Armazenar valor numérico no campo hidden para enviar ao backend
   const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
   document.getElementById(hiddenFieldId).value = valorNumerico;
 }
 
-// Ao submeter o formulário, garantir que os valores corretos são enviados
 document.getElementById('cotacao_form').addEventListener('submit', function(e) {
   const campos = ['budget_estimado'];
   campos.forEach(campo => {
@@ -661,7 +742,6 @@ document.getElementById('cotacao_form').addEventListener('submit', function(e) {
   });
 });
 
-// Ao carregar a página, formatar os valores se existirem
 document.addEventListener('DOMContentLoaded', function() {
   const campos = ['budget_estimado'];
   campos.forEach(campo => {
@@ -671,33 +751,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // Atualizar briefings e contatos quando o cliente for alterado
   const clienteSelect = document.getElementById('client_id');
   if (clienteSelect) {
     clienteSelect.addEventListener('change', async function() {
       const clienteId = this.value;
-      const briefingSelect = document.getElementById('briefing_id');
       const contatoSelect = document.getElementById('client_user_id');
-      
-      // Limpar opções atuais
-      briefingSelect.innerHTML = '<option value="">Selecione um briefing</option>';
+
+      briefingsCache = [];
+      limparBriefingSelecionado();
       contatoSelect.innerHTML = '<option value="">Selecione um contato</option>';
       
       if (clienteId) {
         try {
-          // Buscar briefings
-          const responseBriefings = await fetch(`/api/briefings/cliente/${clienteId}`);
-          if (responseBriefings.ok) {
-            const briefings = await responseBriefings.json();
-            briefings.forEach(briefing => {
-              const option = document.createElement('option');
-              option.value = briefing.id;
-              option.textContent = briefing.titulo + (briefing.status ? ` (${briefing.status})` : '');
-              briefingSelect.appendChild(option);
-            });
-          }
-          
-          // Buscar contatos do cliente (setores Comercial e Operações)
+          await carregarBriefingsCliente(clienteId);
+
           const responseContatos = await fetch(`/api/clientes/${clienteId}/contatos-briefing`);
           if (responseContatos.ok) {
             const contatos = await responseContatos.json();
@@ -715,8 +782,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Estado inicial: esconder bloco oposto se já houver agência ou parceiro preenchido
-  toggleAgenciaParceiro();
+  atualizarEstadoBriefing();
 });
 
 // ============================================
@@ -739,7 +805,7 @@ async function buscarAgenciasModal() {
       body: JSON.stringify({
         nome: termo,
         razao: termo,
-        agencia: true  // Filtrar apenas agências (Agência=Sim)
+        agencia: true
       })
     });
 
@@ -776,35 +842,14 @@ function limparBuscaAgenciaModal() {
   document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
 }
 
-// ============================================
-// TOGGLE AGÊNCIA / PARCEIRO (mutuamente exclusivos)
-// ============================================
-function toggleAgenciaParceiro() {
-  const agenciaId = document.getElementById('agencia_id').value;
-  const parceiroId = document.getElementById('id_parceiro').value;
-  const blocoAgencia = document.getElementById('bloco_agencia');
-  const blocoParceiro = document.getElementById('bloco_parceiro');
-
-  if (agenciaId) {
-    blocoAgencia.style.display = '';
-    blocoParceiro.style.display = 'none';
-  } else if (parceiroId) {
-    blocoAgencia.style.display = 'none';
-    blocoParceiro.style.display = '';
-  } else {
-    blocoAgencia.style.display = '';
-    blocoParceiro.style.display = '';
-  }
-}
-
 async function selecionarAgenciaForm(agenciaId, nomeAgencia) {
   document.getElementById('agencia_id').value = agenciaId;
   document.getElementById('nome_agencia_selecionada').textContent = nomeAgencia;
   document.getElementById('modal_escolher_agencia').close();
   limparBuscaAgenciaModal();
-  toggleAgenciaParceiro();
-  
-  // Carregar contatos da agência
+
+  atualizarEstadoBriefing();
+
   await carregarContatosAgencia(agenciaId);
 }
 
@@ -834,7 +879,8 @@ function limparAgenciaSelecionada() {
   document.getElementById('agencia_id').value = '';
   document.getElementById('nome_agencia_selecionada').textContent = 'Nenhuma';
   document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
-  toggleAgenciaParceiro();
+
+  atualizarEstadoBriefing();
 }
 
 // ============================================
@@ -899,9 +945,7 @@ async function selecionarParceiroForm(parceiroId, nomeParceiro) {
   document.getElementById('nome_parceiro_selecionado').textContent = nomeParceiro;
   document.getElementById('modal_escolher_parceiro').close();
   limparBuscaParceiroModal();
-  toggleAgenciaParceiro();
 
-  // Carregar contatos do parceiro
   await carregarContatosParceiro(parceiroId);
 }
 
@@ -909,7 +953,6 @@ function limparParceiroSelecionado() {
   document.getElementById('id_parceiro').value = '';
   document.getElementById('nome_parceiro_selecionado').textContent = 'Nenhum';
   document.getElementById('parceiro_user_id').innerHTML = '<option value="">Selecione...</option>';
-  toggleAgenciaParceiro();
 }
 
 async function carregarContatosParceiro(parceiroId) {
@@ -945,7 +988,6 @@ async function buscarBriefingsAutocomplete(termo) {
   const clienteId = document.getElementById('client_id').value;
   const sugestoesDiv = document.getElementById('briefing_sugestoes');
   
-  // Limpar timeout anterior
   if (briefingBuscaTimeout) {
     clearTimeout(briefingBuscaTimeout);
   }
@@ -957,7 +999,6 @@ async function buscarBriefingsAutocomplete(termo) {
   }
   
   if (termo.length < 2) {
-    // Mostrar todos os briefings do cliente
     if (briefingsCache.length > 0) {
       renderizarSugestoesBriefing(briefingsCache, termo);
     } else {
@@ -967,15 +1008,12 @@ async function buscarBriefingsAutocomplete(termo) {
     return;
   }
   
-  // Debounce de 300ms
   briefingBuscaTimeout = setTimeout(async () => {
     try {
-      // Se não temos cache, carregar
       if (briefingsCache.length === 0) {
         await carregarBriefingsCliente(clienteId);
       }
       
-      // Filtrar localmente
       const filtrados = briefingsCache.filter(b => 
         b.titulo.toLowerCase().includes(termo.toLowerCase())
       );
@@ -1066,7 +1104,6 @@ function mostrarSugestoesBriefing() {
   }
 }
 
-// Fechar sugestões ao clicar fora
 document.addEventListener('click', function(e) {
   const briefingContainer = document.getElementById('briefing_busca');
   const sugestoesDiv = document.getElementById('briefing_sugestoes');
@@ -1074,12 +1111,6 @@ document.addEventListener('click', function(e) {
   if (briefingContainer && sugestoesDiv && !briefingContainer.contains(e.target) && !sugestoesDiv.contains(e.target)) {
     sugestoesDiv.classList.add('hidden');
   }
-});
-
-// Limpar cache ao trocar cliente
-document.getElementById('client_id').addEventListener('change', function() {
-  briefingsCache = [];
-  limparBriefingSelecionado();
 });
 
 // ==================== MODAL NOVO CLIENTE ====================
@@ -1225,6 +1256,7 @@ document.getElementById('nc_form').addEventListener('submit', async function(e) 
       document.getElementById('client_id').value = novoId;
       document.getElementById('nome_cliente_selecionado').textContent = nome;
       document.getElementById('client_id').dispatchEvent(new Event('change', { bubbles: true }));
+      atualizarEstadoBriefing();
       try {
         const cResp = await fetch(`/api/cliente/${novoId}/contatos`);
         const contatos = await cResp.json();
@@ -1235,12 +1267,11 @@ document.getElementById('nc_form').addEventListener('submit', async function(e) 
     } else if (contexto === 'agencia') {
       document.getElementById('agencia_id').value = novoId;
       document.getElementById('nome_agencia_selecionada').textContent = nome;
-      if (typeof toggleAgenciaParceiro === 'function') toggleAgenciaParceiro();
+      atualizarEstadoBriefing();
       await carregarContatosAgencia(novoId);
     } else if (contexto === 'parceiro') {
       document.getElementById('id_parceiro').value = novoId;
       document.getElementById('nome_parceiro_selecionado').textContent = nome;
-      if (typeof toggleAgenciaParceiro === 'function') toggleAgenciaParceiro();
       await carregarContatosParceiro(novoId);
     }
 

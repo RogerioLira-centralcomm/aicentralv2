@@ -34,7 +34,18 @@
 </style>
 
 <script>
-// Função para trocar abas - definida no início para estar disponível imediatamente
+function toggleAudienciasCollapse() {
+  var content = document.getElementById('audiencias_content');
+  var icon = document.getElementById('audiencias_collapse_icon');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    if (icon) icon.style.transform = 'rotate(90deg)';
+  } else {
+    content.style.display = 'none';
+    if (icon) icon.style.transform = 'rotate(0deg)';
+  }
+}
+
 function trocarAbaCotacao(aba) {
   // Remover active de todas as abas
   document.querySelectorAll('.tab-crm').forEach(function(tab) {
@@ -443,34 +454,34 @@ function calcularInvestLiquidoEdit() {
   <!-- ==================== HEADER COMPACTO (estilo CRM) ==================== -->
   <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
     <div class="flex items-center justify-between gap-4">
-      <!-- Voltar + Título -->
-      <div class="flex items-center gap-3">
-        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+      <!-- Voltar + Título + Código -->
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0" title="Voltar">
           <i class="fas fa-arrow-left text-sm"></i>
         </a>
-        <div>
-          <h1 class="text-lg font-semibold text-gray-800 leading-tight">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
-          <div class="flex items-center gap-3 mt-1">
-            {% if cotacao %}
-            <span class="text-sm font-mono font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">{{ cotacao.numero_cotacao }}</span>
-            <select id="status_header_select" class="text-sm bg-gray-50 border border-gray-200 rounded-md pl-3 pr-8 py-1 text-gray-700 font-medium focus:outline-none focus:border-gray-400 cursor-pointer appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23666%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;" onchange="alterarStatusCotacao(this.value)">
-              <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
-              <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
-              <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
-              <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
-              <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-              <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-              <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
-            </select>
-            {% endif %}
-          </div>
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold text-gray-800 leading-tight truncate">{{ cotacao.nome_campanha if cotacao else 'Nova Cotação' }}</h1>
+          {% if cotacao %}
+          <span class="text-sm font-mono font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded inline-block mt-1">{{ cotacao.numero_cotacao }}</span>
+          {% endif %}
         </div>
       </div>
       
-      <!-- Ações -->
-      <div class="flex items-center gap-2">
+      <!-- Status + Ações (direita) -->
+      <div class="flex items-center gap-3 flex-shrink-0">
+        {% if cotacao %}
+        <select id="status_header_select" class="text-sm bg-gray-50 border border-gray-200 rounded-md pl-3 pr-8 py-1 text-gray-700 font-medium focus:outline-none focus:border-gray-400 cursor-pointer appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23666%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;" onchange="alterarStatusCotacao(this.value)">
+          <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+          <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+          <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+          <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
+          <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+          <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+          <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
+        </select>
+        {% endif %}
         {% if modo == 'editar' %}
-        <a id="btn_editar_header" href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+        <a id="btn_editar_header" href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
           <i class="fas fa-edit mr-1"></i>Editar
         </a>
         {% endif %}
@@ -641,33 +652,33 @@ function calcularInvestLiquidoEdit() {
           </button>
           {% endif %}
         </div>
-        <table class="w-full text-sm table-fixed">
+        <table class="w-full text-sm">
           <thead class="bg-gray-100">
             <tr class="text-xs text-gray-600 uppercase">
-              <th class="font-medium py-2 px-1 w-14">Plataf.</th>
-              <th class="font-medium py-2 px-1">Segmentação</th>
-              <th class="font-medium py-2 px-1 w-10 text-center">KPI</th>
-              <th class="font-medium py-2 px-1 w-16">Período</th>
-              <th class="font-medium py-2 px-1 w-14 text-right">Volume</th>
-              <th class="font-medium py-2 px-1 w-20 text-right">Bruto</th>
-              <th class="font-medium py-2 px-1 w-20 text-right">Líquido</th>
+              <th class="font-medium py-2 px-2" style="min-width: 70px;">Plataf.</th>
+              <th class="font-medium py-2 px-2">Segmentação</th>
+              <th class="font-medium py-2 px-2 text-center" style="min-width: 50px;">KPI</th>
+              <th class="font-medium py-2 px-2" style="min-width: 80px;">Período</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 70px;">Volume</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Bruto</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Líquido</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
               <tr class="hover:bg-gray-50 linha-item-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-linha-id="{{ linha.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarLinha({{ linha.id }})"{% endif %}>
-                <td class="py-2 px-1">
-                  <span class="px-1 py-0.5 text-xs rounded text-white truncate block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
+                <td class="py-2 px-2">
+                  <span class="px-1.5 py-0.5 text-xs rounded text-white inline-block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
-                <td class="py-2 px-1 text-xs text-gray-600 truncate" title="{{ linha.segmentacao or '' }}">{{ linha.segmentacao or '-' }}</td>
-                <td class="py-2 px-1 text-center">
-                  <span class="px-1 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
+                <td class="py-2 px-2 text-xs text-gray-600" style="word-break: break-word; white-space: normal;">{{ linha.segmentacao or '-' }}</td>
+                <td class="py-2 px-2 text-center">
+                  <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
                 </td>
-                <td class="py-2 px-1 text-xs text-gray-600">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
-                <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
-                <td class="py-2 px-1 text-xs text-right text-gray-700">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-2 px-1 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-gray-600 whitespace-nowrap">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
               {% endfor %}
             {% else %}
@@ -693,47 +704,51 @@ function calcularInvestLiquidoEdit() {
       </div>
 
       <!-- AUDIÊNCIAS SELECIONADAS -->
-      <div class="bg-white rounded border border-gray-200 p-4">
-        <div class="flex items-center justify-between mb-3">
+      <div class="bg-white rounded border border-gray-200 {% if audiencias %}p-4{% endif %}">
+        <div class="flex items-center justify-between {% if audiencias %}mb-3{% else %}p-3 cursor-pointer hover:bg-gray-50 rounded{% endif %}" {% if not audiencias %}onclick="toggleAudienciasCollapse()" id="audiencias_header"{% endif %}>
           <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <i class="fas fa-users text-gray-400"></i>
             Audiências Selecionadas
             <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ audiencias|length if audiencias else 0 }} audiências</span>
+            {% if not audiencias %}
+            <i class="fas fa-chevron-right text-gray-400 text-xs transition-transform duration-200" id="audiencias_collapse_icon"></i>
+            {% endif %}
           </h2>
           {% if modo == 'editar' %}
-          <button id="btn_adicionar_audiencia" onclick="abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
+          <button id="btn_adicionar_audiencia" onclick="{% if not audiencias %}event.stopPropagation(); {% endif %}abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
         </div>
-        <table class="w-full text-sm table-fixed">
+        <div id="audiencias_content" {% if not audiencias %}style="display: none;"{% endif %}>
+        <table class="w-full text-sm">
           <thead class="bg-gray-100">
             <tr class="text-xs text-gray-600 uppercase">
-              <th class="font-medium py-2 px-1">Audiência</th>
-              <th class="font-medium py-2 px-1 w-20">Categoria</th>
-              <th class="font-medium py-2 px-1 w-16 text-right">CPM</th>
-              <th class="font-medium py-2 px-1 w-24 text-right">Impressões</th>
-              <th class="font-medium py-2 px-1 w-24 text-right">Invest.</th>
+              <th class="font-medium py-2 px-2">Audiência</th>
+              <th class="font-medium py-2 px-2 w-20">Categoria</th>
+              <th class="font-medium py-2 px-2 w-16 text-right">CPM</th>
+              <th class="font-medium py-2 px-2 w-24 text-right">Impressões</th>
+              <th class="font-medium py-2 px-2 w-24 text-right">Invest.</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
               <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
-                <td class="py-2 px-1 text-xs truncate" title="{{ aud.audiencia_nome or '' }}">
-                  <div class="font-medium text-gray-800 truncate">
+                <td class="py-2 px-2 text-xs" title="{{ aud.audiencia_nome or '' }}">
+                  <div class="font-medium text-gray-800">
                     <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
                   </div>
-                  <div class="text-[10px] text-gray-400 truncate">
+                  <div class="text-[10px] text-gray-400">
                     {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
                     {% if aud.id_audiencia_plataforma and aud.fonte %} | {% endif %}
                     {% if aud.fonte %}{{ aud.fonte }}{% endif %}
                   </div>
                 </td>
-                <td class="py-2 px-1 text-xs text-gray-600 truncate">{{ aud.audiencia_categoria or '-' }}</td>
-                <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-2 px-1 text-xs text-right text-gray-700">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
-                <td class="py-2 px-1 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-gray-600">{{ aud.audiencia_categoria or '-' }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
               {% endfor %}
             {% else %}
@@ -748,13 +763,14 @@ function calcularInvestLiquidoEdit() {
               {% set soma_aud.investimento = soma_aud.investimento + (aud.investimento_sugerido|default(0, true)|float) %}
             {% endfor %}
             <tr class="font-semibold text-xs text-gray-700">
-              <td colspan="3" class="py-2 px-1 text-right">Total</td>
-              <td class="py-2 px-1 text-right">{{ "{:,}".format(soma_aud.impressoes).replace(',', '.') }}</td>
-              <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(soma_aud.investimento).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td colspan="3" class="py-2 px-2 text-right">Total</td>
+              <td class="py-2 px-2 text-right">{{ "{:,}".format(soma_aud.impressoes).replace(',', '.') }}</td>
+              <td class="py-2 px-2 text-right">R$ {{ "{:,.2f}".format(soma_aud.investimento).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
             </tr>
           </tfoot>
           {% endif %}
         </table>
+        </div>
       </div>
 
       <!-- RESUMO TOTAL DA PROPOSTA -->

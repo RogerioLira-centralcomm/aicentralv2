@@ -66,8 +66,8 @@
     <div class="leads-sidebar" id="leads_sidebar">
       <div class="leads-col-header">
         <div style="display:flex;align-items:center;gap:6px;flex:1">
-          <span>Clientes</span>
-          <span id="leads_count" class="badge badge-ghost badge-sm" title="Total de clientes">0</span>
+          <span>Equipes</span>
+          <span id="leads_count" class="badge badge-ghost badge-sm" title="Total de equipes">0</span>
           <span style="color:#cbd5e1">·</span>
           <span style="font-size:11px;color:#94a3b8" title="Total de contatos"><span id="contatos_count">0</span> contatos</span>
         </div>
@@ -81,30 +81,21 @@
 
       <div class="leads-col-toolbar">
         <input type="text" id="search_leads" placeholder="Buscar..."
-               class="input input-xs input-bordered w-full" oninput="debounceSearch()">
+               class="input input-xs input-bordered w-full" oninput="debounceSearch()" style="grid-column: span 2">
         <select id="filtro_potencial" onchange="loadLeads()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 75px;">
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none">
           <option value="">Potencial</option>
           <option value="alto">Alto</option>
           <option value="medio">Médio</option>
           <option value="baixo">Baixo</option>
         </select>
         <select id="filtro_status" onchange="loadLeads()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 75px;">
+                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none">
           <option value="">Status</option>
           <option value="inbox">Inbox</option>
           <option value="tentativa_contato">Tentativa de Contato</option>
           <option value="reuniao_agendada">Reunião Agendada</option>
           <option value="nutricao">Nutrição</option>
-        </select>
-        <select id="filtro_fonte" onchange="loadLeads()"
-                class="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none" style="min-width: 70px;">
-          <option value="">Fonte</option>
-          <option value="site">Site</option>
-          <option value="manual">Manual</option>
-          <option value="import">Import</option>
-          <option value="indicacao">Indicação</option>
-          <option value="evento">Evento</option>
         </select>
       </div>
       <div id="leads_cards" class="leads-col-scroll">
@@ -116,7 +107,7 @@
     <div id="sidebar_collapsed" class="sidebar-collapsed" style="display:none">
       <button onclick="toggleSidebar()" class="sidebar-expand-btn" title="Expandir lista">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        Clientes
+        Equipes
         <span id="leads_count_collapsed" class="badge badge-ghost badge-sm" style="font-size:9px">0</span>
         <span style="font-size:8px;color:#94a3b8"><span id="contatos_count_collapsed">0</span> cont.</span>
       </button>

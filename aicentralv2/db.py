@@ -10503,7 +10503,10 @@ def obter_leads_dashboard(id_executivo=None, potencial=None, search=None, status
                             SELECT MAX(a.created_at) FROM cadu_lead_atividades a WHERE a.id_lead = l.id
                         )),
                         EXTRACT(DAY FROM NOW() - l.updated_at)
-                    )::int AS dias_sem_atividade
+                    )::int AS dias_sem_atividade,
+                    (SELECT MIN(a.data_prazo) FROM cadu_lead_atividades a
+                     WHERE a.id_lead = l.id AND a.concluida = FALSE AND a.data_prazo IS NOT NULL
+                    ) AS proxima_atividade_prazo
                 FROM cadu_leads l
                 LEFT JOIN cadu_lead_contatos cp ON cp.id_lead = l.id AND cp.is_principal = TRUE
                 WHERE {where_sql}

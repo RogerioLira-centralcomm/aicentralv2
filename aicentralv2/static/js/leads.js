@@ -139,7 +139,6 @@ async function loadLeads() {
     const potencial = document.getElementById('filtro_potencial').value;
     const search = document.getElementById('search_leads').value.trim();
     const status = document.getElementById('filtro_status').value;
-    const fonte = document.getElementById('filtro_fonte').value;
 
     let url = '/api/leads?';
     const params = [];
@@ -156,7 +155,6 @@ async function loadLeads() {
     if (potencial) params.push(`potencial=${potencial}`);
     if (search) params.push(`search=${encodeURIComponent(search)}`);
     if (status) params.push(`status=${status}`);
-    if (fonte) params.push(`fonte=${fonte}`);
 
     let kanbanUrl = '/api/leads/kanban';
     if (execId && execId !== '0') kanbanUrl += `?id_executivo=${execId}`;
@@ -200,11 +198,13 @@ async function loadLeads() {
             const contatos = contatosByLead[l.id] || [];
             const isExpanded = expandedLeadGroups.has(l.id) || selectedLeadId === l.id;
             const isActive = selectedLeadId === l.id;
+            const ativIndicator = getAtividadeIndicator(l.proxima_atividade_prazo);
             return `<div class="lead-group ${isActive ? 'lead-group-active' : ''}" data-lead-id="${l.id}">
                 <div class="lead-group-header" onclick="selectLead(${l.id})">
                     <button class="lead-group-toggle ${isExpanded ? 'expanded' : ''}" onclick="event.stopPropagation();toggleLeadGroup(${l.id})" title="${isExpanded ? 'Recolher' : 'Expandir'}">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
+                    ${ativIndicator}
                     <div class="lead-group-info">
                         <div class="lead-group-name">${esc(l.nome_lead)}</div>
                         <div class="lead-group-meta">
@@ -271,6 +271,22 @@ function updateToggleAllIcon() {
     const anyExpanded = [...groups].some(el => el.style.display !== 'none');
     btn.title = anyExpanded ? 'Recolher todos os contatos' : 'Expandir todos os contatos';
     btn.classList.toggle('toggle-all-expanded', anyExpanded);
+}
+
+function getAtividadeIndicator(proxPrazo) {
+    if (!proxPrazo) {
+        return '<span class="ativ-indicator ativ-indicator-none" title="Sem atividade agendada">!</span>';
+    }
+    const prazoDate = new Date(proxPrazo);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diff = Math.ceil((prazoDate - today) / 86400000);
+    if (diff < 0) {
+        return '<span class="ativ-indicator ativ-indicator-overdue" title="Atividade atrasada"></span>';
+    }
+    if (diff === 0) {
+        return '<span class="ativ-indicator ativ-indicator-today" title="Atividade para hoje"></span>';
+    }
+    return '<span class="ativ-indicator ativ-indicator-scheduled" title="Atividade agendada"></span>';
 }
 
 function toggleKanbanGroup(status, leadId) {

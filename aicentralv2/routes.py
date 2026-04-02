@@ -11111,6 +11111,62 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro api_lead_atividade_concluir {atividade_id}: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/leads/atividades/<int:atividade_id>', methods=['PATCH'])
+    @login_required
+    def api_lead_atividade_editar(atividade_id):
+        """Edita campos de uma atividade existente"""
+        try:
+            data = request.get_json(force=True)
+            ok = db.atualizar_atividade(atividade_id, data)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_atividade_editar {atividade_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # --- Comunicações ---
+
+    @app.route('/api/leads/<int:lead_id>/comunicacoes', methods=['GET'])
+    @login_required
+    def api_lead_comunicacoes_listar(lead_id):
+        """Lista histórico de comunicações de um lead"""
+        try:
+            rows = db.obter_comunicacoes_lead(lead_id)
+            comunicacoes = [dict(r) for r in rows]
+            for c in comunicacoes:
+                if c.get('created_at'):
+                    c['created_at'] = c['created_at'].isoformat()
+            return jsonify({'success': True, 'comunicacoes': comunicacoes})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_comunicacoes_listar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/<int:lead_id>/comunicacoes', methods=['POST'])
+    @login_required
+    def api_lead_comunicacao_criar(lead_id):
+        """Salva uma comunicação vinculada a um lead"""
+        try:
+            data = request.get_json(force=True)
+            data['id_usuario'] = session.get('user_id')
+            data['usuario_nome'] = session.get('user_name')
+            novo_id = db.criar_comunicacao(lead_id, data)
+            return jsonify({'success': True, 'id': novo_id})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_comunicacao_criar {lead_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/leads/comunicacoes/<int:comm_id>/status', methods=['PATCH'])
+    @login_required
+    def api_lead_comunicacao_status(comm_id):
+        """Atualiza status de uma comunicação"""
+        try:
+            data = request.get_json(force=True)
+            status = data.get('status', 'enviado')
+            ok = db.atualizar_comunicacao_status(comm_id, status)
+            return jsonify({'success': ok})
+        except Exception as e:
+            app.logger.error(f"Erro api_lead_comunicacao_status {comm_id}: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     # --- Extração (Firecrawl + Gemini) ---
 
     @app.route('/api/leads/<int:lead_id>/extrair-url', methods=['POST'])
@@ -11505,36 +11561,64 @@ Retorne apenas o texto melhorado, sem explicações.'''
             contatos = db.obter_lead_contatos(lead_id)
 
             historico_text = ''
-            for a in (atividades or [])[:10]:
+            for a in (atividades or [])[:15]:
                 d = dict(a)
-                historico_text += f"- {d.get('tipo', '')}: {d.get('descricao', '')} ({d.get('created_at', '')})\n"
+                concluida_tag = ' [CONCLUÍDA]' if d.get('concluida') else ''
+                prazo_tag = f" prazo:{d.get('data_prazo', '')}" if d.get('data_prazo') else ''
+                historico_text += f"- {d.get('tipo', '')}: {d.get('descricao', '')} ({d.get('created_at', '')}){prazo_tag}{concluida_tag}\n"
 
             contatos_text = ''
             for c in (contatos or []):
                 cd = dict(c)
-                contatos_text += f"- {cd.get('nome', '')} ({cd.get('cargo', '')})\n"
+                contatos_text += f"- {cd.get('nome', '')} ({cd.get('cargo', '')}) email:{cd.get('email', '')} tel:{cd.get('telefone', '')}\n"
 
             lead_dict = dict(lead)
+
+            empresa_info = ''
+            dados_extraidos = lead_dict.get('dados_extraidos')
+            if dados_extraidos:
+                de = dados_extraidos if isinstance(dados_extraidos, dict) else json_mod.loads(dados_extraidos) if isinstance(dados_extraidos, str) else {}
+                if de:
+                    servicos = de.get('servicos', [])
+                    segmento = de.get('segmento', '') or lead_dict.get('segmento', '')
+                    descricao = de.get('descricao', '') or lead_dict.get('descricao_empresa', '')
+                    mercado = de.get('mercado_alvo', '') or lead_dict.get('mercado_alvo', '')
+                    empresa_info = f"\nDados da empresa:\nSegmento: {segmento}\nDescrição: {descricao[:300] if descricao else ''}\nMercado alvo: {mercado}\nServiços: {', '.join(servicos[:10]) if servicos else 'N/A'}\n"
+            elif lead_dict.get('segmento') or lead_dict.get('descricao_empresa'):
+                empresa_info = f"\nDados da empresa:\nSegmento: {lead_dict.get('segmento', '')}\nDescrição: {(lead_dict.get('descricao_empresa', '') or '')[:300]}\n"
+
             openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
             system_prompt = '''Você é um assistente de vendas da CentralComm (comunicação e mídia).
-Analise o histórico de atividades de um lead e sugira a PRÓXIMA atividade mais adequada.
+Analise o histórico de atividades de um lead, o perfil da empresa e os contatos para sugerir a PRÓXIMA atividade mais adequada.
+
+Considere o contexto:
+- Se não houve contato: sugerir tentativa de contato ou apresentação da empresa
+- Se houve contato inicial: sugerir apresentação de produto/serviço específico relevante ao segmento
+- Se houve reunião: sugerir follow-up ou envio de proposta
+- Se houve proposta: sugerir follow-up sobre decisão
+- Adapte a sugestão ao tipo de empresa e segmento do lead
+- A descrição deve ser específica e utilizável diretamente pelo vendedor
+
+Tipos de abordagem possíveis: apresentar a CentralComm, apresentar produto específico, tentativa de contato, follow-up pós-reunião, envio de proposta, convite para evento, nutrição com conteúdo.
 
 Responda APENAS em JSON válido:
 {
     "tipo": "ligacao|email_enviado|whatsapp|reuniao|follow_up|apresentacao|proposta_enviada|nota",
-    "descricao": "breve descrição da atividade sugerida",
+    "descricao": "descrição específica e contextualizada da atividade sugerida",
     "prazo_dias": 0,
-    "motivo": "breve explicação de por que essa é a melhor próxima ação"
+    "motivo": "explicação clara de por que essa é a melhor próxima ação baseado no histórico"
 }'''
 
             context = f"""Lead: {lead_dict.get('empresa', '')} - {lead_dict.get('nome', '')}
 Status: {lead_dict.get('status', '')}
 Potencial: {lead_dict.get('potencial', '')}
-
+Interesse: {lead_dict.get('interesse', '')}
+Fonte: {lead_dict.get('fonte', '')}
+{empresa_info}
 Contatos:
 {contatos_text or 'Nenhum contato cadastrado'}
 
-Últimas atividades:
+Histórico de atividades (mais recentes primeiro):
 {historico_text or 'Nenhuma atividade registrada'}"""
 
             ai_resp = http_requests.post(
@@ -11571,6 +11655,65 @@ Contatos:
             app.logger.error(f"Erro api_ia_sugerir_atividade: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    OBJETIVOS_MAPEADOS = {
+        'apresentar_centralcomm': 'Fazer uma apresentação rápida e envolvente da CentralComm como Hub de Mídia Digital, destacando expertise em assessoria de imprensa, produção de conteúdo, gestão de redes sociais, formatos inovadores e o diferencial do Cadu (IA)',
+        'apresentar_cadu': 'Apresentar o Cadu, assistente de inteligência artificial da CentralComm, destacando como ele automatiza e potencializa a comunicação corporativa com análise de dados, geração de conteúdo e insights estratégicos',
+        'detalhar_funcionalidades': 'Detalhar as funcionalidades e serviços completos da CentralComm: assessoria de imprensa, produção audiovisual, gestão de redes sociais, planejamento de mídia, comunicação corporativa, eventos e branding',
+        'apresentar_canais': 'Apresentar os canais de comunicação e mídia da CentralComm, incluindo portais, redes sociais, newsletters, podcasts, vídeos e parcerias estratégicas com veículos de imprensa',
+        'formatos_interativos': 'Apresentar os formatos interativos e inovadores de mídia: branded content, infográficos interativos, webinars, lives, stories patrocinados e experiências imersivas',
+        'followup_pos_reuniao': 'Fazer acompanhamento amigável após reunião, reforçar os pontos discutidos, alinhar expectativas e propor próximos passos concretos para a parceria',
+        'followup_sem_contato': 'Tentei contato anterior sem retorno. Abordar de forma cordial e sem pressão, reforçar o valor da parceria e oferecer uma nova oportunidade de conversa',
+        'convite_evento_rj': 'Convite para evento ou encontro exclusivo da CentralComm no Rio de Janeiro, com networking e apresentação de cases e novidades',
+        'convite_evento_bh': 'Convite para evento ou encontro exclusivo da CentralComm em Belo Horizonte, com networking e apresentação de cases e novidades',
+    }
+
+    def montar_contexto_para_ia(lead_id, lead, contato_alvo, incluir_dados_lead):
+        """Monta contexto enriquecido com histórico para o prompt de IA."""
+        contatos = [dict(c) for c in db.obter_lead_contatos(lead_id)]
+        atividades = [dict(a) for a in db.obter_lead_atividades(lead_id)]
+
+        try:
+            comunicacoes = [dict(c) for c in db.obter_comunicacoes_lead(lead_id)]
+        except Exception:
+            comunicacoes = []
+
+        vendedor_nome = session.get('user_name', 'Executivo')
+
+        ctx = []
+        ctx.append(f"Empresa: {lead.get('empresa') or lead.get('nome') or 'N/A'}")
+        if contato_alvo:
+            ctx.append(f"Contato: {contato_alvo.get('nome', '')} ({contato_alvo.get('cargo', 'sem cargo')})")
+
+        if incluir_dados_lead:
+            if lead.get('segmento'):
+                ctx.append(f"Segmento: {lead['segmento']}")
+            if lead.get('descricao_empresa'):
+                ctx.append(f"Descrição: {lead['descricao_empresa'][:200]}")
+            if lead.get('servicos'):
+                servicos = lead['servicos'] if isinstance(lead['servicos'], list) else []
+                if servicos:
+                    ctx.append(f"Serviços do lead: {', '.join(servicos[:5])}")
+            if lead.get('oportunidades_midia'):
+                ctx.append(f"Oportunidades: {lead['oportunidades_midia'][:200]}")
+
+        ultimas_ativ = atividades[:5]
+        if ultimas_ativ:
+            ativ_txt = '; '.join([f"{a.get('tipo','')}: {(a.get('descricao') or '')[:80]}" for a in ultimas_ativ])
+            ctx.append(f"Últimas 5 atividades: {ativ_txt}")
+        else:
+            ctx.append("Histórico de atividades: nenhuma (lead frio, sem interações anteriores)")
+
+        ultimas_comm = comunicacoes[:3]
+        if ultimas_comm:
+            comm_txt = '; '.join([
+                f"{c.get('tipo_canal','')}/{c.get('status','')}: {(c.get('objetivo') or '')[:60]}"
+                for c in ultimas_comm
+            ])
+            ctx.append(f"Últimas 3 comunicações: {comm_txt}")
+
+        ctx.append(f"Vendedor responsável: {vendedor_nome}")
+        return '\n'.join(ctx), vendedor_nome
+
     @app.route('/api/ia/gerar-comunicacao', methods=['POST'])
     @login_required
     def api_ia_gerar_comunicacao():
@@ -11580,7 +11723,8 @@ Contatos:
             data = request.get_json(force=True)
             lead_id = data.get('lead_id')
             tipo_comunicacao = data.get('tipo', 'whatsapp')
-            objetivo = data.get('objetivo', '')
+            objetivo_raw = data.get('objetivo', '')
+            objetivo_key = data.get('objetivo_key')
             tamanho = data.get('tamanho', 'medio')
             incluir_dados_lead = data.get('incluir_dados_lead', True)
             contato_id = data.get('contato_id')
@@ -11588,13 +11732,14 @@ Contatos:
             if not lead_id:
                 return jsonify({'success': False, 'message': 'lead_id obrigatório'}), 400
 
+            objetivo = OBJETIVOS_MAPEADOS.get(objetivo_key, objetivo_raw) if objetivo_key else objetivo_raw
+
             lead_det = db.obter_lead_detalhes(lead_id)
             if not lead_det:
                 return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
 
             lead = dict(lead_det)
             contatos = [dict(c) for c in db.obter_lead_contatos(lead_id)]
-            atividades = [dict(a) for a in db.obter_lead_atividades(lead_id)]
 
             contato_alvo = None
             if contato_id:
@@ -11605,27 +11750,6 @@ Contatos:
             tamanho_map = {'curto': '2-3 frases', 'medio': '1 parágrafo', 'longo': '2-3 parágrafos'}
             tamanho_desc = tamanho_map.get(tamanho, '1 parágrafo')
 
-            contexto_parts = []
-            contexto_parts.append(f"Empresa: {lead.get('empresa') or lead.get('nome') or 'N/A'}")
-            if contato_alvo:
-                contexto_parts.append(f"Contato: {contato_alvo.get('nome', '')} ({contato_alvo.get('cargo', 'sem cargo')})")
-            if incluir_dados_lead:
-                if lead.get('segmento'):
-                    contexto_parts.append(f"Segmento: {lead['segmento']}")
-                if lead.get('descricao_empresa'):
-                    contexto_parts.append(f"Descrição: {lead['descricao_empresa'][:200]}")
-                if lead.get('servicos'):
-                    servicos = lead['servicos'] if isinstance(lead['servicos'], list) else []
-                    if servicos:
-                        contexto_parts.append(f"Serviços: {', '.join(servicos[:5])}")
-                if lead.get('oportunidades_midia'):
-                    contexto_parts.append(f"Oportunidades: {lead['oportunidades_midia'][:200]}")
-
-            ultimas_ativ = atividades[:3]
-            if ultimas_ativ:
-                ativ_txt = '; '.join([f"{a.get('tipo','')}: {(a.get('descricao') or '')[:80]}" for a in ultimas_ativ])
-                contexto_parts.append(f"Últimas atividades: {ativ_txt}")
-
             tom = data.get('tom', 'cordial')
             tom_map = {'formal': 'formal e corporativo', 'cordial': 'profissional mas cordial', 'descontraido': 'descontraído e amigável'}
             tom_desc = tom_map.get(tom, 'profissional mas cordial')
@@ -11633,35 +11757,43 @@ Contatos:
             incluir_servicos = data.get('incluir_servicos', False)
             incluir_oportunidades = data.get('incluir_oportunidades', False)
 
-            if incluir_servicos:
-                contexto_parts.append(f"Serviços da CentralComm: mídia, comunicação, assessoria de imprensa, produção de conteúdo, gestão de redes sociais")
-            if incluir_oportunidades and lead.get('oportunidades_midia'):
-                contexto_parts.append(f"Oportunidades identificadas: {lead['oportunidades_midia'][:300]}")
+            contexto, vendedor_nome = montar_contexto_para_ia(lead_id, lead, contato_alvo, incluir_dados_lead)
 
-            contexto = '\n'.join(contexto_parts)
+            if incluir_servicos:
+                contexto += f"\nServiços da CentralComm: mídia, comunicação, assessoria de imprensa, produção de conteúdo, gestão de redes sociais"
+            if incluir_oportunidades and lead.get('oportunidades_midia'):
+                contexto += f"\nOportunidades identificadas: {lead['oportunidades_midia'][:300]}"
 
             openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
-            system_prompt = f'''Você é um executivo de vendas sênior da CentralComm, referência nacional em comunicação corporativa e mídia.
+            system_prompt = f'''Você é um executivo de vendas sênior da CentralComm, Hub de Mídia Digital referência nacional em comunicação corporativa.
 
 SOBRE A CENTRALCOMM:
-- Empresa de comunicação e mídia com atuação em assessoria de imprensa, produção de conteúdo, gestão de redes sociais, planejamento de mídia, comunicação corporativa, eventos e branding
+- Hub de Mídia Digital com atuação em assessoria de imprensa, produção de conteúdo, gestão de redes sociais, planejamento de mídia, comunicação corporativa, eventos e branding
 - Diferencial: abordagem integrada que une estratégia, criatividade e tecnologia
-- Possui o Cadu, um assistente de IA que automatiza e potencializa a comunicação corporativa com análise de dados, geração de conteúdo inteligente e insights estratégicos
-- Oferece formatos interativos e inovadores: branded content, infográficos interativos, webinars, lives, stories patrocinados e experiências imersivas
-- Canais proprietários incluem portais de notícias, newsletters segmentadas, podcasts e parcerias estratégicas com grandes veículos
-- Atua com escritórios no Rio de Janeiro e Belo Horizonte
+- Possui o Cadu, assistente de IA que automatiza comunicação corporativa com análise de dados, geração de conteúdo e insights estratégicos
+- Formatos inovadores: branded content, infográficos interativos, webinars, lives, stories patrocinados e experiências imersivas
+- Canais proprietários: portais de notícias, newsletters segmentadas, podcasts e parcerias com grandes veículos
+- Escritórios no Rio de Janeiro e Belo Horizonte
+
+CONTEXTO DO LEAD E HISTÓRICO:
+Analise as atividades e comunicações anteriores para construir rapport e evitar repetição.
+Se o lead é frio (sem histórico), apresente-se de forma natural e gere curiosidade.
+Use o cargo do contato para adaptar o nível de linguagem e os pontos de valor.
 
 TAREFA: Gere uma mensagem de {tipo_comunicacao} para prospecção comercial.
 
+REGRAS POR CANAL:
+- WhatsApp: formatação adequada (*negrito*, _itálico_), direto ao ponto, mensagem conversacional e natural, sem saudação excessiva
+- Email: inclua assunto criativo na primeira linha (Assunto: ...), saudação e despedida profissionais, estrutura com parágrafos curtos
+
 REGRAS DE ESTILO:
 - Tom {tom_desc}
-- Personalizar com dados do lead quando disponíveis — mencionando empresa, segmento, desafios identificados
+- Personalizar com dados do lead — mencionando empresa, segmento, cargo, desafios identificados
 - Tamanho: {tamanho_desc}
-- Se WhatsApp: use formatação adequada (*negrito*, _itálico_), direto ao ponto, mensagem conversacional e natural
-- Se Email: inclua assunto criativo na primeira linha (Assunto: ...), saudação e despedida profissionais
 - Evite clichês de vendas como "a melhor solução" ou "líder do mercado"
 - Use dados concretos e cases quando possível
-- Foque no valor e nos resultados que a CentralComm pode gerar para o negócio do lead
+- Foque no valor e resultados que a CentralComm pode gerar para o negócio do lead
+- Assine como {vendedor_nome}
 - Retorne APENAS o texto da mensagem, sem explicações ou comentários adicionais'''
 
             user_msg = f"Objetivo: {objetivo}\n\nContexto do lead:\n{contexto}"
@@ -11688,7 +11820,31 @@ REGRAS DE ESTILO:
             ai_resp.raise_for_status()
             texto_gerado = ai_resp.json()['choices'][0]['message']['content']
             word_count = len(texto_gerado.split())
-            return jsonify({'success': True, 'texto': texto_gerado, 'word_count': word_count})
+
+            assunto = None
+            lines = texto_gerado.split('\n')
+            if lines and lines[0].lower().startswith('assunto:'):
+                assunto = lines[0].replace('Assunto:', '').replace('assunto:', '').strip()
+
+            try:
+                comm_id = db.criar_comunicacao(lead_id, {
+                    'id_contato': int(contato_id) if contato_id else None,
+                    'id_usuario': session.get('user_id'),
+                    'usuario_nome': session.get('user_name'),
+                    'tipo_canal': tipo_comunicacao,
+                    'objetivo': objetivo,
+                    'texto': texto_gerado,
+                    'assunto': assunto,
+                    'status': 'draft',
+                    'gerado_por_ia': True,
+                    'tom': tom,
+                    'tamanho': tamanho,
+                })
+            except Exception as save_err:
+                app.logger.warning(f"Comunicação gerada mas falha ao salvar: {save_err}")
+                comm_id = None
+
+            return jsonify({'success': True, 'texto': texto_gerado, 'word_count': word_count, 'comm_id': comm_id})
         except Exception as e:
             app.logger.error(f"Erro api_ia_gerar_comunicacao: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500

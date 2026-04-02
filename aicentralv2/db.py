@@ -226,6 +226,27 @@ def init_db(app):
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_lead_contatos_pipeline ON cadu_lead_contatos(status_pipeline)')
 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cadu_lead_comunicacoes (
+                    id SERIAL PRIMARY KEY,
+                    id_lead INT REFERENCES cadu_leads(id) ON DELETE CASCADE,
+                    id_contato INT REFERENCES cadu_lead_contatos(id) ON DELETE SET NULL,
+                    id_usuario INT,
+                    usuario_nome VARCHAR(200),
+                    tipo_canal VARCHAR(50),
+                    objetivo TEXT,
+                    texto TEXT,
+                    assunto VARCHAR(500),
+                    status VARCHAR(50) DEFAULT 'draft',
+                    gerado_por_ia BOOLEAN DEFAULT FALSE,
+                    tom VARCHAR(50),
+                    tamanho VARCHAR(50),
+                    data_envio_programado TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_lead_comunicacoes_lead ON cadu_lead_comunicacoes(id_lead)')
+
         conn.commit()
     app.logger.info("OK Banco de dados inicializado")
 
@@ -10830,6 +10851,103 @@ def concluir_atividade(atividade_id, concluida):
                 WHERE id = %s
                 RETURNING id
             ''', (concluida, concluida, atividade_id))
+            conn.commit()
+            row = cursor.fetchone()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_comunicacao(lead_id, dados):
+    """Insere uma comunicação (gerada ou manual) vinculada a um lead."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cadu_lead_comunicacoes
+                    (id_lead, id_contato, id_usuario, usuario_nome, tipo_canal,
+                     objetivo, texto, assunto, status, gerado_por_ia, tom, tamanho)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (
+                lead_id,
+                dados.get('id_contato'),
+                dados.get('id_usuario'),
+                dados.get('usuario_nome'),
+                dados.get('tipo_canal'),
+                dados.get('objetivo'),
+                dados.get('texto'),
+                dados.get('assunto'),
+                dados.get('status', 'draft'),
+                dados.get('gerado_por_ia', False),
+                dados.get('tom'),
+                dados.get('tamanho'),
+            ))
+            novo_id = cursor.fetchone()['id']
+            conn.commit()
+            return novo_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_comunicacoes_lead(lead_id):
+    """Lista comunicações de um lead, mais recentes primeiro."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT
+                    cm.id, cm.id_lead, cm.id_contato, cm.id_usuario, cm.usuario_nome,
+                    cm.tipo_canal, cm.objetivo, cm.texto, cm.assunto, cm.status,
+                    cm.gerado_por_ia, cm.tom, cm.tamanho, cm.created_at,
+                    c.nome AS contato_nome
+                FROM cadu_lead_comunicacoes cm
+                LEFT JOIN cadu_lead_contatos c ON cm.id_contato = c.id
+                WHERE cm.id_lead = %s
+                ORDER BY cm.created_at DESC
+            ''', (lead_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_comunicacoes_lead {lead_id}: {e}")
+        raise
+
+
+def atualizar_comunicacao_status(comm_id, status):
+    """Atualiza o status de uma comunicação (draft, enviado, respondido)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_lead_comunicacoes SET status = %s WHERE id = %s RETURNING id
+            ''', (status, comm_id))
+            conn.commit()
+            row = cursor.fetchone()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_atividade(atividade_id, dados):
+    """Atualiza campos editáveis de uma atividade."""
+    conn = get_db()
+    try:
+        allowed = ['tipo', 'descricao', 'data_prazo', 'id_contato']
+        sets = []
+        params = []
+        for field in allowed:
+            if field in dados:
+                sets.append(f"{field} = %s")
+                params.append(dados[field] if dados[field] != '' else None)
+        if not sets:
+            return False
+        params.append(atividade_id)
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                UPDATE cadu_lead_atividades SET {', '.join(sets)} WHERE id = %s RETURNING id
+            ''', params)
             conn.commit()
             row = cursor.fetchone()
             return row is not None

@@ -46,15 +46,15 @@ const DEFAULT_DESCRIPTIONS = {
 };
 
 const COMM_TEMPLATES = [
-    {label: 'Apresentar CentralComm', objetivo: 'Apresentar a CentralComm como parceira estratégica em comunicação e mídia, destacando expertise em assessoria de imprensa, produção de conteúdo, gestão de redes sociais e formatos inovadores de mídia', tipo: 'email'},
-    {label: 'Apresentar Cadu (IA)', objetivo: 'Apresentar o Cadu, assistente de inteligência artificial da CentralComm, destacando como ele automatiza e potencializa a comunicação corporativa com análise de dados, geração de conteúdo e insights estratégicos', tipo: 'whatsapp'},
-    {label: 'Detalhar Funcionalidades', objetivo: 'Detalhar as funcionalidades e serviços completos da CentralComm: assessoria de imprensa, produção audiovisual, gestão de redes sociais, planejamento de mídia, comunicação corporativa, eventos e branding', tipo: 'email'},
-    {label: 'Apresentar Canais', objetivo: 'Apresentar os canais de comunicação e mídia da CentralComm, incluindo portais, redes sociais, newsletters, podcasts, vídeos e parcerias estratégicas com veículos de imprensa', tipo: 'email'},
-    {label: 'Formatos Interativos', objetivo: 'Apresentar os formatos interativos e inovadores de mídia disponíveis na CentralComm: branded content, infográficos interativos, webinars, lives, stories patrocinados e experiências imersivas', tipo: 'email'},
-    {label: 'Follow-up pós Reunião', objetivo: 'Follow-up após reunião realizada, reforçar os pontos discutidos, alinhar expectativas e definir próximos passos concretos para a parceria', tipo: 'email'},
-    {label: 'Follow-up sem Contato', objetivo: 'Follow-up cordial após tentativas sem retorno, reforçar o valor da parceria e oferecer uma nova oportunidade de conversa sem pressão', tipo: 'whatsapp'},
-    {label: 'Convite Evento RJ', objetivo: 'Convite para evento ou encontro exclusivo da CentralComm no Rio de Janeiro, com networking e apresentação de cases e novidades em comunicação e mídia', tipo: 'email'},
-    {label: 'Convite Evento BH', objetivo: 'Convite para evento ou encontro exclusivo da CentralComm em Belo Horizonte, com networking e apresentação de cases e novidades em comunicação e mídia', tipo: 'email'},
+    {label: 'Apresentar CentralComm', objetivo_key: 'apresentar_centralcomm', objetivo: 'Apresentar a CentralComm como parceira estratégica em comunicação e mídia', tipo: 'email'},
+    {label: 'Apresentar Cadu (IA)', objetivo_key: 'apresentar_cadu', objetivo: 'Apresentar o Cadu, assistente de IA da CentralComm', tipo: 'whatsapp'},
+    {label: 'Detalhar Funcionalidades', objetivo_key: 'detalhar_funcionalidades', objetivo: 'Detalhar funcionalidades e serviços completos da CentralComm', tipo: 'email'},
+    {label: 'Apresentar Canais', objetivo_key: 'apresentar_canais', objetivo: 'Apresentar canais de comunicação e mídia da CentralComm', tipo: 'email'},
+    {label: 'Formatos Interativos', objetivo_key: 'formatos_interativos', objetivo: 'Formatos interativos e inovadores de mídia', tipo: 'email'},
+    {label: 'Follow-up pós Reunião', objetivo_key: 'followup_pos_reuniao', objetivo: 'Follow-up após reunião realizada', tipo: 'email'},
+    {label: 'Follow-up sem Contato', objetivo_key: 'followup_sem_contato', objetivo: 'Follow-up cordial após tentativas sem retorno', tipo: 'whatsapp'},
+    {label: 'Convite Evento RJ', objetivo_key: 'convite_evento_rj', objetivo: 'Convite para evento exclusivo no Rio de Janeiro', tipo: 'email'},
+    {label: 'Convite Evento BH', objetivo_key: 'convite_evento_bh', objetivo: 'Convite para evento exclusivo em Belo Horizonte', tipo: 'email'},
 ];
 
 const SOCIAL_ICONS = {
@@ -348,12 +348,6 @@ async function selectContact(contatoId, leadId) {
         col1.innerHTML = `
             <div id="section_dados">${skeletonHtml()}</div>
             <div id="section_contatos" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px"></div>
-            <div id="section_extracao" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px">
-                <button onclick="loadTabExtracao(selectedLeadId)" class="extracao-toggle-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    Extração IA
-                </button>
-            </div>
         `;
 
         document.getElementById('col_atividades').innerHTML = skeletonHtml();
@@ -395,12 +389,6 @@ async function selectLead(leadId) {
     col1.innerHTML = `
         <div id="section_dados">${skeletonHtml()}</div>
         <div id="section_contatos" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px"></div>
-        <div id="section_extracao" style="border-top:1px solid #e5e7eb;padding-top:12px;margin-top:12px">
-            <button onclick="loadTabExtracao(selectedLeadId)" class="extracao-toggle-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                Extração IA
-            </button>
-        </div>
     `;
 
     document.getElementById('col_atividades').innerHTML = skeletonHtml();
@@ -470,6 +458,10 @@ async function loadTabDados(leadId) {
 
                 <!-- Ações -->
                 <div class="flex gap-2 flex-wrap" style="padding:8px 0 4px;border-bottom:1px solid #f3f4f6;margin-bottom:4px">
+                    <button onclick="openExtracaoModal()" class="leads-action-btn leads-action-btn-extrair-action" style="flex:1;font-size:11px">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        Extrair${l.dados_extraidos ? ' <span class="extracao-badge-dot"></span>' : ''}
+                    </button>
                     <button onclick="openEditLead()" class="leads-action-btn" style="flex:1;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:11px">
                         Editar
                     </button>
@@ -488,32 +480,12 @@ async function loadTabDados(leadId) {
                 <div class="detail-section">
                     <div class="detail-section-title">Informações</div>
                     <div class="detail-field"><span class="detail-field-label">Empresa</span><span class="detail-field-value">${esc(l.empresa || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Nome</span><span class="detail-field-value">${esc(l.nome || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Email</span><span class="detail-field-value">${esc(l.email || '-')}</span></div>
+                    <div class="detail-field"><span class="detail-field-label">Nome</span><span class="detail-field-value">${esc(toTitleCase(l.nome) || '-')}</span></div>
+                    <div class="detail-field"><span class="detail-field-label">Email</span><span class="detail-field-value">${esc(toLowerEmail(l.email) || '-')}</span></div>
                     <div class="detail-field"><span class="detail-field-label">Telefone</span><span class="detail-field-value">${esc(l.telefone || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Cargo</span><span class="detail-field-value">${esc(l.cargo || '-')}</span></div>
+                    <div class="detail-field"><span class="detail-field-label">Cargo</span><span class="detail-field-value">${esc(toTitleCase(l.cargo) || '-')}</span></div>
                     ${l.mensagem ? `<div class="detail-field"><span class="detail-field-label">Mensagem</span><span class="detail-field-value">${esc(l.mensagem)}</span></div>` : ''}
                 </div>
-
-                <!-- Origem / Contexto -->
-                <div class="detail-section">
-                    <div class="detail-section-title">Origem</div>
-                    <div class="detail-field"><span class="detail-field-label">Fonte</span><span class="detail-field-value">${esc(l.fonte || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Origem</span><span class="detail-field-value">${esc(l.origem || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Canal</span><span class="detail-field-value">${esc(l.canal || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Interesse</span><span class="detail-field-value">${esc(l.interesse || '-')}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Tipo Lead</span><span class="detail-field-value">${esc(l.tipo_lead || '-')}</span></div>
-                </div>
-
-                ${(l.utm_source || l.utm_medium || l.utm_campaign) ? `
-                <div class="detail-section">
-                    <div class="detail-section-title">UTMs</div>
-                    ${l.utm_source ? `<div class="detail-field"><span class="detail-field-label">Source</span><span class="detail-field-value">${esc(l.utm_source)}</span></div>` : ''}
-                    ${l.utm_medium ? `<div class="detail-field"><span class="detail-field-label">Medium</span><span class="detail-field-value">${esc(l.utm_medium)}</span></div>` : ''}
-                    ${l.utm_campaign ? `<div class="detail-field"><span class="detail-field-label">Campaign</span><span class="detail-field-value">${esc(l.utm_campaign)}</span></div>` : ''}
-                    ${l.utm_content ? `<div class="detail-field"><span class="detail-field-label">Content</span><span class="detail-field-value">${esc(l.utm_content)}</span></div>` : ''}
-                    ${l.utm_term ? `<div class="detail-field"><span class="detail-field-label">Term</span><span class="detail-field-value">${esc(l.utm_term)}</span></div>` : ''}
-                </div>` : ''}
 
                 <!-- Qualificação -->
                 <div class="detail-section">
@@ -531,38 +503,81 @@ async function loadTabDados(leadId) {
                     ${l.motivo_desqualificacao ? `<div class="detail-field"><span class="detail-field-label">Motivo Desq.</span><span class="detail-field-value" style="color:#b91c1c">${esc(l.motivo_desqualificacao)}</span></div>` : ''}
                 </div>
 
-                <!-- Valores Comerciais -->
-                <div class="detail-section">
-                    <div class="detail-section-title">Valores Comerciais</div>
-                    <div class="detail-field"><span class="detail-field-label">Valor Estimado</span><span class="detail-field-value">${l.valor_estimado ? 'R$ ' + Number(l.valor_estimado).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '-'}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Valor Fechado</span><span class="detail-field-value">${l.valor_fechado ? 'R$ ' + Number(l.valor_fechado).toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '-'}</span></div>
-                    ${l.notas_internas ? `<div class="detail-field"><span class="detail-field-label">Notas</span><span class="detail-field-value">${esc(l.notas_internas)}</span></div>` : ''}
+                <!-- Origem / Contexto (collapsible) -->
+                <div class="detail-section detail-section-collapsible">
+                    <div class="detail-section-title detail-section-toggle" onclick="toggleDetailSection(this)">
+                        <svg class="collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        Origem
+                    </div>
+                    <div class="detail-section-body" style="display:none">
+                        <div class="detail-field"><span class="detail-field-label">Fonte</span><span class="detail-field-value">${esc(l.fonte || '-')}</span></div>
+                        <div class="detail-field"><span class="detail-field-label">Origem</span><span class="detail-field-value">${esc(l.origem || '-')}</span></div>
+                        <div class="detail-field"><span class="detail-field-label">Canal</span><span class="detail-field-value">${esc(l.canal || '-')}</span></div>
+                        <div class="detail-field"><span class="detail-field-label">Interesse</span><span class="detail-field-value">${esc(l.interesse || '-')}</span></div>
+                        <div class="detail-field"><span class="detail-field-label">Tipo Lead</span><span class="detail-field-value">${esc(l.tipo_lead || '-')}</span></div>
+                    </div>
                 </div>
 
-                <!-- Empresa (enrichment) -->
-                ${(l.segmento || l.porte_estimado || l.descricao_empresa) ? `
-                <div class="detail-section">
-                    <div class="detail-section-title">Empresa</div>
-                    ${l.segmento ? `<div class="detail-field"><span class="detail-field-label">Segmento</span><span class="detail-field-value">${esc(l.segmento)}</span></div>` : ''}
-                    ${l.porte_estimado ? `<div class="detail-field"><span class="detail-field-label">Porte</span><span class="detail-field-value">${esc(l.porte_estimado)}</span></div>` : ''}
-                    ${l.descricao_empresa ? `<div class="detail-field"><span class="detail-field-label">Descrição</span><span class="detail-field-value">${esc(l.descricao_empresa)}</span></div>` : ''}
-                    ${l.url_site ? `<div class="detail-field"><span class="detail-field-label">Site</span><span class="detail-field-value"><a href="${esc(l.url_site)}" target="_blank" class="link link-primary">${esc(l.url_site)}</a></span></div>` : ''}
+                ${(l.utm_source || l.utm_medium || l.utm_campaign) ? `
+                <div class="detail-section detail-section-collapsible">
+                    <div class="detail-section-title detail-section-toggle" onclick="toggleDetailSection(this)">
+                        <svg class="collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        UTMs
+                    </div>
+                    <div class="detail-section-body" style="display:none">
+                        ${l.utm_source ? `<div class="detail-field"><span class="detail-field-label">Source</span><span class="detail-field-value">${esc(l.utm_source)}</span></div>` : ''}
+                        ${l.utm_medium ? `<div class="detail-field"><span class="detail-field-label">Medium</span><span class="detail-field-value">${esc(l.utm_medium)}</span></div>` : ''}
+                        ${l.utm_campaign ? `<div class="detail-field"><span class="detail-field-label">Campaign</span><span class="detail-field-value">${esc(l.utm_campaign)}</span></div>` : ''}
+                        ${l.utm_content ? `<div class="detail-field"><span class="detail-field-label">Content</span><span class="detail-field-value">${esc(l.utm_content)}</span></div>` : ''}
+                        ${l.utm_term ? `<div class="detail-field"><span class="detail-field-label">Term</span><span class="detail-field-value">${esc(l.utm_term)}</span></div>` : ''}
+                    </div>
                 </div>` : ''}
 
-                <!-- Datas -->
-                <div class="detail-section">
-                    <div class="detail-section-title">Datas</div>
-                    <div class="detail-field"><span class="detail-field-label">Criado em</span><span class="detail-field-value">${createdAt}</span></div>
-                    <div class="detail-field"><span class="detail-field-label">Atualizado</span><span class="detail-field-value">${updatedAt}</span></div>
-                    ${l.contatado_em ? `<div class="detail-field"><span class="detail-field-label">1o Contato</span><span class="detail-field-value">${new Date(l.contatado_em).toLocaleDateString('pt-BR')}</span></div>` : ''}
-                    ${l.fechado_em ? `<div class="detail-field"><span class="detail-field-label">Fechado em</span><span class="detail-field-value">${new Date(l.fechado_em).toLocaleDateString('pt-BR')}</span></div>` : ''}
-                    ${l.lote_importacao ? `<div class="detail-field"><span class="detail-field-label">Lote Import.</span><span class="detail-field-value">${esc(l.lote_importacao)}</span></div>` : ''}
+                <!-- Empresa (enrichment, collapsible) -->
+                ${(l.segmento || l.porte_estimado || l.descricao_empresa) ? `
+                <div class="detail-section detail-section-collapsible">
+                    <div class="detail-section-title detail-section-toggle" onclick="toggleDetailSection(this)">
+                        <svg class="collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        Empresa
+                    </div>
+                    <div class="detail-section-body" style="display:none">
+                        ${l.segmento ? `<div class="detail-field"><span class="detail-field-label">Segmento</span><span class="detail-field-value">${esc(l.segmento)}</span></div>` : ''}
+                        ${l.porte_estimado ? `<div class="detail-field"><span class="detail-field-label">Porte</span><span class="detail-field-value">${esc(l.porte_estimado)}</span></div>` : ''}
+                        ${l.descricao_empresa ? `<div class="detail-field"><span class="detail-field-label">Descrição</span><span class="detail-field-value">${esc(l.descricao_empresa)}</span></div>` : ''}
+                        ${l.url_site ? `<div class="detail-field"><span class="detail-field-label">Site</span><span class="detail-field-value"><a href="${esc(l.url_site)}" target="_blank" class="link link-primary">${esc(l.url_site)}</a></span></div>` : ''}
+                    </div>
+                </div>` : ''}
+
+                <!-- Datas (collapsible) -->
+                <div class="detail-section detail-section-collapsible">
+                    <div class="detail-section-title detail-section-toggle" onclick="toggleDetailSection(this)">
+                        <svg class="collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        Datas
+                    </div>
+                    <div class="detail-section-body" style="display:none">
+                        <div class="detail-field"><span class="detail-field-label">Criado em</span><span class="detail-field-value">${createdAt}</span></div>
+                        <div class="detail-field"><span class="detail-field-label">Atualizado</span><span class="detail-field-value">${updatedAt}</span></div>
+                        ${l.contatado_em ? `<div class="detail-field"><span class="detail-field-label">1o Contato</span><span class="detail-field-value">${new Date(l.contatado_em).toLocaleDateString('pt-BR')}</span></div>` : ''}
+                        ${l.fechado_em ? `<div class="detail-field"><span class="detail-field-label">Fechado em</span><span class="detail-field-value">${new Date(l.fechado_em).toLocaleDateString('pt-BR')}</span></div>` : ''}
+                        ${l.lote_importacao ? `<div class="detail-field"><span class="detail-field-label">Lote Import.</span><span class="detail-field-value">${esc(l.lote_importacao)}</span></div>` : ''}
+                    </div>
                 </div>
 
             </div>`;
     } catch (e) {
         container.innerHTML = `<div class="leads-empty text-error">${e.message}</div>`;
     }
+}
+
+// ======================== Section Collapse ========================
+
+function toggleDetailSection(titleEl) {
+    const section = titleEl.closest('.detail-section-collapsible');
+    const body = section.querySelector('.detail-section-body');
+    const chevron = titleEl.querySelector('.collapse-chevron');
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    if (chevron) chevron.classList.toggle('expanded', !isOpen);
 }
 
 // ======================== Mini-modals (Status / Potencial / Responsável) ========================
@@ -673,10 +688,14 @@ function renderContato(c) {
     const phone = c.telefone ? c.telefone.replace(/\D/g, '') : '';
     const waLink = phone ? `https://wa.me/55${phone}` : '';
 
+    const displayNome = toTitleCase(c.nome);
+    const displayCargo = toTitleCase(c.cargo);
+    const displayEmail = toLowerEmail(c.email);
+
     return `<div class="contact-card ${selectedContactId === c.id ? 'contact-card-selected' : ''}" data-contact-id="${c.id}">
         <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-1.5">
-                <span style="font-weight:600;font-size:12px">${esc(c.nome)}</span>
+                <span style="font-weight:600;font-size:12px">${esc(displayNome)}</span>
                 ${c.is_principal ? '<span style="font-size:9px;background:#dcfce7;color:#15803d;padding:0px 5px;border-radius:9999px">Principal</span>' : ''}
             </div>
             <div class="contact-actions-hover flex items-center gap-1">
@@ -686,7 +705,7 @@ function renderContato(c) {
             </div>
         </div>
         <div class="contact-fields">
-            ${c.cargo ? `<div class="contact-field-row"><span style="color:#9ca3af;font-size:10px">🏢</span><span class="contact-field-value">${esc(c.cargo)}</span></div>` : ''}
+            ${c.cargo ? `<div class="contact-field-row"><span style="color:#9ca3af;font-size:10px">🏢</span><span class="contact-field-value">${esc(displayCargo)}</span></div>` : ''}
             ${c.departamento ? `<div class="contact-field-row"><span style="color:#9ca3af;font-size:10px">📋</span><span class="contact-field-value">${esc(c.departamento)}</span></div>` : ''}
             ${c.telefone ? `<div class="contact-field-row">
                 <span style="color:#9ca3af;font-size:10px">📞</span>
@@ -698,10 +717,10 @@ function renderContato(c) {
             </div>` : ''}
             ${c.email ? `<div class="contact-field-row">
                 <span style="color:#9ca3af;font-size:10px">✉️</span>
-                <span class="contact-field-value">${esc(c.email)}</span>
+                <span class="contact-field-value">${esc(displayEmail)}</span>
                 <span class="contact-field-actions">
-                    <button class="contact-copy-btn" onclick="copyToClipboard('${esc(c.email)}', this)">${copyIcon}</button>
-                    <a href="mailto:${esc(c.email)}" class="contact-action-btn contact-action-email" style="font-size:10px">@</a>
+                    <button class="contact-copy-btn" onclick="copyToClipboard('${esc(displayEmail)}', this)">${copyIcon}</button>
+                    <a href="mailto:${esc(displayEmail)}" class="contact-action-btn contact-action-email" style="font-size:10px">@</a>
                 </span>
             </div>` : ''}
         </div>
@@ -842,12 +861,13 @@ function renderAtividade(a) {
     const typeBadge = TIPO_ATIV_COLORS[a.tipo] || 'ativ-badge-outro';
     const isOverdue = isPrazoOverdue(a);
     const prazoHtml = getPrazoHtml(a);
-    const contatoLabel = a.contato_nome ? `${esc(a.contato_nome)}` : '';
+    const contatoLabel = a.contato_nome ? `${esc(toTitleCase(a.contato_nome))}` : '';
     const isSystem = a.tipo === 'status_change' || a.tipo === 'importacao' || a.tipo === 'contato_add' || a.tipo === 'contato_remove';
+    const editableAttr = !isSystem ? `onclick="openEditAtividadeModal(${a.id})" style="cursor:pointer"` : '';
 
-    return `<div class="ativ-card ${a.concluida ? 'ativ-card-concluida' : ''} ${isOverdue ? 'ativ-card-overdue' : ''}">
+    return `<div class="ativ-card ${a.concluida ? 'ativ-card-concluida' : ''} ${isOverdue ? 'ativ-card-overdue' : ''}" ${editableAttr}>
         <div class="flex items-start gap-2">
-            ${!isSystem ? `<input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleConcluida(${a.id}, this.checked)" class="ativ-checkbox">` : '<div style="width:16px;flex-shrink:0"></div>'}
+            ${!isSystem ? `<input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="event.stopPropagation();toggleConcluida(${a.id}, this.checked)" class="ativ-checkbox">` : '<div style="width:16px;flex-shrink:0"></div>'}
             <div style="flex:1;min-width:0">
                 <div class="flex items-center justify-between mb-1">
                     <div class="flex items-center gap-1.5 flex-wrap">
@@ -859,7 +879,7 @@ function renderAtividade(a) {
                         <span style="font-size:9px;color:#9ca3af">${dateStr}</span>
                     </div>
                 </div>
-                <div class="ativ-desc" onclick="this.classList.toggle('expanded')">${esc(a.descricao || '')}</div>
+                <div class="ativ-desc">${esc(a.descricao || '')}</div>
                 ${a.usuario_nome ? `<div style="font-size:9px;color:#9ca3af;margin-top:2px">por ${esc(a.usuario_nome)}</div>` : ''}
             </div>
         </div>
@@ -878,12 +898,14 @@ function getPrazoHtml(a) {
     const today = new Date(); today.setHours(0,0,0,0);
     const diff = Math.ceil((prazo - today) / 86400000);
     const dateStr = prazo.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+    const alertIcon = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    const clockIcon = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
 
-    if (a.concluida) return `<span class="prazo-future" style="font-size:9px">${dateStr}</span>`;
-    if (diff < 0) return `<span class="prazo-overdue" style="font-size:9px">${dateStr} (${Math.abs(diff)}d atrás)</span>`;
-    if (diff === 0) return `<span class="prazo-today" style="font-size:9px">Hoje</span>`;
-    if (diff <= 3) return `<span class="prazo-soon" style="font-size:9px">${dateStr}</span>`;
-    return `<span class="prazo-future" style="font-size:9px">${dateStr}</span>`;
+    if (a.concluida) return `<span class="prazo-badge prazo-future">${dateStr}</span>`;
+    if (diff < 0) return `<span class="prazo-badge prazo-overdue">${alertIcon} ${dateStr} (${Math.abs(diff)}d atrás)</span>`;
+    if (diff === 0) return `<span class="prazo-badge prazo-today">${clockIcon} Hoje</span>`;
+    if (diff <= 3) return `<span class="prazo-badge prazo-soon">${clockIcon} ${dateStr}</span>`;
+    return `<span class="prazo-badge prazo-future">${dateStr}</span>`;
 }
 
 function toggleAtivForm() {
@@ -959,9 +981,18 @@ async function melhorarTexto(textareaId) {
 
 // ======================== Tab: Extração ========================
 
-async function loadTabExtracao(leadId) {
-    const container = document.getElementById('section_extracao');
+async function openExtracaoModal() {
+    if (!selectedLeadId) return showToast('Selecione um lead', 'warning');
+    const modal = document.getElementById('modal_extracao');
+    const container = document.getElementById('modal_extracao_content');
     container.innerHTML = skeletonHtml();
+    modal.showModal();
+    await loadTabExtracao(selectedLeadId);
+}
+
+async function loadTabExtracao(leadId) {
+    const container = document.getElementById('modal_extracao_content');
+    if (!container) return;
 
     try {
         const [detResp, conResp] = await Promise.all([
@@ -974,6 +1005,7 @@ async function loadTabExtracao(leadId) {
         const contatos = conData.contatos || [];
 
         let suggestedUrl = lead.url_site || getEmailDomainUrl(contatos);
+        const professionalDomain = getEmailDomainUrl(contatos);
         let faviconHtml = '';
         if (suggestedUrl) {
             try {
@@ -988,14 +1020,23 @@ async function loadTabExtracao(leadId) {
             dadosHtml = renderDadosExtraidos(d, lead);
         }
 
+        const domainSuggestionHtml = professionalDomain && professionalDomain !== suggestedUrl
+            ? `<div class="extracao-domain-hint" onclick="document.getElementById('extrair_url').value='${esc(professionalDomain)}'">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                Domínio profissional detectado: <strong>${esc(professionalDomain)}</strong> — clique para usar
+              </div>`
+            : '';
+
         container.innerHTML = `
             <div class="space-y-3" style="font-size:12px">
-                <div class="bg-base-200 rounded-lg p-2 space-y-1.5">
+                ${lead.dados_extraidos ? '<div class="extracao-status-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Dados já extraídos — você pode re-extrair abaixo</div>' : ''}
+                <div class="bg-base-200 rounded-lg p-3 space-y-2">
                     <div class="flex items-center gap-1">
                         ${faviconHtml}
-                        <input id="extrair_url" type="url" class="input input-xs input-bordered w-full" placeholder="https://..."
+                        <input id="extrair_url" type="url" class="input input-sm input-bordered w-full" placeholder="https://..."
                                value="${esc(suggestedUrl)}" style="font-size:12px">
                     </div>
+                    ${domainSuggestionHtml}
                     <button onclick="extractUrl()" class="leads-action-btn leads-action-btn-extrair" id="btn_extrair">
                         <span class="loading loading-spinner loading-xs hidden" id="extrair_spinner"></span>
                         Extrair com IA
@@ -1064,7 +1105,7 @@ function renderDadosExtraidos(d, lead) {
         ${contatos.length ? `
             <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:600;margin-top:4px">Contatos encontrados</div>
             ${contatos.map((c, i) => `<div style="background:#fff;border:1px solid #f3f4f6;border-radius:6px;padding:6px;display:flex;justify-content:space-between;align-items:center">
-                <div><div style="font-weight:600;font-size:11px">${esc(c.nome || '?')}</div><div style="color:#9ca3af;font-size:10px">${[c.cargo, c.email, c.telefone].filter(Boolean).map(v => esc(v)).join(' | ')}</div></div>
+                <div><div style="font-weight:600;font-size:11px">${esc(toTitleCase(c.nome) || '?')}</div><div style="color:#9ca3af;font-size:10px">${[toTitleCase(c.cargo), toLowerEmail(c.email), c.telefone].filter(Boolean).map(v => esc(v)).join(' | ')}</div></div>
                 <button onclick="addExtractedContact(${i})" class="leads-action-btn leads-action-btn-merge" style="font-size:10px;flex:0;padding:4px 10px">+ Add</button>
             </div>`).join('')}
         ` : ''}
@@ -1138,7 +1179,16 @@ async function addExtractedContact(idx) {
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-// ======================== Tab: Comunicação IA ========================
+// ======================== Tab: Comunicação (Timeline) ========================
+
+const CANAL_ICONS = {
+    whatsapp: '<svg width="12" height="12" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479c0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>',
+    email: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>',
+    linkedin: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0A66C2" stroke-width="2"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>',
+};
+
+const COMM_STATUS_LABELS = {draft: 'Rascunho', enviado: 'Enviado', respondido: 'Respondido'};
+const COMM_STATUS_CLASSES = {draft: 'comm-status-draft', enviado: 'comm-status-enviado', respondido: 'comm-status-respondido'};
 
 async function loadTabComunicacao(leadId) {
     const container = document.getElementById('col_comunicacao');
@@ -1146,63 +1196,44 @@ async function loadTabComunicacao(leadId) {
     container.innerHTML = skeletonHtml();
 
     try {
-        const conResp = await fetch(`/api/leads/${leadId}/contatos`);
-        const conData = await conResp.json();
-        const contatos = conData.contatos || [];
-        const contatoOptions = contatos.map(c => {
-            const isSelected = selectedContactId ? c.id === selectedContactId : c.is_principal;
-            return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(c.nome)}</option>`;
-        }).join('');
+        const resp = await fetch(`/api/leads/${leadId}/comunicacoes`);
+        const data = await resp.json();
+        const comunicacoes = data.success ? (data.comunicacoes || []) : [];
 
-        const apresentacaoTemplates = COMM_TEMPLATES.filter((_, i) => i <= 4);
-        const followupTemplates = COMM_TEMPLATES.filter((_, i) => i === 5 || i === 6);
-        const eventoTemplates = COMM_TEMPLATES.filter((_, i) => i >= 7);
-
-        function renderTemplateGroup(label, templates) {
-            return `<div class="comm-group">
-                <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;font-weight:600;margin-bottom:3px">${label}</div>
-                <div class="flex flex-wrap gap-1">${templates.map(t => {
-                    const globalIdx = COMM_TEMPLATES.indexOf(t);
-                    const icon = t.tipo === 'whatsapp'
-                        ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="#25D366" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479c0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>'
-                        : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="flex-shrink:0"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>';
-                    return `<button class="comm-template-btn" onclick="applyCommTemplate(${globalIdx})" style="display:inline-flex;align-items:center;gap:3px">${icon} ${esc(t.label)}</button>`;
-                }).join('')}</div>
+        window._commCache = {};
+        const timelineCards = comunicacoes.map(c => {
+            window._commCache[c.id] = c;
+            const dateStr = c.created_at ? new Date(c.created_at).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+            const icon = CANAL_ICONS[c.tipo_canal] || CANAL_ICONS.email;
+            const statusCls = COMM_STATUS_CLASSES[c.status] || 'comm-status-draft';
+            const statusLabel = COMM_STATUS_LABELS[c.status] || c.status;
+            const preview = (c.texto || '').replace(/\n/g, ' ').substring(0, 100);
+            return `<div class="comm-timeline-card" onclick="openCommDetailModal(${c.id})">
+                <div class="comm-timeline-header">
+                    <div class="flex items-center gap-1.5">
+                        ${icon}
+                        <span class="comm-timeline-canal">${(c.tipo_canal || '').toUpperCase()}</span>
+                    </div>
+                    <span style="font-size:9px;color:#9ca3af">${dateStr}</span>
+                </div>
+                <div class="comm-timeline-objetivo">${esc(c.objetivo || 'Sem objetivo')}</div>
+                <div class="comm-timeline-preview">${esc(preview)}${preview.length >= 100 ? '…' : ''}</div>
+                <div class="comm-timeline-footer">
+                    <span class="comm-status-badge ${statusCls}">${statusLabel}</span>
+                    ${c.contato_nome ? `<span style="font-size:9px;color:#6b7280">→ ${esc(toTitleCase(c.contato_nome))}</span>` : ''}
+                    ${c.gerado_por_ia ? '<span style="font-size:9px;color:#7c3aed">✨ IA</span>' : ''}
+                </div>
             </div>`;
-        }
+        }).join('');
 
         container.innerHTML = `
             <div class="space-y-2" style="font-size:12px">
-                <div class="space-y-2">
-                    ${renderTemplateGroup('Apresentação', apresentacaoTemplates)}
-                    ${renderTemplateGroup('Follow-up', followupTemplates)}
-                    ${renderTemplateGroup('Eventos', eventoTemplates)}
-                </div>
-                <div style="border-top:1px solid #f3f4f6;padding-top:8px" class="space-y-1.5">
-                    <div class="flex gap-1.5">
-                        <select id="comm_contato" class="${SEL_CLS}" style="flex:1">
-                            <option value="">Contato...</option>
-                            ${contatoOptions}
-                        </select>
-                        <div class="flex gap-1.5 items-center" style="font-size:11px;flex-shrink:0">
-                            <label style="display:flex;align-items:center;gap:2px;cursor:pointer"><input type="radio" name="comm_tipo" value="whatsapp" checked style="width:11px;height:11px"> WA</label>
-                            <label style="display:flex;align-items:center;gap:2px;cursor:pointer"><input type="radio" name="comm_tipo" value="email" style="width:11px;height:11px"> Email</label>
-                        </div>
-                    </div>
-                    <input id="comm_objetivo" class="input input-xs input-bordered w-full" placeholder="Objetivo personalizado..." style="font-size:11px">
-                    <div class="flex gap-1.5">
-                        <select id="comm_tamanho" class="${SEL_CLS}" style="flex:1"><option value="curto">Curto</option><option value="medio" selected>Médio</option><option value="longo">Longo</option></select>
-                        <select id="comm_tom" class="${SEL_CLS}" style="flex:1"><option value="formal">Formal</option><option value="cordial" selected>Cordial</option><option value="descontraido">Descontraído</option></select>
-                    </div>
-                    <div class="flex flex-wrap gap-2" style="font-size:10px;color:#6b7280">
-                        <label style="display:flex;align-items:center;gap:2px;cursor:pointer"><input type="checkbox" id="comm_incluir_dados" checked style="width:11px;height:11px"> Dados</label>
-                        <label style="display:flex;align-items:center;gap:2px;cursor:pointer"><input type="checkbox" id="comm_incluir_servicos" style="width:11px;height:11px"> Serviços</label>
-                        <label style="display:flex;align-items:center;gap:2px;cursor:pointer"><input type="checkbox" id="comm_incluir_oportunidades" style="width:11px;height:11px"> Oportunidades</label>
-                    </div>
-                    <button onclick="gerarComunicacao()" class="leads-action-btn leads-action-btn-gerar" id="btn_comm">
-                        <span class="loading loading-spinner loading-xs hidden" id="comm_spinner"></span>
-                        Gerar com IA
-                    </button>
+                <button onclick="openComunicacaoCentralModal()" class="leads-action-btn leads-action-btn-gerar" style="width:100%;margin-bottom:6px">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Nova Comunicação
+                </button>
+                <div id="comm_timeline_list">
+                    ${comunicacoes.length === 0 ? '<div class="leads-empty" style="min-height:60px">Nenhuma comunicação registrada</div>' : timelineCards}
                 </div>
             </div>`;
     } catch (e) {
@@ -1210,47 +1241,76 @@ async function loadTabComunicacao(leadId) {
     }
 }
 
+function openCommDetailModal(commId) {
+    const c = window._commCache && window._commCache[commId];
+    if (!c) return;
+    const textEl = document.getElementById('modal_comm_text');
+    textEl.textContent = c.texto || '';
+    document.getElementById('modal_comm_word_count').textContent = (c.texto || '').split(/\s+/).length + ' palavras';
+    document.getElementById('modal_comm_preview').className = c.tipo_canal === 'email' ? 'comm-preview comm-preview-email' : 'comm-preview';
+    document.getElementById('modal_comunicacao_resultado').showModal();
+}
+
+let currentCommObjetivoKey = null;
+
 function applyCommTemplate(idx) {
     const t = COMM_TEMPLATES[idx];
     if (!t) return;
-    const obj = document.getElementById('comm_objetivo');
+    const obj = document.getElementById('modal_comm_objetivo');
     if (obj) obj.value = t.objetivo;
-    const radios = document.querySelectorAll('input[name="comm_tipo"]');
+    currentCommObjetivoKey = t.objetivo_key || null;
+    const radios = document.querySelectorAll('input[name="modal_comm_tipo"]');
     radios.forEach(r => { r.checked = r.value === t.tipo; });
     gerarComunicacao();
 }
 
 async function gerarComunicacao() {
     if (!selectedLeadId) return;
-    const btn = document.getElementById('btn_comm');
-    const spinner = document.getElementById('comm_spinner');
+    const btn = document.getElementById('btn_modal_comm_gerar');
+    const spinner = document.getElementById('modal_comm_spinner');
     if (!btn || !spinner) return;
     btn.disabled = true;
     spinner.classList.remove('hidden');
 
-    const tipo = document.querySelector('input[name="comm_tipo"]:checked')?.value || 'whatsapp';
-    const objetivo = document.getElementById('comm_objetivo')?.value?.trim();
+    const tipo = document.querySelector('input[name="modal_comm_tipo"]:checked')?.value || 'whatsapp';
+    const objetivo = document.getElementById('modal_comm_objetivo')?.value?.trim();
     if (!objetivo) { showToast('Informe o objetivo', 'warning'); btn.disabled = false; spinner.classList.add('hidden'); return; }
 
     try {
+        const payload = {
+            lead_id: selectedLeadId, tipo, objetivo,
+            tamanho: document.getElementById('modal_comm_tamanho')?.value || 'medio',
+            tom: document.getElementById('modal_comm_tom')?.value || 'cordial',
+            incluir_dados_lead: document.getElementById('modal_comm_incluir_dados')?.checked,
+            incluir_servicos: document.getElementById('modal_comm_incluir_servicos')?.checked,
+            incluir_oportunidades: document.getElementById('modal_comm_incluir_oportunidades')?.checked,
+            contato_id: document.getElementById('modal_comm_contato')?.value || null,
+        };
+        if (currentCommObjetivoKey) payload.objetivo_key = currentCommObjetivoKey;
+
         const resp = await fetch('/api/ia/gerar-comunicacao', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                lead_id: selectedLeadId, tipo, objetivo,
-                tamanho: document.getElementById('comm_tamanho')?.value || 'medio',
-                tom: document.getElementById('comm_tom')?.value || 'cordial',
-                incluir_dados_lead: document.getElementById('comm_incluir_dados')?.checked,
-                incluir_servicos: document.getElementById('comm_incluir_servicos')?.checked,
-                incluir_oportunidades: document.getElementById('comm_incluir_oportunidades')?.checked,
-                contato_id: document.getElementById('comm_contato')?.value || null,
-            }),
+            body: JSON.stringify(payload),
         });
         const data = await resp.json();
-        if (data.success) openCommResultModal(data.texto, data.word_count, tipo);
-        else showToast(data.message || 'Erro', 'error');
+        if (data.success) {
+            showCommResult(data.texto, data.word_count, tipo);
+        } else {
+            showToast(data.message || 'Erro', 'error');
+        }
     } catch (e) { showToast('Erro: ' + e.message, 'error'); }
     finally { btn.disabled = false; spinner.classList.add('hidden'); }
+}
+
+function showCommResult(texto, wordCount, tipo) {
+    const resultArea = document.getElementById('modal_comm_result_area');
+    const textEl = document.getElementById('modal_comm_result_text');
+    if (!resultArea || !textEl) return;
+    textEl.textContent = texto;
+    document.getElementById('modal_comm_result_words').textContent = wordCount + ' palavras';
+    resultArea.style.display = '';
+    resultArea.className = tipo === 'email' ? 'comm-result-area comm-preview-email' : 'comm-result-area';
 }
 
 function openCommResultModal(texto, wordCount, tipo) {
@@ -1282,6 +1342,104 @@ function openModalCommEmail() {
         body = lines.slice(1).join('\n').trim();
     }
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+}
+
+async function openComunicacaoCentralModal() {
+    if (!selectedLeadId) return showToast('Selecione um lead', 'warning');
+    currentCommObjetivoKey = null;
+
+    try {
+        const conResp = await fetch(`/api/leads/${selectedLeadId}/contatos`);
+        const conData = await conResp.json();
+        const contatos = conData.contatos || [];
+        const sel = document.getElementById('modal_comm_contato');
+        sel.innerHTML = '<option value="">Contato...</option>' +
+            contatos.map(c => {
+                const isSelected = selectedContactId ? c.id === selectedContactId : c.is_principal;
+                return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(toTitleCase(c.nome))}${c.cargo ? ' (' + esc(toTitleCase(c.cargo)) + ')' : ''}</option>`;
+            }).join('');
+    } catch (e) {}
+
+    document.getElementById('modal_comm_objetivo').value = '';
+    const resultArea = document.getElementById('modal_comm_result_area');
+    if (resultArea) resultArea.style.display = 'none';
+
+    document.getElementById('modal_comunicacao_central').showModal();
+}
+
+function copyModalCommResultText() {
+    const el = document.getElementById('modal_comm_result_text');
+    if (el) navigator.clipboard.writeText(el.innerText).then(() => showToast('Copiado!', 'success'));
+}
+
+function openResultCommWA() {
+    const el = document.getElementById('modal_comm_result_text');
+    if (el) window.open(`https://wa.me/?text=${encodeURIComponent(el.innerText)}`, '_blank');
+}
+
+function openResultCommEmail() {
+    const el = document.getElementById('modal_comm_result_text');
+    if (!el) return;
+    const text = el.innerText;
+    const lines = text.split('\n');
+    let subject = '', body = text;
+    if (lines[0] && lines[0].toLowerCase().startsWith('assunto:')) {
+        subject = lines[0].replace(/^assunto:\s*/i, '').trim();
+        body = lines.slice(1).join('\n').trim();
+    }
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+}
+
+async function saveCommAsDraft() {
+    if (!selectedLeadId) return;
+    const texto = document.getElementById('modal_comm_result_text')?.innerText;
+    if (!texto) return showToast('Gere uma comunicação primeiro', 'warning');
+
+    const tipo = document.querySelector('input[name="modal_comm_tipo"]:checked')?.value || 'whatsapp';
+    const objetivo = document.getElementById('modal_comm_objetivo')?.value?.trim() || '';
+    const contato_id = document.getElementById('modal_comm_contato')?.value || null;
+
+    try {
+        await fetch(`/api/leads/${selectedLeadId}/comunicacoes`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tipo_canal: tipo, objetivo, texto, status: 'draft',
+                id_contato: contato_id,
+                tom: document.getElementById('modal_comm_tom')?.value,
+                tamanho: document.getElementById('modal_comm_tamanho')?.value,
+            }),
+        });
+        showToast('Salvo como rascunho!', 'success');
+        document.getElementById('modal_comunicacao_central').close();
+        loadTabComunicacao(selectedLeadId);
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function markCommSent() {
+    if (!selectedLeadId) return;
+    const texto = document.getElementById('modal_comm_result_text')?.innerText;
+    if (!texto) return showToast('Gere uma comunicação primeiro', 'warning');
+
+    const tipo = document.querySelector('input[name="modal_comm_tipo"]:checked')?.value || 'whatsapp';
+    const objetivo = document.getElementById('modal_comm_objetivo')?.value?.trim() || '';
+    const contato_id = document.getElementById('modal_comm_contato')?.value || null;
+
+    try {
+        await fetch(`/api/leads/${selectedLeadId}/comunicacoes`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tipo_canal: tipo, objetivo, texto, status: 'enviado',
+                id_contato: contato_id,
+                tom: document.getElementById('modal_comm_tom')?.value,
+                tamanho: document.getElementById('modal_comm_tamanho')?.value,
+            }),
+        });
+        showToast('Comunicação registrada como enviada!', 'success');
+        document.getElementById('modal_comunicacao_central').close();
+        loadTabComunicacao(selectedLeadId);
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 // ======================== Edit / Merge / Desqualificar / Converter ========================
@@ -1653,7 +1811,14 @@ async function confirmMerge(secundarioId, nome) {
 function openDesqualificar() {
     if (!selectedLeadId) return;
     document.getElementById('motivo_desqualificacao').value = '';
+    document.querySelectorAll('.desqualificar-motivo-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('modal_desqualificar').showModal();
+}
+
+function selectMotivoDesqualificar(btn) {
+    document.querySelectorAll('.desqualificar-motivo-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('motivo_desqualificacao').value = btn.dataset.motivo;
 }
 
 async function confirmDesqualificar() {
@@ -1962,6 +2127,16 @@ function esc(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+function toTitleCase(str) {
+    if (!str) return '';
+    return String(str).replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.substring(1).toLowerCase());
+}
+
+function toLowerEmail(str) {
+    if (!str) return '';
+    return String(str).toLowerCase();
+}
+
 function showToast(msg, type) {
     if (typeof window.showToast === 'function' && window.showToast !== showToast) {
         window.showToast(msg, type);
@@ -2040,13 +2215,17 @@ async function openNovaAtividadeModal() {
         sel.innerHTML = '<option value="">Selecione um contato...</option>' +
             contatos.map(c => {
                 const isSelected = selectedContactId ? c.id === selectedContactId : c.is_principal;
-                return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(c.nome)}${c.cargo ? ' (' + esc(c.cargo) + ')' : ''}</option>`;
+                return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(toTitleCase(c.nome))}${c.cargo ? ' (' + esc(toTitleCase(c.cargo)) + ')' : ''}</option>`;
             }).join('');
     } catch (e) {}
 
-    document.getElementById('modal_nova_atividade').showModal();
+    document.getElementById('modal_ativ_sugestao').innerHTML = `
+        <button type="button" class="sugestao-pedir-btn" onclick="fetchSugestaoIA(selectedLeadId)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            Pedir Sugestão
+        </button>`;
 
-    fetchSugestaoIA(selectedLeadId);
+    document.getElementById('modal_nova_atividade').showModal();
 }
 
 function selectAtivType(tipo) {
@@ -2108,7 +2287,7 @@ async function saveNovaAtividade() {
 async function fetchSugestaoIA(leadId) {
     const container = document.getElementById('modal_ativ_sugestao');
     if (!container) return;
-    container.innerHTML = '<div style="font-size:10px;color:#9ca3af;padding:4px 0">Buscando sugestão IA...</div>';
+    container.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:6px 0;display:flex;align-items:center;gap:6px"><span class="loading loading-spinner loading-xs"></span> Buscando sugestão...</div>';
 
     try {
         const resp = await fetch('/api/ia/sugerir-atividade', {
@@ -2120,25 +2299,29 @@ async function fetchSugestaoIA(leadId) {
         if (data.success && data.sugestao) {
             const s = data.sugestao;
             container.innerHTML = `
-                <div class="sugestao-ia-chip" onclick="applySugestaoIA(this)" data-tipo="${esc(s.tipo)}" data-desc="${esc(s.descricao)}" data-prazo="${s.prazo_dias || 0}">
-                    <div>
-                        <div class="sugestao-label">Sugestão IA</div>
+                <div class="sugestao-chip">
+                    <div style="flex:1;min-width:0">
+                        <div class="sugestao-label">Sugestão</div>
                         <div class="sugestao-text">${esc(s.descricao)}</div>
-                        <div style="font-size:9px;color:#a16207;margin-top:2px">${esc(s.motivo || '')}</div>
+                        <div style="font-size:10px;color:#6b7280;margin-top:3px">${esc(s.motivo || '')}</div>
                     </div>
+                    <button type="button" class="sugestao-usar-btn" onclick="applySugestaoIA(this.closest('.sugestao-chip'))" data-tipo="${esc(s.tipo)}" data-desc="${esc(s.descricao)}" data-prazo="${s.prazo_dias || 0}">
+                        Usar
+                    </button>
                 </div>`;
         } else {
-            container.innerHTML = '';
+            container.innerHTML = '<div style="font-size:11px;color:#9ca3af;padding:4px 0">Sem sugestão disponível</div>';
         }
     } catch (e) {
-        container.innerHTML = '';
+        container.innerHTML = '<div style="font-size:11px;color:#ef4444;padding:4px 0">Erro ao buscar sugestão</div>';
     }
 }
 
 function applySugestaoIA(chip) {
-    const tipo = chip.dataset.tipo;
-    const desc = chip.dataset.desc;
-    const prazoDias = parseInt(chip.dataset.prazo) || 0;
+    const btn = chip.querySelector('.sugestao-usar-btn') || chip;
+    const tipo = btn.dataset.tipo;
+    const desc = btn.dataset.desc;
+    const prazoDias = parseInt(btn.dataset.prazo) || 0;
 
     if (tipo) selectAtivType(tipo);
     if (desc) document.getElementById('modal_ativ_desc').value = desc;
@@ -2146,6 +2329,100 @@ function applySugestaoIA(chip) {
 
     chip.style.opacity = '0.5';
     chip.style.pointerEvents = 'none';
+}
+
+let editAtivSelectedTipo = null;
+
+async function openEditAtividadeModal(atividadeId) {
+    if (!selectedLeadId) return;
+
+    const resp = await fetch(`/api/leads/${selectedLeadId}/atividades`);
+    const data = await resp.json();
+    const atividades = data.atividades || [];
+    const ativ = atividades.find(a => a.id === atividadeId);
+    if (!ativ) return showToast('Atividade não encontrada', 'error');
+
+    document.getElementById('edit_ativ_id').value = atividadeId;
+    editAtivSelectedTipo = ativ.tipo;
+
+    const tiposGrid = document.getElementById('edit_ativ_tipos');
+    tiposGrid.innerHTML = Object.entries(ATIV_TYPE_LABELS).map(([key, label]) => {
+        return `<button type="button" class="ativ-type-btn ${key === ativ.tipo ? 'active' : ''}" data-tipo="${key}" onclick="selectEditAtivType('${key}')">
+            ${ATIV_TYPE_ICONS[key] || ''}
+            <span>${label}</span>
+        </button>`;
+    }).join('');
+
+    document.getElementById('edit_ativ_desc').value = ativ.descricao || '';
+    const prazoInput = document.getElementById('edit_ativ_prazo');
+    if (ativ.data_prazo) {
+        prazoInput.value = ativ.data_prazo.split('T')[0];
+    } else {
+        prazoInput.value = '';
+    }
+
+    try {
+        const cr = await fetch(`/api/leads/${selectedLeadId}/contatos`);
+        const cd = await cr.json();
+        const contatos = cd.contatos || [];
+        const sel = document.getElementById('edit_ativ_contato');
+        sel.innerHTML = '<option value="">Selecione um contato...</option>' +
+            contatos.map(c => {
+                const isSelected = ativ.id_contato && c.id === ativ.id_contato;
+                return `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${esc(toTitleCase(c.nome))}${c.cargo ? ' (' + esc(toTitleCase(c.cargo)) + ')' : ''}</option>`;
+            }).join('');
+    } catch (e) {}
+
+    document.getElementById('modal_editar_atividade').showModal();
+}
+
+function selectEditAtivType(tipo) {
+    editAtivSelectedTipo = tipo;
+    document.querySelectorAll('#edit_ativ_tipos .ativ-type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tipo === tipo);
+    });
+}
+
+function setEditPrazoShortcut(days) {
+    const input = document.getElementById('edit_ativ_prazo');
+    if (days === -1) {
+        input.focus();
+        return;
+    }
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    input.value = date.toISOString().split('T')[0];
+}
+
+async function saveEditAtividade() {
+    const atividadeId = document.getElementById('edit_ativ_id').value;
+    if (!atividadeId) return;
+    if (!editAtivSelectedTipo) return showToast('Selecione o tipo', 'warning');
+    const descricao = document.getElementById('edit_ativ_desc').value.trim();
+    if (!descricao) return showToast('Descreva a atividade', 'warning');
+    const prazo = document.getElementById('edit_ativ_prazo').value || null;
+    const contato = document.getElementById('edit_ativ_contato').value || null;
+
+    try {
+        const resp = await fetch(`/api/leads/atividades/${atividadeId}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tipo: editAtivSelectedTipo,
+                descricao,
+                data_prazo: prazo,
+                id_contato: contato,
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('modal_editar_atividade').close();
+            showToast('Atividade atualizada!', 'success');
+            loadTabAtividades(selectedLeadId);
+        } else {
+            showToast(data.message || 'Erro ao salvar', 'error');
+        }
+    } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 async function melhorarTextoModal() {

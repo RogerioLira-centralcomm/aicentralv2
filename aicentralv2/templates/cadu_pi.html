@@ -21,8 +21,11 @@
         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
         {% elif origem_lista == 'nf_emitida' %}
         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">NF Emitida</span>
-        {% elif origem_lista == 'pgto_realizado' %}
-        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Pagamento Realizado</span>
+        <div class="flex items-center gap-1 ml-2">
+          <button onclick="filtrarNfStatus('')" class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors {% if not nf_status_filtro %}bg-gray-700 text-white ring-1 ring-gray-700{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Todos</button>
+          <button onclick="filtrarNfStatus('1')" class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors {% if nf_status_filtro == '1' %}bg-yellow-500 text-white ring-1 ring-yellow-500{% else %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200{% endif %}">NF Emitida</button>
+          <button onclick="filtrarNfStatus('3')" class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors {% if nf_status_filtro == '3' %}bg-green-500 text-white ring-1 ring-green-500{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}">Pgto Realizado</button>
+        </div>
         {% endif %}
       </div>
 
@@ -111,7 +114,7 @@
             <th class="font-semibold text-center" style="width: 90px;">Período</th>
             <th class="font-semibold text-center" style="width: 50px;">Camp.</th>
             <th class="font-semibold text-right" style="width: 140px;">Bruto / Líquido</th>
-            {% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'pgto_realizado'] %}
+            {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
             <th class="font-semibold text-center" style="width: 110px;">Nota Fiscal</th>
             {% endif %}
           </tr>
@@ -230,7 +233,7 @@
                 {% endif %}
               </div>
             </td>
-            {% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'pgto_realizado'] %}
+            {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
             <td class="text-center" onclick="event.stopPropagation()">
               {% set pi_info = {
                 'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
@@ -241,11 +244,24 @@
                 'valorLiquido': pi.valor_liquido or ''
               } %}
               {% if pi.get('nf_id') %}
-                {% if origem_lista in ['nf_emitida', 'pgto_realizado'] %}
+                {% if origem_lista == 'nf_emitida' and pi.nf_status == 1 %}
+              <div class="inline-flex items-center gap-1">
+              <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, true)'
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                      title="Ver Nota Fiscal">
+                <i class="fa-solid fa-eye text-[10px]"></i>
+                Ver
+              </button>
               <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
-                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
-                        {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
-                        {% elif pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
+                      class="nf-status-btn inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] font-medium bg-green-100 text-green-700 hover:bg-green-200"
+                      title="Registrar pagamento">
+                <i class="fa-solid fa-dollar-sign text-[10px]"></i>
+              </button>
+              </div>
+                {% elif origem_lista == 'nf_emitida' %}
+              <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
+                      class="nf-status-btn inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
+                        {% if pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
                         {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
                         {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
                       title="Alterar status de pagamento">
@@ -285,7 +301,7 @@
           </tr>
           {% if sub_status_atual|string != '1' %}
           <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
-            <td colspan="{% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'pgto_realizado'] %}8{% else %}7{% endif %}" class="p-0">
+            <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}8{% else %}7{% endif %}" class="p-0">
               <div class="bg-blue-50/50 px-4 py-3 border-t border-blue-100">
                 <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">
                   <i class="fa-solid fa-spinner fa-spin text-blue-400 mr-2"></i>
@@ -314,9 +330,11 @@
       <div class="p-8 text-center">
         <i class="fas fa-file-contract text-4xl text-gray-300 mb-3"></i>
         <p class="text-gray-500">Nenhum PI encontrado.</p>
+        {% if origem_lista != 'nf_emitida' %}
         <a href="{{ url_for('cadu_pi_novo') }}" class="btn btn-sm mt-4 text-white" style="background-color: #72cd80;">
           <i class="fas fa-plus mr-2"></i>Criar PI
         </a>
+        {% endif %}
       </div>
     {% endif %}
   </div>
@@ -705,7 +723,7 @@ function fmtDateInput(dt) {
   return dt;
 }
 
-function abrirModalNf(idPi, nfId, piInfo) {
+function abrirModalNf(idPi, nfId, piInfo, readonly) {
   document.getElementById('nf_id_pi').value = idPi;
   document.getElementById('nf_id').value = nfId || '';
   document.getElementById('nf_numero_nota').value = '';
@@ -723,9 +741,14 @@ function abrirModalNf(idPi, nfId, piInfo) {
   document.getElementById('nf_info_cnpj').textContent = piInfo.cnpj || '-';
 
   var editWrapper = document.getElementById('nf_edit_fields_wrapper');
+  var btnSalvar = document.getElementById('btn_salvar_nf');
+  var formFields = document.querySelectorAll('#modal_nf input:not([type=hidden]), #modal_nf select');
+
+  formFields.forEach(function(f) { f.disabled = false; });
+  btnSalvar.classList.remove('hidden');
 
   if (nfId) {
-    document.getElementById('modal_nf_title').textContent = 'Editar Nota Fiscal';
+    document.getElementById('modal_nf_title').textContent = readonly ? 'Ver Nota Fiscal' : 'Editar Nota Fiscal';
     editWrapper.classList.remove('hidden');
     fetch('/api/cadu_pi_nota_fiscal/' + nfId)
       .then(r => r.json())
@@ -737,6 +760,10 @@ function abrirModalNf(idPi, nfId, piInfo) {
         document.getElementById('nf_data_pagamento_realizado').value = fmtDateInput(nf.data_pagamento_realizado);
         document.getElementById('nf_mes_ref_comp').value = nf.mes_ref_comp || piInfo.mesRef || '';
         document.getElementById('nf_status').value = nf.status || '';
+        if (readonly) {
+          formFields.forEach(function(f) { f.disabled = true; });
+          btnSalvar.classList.add('hidden');
+        }
       })
       .catch(() => {});
   } else {
@@ -782,8 +809,24 @@ function toggleDataPgtoRealizado() {
   }
 }
 
+var NF_STATUS_MAP = {1: 'NF Emitida', 2: 'Aguardando Pagamento', 3: 'Pagamento Realizado'};
+var NF_STATUS_COLORS = {
+  1: {bg: 'bg-yellow-100', text: 'text-yellow-700', hover: 'hover:bg-yellow-200'},
+  2: {bg: 'bg-blue-100', text: 'text-blue-700', hover: 'hover:bg-blue-200'},
+  3: {bg: 'bg-green-100', text: 'text-green-700', hover: 'hover:bg-green-200'}
+};
+
+function filtrarNfStatus(status) {
+  var params = new URLSearchParams(window.location.search);
+  if (status) params.set('nf_status', status);
+  else params.delete('nf_status');
+  params.set('origem', 'nf_emitida');
+  window.location.href = '/cadu_pi?' + params.toString();
+}
+
 function salvarAlteracaoStatusNf() {
   var nfId = document.getElementById('alt_nf_id').value;
+  var idPi = document.getElementById('alt_nf_id_pi').value;
   var status = document.getElementById('alt_nf_status').value;
 
   if (!status) {
@@ -791,8 +834,9 @@ function salvarAlteracaoStatusNf() {
     return;
   }
 
+  var statusInt = parseInt(status);
   var data = {
-    status: parseInt(status),
+    status: statusInt,
     data_pagamento_previsto: document.getElementById('alt_data_pagamento_previsto').value || null,
     data_pagamento_realizado: document.getElementById('alt_data_pagamento_realizado').value || null
   };
@@ -808,7 +852,21 @@ function salvarAlteracaoStatusNf() {
   })
   .then(() => {
     document.getElementById('modal_alterar_status_nf').close();
-    window.location.reload();
+
+    var row = document.getElementById('pi-' + idPi);
+    if (row) {
+      var btn = row.querySelector('.nf-status-btn');
+      if (btn) {
+        var colors = NF_STATUS_COLORS[statusInt] || {bg: 'bg-gray-100', text: 'text-gray-600', hover: 'hover:bg-gray-200'};
+        btn.className = 'nf-status-btn inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium ' + colors.bg + ' ' + colors.text + ' ' + colors.hover;
+        var textNode = btn.querySelector('i');
+        if (textNode && textNode.nextSibling) {
+          textNode.nextSibling.textContent = ' ' + (NF_STATUS_MAP[statusInt] || 'Ver');
+        }
+      }
+    }
+
+    showToast('Status atualizado com sucesso', 'success');
   })
   .catch(err => {
     showToast('Erro ao alterar status: ' + err.message, 'error');

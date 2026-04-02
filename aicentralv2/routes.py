@@ -8289,7 +8289,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             origem_lista = request.args.get('origem', '')
 
-            if origem_lista in ('nf_emitida', 'pgto_realizado'):
+            if origem_lista == 'nf_emitida':
                 status_nf_emitida = db.obter_status_pi_por_descricao('NF Emitida')
                 if status_nf_emitida:
                     filtros['id_status_pi'] = status_nf_emitida['id']
@@ -8305,8 +8305,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             pis = db.obter_cadu_pi_lista(filtros)
 
-            if origem_lista == 'pgto_realizado':
-                pis = [pi for pi in (pis or []) if pi.get('nf_status') == 3]
+            nf_status_filtro = request.args.get('nf_status', '')
+            if origem_lista == 'nf_emitida' and nf_status_filtro:
+                nf_status_filtro_int = int(nf_status_filtro)
+                pis = [pi for pi in (pis or []) if pi.get('nf_status') == nf_status_filtro_int]
 
             status_pi = db.obter_status_pi()
             meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
@@ -8320,7 +8322,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    filtros=filtros,
                                    statuses_nf=statuses_nf,
                                    user_is_executivo=user_is_executivo,
-                                   origem_lista=origem_lista)
+                                   origem_lista=origem_lista,
+                                   nf_status_filtro=nf_status_filtro)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
             flash('Erro ao carregar lista de PIs.', 'error')

@@ -7589,6 +7589,18 @@ def obter_status_pi():
         raise e
 
 
+def obter_status_pi_por_descricao(descricao):
+    """Retorna o status de PI pela descricao"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id FROM cadu_pi_aux_status WHERE descricao = %s LIMIT 1', (descricao,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_sub_status_pi():
     """Retorna todos os sub-status de PI"""
     conn = get_db()

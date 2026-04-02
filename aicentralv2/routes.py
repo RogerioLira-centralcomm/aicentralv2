@@ -8289,6 +8289,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             origem_lista = request.args.get('origem', '')
 
+            if origem_lista in ('nf_emitida', 'pgto_realizado'):
+                status_nf_emitida = db.obter_status_pi_por_descricao('NF Emitida')
+                if status_nf_emitida:
+                    filtros['id_status_pi'] = status_nf_emitida['id']
+
             if filtros.get('id_cliente'):
                 cli_info = db.obter_cliente_por_id(filtros['id_cliente'])
                 if cli_info:
@@ -8299,6 +8304,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             user_is_executivo = any(v.get('id_contato_cliente') == user_id for v in (vendedores or []))
 
             pis = db.obter_cadu_pi_lista(filtros)
+
+            if origem_lista == 'pgto_realizado':
+                pis = [pi for pi in (pis or []) if pi.get('nf_status') == 3]
+
             status_pi = db.obter_status_pi()
             meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
             statuses_nf = db.obter_nota_fiscal_status()

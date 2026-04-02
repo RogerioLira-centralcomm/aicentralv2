@@ -325,7 +325,8 @@
                         </div>
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=4, origem='faturamento') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4' and request.args.get('origem') == 'faturamento' %}active{% endif %}">Em faturamento</a></li>
-                            <li><a href="{{ url_for('notas_fiscais_lista') }}" class="{% if request.endpoint == 'notas_fiscais_lista' %}active{% endif %}">Notas Fiscais</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', origem='nf_emitida') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida' %}active{% endif %}">NF Emitida</a></li>
+                            <li><a href="{{ url_for('cadu_pi_lista', origem='pgto_realizado') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'pgto_realizado' %}active{% endif %}">Pagamento Realizado</a></li>
                         </ul>
                     </div>
 
@@ -525,7 +526,7 @@
 
                         <!-- Faturamento -->
                         <li class="mt-2">
-                            <details {% if request.endpoint == 'notas_fiscais_lista' or (request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4') %}open{% endif %}>
+                            <details {% if (request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '4') or (request.endpoint == 'cadu_pi_lista' and request.args.get('origem') in ['nf_emitida', 'pgto_realizado']) %}open{% endif %}>
                                 <summary>Faturamento</summary>
                                 <ul>
                                     <li>
@@ -534,8 +535,13 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url_for('notas_fiscais_lista') }}" class="{% if request.endpoint == 'notas_fiscais_lista' %}active{% endif %}">
-                                            Notas Fiscais
+                                        <a href="{{ url_for('cadu_pi_lista', origem='nf_emitida') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'nf_emitida' %}active{% endif %}">
+                                            NF Emitida
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_lista', origem='pgto_realizado') }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('origem') == 'pgto_realizado' %}active{% endif %}">
+                                            Pagamento Realizado
                                         </a>
                                     </li>
                                 </ul>

@@ -19,6 +19,10 @@
         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Em andamento</span>
         {% elif sub_status_atual|string == '4' %}
         <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
+        {% elif origem_lista == 'nf_emitida' %}
+        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">NF Emitida</span>
+        {% elif origem_lista == 'pgto_realizado' %}
+        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Pagamento Realizado</span>
         {% endif %}
       </div>
 
@@ -107,7 +111,7 @@
             <th class="font-semibold text-center" style="width: 90px;">Período</th>
             <th class="font-semibold text-center" style="width: 50px;">Camp.</th>
             <th class="font-semibold text-right" style="width: 140px;">Bruto / Líquido</th>
-            {% if sub_status_atual|string == '4' %}
+            {% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'pgto_realizado'] %}
             <th class="font-semibold text-center" style="width: 110px;">Nota Fiscal</th>
             {% endif %}
           </tr>
@@ -226,7 +230,7 @@
                 {% endif %}
               </div>
             </td>
-            {% if sub_status_atual|string == '4' %}
+            {% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'pgto_realizado'] %}
             <td class="text-center" onclick="event.stopPropagation()">
               {% set pi_info = {
                 'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
@@ -237,6 +241,18 @@
                 'valorLiquido': pi.valor_liquido or ''
               } %}
               {% if pi.get('nf_id') %}
+                {% if origem_lista in ['nf_emitida', 'pgto_realizado'] %}
+              <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
+                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
+                        {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
+                        {% elif pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
+                        {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
+                        {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
+                      title="Alterar status de pagamento">
+                <i class="fa-solid fa-file-invoice text-[10px]"></i>
+                {{ pi.nf_status_descricao or 'Ver' }}
+              </button>
+                {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
                       class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
                         {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
@@ -247,6 +263,7 @@
                 <i class="fa-solid fa-file-invoice text-[10px]"></i>
                 {{ pi.nf_status_descricao or 'Ver' }}
               </button>
+                {% endif %}
               {% else %}
                 {% if origem_lista == 'operacao' %}
               <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 text-gray-500">
@@ -268,7 +285,7 @@
           </tr>
           {% if sub_status_atual|string != '1' %}
           <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
-            <td colspan="{% if sub_status_atual|string == '4' %}8{% else %}7{% endif %}" class="p-0">
+            <td colspan="{% if sub_status_atual|string == '4' or origem_lista in ['nf_emitida', 'pgto_realizado'] %}8{% else %}7{% endif %}" class="p-0">
               <div class="bg-blue-50/50 px-4 py-3 border-t border-blue-100">
                 <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">
                   <i class="fa-solid fa-spinner fa-spin text-blue-400 mr-2"></i>
@@ -386,6 +403,58 @@
     <div class="modal-action">
       <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
       <button class="btn btn-primary btn-sm" id="btn_salvar_nf" onclick="salvarNf()">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Modal Alterar Status NF -->
+<dialog id="modal_alterar_status_nf" class="modal">
+  <div class="modal-box max-w-md">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">Alterar Status de Pagamento</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+    </div>
+    <input type="hidden" id="alt_nf_id_pi">
+    <input type="hidden" id="alt_nf_id">
+    <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
+      <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div>
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
+          <span class="text-sm font-mono font-semibold text-blue-600" id="alt_info_cod_pi">-</span>
+        </div>
+        <div>
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">NF Número</span>
+          <span class="text-sm text-gray-600 font-mono" id="alt_info_nf_numero">-</span>
+        </div>
+        <div class="col-span-2">
+          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
+          <span class="text-sm text-gray-800" id="alt_info_cliente">-</span>
+        </div>
+      </div>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Status <span class="text-red-500">*</span></label>
+        <select id="alt_nf_status" onchange="toggleDataPgtoRealizado()" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+          <option value="">Selecione</option>
+          {% for st in statuses_nf %}
+          <option value="{{ st.id }}">{{ st.descricao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Previsto</label>
+        <input type="date" id="alt_data_pagamento_previsto" class="input input-bordered input-sm w-full" onclick="this.showPicker()">
+      </div>
+      <div id="alt_data_pgto_realizado_wrapper" class="hidden">
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Realizado</label>
+        <input type="date" id="alt_data_pagamento_realizado" class="input input-bordered input-sm w-full" onclick="this.showPicker()">
+      </div>
+    </div>
+    <div class="modal-action">
+      <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
+      <button class="btn btn-primary btn-sm" onclick="salvarAlteracaoStatusNf()">Salvar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -676,6 +745,74 @@ function abrirModalNf(idPi, nfId, piInfo) {
   }
 
   document.getElementById('modal_nf').showModal();
+}
+
+function abrirModalAlterarStatus(idPi, nfId, piInfo, nfStatus, nfStatusDesc) {
+  var today = new Date().toISOString().split('T')[0];
+  document.getElementById('alt_nf_id_pi').value = idPi;
+  document.getElementById('alt_nf_id').value = nfId;
+  document.getElementById('alt_info_cod_pi').textContent = piInfo.codPi || '-';
+  document.getElementById('alt_info_cliente').textContent = piInfo.cliente || '-';
+  document.getElementById('alt_info_nf_numero').textContent = '...';
+  document.getElementById('alt_nf_status').value = '3';
+  document.getElementById('alt_data_pagamento_previsto').value = today;
+  document.getElementById('alt_data_pagamento_realizado').value = today;
+  toggleDataPgtoRealizado();
+
+  fetch('/api/cadu_pi_nota_fiscal/' + nfId)
+    .then(r => r.json())
+    .then(nf => {
+      document.getElementById('alt_info_nf_numero').textContent = nf.numero_nota || '-';
+      if (nf.data_pagamento_previsto) {
+        document.getElementById('alt_data_pagamento_previsto').value = fmtDateInput(nf.data_pagamento_previsto);
+      }
+    })
+    .catch(() => {});
+
+  document.getElementById('modal_alterar_status_nf').showModal();
+}
+
+function toggleDataPgtoRealizado() {
+  var status = document.getElementById('alt_nf_status').value;
+  var wrapper = document.getElementById('alt_data_pgto_realizado_wrapper');
+  if (status === '3') {
+    wrapper.classList.remove('hidden');
+  } else {
+    wrapper.classList.add('hidden');
+  }
+}
+
+function salvarAlteracaoStatusNf() {
+  var nfId = document.getElementById('alt_nf_id').value;
+  var status = document.getElementById('alt_nf_status').value;
+
+  if (!status) {
+    showToast('Selecione um status', 'warning');
+    return;
+  }
+
+  var data = {
+    status: parseInt(status),
+    data_pagamento_previsto: document.getElementById('alt_data_pagamento_previsto').value || null,
+    data_pagamento_realizado: document.getElementById('alt_data_pagamento_realizado').value || null
+  };
+
+  fetch('/api/cadu_pi_nota_fiscal/' + nfId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(r => {
+    if (!r.ok) throw new Error('Erro ao salvar');
+    return r.json();
+  })
+  .then(() => {
+    document.getElementById('modal_alterar_status_nf').close();
+    window.location.reload();
+  })
+  .catch(err => {
+    showToast('Erro ao alterar status: ' + err.message, 'error');
+  });
 }
 
 function salvarNf() {

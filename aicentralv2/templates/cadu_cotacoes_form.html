@@ -740,6 +740,20 @@ document.getElementById('cotacao_form').addEventListener('submit', function(e) {
       }
     }
   });
+
+  const statusSelect = document.querySelector('select[name="status"]');
+  const statusAtual = '{{ cotacao.status if cotacao else "" }}';
+  if (statusSelect && statusSelect.value === 'Aprovada' && statusAtual !== 'Aprovada') {
+    const confirmou = confirm(
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
+      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
+      'Deseja continuar com a aprovação?'
+    );
+    if (!confirmou) {
+      e.preventDefault();
+      return false;
+    }
+  }
 });
 
 document.addEventListener('DOMContentLoaded', function() {

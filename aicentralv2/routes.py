@@ -4801,7 +4801,27 @@ def init_routes(app):
                 # Remover None values para evitar conflitos
                 update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None and v != ''}
 
+                novo_status = update_kwargs.get('status')
+                status_anterior = cotacao.get('status')
+                if novo_status == 'Aprovada' and status_anterior != 'Aprovada':
+                    from datetime import datetime as dt_now
+                    update_kwargs['aprovada_em'] = dt_now.now()
+
                 db.atualizar_cotacao(cotacao_id=cotacao_id, **update_kwargs)
+
+                if novo_status == 'Aprovada' and status_anterior != 'Aprovada':
+                    try:
+                        id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id)
+                        if id_pi_gerado:
+                            app.logger.info(f"PI {id_pi_gerado} gerado automaticamente para cotação {cotacao_id} (formulário edição)")
+                            flash(f'Cotação aprovada e PI #{id_pi_gerado} gerado com sucesso!', 'success')
+                        else:
+                            flash('Cotação aprovada. PI já existente para esta cotação.', 'warning')
+                    except Exception as pi_err:
+                        app.logger.error(f"Erro ao gerar PI da cotação {cotacao_id}: {pi_err}", exc_info=True)
+                        flash('Cotação aprovada, mas houve erro ao gerar PI automaticamente.', 'warning')
+                else:
+                    flash('Cotação atualizada com sucesso!', 'success')
 
                 registrar_auditoria(
                     acao='UPDATE',
@@ -4813,7 +4833,6 @@ def init_routes(app):
                     dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total}
                 )
 
-                flash('Cotação atualizada com sucesso!', 'success')
                 return redirect(url_for('cotacoes_list'))
 
             clientes = db.obter_clientes_simples()
@@ -4880,8 +4899,28 @@ def init_routes(app):
                         'condicoes_comerciais': request.form.get('condicoes_comerciais')
                     }
                     
+                    novo_status = dados.get('status')
+                    status_anterior = cotacao.get('status') if cotacao else None
+                    if novo_status == 'Aprovada' and status_anterior != 'Aprovada':
+                        from datetime import datetime as dt_now
+                        dados['aprovada_em'] = dt_now.now()
+
                     db.atualizar_cotacao(cotacao_id, **dados)
-                    flash('Cotação atualizada com sucesso!', 'success')
+
+                    if novo_status == 'Aprovada' and status_anterior != 'Aprovada':
+                        try:
+                            id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id)
+                            if id_pi_gerado:
+                                app.logger.info(f"PI {id_pi_gerado} gerado automaticamente para cotação {cotacao_id} (detalhes POST)")
+                                flash(f'Cotação aprovada e PI #{id_pi_gerado} gerado com sucesso!', 'success')
+                            else:
+                                flash('Cotação aprovada. PI já existente para esta cotação.', 'warning')
+                        except Exception as pi_err:
+                            app.logger.error(f"Erro ao gerar PI da cotação {cotacao_id}: {pi_err}", exc_info=True)
+                            flash('Cotação aprovada, mas houve erro ao gerar PI automaticamente.', 'warning')
+                    else:
+                        flash('Cotação atualizada com sucesso!', 'success')
+
                     return redirect(url_for('cotacao_detalhes', cotacao_id=cotacao_id))
                     
                 except Exception as e:
@@ -5411,14 +5450,16 @@ def init_routes(app):
             obs_final = obs_existentes + nova_obs
             
             # Atualizar status para Aprovada
+            agora = datetime.now()
             with conn.cursor() as cursor:
                 cursor.execute('''
                     UPDATE cadu_cotacoes 
                     SET status = 'Aprovada',
+                        aprovada_em = %s,
                         observacoes = %s,
                         updated_at = %s
                     WHERE id = %s
-                ''', (obs_final.strip(), datetime.now(), cotacao['id']))
+                ''', (agora, obs_final.strip(), agora, cotacao['id']))
                 conn.commit()
             
             app.logger.info(f"Cotação {cotacao['id']} aprovada via link público")
@@ -10552,8 +10593,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/cadu_pi_nota_fiscal', methods=['POST'])
     @login_required
     def api_criar_nota_fiscal():
-        data = request.json
+        data = request.json or {}
         id_pi = data.get('id_pi')
+
+        if not str(data.get('numero_nota') or '').strip():
+            return jsonify({'error': 'Número da nota fiscal é obrigatório.'}), 400
 
         if data.get('data_emissao'):
             from datetime import datetime
@@ -10564,8 +10608,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 pass
 
         conn = db.get_db()
-        try:
-            with conn.cursor() as cursor:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT id FROM cadu_pi_nota_fiscal_status WHERE descricao = %s LIMIT 1',
+                ('Pagamento Realizado',)
+            )
+            row_pg = cursor.fetchone()
+            id_pag_realizado = row_pg['id'] if row_pg else None
+
+            status_sent = data.get('status')
+            if status_sent is None or status_sent == '' or (
+                isinstance(status_sent, str) and not str(status_sent).strip()
+            ):
                 cursor.execute(
                     'SELECT id FROM cadu_pi_nota_fiscal_status WHERE descricao = %s LIMIT 1',
                     ('NF Emitida',)
@@ -10573,17 +10627,27 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 row = cursor.fetchone()
                 if row:
                     data['status'] = row['id']
+            else:
+                try:
+                    data['status'] = int(status_sent)
+                except (TypeError, ValueError):
+                    return jsonify({'error': 'Status inválido.'}), 400
 
-                if id_pi:
-                    cursor.execute(
-                        'SELECT googled_pi_arq_ass FROM cadu_pi WHERE id_pi = %s',
-                        (id_pi,)
-                    )
-                    pi_row = cursor.fetchone()
-                    if pi_row:
-                        data['googled_pi_arq_ass'] = pi_row.get('googled_pi_arq_ass')
-        except Exception:
-            pass
+            if id_pag_realizado is not None and data.get('status') == id_pag_realizado:
+                dpr = data.get('data_pagamento_realizado')
+                if not dpr or not str(dpr).strip():
+                    return jsonify({
+                        'error': 'Para o status Pagamento Realizado a data de pagamento realizado é obrigatória.'
+                    }), 400
+
+            if id_pi:
+                cursor.execute(
+                    'SELECT googled_pi_arq_ass FROM cadu_pi WHERE id_pi = %s',
+                    (id_pi,)
+                )
+                pi_row = cursor.fetchone()
+                if pi_row:
+                    data['googled_pi_arq_ass'] = pi_row.get('googled_pi_arq_ass')
 
         novo_id = db.criar_nota_fiscal(data)
 
@@ -10607,7 +10671,54 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>', methods=['PUT'])
     @login_required
     def api_atualizar_nota_fiscal(id_nota):
-        data = request.json
+        data = request.json or {}
+        nota = db.obter_nota_fiscal_por_id(id_nota)
+        if not nota:
+            abort(404)
+
+        def _fmt_date_val(v):
+            if v is None:
+                return None
+            if hasattr(v, 'strftime'):
+                return v.strftime('%Y-%m-%d')
+            s = str(v).strip()
+            return s if s else None
+
+        merged_numero = data['numero_nota'] if 'numero_nota' in data else nota.get('numero_nota')
+        if merged_numero is None or not str(merged_numero).strip():
+            return jsonify({'error': 'Número da nota fiscal é obrigatório.'}), 400
+
+        conn = db.get_db()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT id FROM cadu_pi_nota_fiscal_status WHERE descricao = %s LIMIT 1',
+                ('Pagamento Realizado',)
+            )
+            row_pg = cursor.fetchone()
+            id_pag_realizado = row_pg['id'] if row_pg else None
+
+        merged_status = data['status'] if 'status' in data else nota.get('status')
+        if merged_status is not None:
+            try:
+                merged_status = int(merged_status)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Status inválido.'}), 400
+
+        if 'data_pagamento_realizado' in data:
+            raw_dpr = data.get('data_pagamento_realizado')
+            if raw_dpr is None or (isinstance(raw_dpr, str) and not raw_dpr.strip()):
+                dpr_merged = None
+            else:
+                dpr_merged = _fmt_date_val(raw_dpr)
+        else:
+            dpr_merged = _fmt_date_val(nota.get('data_pagamento_realizado'))
+
+        if id_pag_realizado is not None and merged_status == id_pag_realizado:
+            if not dpr_merged:
+                return jsonify({
+                    'error': 'Para o status Pagamento Realizado a data de pagamento realizado é obrigatória.'
+                }), 400
+
         ok = db.atualizar_nota_fiscal(id_nota, data)
         if not ok:
             abort(404)

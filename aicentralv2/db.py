@@ -6574,15 +6574,15 @@ def obter_clientes_paginado(page=1, per_page=25, filtros=None):
                     COUNT(DISTINCT cot.id) FILTER (
                         WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
                     ) AS cotacoes_mes,
-                    -- Cotações aprovadas do mês (status = '3' = Aprovada)
+                    -- Cotações aprovadas do mês
                     COUNT(DISTINCT cot.id) FILTER (
                         WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
-                        AND cot.status = '3'
+                        AND cot.status = 'Aprovada'
                     ) AS cotacoes_aprovadas_mes,
                     -- Valor total aprovado no mês
                     COALESCE(SUM(cot.valor_total_proposta) FILTER (
                         WHERE cot.created_at >= DATE_TRUNC('month', CURRENT_DATE)
-                        AND cot.status = '3'
+                        AND cot.status = 'Aprovada'
                     ), 0) AS valor_aprovado_mes,
                     -- Briefings do mês
                     COUNT(DISTINCT b.id) FILTER (

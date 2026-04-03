@@ -511,6 +511,11 @@ function salvarPagamentoRapido() {
   var nfId = document.getElementById('pnf_id').value;
   var statusVal = document.getElementById('pnf_status').value;
   var dataPag = document.getElementById('pnf_data_pagamento').value;
+  var numTxt = (document.getElementById('pnf_numero_nota').textContent || '').trim();
+  if (!numTxt || numTxt === '-') {
+    showToast('Não é possível confirmar pagamento sem número de nota fiscal.', 'warning');
+    return;
+  }
 
   if (!dataPag) {
     showToast('Informe a data de pagamento realizado.', 'warning');
@@ -630,6 +635,13 @@ function salvarNfView() {
   var idPi = document.getElementById('vnf_id_pi').value;
   var statusVal = document.getElementById('vnf_status').value;
   var dataPagReal = document.getElementById('vnf_data_pagamento_realizado').value;
+  var numeroNota = document.getElementById('vnf_numero_nota').value.trim();
+
+  if (!numeroNota) {
+    showToast('O número da nota fiscal é obrigatório.', 'warning');
+    document.getElementById('vnf_numero_nota').focus();
+    return;
+  }
 
   if (statusVal === STATUS_PAG_REALIZADO && !dataPagReal) {
     showToast('Para o status "Pagamento Realizado" é obrigatório preencher a data de pagamento realizado.', 'warning');
@@ -638,7 +650,7 @@ function salvarNfView() {
   }
 
   var data = {
-    numero_nota: document.getElementById('vnf_numero_nota').value.trim(),
+    numero_nota: numeroNota,
     valor: document.getElementById('vnf_valor').value.trim(),
     data_emissao: document.getElementById('vnf_data_emissao').value || null,
     data_pagamento_previsto: document.getElementById('vnf_data_pagamento').value || null,

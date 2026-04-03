@@ -800,15 +800,37 @@ function limparMensagemIA() {
 
 async function moverCotacaoStatus(novoStatus) {
   if (!novoStatus || !cotacaoAtualId) return;
+
+  if (novoStatus === 'Aprovada') {
+    const confirmou = confirm(
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
+      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
+      'Deseja continuar com a aprovação?'
+    );
+    if (!confirmou) {
+      document.getElementById('modal_mover_status').value = '';
+      return;
+    }
+  }
+
   try {
+    const payload = { status: novoStatus };
+    if (novoStatus === 'Aprovada') {
+      payload.aprovada_em = new Date().toISOString();
+    }
+
     const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: novoStatus })
+      body: JSON.stringify(payload)
     });
     const result = await response.json();
     if (result.success) {
-      showToast('Status atualizado', 'success');
+      if (result.id_pi) {
+        showToast(`Cotação aprovada e PI #${result.id_pi} gerado!`, 'success');
+      } else {
+        showToast('Status atualizado', 'success');
+      }
       document.getElementById('modal_cotacao').close();
       location.reload();
     } else {
@@ -822,9 +844,12 @@ async function moverCotacaoStatus(novoStatus) {
 function aprovarCotacao() {
   acaoPendente = 'aprovar';
   document.getElementById('confirmar_titulo').textContent = 'Aprovar Cotação';
-  document.getElementById('confirmar_mensagem').textContent = `Confirma a aprovação da cotação ${cotacaoAtualData?.numero_cotacao}?`;
+  document.getElementById('confirmar_mensagem').innerHTML = 
+    `Confirma a aprovação da cotação <strong>${cotacaoAtualData?.numero_cotacao}</strong>?<br><br>` +
+    `<span class="text-amber-600 text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>` +
+    `Um PI será gerado automaticamente. Após a geração, não será possível reverter o status.</span>`;
   document.getElementById('confirmar_btn').className = 'px-4 py-2 text-sm text-white rounded bg-green-600 hover:bg-green-700';
-  document.getElementById('confirmar_btn').textContent = 'Aprovar';
+  document.getElementById('confirmar_btn').textContent = 'Aprovar e Gerar PI';
   document.getElementById('confirmar_motivo').value = '';
   document.getElementById('modal_confirmar').showModal();
 }
@@ -844,10 +869,15 @@ async function executarAcaoConfirmada() {
   const novoStatus = acaoPendente === 'aprovar' ? 'Aprovada' : 'Rejeitada';
   
   try {
+    const payload = { status: novoStatus };
+    if (novoStatus === 'Aprovada') {
+      payload.aprovada_em = new Date().toISOString();
+    }
+
     const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: novoStatus })
+      body: JSON.stringify(payload)
     });
     const result = await response.json();
     
@@ -859,7 +889,11 @@ async function executarAcaoConfirmada() {
           body: JSON.stringify({ comentario: `[${novoStatus.toUpperCase()}] ${motivo}` })
         });
       }
-      showToast(`Cotação ${novoStatus.toLowerCase()}`, 'success');
+      if (result.id_pi) {
+        showToast(`Cotação aprovada e PI #${result.id_pi} gerado!`, 'success');
+      } else {
+        showToast(`Cotação ${novoStatus.toLowerCase()}`, 'success');
+      }
       document.getElementById('modal_confirmar').close();
       document.getElementById('modal_cotacao').close();
       location.reload();

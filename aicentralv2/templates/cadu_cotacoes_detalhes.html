@@ -470,7 +470,7 @@ function calcularInvestLiquidoEdit() {
       <!-- Status + Ações (direita) -->
       <div class="flex items-center gap-3 flex-shrink-0">
         {% if cotacao %}
-        <select id="status_header_select" class="text-sm bg-gray-50 border border-gray-200 rounded-md pl-3 pr-8 py-1 text-gray-700 font-medium focus:outline-none focus:border-gray-400 cursor-pointer appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23666%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;" onchange="alterarStatusCotacao(this.value)">
+        <select id="status_header_select" data-status-atual="{{ cotacao.status }}" class="text-sm bg-gray-50 border border-gray-200 rounded-md pl-3 pr-8 py-1 text-gray-700 font-medium focus:outline-none focus:border-gray-400 cursor-pointer appearance-none" style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23666%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1em;" onchange="alterarStatusCotacao(this.value)">
           <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
           <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
           <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
@@ -2172,29 +2172,53 @@ async function alterarStatusCotacao(novoStatus) {
     showToast('Cotação não encontrada', 'error');
     return;
   }
+
+  const selectEl = document.getElementById('status_header_select');
+  const statusAnterior = selectEl ? selectEl.dataset.statusAtual : '';
+
+  if (novoStatus === 'Aprovada' && statusAnterior !== 'Aprovada') {
+    const confirmou = confirm(
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
+      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
+      'Deseja continuar com a aprovação?'
+    );
+    if (!confirmou) {
+      if (selectEl) selectEl.value = statusAnterior;
+      return;
+    }
+  }
   
   try {
+    const payload = { status: novoStatus };
+    if (novoStatus === 'Aprovada') {
+      payload.aprovada_em = new Date().toISOString();
+    }
+
     const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: novoStatus })
+      body: JSON.stringify(payload)
     });
     
     const result = await response.json();
     if (result.success) {
-      showToast(`Status alterado para "${novoStatus}"`, 'success');
-      // Atualizar dinamicamente os botões de Aprovar/Rejeitar
+      if (result.id_pi) {
+        showToast(`Cotação aprovada e PI #${result.id_pi} gerado com sucesso!`, 'success');
+      } else {
+        showToast(`Status alterado para "${novoStatus}"`, 'success');
+      }
+      if (selectEl) selectEl.dataset.statusAtual = novoStatus;
       atualizarBotoesAprovarRejeitar(novoStatus);
-      // Atualizar visibilidade dos elementos de edição
       atualizarElementosEdicao(novoStatus);
-      // Atualizar opções do select de tipo de email
       atualizarSelectTipoEmail(novoStatus);
     } else {
       showToast('Erro ao alterar status: ' + (result.message || 'Erro desconhecido'), 'error');
+      if (selectEl) selectEl.value = statusAnterior;
     }
   } catch (error) {
     console.error('Erro:', error);
     showToast('Erro ao alterar status', 'error');
+    if (selectEl) selectEl.value = statusAnterior;
   }
 }
 
@@ -4425,7 +4449,6 @@ async function confirmarAprovacao() {
     
     const result = await response.json();
     if (result.success) {
-      // Adicionar comentário se houver motivo
       if (motivo && motivo.trim()) {
         await fetch(`/api/cotacoes/${cotacaoId}/comentarios`, {
           method: 'POST',
@@ -4433,7 +4456,11 @@ async function confirmarAprovacao() {
           body: JSON.stringify({ comentario: `[APROVAÇÃO] ${motivo}` })
         });
       }
-      showToast('Cotação aprovada com sucesso!', 'success');
+      if (result.id_pi) {
+        showToast(`Cotação aprovada e PI #${result.id_pi} gerado com sucesso!`, 'success');
+      } else {
+        showToast('Cotação aprovada com sucesso!', 'success');
+      }
       document.getElementById('modal_aprovar').close();
       setTimeout(() => location.reload(), 500);
     } else {
@@ -5110,6 +5137,12 @@ async function recalcularValorTotalCotacao() {
   <div class="modal-box">
     <h3 class="font-bold text-lg text-green-600"><i class="fas fa-check-circle mr-2"></i>Aprovar Cotação</h3>
     <p class="py-2">Confirma a aprovação desta cotação?</p>
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+      <p class="text-xs text-amber-700">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        <strong>Atenção:</strong> Um PI (Proforma Invoice) será gerado automaticamente ao aprovar. Após a geração do PI, não será possível reverter o status desta cotação.
+      </p>
+    </div>
     <div class="form-control">
       <label class="label"><span class="label-text">Observação (opcional)</span></label>
       <textarea id="motivo_aprovacao" class="textarea textarea-bordered" rows="2" placeholder="Observação sobre a aprovação..."></textarea>
@@ -5119,7 +5152,7 @@ async function recalcularValorTotalCotacao() {
         <button class="btn btn-ghost">Cancelar</button>
       </form>
       <button class="btn btn-success" onclick="confirmarAprovacao()">
-        <i class="fas fa-check mr-1"></i>Confirmar Aprovação
+        <i class="fas fa-check mr-1"></i>Aprovar e Gerar PI
       </button>
     </div>
   </div>

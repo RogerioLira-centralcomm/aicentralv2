@@ -338,19 +338,39 @@
 
     <!-- Users Engagement -->
     <div class="bg-base-100 rounded-xl border border-base-300">
-        <div class="p-4 border-b border-base-300 flex justify-between items-center">
-            <h3 class="font-semibold text-base-content">
-                <i class="fas fa-user-clock text-success mr-2"></i>
-                Usuários Mais Ativos
-            </h3>
-            <span class="badge badge-ghost">Top 20</span>
+        <div class="p-4 border-b border-base-300 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0 flex-1">
+                <h3 class="font-semibold text-base-content">
+                    <i class="fas fa-user-clock text-success mr-2"></i>
+                    Usuários Mais Ativos
+                </h3>
+                <p id="activeUsersFilterHint" class="text-xs text-base-content/60 mt-1 max-w-xl leading-relaxed">
+                    Ranking geral por sessões. Filtre por equipe interna ou por contatos de clientes.
+                </p>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+                <!-- Mesmo padrão DaisyUI que sales_war_room (_coluna_atividades): tabs-boxed -->
+                <div role="tablist" class="tabs tabs-boxed tabs-sm shadow-sm" aria-label="Filtrar usuários por perfil">
+                    <button type="button" role="tab" id="activeUsersSegAll" class="tab tab-active gap-1 px-3" data-segment="all" aria-selected="true" title="Todos os usuários no ranking">
+                        Todos
+                    </button>
+                    <button type="button" role="tab" id="activeUsersSegExt" class="tab gap-1 px-3" data-segment="external" aria-selected="false" title="Demais clientes e contatos sem empresa">
+                        <i class="fas fa-handshake text-[10px] opacity-80" aria-hidden="true"></i>Clientes
+                    </button>
+                    <button type="button" role="tab" id="activeUsersSegCc" class="tab gap-1 px-3" data-segment="centralcomm" aria-selected="false" title="Somente contatos do cliente CENTRALCOMM">
+                        <i class="fas fa-building text-[10px] opacity-80" aria-hidden="true"></i>Equipe CC
+                    </button>
+                </div>
+                <span class="badge badge-ghost whitespace-nowrap self-center">Top 20</span>
+            </div>
         </div>
         <div class="overflow-x-auto">
             <table class="table table-sm">
                 <thead>
-                    <tr>
+                    <tr id="activeUsersTableHead">
                         <th>#</th>
                         <th>Usuário</th>
+                        <th>Perfil</th>
                         <th>Cliente</th>
                         <th class="text-right">Sessões</th>
                         <th class="text-right">Tempo Total</th>
@@ -361,7 +381,7 @@
                 </thead>
                 <tbody id="activeUsersTable">
                     <tr>
-                        <td colspan="8" class="text-center py-8">
+                        <td colspan="9" class="text-center py-8">
                             <span class="loading loading-spinner loading-md"></span>
                         </td>
                     </tr>
@@ -410,9 +430,76 @@ Chart.defaults.color = '#9CA3AF';
 let sessionsChart = null;
 let briefingsCotacoesChart = null;
 let currentDays = 30;
+let activeUsersSegment = 'all';
+
+const ACTIVE_USERS_HINTS = {
+    all: 'Ranking geral por sessões. A coluna Perfil indica equipe CentralComm ou cliente externo.',
+    centralcomm: 'Top 20 entre contatos vinculados ao cliente CENTRALCOMM (mesmo critério do login interno).',
+    external: 'Top 20 entre contatos de outros clientes (inclui registros sem empresa vinculada).'
+};
+
+function syncActiveUsersTableHeader() {
+    const showPerfil = activeUsersSegment === 'all';
+    const tr = document.getElementById('activeUsersTableHead');
+    if (!tr) return;
+    tr.innerHTML = `
+        <th>#</th>
+        <th>Usuário</th>
+        ${showPerfil ? '<th>Perfil</th>' : ''}
+        <th>Cliente</th>
+        <th class="text-right">Sessões</th>
+        <th class="text-right">Tempo Total</th>
+        <th class="text-right">Pageviews</th>
+        <th class="text-right">Dias Ativos</th>
+        <th>Última Sessão</th>
+    `;
+}
+
+function activeUsersColspan() {
+    return activeUsersSegment === 'all' ? 9 : 8;
+}
+
+function updateActiveUsersSegmentButtons() {
+    const ids = [
+        { id: 'activeUsersSegAll', seg: 'all' },
+        { id: 'activeUsersSegExt', seg: 'external' },
+        { id: 'activeUsersSegCc', seg: 'centralcomm' }
+    ];
+    ids.forEach(({ id, seg }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const on = activeUsersSegment === seg;
+        el.classList.toggle('tab-active', on);
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const hint = document.getElementById('activeUsersFilterHint');
+    if (hint) {
+        hint.textContent = ACTIVE_USERS_HINTS[activeUsersSegment] || ACTIVE_USERS_HINTS.all;
+    }
+}
+
+function setActiveUsersSegment(seg) {
+    if (!['all', 'centralcomm', 'external'].includes(seg)) return;
+    activeUsersSegment = seg;
+    updateActiveUsersSegmentButtons();
+    syncActiveUsersTableHeader();
+    loadActiveUsers();
+}
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
+    syncActiveUsersTableHeader();
+    updateActiveUsersSegmentButtons();
+    ['activeUsersSegAll', 'activeUsersSegExt', 'activeUsersSegCc'].forEach((btnId) => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.addEventListener('click', function() {
+                const seg = this.getAttribute('data-segment');
+                if (seg) setActiveUsersSegment(seg);
+            });
+        }
+    });
+
     loadDashboardData();
     startPingMonitor();
     
@@ -691,20 +778,31 @@ async function loadTopPages() {
 
 // Carregar usuários ativos
 async function loadActiveUsers() {
+    const tbody = document.getElementById('activeUsersTable');
+    const colspan = activeUsersColspan();
+    const showPerfil = activeUsersSegment === 'all';
     try {
-        const response = await fetch('/api/admin/metrics/users/active?limit=20');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-8"><span class="loading loading-spinner loading-md"></span></td></tr>`;
+        }
+        const response = await fetch(`/api/admin/metrics/users/active?limit=20&segment=${encodeURIComponent(activeUsersSegment)}`);
         const result = await response.json();
         
-        const tbody = document.getElementById('activeUsersTable');
-        
         if (result.success && result.data.length > 0) {
-            tbody.innerHTML = result.data.map((u, i) => `
+            tbody.innerHTML = result.data.map((u, i) => {
+                const perfilCell = showPerfil
+                    ? (u.is_centralcomm
+                        ? '<td><span class="badge badge-primary badge-sm gap-1"><i class="fas fa-building text-[10px]"></i>Equipe CC</span></td>'
+                        : '<td><span class="badge badge-ghost badge-sm gap-1"><i class="fas fa-user text-[10px]"></i>Cliente</span></td>')
+                    : '';
+                return `
                 <tr>
                     <td class="font-medium">${i + 1}</td>
                     <td>
                         <div class="font-medium">${u.user_name || u.user_email}</div>
                         <div class="text-xs text-base-content/50">${u.user_email}</div>
                     </td>
+                    ${perfilCell}
                     <td>${u.client_name || '-'}</td>
                     <td class="text-right font-medium">${formatNumber(u.total_sessions)}</td>
                     <td class="text-right">${formatDuration(u.total_time_seconds)}</td>
@@ -712,12 +810,16 @@ async function loadActiveUsers() {
                     <td class="text-right">${u.active_days} dias</td>
                     <td class="text-xs">${u.last_session ? formatDateFull(u.last_session) : '-'}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         } else {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-base-content/50 py-8">Nenhum dado disponível</td></tr>`;
         }
     } catch (error) {
         console.error('Erro ao carregar usuários ativos:', error);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center text-base-content/50 py-8">Erro ao carregar</td></tr>`;
+        }
     }
 }
 

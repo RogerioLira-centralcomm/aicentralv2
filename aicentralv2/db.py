@@ -6376,29 +6376,51 @@ def get_analytics_top_pages(limit=20):
         return []
 
 
-def get_analytics_user_engagement(limit=50):
+def get_analytics_user_engagement(limit=50, segment='all'):
     """
-    Obtém usuários mais ativos
+    Obtém usuários mais ativos, com opção de filtrar por perfil (CentralComm vs clientes).
+
+    segment: 'all' | 'centralcomm' | 'external'
+    Critério CentralComm alinhado ao login: nome_fantasia do cliente = 'CENTRALCOMM'.
     """
+    if segment not in ('all', 'centralcomm', 'external'):
+        segment = 'all'
+
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('''
-                SELECT 
-                    user_id,
-                    user_name,
-                    user_email,
-                    client_name,
-                    total_sessions,
-                    total_time_seconds,
-                    avg_session_duration,
-                    total_pageviews,
-                    active_days,
-                    last_session
-                FROM v_analytics_user_engagement
-                ORDER BY total_sessions DESC
+            cc_expr = "(UPPER(TRIM(COALESCE(cli.nome_fantasia, ''))) = 'CENTRALCOMM')"
+            if segment == 'centralcomm':
+                where_extra = f'AND {cc_expr}'
+            elif segment == 'external':
+                where_extra = f'AND NOT {cc_expr}'
+            else:
+                where_extra = ''
+
+            cursor.execute(
+                f'''
+                SELECT
+                    v.user_id,
+                    v.user_name,
+                    v.user_email,
+                    v.client_name,
+                    v.total_sessions,
+                    v.total_time_seconds,
+                    v.avg_session_duration,
+                    v.total_pageviews,
+                    v.active_days,
+                    v.last_session,
+                    {cc_expr} AS is_centralcomm
+                FROM v_analytics_user_engagement v
+                LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = v.user_id
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.pk_id_tbl_cliente
+                WHERE 1=1
+                {where_extra}
+                ORDER BY v.total_sessions DESC
                 LIMIT %s
-            ''', (limit,))
+                ''',
+                (limit,),
+            )
             return cursor.fetchall()
     except Exception:
         return []

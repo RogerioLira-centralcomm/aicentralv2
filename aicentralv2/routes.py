@@ -7776,15 +7776,22 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """API para usuários mais ativos"""
         try:
             limit = request.args.get('limit', 50, type=int)
-            users = db.get_analytics_user_engagement(limit)
+            segment = (request.args.get('segment') or 'all').strip().lower()
+            if segment not in ('all', 'centralcomm', 'external'):
+                segment = 'all'
+            users = db.get_analytics_user_engagement(limit, segment=segment)
             
             data = []
             for u in users:
+                is_cc = u.get('is_centralcomm')
+                if is_cc is None:
+                    is_cc = False
                 data.append({
                     'user_id': u.get('user_id'),
                     'user_name': u.get('user_name'),
                     'user_email': u.get('user_email'),
                     'client_name': u.get('client_name'),
+                    'is_centralcomm': bool(is_cc),
                     'total_sessions': u.get('total_sessions', 0),
                     'total_time_seconds': u.get('total_time_seconds', 0),
                     'avg_session_duration': float(u.get('avg_session_duration', 0)) if u.get('avg_session_duration') else 0,
@@ -7793,7 +7800,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'last_session': u.get('last_session').isoformat() if u.get('last_session') else None
                 })
             
-            return jsonify({'success': True, 'data': data})
+            return jsonify({'success': True, 'data': data, 'segment': segment})
         except Exception as e:
             current_app.logger.error(f"Erro ao obter usuários ativos: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500

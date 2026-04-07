@@ -9429,6 +9429,22 @@ def excluir_diario_campanha(id_diario):
 
 def get_dashboard_carteira_clientes(days=90):
     conn = get_db()
+    # Mesmo critério de "é agência" usado na war room / listagem de clientes
+    _eh_agencia_sql = (
+        "(COALESCE((ag.key IS TRUE), false) OR "
+        "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'))"
+    )
+
+    def _aggregate_por_executivo(por_executivo_raw):
+        exec_map = {}
+        for row in por_executivo_raw:
+            exec_name = row['executivo']
+            if exec_name not in exec_map:
+                exec_map[exec_name] = {'executivo': exec_name, 'total_clientes': 0}
+            exec_map[exec_name][row['classificacao']] = row['total_clientes']
+            exec_map[exec_name]['total_clientes'] += row['total_clientes']
+        return sorted(exec_map.values(), key=lambda x: x['total_clientes'], reverse=True)
+
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
@@ -9456,16 +9472,40 @@ def get_dashboard_carteira_clientes(days=90):
                 GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo'), classificacao
                 ORDER BY executivo, classificacao
             ''')
-            por_executivo_raw = cursor.fetchall()
+            por_executivo = _aggregate_por_executivo(cursor.fetchall())
 
-            exec_map = {}
-            for row in por_executivo_raw:
-                exec_name = row['executivo']
-                if exec_name not in exec_map:
-                    exec_map[exec_name] = {'executivo': exec_name, 'total_clientes': 0}
-                exec_map[exec_name][row['classificacao']] = row['total_clientes']
-                exec_map[exec_name]['total_clientes'] += row['total_clientes']
-            por_executivo = sorted(exec_map.values(), key=lambda x: x['total_clientes'], reverse=True)
+            sql_por_exec = '''
+                SELECT
+                    COALESCE(vend.nome_completo, 'Sem Executivo') AS executivo,
+                    COUNT(cli.id_cliente) AS total_clientes,
+                    COALESCE(cli.categoria_abc, 'N/D') AS classificacao
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_contato_cliente vend ON cli.vendas_central_comm = vend.id_contato_cliente
+                LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+                WHERE COALESCE(vend.nome_completo, '') != 'Usuário Comercial'
+                  AND cli.status = true
+                  AND ({filtro_perfil})
+                GROUP BY COALESCE(vend.nome_completo, 'Sem Executivo'), classificacao
+                ORDER BY executivo, classificacao
+            '''
+
+            cursor.execute(sql_por_exec.format(filtro_perfil=f'NOT ({_eh_agencia_sql})'))
+            por_executivo_clientes = _aggregate_por_executivo(cursor.fetchall())
+
+            cursor.execute(sql_por_exec.format(filtro_perfil=_eh_agencia_sql))
+            por_executivo_agencias = _aggregate_por_executivo(cursor.fetchall())
+
+            tot_cli_por_exec = {r['executivo']: r['total_clientes'] for r in por_executivo_clientes}
+            tot_ag_por_exec = {r['executivo']: r['total_clientes'] for r in por_executivo_agencias}
+            por_executivo_perfil = []
+            for row in por_executivo:
+                nome = row['executivo']
+                por_executivo_perfil.append({
+                    'executivo': nome,
+                    'total_clientes': row['total_clientes'],
+                    'Clientes finais': tot_cli_por_exec.get(nome, 0),
+                    'Agências': tot_ag_por_exec.get(nome, 0),
+                })
 
             total_ativos = sum(c['total'] for c in por_classificacao)
             resumo = {'total': total_ativos}
@@ -9486,13 +9526,23 @@ def get_dashboard_carteira_clientes(days=90):
 
             return {
                 'por_executivo': por_executivo,
+                'por_executivo_perfil': por_executivo_perfil,
+                'por_executivo_clientes': por_executivo_clientes,
+                'por_executivo_agencias': por_executivo_agencias,
                 'resumo': resumo,
                 'classificacoes': classificacoes
             }
     except Exception as e:
         conn.rollback()
         current_app.logger.error(f"Erro dashboard carteira clientes: {e}")
-        return {'por_executivo': [], 'resumo': {}, 'classificacoes': []}
+        return {
+            'por_executivo': [],
+            'por_executivo_perfil': [],
+            'por_executivo_clientes': [],
+            'por_executivo_agencias': [],
+            'resumo': {},
+            'classificacoes': []
+        }
 
 
 def get_dashboard_cotacoes_status(days=90):

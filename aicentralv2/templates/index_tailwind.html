@@ -117,6 +117,10 @@
                         <div class="kpi-label text-base-content/60 mt-1">Total</div>
                     </div>
                 </div>
+                <div class="flex justify-center gap-1 mb-2">
+                    <button type="button" id="btnCarteiraABC" class="px-3 py-1 text-xs rounded-l font-medium bg-base-200 text-base-content/70" onclick="toggleCarteiraView('abc')">Classificação ABC</button>
+                    <button type="button" id="btnCarteiraPerfil" class="px-3 py-1 text-xs rounded-r font-medium bg-primary text-primary-content" onclick="toggleCarteiraView('perfil')">Clientes finais / Agências</button>
+                </div>
                 <div class="chart-container">
                     <canvas id="chartCarteira"></canvas>
                 </div>
@@ -450,6 +454,124 @@ async function loadAllSections() {
 }
 
 // ======================== SEÇÃO 1: Carteira de Clientes ========================
+let lastCarteiraData = null;
+/** Mesmo eixo de executivos: 'abc' = pilhas A/B/C/…; 'perfil' = pilhas Clientes finais + Agências */
+let carteiraViewMode = 'perfil';
+
+const PERFIS_CARTEIRA = [
+    { key: 'Clientes finais', color: '#1E4D4F' },
+    { key: 'Agências', color: '#F3B71B' }
+];
+
+function renderCarteiraKpis() {
+    if (!lastCarteiraData) return;
+    const { resumo, classificacoes, classTextColors, perfilTotais } = lastCarteiraData;
+    const r = resumo || {};
+    const kpisContainer = document.getElementById('sec1-kpis');
+    const badge = document.getElementById('sec1-badge');
+
+    if (carteiraViewMode === 'abc') {
+        const totalCols = 2 + classificacoes.length;
+        kpisContainer.style.gridTemplateColumns = `repeat(${totalCols}, minmax(0, 1fr))`;
+        let html = `<div class="text-center"><div class="text-xl font-bold text-primary">${formatNumber(r.total || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Total</div></div>`;
+        classificacoes.forEach((cls, i) => {
+            const color = classTextColors[i % classTextColors.length];
+            html += `<div class="text-center"><div class="text-xl font-bold ${color}">${formatNumber(r[cls] || 0)}</div><div class="kpi-label text-base-content/60 mt-1">${cls}</div></div>`;
+        });
+        html += `<div class="text-center"><div class="text-xl font-bold text-info">${formatNumber(r.novos || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Novos</div></div>`;
+        kpisContainer.innerHTML = html;
+        badge.textContent = `${r.novos || 0} novos`;
+    } else {
+        const cf = perfilTotais.clientesFinais || 0;
+        const ag = perfilTotais.agencias || 0;
+        kpisContainer.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
+        kpisContainer.innerHTML = `
+            <div class="text-center"><div class="text-xl font-bold text-primary">${formatNumber(r.total || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Total</div></div>
+            <div class="text-center"><div class="text-xl font-bold text-success">${formatNumber(cf)}</div><div class="kpi-label text-base-content/60 mt-1">Clientes finais</div></div>
+            <div class="text-center"><div class="text-xl font-bold text-secondary">${formatNumber(ag)}</div><div class="kpi-label text-base-content/60 mt-1">Agências</div></div>
+            <div class="text-center"><div class="text-xl font-bold text-info">${formatNumber(r.novos || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Novos</div></div>`;
+        badge.textContent = `${formatNumber(cf)} finais · ${formatNumber(ag)} agências`;
+    }
+}
+
+function renderCarteiraChart() {
+    destroyChart('chartCarteira');
+    if (!lastCarteiraData) return;
+
+    const { classificacoes, classColors, porExecutivo, porExecutivoPerfil } = lastCarteiraData;
+    const execs = porExecutivo || [];
+
+    const carteiraBarOptions = {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+        scales: { x: { beginAtZero: true, stacked: true }, y: { stacked: true } }
+    };
+
+    let datasets;
+    if (carteiraViewMode === 'abc') {
+        if (!execs.length || !classificacoes.length) {
+            datasets = [{ label: '—', data: [0], backgroundColor: '#94a3b8', borderRadius: 4 }];
+        } else {
+            datasets = classificacoes.map((cls, i) => ({
+                label: cls,
+                data: execs.map(e => e[cls] || 0),
+                backgroundColor: classColors[i % classColors.length],
+                borderRadius: 4
+            }));
+        }
+    } else {
+        const rows = porExecutivoPerfil || [];
+        if (!execs.length) {
+            datasets = PERFIS_CARTEIRA.map(p => ({
+                label: p.key,
+                data: [0],
+                backgroundColor: p.color,
+                borderRadius: 4
+            }));
+        } else {
+            datasets = PERFIS_CARTEIRA.map(p => ({
+                label: p.key,
+                data: rows.map(r => r[p.key] || 0),
+                backgroundColor: p.color,
+                borderRadius: 4
+            }));
+        }
+    }
+
+    const labels = execs.length
+        ? execs.map(e => truncLabel(e.executivo, 18))
+        : ['Sem dados'];
+
+    charts.chartCarteira = new Chart(document.getElementById('chartCarteira'), {
+        type: 'bar',
+        data: { labels, datasets },
+        options: carteiraBarOptions
+    });
+}
+
+function syncCarteiraControls() {
+    const btnAbc = document.getElementById('btnCarteiraABC');
+    const btnPerfil = document.getElementById('btnCarteiraPerfil');
+
+    if (carteiraViewMode === 'abc') {
+        btnAbc.className = 'px-3 py-1 text-xs rounded-l font-medium bg-primary text-primary-content';
+        btnPerfil.className = 'px-3 py-1 text-xs rounded-r font-medium bg-base-200 text-base-content/70';
+    } else {
+        btnAbc.className = 'px-3 py-1 text-xs rounded-l font-medium bg-base-200 text-base-content/70';
+        btnPerfil.className = 'px-3 py-1 text-xs rounded-r font-medium bg-primary text-primary-content';
+    }
+
+    renderCarteiraKpis();
+    renderCarteiraChart();
+}
+
+function toggleCarteiraView(mode) {
+    carteiraViewMode = mode;
+    syncCarteiraControls();
+}
+
 async function loadCarteira() {
     try {
         const res = await fetch(`/api/dashboard/carteira-clientes?days=${currentDays}`);
@@ -462,42 +584,23 @@ async function loadCarteira() {
         const classColors = ['#22c55e', '#eab308', '#64748b', '#3b82f6', '#ef4444', '#8b5cf6'];
         const classTextColors = ['text-success', 'text-warning', 'text-accent', 'text-info', 'text-error', 'text-secondary'];
 
-        const kpisContainer = document.getElementById('sec1-kpis');
-        kpisContainer.style.gridTemplateColumns = `repeat(${1 + classificacoes.length}, minmax(0, 1fr))`;
-        const totalCols = 2 + classificacoes.length;
-        kpisContainer.style.gridTemplateColumns = `repeat(${totalCols}, minmax(0, 1fr))`;
-        kpisContainer.innerHTML = `<div class="text-center"><div class="text-xl font-bold text-primary">${formatNumber(r.total || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Total</div></div>`;
-        classificacoes.forEach((cls, i) => {
-            const color = classTextColors[i % classTextColors.length];
-            kpisContainer.innerHTML += `<div class="text-center"><div class="text-xl font-bold ${color}">${formatNumber(r[cls] || 0)}</div><div class="kpi-label text-base-content/60 mt-1">${cls}</div></div>`;
+        let clientesFinais = 0;
+        let agencias = 0;
+        (d.por_executivo_perfil || []).forEach((row) => {
+            clientesFinais += row['Clientes finais'] || 0;
+            agencias += row['Agências'] || 0;
         });
-        kpisContainer.innerHTML += `<div class="text-center"><div class="text-xl font-bold text-info">${formatNumber(r.novos || 0)}</div><div class="kpi-label text-base-content/60 mt-1">Novos</div></div>`;
 
-        document.getElementById('sec1-badge').textContent = `${r.novos || 0} novos`;
-
-        destroyChart('chartCarteira');
-        const execs = d.por_executivo || [];
-        const datasets = classificacoes.map((cls, i) => ({
-            label: cls,
-            data: execs.map(e => e[cls] || 0),
-            backgroundColor: classColors[i % classColors.length],
-            borderRadius: 4
-        }));
-
-        charts.chartCarteira = new Chart(document.getElementById('chartCarteira'), {
-            type: 'bar',
-            data: {
-                labels: execs.map(e => truncLabel(e.executivo, 18)),
-                datasets: datasets
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: { x: { beginAtZero: true, stacked: true }, y: { stacked: true } }
-            }
-        });
+        lastCarteiraData = {
+            resumo: r,
+            classificacoes,
+            classTextColors,
+            classColors,
+            porExecutivo: d.por_executivo || [],
+            porExecutivoPerfil: d.por_executivo_perfil || [],
+            perfilTotais: { clientesFinais, agencias }
+        };
+        syncCarteiraControls();
     } catch (e) { console.error('Erro carteira:', e); }
 }
 

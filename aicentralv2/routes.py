@@ -7557,6 +7557,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             data = db.get_dashboard_carteira_clientes(days)
             result = {
                 'por_executivo': [dict(r) for r in (data.get('por_executivo') or [])],
+                'por_executivo_perfil': [dict(r) for r in (data.get('por_executivo_perfil') or [])],
+                'por_executivo_clientes': [dict(r) for r in (data.get('por_executivo_clientes') or [])],
+                'por_executivo_agencias': [dict(r) for r in (data.get('por_executivo_agencias') or [])],
                 'resumo': dict(data.get('resumo') or {}),
                 'classificacoes': data.get('classificacoes') or []
             }

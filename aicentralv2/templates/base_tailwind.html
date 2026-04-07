@@ -437,10 +437,10 @@
                     </div>
                     {% endif %}
 
-                    <!-- Busca PI por código (todos os usuários logados) — abre a lista direto se existir -->
-                    <div class="hidden lg:flex items-center gap-1.5 ml-2 pl-2 border-l border-base-200 shrink-0" title="Localizar PI por código">
-                        <input type="text" id="nav-busca-pi-input" maxlength="120" placeholder="Código PI" autocomplete="off"
-                            class="input input-bordered input-sm w-[7.5rem] h-8 min-h-0 text-xs px-2" />
+                    <!-- Busca PI por código ou título (todos os usuários logados) -->
+                    <div class="hidden lg:flex items-center gap-1.5 ml-2 pl-2 border-l border-base-200 shrink-0 min-w-0" title="Localizar PI por código ou título (parcial)">
+                        <input type="text" id="nav-busca-pi-input" maxlength="200" placeholder="Código ou título" autocomplete="off"
+                            class="input input-bordered input-sm w-[14rem] sm:w-[16rem] h-8 min-h-0 text-xs px-2" />
                         <button type="button" id="nav-busca-pi-btn"
                             class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-base-300 bg-base-100 text-base-content/55 shadow-sm transition-all duration-150 hover:border-base-content/18 hover:bg-base-200 hover:text-base-content hover:shadow active:border-base-content/22 active:bg-base-300 active:text-base-content active:shadow-inner focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
                             aria-label="Buscar PI">
@@ -708,7 +708,7 @@
                         <li class="mt-3 px-1">
                             <p class="text-[10px] font-semibold uppercase tracking-wide opacity-50 px-2 mb-1">Buscar PI</p>
                             <div class="flex gap-1.5 items-center px-1">
-                                <input type="text" id="nav-busca-pi-input-mobile" maxlength="120" placeholder="Código PI" autocomplete="off"
+                                <input type="text" id="nav-busca-pi-input-mobile" maxlength="200" placeholder="Código ou título" autocomplete="off"
                                     class="input input-bordered input-sm flex-1 h-9 min-h-0 text-sm" />
                                 <button type="button" id="nav-busca-pi-btn-mobile"
                                     class="inline-flex h-9 min-h-0 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-primary-content shadow-sm transition-[transform,filter,box-shadow] duration-150 hover:brightness-105 hover:shadow-md active:scale-[0.97] active:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
@@ -806,7 +806,7 @@
                     var q = getQueryFromInputs();
                     if (!q) {
                         if (typeof showToast === 'function') {
-                            showToast('Informe o código do PI.', 'warning');
+                            showToast('Informe o código ou o título do PI.', 'warning');
                         }
                         return;
                     }
@@ -821,7 +821,7 @@
                         .then(function(data) {
                             if (!data.found) {
                                 if (typeof showToast === 'function') {
-                                    showToast(data.message || 'Nenhum PI encontrado com este código.', 'error', 5000);
+                                    showToast(data.message || 'Nenhum PI encontrado com este termo.', 'error', 5000);
                                 }
                                 return;
                             }

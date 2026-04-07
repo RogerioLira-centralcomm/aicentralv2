@@ -8424,20 +8424,29 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/cadu_pi/localizar', methods=['GET'])
     @login_required
     def cadu_pi_localizar():
-        """Localiza PI por código ou id; retorna nome da lista (menu) e URL com âncora #pi-id."""
+        """Localiza PI por id, código exato ou título (parcial); URL com âncora se único match, senão lista filtrada."""
         q = (request.args.get('q') or '').strip()
         if not q:
-            return jsonify({'found': False, 'message': 'Informe o código do PI.'}), 400
+            return jsonify({'found': False, 'message': 'Informe o código ou o título do PI.'}), 400
         try:
-            pi = db.obter_cadu_pi_por_codigo_ou_id(q)
-            if not pi:
-                return jsonify({'found': False, 'message': 'Nenhum PI encontrado com este código.'})
+            kind, pi = db.localizar_cadu_pi_menu(q)
+            if kind == 'none':
+                return jsonify({'found': False, 'message': 'Nenhum PI encontrado com este termo.'})
+            if kind == 'multiple':
+                lista_path = url_for('cadu_pi_lista', busca=q, _f=1)
+                return jsonify({
+                    'found': True,
+                    'multiple': True,
+                    'lista_nome': 'Lista de PIs',
+                    'lista_url': lista_path,
+                })
             id_pi = pi['id_pi']
             lista_nome, lista_path = rotulo_e_url_lista_pi(pi, id_pi_nav=id_pi, busca_nav=q)
             lista_url = f'{lista_path}#pi-{id_pi}'
             codigo_display = pi.get('codigo_pi_cc') or pi.get('codigo_pi_ag') or str(id_pi)
             return jsonify({
                 'found': True,
+                'multiple': False,
                 'id_pi': id_pi,
                 'codigo': codigo_display,
                 'lista_nome': lista_nome,

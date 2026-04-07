@@ -8124,6 +8124,45 @@ def obter_cadu_pi_por_codigo_ou_id(termo):
         raise e
 
 
+def localizar_cadu_pi_menu(termo):
+    """
+    Busca no menu: id numérico, código exato (CC/agência) ou título parcial (ILIKE + unaccent).
+    Retorna ('unique', row), ('multiple', None) ou ('none', None).
+    row tem id_pi, id_sub_status_pi, id_status_pi, codigo_pi_cc, codigo_pi_ag, sub_status_descricao.
+    """
+    row = obter_cadu_pi_por_codigo_ou_id(termo)
+    if row:
+        return 'unique', row
+    termo = (termo or '').strip()
+    if not termo:
+        return 'none', None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            search_term = f'%{termo}%'
+            cursor.execute(
+                '''
+                SELECT p.id_pi, p.id_sub_status_pi, p.id_status_pi, p.codigo_pi_cc, p.codigo_pi_ag,
+                       ssp.display AS sub_status_descricao
+                FROM cadu_pi p
+                LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
+                WHERE unaccent(COALESCE(p.titulo_pi, '')) ILIKE unaccent(%s)
+                ORDER BY p.created_at DESC
+                LIMIT 2
+                ''',
+                (search_term,),
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                return 'none', None
+            if len(rows) == 1:
+                return 'unique', rows[0]
+            return 'multiple', None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def criar_cadu_pi(data):
     """Cria um novo PI"""
     conn = get_db()

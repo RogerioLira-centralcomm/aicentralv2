@@ -1,10 +1,13 @@
 <div class="swr-col" id="col-objetivos">
     <div class="swr-col-header">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-1">
             <h2 class="font-semibold text-sm">Objetivos</h2>
-            <button class="btn btn-ghost btn-xs btn-circle" id="btn-sugerir-ia-header" title="Sugerir objetivos com IA">
-                <svg class="w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-            </button>
+            <details class="dropdown dropdown-end">
+                <summary class="btn btn-ghost btn-xs">Mais</summary>
+                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 text-xs border border-base-300">
+                    <li><button type="button" id="btn-sugerir-ia-header" class="justify-start">Sugerir com IA</button></li>
+                </ul>
+            </details>
         </div>
     </div>
     <div class="swr-col-body" id="lista-objetivos">

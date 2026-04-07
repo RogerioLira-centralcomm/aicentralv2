@@ -1,6 +1,12 @@
 <div class="swr-col" id="col-contatos">
     <div class="swr-col-header">
-        <h2 class="font-semibold text-sm">Contatos</h2>
+        <div class="flex items-center justify-between gap-1 flex-wrap">
+            <h2 class="font-semibold text-sm">Contatos</h2>
+            <div class="flex gap-0.5">
+                <button type="button" class="btn btn-xs btn-primary" id="btn-contato-novo" title="Adicionar contato">+ Contato</button>
+                <button type="button" class="btn btn-xs btn-outline" id="btn-contato-import" title="Importar em massa">Importar</button>
+            </div>
+        </div>
     </div>
     <div class="swr-col-body" id="lista-contatos">
         <div class="swr-empty-state">Selecione um cliente.</div>

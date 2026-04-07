@@ -1,0 +1,87 @@
+<dialog id="modal-contato-rapido" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-3">Novo contato</h3>
+        <form id="form-contato-rapido" class="space-y-2">
+            <input type="text" id="cr-nome" class="input input-bordered input-sm w-full" placeholder="Nome completo *" required />
+            <input type="email" id="cr-email" class="input input-bordered input-sm w-full" placeholder="Email *" required />
+            <input type="text" id="cr-tel" class="input input-bordered input-sm w-full" placeholder="Telefone" />
+            <div class="modal-action flex-wrap gap-2">
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('modal-contato-rapido').close()">Cancelar</button>
+                <button type="submit" class="btn btn-sm btn-primary" id="cr-submit">Salvar</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<dialog id="modal-contato-import" class="modal">
+    <div class="modal-box max-w-lg">
+        <h3 class="font-bold text-lg mb-2">Importar contatos</h3>
+        <p class="text-xs opacity-70 mb-2">Uma linha por contato. Formato: <code>Nome;email@x.com;telefone</code> (telefone opcional). Também aceita vírgula entre nome e email.</p>
+        <textarea id="ci-texto" class="textarea textarea-bordered textarea-sm w-full min-h-32 font-mono text-xs" placeholder="João Silva;joao@empresa.com;11999999999"></textarea>
+        <div class="modal-action flex-wrap gap-2 mt-2">
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('modal-contato-import').close()">Fechar</button>
+            <button type="button" class="btn btn-sm btn-primary" id="ci-submit">Importar</button>
+        </div>
+        <pre id="ci-result" class="text-xs mt-2 max-h-32 overflow-auto hidden bg-base-200 p-2 rounded"></pre>
+    </div>
+    <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<dialog id="modal-editar-atividade" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-3">Editar atividade</h3>
+        <input type="hidden" id="ea-id" />
+        <label class="label py-0"><span class="label-text text-xs">Título</span></label>
+        <input type="text" id="ea-titulo" class="input input-bordered input-sm w-full mb-2" />
+        <label class="label py-0"><span class="label-text text-xs">Descrição</span></label>
+        <textarea id="ea-desc" class="textarea textarea-bordered textarea-sm w-full mb-2" rows="3"></textarea>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Data</span></label>
+                <input type="date" id="ea-data" class="input input-bordered input-sm w-full" />
+            </div>
+            <div>
+                <label class="label py-0"><span class="label-text text-xs">Prazo</span></label>
+                <input type="date" id="ea-prazo" class="input input-bordered input-sm w-full" />
+            </div>
+        </div>
+        <label class="label py-0"><span class="label-text text-xs">Tipo</span></label>
+        <select id="ea-tipo" class="select select-bordered select-sm w-full mb-2">
+            <option value="atividade">Atividade</option>
+            <option value="ligacao">Ligação</option>
+            <option value="almoco">Almoço</option>
+            <option value="reuniao">Reunião</option>
+            <option value="projeto">Projeto</option>
+            <option value="planejamento">Planejamento</option>
+            <option value="cadu">Cadu</option>
+        </select>
+        <label class="label py-0"><span class="label-text text-xs">Status</span></label>
+        <select id="ea-status" class="select select-bordered select-sm w-full mb-3">
+            <option value="pendente">Pendente</option>
+            <option value="em_andamento">Em andamento</option>
+            <option value="concluida">Concluída</option>
+        </select>
+        <div class="modal-action">
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('modal-editar-atividade').close()">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-primary" id="ea-save">Salvar</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<dialog id="modal-editar-objetivo" class="modal">
+    <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-3">Editar objetivo</h3>
+        <input type="hidden" id="eo-id" />
+        <label class="label py-0"><span class="label-text text-xs">Texto</span></label>
+        <textarea id="eo-texto" class="textarea textarea-bordered textarea-sm w-full mb-2" rows="3"></textarea>
+        <label class="label py-0"><span class="label-text text-xs">Prazo</span></label>
+        <input type="date" id="eo-prazo" class="input input-bordered input-sm w-full mb-3" />
+        <div class="modal-action">
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('modal-editar-objetivo').close()">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-primary" id="eo-save">Salvar</button>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>

@@ -60,6 +60,7 @@
     async function carregarClientes() {
         const execId = $('#filtro-executivo').value;
         const tipo = $('.filtro-tipo.active')?.dataset.tipo || '';
+        const perfil = $('.filtro-perfil.active')?.dataset.perfil || '';
         const busca = $('#busca-cliente').value.trim();
         const container = $('#lista-clientes');
 
@@ -72,6 +73,7 @@
         showSpinner(container);
         try {
             const params = new URLSearchParams({ executivo_id: execId, tipo, busca });
+            if (perfil) params.set('perfil', perfil);
             const data = await api(`/api/clientes?${params}`);
             if (!data.clientes.length) {
                 showEmpty(container, 'Nenhum cliente encontrado.');
@@ -170,19 +172,60 @@
                             <div class="text-xs opacity-60">Valor PIs</div>
                         </div>
                     </div>
-                    <button class="btn btn-xs btn-outline w-full" id="btn-ver-mais-status">Ver mais dados</button>
+                    <button type="button" class="btn btn-xs btn-outline w-full mb-2" id="btn-ver-mais-status">Ver mais dados</button>
+                    <button type="button" class="btn btn-xs btn-ghost btn-outline w-full mb-2" id="btn-editar-cliente-swr" title="Editar cadastro do cliente">Editar cliente</button>
+                    <div class="border-t border-base-300 pt-2 mt-1">
+                        <label class="text-xs font-medium opacity-70 block mb-1">Nota sobre o cliente</label>
+                        <textarea id="swr-nota-cliente" class="textarea textarea-bordered textarea-xs w-full min-h-[4.5rem] text-xs" maxlength="8000" placeholder="Anotações visíveis para a equipe comercial..."></textarea>
+                        <button type="button" class="btn btn-xs btn-primary w-full mt-1" id="btn-salvar-nota-cliente">Salvar nota</button>
+                    </div>
                 </div>
             `;
 
             bindStatusEvents(clienteId);
+            carregarNotaCliente(clienteId);
         } catch (e) {
             showEmpty(container, 'Erro ao carregar status.');
             console.error(e);
         }
     }
 
+    async function carregarNotaCliente(clienteId) {
+        const ta = $('#swr-nota-cliente');
+        if (!ta) return;
+        try {
+            const data = await api(`/api/cliente/${clienteId}/nota`);
+            ta.value = data.nota || '';
+        } catch (_) {
+            ta.value = '';
+        }
+    }
+
     function bindStatusEvents(clienteId) {
         $('#btn-ver-mais-status')?.addEventListener('click', () => abrirModalStatusCompleto(clienteId));
+
+        $('#btn-salvar-nota-cliente')?.addEventListener('click', async () => {
+            const ta = $('#swr-nota-cliente');
+            if (!ta) return;
+            const btn = $('#btn-salvar-nota-cliente');
+            btn?.classList.add('loading');
+            try {
+                await api(`/api/cliente/${clienteId}/nota`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ nota: ta.value })
+                });
+                showToast('Nota salva.', 'success');
+            } catch (e) {
+                console.error(e);
+                showToast(e.message || 'Erro ao salvar nota.', 'error');
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        });
+
+        $('#btn-editar-cliente-swr')?.addEventListener('click', () => {
+            window.location.href = `/clientes?open=${clienteId}`;
+        });
     }
 
     // ==================== Column 3: Contatos ====================
@@ -289,7 +332,44 @@
         });
     }
 
+    let swrActCtx = { clienteId: null, contatoId: null };
+    let swrObjCtx = { clienteId: null };
+
+    function _isoDateOnly(iso) {
+        if (!iso) return '';
+        return String(iso).slice(0, 10);
+    }
+
+    function renderAtividadeCard(a, clienteId, contatoId) {
+        const vencida = atividadeVencida(a);
+        const hoje = atividadeHoje(a);
+        const tipo = a.tipo || 'atividade';
+        const extraClass = vencida ? 'swr-atividade-vencida' : (hoje ? 'swr-atividade-hoje' : '');
+        const podeFeito = a.status !== 'concluida';
+        return `
+            <div class="swr-atividade-card swr-fade-in mb-1.5 ${extraClass}" data-aid="${a.id}">
+                <div class="flex items-start gap-1.5 mb-0.5">
+                    ${podeFeito ? `<input type="checkbox" class="checkbox checkbox-xs mt-0.5 swr-act-feito shrink-0" title="Marcar concluída" data-id="${a.id}" />` : '<span class="w-3.5 inline-block"></span>'}
+                    <span class="swr-tipo-badge swr-tipo-${tipo} shrink-0" title="${TIPO_LABELS[tipo] || tipo}">${TIPO_ICONS[tipo] || TIPO_ICONS.atividade}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-xs leading-tight">${a.titulo || a.descricao}</div>
+                        ${a.titulo && a.descricao ? `<div class="text-[11px] opacity-70 mt-0.5">${a.descricao}</div>` : ''}
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] opacity-50 mt-0.5">
+                            <span>${fmtDate(a.data_atividade)}</span>
+                            ${a.data_prazo ? `<span class="${vencida ? 'text-error font-semibold' : (hoje ? 'text-warning font-semibold' : '')}">Prazo ${fmtDate(a.data_prazo)}</span>` : ''}
+                        </div>
+                        ${a.contato_nome ? `<div class="text-[10px] opacity-40">${a.contato_nome}</div>` : ''}
+                        <div class="flex gap-1 mt-1">
+                            <button type="button" class="btn btn-ghost btn-xs px-1 min-h-0 h-6 swr-act-edit" data-id="${a.id}">Editar</button>
+                            <button type="button" class="btn btn-ghost btn-xs px-1 min-h-0 h-6 text-error swr-act-del" data-id="${a.id}">Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
     async function carregarAtividades(clienteId, contatoId) {
+        swrActCtx = { clienteId, contatoId };
         const container = $('#lista-atividades');
         showSpinner(container);
         try {
@@ -299,48 +379,30 @@
 
             const sorted = sortAtividades(data.atividades);
             const pendentes = sorted.filter(a => a.status !== 'concluida');
+            const colPend = sortAtividades(sorted.filter(a => a.status === 'pendente'));
+            const colEm = sortAtividades(sorted.filter(a => a.status === 'em_andamento'));
+            const colOk = sortAtividades(sorted.filter(a => a.status === 'concluida'));
+
             let html = '';
 
             if (!sorted.length) {
                 html = '';
             } else {
-                html = sorted.map(a => {
-                    const statusBadge = { pendente: 'badge-warning', em_andamento: 'badge-info', concluida: 'badge-success' };
-                    const statusLabel = { pendente: 'Pendente', em_andamento: 'Em andamento', concluida: 'Concluída' };
-                    const vencida = atividadeVencida(a);
-                    const hoje = atividadeHoje(a);
-                    const tipo = a.tipo || 'atividade';
-                    const extraClass = vencida ? 'swr-atividade-vencida' : (hoje ? 'swr-atividade-hoje' : '');
-                    return `
-                        <div class="swr-atividade-card swr-fade-in mb-1.5 ${extraClass}">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="swr-tipo-badge swr-tipo-${tipo}" title="${TIPO_LABELS[tipo] || tipo}">${TIPO_ICONS[tipo] || TIPO_ICONS.atividade}</span>
-                                <span class="font-medium text-xs flex-1 truncate">${a.titulo || a.descricao}</span>
-                                <span class="badge badge-xs ${statusBadge[a.status] || ''}">${statusLabel[a.status] || a.status}</span>
-                            </div>
-                            ${a.titulo && a.descricao ? `<div class="text-xs opacity-70 mb-1 ml-6">${a.descricao}</div>` : ''}
-                            <div class="flex items-center justify-between ml-6">
-                                <div class="flex items-center gap-2 text-xs opacity-50">
-                                    <span>${fmtDate(a.data_atividade)}</span>
-                                    ${a.data_prazo ? `<span class="${vencida ? 'text-error font-semibold' : (hoje ? 'text-warning font-semibold' : '')}">Prazo: ${fmtDate(a.data_prazo)}</span>` : ''}
-                                </div>
-                                <select class="text-xs bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none swr-status-select" data-id="${a.id}">
-                                    <option value="pendente" ${a.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-                                    <option value="em_andamento" ${a.status === 'em_andamento' ? 'selected' : ''}>Em andamento</option>
-                                    <option value="concluida" ${a.status === 'concluida' ? 'selected' : ''}>Concluída</option>
-                                </select>
-                            </div>
-                            ${a.contato_nome ? `<div class="text-xs opacity-40 ml-6 mt-0.5">${a.contato_nome}</div>` : ''}
-                        </div>
-                    `;
-                }).join('');
+                html = `
+                <div class="swr-pipeline-head grid grid-cols-3 gap-0.5 mb-1 text-[10px] font-semibold uppercase tracking-tight opacity-50 px-0.5">
+                    <span>Pendente</span><span>Em andamento</span><span>Concluída</span>
+                </div>
+                <div class="swr-pipeline-cols grid grid-cols-3 gap-1 mb-2">
+                    <div class="swr-pipe-col border border-base-300/80 rounded-md p-1 max-h-56 overflow-y-auto">${colPend.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('') || '<div class="text-[10px] opacity-40 text-center py-2">—</div>'}</div>
+                    <div class="swr-pipe-col border border-base-300/80 rounded-md p-1 max-h-56 overflow-y-auto">${colEm.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('') || '<div class="text-[10px] opacity-40 text-center py-2">—</div>'}</div>
+                    <div class="swr-pipe-col border border-base-300/80 rounded-md p-1 max-h-56 overflow-y-auto">${colOk.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('') || '<div class="text-[10px] opacity-40 text-center py-2">—</div>'}</div>
+                </div>`;
             }
 
             if (!pendentes.length) {
                 html = `
                     <div class="swr-sugestao-card swr-fade-in mb-2">
                         <div class="text-xs text-center py-2 opacity-70">Nenhuma atividade pendente.</div>
-                        <button class="btn btn-xs btn-outline btn-secondary w-full" id="btn-sugerir-atividade">Sugerir acompanhamento com IA</button>
                     </div>
                 ` + html;
             }
@@ -371,25 +433,64 @@
                         </label>
                     </div>
                     <div class="swr-form-actions">
-                        <button class="btn btn-xs btn-primary flex-1" id="btn-add-atividade">Criar</button>
-                        <button class="btn btn-xs btn-ghost btn-outline" id="btn-add-atividade-ia" title="Criar com IA">✨ IA</button>
+                        <button type="button" class="btn btn-xs btn-primary flex-1" id="btn-add-atividade">Criar</button>
                     </div>
+                    <details class="mt-1.5 group">
+                        <summary class="text-[10px] cursor-pointer opacity-60 list-none flex items-center gap-1">
+                            <span class="group-open:rotate-90 transition-transform">▸</span> IA (opcional)
+                        </summary>
+                        <div class="flex flex-col gap-1 pt-1">
+                            <button type="button" class="btn btn-xs btn-outline btn-secondary w-full" id="btn-sugerir-atividade">Sugerir acompanhamento</button>
+                            <button type="button" class="btn btn-xs btn-ghost btn-outline w-full" id="btn-add-atividade-ia">Melhorar texto e criar</button>
+                        </div>
+                    </details>
                 </div>
             `;
 
             container.innerHTML = html;
 
-            $$('.swr-status-select', container).forEach(sel => {
-                sel.addEventListener('change', async () => {
+            $$('.swr-act-feito', container).forEach(cb => {
+                cb.addEventListener('change', async () => {
+                    if (!cb.checked) return;
                     try {
-                        await api(`/api/atividades/${sel.dataset.id}/status`, {
+                        await api(`/api/atividades/${cb.dataset.id}/status`, {
                             method: 'PATCH',
-                            body: JSON.stringify({ status: sel.value })
+                            body: JSON.stringify({ status: 'concluida' })
                         });
                         carregarAtividades(clienteId, contatoId);
                     } catch (e) {
                         console.error(e);
-                        showToast('Erro ao atualizar status.', 'error');
+                        cb.checked = false;
+                        showToast('Erro ao concluir.', 'error');
+                    }
+                });
+            });
+
+            const lista = data.atividades || [];
+            $$('.swr-act-edit', container).forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const a = lista.find(x => String(x.id) === btn.dataset.id);
+                    if (!a) return;
+                    $('#ea-id').value = a.id;
+                    $('#ea-titulo').value = a.titulo || '';
+                    $('#ea-desc').value = a.descricao || '';
+                    $('#ea-data').value = _isoDateOnly(a.data_atividade);
+                    $('#ea-prazo').value = _isoDateOnly(a.data_prazo);
+                    $('#ea-tipo').value = a.tipo || 'atividade';
+                    $('#ea-status').value = a.status || 'pendente';
+                    $('#modal-editar-atividade').showModal();
+                });
+            });
+
+            $$('.swr-act-del', container).forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Excluir esta atividade?')) return;
+                    try {
+                        await api(`/api/atividades/${btn.dataset.id}`, { method: 'DELETE' });
+                        carregarAtividades(clienteId, contatoId);
+                    } catch (e) {
+                        console.error(e);
+                        showToast('Erro ao excluir.', 'error');
                     }
                 });
             });
@@ -477,12 +578,14 @@
     // ==================== Column 5: Objetivos ====================
 
     async function carregarObjetivos(clienteId) {
+        swrObjCtx.clienteId = clienteId;
         const container = $('#lista-objetivos');
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/objetivos`);
             const ativos = data.objetivos.filter(o => !o.conquistado);
             const conquistados = data.objetivos.filter(o => o.conquistado);
+            const hojePrazo = new Date().toISOString().slice(0, 10);
 
             let html = `
                 <div class="swr-form-novo-objetivo mb-2">
@@ -490,9 +593,9 @@
                     <div class="swr-form-row">
                         <label class="swr-date-field flex-1">
                             <span class="swr-date-label">Prazo</span>
-                            <input type="date" id="input-objetivo-prazo" class="swr-date" />
+                            <input type="date" id="input-objetivo-prazo" class="swr-date" value="${hojePrazo}" />
                         </label>
-                        <button class="btn btn-xs btn-primary" id="btn-add-objetivo" style="align-self:flex-end">+</button>
+                        <button type="button" class="btn btn-xs btn-primary" id="btn-add-objetivo" style="align-self:flex-end">+</button>
                     </div>
                 </div>
                 <div id="ia-sugestoes" class="hidden mb-2"></div>
@@ -501,11 +604,15 @@
             if (ativos.length) {
                 html += '<div class="text-xs font-semibold opacity-60 mb-1">Ativos</div>';
                 html += ativos.map(o => `
-                    <div class="flex items-start gap-2 py-1 swr-fade-in">
-                        <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check" data-id="${o.id}" />
+                    <div class="flex items-start gap-1 py-1 swr-fade-in">
+                        <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check shrink-0" data-id="${o.id}" />
                         <div class="flex-1 min-w-0">
                             <span class="text-xs">${o.texto}</span>
                             ${o.data_prazo ? `<div class="text-xs opacity-50">Prazo: ${fmtDate(o.data_prazo)}</div>` : ''}
+                        </div>
+                        <div class="flex flex-col gap-0.5 shrink-0">
+                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 swr-obj-edit" data-id="${o.id}">Editar</button>
+                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 text-error swr-obj-del" data-id="${o.id}">Excluir</button>
                         </div>
                     </div>
                 `).join('');
@@ -514,11 +621,15 @@
             if (conquistados.length) {
                 html += '<div class="divider text-xs my-2">Conquistados</div>';
                 html += conquistados.map(o => `
-                    <div class="flex items-start gap-2 py-1 opacity-50 swr-fade-in swr-obj-conquistado">
-                        <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check" data-id="${o.id}" checked />
+                    <div class="flex items-start gap-1 py-1 opacity-50 swr-fade-in swr-obj-conquistado">
+                        <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check shrink-0" data-id="${o.id}" checked />
                         <div class="flex-1 min-w-0">
                             <span class="text-xs line-through">${o.texto}</span>
                             ${o.data_conquista ? `<div class="text-xs opacity-60">Conquistado em ${fmtDate(o.data_conquista)}</div>` : ''}
+                        </div>
+                        <div class="flex flex-col gap-0.5 shrink-0">
+                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 swr-obj-edit" data-id="${o.id}">Editar</button>
+                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 text-error swr-obj-del" data-id="${o.id}">Excluir</button>
                         </div>
                     </div>
                 `).join('');
@@ -566,6 +677,31 @@
                         }
                     } catch (e) {
                         console.error(e);
+                    }
+                });
+            });
+
+            const olist = data.objetivos || [];
+            $$('.swr-obj-edit', container).forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const o = olist.find(x => String(x.id) === btn.dataset.id);
+                    if (!o) return;
+                    $('#eo-id').value = o.id;
+                    $('#eo-texto').value = o.texto || '';
+                    $('#eo-prazo').value = _isoDateOnly(o.data_prazo);
+                    $('#modal-editar-objetivo').showModal();
+                });
+            });
+
+            $$('.swr-obj-del', container).forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Excluir este objetivo?')) return;
+                    try {
+                        await api(`/api/objetivos/${btn.dataset.id}`, { method: 'DELETE' });
+                        carregarObjetivos(clienteId);
+                    } catch (e) {
+                        console.error(e);
+                        showToast('Erro ao excluir objetivo.', 'error');
                     }
                 });
             });
@@ -646,31 +782,39 @@
         const kpisEl = $('#modal-status-kpis');
         const tabelaEl = $('#modal-status-tabela');
 
-        kpisEl.innerHTML = '<span class="loading loading-spinner loading-sm col-span-4"></span>';
+        kpisEl.innerHTML = '<span class="loading loading-spinner loading-sm col-span-full"></span>';
         try {
             const data = await api(`/api/cliente/${clienteId}/status-completo?ano=${ano}`);
-            const rc = data.resumo_cotacoes || { total_cotacoes: 0, cotacoes_aprovadas: 0, valor_total: 0, pct_conversao: 0 };
+            const rc = data.resumo_cotacoes || { total_cotacoes: 0, cotacoes_aprovadas: 0, valor_total: 0, valor_aprovado: 0, pct_conversao: 0 };
             const rp = data.resumo_pis || { total_pis: 0, pis_concluidos: 0, valor_pis: 0 };
+            const rb = data.resumo_briefings || { total_briefings: 0 };
+            const valApr = Number(rc.valor_aprovado) || 0;
 
             kpisEl.innerHTML = `
                 <div class="stat bg-base-200 rounded p-2">
-                    <div class="stat-title text-xs">Cotações</div>
+                    <div class="stat-title text-xs">Cotações (ano)</div>
                     <div class="stat-value text-lg">${rc.total_cotacoes || 0}</div>
-                    <div class="stat-desc text-xs">${fmtBRL(rc.valor_total)}</div>
+                    <div class="stat-desc text-xs">Pipeline ${fmtBRL(rc.valor_total || 0)}</div>
                 </div>
                 <div class="stat bg-base-200 rounded p-2">
                     <div class="stat-title text-xs">Aprovadas</div>
                     <div class="stat-value text-lg">${rc.cotacoes_aprovadas || 0}</div>
-                    <div class="stat-desc text-xs">${rc.pct_conversao || 0}% conversão</div>
+                    <div class="stat-desc text-xs">${fmtBRL(valApr)} · ${rc.pct_conversao || 0}% conv.</div>
                 </div>
                 <div class="stat bg-base-200 rounded p-2">
                     <div class="stat-title text-xs">PIs</div>
                     <div class="stat-value text-lg">${rp.total_pis || 0}</div>
-                    <div class="stat-desc text-xs">${rp.pis_concluidos || 0} concluídos</div>
+                    <div class="stat-desc text-xs">${rp.pis_concluidos || 0} concl. · ${fmtBRL(rp.valor_pis || 0)}</div>
                 </div>
                 <div class="stat bg-base-200 rounded p-2">
-                    <div class="stat-title text-xs">Ticket Médio</div>
+                    <div class="stat-title text-xs">Ticket médio</div>
                     <div class="stat-value text-sm">${fmtBRL(data.ticket_medio)}</div>
+                    <div class="stat-desc text-xs">Só aprovadas</div>
+                </div>
+                <div class="stat bg-base-200 rounded p-2">
+                    <div class="stat-title text-xs">Briefings</div>
+                    <div class="stat-value text-lg">${rb.total_briefings || 0}</div>
+                    <div class="stat-desc text-xs">Criados no ano</div>
                 </div>
             `;
 
@@ -685,22 +829,27 @@
             destroyChart('faturamento');
             destroyChart('conversao');
 
+            const brMes = data.briefings_mensal || new Array(12).fill(0);
             const ctxBar = $('#chart-cotacoes-mes');
             chartInstances['cotacoesMes'] = new Chart(ctxBar, {
                 type: 'bar',
                 data: {
                     labels: meses,
                     datasets: [{
-                        label: 'Total',
+                        label: 'Cot. total',
                         data: dadosMes.map(d => d.total),
                         backgroundColor: 'rgba(99,102,241,0.6)'
                     }, {
-                        label: 'Aprovadas',
+                        label: 'Cot. aprovadas',
                         data: dadosMes.map(d => d.aprovadas),
                         backgroundColor: 'rgba(34,197,94,0.6)'
+                    }, {
+                        label: 'Briefings',
+                        data: brMes,
+                        backgroundColor: 'rgba(234,179,8,0.65)'
                     }]
                 },
-                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             });
 
             const ctxLine = $('#chart-faturamento');
@@ -769,11 +918,27 @@
                 pisResumoEl.innerHTML = `${rp.total_pis || 0} PIs · ${rp.pis_concluidos || 0} concluídos · Total: ${fmtBRL(rp.valor_pis)}`;
             }
 
+            const brTab = $('#modal-briefings-tabela');
+            const brList = data.briefings_lista || [];
+            if (brTab) {
+                brTab.innerHTML = brList.length
+                    ? brList.map(b => `
+                        <tr>
+                            <td>${(b.titulo || '-').replace(/</g, '&lt;')}</td>
+                            <td><span class="badge badge-xs">${b.status || '-'}</span></td>
+                            <td>${fmtDate(b.created_at)}</td>
+                        </tr>
+                    `).join('')
+                    : '<tr><td colspan="3" class="text-center opacity-50">Sem briefings neste período.</td></tr>';
+            }
+
         } catch (e) {
-            kpisEl.innerHTML = '<div class="text-xs opacity-50 col-span-4 text-center py-4">Nenhum dado encontrado para este período.</div>';
+            kpisEl.innerHTML = '<div class="text-xs opacity-50 col-span-full text-center py-4">Nenhum dado encontrado para este período.</div>';
             tabelaEl.innerHTML = '<tr><td colspan="5" class="text-center opacity-50">Sem cotações neste período.</td></tr>';
             const pisTabelaEl = $('#modal-pis-tabela');
             if (pisTabelaEl) pisTabelaEl.innerHTML = '<tr><td colspan="5" class="text-center opacity-50">Sem PIs neste período.</td></tr>';
+            const brTab = $('#modal-briefings-tabela');
+            if (brTab) brTab.innerHTML = '<tr><td colspan="3" class="text-center opacity-50">Sem briefings neste período.</td></tr>';
             console.error(e);
         }
     }
@@ -902,6 +1067,14 @@
             });
         });
 
+        $$('.filtro-perfil').forEach(btn => {
+            btn.addEventListener('click', () => {
+                $$('.filtro-perfil').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                carregarClientes();
+            });
+        });
+
         $('#busca-cliente').addEventListener('input', debounce(carregarClientes, 300));
 
         $$('#tabs-atividades .tab').forEach(tab => {
@@ -953,6 +1126,120 @@
                 body = lines.slice(1).join('\n').trim();
             }
             window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+        });
+
+        $('#ea-save')?.addEventListener('click', async () => {
+            const id = $('#ea-id').value;
+            if (!id) return;
+            const desc = $('#ea-desc').value.trim();
+            if (!desc) { showToast('Descrição obrigatória.', 'warning'); return; }
+            const btn = $('#ea-save');
+            btn?.classList.add('loading');
+            try {
+                await api(`/api/atividades/${id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        titulo: $('#ea-titulo').value.trim() || null,
+                        descricao: desc,
+                        data_atividade: $('#ea-data').value,
+                        data_prazo: $('#ea-prazo').value || null,
+                        tipo: $('#ea-tipo').value,
+                        status: $('#ea-status').value
+                    })
+                });
+                $('#modal-editar-atividade').close();
+                carregarAtividades(swrActCtx.clienteId, swrActCtx.contatoId);
+            } catch (e) {
+                console.error(e);
+                showToast(e.message || 'Erro ao salvar.', 'error');
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        });
+
+        $('#eo-save')?.addEventListener('click', async () => {
+            const id = $('#eo-id').value;
+            if (!id) return;
+            const tx = $('#eo-texto').value.trim();
+            if (!tx) { showToast('Texto obrigatório.', 'warning'); return; }
+            const btn = $('#eo-save');
+            btn?.classList.add('loading');
+            try {
+                await api(`/api/objetivos/${id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        texto: tx,
+                        data_prazo: $('#eo-prazo').value || null
+                    })
+                });
+                $('#modal-editar-objetivo').close();
+                if (swrObjCtx.clienteId) carregarObjetivos(swrObjCtx.clienteId);
+            } catch (e) {
+                console.error(e);
+                showToast(e.message || 'Erro ao salvar objetivo.', 'error');
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        });
+
+        $('#btn-contato-novo')?.addEventListener('click', () => {
+            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+            $('#cr-nome').value = '';
+            $('#cr-email').value = '';
+            $('#cr-tel').value = '';
+            $('#modal-contato-rapido').showModal();
+        });
+
+        $('#form-contato-rapido')?.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            if (!clienteSelecionadoId) return;
+            const sub = $('#cr-submit');
+            sub?.classList.add('loading');
+            try {
+                await api(`/api/cliente/${clienteSelecionadoId}/contato-rapido`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        nome_completo: $('#cr-nome').value.trim(),
+                        email: $('#cr-email').value.trim(),
+                        telefone: $('#cr-tel').value.trim() || null
+                    })
+                });
+                $('#modal-contato-rapido').close();
+                showToast('Contato criado.', 'success');
+                carregarContatos(clienteSelecionadoId);
+            } catch (e) {
+                showToast(e.message || 'Erro ao criar contato.', 'error');
+            } finally {
+                sub?.classList.remove('loading');
+            }
+        });
+
+        $('#btn-contato-import')?.addEventListener('click', () => {
+            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+            $('#ci-texto').value = '';
+            $('#ci-result').classList.add('hidden');
+            $('#modal-contato-import').showModal();
+        });
+
+        $('#ci-submit')?.addEventListener('click', async () => {
+            if (!clienteSelecionadoId) return;
+            const btn = $('#ci-submit');
+            btn?.classList.add('loading');
+            try {
+                const r = await api(`/api/cliente/${clienteSelecionadoId}/contatos/importar`, {
+                    method: 'POST',
+                    body: JSON.stringify({ texto: $('#ci-texto').value })
+                });
+                const pre = $('#ci-result');
+                pre.textContent = `Criados: ${r.criados}\n` + (r.erros || []).map(e => `Linha ${e.linha}: ${e.msg}`).join('\n');
+                pre.classList.remove('hidden');
+                showToast(`${r.criados} contato(s) importado(s).`, (r.erros && r.erros.length) ? 'warning' : 'success');
+                carregarContatos(clienteSelecionadoId);
+            } catch (e) {
+                showToast(e.message || 'Erro na importação.', 'error');
+            } finally {
+                btn?.classList.remove('loading');
+            }
         });
     });
 })();

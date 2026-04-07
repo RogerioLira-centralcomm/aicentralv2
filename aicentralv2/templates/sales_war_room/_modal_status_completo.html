@@ -11,15 +11,15 @@
         </div>
 
         <div class="p-4 overflow-y-auto max-h-[75vh]" id="modal-status-body">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" id="modal-status-kpis"></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6" id="modal-status-kpis"></div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-base-200 rounded-lg p-3">
-                    <h4 class="text-xs font-semibold mb-2 opacity-70">Cotações por Mês</h4>
+                    <h4 class="text-xs font-semibold mb-2 opacity-70">Cotações e briefings / mês</h4>
                     <canvas id="chart-cotacoes-mes" height="180"></canvas>
                 </div>
                 <div class="bg-base-200 rounded-lg p-3">
-                    <h4 class="text-xs font-semibold mb-2 opacity-70">Faturamento Mensal</h4>
+                    <h4 class="text-xs font-semibold mb-2 opacity-70">Faturamento mensal (PIs)</h4>
                     <canvas id="chart-faturamento" height="180"></canvas>
                 </div>
                 <div class="bg-base-200 rounded-lg p-3">
@@ -63,6 +63,22 @@
                             </tr>
                         </thead>
                         <tbody id="modal-pis-tabela"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h4 class="text-sm font-semibold mb-2">Briefings do ano</h4>
+                <div class="overflow-x-auto">
+                    <table class="table table-xs table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Título</th>
+                                <th>Status</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-briefings-tabela"></tbody>
                     </table>
                 </div>
             </div>

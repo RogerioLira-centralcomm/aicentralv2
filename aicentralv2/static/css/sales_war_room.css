@@ -1,9 +1,19 @@
+.swr-page-wrap {
+    height: calc(100vh - 130px);
+    min-height: 500px;
+}
+
 .swr-grid {
     display: grid;
     grid-template-columns: 1.1fr 1.2fr 1fr 1.1fr 1fr;
     gap: 0.5rem;
-    height: calc(100vh - 130px);
+    height: 100%;
     min-height: 500px;
+}
+
+.filtro-perfil.active {
+    background: oklch(var(--p));
+    color: oklch(var(--pc));
 }
 
 .swr-col {

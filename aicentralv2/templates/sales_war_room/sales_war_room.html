@@ -16,13 +16,20 @@
         {% endfor %}
     </select>
 
-    <div class="flex gap-1">
-        <button class="btn btn-sm filtro-tipo active" data-tipo="">Todos</button>
-        <button class="btn btn-sm filtro-tipo" data-tipo="governo">Governo</button>
-        <button class="btn btn-sm filtro-tipo" data-tipo="privado">Privado</button>
+    <div class="flex gap-1 flex-wrap">
+        <button type="button" class="btn btn-sm filtro-tipo active btn-primary" data-tipo="">Todos</button>
+        <button type="button" class="btn btn-sm filtro-tipo" data-tipo="governo">Governo</button>
+        <button type="button" class="btn btn-sm filtro-tipo" data-tipo="privado">Privado</button>
+    </div>
+    <div class="flex gap-1 flex-wrap">
+        <button type="button" class="btn btn-sm filtro-perfil active" data-perfil="">Perfil: todos</button>
+        <button type="button" class="btn btn-sm filtro-perfil" data-perfil="direto">Cliente final</button>
+        <button type="button" class="btn btn-sm filtro-perfil" data-perfil="agencia">Agência</button>
     </div>
 </div>
 
+<div class="swr-page-wrap flex gap-2 items-stretch min-h-0">
+<div class="flex-1 min-w-0 min-h-0">
 <div id="swr-grid" class="swr-grid">
     {% include "sales_war_room/_coluna_clientes.html" %}
     {% include "sales_war_room/_coluna_status.html" %}
@@ -30,9 +37,16 @@
     {% include "sales_war_room/_coluna_atividades.html" %}
     {% include "sales_war_room/_coluna_objetivos.html" %}
 </div>
+</div>
+<aside class="swr-rail flex flex-col gap-2 flex-shrink-0 w-[9.5rem] pt-1">
+    <a href="{{ url_for('sales_war_room.atividades_consolidadas') }}" class="btn btn-sm btn-outline btn-block whitespace-normal h-auto min-h-10 py-2 leading-tight text-left">Atividades por executivo</a>
+    <a href="{{ url_for('sales_war_room.objetivos_consolidadas') }}" class="btn btn-sm btn-outline btn-block whitespace-normal h-auto min-h-10 py-2 leading-tight text-left">Objetivos por executivo</a>
+</aside>
+</div>
 
 {% include "sales_war_room/_modal_status_completo.html" %}
 {% include "sales_war_room/_modal_contato.html" %}
+{% include "sales_war_room/_modal_contatos_swr.html" %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/sales_war_room.js') }}"></script>

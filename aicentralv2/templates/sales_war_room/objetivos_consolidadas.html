@@ -1,0 +1,70 @@
+{% extends "base_tailwind.html" %}
+{% block title %}Objetivos consolidados — Sales War Room{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales_war_room.css') }}">
+<div class="flex flex-wrap items-center gap-3 mb-4">
+    <a href="{{ url_for('sales_war_room.index') }}" class="btn btn-sm btn-ghost">← War Room</a>
+    <h1 class="text-xl font-bold">Objetivos por executivo</h1>
+    <select id="swr-oc-exec" class="select select-bordered select-sm max-w-xs">
+        <option value="">Todos os executivos</option>
+        {% for ex in executivos %}
+        <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="overflow-x-auto border border-base-300 rounded-lg">
+    <table class="table table-sm table-zebra w-full">
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Objetivo</th>
+                <th>Prazo</th>
+                <th>Status</th>
+                <th>Resp.</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="swr-oc-tbody"></tbody>
+    </table>
+</div>
+<p class="text-xs opacity-60 mt-2" id="swr-oc-msg"></p>
+<script>
+(function () {
+    const BASE = '/sales-war-room';
+    const tbody = document.getElementById('swr-oc-tbody');
+    const sel = document.getElementById('swr-oc-exec');
+    const msg = document.getElementById('swr-oc-msg');
+
+    async function load() {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center"><span class="loading loading-spinner"></span></td></tr>';
+        const p = new URLSearchParams();
+        if (sel.value) p.set('executivo_id', sel.value);
+        const r = await fetch(BASE + '/api/objetivos-consolidadas?' + p, { credentials: 'same-origin' });
+        const d = await r.json();
+        if (!d.success) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-error text-sm">' + (d.error || 'Erro') + '</td></tr>';
+            return;
+        }
+        msg.textContent = d.objetivos.length >= 500 ? 'Mostrando até 500 registros.' : '';
+        if (!d.objetivos.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center opacity-50">Nenhum objetivo.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = d.objetivos.map(o => {
+            const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+            const st = o.conquistado ? '<span class="badge badge-xs badge-success">Conquistado</span>' : '<span class="badge badge-xs badge-warning">Ativo</span>';
+            return `<tr>
+                <td class="whitespace-nowrap max-w-[10rem] truncate">${(o.cliente_nome || '—').replace(/</g, '&lt;')}</td>
+                <td class="max-w-md">${String(o.texto || '').replace(/</g, '&lt;')}</td>
+                <td>${fmt(o.data_prazo)}</td>
+                <td>${st}</td>
+                <td class="text-xs max-w-[6rem] truncate">${(o.executivo_nome || '—').replace(/</g, '&lt;')}</td>
+                <td><a class="btn btn-xs btn-ghost" href="${BASE}/">Abrir</a></td>
+            </tr>`;
+        }).join('');
+    }
+    sel.addEventListener('change', load);
+    load();
+})();
+</script>
+{% endblock %}

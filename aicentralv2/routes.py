@@ -10,6 +10,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 import secrets
 import os
+import re
 from aicentralv2 import db, audit
 from aicentralv2.email_service import (
     send_password_reset_email, send_password_changed_email, send_invite_email,
@@ -1183,18 +1184,114 @@ def init_routes(app):
             return jsonify({'success': False, 'message': f'Erro ao excluir cliente: {str(e)}'}), 500
 
     def _parse_brl_float(value):
-        """Converte valor monetário BR (R$ 1.234,56 ou 1234.56) para float."""
-        if not value:
+        """Converte valor monetário (VARCHAR/Numeric) para float — alinhado ao SQL do dashboard."""
+        if value is None:
             return None
-        s = str(value).strip().replace('R$', '').strip()
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            from decimal import Decimal
+            if isinstance(value, Decimal):
+                return float(value)
+        except ImportError:
+            pass
+        if isinstance(value, str) and not value.strip():
+            return None
+        if not value and value != 0:
+            return None
+        s = re.sub(r'[^0-9.,]', '', str(value).strip().replace('R$', '').strip())
+        if not s:
+            return None
+        try:
+            if re.match(r'^[0-9]+,[0-9]+$', s):
+                return float(s.replace(',', '.'))
+            if re.match(r'^[0-9.]+,[0-9]+$', s):
+                return float(s.replace('.', '').replace(',', '.'))
+            if re.match(r'^[0-9]+\.[0-9]{1,2}$', s):
+                return float(s)
+            if re.match(r'^[0-9.]+$', s):
+                return float(s.replace('.', ''))
+            if re.match(r'^[0-9]+$', s):
+                return float(s)
+            return float(s.replace('.', '').replace(',', '.'))
+        except (ValueError, TypeError):
+            return None
+
+    def _parse_volume_campanha(value):
+        """Volume da meta (impressões, views, ações): int/float/Decimal ou string BR tipo 1.000.000."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            v = float(value)
+            return v if v > 0 else None
+        try:
+            from decimal import Decimal
+            if isinstance(value, Decimal):
+                v = float(value)
+                return v if v > 0 else None
+        except ImportError:
+            pass
+        s = re.sub(r'[^0-9.,]', '', str(value).strip())
         if not s:
             return None
         if ',' in s:
             s = s.replace('.', '').replace(',', '.')
+        else:
+            s = s.replace('.', '')
         try:
-            return float(s)
+            v = float(s)
+            return v if v > 0 else None
         except (ValueError, TypeError):
             return None
+
+    def _volume_para_preco_campanha(obj_contratados, totalizador_atingido):
+        """Usa meta contratada; se vazia, volume atingido (para não ficar em branco)."""
+        v = _parse_volume_campanha(obj_contratados)
+        if v is not None:
+            return v
+        return _parse_volume_campanha(totalizador_atingido)
+
+    def _preco_unitario_por_metrica(
+        objetivo_nome, obj_contratados, valor_reais, nome_campanha=None, totalizador_atingido=None
+    ):
+        """
+        CPM: (investimento / impressões) * 1000 (volume = impressões totais).
+        CPV, CPA, CPC, CPL, etc.: investimento / unidade.
+        Sem palavra-chave: assume CPM (mídia display / volume + investimento).
+        """
+        vol = _volume_para_preco_campanha(obj_contratados, totalizador_atingido)
+        if vol is None or valor_reais is None or float(valor_reais) <= 0:
+            return None, None
+        vr = float(valor_reais)
+        partes = [
+            (objetivo_nome or '').strip().upper(),
+            (nome_campanha or '').strip().upper(),
+        ]
+        texto = ' '.join(p for p in partes if p).strip()
+
+        # Métricas por unidade (prioridade antes de heurísticas amplas)
+        if texto:
+            if any(k in texto for k in ('CPV', 'CPA', 'CPC', 'CPL', 'CPI')):
+                return vr / vol, 'unit'
+            if any(k in texto for k in (
+                'CONVERS', 'LEAD', 'CLIQUE', 'CLICK', 'AÇÃO', 'ACAO',
+                'INSTALL', 'INSTALA', 'CADASTRO', 'COMPRA', 'VENDA',
+            )):
+                return vr / vol, 'unit'
+
+            # CPM / impressões (inclui display, vídeo por impressão, etc.)
+            if any(k in texto for k in (
+                'CPM', 'IMPRESS', 'DISPLAY', 'VIEWABILITY', 'ALCANCE', 'REACH',
+                'AWARENESS', 'RECONHECIMENTO', 'BRANDING', 'VISUALIZAÇÃO', 'VISUALIZACAO',
+            )):
+                return (vr / vol) * 1000, 'cpm'
+
+        # Padrão: maioria das campanhas de mídia com volume + valor
+        return (vr / vol) * 1000, 'cpm'
 
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
@@ -1203,6 +1300,18 @@ def init_routes(app):
             campanhas_raw = db.obter_campanhas_pi(filtros={'id_pi': id_pi})
             campanhas = []
             for c in (campanhas_raw or []):
+                v_total = _parse_brl_float(c.get('valor_total_plataforma')) or 0
+                v_plat = _parse_brl_float(c.get('valor_plataforma')) or 0
+                valor_para_preco = v_total if v_total > 0 else v_plat
+                if valor_para_preco <= 0:
+                    valor_para_preco = _parse_brl_float(c.get('totalizador_gasto')) or 0
+                preco_metrica, modalidade_preco = _preco_unitario_por_metrica(
+                    c.get('objetivo_nome'),
+                    c.get('obj_contratados'),
+                    valor_para_preco,
+                    c.get('nome_campanha'),
+                    c.get('totalizador_atingido'),
+                )
                 campanhas.append({
                     'id_campanha': c.get('id_campanha'),
                     'nome_campanha': c.get('nome_campanha', ''),
@@ -1221,6 +1330,8 @@ def init_routes(app):
                     'under': c.get('under', False),
                     'codigo_pi': c.get('codigo_pi', ''),
                     'id_pi': c.get('id_pi'),
+                    'preco_metrica_brl': round(preco_metrica, 2) if preco_metrica is not None else None,
+                    'preco_metrica_modalidade': modalidade_preco,
                 })
             return jsonify({'success': True, 'campanhas': campanhas})
         except Exception as e:

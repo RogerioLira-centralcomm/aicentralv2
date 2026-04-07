@@ -649,12 +649,22 @@ function toggleCampanhas(idPi, event) {
             '<p class="text-xs text-gray-400">Nenhuma campanha vinculada a este PI</p></div>';
           return;
         }
+        function siglaMetricaPreco(nomeObjetivo, modalidade) {
+          if (modalidade === 'cpm') return 'CPM';
+          const n = (nomeObjetivo || '').toUpperCase();
+          const keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+          for (let i = 0; i < keys.length; i++) {
+            if (n.indexOf(keys[i]) !== -1) return keys[i];
+          }
+          return '—';
+        }
         let html = '<table class="camp-table w-full"><thead><tr>' +
           '<th class="text-left">Campanha</th>' +
           '<th class="text-left">Plataforma</th>' +
           '<th class="text-center">Período</th>' +
-          '<th class="text-center">Objetivo</th>' +
-          '<th class="text-right">Investimento</th>' +
+          '<th class="text-right">Preço (R$)</th>' +
+          '<th class="text-center">Meta</th>' +
+          '<th class="text-right">Gasto / previsto</th>' +
           '<th class="text-center">Ações</th>' +
           '</tr></thead><tbody>';
         data.campanhas.forEach(c => {
@@ -664,14 +674,21 @@ function toggleCampanhas(idPi, event) {
           const pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
           const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
           const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
+          const precoM = c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl)) ? Number(c.preco_metrica_brl) : null;
+          const sigla = siglaMetricaPreco(c.objetivo_nome, c.preco_metrica_modalidade);
           const fmtBrl = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
           const pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
+          const celPreco = precoM != null
+            ? '<span class="text-[10px] font-semibold text-emerald-800">' + sigla + '</span>' +
+              '<span class="block font-semibold text-gray-800">' + fmtBrl(precoM) + '</span>'
+            : '<span class="text-gray-400 text-xs">—</span>';
 
           html += '<tr class="hover:bg-blue-100/40">' +
             '<td class="text-left"><span class="font-medium text-gray-800">' + (c.nome_campanha || '-') + '</span>' +
               '<span class="block text-[10px] text-gray-400">' + (c.status_nome || '') + '</span></td>' +
             '<td class="text-left text-gray-600">' + (c.plataforma_nome || '-') + '</td>' +
             '<td class="text-center text-gray-600">' + periodo + '</td>' +
+            '<td class="text-right">' + celPreco + '</td>' +
             '<td class="text-center"><span class="' + pctColor + ' font-semibold">' + objAtingido + '/' + objContratado + '</span>' +
               '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span></td>' +
             '<td class="text-right"><span class="font-medium text-gray-800">' + fmtBrl(gasto) + '</span>' +

@@ -1386,6 +1386,10 @@
           <span id="view_objetivos" class="text-sm text-gray-700">—</span>
         </div>
         <div>
+          <label id="view_preco_metrica_label" class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
+          <span id="view_preco_metrica" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
           <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
           <span id="view_under" class="text-sm text-gray-700">—</span>
         </div>
@@ -1413,6 +1417,15 @@
   details[open] > summary .details-open-rotate { transform: rotate(90deg); }
 </style>
 <script>
+function siglaMetricaPrecoPi(nomeObjetivo, modalidade) {
+  if (modalidade === 'cpm') return 'CPM';
+  var n = (nomeObjetivo || '').toUpperCase();
+  var keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+  for (var i = 0; i < keys.length; i++) {
+    if (n.indexOf(keys[i]) !== -1) return keys[i];
+  }
+  return '—';
+}
 function abrirViewCampanha(c) {
   var fmtBrl = function(v) { return v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'; };
   document.getElementById('view_nome_campanha').textContent = c.nome_campanha || '—';
@@ -1424,6 +1437,16 @@ function abrirViewCampanha(c) {
   document.getElementById('view_periodo_fim').textContent = c.periodo_fim || '—';
   document.getElementById('view_plataforma').textContent = c.plataforma_nome || '—';
   document.getElementById('view_objetivos').textContent = c.objetivo_nome || '—';
+  var precoEl = document.getElementById('view_preco_metrica');
+  var precoLbl = document.getElementById('view_preco_metrica_label');
+  if (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))) {
+    var sigla = siglaMetricaPrecoPi(c.objetivo_nome, c.preco_metrica_modalidade);
+    precoLbl.textContent = sigla !== '—' ? sigla + ' (R$)' : 'Preço (R$)';
+    precoEl.textContent = fmtBrl(c.preco_metrica_brl);
+  } else {
+    precoLbl.textContent = 'Preço (R$)';
+    precoEl.textContent = '—';
+  }
   document.getElementById('view_under').textContent = c.under ? 'Sim' : 'Não';
   document.getElementById('view_totalizador_atingido').textContent = c.totalizador_atingido || '—';
   document.getElementById('view_totalizador_gasto').textContent = c.totalizador_gasto != null ? fmtBrl(c.totalizador_gasto) : '—';
@@ -1452,6 +1475,15 @@ function abrirViewCampanha(c) {
       badge.className = 'ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700';
 
       const fmtBrl = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      function siglaMetricaPrecoLista(nomeObjetivo, modalidade) {
+        if (modalidade === 'cpm') return 'CPM';
+        const n = (nomeObjetivo || '').toUpperCase();
+        const keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+        for (let i = 0; i < keys.length; i++) {
+          if (n.indexOf(keys[i]) !== -1) return keys[i];
+        }
+        return '—';
+      }
 
       let html = '';
 
@@ -1474,13 +1506,20 @@ function abrirViewCampanha(c) {
             '<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0 ml-2">' + (c.plataforma_nome || '-') + '</span>' +
           '</summary>' +
           '<div class="px-4 pb-3 pt-2 border-t border-gray-100">' +
-            '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">' +
+            '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">' +
               '<div>' +
                 '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
                 '<span class="text-gray-600 text-xs">' + periodo + '</span>' +
               '</div>' +
               '<div>' +
-                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Objetivo</span>' +
+                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</span>' +
+                (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))
+                  ? '<span class="text-[10px] font-semibold text-emerald-800">' + siglaMetricaPrecoLista(c.objetivo_nome, c.preco_metrica_modalidade) + '</span>' +
+                    '<div class="text-xs font-semibold text-gray-800 mt-0.5">' + fmtBrl(c.preco_metrica_brl) + '</div>'
+                  : '<span class="text-[10px] text-gray-400">—</span>') +
+              '</div>' +
+              '<div>' +
+                '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Meta</span>' +
                 '<span class="' + pctColor + ' font-semibold text-xs">' + objAtingido + ' / ' + objContratado + '</span>' +
                 '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span>' +
               '</div>' +

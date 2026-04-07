@@ -242,6 +242,81 @@
     <!-- Toast Container -->
     <div id="toast-container" class="toast toast-top toast-end" style="position: fixed !important; top: 1rem !important; right: 1rem !important; z-index: 2147483647 !important;"></div>
 
+    {% set perfil_user_type_labels = {'client': 'Cliente', 'admin': 'Administrador', 'superadmin': 'Super administrador', 'readonly': 'Somente leitura'} %}
+    <dialog id="modal-meu-perfil" class="modal">
+        <div class="modal-box w-[min(100%,22rem)] sm:w-full sm:max-w-lg p-0 shadow-xl">
+            <div class="flex items-center justify-between gap-2 border-b border-base-200 px-4 py-2.5">
+                <h3 class="text-base font-bold text-base-content leading-tight">Meu perfil</h3>
+                <form method="dialog">
+                    <button type="submit" class="btn btn-ghost btn-xs btn-circle min-h-8 min-w-8" aria-label="Fechar">✕</button>
+                </form>
+            </div>
+            <div class="px-4 py-3">
+                {% if perfil_contato %}
+                <div class="flex items-center gap-3 mb-3 pb-3 border-b border-base-200">
+                    <div class="avatar placeholder shrink-0">
+                        <div class="bg-primary text-primary-content rounded-full w-10 h-10 text-sm">
+                            <span class="font-semibold">{{ (perfil_contato.nome_completo or session.get('user_name', 'U'))[:2]|upper }}</span>
+                        </div>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold leading-snug truncate">{{ perfil_contato.nome_completo or '—' }}</p>
+                        <p class="text-xs text-base-content/60 truncate">{{ perfil_contato.email or '—' }}</p>
+                    </div>
+                </div>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:text-sm">
+                    <div class="min-w-0">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Telefone</dt>
+                        <dd class="mt-0.5 leading-tight break-words">{{ perfil_contato.telefone or '—' }}</dd>
+                    </div>
+                    <div class="min-w-0">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Tipo</dt>
+                        <dd class="mt-0.5 leading-tight">{{ perfil_user_type_labels.get(perfil_contato.user_type or 'client', perfil_contato.user_type or '—') }}</dd>
+                    </div>
+                    <div class="min-w-0">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Status</dt>
+                        <dd class="mt-0.5">
+                            {% if perfil_contato.status is sameas true or perfil_contato.status == 1 %}
+                            <span class="badge badge-success badge-sm scale-90 origin-left">Ativo</span>
+                            {% else %}
+                            <span class="badge badge-ghost badge-sm scale-90 origin-left">Inativo</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="min-w-0">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Cargo</dt>
+                        <dd class="mt-0.5 leading-tight">{{ perfil_contato.cargo_descricao or '—' }}</dd>
+                    </div>
+                    <div class="min-w-0">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Setor</dt>
+                        <dd class="mt-0.5 leading-tight">{{ perfil_contato.setor_display or '—' }}</dd>
+                    </div>
+                    <div class="min-w-0">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Cadastro</dt>
+                        <dd class="mt-0.5 leading-tight tabular-nums text-[11px] sm:text-sm">
+                            {% if perfil_contato.data_cadastro %}{{ perfil_contato.data_cadastro|format_datetime }}{% else %}—{% endif %}
+                        </dd>
+                    </div>
+                    <div class="min-w-0 col-span-2">
+                        <dt class="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-base-content/50">Última alteração</dt>
+                        <dd class="mt-0.5 leading-tight tabular-nums text-[11px] sm:text-sm">
+                            {% if perfil_contato.data_modificacao %}{{ perfil_contato.data_modificacao|format_datetime }}{% else %}—{% endif %}
+                        </dd>
+                    </div>
+                </dl>
+                {% else %}
+                <p class="text-sm text-base-content/70">Não foi possível carregar os dados do perfil.</p>
+                {% endif %}
+            </div>
+            <div class="border-t border-base-200 px-4 py-2 flex justify-end">
+                <form method="dialog">
+                    <button type="submit" class="btn btn-primary btn-sm min-h-8 h-8">Fechar</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
+    </dialog>
+
     <!-- Drawer wrapper (mobile hamburger menu) -->
     <div class="drawer">
         <input id="main-drawer" type="checkbox" class="drawer-toggle" />
@@ -361,6 +436,17 @@
                         </ul>
                     </div>
                     {% endif %}
+
+                    <!-- Busca PI por código (todos os usuários logados) — abre a lista direto se existir -->
+                    <div class="hidden lg:flex items-center gap-1.5 ml-2 pl-2 border-l border-base-200 shrink-0" title="Localizar PI por código">
+                        <input type="text" id="nav-busca-pi-input" maxlength="120" placeholder="Código PI" autocomplete="off"
+                            class="input input-bordered input-sm w-[7.5rem] h-8 min-h-0 text-xs px-2" />
+                        <button type="button" id="nav-busca-pi-btn"
+                            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-base-300 bg-base-100 text-base-content/55 shadow-sm transition-all duration-150 hover:border-base-content/18 hover:bg-base-200 hover:text-base-content hover:shadow active:border-base-content/22 active:bg-base-300 active:text-base-content active:shadow-inner focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+                            aria-label="Buscar PI">
+                            <i class="fas fa-search text-[11px]" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- User dropdown (right side) -->
@@ -379,10 +465,11 @@
                         </div>
                         <ul class="nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-52 border border-base-200">
                             <li>
-                                <a class="flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                <button type="button" class="flex items-center gap-2 w-full text-left rounded-lg px-4 py-2 text-sm font-normal normal-case bg-transparent border-0 cursor-pointer hover:bg-base-200"
+                                    onclick="document.querySelectorAll('.nav-dd.is-open').forEach(function(el){ el.classList.remove('is-open'); }); document.getElementById('modal-meu-perfil').showModal();">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                     Meu Perfil
-                                </a>
+                                </button>
                             </li>
                             <div class="divider my-1 h-px"></div>
                             <li>
@@ -616,6 +703,20 @@
                             </details>
                         </li>
                         {% endif %}
+
+                        <!-- Busca PI (mobile) -->
+                        <li class="mt-3 px-1">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide opacity-50 px-2 mb-1">Buscar PI</p>
+                            <div class="flex gap-1.5 items-center px-1">
+                                <input type="text" id="nav-busca-pi-input-mobile" maxlength="120" placeholder="Código PI" autocomplete="off"
+                                    class="input input-bordered input-sm flex-1 h-9 min-h-0 text-sm" />
+                                <button type="button" id="nav-busca-pi-btn-mobile"
+                                    class="inline-flex h-9 min-h-0 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-primary-content shadow-sm transition-[transform,filter,box-shadow] duration-150 hover:brightness-105 hover:shadow-md active:scale-[0.97] active:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+                                    aria-label="Buscar PI">
+                                    <i class="fas fa-search text-sm text-primary-content" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </li>
                     </ul>
                 </nav>
 
@@ -632,7 +733,12 @@
                             <p class="text-xs opacity-60 truncate">{{ session.get('user_email', '') }}</p>
                         </div>
                     </div>
-                    <div class="mt-2">
+                    <div class="mt-2 space-y-1">
+                        <button type="button" class="btn btn-ghost btn-sm w-full justify-start gap-2"
+                            onclick="var d=document.getElementById('main-drawer'); if(d) d.checked=false; document.getElementById('modal-meu-perfil').showModal();">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            Meu perfil
+                        </button>
                         <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm w-full justify-start gap-2 text-error">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                             Sair
@@ -686,6 +792,71 @@
                     }
                 });
             });
+
+            // Busca PI: se existir, redireciona na hora para a lista (só esse PI + termo no campo busca)
+            (function initNavBuscaPi() {
+                function getQueryFromInputs() {
+                    var desktop = document.getElementById('nav-busca-pi-input');
+                    var mobile = document.getElementById('nav-busca-pi-input-mobile');
+                    var d = (desktop && desktop.value || '').trim();
+                    var m = (mobile && mobile.value || '').trim();
+                    return d || m;
+                }
+                function runNavBuscaPi() {
+                    var q = getQueryFromInputs();
+                    if (!q) {
+                        if (typeof showToast === 'function') {
+                            showToast('Informe o código do PI.', 'warning');
+                        }
+                        return;
+                    }
+                    fetch('/api/cadu_pi/localizar?' + new URLSearchParams({ q: q }), { credentials: 'same-origin' })
+                        .then(function(r) {
+                            var ct = r.headers.get('content-type') || '';
+                            if (!ct.includes('application/json')) {
+                                throw new Error('not-json');
+                            }
+                            return r.json();
+                        })
+                        .then(function(data) {
+                            if (!data.found) {
+                                if (typeof showToast === 'function') {
+                                    showToast(data.message || 'Nenhum PI encontrado com este código.', 'error', 5000);
+                                }
+                                return;
+                            }
+                            var url = data.lista_url || '';
+                            if (url.indexOf('/') !== 0) {
+                                if (typeof showToast === 'function') {
+                                    showToast('Resposta inválida da busca.', 'error');
+                                }
+                                return;
+                            }
+                            window.location.assign(url);
+                        })
+                        .catch(function() {
+                            if (typeof showToast === 'function') {
+                                showToast('Erro ao buscar PI. Faça login se necessário.', 'error');
+                            }
+                        });
+                }
+                var inp = document.getElementById('nav-busca-pi-input');
+                var btn = document.getElementById('nav-busca-pi-btn');
+                var inpM = document.getElementById('nav-busca-pi-input-mobile');
+                var btnM = document.getElementById('nav-busca-pi-btn-mobile');
+                if (inp && btn) {
+                    btn.addEventListener('click', function() { runNavBuscaPi(); });
+                    inp.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') { e.preventDefault(); runNavBuscaPi(); }
+                    });
+                }
+                if (inpM && btnM) {
+                    btnM.addEventListener('click', function() { runNavBuscaPi(); });
+                    inpM.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') { e.preventDefault(); runNavBuscaPi(); }
+                    });
+                }
+            })();
         });
 
         function closeFlashMessage(element) {

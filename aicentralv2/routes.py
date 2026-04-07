@@ -36,6 +36,43 @@ def serializar_para_json(obj):
         return serializar_para_json(obj.__dict__)
     return obj
 
+
+def _int_safe(v):
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def rotulo_e_url_lista_pi(pi_row, id_pi_nav=None, busca_nav=None):
+    """Rótulo da lista (menu) e URL relativa de /cadu_pi; opcional id_pi (filtro único) e busca (texto digitado)."""
+    extra = {}
+    if id_pi_nav is not None:
+        extra['id_pi'] = id_pi_nav
+    if busca_nav:
+        extra['busca'] = busca_nav
+    nf_row = db.obter_status_pi_por_descricao('NF Emitida')
+    st_pi = _int_safe(pi_row.get('id_status_pi'))
+    nf_id = _int_safe(nf_row.get('id')) if nf_row else None
+    if nf_id is not None and st_pi == nf_id:
+        return 'NF Emitida', url_for('cadu_pi_lista', origem='nf_emitida', **extra)
+    ssp = _int_safe(pi_row.get('id_sub_status_pi'))
+    labels = {
+        1: 'Em aprovação',
+        2: 'Em configuração',
+        3: 'Em andamento',
+        4: 'Em faturamento',
+    }
+    nome = labels.get(ssp) or (pi_row.get('sub_status_descricao') or 'Lista de PIs')
+    if ssp == 4:
+        return nome, url_for('cadu_pi_lista', id_sub_status_pi=4, origem='operacao', **extra)
+    if ssp in (1, 2, 3):
+        return nome, url_for('cadu_pi_lista', id_sub_status_pi=ssp, **extra)
+    return nome, url_for('cadu_pi_lista', **extra)
+
+
 # Helper para registro de auditoria
 def registrar_auditoria(acao, modulo, descricao, registro_id=None, registro_tipo=None, dados_anteriores=None, dados_novos=None):
     """Helper para registrar auditoria automaticamente"""
@@ -783,7 +820,7 @@ def init_routes(app):
     def index():
         """Página inicial - Dashboard Início (dados carregados via API)"""
         return render_template('index_tailwind.html')
-    
+
     # ==================== FORGOT PASSWORD ====================
     
     @app.route('/forgot-password', methods=['GET', 'POST'])
@@ -8334,6 +8371,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['mes_ref_comp'] = request.args.get('mes_ref_comp')
             if request.args.get('busca', '').strip():
                 filtros['search'] = request.args.get('busca').strip()
+            if request.args.get('id_pi', '').strip().isdigit():
+                filtros['id_pi'] = int(request.args.get('id_pi').strip())
 
             origem_lista = request.args.get('origem', '')
 
@@ -8381,6 +8420,32 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    vendedores=[],
                                    statuses_nf=[],
                                    filtros={})
+
+    @app.route('/api/cadu_pi/localizar', methods=['GET'])
+    @login_required
+    def cadu_pi_localizar():
+        """Localiza PI por código ou id; retorna nome da lista (menu) e URL com âncora #pi-id."""
+        q = (request.args.get('q') or '').strip()
+        if not q:
+            return jsonify({'found': False, 'message': 'Informe o código do PI.'}), 400
+        try:
+            pi = db.obter_cadu_pi_por_codigo_ou_id(q)
+            if not pi:
+                return jsonify({'found': False, 'message': 'Nenhum PI encontrado com este código.'})
+            id_pi = pi['id_pi']
+            lista_nome, lista_path = rotulo_e_url_lista_pi(pi, id_pi_nav=id_pi, busca_nav=q)
+            lista_url = f'{lista_path}#pi-{id_pi}'
+            codigo_display = pi.get('codigo_pi_cc') or pi.get('codigo_pi_ag') or str(id_pi)
+            return jsonify({
+                'found': True,
+                'id_pi': id_pi,
+                'codigo': codigo_display,
+                'lista_nome': lista_nome,
+                'lista_url': lista_url,
+            })
+        except Exception as e:
+            app.logger.error(f"Erro ao localizar PI: {e}", exc_info=True)
+            return jsonify({'found': False, 'message': 'Erro ao localizar PI.'}), 500
 
     @app.route('/cadu_pi/novo', methods=['GET', 'POST'])
     @login_required

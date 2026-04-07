@@ -91,21 +91,24 @@ def create_app(config_class=Config):
     def inject_config():
         from flask import session
         
-        # Verificar se usuário é CENTRALCOMM
+        # Verificar se usuário é CENTRALCOMM; reutiliza o mesmo contato para o modal Meu perfil
         is_cc_user = False
+        perfil_contato = None
         if 'user_id' in session:
             try:
                 contato = db.obter_contato_por_id(session['user_id'])
+                perfil_contato = contato
                 if contato and contato.get('pk_id_tbl_cliente'):
                     cliente = db.obter_cliente_por_id(contato['pk_id_tbl_cliente'])
                     if cliente:
                         is_cc_user = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
-            except:
+            except Exception:
                 pass
         
         return dict(
             APP_CONFIG=app.config,
-            is_centralcomm_user=is_cc_user
+            is_centralcomm_user=is_cc_user,
+            perfil_contato=perfil_contato
         )
 
     # Registrar teardown (fechar conexão)

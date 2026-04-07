@@ -8008,6 +8008,10 @@ def obter_cadu_pi_lista(filtros=None):
                     query += ' AND p.id_resp_comercial = %s'
                     params.append(filtros['resp_comercial'])
 
+                if filtros.get('id_pi'):
+                    query += ' AND p.id_pi = %s'
+                    params.append(filtros['id_pi'])
+
                 if filtros.get('search'):
                     query += ' AND (unaccent(p.titulo_pi) ILIKE unaccent(%s) OR p.codigo_pi_cc ILIKE %s OR p.codigo_pi_ag ILIKE %s OR unaccent(cli.nome_fantasia) ILIKE unaccent(%s) OR unaccent(cli_ag.nome_fantasia) ILIKE unaccent(%s))'
                     search_term = f"%{filtros['search']}%"
@@ -8067,6 +8071,49 @@ def obter_cadu_pi_por_id(id_pi):
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
                 WHERE p.id_pi = %s
             ''', (id_pi,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cadu_pi_por_codigo_ou_id(termo):
+    """Localiza um PI por id_pi (só dígitos) ou por codigo_pi_cc / codigo_pi_ag (case-insensitive, trim)."""
+    termo = (termo or '').strip()
+    if not termo:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if termo.isdigit() and len(termo) <= 12:
+                cursor.execute(
+                    '''
+                    SELECT p.id_pi, p.id_sub_status_pi, p.id_status_pi, p.codigo_pi_cc, p.codigo_pi_ag,
+                           ssp.display AS sub_status_descricao
+                    FROM cadu_pi p
+                    LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
+                    WHERE p.id_pi = %s
+                    LIMIT 1
+                    ''',
+                    (int(termo),),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return row
+
+            t = termo.lower()
+            cursor.execute(
+                '''
+                SELECT p.id_pi, p.id_sub_status_pi, p.id_status_pi, p.codigo_pi_cc, p.codigo_pi_ag,
+                       ssp.display AS sub_status_descricao
+                FROM cadu_pi p
+                LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
+                WHERE (p.codigo_pi_cc IS NOT NULL AND LOWER(TRIM(p.codigo_pi_cc)) = %s)
+                   OR (p.codigo_pi_ag IS NOT NULL AND LOWER(TRIM(p.codigo_pi_ag)) = %s)
+                LIMIT 1
+                ''',
+                (t, t),
+            )
             return cursor.fetchone()
     except Exception as e:
         conn.rollback()

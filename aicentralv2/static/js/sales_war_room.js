@@ -375,17 +375,24 @@
         return a.data_prazo === new Date().toISOString().slice(0, 10);
     }
 
-    function sortAtividades(list) {
+    /** Ativas (não concluídas): prazo ascendente; sem prazo por último; empate: vencidas primeiro. */
+    function sortAtividadesPorPrazoAtivas(list) {
         return list.slice().sort((a, b) => {
-            const sa = a.status === 'concluida' ? 2 : (a.status === 'em_andamento' ? 1 : 0);
-            const sb = b.status === 'concluida' ? 2 : (b.status === 'em_andamento' ? 1 : 0);
-            if (sa !== sb) return sa - sb;
+            const da = a.data_prazo ? String(a.data_prazo).slice(0, 10) : '9999-12-31';
+            const db = b.data_prazo ? String(b.data_prazo).slice(0, 10) : '9999-12-31';
+            if (da !== db) return da.localeCompare(db);
             const va = atividadeVencida(a) ? 0 : 1;
             const vb = atividadeVencida(b) ? 0 : 1;
             if (va !== vb) return va - vb;
-            const da = a.data_prazo || '9999-12-31';
-            const db = b.data_prazo || '9999-12-31';
-            return da.localeCompare(db);
+            return String(a.id).localeCompare(String(b.id));
+        });
+    }
+
+    function sortAtividadesConcluidasPorData(list) {
+        return list.slice().sort((a, b) => {
+            const da = a.data_atividade ? String(a.data_atividade).slice(0, 10) : '';
+            const db = b.data_atividade ? String(b.data_atividade).slice(0, 10) : '';
+            return db.localeCompare(da);
         });
     }
 
@@ -446,40 +453,23 @@
             if (contatoId) params.set('contato_id', contatoId);
             const data = await api(`/api/cliente/${clienteId}/atividades?${params}`);
 
-            const sorted = sortAtividades(data.atividades);
-            const pendentes = sorted.filter(a => a.status !== 'concluida');
-            const colPend = sortAtividades(sorted.filter(a => a.status === 'pendente'));
-            const colEm = sortAtividades(sorted.filter(a => a.status === 'em_andamento'));
-            const colOk = sortAtividades(sorted.filter(a => a.status === 'concluida'));
+            const lista = data.atividades || [];
+            const ativas = sortAtividadesPorPrazoAtivas(lista.filter(a => a.status !== 'concluida'));
+            const concluidas = sortAtividadesConcluidasPorData(lista.filter(a => a.status === 'concluida'));
 
             let html = '';
 
-            if (!sorted.length) {
-                html = '';
-            } else {
-                const sec = (titulo, arr, extraClass) => {
-                    const n = arr.length;
-                    const inner = n
-                        ? arr.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')
-                        : '<div class="swr-pipe-empty">Nenhuma atividade nesta etapa.</div>';
-                    return `
-                    <section class="swr-pipe-section ${extraClass || ''}">
-                        <div class="swr-pipe-section-head">
-                            <span>${titulo}</span>
-                            <span class="swr-pipe-section-count">${n}</span>
-                        </div>
-                        <div class="swr-pipe-section-body">${inner}</div>
-                    </section>`;
-                };
-                html = `
-                <div class="swr-pipeline-stack mb-2">
-                    ${sec('Pendente', colPend, '')}
-                    ${sec('Em andamento', colEm, '')}
-                    ${sec('Concluída', colOk, 'swr-pipe-section--done')}
-                </div>`;
+            if (lista.length) {
+                if (ativas.length) {
+                    html += `<div class="swr-atividades-list mb-2">${ativas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+                }
+                if (concluidas.length) {
+                    html += `<div class="divider text-xs my-2 opacity-70">Concluídas</div>`;
+                    html += `<div class="swr-atividades-list swr-atividades-list--done mb-2">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+                }
             }
 
-            if (!pendentes.length) {
+            if (!ativas.length) {
                 html = `
                     <div class="swr-sugestao-card swr-fade-in mb-2">
                         <div class="text-xs text-center py-2 opacity-70">Nenhuma atividade pendente.</div>
@@ -545,7 +535,6 @@
                 });
             });
 
-            const lista = data.atividades || [];
             $$('.swr-act-edit', container).forEach(btn => {
                 btn.addEventListener('click', () => {
                     const a = lista.find(x => String(x.id) === btn.dataset.id);

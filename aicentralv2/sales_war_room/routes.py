@@ -5,6 +5,27 @@ from ..db import get_db
 from . import bp
 
 
+def _eh_agencia_row(is_agencia_key, agencia_display):
+    """
+    Cadastro: Agência Sim/Não (tbl_agencia.key boolean e/ou display 'Sim'/'Não').
+    Usado na API e nos contadores A/C para não depender só de === true no JSON.
+    """
+    if is_agencia_key is True:
+        return True
+    if is_agencia_key is False:
+        pass
+    elif is_agencia_key is not None:
+        s = str(is_agencia_key).strip().lower()
+        if s in ('true', 't', '1', 'yes'):
+            return True
+        if s in ('false', 'f', '0', 'no', 'none'):
+            return False
+    disp = (agencia_display or '').strip().lower()
+    if disp in ('sim', 's'):
+        return True
+    return False
+
+
 def _parse_vr_bruto(raw):
     """Parse vr_bruto_pi text (e.g. 'R$ 1.234,56', '10000.50', '10000') to float."""
     if not raw:
@@ -47,6 +68,11 @@ def api_clientes():
     conn = get_db()
     try:
         with conn.cursor() as cur:
+            # Filtro perfil: "é agência" = key TRUE OU display Sim (JOIN nulo = cliente final).
+            _sql_eh_ag = (
+                "(COALESCE((ag.key IS TRUE), false) OR "
+                "LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's'))"
+            )
             query = """
                 SELECT
                     cli.id_cliente,
@@ -55,6 +81,7 @@ def api_clientes():
                     cli.categoria_abc,
                     cli.pk_id_tbl_agencia,
                     ag.key AS is_agencia,
+                    ag.display AS agencia_display,
                     COUNT(DISTINCT cont.id_contato_cliente) AS qtd_contatos,
                     COUNT(DISTINCT sa.id) FILTER (WHERE sa.status = 'pendente') AS atividades_pendentes
                 FROM tbl_cliente cli
@@ -73,9 +100,9 @@ def api_clientes():
                 query += " AND (tc.display IS NULL OR LOWER(tc.display) != 'público')"
 
             if perfil == 'direto':
-                query += " AND cli.pk_id_tbl_agencia IS NULL"
+                query += f" AND NOT ({_sql_eh_ag})"
             elif perfil == 'agencia':
-                query += " AND cli.pk_id_tbl_agencia IS NOT NULL"
+                query += f" AND ({_sql_eh_ag})"
 
             if busca:
                 query += " AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)"
@@ -83,14 +110,19 @@ def api_clientes():
 
             query += """
                 GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social,
-                         cli.categoria_abc, cli.pk_id_tbl_agencia, ag.key
+                         cli.categoria_abc, cli.pk_id_tbl_agencia, ag.key, ag.display
                 ORDER BY
                     CASE cli.categoria_abc WHEN 'A' THEN 1 WHEN 'B' THEN 2 ELSE 3 END,
                     cli.nome_fantasia
             """
 
             cur.execute(query, params)
-            clientes = cur.fetchall()
+            rows = cur.fetchall()
+            clientes = []
+            for r in rows:
+                d = dict(r)
+                d['eh_agencia'] = _eh_agencia_row(d.get('is_agencia'), d.get('agencia_display'))
+                clientes.append(d)
 
         return jsonify({'success': True, 'clientes': clientes})
     except Exception as e:
@@ -128,7 +160,7 @@ def api_cliente_status(cliente_id):
                         COALESCE(SUM(c.valor_total_proposta), 0) AS valor_bruto,
                         COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3')), 0) AS valor_liquido
                     FROM cadu_cotacoes c
-                    WHERE c.client_id = cli.id_cliente
+                    WHERE (c.client_id = cli.id_cliente OR c.agencia_id = cli.id_cliente)
                       AND c.deleted_at IS NULL
                       AND DATE_TRUNC('month', c.created_at) = DATE_TRUNC('month', CURRENT_DATE)
                 ) cot ON true
@@ -155,7 +187,7 @@ def api_cliente_status(cliente_id):
                         ), 0) AS valor_pis
                     FROM cadu_pi p
                     LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
-                    WHERE p.id_cliente = cli.id_cliente
+                    WHERE (p.id_cliente = cli.id_cliente OR p.id_agencia = cli.id_cliente)
                       AND DATE_TRUNC('month', p.created_at) = DATE_TRUNC('month', CURRENT_DATE)
                 ) pi_data ON true
                 WHERE cli.id_cliente = %s
@@ -208,10 +240,10 @@ def api_cliente_status_completo(cliente_id):
                          THEN ROUND(COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3'))::numeric / COUNT(*) * 100, 1)
                          ELSE 0 END AS pct_conversao
                 FROM cadu_cotacoes c
-                WHERE c.client_id = %s
+                WHERE (c.client_id = %s OR c.agencia_id = %s)
                   AND c.deleted_at IS NULL
                   AND {y_cot} = %s
-            """, (cliente_id, ano))
+            """, (cliente_id, cliente_id, ano))
             resumo_cotacoes = cur.fetchone()
 
             cur.execute(f"""
@@ -237,9 +269,9 @@ def api_cliente_status_completo(cliente_id):
                     ), 0) AS valor_pis
                 FROM cadu_pi p
                 LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
-                WHERE p.id_cliente = %s
+                WHERE (p.id_cliente = %s OR p.id_agencia = %s)
                   AND {y_pi} = %s
-            """, (cliente_id, ano))
+            """, (cliente_id, cliente_id, ano))
             resumo_pis = cur.fetchone()
 
             # Ticket médio só sobre cotações aprovadas (expectativa comercial)
@@ -254,12 +286,12 @@ def api_cliente_status_completo(cliente_id):
                     COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3')) AS aprovadas,
                     COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3')), 0) AS faturamento
                 FROM cadu_cotacoes c
-                WHERE c.client_id = %s
+                WHERE (c.client_id = %s OR c.agencia_id = %s)
                   AND c.deleted_at IS NULL
                   AND {y_cot} = %s
                 GROUP BY {m_cot}
                 ORDER BY mes
-            """, (cliente_id, ano))
+            """, (cliente_id, cliente_id, ano))
             por_mes = cur.fetchall()
 
             cur.execute(f"""
@@ -269,11 +301,11 @@ def api_cliente_status_completo(cliente_id):
                     c.status AS status_descricao,
                     c.created_at
                 FROM cadu_cotacoes c
-                WHERE c.client_id = %s
+                WHERE (c.client_id = %s OR c.agencia_id = %s)
                   AND c.deleted_at IS NULL
                   AND {y_cot} = %s
                 ORDER BY c.created_at DESC
-            """, (cliente_id, ano))
+            """, (cliente_id, cliente_id, ano))
             cotacoes_lista = cur.fetchall()
 
             resumo_briefings = {'total_briefings': 0}
@@ -322,10 +354,10 @@ def api_cliente_status_completo(cliente_id):
                         p.created_at
                     FROM cadu_pi p
                     LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
-                    WHERE p.id_cliente = %s
+                    WHERE (p.id_cliente = %s OR p.id_agencia = %s)
                       AND {y_pi} = %s
                     ORDER BY p.created_at DESC
-                """, (cliente_id, ano))
+                """, (cliente_id, cliente_id, ano))
                 pis_lista = cur.fetchall()
 
                 cur.execute(f"""
@@ -333,9 +365,9 @@ def api_cliente_status_completo(cliente_id):
                         {m_pi} AS mes,
                         p.vr_bruto_pi AS vr_bruto_raw
                     FROM cadu_pi p
-                    WHERE p.id_cliente = %s
+                    WHERE (p.id_cliente = %s OR p.id_agencia = %s)
                       AND {y_pi} = %s
-                """, (cliente_id, ano))
+                """, (cliente_id, cliente_id, ano))
                 pis_mes_raw = cur.fetchall()
             except Exception:
                 pis_lista = []

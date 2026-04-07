@@ -1,6 +1,12 @@
 <div class="swr-col" id="col-clientes">
     <div class="swr-col-header">
-        <h2 class="font-semibold text-sm">Clientes</h2>
+        <h2 class="font-semibold text-sm flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span>Clientes</span>
+            <span id="swr-contador-carteira" class="hidden inline-flex items-center gap-1.5 text-[11px] font-normal opacity-70 tabular-nums" aria-live="polite">
+                <span id="swr-chip-ag" class="inline-flex items-center gap-0.5 rounded px-1 py-0 bg-base-200" title="Agências na carteira (filtro atual)"><span id="swr-letra-a" class="font-semibold opacity-90">A</span><span id="swr-n-agencias">0</span></span>
+                <span id="swr-chip-cli" class="inline-flex items-center gap-0.5 rounded px-1 py-0 bg-base-200" title="Clientes diretos na carteira (filtro atual)"><span id="swr-letra-c" class="font-semibold opacity-90">C</span><span id="swr-n-clientes">0</span></span>
+            </span>
+        </h2>
         <input type="text" id="busca-cliente" class="input input-bordered input-xs w-full mt-1"
                placeholder="Buscar cliente..." />
     </div>

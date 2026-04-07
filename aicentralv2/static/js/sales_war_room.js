@@ -55,6 +55,58 @@
         return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
     }
 
+    /** Carteira: é agência (cadastro Sim), vem da API como eh_agencia boolean */
+    function clienteEhAgencia(c) {
+        if (c.eh_agencia === true) return true;
+        if (c.eh_agencia === false) return false;
+        return c.is_agencia === true;
+    }
+
+    function atualizarContadoresCarteira(clientes, perfil) {
+        const wrap = $('#swr-contador-carteira');
+        const chipA = $('#swr-chip-ag');
+        const chipC = $('#swr-chip-cli');
+        const letraA = $('#swr-letra-a');
+        const letraC = $('#swr-letra-c');
+        const elA = $('#swr-n-agencias');
+        const elC = $('#swr-n-clientes');
+        if (!wrap || !chipA || !chipC || !elA || !elC) return;
+        let nAg = 0;
+        let nCli = 0;
+        for (const c of clientes || []) {
+            if (clienteEhAgencia(c)) nAg++;
+            else nCli++;
+        }
+        elA.textContent = String(nAg);
+        elC.textContent = String(nCli);
+
+        // Perfil: todos → A e C com letras. Cliente final → só contagem (sem letra C). Agência → só contagem (sem letra A).
+        if (perfil === 'direto') {
+            chipA.classList.add('hidden');
+            chipC.classList.remove('hidden');
+            letraC?.classList.add('hidden');
+            letraA?.classList.remove('hidden');
+        } else if (perfil === 'agencia') {
+            chipA.classList.remove('hidden');
+            chipC.classList.add('hidden');
+            letraA?.classList.add('hidden');
+            letraC?.classList.remove('hidden');
+        } else {
+            chipA.classList.remove('hidden');
+            chipC.classList.remove('hidden');
+            letraA?.classList.remove('hidden');
+            letraC?.classList.remove('hidden');
+        }
+
+        wrap.classList.remove('hidden');
+    }
+
+    function esconderContadoresCarteira() {
+        const wrap = $('#swr-contador-carteira');
+        if (!wrap) return;
+        wrap.classList.add('hidden');
+    }
+
     // ==================== Column 1: Clientes ====================
 
     async function carregarClientes() {
@@ -65,6 +117,7 @@
         const container = $('#lista-clientes');
 
         if (!execId) {
+            esconderContadoresCarteira();
             showEmpty(container, 'Selecione um executivo para carregar a carteira.');
             limparColunas();
             return;
@@ -75,6 +128,7 @@
             const params = new URLSearchParams({ executivo_id: execId, tipo, busca });
             if (perfil) params.set('perfil', perfil);
             const data = await api(`/api/clientes?${params}`);
+            atualizarContadoresCarteira(data.clientes, perfil);
             if (!data.clientes.length) {
                 showEmpty(container, 'Nenhum cliente encontrado.');
                 return;
@@ -85,7 +139,7 @@
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-sm truncate">${c.nome_fantasia || c.razao_social}</div>
-                            <div class="text-xs opacity-60">${c.is_agencia ? 'Agência' : 'Cliente direto'} · ${c.qtd_contatos} contato(s)</div>
+                            <div class="text-xs opacity-60">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
                         </div>
                         <div class="flex items-center gap-1">
                             ${c.atividades_pendentes === 0 ? '<svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
@@ -99,6 +153,7 @@
                 el.addEventListener('click', () => selecionarCliente(parseInt(el.dataset.id)));
             });
         } catch (e) {
+            esconderContadoresCarteira();
             showEmpty(container, 'Erro ao carregar clientes.');
             console.error(e);
         }
@@ -172,12 +227,14 @@
                             <div class="text-xs opacity-60">Valor PIs</div>
                         </div>
                     </div>
-                    <button type="button" class="btn btn-xs btn-outline w-full mb-2" id="btn-ver-mais-status">Ver mais dados</button>
-                    <button type="button" class="btn btn-xs btn-ghost btn-outline w-full mb-2" id="btn-editar-cliente-swr" title="Editar cadastro do cliente">Editar cliente</button>
+                    <div class="flex gap-1 mb-2">
+                        <button type="button" class="btn btn-xs btn-outline flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none border-base-300" id="btn-ver-mais-status">Ver mais dados</button>
+                        <button type="button" class="btn btn-xs btn-ghost btn-outline flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none" id="btn-editar-cliente-swr" title="Editar cadastro do cliente">Editar cliente</button>
+                    </div>
                     <div class="border-t border-base-300 pt-2 mt-1">
                         <label class="text-xs font-medium opacity-70 block mb-1">Nota sobre o cliente</label>
                         <textarea id="swr-nota-cliente" class="textarea textarea-bordered textarea-xs w-full min-h-[4.5rem] text-xs" maxlength="8000" placeholder="Anotações visíveis para a equipe comercial..."></textarea>
-                        <button type="button" class="btn btn-xs btn-primary w-full mt-1" id="btn-salvar-nota-cliente">Salvar nota</button>
+                        <button type="button" class="btn btn-xs btn-primary w-full mt-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none" id="btn-salvar-nota-cliente">Salvar nota</button>
                     </div>
                 </div>
             `;
@@ -340,6 +397,18 @@
         return String(iso).slice(0, 10);
     }
 
+    function escapeHtml(s) {
+        if (s == null || s === '') return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    const ICON_EDIT = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>';
+    const ICON_TRASH = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+
     function renderAtividadeCard(a, clienteId, contatoId) {
         const vencida = atividadeVencida(a);
         const hoje = atividadeHoje(a);
@@ -347,21 +416,21 @@
         const extraClass = vencida ? 'swr-atividade-vencida' : (hoje ? 'swr-atividade-hoje' : '');
         const podeFeito = a.status !== 'concluida';
         return `
-            <div class="swr-atividade-card swr-fade-in mb-1.5 ${extraClass}" data-aid="${a.id}">
-                <div class="flex items-start gap-1.5 mb-0.5">
-                    ${podeFeito ? `<input type="checkbox" class="checkbox checkbox-xs mt-0.5 swr-act-feito shrink-0" title="Marcar concluída" data-id="${a.id}" />` : '<span class="w-3.5 inline-block"></span>'}
-                    <span class="swr-tipo-badge swr-tipo-${tipo} shrink-0" title="${TIPO_LABELS[tipo] || tipo}">${TIPO_ICONS[tipo] || TIPO_ICONS.atividade}</span>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-medium text-xs leading-tight">${a.titulo || a.descricao}</div>
-                        ${a.titulo && a.descricao ? `<div class="text-[11px] opacity-70 mt-0.5">${a.descricao}</div>` : ''}
-                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] opacity-50 mt-0.5">
+            <div class="swr-atividade-card swr-fade-in mb-2 ${extraClass}" data-aid="${a.id}">
+                <div class="flex items-start gap-2 min-w-0">
+                    ${podeFeito ? `<input type="checkbox" class="checkbox checkbox-xs mt-1 swr-act-feito shrink-0" title="Marcar concluída" data-id="${a.id}" />` : '<span class="w-3.5 shrink-0"></span>'}
+                    <span class="swr-tipo-badge swr-tipo-${tipo} shrink-0 mt-0.5" title="${TIPO_LABELS[tipo] || tipo}">${TIPO_ICONS[tipo] || TIPO_ICONS.atividade}</span>
+                    <div class="min-w-0 flex-1 space-y-1">
+                        <p class="swr-atividade-texto-principal font-medium break-words [overflow-wrap:anywhere]">${escapeHtml(a.titulo || a.descricao || '—')}</p>
+                        ${a.titulo && a.descricao ? `<p class="swr-atividade-texto-sec opacity-75 break-words [overflow-wrap:anywhere]">${escapeHtml(a.descricao)}</p>` : ''}
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] opacity-55">
                             <span>${fmtDate(a.data_atividade)}</span>
                             ${a.data_prazo ? `<span class="${vencida ? 'text-error font-semibold' : (hoje ? 'text-warning font-semibold' : '')}">Prazo ${fmtDate(a.data_prazo)}</span>` : ''}
                         </div>
-                        ${a.contato_nome ? `<div class="text-[10px] opacity-40">${a.contato_nome}</div>` : ''}
-                        <div class="flex gap-1 mt-1">
-                            <button type="button" class="btn btn-ghost btn-xs px-1 min-h-0 h-6 swr-act-edit" data-id="${a.id}">Editar</button>
-                            <button type="button" class="btn btn-ghost btn-xs px-1 min-h-0 h-6 text-error swr-act-del" data-id="${a.id}">Excluir</button>
+                        ${a.contato_nome ? `<div class="text-[11px] opacity-45 truncate max-w-full" title="${escapeHtml(a.contato_nome)}">${escapeHtml(a.contato_nome)}</div>` : ''}
+                        <div class="flex gap-0.5 pt-0.5">
+                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 swr-act-edit" data-id="${a.id}" title="Editar">${ICON_EDIT}</button>
+                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 text-error swr-act-del" data-id="${a.id}" title="Excluir">${ICON_TRASH}</button>
                         </div>
                     </div>
                 </div>
@@ -388,14 +457,25 @@
             if (!sorted.length) {
                 html = '';
             } else {
+                const sec = (titulo, arr, extraClass) => {
+                    const n = arr.length;
+                    const inner = n
+                        ? arr.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')
+                        : '<div class="swr-pipe-empty">Nenhuma atividade nesta etapa.</div>';
+                    return `
+                    <section class="swr-pipe-section ${extraClass || ''}">
+                        <div class="swr-pipe-section-head">
+                            <span>${titulo}</span>
+                            <span class="swr-pipe-section-count">${n}</span>
+                        </div>
+                        <div class="swr-pipe-section-body">${inner}</div>
+                    </section>`;
+                };
                 html = `
-                <div class="swr-pipeline-head grid grid-cols-3 gap-0.5 mb-1 text-[10px] font-semibold uppercase tracking-tight opacity-50 px-0.5">
-                    <span>Pendente</span><span>Em andamento</span><span>Concluída</span>
-                </div>
-                <div class="swr-pipeline-cols grid grid-cols-3 gap-1 mb-2">
-                    <div class="swr-pipe-col border border-base-300/80 rounded-md p-1 max-h-56 overflow-y-auto">${colPend.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('') || '<div class="text-[10px] opacity-40 text-center py-2">—</div>'}</div>
-                    <div class="swr-pipe-col border border-base-300/80 rounded-md p-1 max-h-56 overflow-y-auto">${colEm.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('') || '<div class="text-[10px] opacity-40 text-center py-2">—</div>'}</div>
-                    <div class="swr-pipe-col border border-base-300/80 rounded-md p-1 max-h-56 overflow-y-auto">${colOk.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('') || '<div class="text-[10px] opacity-40 text-center py-2">—</div>'}</div>
+                <div class="swr-pipeline-stack mb-2">
+                    ${sec('Pendente', colPend, '')}
+                    ${sec('Em andamento', colEm, '')}
+                    ${sec('Concluída', colOk, 'swr-pipe-section--done')}
                 </div>`;
             }
 
@@ -411,8 +491,7 @@
             html += `
                 <div class="divider text-xs my-2">Nova atividade</div>
                 <div class="swr-form-nova-atividade">
-                    <input type="text" id="input-atividade-titulo" class="swr-input" placeholder="Título" />
-                    <textarea id="input-atividade" class="swr-textarea" rows="2" placeholder="Descrição..."></textarea>
+                    <textarea id="input-atividade" class="swr-textarea" rows="3" placeholder="Descrição da atividade..."></textarea>
                     <select id="input-atividade-tipo" class="swr-select">
                         <option value="atividade">Atividade</option>
                         <option value="ligacao">Ligação</option>
@@ -433,7 +512,7 @@
                         </label>
                     </div>
                     <div class="swr-form-actions">
-                        <button type="button" class="btn btn-xs btn-primary flex-1" id="btn-add-atividade">Criar</button>
+                        <button type="button" class="btn btn-xs btn-primary flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none" id="btn-add-atividade">Criar</button>
                     </div>
                     <details class="mt-1.5 group">
                         <summary class="text-[10px] cursor-pointer opacity-60 list-none flex items-center gap-1">
@@ -496,7 +575,6 @@
             });
 
             async function criarAtividade(usarIA) {
-                const titulo = $('#input-atividade-titulo').value.trim();
                 const descricao = $('#input-atividade').value.trim();
                 const dataAtiv = $('#input-atividade-data').value;
                 const tipo = $('#input-atividade-tipo').value;
@@ -507,22 +585,15 @@
                 const btn = usarIA ? $('#btn-add-atividade-ia') : $('#btn-add-atividade');
                 btn.classList.add('loading');
                 try {
-                    let tituloFinal = titulo;
+                    let tituloFinal = null;
                     let descFinal = descricao;
                     if (usarIA) {
                         try {
                             const ia = await api('/api/ia/melhorar-texto', {
                                 method: 'POST',
-                                body: JSON.stringify({ texto: `${titulo ? titulo + ': ' : ''}${descricao}`, contexto: 'atividade_comercial' })
+                                body: JSON.stringify({ texto: descricao, contexto: 'atividade_comercial' })
                             });
-                            const melhorado = ia.texto_melhorado || descricao;
-                            if (titulo) {
-                                const parts = melhorado.split(':');
-                                tituloFinal = parts.length > 1 ? parts[0].trim() : titulo;
-                                descFinal = parts.length > 1 ? parts.slice(1).join(':').trim() : melhorado;
-                            } else {
-                                descFinal = melhorado;
-                            }
+                            descFinal = ia.texto_melhorado || descricao;
                         } catch (_) { /* fallback */ }
                     }
 
@@ -558,8 +629,8 @@
                         body: JSON.stringify({ cliente_id: clienteId })
                     });
                     if (data.sugestao) {
-                        $('#input-atividade-titulo').value = data.sugestao.titulo || '';
-                        $('#input-atividade').value = data.sugestao.descricao || '';
+                        const blocos = [data.sugestao.titulo, data.sugestao.descricao].filter(Boolean);
+                        $('#input-atividade').value = blocos.join(blocos.length > 1 ? '\n\n' : '');
                         if (data.sugestao.tipo) $('#input-atividade-tipo').value = data.sugestao.tipo;
                     }
                 } catch (e) {
@@ -590,12 +661,12 @@
             let html = `
                 <div class="swr-form-novo-objetivo mb-2">
                     <input type="text" id="input-objetivo" class="swr-input" placeholder="Novo objetivo..." />
-                    <div class="swr-form-row">
-                        <label class="swr-date-field flex-1">
+                    <div class="swr-form-row items-end">
+                        <label class="swr-date-field flex-1 min-w-0">
                             <span class="swr-date-label">Prazo</span>
                             <input type="date" id="input-objetivo-prazo" class="swr-date" value="${hojePrazo}" />
                         </label>
-                        <button type="button" class="btn btn-xs btn-primary" id="btn-add-objetivo" style="align-self:flex-end">+</button>
+                        <button type="button" class="btn btn-xs btn-primary btn-square h-7 w-7 min-h-7 p-0 shrink-0" id="btn-add-objetivo" title="Adicionar objetivo" aria-label="Adicionar objetivo">+</button>
                     </div>
                 </div>
                 <div id="ia-sugestoes" class="hidden mb-2"></div>
@@ -604,15 +675,15 @@
             if (ativos.length) {
                 html += '<div class="text-xs font-semibold opacity-60 mb-1">Ativos</div>';
                 html += ativos.map(o => `
-                    <div class="flex items-start gap-1 py-1 swr-fade-in">
+                    <div class="flex items-start gap-1.5 py-1.5 swr-fade-in min-w-0">
                         <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check shrink-0" data-id="${o.id}" />
                         <div class="flex-1 min-w-0">
-                            <span class="text-xs">${o.texto}</span>
-                            ${o.data_prazo ? `<div class="text-xs opacity-50">Prazo: ${fmtDate(o.data_prazo)}</div>` : ''}
+                            <span class="text-xs leading-snug break-words [overflow-wrap:anywhere]">${escapeHtml(o.texto)}</span>
+                            ${o.data_prazo ? `<div class="text-[10px] opacity-50 mt-0.5">Prazo: ${fmtDate(o.data_prazo)}</div>` : ''}
                         </div>
-                        <div class="flex flex-col gap-0.5 shrink-0">
-                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 swr-obj-edit" data-id="${o.id}">Editar</button>
-                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 text-error swr-obj-del" data-id="${o.id}">Excluir</button>
+                        <div class="flex flex-row gap-0.5 shrink-0">
+                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 swr-obj-edit" data-id="${o.id}" title="Editar">${ICON_EDIT}</button>
+                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 text-error swr-obj-del" data-id="${o.id}" title="Excluir">${ICON_TRASH}</button>
                         </div>
                     </div>
                 `).join('');
@@ -621,15 +692,15 @@
             if (conquistados.length) {
                 html += '<div class="divider text-xs my-2">Conquistados</div>';
                 html += conquistados.map(o => `
-                    <div class="flex items-start gap-1 py-1 opacity-50 swr-fade-in swr-obj-conquistado">
+                    <div class="flex items-start gap-1.5 py-1.5 opacity-50 swr-fade-in swr-obj-conquistado min-w-0">
                         <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check shrink-0" data-id="${o.id}" checked />
                         <div class="flex-1 min-w-0">
-                            <span class="text-xs line-through">${o.texto}</span>
-                            ${o.data_conquista ? `<div class="text-xs opacity-60">Conquistado em ${fmtDate(o.data_conquista)}</div>` : ''}
+                            <span class="text-xs line-through leading-snug break-words [overflow-wrap:anywhere]">${escapeHtml(o.texto)}</span>
+                            ${o.data_conquista ? `<div class="text-[10px] opacity-60 mt-0.5">Conquistado em ${fmtDate(o.data_conquista)}</div>` : ''}
                         </div>
-                        <div class="flex flex-col gap-0.5 shrink-0">
-                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 swr-obj-edit" data-id="${o.id}">Editar</button>
-                            <button type="button" class="btn btn-ghost btn-xs px-1 h-6 min-h-0 text-error swr-obj-del" data-id="${o.id}">Excluir</button>
+                        <div class="flex flex-row gap-0.5 shrink-0">
+                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 swr-obj-edit" data-id="${o.id}" title="Editar">${ICON_EDIT}</button>
+                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 text-error swr-obj-del" data-id="${o.id}" title="Excluir">${ICON_TRASH}</button>
                         </div>
                     </div>
                 `).join('');
@@ -1051,10 +1122,40 @@
         }
     }
 
+    // ==================== Links consolidadas + URL executivo ====================
+
+    function queryExecutivoWarRoom() {
+        const sel = $('#filtro-executivo');
+        if (!sel) return '';
+        const v = sel.value;
+        return v ? `?executivo_id=${encodeURIComponent(v)}` : '';
+    }
+
+    function atualizarLinksPaginasConsolidadas() {
+        const q = queryExecutivoWarRoom();
+        const a = $('#swr-link-atividades-consolidadas');
+        const o = $('#swr-link-objetivos-consolidadas');
+        if (a) a.setAttribute('href', `${BASE}/atividades-consolidadas${q}`);
+        if (o) o.setAttribute('href', `${BASE}/objetivos-consolidadas${q}`);
+    }
+
+    function aplicarExecutivoDaUrlNaWarRoom() {
+        const sel = $('#filtro-executivo');
+        if (!sel) return;
+        const id = new URLSearchParams(window.location.search).get('executivo_id');
+        if (!id) return;
+        const ok = [...sel.options].some(opt => opt.value === id);
+        if (ok) sel.value = id;
+    }
+
     // ==================== Init & Event Bindings ====================
 
     document.addEventListener('DOMContentLoaded', () => {
+        aplicarExecutivoDaUrlNaWarRoom();
+        atualizarLinksPaginasConsolidadas();
+
         $('#filtro-executivo').addEventListener('change', () => {
+            atualizarLinksPaginasConsolidadas();
             limparColunas();
             carregarClientes();
         });
@@ -1241,5 +1342,7 @@
                 btn?.classList.remove('loading');
             }
         });
+
+        if ($('#filtro-executivo')) carregarClientes();
     });
 })();

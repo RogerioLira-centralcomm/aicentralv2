@@ -107,9 +107,9 @@ def ia_sugerir_objetivos():
                 SELECT COUNT(*) AS total,
                        COUNT(*) FILTER (WHERE status IN ('Aprovada', '3')) AS aprovadas
                 FROM cadu_cotacoes
-                WHERE client_id = %s AND deleted_at IS NULL
+                WHERE (client_id = %s OR agencia_id = %s) AND deleted_at IS NULL
                   AND created_at >= CURRENT_DATE - INTERVAL '90 days'
-            """, (cliente_id,))
+            """, (cliente_id, cliente_id))
             cot = cur.fetchone()
 
             cur.execute("""
@@ -201,9 +201,9 @@ def ia_sugerir_atividade():
                 SELECT COUNT(*) AS total,
                        COUNT(*) FILTER (WHERE status IN ('Aprovada', '3')) AS aprovadas
                 FROM cadu_cotacoes
-                WHERE client_id = %s AND deleted_at IS NULL
+                WHERE (client_id = %s OR agencia_id = %s) AND deleted_at IS NULL
                   AND created_at >= CURRENT_DATE - INTERVAL '90 days'
-            """, (cliente_id,))
+            """, (cliente_id, cliente_id))
             cot = cur.fetchone()
 
             cur.execute("""

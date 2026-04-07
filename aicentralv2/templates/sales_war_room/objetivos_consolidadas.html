@@ -2,10 +2,10 @@
 {% block title %}Objetivos consolidados — Sales War Room{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sales_war_room.css') }}">
-<div class="flex flex-wrap items-center gap-3 mb-4">
-    <a href="{{ url_for('sales_war_room.index') }}" class="btn btn-sm btn-ghost">← War Room</a>
-    <h1 class="text-xl font-bold">Objetivos por executivo</h1>
-    <select id="swr-oc-exec" class="select select-bordered select-sm max-w-xs">
+<div class="swr-consolidadas-toolbar flex flex-wrap items-center gap-3 mb-4">
+    <a href="{{ url_for('sales_war_room.index') }}" class="swr-back-war-room" id="swr-oc-back">← War Room</a>
+    <h1 class="text-xl font-bold">Objetivos</h1>
+    <select id="swr-oc-exec" name="executivo" class="swr-consolidadas-select" aria-label="Filtrar por executivo">
         <option value="">Todos os executivos</option>
         {% for ex in executivos %}
         <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
@@ -34,6 +34,16 @@
     const tbody = document.getElementById('swr-oc-tbody');
     const sel = document.getElementById('swr-oc-exec');
     const msg = document.getElementById('swr-oc-msg');
+    const back = document.getElementById('swr-oc-back');
+
+    function syncBackHref() {
+        if (!back) return;
+        const q = sel.value ? `?executivo_id=${encodeURIComponent(sel.value)}` : '';
+        back.setAttribute('href', BASE + q);
+    }
+
+    const pre = new URLSearchParams(window.location.search).get('executivo_id');
+    if (pre && [...sel.options].some(o => o.value === pre)) sel.value = pre;
 
     async function load() {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center"><span class="loading loading-spinner"></span></td></tr>';
@@ -63,7 +73,8 @@
             </tr>`;
         }).join('');
     }
-    sel.addEventListener('change', load);
+    sel.addEventListener('change', () => { syncBackHref(); load(); });
+    syncBackHref();
     load();
 })();
 </script>

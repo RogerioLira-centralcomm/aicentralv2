@@ -26,10 +26,13 @@
         <button type="button" class="btn btn-sm filtro-perfil" data-perfil="direto">Cliente final</button>
         <button type="button" class="btn btn-sm filtro-perfil" data-perfil="agencia">Agência</button>
     </div>
+    <div class="flex gap-1 flex-wrap ml-auto">
+        <a href="{{ url_for('sales_war_room.atividades_consolidadas') }}" id="swr-link-atividades-consolidadas" class="btn btn-sm btn-outline">Atividades</a>
+        <a href="{{ url_for('sales_war_room.objetivos_consolidadas') }}" id="swr-link-objetivos-consolidadas" class="btn btn-sm btn-outline">Objetivos</a>
+    </div>
 </div>
 
-<div class="swr-page-wrap flex gap-2 items-stretch min-h-0">
-<div class="flex-1 min-w-0 min-h-0">
+<div class="swr-page-wrap min-h-0">
 <div id="swr-grid" class="swr-grid">
     {% include "sales_war_room/_coluna_clientes.html" %}
     {% include "sales_war_room/_coluna_status.html" %}
@@ -37,11 +40,6 @@
     {% include "sales_war_room/_coluna_atividades.html" %}
     {% include "sales_war_room/_coluna_objetivos.html" %}
 </div>
-</div>
-<aside class="swr-rail flex flex-col gap-2 flex-shrink-0 w-[9.5rem] pt-1">
-    <a href="{{ url_for('sales_war_room.atividades_consolidadas') }}" class="btn btn-sm btn-outline btn-block whitespace-normal h-auto min-h-10 py-2 leading-tight text-left">Atividades por executivo</a>
-    <a href="{{ url_for('sales_war_room.objetivos_consolidadas') }}" class="btn btn-sm btn-outline btn-block whitespace-normal h-auto min-h-10 py-2 leading-tight text-left">Objetivos por executivo</a>
-</aside>
 </div>
 
 {% include "sales_war_room/_modal_status_completo.html" %}

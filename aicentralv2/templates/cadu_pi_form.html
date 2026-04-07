@@ -84,6 +84,30 @@
         <input type="hidden" name="id_sub_status_pi" value="{{ pi.id_sub_status_pi or 1 }}">
       {% endif %}
 
+      {% if modo == 'editar' and pi and pi.cotacao_id %}
+      <div class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm min-w-0">
+          <span class="font-semibold text-indigo-900 shrink-0"><i class="fas fa-file-invoice-dollar mr-1.5 text-indigo-600"></i>Cotação de origem</span>
+          <a href="{{ url_for('cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-indigo-700 hover:text-indigo-900 hover:underline font-medium shrink-0">
+            {{ pi.cotacao_numero or ('#' ~ pi.cotacao_id) }}
+          </a>
+          {% if pi.cotacao_nome_campanha %}
+          <span class="text-gray-600 truncate" title="{{ pi.cotacao_nome_campanha }}">— {{ pi.cotacao_nome_campanha }}</span>
+          {% endif %}
+          {% if pi.cotacao_status %}
+          <span class="text-xs text-gray-500">({{ pi.cotacao_status }})</span>
+          {% endif %}
+        </div>
+        <a href="{{ url_for('cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap shrink-0">
+          Abrir cotação <i class="fas fa-external-link-alt ml-0.5 text-[10px]"></i>
+        </a>
+      </div>
+      {% elif modo == 'editar' and pi %}
+      <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+        <i class="fas fa-unlink mr-1.5 text-gray-400"></i>Este PI não está vinculado a nenhuma cotação.
+      </div>
+      {% endif %}
+
       <!-- LINHA 1: Dados Principais -->
       <div class="mb-4">
         <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Dados do PI</h2>

@@ -8061,7 +8061,10 @@ def obter_cadu_pi_por_id(id_pi):
                     rc.nome_completo as resp_comercial_nome,
                     rc.email as resp_comercial_email,
                     (SELECT COUNT(*) FROM cadu_pi_link_destinos ld WHERE ld.id_pi = p.id_pi) as total_links,
-                    (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas
+                    (SELECT COUNT(*) FROM cadu_pi_campanha ca WHERE ca.id_pi = p.id_pi) as total_campanhas,
+                    cot.numero_cotacao AS cotacao_numero,
+                    cot.nome_campanha AS cotacao_nome_campanha,
+                    cot.status AS cotacao_status
                 FROM cadu_pi p
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
@@ -8069,6 +8072,7 @@ def obter_cadu_pi_por_id(id_pi):
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 LEFT JOIN cadu_pi_sub_status ssp ON p.id_sub_status_pi = ssp.key
                 LEFT JOIN tbl_contato_cliente rc ON p.id_resp_comercial = rc.id_contato_cliente
+                LEFT JOIN cadu_cotacoes cot ON p.cotacao_id = cot.id AND cot.deleted_at IS NULL
                 WHERE p.id_pi = %s
             ''', (id_pi,))
             return cursor.fetchone()

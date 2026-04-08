@@ -46,54 +46,6 @@
     }
     </script>
 
-    <script>
-        function showToast(message, type = 'success', duration = 3000) {
-            const alertClass = {
-                'success': 'alert-success',
-                'error': 'alert-error',
-                'warning': 'alert-warning',
-                'info': 'alert-info'
-            }[type] || 'alert-info';
-            
-            const iconClass = {
-                'success': 'fa-check-circle',
-                'error': 'fa-times-circle',
-                'warning': 'fa-exclamation-triangle',
-                'info': 'fa-info-circle'
-            }[type] || 'fa-info-circle';
-            
-            const toast = document.createElement('div');
-            toast.className = `alert ${alertClass} shadow-lg animate-slide-up`;
-            toast.innerHTML = `<i class="fas ${iconClass}"></i><span>${message}</span>`;
-            
-            const openDialog = document.querySelector('dialog[open]');
-            let container;
-            
-            if (openDialog) {
-                let dialogToastContainer = openDialog.querySelector('.dialog-toast-container');
-                if (!dialogToastContainer) {
-                    dialogToastContainer = document.createElement('div');
-                    dialogToastContainer.className = 'dialog-toast-container toast toast-top toast-end';
-                    dialogToastContainer.style.cssText = 'position: fixed !important; top: 1rem !important; right: 1rem !important; z-index: 9999 !important;';
-                    openDialog.appendChild(dialogToastContainer);
-                }
-                container = dialogToastContainer;
-            } else {
-                container = document.getElementById('toast-container');
-            }
-            
-            if (!container) return;
-            
-            container.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.3s ease-out';
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
-    </script>
-
     <style>
         /* Ocultar ícone nativo de calendário */
         input[type="date"]::-webkit-calendar-picker-indicator,
@@ -226,21 +178,53 @@
         .no-fouc { visibility: hidden; }
         .fouc-ready { visibility: visible; }
 
+        /* Toast: no body, fora de qualquer <dialog>. Com popover=manual sobe à top layer (acima de modal nativo). */
         #toast-container {
             position: fixed !important;
             top: 1rem !important;
             right: 1rem !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            display: flex !important;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-end;
+            max-width: min(100vw - 2rem, 28rem);
+            pointer-events: none;
             z-index: 2147483647 !important;
         }
-        #toast-container .alert {
-            position: relative;
-            z-index: inherit;
+        #toast-container:popover-open {
+            position: fixed !important;
+            inset: 1rem 1rem auto auto !important;
+        }
+
+        /* Dialog vazio só para empilhar toasts na top layer acima de outro showModal() + backdrop escuro (Daisy). */
+        dialog.toast-stack-modal {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            pointer-events: none !important;
+        }
+        dialog.toast-stack-modal::backdrop {
+            background: transparent !important;
+            pointer-events: none !important;
         }
     </style>
 </head>
 <body class="bg-base-100 font-sans no-fouc">
-    <!-- Toast Container -->
-    <div id="toast-container" class="toast toast-top toast-end" style="position: fixed !important; top: 1rem !important; right: 1rem !important; z-index: 2147483647 !important;"></div>
+    <!-- Toast: popover quando não há modal; com modal nativo aberto, sobe para #toast-stack-modal (top layer acima do escuro). -->
+    <div id="toast-container" popover="manual" aria-live="polite"></div>
+    <dialog id="toast-stack-modal" class="toast-stack-modal" aria-label="Notificações"></dialog>
 
     {% set perfil_user_type_labels = {'client': 'Cliente', 'admin': 'Administrador', 'superadmin': 'Super administrador', 'readonly': 'Somente leitura'} %}
     <dialog id="modal-meu-perfil" class="modal">
@@ -869,15 +853,70 @@
             s.textContent = '@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}';
             document.head.appendChild(s);
         })();
+        function toastBlockingDialogs() {
+            return Array.prototype.slice.call(document.querySelectorAll('dialog[open]')).filter(function(d) {
+                return d.id !== 'toast-stack-modal';
+            });
+        }
+        /* Com popover="manual" o host fica display:none até showPopover(). No modo “modal aberto” não chamamos showPopover — precisamos tirar o atributo para o toast aparecer dentro do #toast-stack-modal. */
+        function toastStripPopoverHost(container) {
+            if (typeof container.hidePopover === 'function') {
+                try {
+                    if (container.matches && container.matches(':popover-open')) container.hidePopover();
+                } catch (_) { /* ignore */ }
+            }
+            container.removeAttribute('popover');
+        }
+        function toastRestorePopoverHost(container) {
+            if (!container.hasAttribute('popover')) {
+                container.setAttribute('popover', 'manual');
+            }
+        }
+        document.addEventListener('close', function(ev) {
+            var t = ev.target;
+            if (!t || t.nodeName !== 'DIALOG' || t.id === 'toast-stack-modal') return;
+            var stackModal = document.getElementById('toast-stack-modal');
+            var container = document.getElementById('toast-container');
+            if (!stackModal || !container) return;
+            if (toastBlockingDialogs().length > 0) return;
+            if (container.parentNode !== stackModal || !stackModal.open) return;
+            document.body.appendChild(container);
+            try { stackModal.close(); } catch (_) { /* ignore */ }
+            toastRestorePopoverHost(container);
+            if (container.children.length && typeof container.showPopover === 'function') {
+                try { container.showPopover(); } catch (_) { /* ignore */ }
+            }
+        }, true);
+
         window.showToast = function(msg, type, duration) {
             type = type || 'info';
             duration = duration || 3500;
             var container = document.getElementById('toast-container');
+            var stackModal = document.getElementById('toast-stack-modal');
             if (!container) {
                 container = document.createElement('div');
                 container.id = 'toast-container';
-                container.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+                container.setAttribute('aria-live', 'polite');
+                container.setAttribute('popover', 'manual');
                 document.body.appendChild(container);
+            }
+            var blocking = toastBlockingDialogs();
+            if (blocking.length > 0 && stackModal) {
+                toastStripPopoverHost(container);
+                if (container.parentNode !== stackModal) {
+                    stackModal.appendChild(container);
+                }
+                if (!stackModal.open) {
+                    try { stackModal.showModal(); } catch (e1) { /* ignore */ }
+                }
+            } else {
+                if (stackModal && container.parentNode === stackModal) {
+                    document.body.appendChild(container);
+                }
+                if (stackModal && stackModal.open) {
+                    try { stackModal.close(); } catch (e2) { /* ignore */ }
+                }
+                toastRestorePopoverHost(container);
             }
             var colors = {
                 success: 'background:#dcfce7;color:#15803d;border-color:#86efac',
@@ -892,12 +931,34 @@
                 info:    '<i class="fas fa-info-circle"></i>'
             };
             var toast = document.createElement('div');
-            toast.style.cssText = (colors[type]||colors.info)+';border:1px solid;border-radius:8px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:400px;animation:toastIn .25s ease';
-            toast.innerHTML = (icons[type]||icons.info)+'<span>'+msg+'</span>';
+            toast.style.cssText = (colors[type]||colors.info)+';border:1px solid;border-radius:8px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,0.18);max-width:100%;animation:toastIn .25s ease';
+            toast.insertAdjacentHTML('afterbegin', icons[type]||icons.info);
+            var span = document.createElement('span');
+            span.textContent = msg;
+            toast.appendChild(span);
             container.appendChild(toast);
+            if (blocking.length === 0 && typeof container.showPopover === 'function') {
+                try { container.showPopover(); } catch (e3) { /* ignore */ }
+            }
             setTimeout(function(){
                 toast.style.animation = 'toastOut .2s ease forwards';
-                setTimeout(function(){ toast.remove(); }, 200);
+                setTimeout(function(){
+                    toast.remove();
+                    if (container.children.length === 0) {
+                        if (typeof container.hidePopover === 'function' && container.hasAttribute('popover')) {
+                            try {
+                                if (container.matches && container.matches(':popover-open')) container.hidePopover();
+                            } catch (e4) { /* ignore */ }
+                        }
+                        if (stackModal && stackModal.open) {
+                            try { stackModal.close(); } catch (e5) { /* ignore */ }
+                        }
+                        if (stackModal && container.parentNode === stackModal) {
+                            document.body.appendChild(container);
+                        }
+                        toastRestorePopoverHost(container);
+                    }
+                }, 200);
             }, duration);
         };
 

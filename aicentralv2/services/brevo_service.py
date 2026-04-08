@@ -508,6 +508,34 @@ def get_brevo_service() -> BrevoService:
     return _brevo_service
 
 
+def _brevo_leads_lista_executivo_sem_21(
+    service: BrevoService,
+    email: str,
+    nome: Optional[str],
+    lista_exec: int,
+    atributos: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Leads: contato fica só na pasta do executivo no Brevo — entra na lista do exec e sai da 21.
+    """
+    result = service.adicionar_contato(
+        email=email,
+        nome=nome,
+        lista_ids=[lista_exec],
+        atributos=atributos or {},
+    )
+    if result.get("success"):
+        rm = service.remover_contato_da_lista(email, LISTA_USUARIOS_ATIVOS)
+        if not rm.get("success"):
+            logger.warning(
+                "Brevo (leads): não removeu %s da lista %s: %s",
+                email,
+                LISTA_USUARIOS_ATIVOS,
+                rm.get("error"),
+            )
+    return result
+
+
 def brevo_sincronizar_contato_lista_executivo(
     email: str,
     nome: Optional[str],
@@ -515,17 +543,35 @@ def brevo_sincronizar_contato_lista_executivo(
     atributos: Optional[Dict[str, Any]] = None,
     *,
     nome_executivo: Optional[str] = None,
+    api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Inclui/atualiza contato no Brevo: sempre na lista principal CentralComm (LISTA_USUARIOS_ATIVOS),
-    e também na lista Contatos do executivo (Clientes ou Leads) quando o pré-nome bater com
-    BREVO_LISTAS_CONTATOS_VENDEDOR.
+    Inclui/atualiza contato no Brevo.
+
+    - **Clientes:** lista 21 (CentralComm) + lista \"[Executivo] - Clientes\" quando o pré-nome
+      bater com BREVO_LISTAS_CONTATOS_VENDEDOR.
+    - **Leads:** só na lista \"[Executivo] - Leads\" — remove da 21 (fluxo 21 → pasta do executivo).
+      Se não houver lista de executivo resolvida, permanece apenas na 21.
+
+    Com updateEnabled (padrão em adicionar_contato), reenviar o mesmo e-mail é idempotente.
+
+    Args:
+        api_key: Se informada, usada diretamente (scripts/CLI). Caso contrário, usa o serviço
+            singleton e a config do Flask.
     """
-    listas: List[int] = [LISTA_USUARIOS_ATIVOS]
+    seg = (segmento or "").strip().lower()
     lista_exec = brevo_id_lista_por_nome_executivo(nome_executivo, segmento)
+    service = BrevoService(api_key=api_key) if api_key else get_brevo_service()
+
+    if seg == "leads" and lista_exec is not None:
+        return _brevo_leads_lista_executivo_sem_21(
+            service, email, nome, lista_exec, atributos
+        )
+
+    listas: List[int] = [LISTA_USUARIOS_ATIVOS]
     if lista_exec is not None and lista_exec not in listas:
         listas.append(lista_exec)
-    return get_brevo_service().adicionar_contato(
+    return service.adicionar_contato(
         email=email,
         nome=nome,
         lista_ids=listas,
@@ -545,7 +591,7 @@ def brevo_sincronizar_mudanca_email_contato(
     """
     Quando o e-mail muda no cadastro: atualiza o identificador no Brevo via API.
     Se o contato antigo não existir no Brevo (404), inclui o novo e-mail como na criação
-    (lista 21 + lista do executivo em Clientes ou Leads).
+    (clientes: 21 + executivo; leads: só lista do executivo e remove da 21).
     """
     seg = (segmento or "clientes").lower()
     if seg not in _SEGMENTOS_CONTATO_BREVO:
@@ -561,6 +607,12 @@ def brevo_sincronizar_mudanca_email_contato(
     if old:
         put_res = service.atualizar_email_do_contato(old, new, attributes_extra=attrs)
         if put_res.get("success"):
+            if seg == "leads":
+                lista_exec = brevo_id_lista_por_nome_executivo(nome_executivo, "leads")
+                if lista_exec is not None:
+                    _brevo_leads_lista_executivo_sem_21(
+                        service, new, nome, lista_exec, attrs
+                    )
             return put_res
         if not put_res.get("not_found"):
             return put_res

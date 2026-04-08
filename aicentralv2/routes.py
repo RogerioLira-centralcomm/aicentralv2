@@ -216,6 +216,62 @@ def client_accessible_api(f):
 
 
 def init_routes(app):
+    def _volume_qty_campanha(value):
+        """Volume (impressões, meta, etc.) para CPM e metas. None se vazio ou <= 0.
+        Texto sem vírgula: vários pontos = milhar BR; um ponto + até 2 decimais = decimal (ex.: 1500000.0 do banco)."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            v = float(value)
+            return v if v > 0 else None
+        try:
+            from decimal import Decimal
+            if isinstance(value, Decimal):
+                v = float(value)
+                return v if v > 0 else None
+        except ImportError:
+            pass
+        s = re.sub(r'[^0-9.,]', '', str(value).strip())
+        if not s:
+            return None
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        else:
+            parts = s.split('.')
+            if len(parts) > 2:
+                s = s.replace('.', '')
+            elif len(parts) == 2:
+                if len(parts[1]) <= 2:
+                    pass
+                else:
+                    s = s.replace('.', '')
+        try:
+            v = float(s)
+            return v if v > 0 else None
+        except (ValueError, TypeError):
+            return None
+
+    def parse_volume_campanha(value):
+        v = _volume_qty_campanha(value)
+        return float(v) if v is not None else 0.0
+
+    app.jinja_env.filters['parse_volume_campanha'] = parse_volume_campanha
+
+    def sigla_metrica_preco(objetivo_nome, modalidade):
+        """Mesma regra que cadu_pi.html / cadu_pi_form (Preço R$ por métrica)."""
+        if modalidade == 'cpm':
+            return 'CPM'
+        n = (objetivo_nome or '').upper()
+        for k in ('CPV', 'CPA', 'CPC', 'CPL', 'CPI'):
+            if k in n:
+                return k
+        return '—'
+
+    app.jinja_env.filters['sigla_metrica_preco'] = sigla_metrica_preco
+    app.jinja_env.globals['sigla_metrica_preco'] = sigla_metrica_preco
+
     @app.route('/planos')
     @login_required
     def planos_lista():
@@ -1209,9 +1265,10 @@ def init_routes(app):
                 return float(s.replace(',', '.'))
             if re.match(r'^[0-9.]+,[0-9]+$', s):
                 return float(s.replace('.', '').replace(',', '.'))
-            if re.match(r'^[0-9]+\.[0-9]{1,2}$', s):
+            # Sem vírgula: um único ponto → decimal (ex.: 1500.50 vindo de VARCHAR); vários → milhar BR (1.234.567)
+            if s.count('.') == 1:
                 return float(s)
-            if re.match(r'^[0-9.]+$', s):
+            if '.' in s:
                 return float(s.replace('.', ''))
             if re.match(r'^[0-9]+$', s):
                 return float(s)
@@ -1219,41 +1276,19 @@ def init_routes(app):
         except (ValueError, TypeError):
             return None
 
-    def _parse_volume_campanha(value):
-        """Volume da meta (impressões, views, ações): int/float/Decimal ou string BR tipo 1.000.000."""
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, (int, float)):
-            v = float(value)
-            return v if v > 0 else None
-        try:
-            from decimal import Decimal
-            if isinstance(value, Decimal):
-                v = float(value)
-                return v if v > 0 else None
-        except ImportError:
-            pass
-        s = re.sub(r'[^0-9.,]', '', str(value).strip())
-        if not s:
-            return None
-        if ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        else:
-            s = s.replace('.', '')
-        try:
-            v = float(s)
-            return v if v > 0 else None
-        except (ValueError, TypeError):
-            return None
+    def _jinja_parse_brl_float(value):
+        """Template: mesmo critério de _parse_brl_float; ausente → 0.0 (evita replace BR em Decimal)."""
+        x = _parse_brl_float(value)
+        return float(x) if x is not None else 0.0
+
+    app.jinja_env.filters['parse_brl_float'] = _jinja_parse_brl_float
 
     def _volume_para_preco_campanha(obj_contratados, totalizador_atingido):
         """Usa meta contratada; se vazia, volume atingido (para não ficar em branco)."""
-        v = _parse_volume_campanha(obj_contratados)
+        v = _volume_qty_campanha(obj_contratados)
         if v is not None:
             return v
-        return _parse_volume_campanha(totalizador_atingido)
+        return _volume_qty_campanha(totalizador_atingido)
 
     def _preco_unitario_por_metrica(
         objetivo_nome, obj_contratados, valor_reais, nome_campanha=None, totalizador_atingido=None
@@ -1293,6 +1328,25 @@ def init_routes(app):
         # Padrão: maioria das campanhas de mídia com volume + valor
         return (vr / vol) * 1000, 'cpm'
 
+    def _anexar_preco_metrica_campanha(row):
+        """Igual ao payload de /api/cadu-pi/<id>/campanhas (coluna Preço em Operação/Faturamento)."""
+        r = dict(row)
+        v_total = _parse_brl_float(r.get('valor_total_plataforma')) or 0
+        v_plat = _parse_brl_float(r.get('valor_plataforma')) or 0
+        valor_para_preco = v_total if v_total > 0 else v_plat
+        if valor_para_preco <= 0:
+            valor_para_preco = _parse_brl_float(r.get('totalizador_gasto')) or 0
+        preco_metrica, modalidade_preco = _preco_unitario_por_metrica(
+            r.get('objetivo_nome'),
+            r.get('obj_contratados'),
+            valor_para_preco,
+            r.get('nome_campanha'),
+            r.get('totalizador_atingido'),
+        )
+        r['preco_metrica_brl'] = round(preco_metrica, 2) if preco_metrica is not None else None
+        r['preco_metrica_modalidade'] = modalidade_preco
+        return r
+
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
     def api_campanhas_pi(id_pi):
@@ -1300,38 +1354,27 @@ def init_routes(app):
             campanhas_raw = db.obter_campanhas_pi(filtros={'id_pi': id_pi})
             campanhas = []
             for c in (campanhas_raw or []):
-                v_total = _parse_brl_float(c.get('valor_total_plataforma')) or 0
-                v_plat = _parse_brl_float(c.get('valor_plataforma')) or 0
-                valor_para_preco = v_total if v_total > 0 else v_plat
-                if valor_para_preco <= 0:
-                    valor_para_preco = _parse_brl_float(c.get('totalizador_gasto')) or 0
-                preco_metrica, modalidade_preco = _preco_unitario_por_metrica(
-                    c.get('objetivo_nome'),
-                    c.get('obj_contratados'),
-                    valor_para_preco,
-                    c.get('nome_campanha'),
-                    c.get('totalizador_atingido'),
-                )
+                er = _anexar_preco_metrica_campanha(c)
                 campanhas.append({
-                    'id_campanha': c.get('id_campanha'),
-                    'nome_campanha': c.get('nome_campanha', ''),
-                    'status_nome': c.get('status_nome', ''),
-                    'periodo_inicio': c['periodo_inicio'].strftime('%d/%m/%Y') if c.get('periodo_inicio') else None,
-                    'periodo_fim': c['periodo_fim'].strftime('%d/%m/%Y') if c.get('periodo_fim') else None,
-                    'obj_contratados': c.get('obj_contratados'),
-                    'totalizador_atingido': c.get('totalizador_atingido'),
-                    'totalizador_gasto': _parse_brl_float(c.get('totalizador_gasto')),
-                    'valor_plataforma': _parse_brl_float(c.get('valor_plataforma')),
-                    'valor_total_plataforma': _parse_brl_float(c.get('valor_total_plataforma')),
-                    'plataforma_nome': c.get('plataforma_nome', ''),
-                    'objetivo_nome': c.get('objetivo_nome', ''),
-                    'criativos_validados_nome': c.get('criativos_validados_nome', ''),
-                    'link_dash': c.get('link_dash', ''),
-                    'under': c.get('under', False),
-                    'codigo_pi': c.get('codigo_pi', ''),
-                    'id_pi': c.get('id_pi'),
-                    'preco_metrica_brl': round(preco_metrica, 2) if preco_metrica is not None else None,
-                    'preco_metrica_modalidade': modalidade_preco,
+                    'id_campanha': er.get('id_campanha'),
+                    'nome_campanha': er.get('nome_campanha', ''),
+                    'status_nome': er.get('status_nome', ''),
+                    'periodo_inicio': er['periodo_inicio'].strftime('%d/%m/%Y') if er.get('periodo_inicio') else None,
+                    'periodo_fim': er['periodo_fim'].strftime('%d/%m/%Y') if er.get('periodo_fim') else None,
+                    'obj_contratados': er.get('obj_contratados'),
+                    'totalizador_atingido': er.get('totalizador_atingido'),
+                    'totalizador_gasto': _parse_brl_float(er.get('totalizador_gasto')),
+                    'valor_plataforma': _parse_brl_float(er.get('valor_plataforma')),
+                    'valor_total_plataforma': _parse_brl_float(er.get('valor_total_plataforma')),
+                    'plataforma_nome': er.get('plataforma_nome', ''),
+                    'objetivo_nome': er.get('objetivo_nome', ''),
+                    'criativos_validados_nome': er.get('criativos_validados_nome', ''),
+                    'link_dash': er.get('link_dash', ''),
+                    'under': er.get('under', False),
+                    'codigo_pi': er.get('codigo_pi', ''),
+                    'id_pi': er.get('id_pi'),
+                    'preco_metrica_brl': er.get('preco_metrica_brl'),
+                    'preco_metrica_modalidade': er.get('preco_metrica_modalidade'),
                 })
             return jsonify({'success': True, 'campanhas': campanhas})
         except Exception as e:
@@ -5387,7 +5430,31 @@ def init_routes(app):
             from reportlab.lib.units import mm
             from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
             from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            from xml.sax.saxutils import escape
             import os
+
+            def _fmt_brl_pdf(v):
+                if v is None:
+                    return '-'
+                try:
+                    x = float(v)
+                except (TypeError, ValueError):
+                    return '-'
+                if x == 0:
+                    return '-'
+                return f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+            def _fmt_pct_pdf(v):
+                if v is None:
+                    return '-'
+                try:
+                    x = float(v)
+                except (TypeError, ValueError):
+                    return '-'
+                if x == 0:
+                    return '-'
+                s = f"{x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                return f"{s}%"
             
             # Buscar cotação pelo token
             conn = db.get_db()
@@ -5431,7 +5498,7 @@ def init_routes(app):
             normal_style = styles['Normal']
             small_style = ParagraphStyle('Small', parent=styles['Normal'], fontSize=8)
             white_text = ParagraphStyle('WhiteText', parent=styles['Normal'], fontSize=9, textColor=colors.white)
-            green_text = ParagraphStyle('GreenText', parent=styles['Normal'], fontSize=14, textColor=colors.HexColor('#72cd80'), fontName='Helvetica-Bold')
+            header_subtle_style = ParagraphStyle('HeaderSubtle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#cbd5e1'), alignment=TA_RIGHT)
             
             # Conteúdo do PDF
             story = []
@@ -5443,24 +5510,18 @@ def init_routes(app):
             nome_campanha = cotacao.get('nome_campanha', 'Proposta Comercial')
             numero_cotacao = cotacao.get('numero_cotacao', '')
             nome_cliente = cliente.get('nome_fantasia', cliente.get('razao_social', '')) if cliente else ''
-            valor_total = cotacao.get('valor_total_proposta', 0) or 0
-            valor_formatado = f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
             
-            # Criar header com logo e informações
-            header_content = []
-            
-            # Linha com logo e valor total
+            # Linha com logo e referência (sem valor em destaque — vai ao resumo)
             if os.path.exists(logo_path):
                 try:
-                    # Manter proporção do logo (não espremer)
                     logo = Image(logo_path, width=22*mm, height=22*mm, kind='proportional')
-                    header_row1 = [[logo, '', Paragraph(f"<b>{valor_formatado}</b>", green_text)]]
-                except:
-                    header_row1 = [['', '', Paragraph(f"<b>{valor_formatado}</b>", green_text)]]
+                    header_row1 = [[logo, Paragraph(f"Nº {escape(str(numero_cotacao))}", header_subtle_style)]]
+                except Exception:
+                    header_row1 = [['CentralComm', Paragraph(f"Nº {escape(str(numero_cotacao))}", header_subtle_style)]]
             else:
-                header_row1 = [['CentralComm', '', Paragraph(f"<b>{valor_formatado}</b>", green_text)]]
+                header_row1 = [['CentralComm', Paragraph(f"Nº {escape(str(numero_cotacao))}", header_subtle_style)]]
             
-            header_table1 = Table(header_row1, colWidths=[35*mm, 80*mm, 55*mm])
+            header_table1 = Table(header_row1, colWidths=[35*mm, 135*mm])
             header_table1.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1a1a2e')),
                 ('ALIGN', (0, 0), (0, 0), 'LEFT'),
@@ -5535,58 +5596,102 @@ def init_routes(app):
             if linhas:
                 story.append(Paragraph("Itens da Proposta", heading_style))
                 
-                linhas_data = [['#', 'Segmentação/Praça', 'Plataforma', 'Formato', 'KPI', 'Período', 'Volume', 'Invest. Bruto']]
-                
-                for idx, linha in enumerate(linhas, 1):
-                    # Segmentação e Praça
-                    descricao_parts = []
-                    if linha.get('segmentacao'):
-                        descricao_parts.append(linha['segmentacao'][:50] + '...' if len(linha['segmentacao']) > 50 else linha['segmentacao'])
-                    if linha.get('praca'):
-                        descricao_parts.append(f"({linha['praca']})")
-                    descricao = ' '.join(descricao_parts) if descricao_parts else 'N/A'
-                    
-                    # Formato
+                num_cols = 13
+                linhas_data = [[
+                    'Plat.', 'Praça', 'Segment.', 'KPI', 'Per.', 'Vol.', 'Fmt.',
+                    'P.tab.', '%', 'P.neg.', 'Vb.', 'Bruto', 'Líq.'
+                ]]
+                span_cmds = []
+                row_i = 1
+
+                for linha in linhas:
+                    if linha.get('is_header'):
+                        ht = linha.get('detalhamento') or linha.get('segmentacao') or linha.get('subtotal_label') or '—'
+                        linhas_data.append([Paragraph(escape(str(ht)), small_style)] + [''] * (num_cols - 1))
+                        span_cmds.append(('SPAN', (0, row_i), (num_cols - 1, row_i)))
+                        row_i += 1
+                        continue
+                    if linha.get('is_subtotal'):
+                        lbl = str(linha.get('subtotal_label') or 'Subtotal')
+                        bruto_s = _fmt_brl_pdf(linha.get('investimento_bruto') or linha.get('valor_total'))
+                        liq_s = _fmt_brl_pdf(linha.get('investimento_liquido'))
+                        linhas_data.append([lbl] + [''] * 10 + [bruto_s, liq_s])
+                        span_cmds.append(('SPAN', (0, row_i), (10, row_i)))
+                        row_i += 1
+                        continue
+
+                    seg = linha.get('segmentacao') or ''
+                    if len(seg) > 42:
+                        seg = seg[:40] + '...'
+                    praca = linha.get('praca') or '-'
                     formato = linha.get('formatos') or linha.get('formato_compra') or '-'
-                    
-                    # KPI
+                    if len(str(formato)) > 12:
+                        formato = str(formato)[:12] + '.'
                     kpi = linha.get('objetivo_kpi') or '-'
-                    
-                    # Período
                     periodo = ''
                     if linha.get('data_inicio') and linha.get('data_fim'):
                         data_ini = linha['data_inicio'].strftime('%d/%m') if hasattr(linha['data_inicio'], 'strftime') else str(linha['data_inicio'])[:5]
                         data_fim = linha['data_fim'].strftime('%d/%m') if hasattr(linha['data_fim'], 'strftime') else str(linha['data_fim'])[:5]
-                        periodo = f"{data_ini} a {data_fim}"
-                    
+                        periodo = f"{data_ini}-{data_fim}"
+                    vol = '-'
+                    if linha.get('volume_contratado'):
+                        try:
+                            vol = f"{float(linha['volume_contratado']):,.0f}".replace(',', '.')
+                        except (TypeError, ValueError):
+                            vol = '-'
+                    vtab = _fmt_brl_pdf(linha.get('valor_unitario_tabela'))
+                    pct = _fmt_pct_pdf(linha.get('desconto_percentual'))
+                    pu = linha.get('valor_unitario_negociado') or linha.get('valor_unitario')
+                    vneg = _fmt_brl_pdf(pu)
+                    vb = '-'
+                    if linha.get('viewability_minimo'):
+                        try:
+                            vbf = float(linha['viewability_minimo'])
+                            if vbf > 0:
+                                vb = f"{vbf:.0f}%"
+                        except (TypeError, ValueError):
+                            vb = '-'
+                    bruto_s = _fmt_brl_pdf(linha.get('investimento_bruto') or linha.get('valor_total'))
+                    liq_s = _fmt_brl_pdf(linha.get('investimento_liquido'))
+
                     linhas_data.append([
-                        str(idx),
-                        Paragraph(descricao, small_style),
                         linha.get('plataforma', '-') or '-',
-                        formato[:15] if len(str(formato)) > 15 else formato,
+                        escape(str(praca)),
+                        Paragraph(escape(seg) if seg else '-', small_style),
                         kpi,
                         periodo,
-                        f"{linha.get('volume_contratado', 0):,.0f}".replace(',', '.') if linha.get('volume_contratado') else '-',
-                        f"R$ {linha.get('investimento_bruto', 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') if linha.get('investimento_bruto') else '-'
+                        vol,
+                        str(formato),
+                        vtab,
+                        pct,
+                        vneg,
+                        vb,
+                        bruto_s,
+                        liq_s,
                     ])
-                
-                linhas_table = Table(linhas_data, colWidths=[8*mm, 42*mm, 22*mm, 20*mm, 14*mm, 22*mm, 18*mm, 24*mm])
-                linhas_table.setStyle(TableStyle([
+                    row_i += 1
+
+                cw = [11, 12, 22, 10, 14, 9, 11, 11, 7, 11, 7, 12, 12]
+                linhas_table = Table(linhas_data, colWidths=[c * mm for c in cw])
+                tbl_style_cmds = [
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),
+                    ('ALIGN', (5, 1), (5, -1), 'RIGHT'),
+                    ('ALIGN', (7, 1), (-1, -1), 'RIGHT'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, 0), 7),
-                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('FONTSIZE', (0, 0), (-1, 0), 6),
+                    ('FONTSIZE', (0, 1), (-1, -1), 6),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                     ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
                     ('LEFTPADDING', (0, 0), (-1, -1), 2),
                     ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                    ('TOPPADDING', (0, 0), (-1, -1), 3),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ]))
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]
+                tbl_style_cmds.extend(span_cmds)
+                linhas_table.setStyle(TableStyle(tbl_style_cmds))
                 story.append(linhas_table)
                 story.append(Spacer(1, 6*mm))
             
@@ -5609,26 +5714,38 @@ def init_routes(app):
             story.append(Spacer(1, 6*mm))
             story.append(Paragraph("Resumo Financeiro", heading_style))
             
-            total_linhas = sum(l.get('investimento_bruto', 0) or 0 for l in linhas) if linhas else 0
+            total_linhas = 0.0
+            if linhas:
+                for l in linhas:
+                    if l.get('is_subtotal') or l.get('is_header'):
+                        continue
+                    try:
+                        total_linhas += float(l.get('investimento_bruto') or l.get('valor_total') or 0)
+                    except (TypeError, ValueError):
+                        pass
             total_audiencias = sum(a.get('investimento_sugerido', 0) or 0 for a in audiencias if a.get('incluido_proposta', True)) if audiencias else 0
             valor_total = cotacao.get('valor_total_proposta') or (total_linhas + total_audiencias)
-            
+            _x = lambda n: f"R$ {float(n):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            bruto_txt = _x(total_linhas) if total_linhas else 'R$ 0,00'
+            aud_txt = _x(total_audiencias) if total_audiencias else '—'
+            vt_txt = _x(valor_total)
             totais_data = [
-                ['Total Linhas:', f"R$ {total_linhas:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')],
-                ['Total Audiências:', f"R$ {total_audiencias:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')],
-                ['VALOR TOTAL:', f"R$ {valor_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')],
+                ['Total itens (bruto):', bruto_txt],
+                ['Total audiências:', aud_txt],
+                ['Valor final:', vt_txt],
             ]
             
             totais_table = Table(totais_data, colWidths=[60*mm, 60*mm])
             totais_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('FONTSIZE', (0, -1), (-1, -1), 12),
-                ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#1e3a8a')),
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('FONTSIZE', (0, -1), (-1, -1), 10),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#334155')),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ]))
             story.append(totais_table)
             
@@ -10004,11 +10121,48 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'criativos_validados': db.obter_criativos_validados_campanha(),
         }
 
+    def _meses_ref_pi_seguros(meses_raw, fallback_mes_ref):
+        """Só entradas M/AA ou MM/AA; evita IndexError no Jinja (split '/') e SQL divergente."""
+        out = []
+        for m in (meses_raw or []):
+            s = (str(m).strip() if m is not None else '')
+            if '/' not in s:
+                continue
+            parts = s.split('/')
+            if len(parts) < 2:
+                continue
+            try:
+                int(parts[0].strip())
+                int(parts[1].strip())
+            except ValueError:
+                continue
+            out.append(s)
+        fb = (str(fallback_mes_ref).strip() if fallback_mes_ref else '')
+        if not out and fb and '/' in fb:
+            try:
+                p = fb.split('/')
+                int(p[0].strip())
+                int(p[1].strip())
+                out = [fb]
+            except (ValueError, IndexError):
+                pass
+        return out
+
+    def _mes_ref_comp_ordem(m):
+        if not m or '/' not in str(m):
+            return (0, 0)
+        parts = str(m).split('/', 2)
+        try:
+            return (int(parts[1].strip()), int(parts[0].strip()))
+        except (ValueError, IndexError):
+            return (0, 0)
+
     @app.route('/campanhas-pi')
     @login_required
     def campanhas_pi():
         """Lista todas as campanhas PI"""
         try:
+            session['campanhas_pi_retorno'] = 'dashboard'
             from datetime import datetime as dt_cls
             from collections import defaultdict
             import json as json_mod
@@ -10030,17 +10184,21 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             vendedores = db.obter_vendedores_centralcomm()
 
-            campanhas = db.obter_campanhas_pi(filtros or None)
+            campanhas_raw = db.obter_campanhas_pi(filtros or None)
+            campanhas = [_anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
             auxiliares = _carregar_auxiliares_campanha()
-            meses_ref = db.obter_meses_ref_campanha_pi()
+            try:
+                meses_ref = db.obter_meses_ref_campanha_pi()
+            except Exception as ex_m:
+                app.logger.warning('obter_meses_ref_campanha_pi (dashboard): %s', ex_m)
+                meses_ref = []
+            meses_ref = _meses_ref_pi_seguros(meses_ref, filtros.get('mes_ref_comp'))
+            if not meses_ref:
+                meses_ref = [filtros['mes_ref_comp']]
 
             def _parse_currency(raw):
-                if not raw:
-                    return 0.0
-                try:
-                    return float(str(raw).replace('R$', '').replace('.', '').replace(',', '.').strip())
-                except (ValueError, TypeError):
-                    return 0.0
+                v = _parse_brl_float(raw)
+                return float(v) if v is not None else 0.0
 
             total_campanhas = len(campanhas) if campanhas else 0
             campanhas_ativas = 0
@@ -10067,10 +10225,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 obj = camp.get('obj_contratados')
                 ating = camp.get('totalizador_atingido')
                 pct_camp = 0
-                obj_f = _parse_currency(obj)
-                ating_f = _parse_currency(ating)
-                if obj_f > 0 and ating_f > 0:
-                    pct_camp = round((ating_f / obj_f) * 100, 1)
+                obj_f = parse_volume_campanha(obj)
+                ating_f = parse_volume_campanha(ating)
+                if obj_f > 0:
+                    pct_camp = round((ating_f / obj_f) * 100)
                     soma_pct_objetivo += pct_camp
                     count_pct_objetivo += 1
 
@@ -10107,12 +10265,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 cli_nome = camp.get('cliente_nome') or 'Sem cliente'
                 clientes_agg[cli_nome]['investimento_total'] += gasto_val
                 clientes_agg[cli_nome]['num_campanhas'] += 1
-                clientes_agg[cli_nome]['objetivo_total'] += _parse_currency(obj)
-                clientes_agg[cli_nome]['atingido_total'] += _parse_currency(ating)
+                clientes_agg[cli_nome]['objetivo_total'] += parse_volume_campanha(obj)
+                clientes_agg[cli_nome]['atingido_total'] += parse_volume_campanha(ating)
 
                 mes_key = camp.get('mes_ref_comp') or 'N/A'
-                objetivo_por_mes[mes_key]['obj'] += _parse_currency(obj)
-                objetivo_por_mes[mes_key]['ating'] += _parse_currency(ating)
+                objetivo_por_mes[mes_key]['obj'] += parse_volume_campanha(obj)
+                objetivo_por_mes[mes_key]['ating'] += parse_volume_campanha(ating)
                 objetivo_por_mes[mes_key]['count'] += 1
 
                 perf_campanhas.append({
@@ -10131,7 +10289,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             kpis = {
                 'total_campanhas': total_campanhas,
                 'campanhas_ativas': campanhas_ativas,
-                'pct_objetivo_medio': round(soma_pct_objetivo / count_pct_objetivo, 1) if count_pct_objetivo > 0 else 0,
+                'pct_objetivo_medio': round(soma_pct_objetivo / count_pct_objetivo) if count_pct_objetivo > 0 else 0,
                 'gasto_total': gasto_total,
                 'previsto_total': previsto_total,
                 'pct_investimento': round((gasto_total / previsto_total) * 100, 1) if previsto_total > 0 else 0,
@@ -10148,10 +10306,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'values': [round(v, 2) for v in gasto_por_plataforma.values()],
             }
 
-            meses_sorted = sorted(objetivo_por_mes.keys(), key=lambda m: (
-                int(m.split('/')[1]) if '/' in m else 0,
-                int(m.split('/')[0]) if '/' in m else 0
-            ))
+            meses_sorted = sorted(objetivo_por_mes.keys(), key=_mes_ref_comp_ordem)
             chart_objetivo_mes = {
                 'labels': meses_sorted,
                 'obj': [objetivo_por_mes[m]['obj'] for m in meses_sorted],
@@ -10159,7 +10314,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             }
 
             chart_performance = {
-                'labels': [c['nome'][:30] for c in perf_top10],
+                'labels': [((c.get('nome') or '')[:30]) for c in perf_top10],
                 'values': [c['pct'] for c in perf_top10],
                 'clientes': [c['cliente'] for c in perf_top10],
             }
@@ -10200,25 +10355,50 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except Exception as e:
             import traceback
             app.logger.error(f"Erro ao listar campanhas PI: {str(e)}\n{traceback.format_exc()}")
-            flash('Erro ao carregar campanhas PI.', 'error')
-            return redirect(url_for('index'))
+            flash('Erro ao carregar campanhas PI. Tente de novo ou contate o suporte.', 'error')
+            return redirect(url_for('campanhas_pi'))
 
     def _redirect_campanhas_pi_preservar_filtros():
-        """Redireciona para campanhas_pi preservando filtros da URL de origem"""
-        referer = request.referrer
-        if referer and '/campanhas-pi' in referer:
-            from urllib.parse import urlparse, parse_qs, urlencode
-            parsed = urlparse(referer)
-            params = parse_qs(parsed.query, keep_blank_values=True)
-            flat = {k: v[0] for k, v in params.items() if v}
+        """Volta ao dashboard ou à lista. Referer costuma faltar em fetch — form, header, path e sessão."""
+        from urllib.parse import urlparse, parse_qs
+        referer = request.referrer or ''
+        parsed = urlparse(referer)
+        flat = {k: v[0] for k, v in parse_qs(parsed.query, keep_blank_values=True).items() if v}
+        path = (parsed.path or '').replace('\\', '/')
+
+        explicit = (
+            (request.form.get('campanhas_retorno') or '').strip().lower()
+            or (request.headers.get('X-Campanhas-Retorno') or '').strip().lower()
+        )
+        if explicit == 'lista':
+            return redirect(url_for('campanhas_pi_lista', **flat))
+        if explicit == 'dashboard':
             return redirect(url_for('campanhas_pi', **flat))
-        return redirect(url_for('campanhas_pi'))
+
+        if 'campanhas-pi/lista' in path:
+            return redirect(url_for('campanhas_pi_lista', **flat))
+
+        # Página legada /campanhas-pi/<id>/diarios: path contém "campanhas-pi" mas não é o dashboard.
+        if '/campanhas-pi/' in path and '/diarios' in path:
+            sess_d = (session.get('campanhas_pi_retorno') or '').strip().lower()
+            if sess_d == 'lista':
+                return redirect(url_for('campanhas_pi_lista', **flat))
+            return redirect(url_for('campanhas_pi', **flat))
+
+        if 'campanhas-pi' in path and 'campanhas-pi/lista' not in path:
+            return redirect(url_for('campanhas_pi', **flat))
+
+        sess = (session.get('campanhas_pi_retorno') or '').strip().lower()
+        if sess == 'lista':
+            return redirect(url_for('campanhas_pi_lista', **flat))
+        return redirect(url_for('campanhas_pi', **flat))
 
     @app.route('/campanhas-pi/lista')
     @login_required
     def campanhas_pi_lista():
         """Lista de campanhas PI em formato de tabela compacta"""
         try:
+            session['campanhas_pi_retorno'] = 'lista'
             filtros = {
                 'id_cliente': request.args.get('id_cliente', type=int),
                 'id_status': request.args.get('id_status', type=int),
@@ -10239,9 +10419,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             vendedores = db.obter_vendedores_centralcomm()
 
-            campanhas = db.obter_campanhas_pi(filtros or None)
+            campanhas_raw = db.obter_campanhas_pi(filtros or None)
+            campanhas = [_anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
             auxiliares = _carregar_auxiliares_campanha()
-            meses_ref = db.obter_meses_ref_campanha_pi()
+            try:
+                meses_ref = db.obter_meses_ref_campanha_pi()
+            except Exception as ex_m:
+                app.logger.warning('obter_meses_ref_campanha_pi (lista): %s', ex_m)
+                meses_ref = []
+            meses_ref = _meses_ref_pi_seguros(meses_ref, filtros.get('mes_ref_comp'))
+            if not meses_ref:
+                meses_ref = [filtros['mes_ref_comp']]
 
             return render_template('campanhas_pi_lista.html',
                 campanhas=campanhas, **auxiliares,
@@ -10250,8 +10438,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except Exception as e:
             import traceback
             app.logger.error(f"Erro ao listar campanhas PI (lista): {str(e)}\n{traceback.format_exc()}")
-            flash('Erro ao carregar lista de campanhas PI.', 'error')
-            return redirect(url_for('index'))
+            flash('Erro ao carregar lista de campanhas PI. Tente de novo ou contate o suporte.', 'error')
+            return redirect(url_for('campanhas_pi_lista'))
 
     @app.route('/campanhas-pi/novo', methods=['POST'])
     @login_required
@@ -10695,14 +10883,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if not campanha:
                 flash('Campanha não encontrada!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             diarios = db.obter_diarios_campanha(id_camp)
             return render_template('diarios_campanha.html', diarios=diarios, campanha=campanha)
         except Exception as e:
             app.logger.error(f"Erro ao listar diários da campanha: {str(e)}")
             flash('Erro ao carregar diários da campanha.', 'error')
-            return redirect(url_for('campanhas_pi'))
+            return _redirect_campanhas_pi_preservar_filtros()
 
     def _parse_decimal_br(value):
         """Converte string formatada em pt-BR (R$ 1.234,56) para Decimal"""
@@ -10724,7 +10912,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if not campanha:
                 flash('Campanha não encontrada!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             data = {
                 'id_pi': campanha['id_pi'],
@@ -10762,7 +10950,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if not diario:
                 flash('Diário não encontrado!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             id_camp = diario['id_campanha']
 
@@ -10786,7 +10974,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except Exception as e:
             app.logger.error(f"Erro ao atualizar diário de campanha: {str(e)}")
             flash('Erro ao atualizar diário.', 'error')
-            return redirect(url_for('campanhas_pi'))
+            return _redirect_campanhas_pi_preservar_filtros()
 
         return redirect(url_for('diarios_campanha', id_camp=id_camp))
 
@@ -10799,7 +10987,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
             if not diario:
                 flash('Diário não encontrado!', 'error')
-                return redirect(url_for('campanhas_pi'))
+                return _redirect_campanhas_pi_preservar_filtros()
 
             id_camp = diario['id_campanha']
 
@@ -10811,7 +10999,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         except Exception as e:
             app.logger.error(f"Erro ao excluir diário de campanha: {str(e)}")
             flash('Erro ao excluir diário.', 'error')
-            return redirect(url_for('campanhas_pi'))
+            return _redirect_campanhas_pi_preservar_filtros()
 
         return redirect(url_for('diarios_campanha', id_camp=id_camp))
 

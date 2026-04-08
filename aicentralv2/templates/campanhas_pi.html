@@ -126,7 +126,8 @@
         <select id="filtroMesRef" onchange="aplicarFiltros()"
                 class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 150px;">
           {% for m in meses_ref %}
-            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
+            {% set mp = (m|string).split('/') %}
+            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ m }}{% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -308,16 +309,12 @@
   {% if campanhas and campanhas|length > 0 %}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="campanhasGrid">
       {% for c in campanhas %}
-        {% set obj_val = (c.obj_contratados|string|replace('.','')|float) if c.obj_contratados else 0 %}
-        {% set ating_val = (c.totalizador_atingido|string|replace('.','')|float) if c.totalizador_atingido else 0 %}
-        {% set pct_obj = ((ating_val / obj_val) * 100)|round(1) if obj_val > 0 else 0 %}
-        {% set prev_raw = c.valor_plataforma or '0' %}
-        {% set prev_clean = prev_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-        {% set prev_val = prev_clean|float if prev_clean else 0 %}
-        {% set gasto_raw = c.totalizador_gasto or '0' %}
-        {% set gasto_clean = gasto_raw|string|replace('R$','')|replace('.','')|replace(',','.')|replace(' ','') %}
-        {% set gasto_val = gasto_clean|float if gasto_clean else 0 %}
-        {% set pct_inv = ((gasto_val / prev_val) * 100)|round(1) if prev_val > 0 else 0 %}
+        {% set obj_val = c.obj_contratados|parse_volume_campanha %}
+        {% set ating_val = c.totalizador_atingido|parse_volume_campanha %}
+        {% set pct_obj = ((ating_val / obj_val) * 100)|round(0)|int if obj_val > 0 else 0 %}
+        {% set prev_val = c.valor_plataforma|parse_brl_float %}
+        {% set gasto_val = c.totalizador_gasto|parse_brl_float %}
+        {% set pct_inv = ((gasto_val / prev_val) * 100)|round(0)|int if prev_val > 0 else 0 %}
 
         <div class="camp-card" data-campanha-id="{{ c.id_campanha }}" onclick="abrirSidebar({{ c | tojson }})">
           <div class="flex items-start justify-between mb-2">
@@ -333,6 +330,16 @@
               </div>
               <h3 class="font-semibold text-gray-800 text-sm truncate">{{ c.nome_campanha or '—' }}</h3>
               <p class="text-xs text-gray-400 truncate mt-0.5">{{ c.cliente_nome or '' }} · {{ c.executivo_nome or '' }}</p>
+              {# Mesmo bloco que Operação → Faturamento (cadu_pi): Preço (R$) = sigla + valor unitário #}
+              <div class="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-3 py-2 text-right">
+                <div class="text-[9px] font-bold text-emerald-800 uppercase tracking-wider text-left">Preço (R$)</div>
+                {% if c.preco_metrica_brl is not none %}
+                  <span class="text-[10px] font-semibold text-emerald-800">{{ sigla_metrica_preco(c.objetivo_nome, c.preco_metrica_modalidade) }}</span>
+                  <div class="text-xs font-semibold text-gray-800">R$ {{ '{:,.2f}'.format(c.preco_metrica_brl)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
+                {% else %}
+                  <span class="text-gray-400 text-xs">—</span>
+                {% endif %}
+              </div>
             </div>
             <div class="flex items-center gap-1 ml-2 flex-shrink-0">
               {% if c.googled_pi_princ %}
@@ -369,7 +376,7 @@
           <div class="space-y-2">
             <div>
               <div class="flex items-center justify-between text-xs mb-0.5">
-                <span class="text-gray-500 font-medium">Objetivo</span>
+                <span class="text-gray-500 font-medium">Meta</span>
                 <span class="font-bold {% if pct_obj >= 100 %}text-emerald-600{% elif pct_obj >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">{{ pct_obj }}%</span>
               </div>
               <div class="progress-slim">
@@ -431,6 +438,12 @@
         <span class="text-xs text-gray-400" id="sidebarPeriodo"></span>
       </div>
 
+      <div class="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 mb-3 text-right">
+        <span class="text-[10px] uppercase tracking-wider text-emerald-800 font-bold block text-left">Preço (R$)</span>
+        <span class="text-[10px] font-semibold text-emerald-800" id="sidebarPrecoSigla"></span>
+        <div class="text-xl font-extrabold text-gray-900 tabular-nums mt-0.5" id="sidebarPrecoValor">—</div>
+      </div>
+
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-gray-50 rounded-xl p-3">
           <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Cliente</span>
@@ -445,10 +458,6 @@
           <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarPlataforma">—</div>
         </div>
         <div class="bg-gray-50 rounded-xl p-3">
-          <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Objetivo</span>
-          <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarObjetivo">—</div>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-3">
           <span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Valor Líquido PI</span>
           <div class="text-sm font-semibold text-gray-800 mt-1" id="sidebarVlLiquido">—</div>
         </div>
@@ -460,7 +469,7 @@
 
       <div class="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200">
         <div class="flex justify-between items-center mb-1">
-          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Objetivo Atingido</span>
+          <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Meta</span>
           <span class="text-lg font-extrabold text-emerald-700" id="sidebarPctObj">0%</span>
         </div>
         <div class="progress-slim mt-1" style="height: 6px;">
@@ -642,6 +651,7 @@
 
     <div class="px-6 py-5 max-h-[75vh] overflow-y-auto">
       <form id="campanhaForm" method="POST" action="{{ url_for('campanha_pi_nova') }}">
+        <input type="hidden" name="campanhas_retorno" value="dashboard">
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-5 gap-y-4">
 
@@ -850,6 +860,19 @@
   let sidebarChartInstance = null;
   let selectedEmailTemplate = 'relatorio';
 
+  function parseBrlMoedaJs(val) {
+    if (val == null || val === '') return 0;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    var s = String(val).trim().replace(/R\$\s*/gi, '').replace(/\s/g, '');
+    if (!s) return 0;
+    if (s.indexOf(',') >= 0) {
+      return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    var parts = s.split('.');
+    if (parts.length > 2) return parseFloat(s.replace(/\./g, '')) || 0;
+    if (parts.length === 2) return parseFloat(s) || 0;
+    return parseFloat(s) || 0;
+  }
   // ==================== MÁSCARAS DE INPUT ====================
   function formatarNumero(valor) {
     if (!valor && valor !== 0) return '';
@@ -860,11 +883,9 @@
 
   function formatarReal(valor) {
     if (!valor && valor !== 0) return '';
-    let limpo = String(valor).replace(/[^\d,.\-]/g, '');
-    limpo = limpo.replace(/\./g, '').replace(',', '.');
-    const num = parseFloat(limpo);
-    if (isNaN(num)) return '';
-    return 'R$ ' + num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const num = parseBrlMoedaJs(valor);
+    if (!Number.isFinite(num)) return '';
+    return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function rawParaFormatado(valor, tipo) {
@@ -909,8 +930,7 @@
   // ==================== DISTRIBUIÇÃO % ====================
   var vrPlatMax = 0;
   function parseRealVal(s) {
-    if (!s) return 0;
-    return parseFloat(String(s).replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
+    return parseBrlMoedaJs(s);
   }
   function calcDistribuicao() {
     var inp = document.getElementById('valor_plataforma');
@@ -991,9 +1011,12 @@
   // ==================== FILTROS ====================
   function aplicarFiltros() {
     const params = new URLSearchParams();
-    const status = document.getElementById('filtroStatus').value;
-    const mes = document.getElementById('filtroMesRef').value;
-    const exec = document.getElementById('filtroExecutivo').value;
+    const statusEl = document.getElementById('filtroStatus');
+    const mesEl = document.getElementById('filtroMesRef');
+    const execEl = document.getElementById('filtroExecutivo');
+    const status = statusEl ? statusEl.value : '';
+    const mes = mesEl ? mesEl.value : '';
+    const exec = execEl ? execEl.value : '';
 
     setCookie('camppi_status', status, 30);
     setCookie('cc_filtro_mes', mes, 30);
@@ -1016,17 +1039,19 @@
     if (cExec && !params.has('resp_comercial')) { rp.set('resp_comercial', cExec); needsRedirect = true; }
     if (cMes && !params.has('mes_ref_comp')) {
       const sel = document.getElementById('filtroMesRef');
-      let matched = false;
-      for (const opt of sel.options) {
-        if (opt.value === cMes) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
-      }
-      if (!matched) {
-        const mesNum = parseInt(cMes);
+      if (sel && sel.options && sel.options.length) {
+        let matched = false;
         for (const opt of sel.options) {
-          if (opt.value && parseInt(opt.value.split('/')[0]) === mesNum) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
+          if (opt.value === cMes) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
         }
+        if (!matched) {
+          const mesNum = parseInt(cMes, 10);
+          for (const opt of sel.options) {
+            if (opt.value && parseInt(opt.value.split('/')[0], 10) === mesNum) { rp.set('mes_ref_comp', opt.value); matched = true; break; }
+          }
+        }
+        if (matched) needsRedirect = true;
       }
-      if (matched) needsRedirect = true;
     }
     if (cStatus && !params.has('id_status')) { rp.set('id_status', cStatus); needsRedirect = true; }
     if (!needsRedirect) return;
@@ -1034,14 +1059,61 @@
     window.location.href = '{{ url_for("campanhas_pi") }}?' + rp.toString();
   })();
 
-  document.getElementById('searchInput').addEventListener('input', function() {
-    const searchTerm = this.value.toLowerCase();
-    const cards = document.querySelectorAll('#campanhasGrid .camp-card');
-    cards.forEach(card => {
-      const text = card.textContent.toLowerCase();
-      card.style.display = text.includes(searchTerm) ? '' : 'none';
+  (function() {
+    const si = document.getElementById('searchInput');
+    if (!si) return;
+    si.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase();
+      const cards = document.querySelectorAll('#campanhasGrid .camp-card');
+      cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(searchTerm) ? '' : 'none';
+      });
     });
-  });
+  })();
+
+  // Volume/meta da campanha: mesmo critério do filtro parse_volume_campanha (Decimal, BR 1.234.567, etc.)
+  function parseVolumeCampanhaJs(val) {
+    if (val == null || val === '') return 0;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    const s = String(val).trim();
+    if (!s) return 0;
+    if (s.indexOf(',') >= 0) {
+      const x = s.replace(/\./g, '').replace(',', '.');
+      const n = parseFloat(x);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const parts = s.split('.');
+    if (parts.length > 2) {
+      const n = parseFloat(s.replace(/\./g, ''));
+      return Number.isFinite(n) ? n : 0;
+    }
+    if (parts.length === 2) {
+      if (parts[1].length <= 2) return parseFloat(s) || 0;
+      const n = parseFloat(s.replace(/\./g, ''));
+      return Number.isFinite(n) ? n : 0;
+    }
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function formatVolumeIntPtBR(n) {
+    return Math.round(Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  }
+  function metaContratadaPreenchida(camp) {
+    if (camp == null || !Object.prototype.hasOwnProperty.call(camp, 'obj_contratados')) return false;
+    const v = camp.obj_contratados;
+    if (v == null) return false;
+    return String(v).trim() !== '';
+  }
+  function siglaMetricaPreco(nomeObjetivo, modalidade) {
+    if (modalidade === 'cpm') return 'CPM';
+    const n = (nomeObjetivo || '').toUpperCase();
+    const keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+    for (let i = 0; i < keys.length; i++) {
+      if (n.indexOf(keys[i]) !== -1) return keys[i];
+    }
+    return '—';
+  }
 
   // ==================== SIDEBAR ====================
   function abrirSidebar(camp) {
@@ -1055,11 +1127,20 @@
     document.getElementById('sidebarCliente').textContent = camp.cliente_nome || '—';
     document.getElementById('sidebarExecutivo').textContent = camp.executivo_nome || '—';
     document.getElementById('sidebarPlataforma').textContent = camp.plataforma_nome || '—';
-    document.getElementById('sidebarObjetivo').textContent = camp.objetivo_nome || '—';
+    const precoM = camp.preco_metrica_brl != null && !isNaN(Number(camp.preco_metrica_brl)) ? Number(camp.preco_metrica_brl) : null;
+    const siglaPrecoEl = document.getElementById('sidebarPrecoSigla');
+    const valorPrecoEl = document.getElementById('sidebarPrecoValor');
+    if (precoM != null) {
+      siglaPrecoEl.textContent = siglaMetricaPreco(camp.objetivo_nome, camp.preco_metrica_modalidade);
+      valorPrecoEl.textContent = 'R$ ' + precoM.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      siglaPrecoEl.textContent = '';
+      valorPrecoEl.textContent = '—';
+    }
     document.getElementById('sidebarStatus').textContent = camp.status_nome || 'N/A';
     document.getElementById('sidebarMesRef').textContent = camp.mes_ref_comp || '—';
 
-    const vlPi = camp.valor_liquido_pi ? parseFloat(camp.valor_liquido_pi) : 0;
+    const vlPi = parseBrlMoedaJs(camp.valor_liquido_pi);
     document.getElementById('sidebarVlLiquido').textContent = vlPi > 0 ? 'R$ ' + vlPi.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '—';
 
     let periodoText = '—';
@@ -1071,19 +1152,17 @@
     }
     document.getElementById('sidebarPeriodo').textContent = periodoText;
 
-    const objVal = parseFloat(String(camp.obj_contratados || '0').replace(/\./g, '')) || 0;
-    const atingVal = parseFloat(String(camp.totalizador_atingido || '0').replace(/\./g, '')) || 0;
-    const pctObj = objVal > 0 ? ((atingVal / objVal) * 100).toFixed(1) : 0;
+    const objVal = parseVolumeCampanhaJs(camp.obj_contratados);
+    const atingVal = parseVolumeCampanhaJs(camp.totalizador_atingido);
+    const pctObj = objVal > 0 ? Math.round((atingVal / objVal) * 100) : 0;
     document.getElementById('sidebarPctObj').textContent = pctObj + '%';
     document.getElementById('sidebarBarObj').style.width = Math.min(pctObj, 100) + '%';
-    document.getElementById('sidebarAtingido').textContent = Number(atingVal).toLocaleString('pt-BR');
-    document.getElementById('sidebarObjContratados').textContent = '/ ' + Number(objVal).toLocaleString('pt-BR');
+    document.getElementById('sidebarAtingido').textContent = formatVolumeIntPtBR(atingVal);
+    document.getElementById('sidebarObjContratados').textContent = '/ ' + (metaContratadaPreenchida(camp) ? formatVolumeIntPtBR(objVal) : '—');
 
-    const prevStr = String(camp.valor_plataforma || '0').replace(/R\$/g,'').replace(/\./g,'').replace(/,/g,'.').trim();
-    const prevVal = parseFloat(prevStr) || 0;
-    const gastoStr = String(camp.totalizador_gasto || '0').replace(/R\$/g,'').replace(/\./g,'').replace(/,/g,'.').trim();
-    const gastoVal = parseFloat(gastoStr) || 0;
-    const pctInv = prevVal > 0 ? ((gastoVal / prevVal) * 100).toFixed(1) : 0;
+    const prevVal = parseBrlMoedaJs(camp.valor_plataforma);
+    const gastoVal = parseBrlMoedaJs(camp.totalizador_gasto);
+    const pctInv = prevVal > 0 ? Math.round((gastoVal / prevVal) * 100) : 0;
     document.getElementById('sidebarPctInv').textContent = pctInv + '%';
     document.getElementById('sidebarBarInv').style.width = Math.min(pctInv, 100) + '%';
     document.getElementById('sidebarGasto').textContent = 'R$ ' + gastoVal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
@@ -1386,7 +1465,8 @@
       onConfirm: () => {
         fetch("{{ url_for('campanha_pi_excluir', id_camp=0) }}".replace('0', currentSidebarCamp.id_campanha), {
           method: 'POST',
-          redirect: 'manual'
+          redirect: 'manual',
+          headers: { 'X-Campanhas-Retorno': 'dashboard' }
         }).then(() => {
           if (typeof showToast === 'function') showToast('Campanha excluída!', 'success');
           fecharSidebar();
@@ -1408,11 +1488,15 @@
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvando...';
 
     const formData = new FormData(form);
+    formData.set('campanhas_retorno', 'dashboard');
 
     fetch(form.action, {
       method: 'POST',
       body: formData,
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Campanhas-Retorno': 'dashboard'
+      },
       redirect: 'manual'
     })
     .then(r => r.json())

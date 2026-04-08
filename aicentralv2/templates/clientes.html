@@ -2347,7 +2347,16 @@ function getInviteStatusBadge(inviteStatus, inviteExpiresAt) {
 }
 
 async function enviarConviteContato(contatoId, email, nomeContato) {
-  if (!confirm(`Enviar convite para ${nomeContato} (${email})?`)) return;
+  if (!email || !String(email).trim()) {
+    showToast('Nenhum e-mail cadastrado para este contato.', 'error');
+    return;
+  }
+  const emailTrim = email.trim();
+  if (!validateEmail(emailTrim)) {
+    showToast('Este endereço de e-mail não é válido. Corrija o cadastro do contato antes de enviar.', 'warning');
+    return;
+  }
+  if (!confirm(`Enviar convite para ${nomeContato} (${emailTrim})?`)) return;
   
   const clienteId = document.getElementById('cliente_id').value;
   
@@ -2356,16 +2365,11 @@ async function enviarConviteContato(contatoId, email, nomeContato) {
     return;
   }
   
-  if (!email) {
-    showToast('Erro: Email do contato não encontrado.', 'error');
-    return;
-  }
-  
   try {
     const response = await fetch(`/api/cliente/${clienteId}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role: 'member' })
+      body: JSON.stringify({ email: emailTrim, role: 'member', contato_id: contatoId })
     });
     
     const result = await response.json();

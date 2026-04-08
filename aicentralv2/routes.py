@@ -1549,6 +1549,45 @@ def init_routes(app):
             
             conn.commit()
             
+            if email_anterior and email_anterior != email:
+                try:
+                    from aicentralv2.services.brevo_service import brevo_sincronizar_mudanca_email_contato
+
+                    cliente = db.obter_cliente_por_id(contato_anterior.get('pk_id_tbl_cliente'))
+                    cliente_nome = cliente.get('nome_fantasia', '') if cliente else ''
+                    exec_id = cliente.get('vendas_central_comm') if cliente else None
+                    nome_executivo_cc = None
+                    if exec_id:
+                        ex_row = db.obter_contato_por_id(exec_id)
+                        nome_executivo_cc = (ex_row.get('nome_completo') or '').strip() if ex_row else None
+                    br = brevo_sincronizar_mudanca_email_contato(
+                        email_anterior=email_anterior,
+                        email_novo=email,
+                        nome=nome_completo,
+                        segmento='clientes',
+                        nome_executivo=nome_executivo_cc,
+                        atributos={
+                            'NOME': nome_completo,
+                            'EMPRESA': cliente_nome,
+                            'TELEFONE': telefone or '',
+                            'TIPO_USUARIO': user_type,
+                        },
+                    )
+                    if br.get('success'):
+                        app.logger.info(
+                            "Brevo: e-mail do contato cliente atualizado %s -> %s",
+                            email_anterior,
+                            email,
+                        )
+                    else:
+                        app.logger.warning(
+                            "Brevo: falha ao refletir mudança de e-mail do contato %s: %s",
+                            contato_id,
+                            br.get('error'),
+                        )
+                except Exception as br_e:
+                    app.logger.warning("Brevo (edição contato cliente): %s", br_e)
+            
             # Registro de auditoria
             registrar_auditoria(
                 acao='UPDATE',
@@ -2070,8 +2109,9 @@ def init_routes(app):
         """API para criar novo convite"""
         try:
             data = request.get_json()
-            email = data.get('email', '').strip()
+            email = data.get('email', '').strip().lower()
             role = data.get('role', 'member')
+            contato_id_body = data.get('contato_id')
             
             app.logger.info(f"DEBUG criar_invite: cliente_id={cliente_id}, email={email}, role={role}")
             
@@ -2082,7 +2122,37 @@ def init_routes(app):
             import re
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             if not re.match(email_pattern, email):
-                return jsonify({'success': False, 'message': 'Formato de email inválido!'}), 400
+                return jsonify({
+                    'success': False,
+                    'message': 'Este endereço de e-mail não é válido. Corrija o cadastro do contato antes de enviar.',
+                }), 400
+            
+            # Garantir que o contato existe, pertence ao cliente e o e-mail confere (evita cadastro desatualizado)
+            if contato_id_body is not None and contato_id_body != '':
+                try:
+                    cid = int(contato_id_body)
+                except (TypeError, ValueError):
+                    return jsonify({'success': False, 'message': 'Identificador de contato inválido.'}), 400
+                contato_ref = db.obter_contato_por_id(cid)
+                if not contato_ref:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Contato não encontrado. Atualize a página e confira o cadastro.',
+                    }), 404
+                if contato_ref.get('pk_id_tbl_cliente') != cliente_id:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Este contato não pertence ao cliente selecionado.',
+                    }), 400
+                email_cadastro = (contato_ref.get('email') or '').lower().strip()
+                if email_cadastro != email:
+                    return jsonify({
+                        'success': False,
+                        'message': (
+                            'O e-mail não confere com o contato no cadastro (ele pode ter sido alterado). '
+                            'Atualize a lista de contatos e tente novamente.'
+                        ),
+                    }), 400
             
             # Validar se contato está ativo
             contato = db.obter_contato_por_email(email)
@@ -2133,17 +2203,38 @@ def init_routes(app):
                     expires_at = invite.get('expires_at') if invite else None
                     
                     if invite_token:
-                        send_invite_email(
-                            to_email=email,
-                            invite_token=invite_token,
-                            cliente_nome=cliente_nome,
-                            invited_by_name=convidante_nome,
-                            expires_at=expires_at
-                        )
+                        try:
+                            envio = send_invite_email(
+                                to_email=email,
+                                invite_token=invite_token,
+                                cliente_nome=cliente_nome,
+                                invited_by_name=convidante_nome,
+                                expires_at=expires_at
+                            )
+                        except Exception as send_exc:
+                            app.logger.error(
+                                f"Exceção ao enviar convite para {email}: {send_exc}", exc_info=True
+                            )
+                            db.cancelar_invite(invite_id)
+                            return jsonify({
+                                'success': False,
+                                'message': (
+                                    'Não foi possível enviar o e-mail de convite. '
+                                    'Verifique o endereço e tente novamente.'
+                                ),
+                            }), 502
+                        if not envio.get('success'):
+                            db.cancelar_invite(invite_id)
+                            msg = envio.get('user_message') or envio.get('error') or 'Erro ao enviar o e-mail de convite.'
+                            app.logger.error(f"Falha ao enviar convite para {email}: {envio.get('error')}")
+                            return jsonify({'success': False, 'message': msg}), 502
                         app.logger.info(f"Email de convite enviado para {email}")
                 except Exception as email_error:
-                    app.logger.error(f"Erro ao enviar email de convite: {email_error}")
-                    # Não falha se o email não for enviado
+                    app.logger.error(f"Erro ao preparar email de convite: {email_error}", exc_info=True)
+                    return jsonify({
+                        'success': False,
+                        'message': 'Não foi possível concluir o envio. Tente novamente em instantes.',
+                    }), 500
                 
                 return jsonify({
                     'success': True, 
@@ -2180,17 +2271,24 @@ def init_routes(app):
                         convidante_nome = session.get('user_name', 'Administrador')
                         cliente_nome = cliente.get('nome_fantasia') or cliente.get('razao_social') if cliente else 'Cliente'
                         
-                        send_invite_email(
+                        envio = send_invite_email(
                             to_email=invite['email'],
                             invite_token=invite['invite_token'],
                             cliente_nome=cliente_nome,
                             invited_by_name=convidante_nome,
                             expires_at=invite.get('expires_at')
                         )
+                        if not envio.get('success'):
+                            msg = envio.get('user_message') or envio.get('error') or 'Erro ao reenviar o e-mail.'
+                            app.logger.error(f"Falha ao reenviar convite: {envio.get('error')}")
+                            return jsonify({'success': False, 'message': msg}), 502
                         app.logger.info(f"Email de convite reenviado para {invite['email']}")
                 except Exception as email_error:
                     app.logger.error(f"Erro ao enviar email de convite: {email_error}")
-                    # Não falha a operação se o email não for enviado
+                    return jsonify({
+                        'success': False,
+                        'message': 'Não foi possível reenviar o e-mail. Verifique o endereço e tente novamente.',
+                    }), 502
                 
                 return jsonify({'success': True, 'message': 'Convite reenviado com sucesso!'})
             else:
@@ -11289,7 +11387,35 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Atualiza dados gerais do lead"""
         try:
             data = request.get_json(force=True)
+            lead_antes = db.obter_lead_detalhes(lead_id) if 'email' in data else None
             ok = db.atualizar_lead_dados(lead_id, data)
+            if ok and lead_antes and 'email' in data:
+                old_em = (lead_antes.get('email') or '').strip().lower()
+                new_em = (data.get('email') or '').strip().lower()
+                if new_em and old_em != new_em:
+                    try:
+                        from aicentralv2.services.brevo_service import brevo_sincronizar_mudanca_email_contato
+
+                        nome_ld = (data.get('nome') or lead_antes.get('nome') or '').strip()
+                        empresa_ld = (data.get('empresa') or lead_antes.get('empresa') or '').strip()
+                        nome_exec = (lead_antes.get('executivo_nome') or '').strip() or None
+                        if lead_antes.get('id_executivo'):
+                            ex = db.obter_contato_por_id(lead_antes['id_executivo'])
+                            nome_exec = (ex.get('nome_completo') or '').strip() if ex else nome_exec
+                        brevo_sincronizar_mudanca_email_contato(
+                            email_anterior=old_em,
+                            email_novo=new_em,
+                            nome=nome_ld,
+                            segmento='leads',
+                            nome_executivo=nome_exec,
+                            atributos={
+                                'NOME': nome_ld,
+                                'EMPRESA': empresa_ld,
+                                'TELEFONE': (data.get('telefone') or lead_antes.get('telefone') or '').strip() or '',
+                            },
+                        )
+                    except Exception as br_e:
+                        app.logger.warning(f"Brevo (edição lead): {br_e}")
             return jsonify({'success': ok})
         except Exception as e:
             app.logger.error(f"Erro api_lead_editar {lead_id}: {e}")
@@ -11372,7 +11498,36 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Edita contato existente"""
         try:
             data = request.get_json(force=True)
+            row_antes = db.obter_lead_contato_por_id(contato_id)
             ok = db.atualizar_lead_contato(contato_id, data)
+            if ok and row_antes and 'email' in data:
+                old_em = (row_antes.get('email') or '').strip().lower()
+                new_em = (data.get('email') or '').strip().lower()
+                if new_em and old_em != new_em:
+                    try:
+                        from aicentralv2.services.brevo_service import brevo_sincronizar_mudanca_email_contato
+
+                        lead = db.obter_lead_detalhes(row_antes['id_lead'])
+                        nome_c = (data.get('nome') or row_antes.get('nome') or '').strip()
+                        empresa_ld = (lead.get('empresa') or '') if lead else ''
+                        nome_exec = (lead.get('executivo_nome') or '').strip() or None
+                        if lead and lead.get('id_executivo'):
+                            ex = db.obter_contato_por_id(lead['id_executivo'])
+                            nome_exec = (ex.get('nome_completo') or '').strip() if ex else nome_exec
+                        brevo_sincronizar_mudanca_email_contato(
+                            email_anterior=old_em,
+                            email_novo=new_em,
+                            nome=nome_c,
+                            segmento='leads',
+                            nome_executivo=nome_exec,
+                            atributos={
+                                'NOME': nome_c,
+                                'EMPRESA': empresa_ld,
+                                'TELEFONE': (data.get('telefone') or row_antes.get('telefone') or '').strip() or '',
+                            },
+                        )
+                    except Exception as br_e:
+                        app.logger.warning(f"Brevo (edição contato de lead): {br_e}")
             return jsonify({'success': ok})
         except Exception as e:
             app.logger.error(f"Erro api_lead_contato_editar {contato_id}: {e}")

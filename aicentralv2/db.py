@@ -10840,6 +10840,18 @@ def obter_lead_contatos(lead_id):
         raise
 
 
+def obter_lead_contato_por_id(contato_id):
+    """Retorna uma linha de cadu_lead_contatos pelo id."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT * FROM cadu_lead_contatos WHERE id = %s', (contato_id,))
+            return cursor.fetchone()
+    except Exception as e:
+        current_app.logger.error(f"Erro obter_lead_contato_por_id {contato_id}: {e}")
+        return None
+
+
 def criar_lead_contato(lead_id, dados):
     """Cria contato vinculado a um lead. Retorna id."""
     conn = get_db()

@@ -9,6 +9,7 @@ import requests
 import json
 import logging
 import unicodedata
+from urllib.parse import quote
 from flask import current_app, render_template
 from typing import Optional, List, Dict, Any, Union
 
@@ -40,6 +41,43 @@ BREVO_LISTAS_CONTATOS_VENDEDOR: Dict[str, Dict[str, int]] = {
 }
 
 _SEGMENTOS_CONTATO_BREVO = frozenset({"clientes", "leads"})
+
+
+def mensagem_usuario_falha_envio_brevo(response_text: str, status_code: int = None) -> str:
+    """
+    Converte resposta de erro da API Brevo em texto amigável (PT-BR) para o usuário final.
+    Cobre endereço inválido, caixa inexistente e bloqueios comuns.
+    """
+    default = (
+        "Não foi possível enviar o e-mail. Confira se o endereço está correto e se a caixa de e-mail existe e pode receber mensagens."
+    )
+    if not response_text or not str(response_text).strip():
+        return default
+    raw = str(response_text).strip()
+    try:
+        data = json.loads(raw)
+        msg = str(data.get("message") or data.get("error") or "").lower()
+    except (json.JSONDecodeError, TypeError, ValueError):
+        msg = raw.lower()
+    invalid_hints = (
+        "invalid",
+        "not valid",
+        "does not exist",
+        "unknown user",
+        "mailbox",
+        "recipient",
+        "bounce",
+        "blacklisted",
+        "blocked",
+        "undeliverable",
+        "rejected",
+    )
+    if any(h in msg for h in invalid_hints):
+        return (
+            "O e-mail parece inválido, inexistente ou indisponível para receber mensagens. "
+            "Verifique o endereço no cadastro do contato."
+        )
+    return default
 
 
 def _normalizar_chave_vendedor(nome: str) -> str:
@@ -218,17 +256,30 @@ class BrevoService:
                 return {"success": True, "messageId": result.get("messageId")}
             else:
                 logger.error(f"Erro ao enviar email: {response.status_code} - {response.text}")
-                return {"success": False, "error": response.text, "status_code": response.status_code}
+                return {
+                    "success": False,
+                    "error": response.text,
+                    "status_code": response.status_code,
+                    "user_message": mensagem_usuario_falha_envio_brevo(
+                        response.text, response.status_code
+                    ),
+                }
                 
         except requests.exceptions.Timeout:
             logger.error("Timeout ao enviar email via Brevo")
-            return {"success": False, "error": "Timeout na requisição"}
+            um = "O envio do e-mail demorou demais. Tente novamente em instantes."
+            return {"success": False, "error": "Timeout na requisição", "user_message": um}
         except requests.exceptions.RequestException as e:
             logger.error(f"Erro de requisição ao enviar email: {e}")
-            return {"success": False, "error": str(e)}
+            um = "Falha de conexão ao enviar o e-mail. Tente novamente."
+            return {"success": False, "error": str(e), "user_message": um}
         except Exception as e:
             logger.error(f"Erro inesperado ao enviar email: {e}")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": str(e),
+                "user_message": mensagem_usuario_falha_envio_brevo(str(e)),
+            }
     
     def enviar_email_com_template(
         self,
@@ -271,7 +322,11 @@ class BrevoService:
             )
         except Exception as e:
             logger.error(f"Erro ao renderizar template {template_name}: {e}")
-            return {"success": False, "error": f"Erro no template: {str(e)}"}
+            return {
+                "success": False,
+                "error": f"Erro no template: {str(e)}",
+                "user_message": "Erro ao montar o conteúdo do e-mail. Contate o suporte se persistir.",
+            }
     
     def adicionar_contato(
         self,
@@ -361,6 +416,59 @@ class BrevoService:
             logger.error(f"Erro ao remover contato da lista: {e}")
             return {"success": False, "error": str(e)}
     
+    def atualizar_email_do_contato(
+        self,
+        email_identificador: str,
+        email_novo: str,
+        attributes_extra: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """
+        Altera o e-mail de um contato no Brevo (PUT /v3/contacts/{email antigo} com attributes.EMAIL).
+        Preserva listas e demais dados associados ao registro.
+        """
+        ident = (email_identificador or "").strip().lower()
+        new_addr = (email_novo or "").strip().lower()
+        if not ident or not new_addr:
+            return {"success": False, "error": "E-mails inválidos para atualização no Brevo."}
+        attrs = dict(attributes_extra or {})
+        attrs["EMAIL"] = new_addr
+        payload = {"attributes": attrs}
+        try:
+            enc = quote(ident, safe="")
+            response = requests.put(
+                f"{BREVO_API_URL}/contacts/{enc}",
+                headers=self._headers,
+                json=payload,
+                timeout=30,
+            )
+            if response.status_code in (200, 204):
+                logger.info("Brevo: e-mail do contato atualizado de %s para %s", ident, new_addr)
+                return {"success": True}
+            if response.status_code == 404:
+                logger.info(
+                    "Brevo: contato %s não encontrado (será tentado criar/sincronizar com o novo e-mail)",
+                    ident,
+                )
+                return {
+                    "success": False,
+                    "not_found": True,
+                    "error": response.text,
+                    "status_code": 404,
+                }
+            logger.error(
+                "Brevo atualizar e-mail do contato: %s - %s",
+                response.status_code,
+                response.text,
+            )
+            return {
+                "success": False,
+                "error": response.text,
+                "status_code": response.status_code,
+            }
+        except Exception as e:
+            logger.error("Brevo atualizar e-mail do contato: %s", e)
+            return {"success": False, "error": str(e)}
+    
     def mover_para_lista(
         self,
         email: str,
@@ -422,6 +530,47 @@ def brevo_sincronizar_contato_lista_executivo(
         nome=nome,
         lista_ids=listas,
         atributos=atributos or {},
+    )
+
+
+def brevo_sincronizar_mudanca_email_contato(
+    email_anterior: str,
+    email_novo: str,
+    *,
+    nome: Optional[str] = None,
+    segmento: str = "clientes",
+    nome_executivo: Optional[str] = None,
+    atributos: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Quando o e-mail muda no cadastro: atualiza o identificador no Brevo via API.
+    Se o contato antigo não existir no Brevo (404), inclui o novo e-mail como na criação
+    (lista 21 + lista do executivo em Clientes ou Leads).
+    """
+    seg = (segmento or "clientes").lower()
+    if seg not in _SEGMENTOS_CONTATO_BREVO:
+        seg = "clientes"
+    old = (email_anterior or "").strip().lower()
+    new = (email_novo or "").strip().lower()
+    if not new or old == new:
+        return {"success": True, "skipped": True}
+    attrs = dict(atributos or {})
+    if nome:
+        attrs["NOME"] = nome
+    service = get_brevo_service()
+    if old:
+        put_res = service.atualizar_email_do_contato(old, new, attributes_extra=attrs)
+        if put_res.get("success"):
+            return put_res
+        if not put_res.get("not_found"):
+            return put_res
+    attrs_sem_email = {k: v for k, v in attrs.items() if str(k).upper() != "EMAIL"}
+    return brevo_sincronizar_contato_lista_executivo(
+        email=new,
+        nome=nome,
+        segmento=seg,
+        nome_executivo=nome_executivo,
+        atributos=attrs_sem_email,
     )
 
 

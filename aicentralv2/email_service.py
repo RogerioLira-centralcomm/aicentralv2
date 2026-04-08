@@ -149,7 +149,7 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
         expires_at: Data de expiração do convite
     
     Returns:
-        bool: True se enviado com sucesso
+        dict: {"success": bool, opcional "error", "user_message" para exibir ao usuário}
     """
     base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
     
@@ -169,7 +169,13 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
         cliente_nome=cliente_nome,
         expires_at=expires_str
     )
-    return result.get('success', False)
+    if result.get("success"):
+        return {"success": True}
+    return {
+        "success": False,
+        "error": result.get("error"),
+        "user_message": result.get("user_message"),
+    }
 
 
 # ==================== ASSINATURAS ====================

@@ -1412,31 +1412,34 @@ def init_routes(app):
             )
             
             # ==================== INTEGRAÇÃO BREVO ====================
-            # Sincronizar contato no Brevo após criação
+            # Lista principal (21) + lista Contatos "{Executivo} - Clientes" quando aplicável
             brevo_result = None
             try:
-                from aicentralv2.services.brevo_service import get_brevo_service, LISTA_USUARIOS_ATIVOS
-                
-                # Obter dados do cliente para contexto
+                from aicentralv2.services.brevo_service import brevo_sincronizar_contato_lista_executivo
+
                 cliente = db.obter_cliente_por_id(cliente_id)
                 cliente_nome = cliente.get('nome_fantasia', '') if cliente else ''
-                
-                brevo_service = get_brevo_service()
-                brevo_result = brevo_service.adicionar_contato(
+                exec_id = cliente.get('vendas_central_comm') if cliente else None
+                nome_executivo_cc = None
+                if exec_id:
+                    ex_row = db.obter_contato_por_id(exec_id)
+                    nome_executivo_cc = (ex_row.get('nome_completo') or '').strip() if ex_row else None
+
+                brevo_result = brevo_sincronizar_contato_lista_executivo(
                     email=email,
                     nome=nome_completo,
+                    segmento='clientes',
+                    nome_executivo=nome_executivo_cc,
                     atributos={
                         'NOME': nome_completo,
                         'EMPRESA': cliente_nome,
                         'TELEFONE': telefone or '',
                         'TIPO_USUARIO': user_type,
-                        'DATA_CADASTRO': datetime.now().strftime('%Y-%m-%d')
+                        'DATA_CADASTRO': datetime.now().strftime('%Y-%m-%d'),
                     },
-                    lista_ids=[LISTA_USUARIOS_ATIVOS]
                 )
-                
                 if brevo_result.get('success'):
-                    app.logger.info(f"Brevo: Contato {email} sincronizado com sucesso")
+                    app.logger.info(f"Brevo: Contato {email} sincronizado (lista principal + Clientes do executivo se houver)")
                 else:
                     app.logger.warning(f"Brevo: Falha ao sincronizar contato {email}: {brevo_result.get('error')}")
                     
@@ -11336,6 +11339,28 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not data.get('nome'):
                 return jsonify({'success': False, 'message': 'Nome obrigatório'}), 400
             novo_id = db.criar_lead_contato(lead_id, data)
+            email_c = (data.get('email') or '').strip().lower()
+            if email_c and novo_id:
+                try:
+                    from aicentralv2.services.brevo_service import brevo_sincronizar_contato_lista_executivo
+
+                    lead = db.obter_lead_detalhes(lead_id)
+                    nome_exec_lead = (lead.get('executivo_nome') or '').strip() if lead else None
+                    empresa = (lead.get('empresa') or '') if lead else ''
+                    nome_c = (data.get('nome') or '').strip()
+                    brevo_sincronizar_contato_lista_executivo(
+                        email=email_c,
+                        nome=nome_c,
+                        segmento='leads',
+                        nome_executivo=nome_exec_lead,
+                        atributos={
+                            'NOME': nome_c,
+                            'EMPRESA': empresa,
+                            'TELEFONE': (data.get('telefone') or '').strip() or '',
+                        },
+                    )
+                except Exception as br_e:
+                    app.logger.warning(f"Brevo (contato de lead): {br_e}")
             return jsonify({'success': True, 'id': novo_id})
         except Exception as e:
             app.logger.error(f"Erro api_lead_contato_criar {lead_id}: {e}")
@@ -11645,6 +11670,36 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
                     registro_id=lead_id,
                     registro_tipo='cadu_lead',
                 )
+                try:
+                    from aicentralv2.services.brevo_service import brevo_sincronizar_contato_lista_executivo
+
+                    cli_conv = db.obter_cliente_por_id(cliente_id)
+                    exec_conv = cli_conv.get('vendas_central_comm') if cli_conv else None
+                    nome_exec_conv = None
+                    if exec_conv:
+                        ex_c = db.obter_contato_por_id(exec_conv)
+                        nome_exec_conv = (ex_c.get('nome_completo') or '').strip() if ex_c else None
+                    cliente_nome_conv = (cli_conv.get('nome_fantasia') or '') if cli_conv else ''
+                    for c in db.obter_contatos_por_cliente(cliente_id):
+                        em = (c.get('email') or '').strip().lower() if c.get('email') else ''
+                        if not em:
+                            continue
+                        nome_ct = (c.get('nome_completo') or '').strip()
+                        tel_ct = (c.get('telefone') or '').strip() or ''
+                        brevo_sincronizar_contato_lista_executivo(
+                            email=em,
+                            nome=nome_ct,
+                            segmento='clientes',
+                            nome_executivo=nome_exec_conv,
+                            atributos={
+                                'NOME': nome_ct,
+                                'EMPRESA': cliente_nome_conv,
+                                'TELEFONE': tel_ct,
+                                'TIPO_USUARIO': 'client',
+                            },
+                        )
+                except Exception as br_e:
+                    app.logger.warning(f"Brevo (conversão lead -> cliente): {br_e}")
                 return jsonify({'success': True, 'cliente_id': cliente_id})
             return jsonify({'success': False, 'message': 'Lead não encontrado'}), 404
         except Exception as e:
@@ -12202,6 +12257,30 @@ REGRAS DE ESTILO:
                 'usuario_nome': session.get('user_name', ''),
             }
             lead_id = db.criar_lead(dados)
+            email_ld = (dados.get('email') or '').strip().lower()
+            if email_ld and lead_id:
+                try:
+                    from aicentralv2.services.brevo_service import brevo_sincronizar_contato_lista_executivo
+
+                    nome_ld = (dados.get('nome') or '').strip()
+                    empresa_ld = (dados.get('empresa') or '').strip()
+                    nome_exec_novo_lead = None
+                    if dados.get('id_executivo'):
+                        ex_nl = db.obter_contato_por_id(dados.get('id_executivo'))
+                        nome_exec_novo_lead = (ex_nl.get('nome_completo') or '').strip() if ex_nl else None
+                    brevo_sincronizar_contato_lista_executivo(
+                        email=email_ld,
+                        nome=nome_ld,
+                        segmento='leads',
+                        nome_executivo=nome_exec_novo_lead,
+                        atributos={
+                            'NOME': nome_ld,
+                            'EMPRESA': empresa_ld,
+                            'TELEFONE': (dados.get('telefone') or '').strip() or '',
+                        },
+                    )
+                except Exception as br_e:
+                    app.logger.warning(f"Brevo (novo lead): {br_e}")
             return jsonify({'success': True, 'id': lead_id})
         except Exception as e:
             app.logger.error(f"Erro api_lead_criar: {e}")

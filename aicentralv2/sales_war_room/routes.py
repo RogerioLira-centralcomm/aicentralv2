@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from flask import render_template, request, jsonify, session, current_app
 from ..auth import login_required
 from ..db import get_db
@@ -1095,6 +1096,31 @@ def api_cliente_contato_rapido(cliente_id):
             )
         except ValueError as ve:
             return jsonify({'success': False, 'error': str(ve)}), 400
+        try:
+            from ..services.brevo_service import brevo_sincronizar_contato_lista_executivo
+
+            cli = db_mod.obter_cliente_por_id(cliente_id)
+            cliente_nome = (cli.get('nome_fantasia') or '') if cli else ''
+            exec_id = cli.get('vendas_central_comm') if cli else None
+            nome_exec_cr = None
+            if exec_id:
+                ex_cr = db_mod.obter_contato_por_id(exec_id)
+                nome_exec_cr = (ex_cr.get('nome_completo') or '').strip() if ex_cr else None
+            brevo_sincronizar_contato_lista_executivo(
+                email=email,
+                nome=nome,
+                segmento='clientes',
+                nome_executivo=nome_exec_cr,
+                atributos={
+                    'NOME': nome,
+                    'EMPRESA': cliente_nome,
+                    'TELEFONE': telefone or '',
+                    'TIPO_USUARIO': 'client',
+                    'DATA_CADASTRO': datetime.now().strftime('%Y-%m-%d'),
+                },
+            )
+        except Exception as br_e:
+            current_app.logger.warning(f"Brevo (contato rápido): {br_e}")
         return jsonify({'success': True, 'id_contato_cliente': novo_id})
     except Exception as e:
         current_app.logger.error(f"Erro api_cliente_contato_rapido: {e}", exc_info=True)
@@ -1118,6 +1144,15 @@ def api_cliente_contatos_importar(cliente_id):
             'success': False,
             'error': 'Cadastre ao menos um cargo/setor em tbl_cargo_contato para importar.'
         }), 503
+
+    cli_row = db_mod.obter_cliente_por_id(cliente_id)
+    cliente_nome = (cli_row.get('nome_fantasia') or '') if cli_row else ''
+    exec_id = cli_row.get('vendas_central_comm') if cli_row else None
+    nome_exec_imp = None
+    if exec_id:
+        ex_imp = db_mod.obter_contato_por_id(exec_id)
+        nome_exec_imp = (ex_imp.get('nome_completo') or '').strip() if ex_imp else None
+    from ..services.brevo_service import brevo_sincronizar_contato_lista_executivo
 
     criados = 0
     erros = []
@@ -1146,6 +1181,22 @@ def api_cliente_contatos_importar(cliente_id):
                 user_type='client',
             )
             criados += 1
+            try:
+                brevo_sincronizar_contato_lista_executivo(
+                    email=email,
+                    nome=nome,
+                    segmento='clientes',
+                    nome_executivo=nome_exec_imp,
+                    atributos={
+                        'NOME': nome,
+                        'EMPRESA': cliente_nome,
+                        'TELEFONE': telefone or '',
+                        'TIPO_USUARIO': 'client',
+                        'DATA_CADASTRO': datetime.now().strftime('%Y-%m-%d'),
+                    },
+                )
+            except Exception as br_e:
+                current_app.logger.warning(f"Brevo (importar contato linha {i}): {br_e}")
         except ValueError as ve:
             erros.append({'linha': i, 'msg': str(ve)})
         except Exception as ex:

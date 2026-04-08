@@ -8,6 +8,7 @@ Serviço de envio de emails via API Brevo
 import requests
 import json
 import logging
+import unicodedata
 from flask import current_app, render_template
 from typing import Optional, List, Dict, Any, Union
 
@@ -20,6 +21,90 @@ BREVO_API_URL = "https://api.brevo.com/v3"
 LISTA_USUARIOS_ATIVOS = 21
 LISTA_CONVITES_PENDENTES = 22
 LISTA_USUARIOS_INATIVOS = 23
+
+# Listas na pasta Contatos (Brevo): "[Vendedor] - Clientes" / "[Vendedor] - Leads"
+LISTA_CONTATOS_LUISA_CLIENTES = 37
+LISTA_CONTATOS_LUISA_LEADS = 36
+LISTA_CONTATOS_JOAO_CLIENTES = 35
+LISTA_CONTATOS_JOAO_LEADS = 34
+LISTA_CONTATOS_DEMETRIUS_CLIENTES = 33
+LISTA_CONTATOS_DEMETRIUS_LEADS = 32
+
+BREVO_LISTAS_CONTATOS_VENDEDOR: Dict[str, Dict[str, int]] = {
+    "luisa": {"clientes": LISTA_CONTATOS_LUISA_CLIENTES, "leads": LISTA_CONTATOS_LUISA_LEADS},
+    "joao": {"clientes": LISTA_CONTATOS_JOAO_CLIENTES, "leads": LISTA_CONTATOS_JOAO_LEADS},
+    "demetrius": {
+        "clientes": LISTA_CONTATOS_DEMETRIUS_CLIENTES,
+        "leads": LISTA_CONTATOS_DEMETRIUS_LEADS,
+    },
+}
+
+_SEGMENTOS_CONTATO_BREVO = frozenset({"clientes", "leads"})
+
+
+def _normalizar_chave_vendedor(nome: str) -> str:
+    """Minúsculas e sem acentos (ex.: João -> joao)."""
+    s = (nome or "").strip().lower()
+    nfd = unicodedata.normalize("NFD", s)
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+
+
+def brevo_id_lista_contatos(vendedor: str, segmento: str) -> int:
+    """
+    Retorna o ID da lista Brevo (pasta Contatos) para o vendedor e segmento.
+
+    Args:
+        vendedor: Nome do vendedor (aceita acentos e maiúsculas, ex. João, LUISA).
+        segmento: 'clientes' ou 'leads'.
+
+    Raises:
+        ValueError: vendedor ou segmento desconhecido.
+    """
+    key = _normalizar_chave_vendedor(vendedor)
+    seg = (segmento or "").strip().lower()
+    if seg not in _SEGMENTOS_CONTATO_BREVO:
+        raise ValueError("segmento deve ser 'clientes' ou 'leads'")
+    if key not in BREVO_LISTAS_CONTATOS_VENDEDOR:
+        raise ValueError(f"vendedor sem listas mapeadas no Brevo: {vendedor!r}")
+    return BREVO_LISTAS_CONTATOS_VENDEDOR[key][seg]
+
+
+def brevo_primeiro_nome_normalizado(nome_completo: Optional[str]) -> Optional[str]:
+    """
+    Primeira palavra do nome completo do executivo, normalizada (minúsculas, sem acento).
+    Usada para casar com as chaves de BREVO_LISTAS_CONTATOS_VENDEDOR (ex.: Luisa -> luisa, João -> joao).
+    """
+    if not nome_completo or not str(nome_completo).strip():
+        return None
+    primeira = str(nome_completo).strip().split(None, 1)[0]
+    return _normalizar_chave_vendedor(primeira)
+
+
+def brevo_id_lista_por_nome_executivo(nome_completo_executivo: Optional[str], segmento: str) -> Optional[int]:
+    """
+    Resolve o ID da lista Brevo (pasta Contatos) pelo pré-nome do executivo.
+
+    Args:
+        nome_completo_executivo: Nome completo cadastrado (usa só a primeira palavra).
+        segmento: 'clientes' ou 'leads'.
+    """
+    seg = (segmento or "").strip().lower()
+    if seg not in _SEGMENTOS_CONTATO_BREVO:
+        logger.warning("Brevo: segmento inválido %r (use clientes ou leads).", segmento)
+        return None
+    chave = brevo_primeiro_nome_normalizado(nome_completo_executivo)
+    if not chave:
+        logger.info("Brevo: nome do executivo ausente; lista Contatos não aplicada.")
+        return None
+    if chave not in BREVO_LISTAS_CONTATOS_VENDEDOR:
+        logger.warning(
+            "Brevo: primeiro nome normalizado %r (de %r) sem lista no Brevo; "
+            "adicione entrada em BREVO_LISTAS_CONTATOS_VENDEDOR se necessário.",
+            chave,
+            nome_completo_executivo,
+        )
+        return None
+    return BREVO_LISTAS_CONTATOS_VENDEDOR[chave][seg]
 
 
 class BrevoService:
@@ -313,6 +398,31 @@ def get_brevo_service() -> BrevoService:
     if _brevo_service is None:
         _brevo_service = BrevoService()
     return _brevo_service
+
+
+def brevo_sincronizar_contato_lista_executivo(
+    email: str,
+    nome: Optional[str],
+    segmento: str,
+    atributos: Optional[Dict[str, Any]] = None,
+    *,
+    nome_executivo: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Inclui/atualiza contato no Brevo: sempre na lista principal CentralComm (LISTA_USUARIOS_ATIVOS),
+    e também na lista Contatos do executivo (Clientes ou Leads) quando o pré-nome bater com
+    BREVO_LISTAS_CONTATOS_VENDEDOR.
+    """
+    listas: List[int] = [LISTA_USUARIOS_ATIVOS]
+    lista_exec = brevo_id_lista_por_nome_executivo(nome_executivo, segmento)
+    if lista_exec is not None and lista_exec not in listas:
+        listas.append(lista_exec)
+    return get_brevo_service().adicionar_contato(
+        email=email,
+        nome=nome,
+        lista_ids=listas,
+        atributos=atributos or {},
+    )
 
 
 # =====================================================

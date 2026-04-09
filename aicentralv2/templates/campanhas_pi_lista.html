@@ -1158,7 +1158,14 @@
         }
         empty.classList.add('hidden');
         document.getElementById('sidebarDiariosCount').textContent = data.diarios.length + ' diário(s)';
-        lista.innerHTML = data.diarios.map(d => `
+        lista.innerHTML = data.diarios.map(d => {
+          const payload = encodeURIComponent(JSON.stringify({
+            id: d.id,
+            data_evento: d.data_evento || '',
+            atingido: d.atingido != null ? String(d.atingido) : '',
+            gasto: d.gasto != null ? String(d.gasto) : ''
+          }));
+          return `
           <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
             <div class="flex items-center gap-3">
               <span class="text-gray-500 font-medium">${d.data_evento_fmt}</span>
@@ -1166,11 +1173,11 @@
               <span class="text-amber-600 font-semibold">${d.gasto || '—'}</span>
             </div>
             <div class="flex gap-1">
-              <button onclick="editarSidebarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})" class="p-1 text-gray-400 hover:text-gray-700 rounded"><i class="fas fa-edit text-xs"></i></button>
-              <button onclick="excluirSidebarDiario(${d.id})" class="p-1 text-red-400 hover:text-red-600 rounded"><i class="fas fa-trash text-xs"></i></button>
+              <button type="button" data-action="edit-diario-sidebar" data-payload="${payload}" class="p-1 text-gray-400 hover:text-gray-700 rounded" title="Editar"><i class="fas fa-edit text-xs pointer-events-none"></i></button>
+              <button type="button" data-action="del-diario-sidebar" data-id="${d.id}" class="p-1 text-red-400 hover:text-red-600 rounded" title="Excluir"><i class="fas fa-trash text-xs pointer-events-none"></i></button>
             </div>
-          </div>
-        `).join('');
+          </div>`;
+        }).join('');
       });
   }
 
@@ -1222,23 +1229,35 @@
   }
 
   function excluirSidebarDiario(id) {
-    showConfirm({
-      title: 'Excluir Diário',
-      message: 'Tem certeza que deseja excluir este diário?',
-      theme: 'danger',
-      confirmText: 'Excluir',
-      onConfirm: () => {
-        fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
-          .then(r => r.json())
-          .then(data => {
-            if (data.success) {
-              if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
-              loadSidebarDiarios(currentSidebarCamp.id_campanha);
-              loadSidebarChart(currentSidebarCamp.id_campanha);
-            }
-          });
-      }
-    });
+    const nid = parseInt(id, 10);
+    if (!nid || !currentSidebarCamp) return;
+    const runDelete = () => {
+      fetch(`/api/campanhas-pi/diarios/${nid}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+            loadSidebarDiarios(currentSidebarCamp.id_campanha);
+            loadSidebarChart(currentSidebarCamp.id_campanha);
+          } else if (typeof showToast === 'function') {
+            showToast('Erro: ' + (data.error || ''), 'error');
+          }
+        })
+        .catch(() => {
+          if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
+        });
+    };
+    if (typeof showConfirm === 'function') {
+      showConfirm({
+        title: 'Excluir diário',
+        message: 'Tem certeza que deseja excluir este registro de diário? Esta ação não pode ser desfeita.',
+        theme: 'danger',
+        confirmText: 'Excluir',
+        onConfirm: runDelete
+      });
+    } else if (window.confirm('Tem certeza que deseja excluir este diário?')) {
+      runDelete();
+    }
   }
 
   // ==================== EMAIL ====================
@@ -1507,6 +1526,12 @@
         document.getElementById('diarios_count').textContent = data.diarios.length + ' diário(s)';
 
         data.diarios.forEach(d => {
+          const payload = encodeURIComponent(JSON.stringify({
+            id: d.id,
+            data_evento: d.data_evento || '',
+            atingido: d.atingido != null ? String(d.atingido) : '',
+            gasto: d.gasto != null ? String(d.gasto) : ''
+          }));
           const tr = document.createElement('tr');
           tr.className = 'hover:bg-gray-50';
           tr.innerHTML = `
@@ -1515,13 +1540,13 @@
             <td class="py-2 px-3 text-right text-gray-700">${d.gasto || '—'}</td>
             <td class="py-2 px-3 text-center">
               <div class="flex items-center justify-center gap-1">
-                <button onclick="editarDiario(${d.id}, '${d.data_evento || ''}', ${d.atingido ?? 'null'}, ${d.gasto ?? 'null'})"
+                <button type="button" data-action="edit-diario-modal" data-payload="${payload}"
                         class="p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title="Editar">
-                  <i class="fas fa-edit text-xs"></i>
+                  <i class="fas fa-edit text-xs pointer-events-none"></i>
                 </button>
-                <button onclick="excluirDiario(${d.id})"
+                <button type="button" data-action="del-diario-modal" data-id="${d.id}"
                         class="p-1 text-red-500 hover:text-red-800 hover:bg-red-50 rounded" title="Excluir">
-                  <i class="fas fa-trash text-xs"></i>
+                  <i class="fas fa-trash text-xs pointer-events-none"></i>
                 </button>
               </div>
             </td>`;
@@ -1597,28 +1622,87 @@
   }
 
   function excluirDiario(id) {
-    showConfirm({
-      title: 'Excluir Diário',
-      message: 'Tem certeza que deseja excluir este diário?',
-      theme: 'danger',
-      confirmText: 'Excluir',
-      onConfirm: () => {
-        fetch(`/api/campanhas-pi/diarios/${id}`, { method: 'DELETE' })
-          .then(r => r.json())
-          .then(data => {
-            if (data.success) {
-              if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
-              carregarDiarios(currentDiarioCampId);
-            } else {
-              if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
-            }
-          })
-          .catch(() => {
-            if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
-          });
-      }
-    });
+    const nid = parseInt(id, 10);
+    if (!nid) {
+      if (typeof showToast === 'function') showToast('Diário inválido.', 'error');
+      return;
+    }
+    const runDelete = () => {
+      fetch(`/api/campanhas-pi/diarios/${nid}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            if (typeof showToast === 'function') showToast('Diário excluído!', 'success');
+            carregarDiarios(currentDiarioCampId);
+          } else {
+            if (typeof showToast === 'function') showToast('Erro: ' + (data.error || ''), 'error');
+          }
+        })
+        .catch(() => {
+          if (typeof showToast === 'function') showToast('Erro de conexão.', 'error');
+        });
+    };
+    if (typeof showConfirm === 'function') {
+      showConfirm({
+        title: 'Excluir diário',
+        message: 'Tem certeza que deseja excluir este registro de diário? Esta ação não pode ser desfeita.',
+        theme: 'danger',
+        confirmText: 'Excluir',
+        onConfirm: runDelete
+      });
+    } else if (window.confirm('Tem certeza que deseja excluir este diário?')) {
+      runDelete();
+    }
   }
+
+  (function initDiarioListaClickDelegation() {
+    const modalTbody = document.getElementById('diarios_tbody');
+    if (modalTbody && !modalTbody.dataset.diarioClickBound) {
+      modalTbody.dataset.diarioClickBound = '1';
+      modalTbody.addEventListener('click', function (e) {
+        const editBtn = e.target.closest('[data-action="edit-diario-modal"]');
+        if (editBtn) {
+          e.preventDefault();
+          try {
+            const o = JSON.parse(decodeURIComponent(editBtn.getAttribute('data-payload')));
+            editarDiario(o.id, o.data_evento, o.atingido, o.gasto);
+          } catch (err) {
+            console.error(err);
+            if (typeof showToast === 'function') showToast('Erro ao abrir edição.', 'error');
+          }
+          return;
+        }
+        const delBtn = e.target.closest('[data-action="del-diario-modal"]');
+        if (delBtn) {
+          e.preventDefault();
+          excluirDiario(delBtn.getAttribute('data-id'));
+        }
+      });
+    }
+    const sidebarLista = document.getElementById('sidebarDiariosLista');
+    if (sidebarLista && !sidebarLista.dataset.diarioClickBound) {
+      sidebarLista.dataset.diarioClickBound = '1';
+      sidebarLista.addEventListener('click', function (e) {
+        const editBtn = e.target.closest('[data-action="edit-diario-sidebar"]');
+        if (editBtn) {
+          e.preventDefault();
+          try {
+            const o = JSON.parse(decodeURIComponent(editBtn.getAttribute('data-payload')));
+            editarSidebarDiario(o.id, o.data_evento, o.atingido, o.gasto);
+          } catch (err) {
+            console.error(err);
+            if (typeof showToast === 'function') showToast('Erro ao abrir edição.', 'error');
+          }
+          return;
+        }
+        const delBtn = e.target.closest('[data-action="del-diario-sidebar"]');
+        if (delBtn) {
+          e.preventDefault();
+          excluirSidebarDiario(parseInt(delBtn.getAttribute('data-id'), 10));
+        }
+      });
+    }
+  })();
 
   // ==================== DIÁRIOS EM MASSA ====================
   (function() {

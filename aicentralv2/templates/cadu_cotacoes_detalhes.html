@@ -779,71 +779,6 @@ function calcularInvestLiquidoEdit() {
         </div>
       </div>
 
-      <!-- RESUMO TOTAL DA PROPOSTA -->
-      <div class="bg-white rounded border border-gray-200 p-4">
-        <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
-          <i class="fas fa-calculator text-gray-400"></i>
-          Resumo Total da Proposta
-        </h2>
-        <div class="space-y-2 text-sm">
-          {% set ns_itens = namespace(bruto=0, liquido=0) %}
-          {% if linhas %}
-            {% for linha in linhas %}
-              {% set ns_itens.bruto = ns_itens.bruto + (linha.investimento_bruto|default(0, true)|float) %}
-              {% set ns_itens.liquido = ns_itens.liquido + (linha.investimento_liquido|default(0, true)|float) %}
-            {% endfor %}
-          {% endif %}
-          {% set total_itens_bruto = ns_itens.bruto %}
-          {% set total_itens_liquido = ns_itens.liquido %}
-          {% set total_itens = total_itens_bruto %}
-          {% set ns_aud = namespace(total=0) %}
-          {% if audiencias %}
-            {% for aud in audiencias %}
-              {% set ns_aud.total = ns_aud.total + (aud.investimento_sugerido|default(0, true)|float) %}
-            {% endfor %}
-          {% endif %}
-          {% set total_audiencias = ns_aud.total %}
-          {% set desconto_percentual = (cotacao.desconto_percentual|float) if cotacao and cotacao.desconto_percentual else 0.0 %}
-          {% set valor_liquido = (cotacao.valor_total_proposta|float) if cotacao and cotacao.valor_total_proposta else 0.0 %}
-          {# Subtotal = valor líquido + desconto (para garantir cálculo correto do %) #}
-          {% set subtotal_calculado = total_itens + total_audiencias %}
-          {% set subtotal = subtotal_calculado if subtotal_calculado > 0 else (valor_liquido / (1 - desconto_percentual/100)) if desconto_percentual < 100 else valor_liquido %}
-          {# Calcular desconto em reais a partir do percentual #}
-          {% set desconto = subtotal * (desconto_percentual / 100) %}
-          
-          <div class="flex justify-between py-1">
-            <span class="text-gray-600"><i class="fas fa-list mr-2"></i>Total Itens ({{ linhas|length if linhas else 0 }}) <span class="text-xs">(Val. × Unit.)</span></span>
-            <div class="text-right">
-              <span class="font-medium text-gray-700">Bruto: R$ {{ "{:,.2f}".format(total_itens_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-              <span class="mx-1 text-gray-400">|</span>
-              <span class="font-medium text-green-600">Líquido: R$ {{ "{:,.2f}".format(total_itens_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-            </div>
-          </div>
-          <div class="flex justify-between py-1">
-            <span class="text-gray-600"><i class="fas fa-users mr-2"></i>Total Audiências ({{ audiencias|length if audiencias else 0 }})</span>
-            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-          </div>
-          {% set subtotal_bruto = total_itens_bruto + total_audiencias %}
-          {% set subtotal_liquido = total_itens_liquido + total_audiencias %}
-          <div class="flex justify-between py-1 border-t border-gray-200 pt-2">
-            <span class="font-medium text-gray-700"><i class="fas fa-plus mr-2"></i>Subtotal (Itens + Audiências)</span>
-            <div class="text-right">
-              <span class="font-semibold text-gray-800">Bruto: R$ {{ "{:,.2f}".format(subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-              <span class="mx-1 text-gray-400">|</span>
-              <span class="font-semibold text-green-600">Líquido: R$ {{ "{:,.2f}".format(subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-            </div>
-          </div>
-          <div class="flex justify-between py-1">
-            <span class="text-gray-600"><i class="fas fa-minus mr-2"></i>Desconto Aplicado <span class="text-xs">({{ "%.1f"|format(desconto_percentual) }}%)</span></span>
-            <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(subtotal_bruto * (desconto_percentual / 100)).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-          </div>
-          <div class="flex justify-between py-2 bg-gray-800 rounded px-3 mt-2">
-            <span class="font-bold text-white"><i class="fas fa-check-circle mr-2"></i>{% if desconto_percentual > 0 %}Valor Bruto c/ Desc{% else %}Valor Bruto{% endif %}</span>
-            <span class="font-bold text-lg text-white">R$ {{ "{:,.2f}".format(subtotal_bruto * (1 - desconto_percentual / 100)).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- HISTÓRICO E COMENTÁRIOS -->
       <div class="bg-white rounded border border-gray-200 p-4">
         <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
@@ -983,11 +918,11 @@ function calcularInvestLiquidoEdit() {
         <div class="space-y-2 text-xs">
           <div class="flex justify-between">
             <span class="text-gray-500"><i class="fas fa-list mr-1"></i> Itens ({{ linhas|length if linhas else 0 }})</span>
-            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_itens).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(rf_total_itens_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500"><i class="fas fa-users mr-1"></i> Audiências ({{ audiencias|length if audiencias else 0 }})</span>
-            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(rf_total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="border-t border-gray-200 pt-2 mt-2">
             <p class="text-gray-500 mb-1 uppercase">Por Plataforma</p>
@@ -5319,7 +5254,7 @@ async function recalcularValorTotalCotacao() {
   </form>
 </dialog>
 
-<!-- Modal Editar Desconto -->
+<!-- Modal Editar Desconto (usa rf_* definidos no Resumo Financeiro da sidebar) -->
 <dialog id="modal_editar_desconto" class="modal">
   <div class="modal-box max-w-md bg-white p-0 rounded-lg">
     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
@@ -5331,8 +5266,8 @@ async function recalcularValorTotalCotacao() {
     
     <div class="p-6">
       <form id="form_editar_desconto" class="space-y-4" onsubmit="return false">
-        <!-- Subtotal para referência (hidden) -->
-        <input type="hidden" id="desconto_subtotal_hidden" value="{{ subtotal }}">
+        <!-- Subtotal bruto (itens + audiências) para cálculo JS — alinhado ao Resumo Financeiro -->
+        <input type="hidden" id="desconto_subtotal_hidden" value="{{ rf_subtotal_bruto }}">
         
         <div class="form-control">
           <label class="label"><span class="label-text font-semibold">Percentual de Desconto</span></label>
@@ -5349,15 +5284,15 @@ async function recalcularValorTotalCotacao() {
         <div class="bg-gray-100 rounded p-3">
           <div class="flex justify-between text-sm">
             <span class="text-gray-600">Subtotal:</span>
-            <span class="font-medium">R$ {{ "{:,.2f}".format(subtotal).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="font-medium">R$ {{ "{:,.2f}".format(rf_subtotal_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between text-sm mt-1">
             <span class="text-gray-600">Desconto em R$:</span>
-            <span id="desconto_valor_calculado" class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span id="desconto_valor_calculado" class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(rf_desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="flex justify-between text-sm mt-1 pt-1 border-t border-gray-300">
             <span class="text-gray-700 font-medium">Valor Líquido:</span>
-            <span id="desconto_liquido_calculado" class="font-bold text-green-600">R$ {{ "{:,.2f}".format(subtotal - desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span id="desconto_liquido_calculado" class="font-bold text-green-600">R$ {{ "{:,.2f}".format(rf_valor_liquido_final).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
         </div>
         

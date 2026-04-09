@@ -1355,12 +1355,23 @@ def init_routes(app):
             campanhas = []
             for c in (campanhas_raw or []):
                 er = _anexar_preco_metrica_campanha(c)
+                _ini = er.get('periodo_inicio')
+                _fim = er.get('periodo_fim')
+                periodo_dias = None
+                if _ini and _fim:
+                    try:
+                        d_ini = _ini.date() if hasattr(_ini, 'date') else _ini
+                        d_fim = _fim.date() if hasattr(_fim, 'date') else _fim
+                        periodo_dias = (d_fim - d_ini).days
+                    except (TypeError, ValueError):
+                        periodo_dias = None
                 campanhas.append({
                     'id_campanha': er.get('id_campanha'),
                     'nome_campanha': er.get('nome_campanha', ''),
                     'status_nome': er.get('status_nome', ''),
                     'periodo_inicio': er['periodo_inicio'].strftime('%d/%m/%Y') if er.get('periodo_inicio') else None,
                     'periodo_fim': er['periodo_fim'].strftime('%d/%m/%Y') if er.get('periodo_fim') else None,
+                    'periodo_dias': periodo_dias,
                     'obj_contratados': er.get('obj_contratados'),
                     'totalizador_atingido': er.get('totalizador_atingido'),
                     'totalizador_gasto': _parse_brl_float(er.get('totalizador_gasto')),
@@ -8729,6 +8740,35 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 nf_status_filtro_int = int(nf_status_filtro)
                 pis = [pi for pi in (pis or []) if pi.get('nf_status') == nf_status_filtro_int]
 
+            def _totais_rodape_pi_lista(rows):
+                """Soma campanhas e valores monetários dos PIs já filtrados (lista / NF)."""
+                total_campanhas = 0
+                sum_midia = 0.0
+                sum_liq = 0.0
+                sum_bruto = 0.0
+                for pi in rows or []:
+                    try:
+                        total_campanhas += int(pi.get('total_campanhas') or 0)
+                    except (TypeError, ValueError):
+                        pass
+                    m = _parse_brl_float(pi.get('valor_plataformas'))
+                    if m is not None:
+                        sum_midia += m
+                    l = _parse_brl_float(pi.get('valor_liquido'))
+                    if l is not None:
+                        sum_liq += l
+                    b = _parse_brl_float(pi.get('valor_bruto'))
+                    if b is not None:
+                        sum_bruto += b
+                return {
+                    'total_campanhas': total_campanhas,
+                    'valor_midia': sum_midia,
+                    'valor_liquido': sum_liq,
+                    'valor_bruto': sum_bruto,
+                }
+
+            pi_footer_totais = _totais_rodape_pi_lista(pis)
+
             status_pi = db.obter_status_pi()
             meses_ref = db.obter_meses_ref_pi(filtros.get('id_sub_status_pi'))
             statuses_nf = db.obter_nota_fiscal_status()
@@ -8742,7 +8782,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    statuses_nf=statuses_nf,
                                    user_is_executivo=user_is_executivo,
                                    origem_lista=origem_lista,
-                                   nf_status_filtro=nf_status_filtro)
+                                   nf_status_filtro=nf_status_filtro,
+                                   pi_footer_totais=pi_footer_totais)
         except Exception as e:
             app.logger.error(f"Erro ao listar PIs: {e}", exc_info=True)
             flash('Erro ao carregar lista de PIs.', 'error')
@@ -8751,7 +8792,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                                    status_pi=[],
                                    vendedores=[],
                                    statuses_nf=[],
-                                   filtros={})
+                                   filtros={},
+                                   pi_footer_totais={
+                                       'total_campanhas': 0,
+                                       'valor_midia': 0.0,
+                                       'valor_liquido': 0.0,
+                                       'valor_bruto': 0.0,
+                                   })
 
     @app.route('/api/cadu_pi/localizar', methods=['GET'])
     @login_required

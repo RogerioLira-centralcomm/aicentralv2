@@ -1488,10 +1488,17 @@ function abrirViewCampanha(c) {
       let html = '';
 
       camps.forEach(c => {
-        const periodo = (c.periodo_inicio || '-') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
-        const objAtingido = parseFloat(String(c.totalizador_atingido || '0').replace(/\./g, '')) || 0;
-        const objContratado = parseFloat(String(c.obj_contratados || '0').replace(/\./g, '')) || 0;
+        const periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+        const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
+          ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>'
+          : '';
+        const rawAt = c.totalizador_atingido;
+        const rawCt = c.obj_contratados;
+        const objAtingido = typeof rawAt === 'number' ? rawAt : (parseFloat(String(rawAt || '0').replace(/\./g, '').replace(',', '.')) || 0);
+        const objContratado = typeof rawCt === 'number' ? rawCt : (parseFloat(String(rawCt || '0').replace(/\./g, '').replace(',', '.')) || 0);
         const pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
+        const dispAting = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '0';
+        const dispContr = c.obj_contratados != null ? String(c.obj_contratados) : '0';
         const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
         const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
         const pctColor = pctObj >= 100 ? 'text-green-600' : pctObj >= 70 ? 'text-yellow-600' : 'text-red-500';
@@ -1509,7 +1516,7 @@ function abrirViewCampanha(c) {
             '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm">' +
               '<div>' +
                 '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Período</span>' +
-                '<span class="text-gray-600 text-xs">' + periodo + '</span>' +
+                '<span class="text-gray-600 text-xs">' + periodoLinha1 + periodoLinha2 + '</span>' +
               '</div>' +
               '<div>' +
                 '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</span>' +
@@ -1520,13 +1527,13 @@ function abrirViewCampanha(c) {
               '</div>' +
               '<div>' +
                 '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Meta</span>' +
-                '<span class="' + pctColor + ' font-semibold text-xs">' + objAtingido + ' / ' + objContratado + '</span>' +
-                '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span>' +
+                '<span class="' + pctColor + ' font-semibold text-xs">' + dispAting + ' / ' + dispContr + '</span>' +
+                '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span>' +
               '</div>' +
               '<div>' +
                 '<span class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Investimento</span>' +
                 '<span class="font-medium text-gray-800 text-xs">' + fmtBrl(gasto) + '</span>' +
-                '<span class="text-[10px] text-gray-400 ml-1">de ' + fmtBrl(previsto) + '</span>' +
+                '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span>' +
               '</div>' +
               '<div class="flex items-end">' +
                 '<button type="button" data-camp-view="' + btoa(unescape(encodeURIComponent(JSON.stringify(c)))) + '" class="btn-ver-camp text-blue-500 hover:text-blue-700 text-xs font-medium inline-flex items-center gap-1 bg-transparent border-none cursor-pointer">' +

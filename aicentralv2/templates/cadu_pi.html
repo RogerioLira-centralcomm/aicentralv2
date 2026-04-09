@@ -315,16 +315,22 @@
         </tbody>
       </table>
 
-      <div class="px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-        <p class="text-sm text-gray-600">
+      <div class="px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p class="text-sm text-gray-600 shrink-0">
           <strong>{{ pis|length }}</strong> PI(s)
-          {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('resp_comercial') %}
+          {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('search') %}
           <span class="text-gray-400">• filtrado</span>
           {% endif %}
         </p>
-        <div class="flex items-center gap-4 text-xs text-gray-400">
-          <span><i class="fa-solid fa-bullhorn mr-1"></i>Campanhas</span>
-        </div>
+        <p class="text-xs text-gray-600 text-right flex flex-wrap items-center justify-end gap-x-3 gap-y-1 max-w-full">
+          <span class="whitespace-nowrap"><i class="fa-solid fa-bullhorn mr-1 text-indigo-500"></i><strong>{{ pi_footer_totais.total_campanhas }}</strong> campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}</span>
+          <span class="text-gray-300 hidden sm:inline">·</span>
+          <span class="whitespace-nowrap">Invest. mídia: <strong class="text-gray-800">{% if pi_footer_totais.valor_midia %}{{ pi_footer_totais.valor_midia|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
+          <span class="text-gray-300 hidden sm:inline">·</span>
+          <span class="whitespace-nowrap">Líquido: <strong class="text-green-700">{% if pi_footer_totais.valor_liquido %}{{ pi_footer_totais.valor_liquido|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
+          <span class="text-gray-300 hidden sm:inline">·</span>
+          <span class="whitespace-nowrap">Bruto: <strong class="text-gray-800">{% if pi_footer_totais.valor_bruto %}{{ pi_footer_totais.valor_bruto|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
+        </p>
       </div>
     {% else %}
       <div class="p-8 text-center max-w-lg mx-auto">
@@ -337,6 +343,89 @@
     {% endif %}
   </div>
 </div>
+
+<!-- Modal visualizar campanha (lista de PIs) -->
+<dialog id="modal_ver_campanha" class="modal">
+  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-5 py-3 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-sm text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
+      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-1 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
+      </button>
+    </div>
+    <div class="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-gray-400 text-xs shrink-0">Cliente:</span>
+        <span id="lista_modal_cliente" class="font-semibold text-gray-800 text-sm truncate">—</span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <span class="text-gray-400 text-[10px]">PI:</span>
+        <span id="lista_modal_pi_codigo" class="text-gray-500 text-xs font-mono">—</span>
+      </div>
+    </div>
+    <div class="px-5 py-4">
+      <div class="grid grid-cols-3 gap-x-4 gap-y-3">
+        <div class="col-span-2">
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
+          <span id="view_nome_campanha" class="text-sm font-medium text-gray-800">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
+          <span id="view_obj_contratados" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
+          <span id="view_valor_plataforma" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
+          <span id="view_status" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
+          <span id="view_criativos_validados" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
+          <span id="view_periodo_inicio" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
+          <span id="view_periodo_fim" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
+          <span id="view_plataforma" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
+          <span id="view_objetivos" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label id="view_preco_metrica_label" class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
+          <span id="view_preco_metrica" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
+          <span id="view_under" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
+          <span id="view_totalizador_atingido" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
+          <span id="view_totalizador_gasto" class="text-sm text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
+          <span id="view_link_dash" class="text-sm text-gray-700 break-all">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/40 backdrop-blur-sm"><button>close</button></form>
+</dialog>
 
 <!-- Modal de confirmação -->
 <dialog id="modal_confirm" class="modal">
@@ -627,6 +716,53 @@ document.addEventListener('click', function(e) {
 
 const loadedCampanhas = {};
 
+function siglaMetricaPrecoListaPi(nomeObjetivo, modalidade) {
+  if (modalidade === 'cpm') return 'CPM';
+  var n = (nomeObjetivo || '').toUpperCase();
+  var keys = ['CPV', 'CPA', 'CPC', 'CPL', 'CPI'];
+  for (var i = 0; i < keys.length; i++) {
+    if (n.indexOf(keys[i]) !== -1) return keys[i];
+  }
+  return '—';
+}
+
+function abrirViewCampanhaLista(c) {
+  var fmtBrl = function(v) { return v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'; };
+  var codEl = document.getElementById('lista_modal_pi_codigo');
+  if (codEl) codEl.textContent = (c.codigo_pi != null && String(c.codigo_pi).trim() !== '') ? String(c.codigo_pi) : (c.id_pi != null ? String(c.id_pi) : '—');
+  var cliEl = document.getElementById('lista_modal_cliente');
+  if (cliEl) cliEl.textContent = '—';
+  document.getElementById('view_nome_campanha').textContent = c.nome_campanha || '—';
+  document.getElementById('view_obj_contratados').textContent = c.obj_contratados != null ? String(c.obj_contratados) : '—';
+  document.getElementById('view_valor_plataforma').textContent = c.valor_plataforma != null ? fmtBrl(c.valor_plataforma) : '—';
+  document.getElementById('view_status').textContent = c.status_nome || '—';
+  document.getElementById('view_criativos_validados').textContent = c.criativos_validados_nome || '—';
+  document.getElementById('view_periodo_inicio').textContent = c.periodo_inicio || '—';
+  document.getElementById('view_periodo_fim').textContent = c.periodo_fim || '—';
+  document.getElementById('view_plataforma').textContent = c.plataforma_nome || '—';
+  document.getElementById('view_objetivos').textContent = c.objetivo_nome || '—';
+  var precoEl = document.getElementById('view_preco_metrica');
+  var precoLbl = document.getElementById('view_preco_metrica_label');
+  if (c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl))) {
+    var sigla = siglaMetricaPrecoListaPi(c.objetivo_nome, c.preco_metrica_modalidade);
+    precoLbl.textContent = sigla !== '—' ? sigla + ' (R$)' : 'Preço (R$)';
+    precoEl.textContent = fmtBrl(c.preco_metrica_brl);
+  } else {
+    precoLbl.textContent = 'Preço (R$)';
+    precoEl.textContent = '—';
+  }
+  document.getElementById('view_under').textContent = c.under ? 'Sim' : 'Não';
+  document.getElementById('view_totalizador_atingido').textContent = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '—';
+  document.getElementById('view_totalizador_gasto').textContent = c.totalizador_gasto != null ? fmtBrl(c.totalizador_gasto) : '—';
+  var linkEl = document.getElementById('view_link_dash');
+  if (c.link_dash) {
+    linkEl.innerHTML = '<a href="' + c.link_dash + '" target="_blank" class="text-blue-500 hover:text-blue-700 underline">' + c.link_dash + '</a>';
+  } else {
+    linkEl.textContent = '—';
+  }
+  document.getElementById('modal_ver_campanha').showModal();
+}
+
 function toggleCampanhas(idPi, event) {
   event.stopPropagation();
   const row = document.getElementById('camp-collapse-' + idPi);
@@ -658,6 +794,18 @@ function toggleCampanhas(idPi, event) {
           }
           return '—';
         }
+        if (!container.dataset.campRowClickDelegated) {
+          container.dataset.campRowClickDelegated = '1';
+          container.addEventListener('click', function listaCampRowClick(e) {
+            const tr = e.target.closest('tr[data-camp-payload]');
+            if (!tr) return;
+            e.stopPropagation();
+            try {
+              const c = JSON.parse(decodeURIComponent(tr.getAttribute('data-camp-payload')));
+              abrirViewCampanhaLista(c);
+            } catch (err) { console.error(err); }
+          });
+        }
         let html = '<table class="camp-table w-full"><thead><tr>' +
           '<th class="text-left">Campanha</th>' +
           '<th class="text-left">Plataforma</th>' +
@@ -665,13 +813,19 @@ function toggleCampanhas(idPi, event) {
           '<th class="text-right">Preço (R$)</th>' +
           '<th class="text-center">Meta</th>' +
           '<th class="text-right">Gasto / previsto</th>' +
-          '<th class="text-center">Ações</th>' +
           '</tr></thead><tbody>';
         data.campanhas.forEach(c => {
-          const periodo = (c.periodo_inicio || '-') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
-          const objAtingido = c.totalizador_atingido != null ? c.totalizador_atingido : 0;
-          const objContratado = c.obj_contratados != null ? c.obj_contratados : 0;
-          const pctObj = objContratado > 0 ? Math.round((objAtingido / objContratado) * 100) : 0;
+          const periodoLinha1 = (c.periodo_inicio || '—') + (c.periodo_fim ? ' – ' + c.periodo_fim : '');
+          const periodoLinha2 = (c.periodo_dias != null && c.periodo_dias !== '')
+            ? '<span class="block text-[10px] text-gray-400">(' + c.periodo_dias + 'd)</span>'
+            : '';
+          const rawAt = c.totalizador_atingido;
+          const rawCt = c.obj_contratados;
+          const objAtingidoNum = typeof rawAt === 'number' ? rawAt : (parseFloat(String(rawAt || '0').replace(/\./g, '').replace(',', '.')) || 0);
+          const objContratadoNum = typeof rawCt === 'number' ? rawCt : (parseFloat(String(rawCt || '0').replace(/\./g, '').replace(',', '.')) || 0);
+          const pctObj = objContratadoNum > 0 ? Math.round((objAtingidoNum / objContratadoNum) * 100) : 0;
+          const dispAting = c.totalizador_atingido != null ? String(c.totalizador_atingido) : '0';
+          const dispContr = c.obj_contratados != null ? String(c.obj_contratados) : '0';
           const gasto = c.totalizador_gasto != null ? c.totalizador_gasto : 0;
           const previsto = c.valor_plataforma != null ? c.valor_plataforma : 0;
           const precoM = c.preco_metrica_brl != null && !isNaN(Number(c.preco_metrica_brl)) ? Number(c.preco_metrica_brl) : null;
@@ -682,19 +836,18 @@ function toggleCampanhas(idPi, event) {
             ? '<span class="text-[10px] font-semibold text-emerald-800">' + sigla + '</span>' +
               '<span class="block font-semibold text-gray-800">' + fmtBrl(precoM) + '</span>'
             : '<span class="text-gray-400 text-xs">—</span>';
+          const payload = encodeURIComponent(JSON.stringify(c));
 
-          html += '<tr class="hover:bg-blue-100/40">' +
+          html += '<tr class="hover:bg-blue-100/40 cursor-pointer transition-colors" data-camp-payload="' + payload + '" title="Ver detalhes da campanha">' +
             '<td class="text-left"><span class="font-medium text-gray-800">' + (c.nome_campanha || '-') + '</span>' +
               '<span class="block text-[10px] text-gray-400">' + (c.status_nome || '') + '</span></td>' +
             '<td class="text-left text-gray-600">' + (c.plataforma_nome || '-') + '</td>' +
-            '<td class="text-center text-gray-600">' + periodo + '</td>' +
+            '<td class="text-center text-gray-600">' + periodoLinha1 + periodoLinha2 + '</td>' +
             '<td class="text-right">' + celPreco + '</td>' +
-            '<td class="text-center"><span class="' + pctColor + ' font-semibold">' + objAtingido + '/' + objContratado + '</span>' +
-              '<span class="text-[10px] text-gray-400 ml-1">(' + pctObj + '%)</span></td>' +
+            '<td class="text-center"><span class="' + pctColor + ' font-semibold">' + dispAting + '/' + dispContr + '</span>' +
+              '<span class="block text-[10px] text-gray-400">(' + pctObj + '%)</span></td>' +
             '<td class="text-right"><span class="font-medium text-gray-800">' + fmtBrl(gasto) + '</span>' +
               '<span class="block text-[10px] text-gray-400">de ' + fmtBrl(previsto) + '</span></td>' +
-            '<td class="text-center"><a href="/campanhas-pi?id_pi=' + c.id_pi + '" onclick="event.stopPropagation()" ' +
-              'class="text-blue-500 hover:text-blue-700 text-xs font-medium"><i class="fa-solid fa-arrow-up-right-from-square mr-0.5"></i>Ver</a></td>' +
             '</tr>';
         });
         html += '</tbody></table>';

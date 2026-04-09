@@ -17,6 +17,7 @@ from aicentralv2.email_service import (
     send_subscription_confirmation_email, send_new_subscription_internal_email
 )
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
+from aicentralv2.services.cotacao_linhas_image_import import extrair_itens_linhas_de_upload
 
 # Helper para serializar dados para JSON
 def serializar_para_json(obj):
@@ -6682,6 +6683,43 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao criar linha de cotação: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/cotacoes/<int:cotacao_id>/linhas/extrair-imagem', methods=['POST'])
+    @login_required
+    def extrair_linhas_cotacao_de_imagem(cotacao_id):
+        """OCR com IA (OpenRouter / Gemini vision): extrai itens da proposta de imagem ou PDF."""
+        _MAX_BYTES = 12 * 1024 * 1024
+        _ALLOWED_EXT = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.pdf'}
+        try:
+            cotacao = db.obter_cotacao_por_id(cotacao_id)
+            if not cotacao:
+                return jsonify({'success': False, 'error': 'Cotação não encontrada'}), 404
+
+            f = request.files.get('imagem')
+            if not f or not getattr(f, 'filename', None):
+                return jsonify({'success': False, 'error': 'Envie um arquivo (campo "imagem"): imagem ou PDF.'}), 400
+
+            name = (f.filename or '').lower()
+            ext = os.path.splitext(name)[1]
+            if ext not in _ALLOWED_EXT:
+                return jsonify({'success': False, 'error': 'Formato não suportado. Use PNG, JPEG, WebP, GIF ou PDF.'}), 400
+
+            data = f.read()
+            if not data:
+                return jsonify({'success': False, 'error': 'Arquivo vazio.'}), 400
+            if len(data) > _MAX_BYTES:
+                return jsonify({'success': False, 'error': 'Arquivo muito grande (máx. 12 MB).'}), 400
+
+            model = (request.form.get('model') or '').strip() or None
+            itens, err = extrair_itens_linhas_de_upload(data, ext, filename=f.filename, model=model)
+            if err:
+                return jsonify({'success': False, 'error': err, 'itens': []}), 422
+            return jsonify({'success': True, 'itens': serializar_para_json(itens), 'n': len(itens)})
+        except RuntimeError as e:
+            app.logger.warning(f"extrair_linhas_cotacao_de_imagem: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 503
+        except Exception as e:
+            app.logger.error(f"Erro ao extrair linhas da imagem: {str(e)}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['GET'])
     @login_required

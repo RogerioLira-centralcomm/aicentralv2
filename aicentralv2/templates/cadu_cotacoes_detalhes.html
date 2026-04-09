@@ -647,9 +647,15 @@ function calcularInvestLiquidoEdit() {
             <span class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ linhas|length if linhas else 0 }} itens</span>
           </h2>
           {% if modo == 'editar' %}
+          <div class="flex items-center gap-1.5">
+          <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+            <i class="fas fa-file-import mr-1 text-emerald-600"></i>Importar imagem/PDF
+          </button>
+          <input type="file" id="input_importar_linhas_imagem" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" class="hidden" aria-hidden="true">
           <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
+          </div>
           {% endif %}
         </div>
         <table class="w-full text-sm">
@@ -1366,6 +1372,50 @@ function calcularInvestLiquidoEdit() {
       <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
       <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
         <i class="fas fa-save mr-1"></i>Salvar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal: pré-visualização de itens extraídos da imagem (OCR IA) -->
+<dialog id="modal_preview_import_linhas" class="modal">
+  <div class="modal-box max-w-5xl max-h-[90vh] overflow-y-auto p-0">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+      <div>
+        <h3 class="font-semibold text-lg text-gray-800">Itens detectados na imagem</h3>
+        <p class="text-xs text-gray-500 mt-0.5">Revise e selecione o que deseja gravar. Imagens e PDF (páginas rasterizadas) via visão — Gemini via OpenRouter.</p>
+      </div>
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+      </form>
+    </div>
+    <div class="p-6">
+      <p id="import_linhas_status" class="text-sm text-gray-600 hidden"></p>
+      <div class="overflow-x-auto border border-gray-200 rounded-lg">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100 text-xs text-gray-600 uppercase">
+            <tr>
+              <th class="py-2 px-2 w-10 text-center">
+                <input type="checkbox" id="import_linhas_check_all" checked title="Marcar todos" onchange="toggleTodosImportLinhas(this.checked)">
+              </th>
+              <th class="py-2 px-2 text-left">Segmentação</th>
+              <th class="py-2 px-2 text-left">Plataforma</th>
+              <th class="py-2 px-2 text-left">Período</th>
+              <th class="py-2 px-2 text-right">Volume</th>
+              <th class="py-2 px-2 text-right">Bruto</th>
+            </tr>
+          </thead>
+          <tbody id="tbody_preview_import_linhas" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+      <button type="button" onclick="document.getElementById('modal_preview_import_linhas').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_import_linhas" onclick="confirmarImportLinhasSelecionadas()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <i class="fas fa-download mr-1"></i>Importar selecionados
       </button>
     </div>
   </div>
@@ -2095,6 +2145,11 @@ function atualizarElementosEdicao(novoStatus) {
   const btnAdicionarLinha = document.getElementById('btn_adicionar_linha');
   if (btnAdicionarLinha) {
     btnAdicionarLinha.style.display = podeEditarAgora ? '' : 'none';
+  }
+  
+  const btnImportarLinhasImagem = document.getElementById('btn_importar_linhas_imagem');
+  if (btnImportarLinhasImagem) {
+    btnImportarLinhasImagem.style.display = podeEditarAgora ? '' : 'none';
   }
   
   // Botão adicionar audiência
@@ -3424,6 +3479,95 @@ document.addEventListener('DOMContentLoaded', function() {
   carregarComentarios();
   // Calcular dias de campanha ao carregar em modo edição
   calcularDiasCampanha();
+  
+  const inputImportLinhas = document.getElementById('input_importar_linhas_imagem');
+  if (inputImportLinhas) {
+    inputImportLinhas.addEventListener('change', async function(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      ev.target.value = '';
+      if (!file) return;
+      if (!podeEditar()) {
+        mostrarBloqueioEdicao();
+        return;
+      }
+      const cotacaoId = getCotacaoId();
+      if (!cotacaoId) {
+        showToast('Salve a cotação primeiro', 'warning');
+        return;
+      }
+      showToast('Analisando arquivo com IA…', 'info');
+      const fd = new FormData();
+      fd.append('imagem', file);
+      try {
+        const response = await fetch(`/api/cotacoes/${cotacaoId}/linhas/extrair-imagem`, {
+          method: 'POST',
+          body: fd
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          showToast(data.error || 'Falha na extração da imagem', 'error');
+          return;
+        }
+        _linhasImportacaoBuffer = data.itens || [];
+        if (!_linhasImportacaoBuffer.length) {
+          showToast('Nenhum item encontrado na imagem.', 'warning');
+          return;
+        }
+        const tbody = document.getElementById('tbody_preview_import_linhas');
+        const chkAll = document.getElementById('import_linhas_check_all');
+        if (!tbody) {
+          showToast('Interface de importação indisponível.', 'error');
+          return;
+        }
+        tbody.innerHTML = '';
+        if (chkAll) chkAll.checked = true;
+        _linhasImportacaoBuffer.forEach((it, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-50';
+          const tdChk = document.createElement('td');
+          tdChk.className = 'py-2 px-2 text-center';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'chk-import-linha';
+          cb.setAttribute('data-idx', String(idx));
+          cb.checked = true;
+          tdChk.appendChild(cb);
+          const tdSeg = document.createElement('td');
+          tdSeg.className = 'py-2 px-2 text-xs text-gray-700 max-w-xs';
+          let seg = it.segmentacao || '';
+          if (seg.length > 120) seg = seg.slice(0, 117) + '…';
+          tdSeg.textContent = seg;
+          const tdPlat = document.createElement('td');
+          tdPlat.className = 'py-2 px-2 text-xs';
+          tdPlat.textContent = it.plataforma || '—';
+          const tdPer = document.createElement('td');
+          tdPer.className = 'py-2 px-2 text-xs whitespace-nowrap';
+          const di = it.data_inicio || '';
+          const df = it.data_fim || '';
+          tdPer.textContent = df ? `${di} → ${df}` : di || '—';
+          const tdVol = document.createElement('td');
+          tdVol.className = 'py-2 px-2 text-xs text-right';
+          tdVol.textContent = it.volume_contratado != null ? String(it.volume_contratado) : '0';
+          const tdBruto = document.createElement('td');
+          tdBruto.className = 'py-2 px-2 text-xs text-right';
+          const brutoN = parseFloat(it.investimento_bruto);
+          tdBruto.textContent = `R$ ${formatarMoeda(Number.isFinite(brutoN) ? brutoN : 0)}`;
+          tr.appendChild(tdChk);
+          tr.appendChild(tdSeg);
+          tr.appendChild(tdPlat);
+          tr.appendChild(tdPer);
+          tr.appendChild(tdVol);
+          tr.appendChild(tdBruto);
+          tbody.appendChild(tr);
+        });
+        document.getElementById('modal_preview_import_linhas').showModal();
+        showToast(`${_linhasImportacaoBuffer.length} item(ns) detectado(s). Revise e confirme.`, 'success');
+      } catch (e) {
+        console.error(e);
+        showToast('Erro ao enviar imagem', 'error');
+      }
+    });
+  }
   {% endif %}
   
   // Auto-preencher datas (apenas em modo novo)
@@ -3635,6 +3779,112 @@ async function salvarNovaLinha() {
   } catch (error) {
     console.error('Erro:', error);
     showToast('Erro ao salvar linha', 'error');
+  }
+}
+
+// ==================== IMPORTAR LINHAS POR IMAGEM (OCR IA) ====================
+let _linhasImportacaoBuffer = [];
+
+function dispararImportarLinhasImagem() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
+  const inp = document.getElementById('input_importar_linhas_imagem');
+  if (inp) inp.click();
+}
+
+function toggleTodosImportLinhas(checked) {
+  document.querySelectorAll('.chk-import-linha').forEach(cb => { cb.checked = checked; });
+}
+
+function montarPayloadLinhaImportacao(item) {
+  const investBruto = parseFloat(item.investimento_bruto) || 0;
+  const liquidoOcr = item.investimento_liquido;
+  const investLiquido = (liquidoOcr != null && liquidoOcr !== '' && !Number.isNaN(Number(liquidoOcr)))
+    ? Number(liquidoOcr)
+    : investBruto * obterFatorLiquido();
+  const vuNeg = parseFloat(item.valor_unitario_negociado) || parseFloat(item.valor_unitario) || 0;
+  const volRaw = item.volume_contratado;
+  const volumeContratado = typeof volRaw === 'number' ? Math.round(volRaw) : (parseInt(String(volRaw || '').replace(/\D/g, ''), 10) || 0);
+  return {
+    cotacao_id: parseInt(getCotacaoId(), 10),
+    segmentacao: item.segmentacao || '',
+    formatos: item.formatos || 'Outros',
+    plataforma: item.plataforma || '',
+    objetivo_kpi: item.objetivo_kpi || '',
+    viewability_minimo: parseFloat(item.viewability_minimo) || 70,
+    data_inicio: item.data_inicio || '',
+    data_fim: item.data_fim || '',
+    investimento_bruto: investBruto,
+    valor_unitario: vuNeg,
+    volume_contratado: volumeContratado,
+    produto: item.produto || '',
+    especificacoes: item.especificacoes || '',
+    pedido_sugestao: (item.segmentacao || '').substring(0, 100),
+    detalhamento: item.especificacoes || item.detalhamento || '',
+    praca: item.praca || '',
+    valor_unitario_tabela: parseFloat(item.valor_unitario_tabela) || 0,
+    desconto_percentual: parseFloat(item.desconto_percentual) || 0,
+    valor_unitario_negociado: vuNeg,
+    investimento_liquido: investLiquido
+  };
+}
+
+async function confirmarImportLinhasSelecionadas() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
+  const cotacaoId = getCotacaoId();
+  if (!cotacaoId) {
+    showToast('Salve a cotação primeiro', 'warning');
+    return;
+  }
+  const selecionados = document.querySelectorAll('.chk-import-linha:checked');
+  if (!selecionados.length) {
+    showToast('Marque pelo menos um item.', 'warning');
+    return;
+  }
+  const btn = document.getElementById('btn_confirmar_import_linhas');
+  if (btn) btn.disabled = true;
+  let ok = 0;
+  let fail = 0;
+  try {
+    for (let i = 0; i < selecionados.length; i++) {
+      const idx = parseInt(selecionados[i].getAttribute('data-idx'), 10);
+      const item = _linhasImportacaoBuffer[idx];
+      if (!item) {
+        fail++;
+        continue;
+      }
+      const payload = montarPayloadLinhaImportacao(item);
+      try {
+        const res = await fetch('/api/cotacoes/linhas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (res.ok) ok++;
+        else fail++;
+      } catch (_e) {
+        fail++;
+      }
+    }
+    document.getElementById('modal_preview_import_linhas').close();
+    if (ok) {
+      const msg = `${ok} item(ns) importado(s)${fail ? ` (${fail} falha(s))` : ''}.`;
+      showToast(msg, fail ? 'warning' : 'success');
+      await recalcularValorTotalCotacao();
+      setTimeout(() => {
+        window.location.href = `${window.location.pathname}?aba=linhas`;
+      }, 600);
+    } else {
+      showToast('Nenhum item foi gravado.', 'error');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

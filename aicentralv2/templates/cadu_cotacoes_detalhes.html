@@ -1093,26 +1093,27 @@ function calcularInvestLiquidoEdit() {
     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
       <h3 class="font-semibold text-lg text-gray-800">Nova Linha de Cotação</h3>
       <form method="dialog">
-        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+        <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
       </form>
     </div>
     
     <div class="p-6">
     <form id="form_nova_linha" class="grid grid-cols-12 gap-2" onsubmit="return false">
       
-      <!-- Linha 1: Segmentação e Praça -->
-      <div class="form-control col-span-8">
+      <!-- Linha 1: Segmentação e Praça (mesma altura, borda padrão, colunas simétricas) -->
+      <div class="form-control col-span-6">
         <label class="label py-0"><span class="label-text font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
-        <textarea id="segmentacao" class="textarea textarea-bordered text-sm w-full h-8 min-h-0 py-1" rows="1" required minlength="10" 
+        <textarea id="segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
                   placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
         <label id="erro_segmentacao" class="label py-0 text-red-600 text-xs hidden">
           <span>Mínimo de 10 caracteres</span>
         </label>
       </div>
 
-      <div class="form-control col-span-4">
+      <div class="form-control col-span-6">
         <label class="label py-0"><span class="label-text font-semibold text-xs">Praça</span></label>
-        <input id="praca" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Ex: São Paulo, Nacional...">
+        <textarea id="praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
+                  placeholder="Ex: São Paulo, Nacional, BH e região metropolitana..."></textarea>
       </div>
 
       <!-- Linha 2: Formatos -->
@@ -1375,7 +1376,7 @@ function calcularInvestLiquidoEdit() {
     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
       <h3 id="modal_editar_linha_titulo" class="font-semibold text-lg text-gray-800">Editar Linha de Cotação</h3>
       <form method="dialog">
-        <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+        <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
       </form>
     </div>
     
@@ -1383,16 +1384,17 @@ function calcularInvestLiquidoEdit() {
     <form id="form_editar_linha" class="grid grid-cols-12 gap-2" onsubmit="return false">
       <input type="hidden" id="edit_linha_id">
       
-      <!-- Linha 1: Segmentação e Praça -->
-      <div class="form-control col-span-8">
+      <!-- Linha 1: Segmentação e Praça (mesma altura, borda padrão, colunas simétricas) -->
+      <div class="form-control col-span-6">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Segmentação (Target & Interesses) *</span></label>
-        <textarea id="edit_segmentacao" class="textarea textarea-bordered text-sm w-full h-8 min-h-0 py-1" rows="1" required minlength="10" 
-                  placeholder="Descreva a segmentação da audiência..."></textarea>
+        <textarea id="edit_segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
+                  placeholder="Descreva a segmentação da audiência, interesses e comportamentos..."></textarea>
       </div>
 
-      <div class="form-control col-span-4">
+      <div class="form-control col-span-6">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Praça</span></label>
-        <input type="text" id="edit_praca" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Ex: Nacional, SP, RJ...">
+        <textarea id="edit_praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
+                  placeholder="Ex: Nacional, SP, RJ, BH e região metropolitana..."></textarea>
       </div>
 
       <!-- Linha 2: Formatos -->

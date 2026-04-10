@@ -42,7 +42,10 @@ Responda APENAS com um JSON válido (sem markdown), neste formato exato:
 
 Regras:
 - Números monetários e percentuais: use ponto como decimal na saída JSON (ex.: 1500.50), ou null se ilegível.
-- volume_contratado: inteiro (impressões, cliques, dias, etc. conforme o contexto da linha).
+- volume_contratado: inteiro (impressões, cliques, visualizações, dias, etc. conforme o contexto da linha).
+- Colunas de preço (CPM, CPV, CPC, "Preço unit.", "Valor unitário", "Net", etc.): preencha valor_unitario_tabela e/ou valor_unitario_negociado em R$ (ex.: CPM R$ 25,00 → 25.0 em valor_unitario_negociado). objetivo_kpi deve refletir o tipo (CPM, CPV, …).
+- desconto_percentual: percentual de desconto sobre a tabela, quando houver coluna explícita; senão null.
+- investimento_liquido: quando constar na linha; se só houver bruto e desconto, calcule líquido coerente com o desconto.
 - Se um campo não existir na imagem, use null ou string vazia.
 - Se houver apenas um item na imagem, retorne um array com um elemento.
 - Não invente valores; prefira null quando incerto.

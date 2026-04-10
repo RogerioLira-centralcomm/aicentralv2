@@ -664,6 +664,8 @@ function calcularInvestLiquidoEdit() {
               <th class="font-medium py-2 px-2" style="min-width: 70px;">Plataf.</th>
               <th class="font-medium py-2 px-2">Segmentação</th>
               <th class="font-medium py-2 px-2 text-center" style="min-width: 50px;">KPI</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 72px;" title="Valor unitário negociado (ex.: CPM, CPV conforme o KPI)">Preço unit.</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 52px;">% Desc.</th>
               <th class="font-medium py-2 px-2" style="min-width: 80px;">Período</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 70px;">Volume</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Bruto</th>
@@ -673,7 +675,7 @@ function calcularInvestLiquidoEdit() {
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
-              <tr class="hover:bg-gray-50 linha-item-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-linha-id="{{ linha.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarLinha({{ linha.id }})"{% endif %}>
+              <tr class="hover:bg-gray-50 linha-item-cotacao cursor-pointer" data-linha-id="{{ linha.id }}" onclick="visualizarOuEditarLinha({{ linha.id }})" title="Clique para ver os detalhes da linha">
                 <td class="py-2 px-2">
                   <span class="px-1.5 py-0.5 text-xs rounded text-white inline-block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
@@ -681,6 +683,8 @@ function calcularInvestLiquidoEdit() {
                 <td class="py-2 px-2 text-center">
                   <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
                 </td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap font-mono">{% set pu = linha.valor_unitario_negociado if linha.valor_unitario_negociado is not none else linha.valor_unitario %}R$ {{ "{:,.2f}".format(pu or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">{% set dp = linha.desconto_percentual|default(0, true)|float %}{{ "%.1f"|format(dp) }}%</td>
                 <td class="py-2 px-2 text-xs text-gray-600 whitespace-nowrap">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
@@ -688,7 +692,7 @@ function calcularInvestLiquidoEdit() {
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="7" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
+              <tr><td colspan="9" class="text-center text-gray-400 py-4">Nenhum item adicionado</td></tr>
             {% endif %}
           </tbody>
           {% if linhas %}
@@ -700,7 +704,7 @@ function calcularInvestLiquidoEdit() {
               {% set soma_liquido.total = soma_liquido.total + (linha.investimento_liquido|default(0, true)|float) %}
             {% endfor %}
             <tr class="font-semibold text-xs text-gray-700">
-              <td colspan="5" class="py-2 px-1 text-right">Total Itens</td>
+              <td colspan="7" class="py-2 px-1 text-right">Total Itens</td>
               <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(soma_bruto.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(soma_liquido.total).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
             </tr>
@@ -889,9 +893,10 @@ function calcularInvestLiquidoEdit() {
         {% set rf_total_audiencias = rf_ns_aud.total %}
         {% set rf_subtotal_bruto = rf_total_itens_bruto + rf_total_audiencias %}
         {% set rf_subtotal_liquido = rf_total_itens_liquido + rf_total_audiencias %}
-        {% set rf_desconto_percentual = (cotacao.desconto_percentual|float) if cotacao and cotacao.desconto_percentual else 0.0 %}
-        {% set rf_desconto = rf_subtotal_bruto * (rf_desconto_percentual / 100) %}
-        {% set rf_valor_liquido_final = rf_subtotal_bruto * (1 - rf_desconto_percentual / 100) %}
+        {# Desconto = diferença entre totais bruto e líquido (itens + audiências), coerente com a coluna Valor Líquido #}
+        {% set rf_desconto = [0, rf_subtotal_bruto - rf_subtotal_liquido]|max %}
+        {% set rf_desconto_percentual = (100.0 * rf_desconto / rf_subtotal_bruto) if rf_subtotal_bruto > 0 else 0.0 %}
+        {% set rf_valor_liquido_final = rf_subtotal_liquido %}
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-500 text-xs">Valor Bruto</span>
@@ -901,13 +906,13 @@ function calcularInvestLiquidoEdit() {
             <span class="text-gray-500 text-xs">Valor Líquido</span>
             <span class="font-medium text-green-600">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div id="area_editar_desconto" class="flex justify-between items-center hover:bg-gray-50 rounded p-1 -m-1{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="document.getElementById('modal_editar_desconto').showModal()" title="Clique para editar"{% endif %}>
+          <div id="area_editar_desconto" class="flex justify-between items-center hover:bg-gray-50 rounded p-1 -m-1{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="document.getElementById('modal_editar_desconto').showModal()" title="Clique para editar desconto adicional na proposta"{% endif %}>
             <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span><i id="icone_editar_desconto" class="fas fa-edit text-xs ml-1 text-gray-400" {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação']) %}style="display: none;"{% endif %}></i></span>
             <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(rf_desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="bg-gray-800 rounded p-3 text-center mt-3">
             <p class="text-xl font-bold text-white">R$ {{ "{:,.2f}".format(rf_valor_liquido_final).replace(',', '_').replace('.', ',').replace('_', '.') }}</p>
-            <span class="text-xs text-gray-300">{% if rf_desconto_percentual > 0 %}VALOR BRUTO C/ DESC{% else %}VALOR BRUTO{% endif %}</span>
+            <span class="text-xs text-gray-300">TOTAL LÍQUIDO</span>
           </div>
         </div>
       </div>
@@ -1338,9 +1343,13 @@ function calcularInvestLiquidoEdit() {
               </th>
               <th class="py-2 px-2 text-left">Segmentação</th>
               <th class="py-2 px-2 text-left">Plataforma</th>
+              <th class="py-2 px-2 text-center">KPI</th>
+              <th class="py-2 px-2 text-right">Preço unit.</th>
+              <th class="py-2 px-2 text-right">% Desc.</th>
               <th class="py-2 px-2 text-left">Período</th>
               <th class="py-2 px-2 text-right">Volume</th>
               <th class="py-2 px-2 text-right">Bruto</th>
+              <th class="py-2 px-2 text-right">Líquido</th>
             </tr>
           </thead>
           <tbody id="tbody_preview_import_linhas" class="divide-y divide-gray-100"></tbody>
@@ -1364,7 +1373,7 @@ function calcularInvestLiquidoEdit() {
   <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto p-0">
     <!-- Header padrão CRM -->
     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
-      <h3 class="font-semibold text-lg text-gray-800">Editar Linha de Cotação</h3>
+      <h3 id="modal_editar_linha_titulo" class="font-semibold text-lg text-gray-800">Editar Linha de Cotação</h3>
       <form method="dialog">
         <button class="btn btn-sm btn-circle btn-ghost">✕</button>
       </form>
@@ -1576,7 +1585,7 @@ function calcularInvestLiquidoEdit() {
     </div>
     
     <!-- Footer padrão CRM -->
-    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
+    <div id="modal_editar_linha_footer" class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
       <button type="button" onclick="excluirLinhaDoModal()" class="px-4 py-2 text-sm border border-red-300 rounded hover:bg-red-50 text-red-600">
         <i class="fas fa-trash mr-1"></i>Excluir
       </button>
@@ -2125,16 +2134,11 @@ function atualizarElementosEdicao(novoStatus) {
     iconeDesconto.style.display = podeEditarAgora ? '' : 'none';
   }
   
-  // Linhas da tabela de itens (linhas)
+  // Linhas da tabela de itens (linhas) — sempre abre modal (edição ou somente leitura)
   document.querySelectorAll('.linha-item-cotacao').forEach(tr => {
     const linhaId = tr.dataset.linhaId;
-    if (podeEditarAgora) {
-      tr.classList.add('cursor-pointer');
-      tr.onclick = function() { editarLinha(parseInt(linhaId)); };
-    } else {
-      tr.classList.remove('cursor-pointer');
-      tr.onclick = null;
-    }
+    tr.classList.add('cursor-pointer');
+    tr.onclick = function() { visualizarOuEditarLinha(parseInt(linhaId, 10)); };
   });
   
   // Linhas da tabela de audiências
@@ -3487,12 +3491,35 @@ document.addEventListener('DOMContentLoaded', function() {
           tdBruto.className = 'py-2 px-2 text-xs text-right';
           const brutoN = parseFloat(it.investimento_bruto);
           tdBruto.textContent = `R$ ${formatarMoeda(Number.isFinite(brutoN) ? brutoN : 0)}`;
+          const tdKpi = document.createElement('td');
+          tdKpi.className = 'py-2 px-2 text-xs text-center';
+          tdKpi.textContent = it.objetivo_kpi || '—';
+          const tdPu = document.createElement('td');
+          tdPu.className = 'py-2 px-2 text-xs text-right font-mono';
+          const vu = parseFloat(it.valor_unitario_negociado != null ? it.valor_unitario_negociado : it.valor_unitario);
+          tdPu.textContent = Number.isFinite(vu) && vu > 0 ? `R$ ${formatarMoeda(vu)}` : '—';
+          const tdDesc = document.createElement('td');
+          tdDesc.className = 'py-2 px-2 text-xs text-right';
+          const d = parseFloat(it.desconto_percentual);
+          tdDesc.textContent = Number.isFinite(d) && d > 0 ? `${d.toFixed(1)}%` : '—';
+          const tdLiq = document.createElement('td');
+          tdLiq.className = 'py-2 px-2 text-xs text-right';
+          const liqRaw = it.investimento_liquido;
+          let liqN = parseFloat(liqRaw);
+          if (!Number.isFinite(liqN) && Number.isFinite(brutoN)) {
+            liqN = brutoN * obterFatorLiquido();
+          }
+          tdLiq.textContent = Number.isFinite(liqN) ? `R$ ${formatarMoeda(liqN)}` : '—';
           tr.appendChild(tdChk);
           tr.appendChild(tdSeg);
           tr.appendChild(tdPlat);
+          tr.appendChild(tdKpi);
+          tr.appendChild(tdPu);
+          tr.appendChild(tdDesc);
           tr.appendChild(tdPer);
           tr.appendChild(tdVol);
           tr.appendChild(tdBruto);
+          tr.appendChild(tdLiq);
           tbody.appendChild(tr);
         });
         document.getElementById('modal_preview_import_linhas').showModal();
@@ -3823,29 +3850,43 @@ async function confirmarImportLinhasSelecionadas() {
   }
 }
 
-async function editarLinha(linhaId) {
-  if (!podeEditar()) {
-    mostrarBloqueioEdicao();
-    return;
-  }
+/** Modal de linha: edição completa ou somente leitura (ex.: cotação já enviada). */
+function aplicarEstadoModalLinha(somenteLeitura) {
+  const titulo = document.getElementById('modal_editar_linha_titulo');
+  const footer = document.getElementById('modal_editar_linha_footer');
+  const form = document.getElementById('form_editar_linha');
+  if (titulo) titulo.textContent = somenteLeitura ? 'Detalhes da linha' : 'Editar Linha de Cotação';
+  if (footer) footer.style.display = somenteLeitura ? 'none' : 'flex';
+  if (!form) return;
+  form.querySelectorAll('input, textarea, select').forEach(el => {
+    if (el.id === 'edit_linha_id') return;
+    if (el.type === 'checkbox') {
+      el.disabled = somenteLeitura;
+    } else if (el.tagName === 'SELECT') {
+      el.disabled = somenteLeitura;
+    } else {
+      el.readOnly = somenteLeitura;
+    }
+  });
+  form.querySelectorAll('.join .btn').forEach(btn => {
+    btn.style.display = somenteLeitura ? 'none' : '';
+  });
+}
+
+async function visualizarOuEditarLinha(linhaId) {
   try {
-    // Buscar dados da linha
     const response = await fetch(`/api/cotacoes/linhas/${linhaId}`);
     const result = await response.json();
-    
+
     if (!response.ok) {
       mostrarToast('Erro ao carregar linha', 'error');
       return;
     }
-    
+
     const linha = result.linha || result;
-    
-    // Função auxiliar para formatar data para input type="date" (YYYY-MM-DD)
+
     function formatarDataInput(dataStr) {
       if (!dataStr) return '';
-      
-      // Se for string no formato HTTP Date "Fri, 16 Jan 2026 00:00:00 GMT"
-      // Usar Date.parse diretamente
       const dt = new Date(dataStr);
       if (!isNaN(dt.getTime())) {
         const year = dt.getFullYear();
@@ -3853,17 +3894,11 @@ async function editarLinha(linhaId) {
         const day = String(dt.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       }
-      
-      // Se já está no formato YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return dataStr;
-      
-      // Se está no formato YYYY-MM-DDTHH:mm:ss
       if (dataStr.includes && dataStr.includes('T')) return dataStr.split('T')[0];
-      
       return '';
     }
-    
-    // Preencher o formulário com os dados da linha
+
     document.getElementById('edit_linha_id').value = linhaId;
     document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
     document.getElementById('edit_praca').value = linha.praca || '';
@@ -3873,41 +3908,40 @@ async function editarLinha(linhaId) {
     document.getElementById('edit_data_inicio').value = formatarDataInput(linha.data_inicio);
     document.getElementById('edit_data_fim').value = formatarDataInput(linha.data_fim);
     document.getElementById('edit_especificacoes').value = linha.especificacoes || '';
-    
-    // Calcular dias após preencher as datas
+
     calcularDiasLinhaEdit();
-    
-    // Novos campos de valores
+
     document.getElementById('edit_valor_unitario_tabela').value = formatarMoeda(linha.valor_unitario_tabela || 0);
     document.getElementById('edit_desconto_percentual').value = formatarPercentual(linha.desconto_percentual || 0);
     document.getElementById('edit_valor_unitario').value = formatarMoeda(linha.valor_unitario_negociado || linha.valor_unitario || 0);
     document.getElementById('edit_investimento_bruto').value = formatarMoeda(linha.investimento_bruto || 0);
     document.getElementById('edit_volume_contratado').value = formatarNumero(linha.volume_contratado || 0);
     document.getElementById('edit_investimento_liquido').value = formatarMoeda(linha.investimento_liquido || 0);
-    
-    // Marcar checkboxes de formatos
+
     const formatos = typeof linha.formatos === 'string' ? linha.formatos.split(',').map(s => s.trim()) : (Array.isArray(linha.formatos) ? linha.formatos : []);
     document.querySelectorAll('input[name="edit_formatos"]').forEach(cb => {
       cb.checked = formatos.includes(cb.value);
     });
-    
-    // Marcar checkboxes de produto
+
     const produtos = typeof linha.produto === 'string' ? linha.produto.split(',').map(s => s.trim()) : (Array.isArray(linha.produto) ? linha.produto : []);
     document.querySelectorAll('input[name="edit_produto"]').forEach(cb => {
       cb.checked = produtos.includes(cb.value);
     });
-    
-    // Calcular dias da linha após um pequeno delay para garantir que os valores estão setados
+
     setTimeout(() => {
       calcularDiasLinhaEdit();
     }, 50);
-    
-    // Abrir modal de edição
+
+    aplicarEstadoModalLinha(!podeEditar());
     document.getElementById('modal_editar_linha').showModal();
   } catch (error) {
     console.error('Erro:', error);
-    mostrarToast('Erro ao carregar linha para edição', 'error');
+    mostrarToast('Erro ao carregar linha', 'error');
   }
+}
+
+async function editarLinha(linhaId) {
+  return visualizarOuEditarLinha(linhaId);
 }
 
 // Funções de cálculo para edição

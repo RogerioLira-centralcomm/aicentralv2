@@ -304,16 +304,13 @@
                          data-id="${c.id_contato_cliente}">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex-1 min-w-0">
-                                <div class="font-medium text-sm truncate">${c.nome_completo}</div>
+                                <button type="button" class="swr-contato-nome-modal font-medium text-sm truncate text-left w-full block cursor-pointer bg-transparent border-0 p-0 shadow-none rounded-sm text-base-content hover:text-primary hover:underline decoration-primary/50 underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1" data-contato-id="${c.id_contato_cliente}" title="Ver detalhes">${c.nome_completo}</button>
                                 <div class="text-xs opacity-60">${c.cargo || 'Sem cargo'}</div>
                                 ${c.email ? `<div class="text-xs opacity-70 truncate mt-0.5">${c.email}</div>` : ''}
                                 ${c.telefone ? `<div class="text-xs opacity-70 mt-0.5">${c.telefone}</div>` : ''}
                             </div>
-                            <div class="flex flex-col items-center gap-1">
-                                ${semAtividade ? '<svg class="w-3.5 h-3.5 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
-                                <button class="btn btn-ghost btn-xs btn-circle swr-btn-detalhes" data-contato-id="${c.id_contato_cliente}" title="Ver detalhes" onclick="event.stopPropagation()">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                </button>
+                            <div class="flex flex-col items-center gap-1 flex-shrink-0">
+                                ${semAtividade ? '<svg class="w-3.5 h-3.5 text-warning shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Sem atividade recente"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
                             </div>
                         </div>
                     </div>
@@ -331,9 +328,10 @@
                 });
             });
 
-            $$('.swr-btn-detalhes', container).forEach(btn => {
-                btn.addEventListener('click', () => {
-                    abrirModalContato(parseInt(btn.dataset.contatoId));
+            $$('.swr-contato-nome-modal', container).forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    abrirModalContato(parseInt(btn.dataset.contatoId, 10));
                 });
             });
         } catch (e) {

@@ -8382,6 +8382,104 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'checked_at': datetime.utcnow().isoformat() + 'Z'
             })
 
+    @app.route('/api/admin/dv360-status', methods=['GET'])
+    @login_required
+    def api_admin_dv360_status():
+        """
+        Status DV360 para o dashboard admin.
+
+        mode=config — só lê .env (zero chamadas a Google / zero quota DV360).
+        mode=live — um POST ao oauth2.googleapis.com (refresh); não chama displayvideo.googleapis.com.
+        Cache de 120s no modo live (exceto nocache=1).
+        """
+        import time
+
+        from flask import current_app
+
+        from aicentralv2.services.dv360_client import DV360API
+
+        mode = (request.args.get('mode') or 'config').lower()
+        nocache = request.args.get('nocache') == '1'
+        t_start = time.time()
+        client = DV360API(current_app.config)
+        checked_at = datetime.utcnow().isoformat() + 'Z'
+
+        if mode == 'config':
+            id_ok = bool(client.client_id)
+            secret_ok = bool(
+                client.client_secret
+                and client.client_secret != 'COLE_SEU_NOVO_CLIENT_SECRET_AQUI'
+            )
+            refresh_ok = bool(
+                client.refresh_token
+                and client.refresh_token != 'COLE_SEU_REFRESH_TOKEN_AQUI'
+            )
+            partner_ok = bool(client.partner_id)
+            conf = id_ok and secret_ok and refresh_ok
+            elapsed_ms = round((time.time() - t_start) * 1000)
+            return jsonify(
+                {
+                    'success': True,
+                    'mode': 'config',
+                    'is_up': conf,
+                    'configured': conf,
+                    'partner_id_set': partner_ok,
+                    'oauth_ok': None,
+                    'response_time_ms': elapsed_ms,
+                    'status_code': None,
+                    'detail': (
+                        'Variáveis OAuth OK no .env'
+                        if conf
+                        else 'Variáveis DV360 incompletas no .env'
+                    ),
+                    'checked_at': checked_at,
+                }
+            )
+
+        cache = app.config.setdefault('_dv360_admin_status_cache', {'t': 0.0, 'payload': None})
+        now = time.time()
+        ttl = 120.0
+        if (
+            not nocache
+            and cache.get('payload') is not None
+            and (now - cache.get('t', 0)) < ttl
+        ):
+            return jsonify(cache['payload'])
+
+        t_oauth = time.time()
+        err_msg = None
+        try:
+            token = client.get_access_token()
+        except Exception as e:
+            token = None
+            err_msg = str(e)
+            current_app.logger.warning('api_admin_dv360_status live: %s', e)
+        elapsed_ms = round((time.time() - t_oauth) * 1000)
+        oauth_ok = token is not None
+        if not oauth_ok and not err_msg:
+            err_msg = 'Não foi possível obter access token (credenciais ou rede).'
+
+        payload = {
+            'success': True,
+            'mode': 'live',
+            'is_up': oauth_ok,
+            'configured': client.is_configured() and bool(client.client_id),
+            'partner_id_set': bool(client.partner_id),
+            'oauth_ok': oauth_ok,
+            'response_time_ms': elapsed_ms,
+            'status_code': 200 if oauth_ok else None,
+            'detail': (
+                'OAuth OK (token junto ao Google)'
+                if oauth_ok
+                else f'OAuth falhou: {err_msg}'
+            ),
+            'checked_at': datetime.utcnow().isoformat() + 'Z',
+        }
+        if not nocache:
+            cache['t'] = time.time()
+            cache['payload'] = payload
+        return jsonify(payload)
+
     # ==================== MÉTRICAS MENSAIS (ex-SEMANAIS) ====================
 
     def _sanitize_row(row):

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DV360 — Diagnóstico</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 1rem; background: #f4f4f5; color: #18181b; line-height: 1.5; }
+    .box { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; max-width: 56rem; margin-left: auto; margin-right: auto; }
+    h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
+    h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+    code { background: #f4f4f5; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+    pre { background: #18181b; color: #e4e4e7; padding: 1rem; border-radius: 8px; overflow: auto; max-height: 28rem; font-size: 0.75rem; white-space: pre-wrap; word-break: break-word; margin: 0.5rem 0 0; }
+    .ok { color: #16a34a; font-weight: 600; }
+    .bad { color: #dc2626; font-weight: 600; }
+    .warn { background: #fffbeb; border: 1px solid #fcd34d; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; max-width: 56rem; margin-left: auto; margin-right: auto; font-size: 0.9rem; }
+    a.btn { display: inline-block; margin: 0.35rem 0.5rem 0.35rem 0; padding: 0.5rem 1rem; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 6px; font-size: 0.9rem; }
+    a.btn:hover { background: #1d4ed8; }
+    a.link { color: #2563eb; }
+    ul.flags { list-style: none; padding: 0; margin: 0; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    ul.flags li { display: flex; justify-content: space-between; border-bottom: 1px solid #f4f4f5; padding: 0.35rem 0; }
+  </style>
+</head>
+<body>
+  <div class="warn">
+    <strong>HTTP:</strong> use <code>http://</code> (não <code>https://</code>) com o servidor de desenvolvimento, salvo que tenhas TLS configurado.
+    Use o <strong>mesmo host</strong> do login (<code>localhost</code> vs <code>127.0.0.1</code> — cookies não são partilhados).
+  </div>
+
+  <div class="box">
+    <h1>Display &amp; Video 360 — Diagnóstico</h1>
+    <p style="margin:0.25rem 0 0; font-size:0.9rem; color:#52525b;">
+      Host: <code>{{ request_host }}</code>
+      · Raiz: <code>{{ url_root }}</code>
+    </p>
+    <p style="margin-top:0.75rem;">
+      <a class="btn" href="{{ url_root }}dv360/diagnostico">Só variáveis (.env)</a>
+      <a class="btn" href="{{ url_root }}dv360/diagnostico?run=1" style="background:#059669;">Executar OAuth + API</a>
+      <a class="link" href="{{ url_root }}">Voltar ao início</a>
+    </p>
+    <p style="font-size:0.85rem; color:#71717a; margin-top:0.75rem;">
+      O botão verde chama o Google (pode demorar 15–60 s). Se o browser desligar antes, vê os logs do Flask ou testa primeiro só as variáveis.
+    </p>
+  </div>
+
+  <div class="box">
+    <h2>Variáveis de ambiente (sim/não — sem mostrar segredos)</h2>
+    <ul class="flags">
+      {% for key, ok in env_flags.items() %}
+      <li><span>{{ key }}</span><span class="{{ 'ok' if ok else 'bad' }}">{{ 'sim' if ok else 'não' }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if not run_tests %}
+  <div class="box">
+    <h2>Testes à rede</h2>
+    <p style="margin:0;">Ainda <strong>não</strong> foi feito pedido ao Google nesta visita.</p>
+    <p style="margin:0.5rem 0 0;"><a class="btn" href="{{ url_root }}dv360/diagnostico?run=1">Executar OAuth + list_advertisers</a></p>
+  </div>
+  {% else %}
+  <div class="box">
+    <h2>1) OAuth — test_connection</h2>
+    {% if connection and connection.get('success') %}
+    <p class="ok" style="margin:0;">Token obtido com sucesso.</p>
+    {% elif connection %}
+    <p class="bad" style="margin:0;">Falha: {{ connection.get('error', 'erro desconhecido') }}</p>
+    {% endif %}
+    <pre>{{ connection_json|e }}</pre>
+  </div>
+
+  <div class="box">
+    <h2>2) API — list_advertisers</h2>
+    {% if advertisers_exc %}
+    <p class="bad" style="margin:0;">Exceção: {{ advertisers_exc|e }}</p>
+    {% elif advertisers is not none %}
+    {% if advertisers.get('success') %}
+    <p class="ok" style="margin:0;">Pedido concluído.</p>
+    {% else %}
+    <p class="bad" style="margin:0;">{{ advertisers.get('error', '—')|e }}</p>
+    {% endif %}
+    <pre>{{ advertisers_json|e }}</pre>
+    {% else %}
+    <p style="margin:0; color:#71717a;">Não executado (passo 1 sem sucesso).</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="box">
+    <h2>API JSON (mesma sessão)</h2>
+    <ul style="margin:0; padding-left:1.2rem; font-size:0.9rem;">
+      <li><a class="link" href="{{ url_root }}api/dv360/health"><code>GET /api/dv360/health</code></a> — só config, sem Google</li>
+      <li><a class="link" href="{{ url_root }}api/dv360/connection"><code>GET /api/dv360/connection</code></a> — OAuth</li>
+      <li><a class="link" href="{{ url_root }}api/dv360/advertisers"><code>GET /api/dv360/advertisers</code></a> — anunciantes</li>
+    </ul>
+  </div>
+</body>
+</html>

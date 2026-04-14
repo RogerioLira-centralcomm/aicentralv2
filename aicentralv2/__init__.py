@@ -133,6 +133,10 @@ def create_app(config_class=Config):
         # Registrar blueprint do Sales War Room
         from .sales_war_room import bp as sales_war_room_bp
         app.register_blueprint(sales_war_room_bp)
+
+        from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp
+        app.register_blueprint(dv360_bp)
+        app.register_blueprint(dv360_pages_bp)
         
         app.logger.info("OK Rotas registradas")
     except Exception as e:
@@ -191,7 +195,36 @@ def setup_logging(app):
 
 def register_commands(app):
     """Registra comandos CLI personalizados"""
-    
+    import click
+    import sys
+
+    @app.cli.command("dv360-verify")
+    @click.option(
+        "--oauth-only",
+        is_flag=True,
+        help="Só valida refresh OAuth; não chama list_advertisers.",
+    )
+    def dv360_verify_command(oauth_only):
+        """Valida DV360: .env + OAuth (+ opcionalmente listagem de advertisers). Exit 1 se falhar."""
+        from flask import current_app
+
+        from aicentralv2.services.dv360_client import DV360API
+
+        client = DV360API(current_app.config)
+        result = client.verify_installation(list_advertisers=not oauth_only)
+        for line in result["messages"]:
+            print(line)
+        if result.get("details"):
+            print("--- detalhes (sem segredos) ---")
+            import json
+
+            print(json.dumps(result["details"], ensure_ascii=False, indent=2, default=str))
+        if result["ok"]:
+            print("RESULTADO: OK")
+            sys.exit(0)
+        print(f"RESULTADO: FALHA (passo: {result.get('step_failed')})")
+        sys.exit(1)
+
     @app.cli.command('init-db')
     def init_db_command():
         """Inicializa o banco de dados"""

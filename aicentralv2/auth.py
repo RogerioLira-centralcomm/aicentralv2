@@ -69,6 +69,32 @@ def get_current_user():
     return session.get('user_id')
 
 
+def login_required_api(f):
+    """
+    Decorador para APIs JSON: sem sessão devolve 401 JSON (sem redirect para /login).
+    Use o mesmo host em que fez login (ex.: se entrou em localhost, não abra 127.0.0.1).
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": (
+                            "Não autenticado. Inicie sessão na aplicação e chame esta URL no mesmo "
+                            "host (ex.: só http://localhost:5000 ou só http://127.0.0.1:5000 — os cookies não são partilhados entre os dois)."
+                        ),
+                        "http_code": 401,
+                    }
+                ),
+                401,
+            )
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 def admin_required_api(f):
     """
     Decorador para proteger rotas de API que retornam JSON

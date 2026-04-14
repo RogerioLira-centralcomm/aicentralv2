@@ -61,6 +61,17 @@ class Config:
 	
 	# Paginação de listagens
 	CLIENTES_PER_PAGE = int(os.getenv('CLIENTES_PER_PAGE', '25'))
+
+	# Display & Video 360 (OAuth instalado — mesmas variáveis que o hub PHP; não versionar segredos)
+	DV360_CLIENT_ID = os.getenv('DV360_CLIENT_ID', '')
+	DV360_CLIENT_SECRET = os.getenv('DV360_CLIENT_SECRET', '')
+	DV360_REFRESH_TOKEN = os.getenv('DV360_REFRESH_TOKEN', '')
+	DV360_PARTNER_ID = os.getenv('DV360_PARTNER_ID', '')
+	DV360_API_BASE_URL = os.getenv(
+		'DV360_API_BASE_URL',
+		'https://displayvideo.googleapis.com/v4',
+	).rstrip('/')
+	DV360_TIMEOUT = int(os.getenv('DV360_TIMEOUT', '30'))
     
 	@property
 	def DATABASE_URI(self):

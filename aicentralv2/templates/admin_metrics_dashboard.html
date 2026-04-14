@@ -90,40 +90,86 @@
         </div>
     </div>
 
-    <!-- Status Monitor - Cadu -->
-    <div id="status-monitor" class="bg-base-100 rounded-xl p-4 border border-base-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-            <div id="status-indicator" class="relative flex h-4 w-4">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-base-content/30 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-4 w-4 bg-base-content/30"></span>
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <span class="font-semibold text-base-content text-sm">Cadu Login</span>
-                    <span id="status-badge" class="badge badge-sm badge-ghost">Verificando...</span>
+    <!-- Status: Cadu + DV360 (cartão branco; verde só no indicador + badge) -->
+    <div id="status-monitors-shell" class="bg-base-200/40 rounded-xl border border-base-300 overflow-hidden p-2 md:p-3">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-2 md:gap-3">
+            <!-- Cadu -->
+            <div id="status-monitor" class="p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div class="flex items-start gap-2.5 min-w-0">
+                        <div id="status-indicator" class="relative flex h-4 w-4 shrink-0 mt-0.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-base-content/30 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-4 w-4 bg-base-content/30"></span>
+                        </div>
+                        <div class="min-w-0 space-y-0.5">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-base-content text-sm whitespace-nowrap">Cadu Login</span>
+                                <span id="status-badge" class="badge badge-sm badge-ghost shrink-0">Verificando...</span>
+                            </div>
+                            <a href="https://cadu.centralcomm.media/login" target="_blank" rel="noopener noreferrer" class="text-xs text-base-content/50 hover:text-primary transition-colors inline-flex items-center gap-1">
+                                cadu.centralcomm.media/login
+                                <i class="fas fa-external-link-alt text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 sm:gap-4 text-xs text-base-content/60 shrink-0">
+                        <div id="status-response-time" class="flex items-center gap-1" title="Tempo de resposta">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>--</span>
+                        </div>
+                        <div id="status-http-code" class="flex items-center gap-1" title="HTTP Status">
+                            <i class="fas fa-code"></i>
+                            <span>--</span>
+                        </div>
+                        <div id="status-last-check" class="flex items-center gap-1" title="Última verificação">
+                            <i class="fas fa-clock"></i>
+                            <span>--</span>
+                        </div>
+                        <button id="pingNowBtn" class="btn btn-ghost btn-xs" title="Verificar agora" onclick="checkCaduStatus()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
                 </div>
-                <a href="https://cadu.centralcomm.media/login" target="_blank" class="text-xs text-base-content/50 hover:text-primary transition-colors">
-                    cadu.centralcomm.media/login
-                    <i class="fas fa-external-link-alt ml-1 text-[10px]"></i>
-                </a>
             </div>
-        </div>
-        <div class="flex items-center gap-4 text-xs text-base-content/60">
-            <div id="status-response-time" class="flex items-center gap-1" title="Tempo de resposta">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>--</span>
+            <!-- DV360 -->
+            <div id="dv360-status-monitor" class="p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div id="dv360-status-indicator" class="relative flex h-4 w-4 shrink-0 mt-0.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-base-content/30 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-4 w-4 bg-base-content/30"></span>
+                        </div>
+                        <div class="min-w-0 space-y-0.5">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-base-content text-sm whitespace-nowrap">DV360 (Google)</span>
+                                <span id="dv360-status-badge" class="badge badge-sm badge-ghost shrink-0">Verificando...</span>
+                            </div>
+                            <p id="dv360-status-sub" class="text-xs text-base-content/50 leading-snug">OAuth (refresh token) — não usa quota da API Display Video.</p>
+                            <a href="https://displayvideo.google.com/" target="_blank" rel="noopener noreferrer" class="text-xs text-base-content/50 hover:text-primary transition-colors inline-flex items-center gap-1">
+                                displayvideo.google.com
+                                <i class="fas fa-external-link-alt text-[10px]"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 sm:gap-4 text-xs text-base-content/60 shrink-0">
+                        <div id="dv360-status-response-time" class="flex items-center gap-1" title="Tempo da última verificação">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>--</span>
+                        </div>
+                        <div id="dv360-status-http-code" class="flex items-center gap-1" title="Código HTTP (OAuth)">
+                            <i class="fas fa-code"></i>
+                            <span>--</span>
+                        </div>
+                        <div id="dv360-status-last-check" class="flex items-center gap-1" title="Última verificação">
+                            <i class="fas fa-clock"></i>
+                            <span>--</span>
+                        </div>
+                        <button id="dv360PingNowBtn" class="btn btn-ghost btn-xs" title="Testar OAuth agora (chama Google)" type="button">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div id="status-http-code" class="flex items-center gap-1" title="HTTP Status">
-                <i class="fas fa-code"></i>
-                <span>--</span>
-            </div>
-            <div id="status-last-check" class="flex items-center gap-1" title="Última verificação">
-                <i class="fas fa-clock"></i>
-                <span>--</span>
-            </div>
-            <button id="pingNowBtn" class="btn btn-ghost btn-xs" title="Verificar agora" onclick="checkCaduStatus()">
-                <i class="fas fa-sync-alt"></i>
-            </button>
         </div>
     </div>
 
@@ -502,7 +548,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     loadDashboardData();
     startPingMonitor();
-    
+    startDv360Monitor();
+    const dv360Btn = document.getElementById('dv360PingNowBtn');
+    if (dv360Btn) dv360Btn.addEventListener('click', () => checkDv360Status('refresh'));
+
     document.getElementById('periodoSelect').addEventListener('change', function() {
         currentDays = parseInt(this.value);
         loadDashboardData();
@@ -873,20 +922,22 @@ function updateStatusUI(data) {
     const lastCheck = document.getElementById('status-last-check').querySelector('span');
     const monitor = document.getElementById('status-monitor');
 
+    const cellOk = 'p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm';
+    const cellErr = 'p-3 md:p-4 rounded-lg border border-error/40 bg-base-100 transition-colors shadow-sm';
     if (data.is_up) {
         indicator.innerHTML = `
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
         badge.className = 'badge badge-sm badge-success';
         badge.textContent = 'Online';
-        monitor.className = 'bg-base-100 rounded-xl p-4 border border-success/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
+        monitor.className = cellOk;
     } else {
         indicator.innerHTML = `
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-error"></span>`;
         badge.className = 'badge badge-sm badge-error';
         badge.textContent = data.error || 'Offline';
-        monitor.className = 'bg-base-100 rounded-xl p-4 border border-error/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
+        monitor.className = cellErr;
     }
 
     responseTime.textContent = data.response_time_ms != null ? data.response_time_ms + 'ms' : '--';
@@ -908,6 +959,98 @@ function updateStatusUI(data) {
 function startPingMonitor() {
     checkCaduStatus();
     pingTimer = setInterval(checkCaduStatus, PING_INTERVAL_MS);
+}
+
+let dv360PingTimer = null;
+
+/**
+ * @param {'initial'|'poll'|'refresh'} kind
+ *   initial — OAuth uma vez ao abrir (usa cache 2 min no servidor)
+ *   poll — só .env a cada 2 min (zero chamadas Google)
+ *   refresh — OAuth com nocache (botão)
+ */
+async function checkDv360Status(kind) {
+    const btn = document.getElementById('dv360PingNowBtn');
+    if (btn && (kind === 'refresh')) {
+        btn.classList.add('loading', 'loading-spinner');
+        btn.disabled = true;
+    }
+    let url = '/api/admin/dv360-status?mode=config';
+    if (kind === 'initial' || kind === 'refresh') {
+        url = '/api/admin/dv360-status?mode=live';
+        if (kind === 'refresh') url += '&nocache=1';
+    }
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        updateDv360StatusUI(data);
+    } catch {
+        updateDv360StatusUI({
+            success: false,
+            is_up: false,
+            mode: 'error',
+            detail: 'Falha na requisição',
+            status_code: null,
+            response_time_ms: null,
+            checked_at: new Date().toISOString()
+        });
+    } finally {
+        if (btn && kind === 'refresh') {
+            btn.classList.remove('loading', 'loading-spinner');
+            btn.disabled = false;
+        }
+    }
+}
+
+function updateDv360StatusUI(data) {
+    const indicator = document.getElementById('dv360-status-indicator');
+    const badge = document.getElementById('dv360-status-badge');
+    const responseTime = document.getElementById('dv360-status-response-time').querySelector('span');
+    const httpCode = document.getElementById('dv360-status-http-code').querySelector('span');
+    const lastCheck = document.getElementById('dv360-status-last-check').querySelector('span');
+    const monitor = document.getElementById('dv360-status-monitor');
+    if (!indicator || !badge || !monitor) return;
+
+    const mode = data.mode || '';
+    const up = data.success !== false && !!data.is_up;
+    const cellOk = 'p-3 md:p-4 rounded-lg border border-base-300 bg-base-100 transition-colors shadow-sm';
+    const cellErr = 'p-3 md:p-4 rounded-lg border border-error/40 bg-base-100 transition-colors shadow-sm';
+
+    if (up && mode === 'live') {
+        indicator.innerHTML = `
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
+        badge.className = 'badge badge-sm badge-success';
+        badge.textContent = 'OAuth OK';
+        monitor.className = cellOk;
+    } else if (up && mode === 'config') {
+        indicator.innerHTML = `
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-success"></span>`;
+        badge.className = 'badge badge-sm badge-success';
+        badge.textContent = '.env OK';
+        monitor.className = cellOk;
+    } else {
+        indicator.innerHTML = `
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-error"></span>`;
+        badge.className = 'badge badge-sm badge-error';
+        badge.textContent = (data.detail || 'Offline').slice(0, 48);
+        monitor.className = cellErr;
+    }
+
+    responseTime.textContent = data.response_time_ms != null ? data.response_time_ms + 'ms' : '--';
+    httpCode.textContent = data.status_code != null ? String(data.status_code) : (mode === 'config' ? '—' : '--');
+
+    if (data.checked_at) {
+        const d = new Date(data.checked_at);
+        lastCheck.textContent = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+}
+
+function startDv360Monitor() {
+    checkDv360Status('initial');
+    if (dv360PingTimer) clearInterval(dv360PingTimer);
+    dv360PingTimer = setInterval(() => checkDv360Status('poll'), PING_INTERVAL_MS);
 }
 
 // Helpers

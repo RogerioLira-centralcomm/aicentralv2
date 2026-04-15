@@ -1,0 +1,848 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Testes DV360 — CentralComm AI{% endblock %}
+
+{% block styles %}
+<style>
+  /* Ocupa a linha no flex para não cortar o nome do anunciante com um max-width artificial. */
+  #adv-select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h1 class="text-xl font-semibold text-base-content">DV360 — Campanhas</h1>
+    <a href="{{ url_for('dv360_pages.diagnostico') }}" class="link link-primary text-sm">Diagnóstico DV360</a>
+  </div>
+
+  <div class="alert alert-warning text-sm">
+    <span>Use o <strong>mesmo host</strong> em que fez login (<code>localhost</code> vs <code>127.0.0.1</code>). Em desenvolvimento, prefira <code>http://</code> se o servidor não tiver TLS.</span>
+  </div>
+
+  <div id="dv360-global-msg" class="hidden alert alert-error text-sm"></div>
+
+  <div class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="card-body gap-4 py-5">
+      <div class="flex flex-col sm:flex-row sm:flex-nowrap sm:items-end gap-3 w-full min-w-0">
+        <div class="form-control flex-1 min-w-0 w-full">
+          <label class="label py-0" for="adv-select">
+            <span class="label-text text-sm font-medium">Anunciante</span>
+          </label>
+          <select id="adv-select" class="select select-bordered select-sm w-full min-w-0">
+            <option value="">Carregando…</option>
+          </select>
+        </div>
+        <button type="button" id="btn-load-campaigns" class="btn btn-primary btn-sm w-full sm:w-auto shrink-0">
+          Carregar campanhas
+        </button>
+      </div>
+      <p id="adv-hint" class="text-xs text-base-content/60"></p>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
+    <table class="table table-sm table-zebra">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>ID</th>
+          <th>Situação</th>
+          <th class="w-28">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="campaign-rows">
+        <tr>
+          <td colspan="4" class="text-base-content/50 text-sm">Escolha um anunciante e carregue as campanhas.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="text-xs text-base-content/50 px-3 py-2 border-t border-base-200 leading-snug">
+      Na lista mostra-se só o <strong>estado resumido</strong> (ex.: finalizada no calendário vs. ativa na API). Abra o detalhe da campanha para ver <code>entityStatus</code>, datas de voo, praça (geo) e o resto.
+    </p>
+  </div>
+
+  <div id="campaign-detail-wrap" class="hidden card bg-base-100 border border-base-200 shadow-sm">
+    <div class="card-body gap-3 py-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-semibold text-base-content">Detalhe da campanha (DV360)</h2>
+        <button type="button" id="campaign-detail-close" class="btn btn-ghost btn-xs">Fechar</button>
+      </div>
+      <p id="campaign-detail-loading" class="text-sm text-base-content/60 hidden">A carregar…</p>
+      <p id="campaign-detail-error" class="text-sm text-error hidden"></p>
+      <div id="campaign-detail-body" class="hidden text-sm"></div>
+      <details id="campaign-detail-json" class="hidden">
+        <summary class="cursor-pointer text-xs text-primary font-medium">JSON completo (API)</summary>
+        <pre id="campaign-detail-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-80 whitespace-pre-wrap break-all"></pre>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const advSelect = document.getElementById('adv-select');
+  const btnLoad = document.getElementById('btn-load-campaigns');
+  const tbody = document.getElementById('campaign-rows');
+  const globalMsg = document.getElementById('dv360-global-msg');
+  const advHint = document.getElementById('adv-hint');
+  const detailWrap = document.getElementById('campaign-detail-wrap');
+  const detailLoading = document.getElementById('campaign-detail-loading');
+  const detailError = document.getElementById('campaign-detail-error');
+  const detailBody = document.getElementById('campaign-detail-body');
+  const detailJson = document.getElementById('campaign-detail-json');
+  const detailPre = document.getElementById('campaign-detail-pre');
+  const detailClose = document.getElementById('campaign-detail-close');
+
+  function showGlobal(msg, kind) {
+    globalMsg.textContent = msg;
+    globalMsg.classList.remove('hidden', 'alert-error', 'alert-success', 'alert-info');
+    globalMsg.classList.add('alert', kind === 'ok' ? 'alert-success' : kind === 'info' ? 'alert-info' : 'alert-error');
+    globalMsg.classList.remove('hidden');
+  }
+  function hideGlobal() {
+    globalMsg.classList.add('hidden');
+  }
+
+  function jsonFetch(url, opts) {
+    return fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'Accept': 'application/json' } }, opts || {}))
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); });
+  }
+
+  function selectedAdvertiserId() {
+    return (advSelect.value || '').trim();
+  }
+
+  function campaignName(c) {
+    if (!c || typeof c !== 'object') return '—';
+    return c.displayName || c.name || '—';
+  }
+
+  /**
+   * Estado da campanha na API DV360: campo oficial `entityStatus` (camelCase).
+   * Aceita também `entity_status` (snake_case) por compatibilidade com proxies/SDKs.
+   */
+  function campaignEntityStatusCode(c) {
+    if (!c || typeof c !== 'object') return null;
+    var v = c.entityStatus;
+    if (v == null || v === '') v = c.entity_status;
+    if (v == null || v === '') return null;
+    return String(v).trim();
+  }
+
+  /** Voo planejado já passou (calendário) — alinhado a `lifecycle.code` FINISHED_FLIGHT no servidor. */
+  function campaignLifecycleFlightFinished(c) {
+    var lc = c && c.lifecycle;
+    if (!lc || typeof lc !== 'object') return false;
+    return lc.code === 'FINISHED_FLIGHT';
+  }
+
+  function entityStatusLabel(code) {
+    var m = {
+      ENTITY_STATUS_ACTIVE: 'Ativa',
+      ENTITY_STATUS_PAUSED: 'Pausada',
+      ENTITY_STATUS_DRAFT: 'Rascunho',
+      ENTITY_STATUS_SCHEDULED_FOR_ACTIVE: 'Agendada para ativação',
+      ENTITY_STATUS_SCHEDULED_FOR_DELETION: 'Agendada para eliminação',
+      ENTITY_STATUS_ARCHIVED: 'Arquivada',
+      ENTITY_STATUS_UNSPECIFIED: 'Não especificado',
+    };
+    return m[code] || (code ? String(code) : '—');
+  }
+
+  var URL_PAUSE_TMPL = "{{ url_for('dv360.campaign_pause', campaign_id='__CID__') }}";
+  var URL_ACTIVATE_TMPL = "{{ url_for('dv360.campaign_activate', campaign_id='__CID__') }}";
+
+  function formatFieldValue(v) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'object') return JSON.stringify(v, null, 2);
+    return String(v);
+  }
+
+  function hideCampaignDetail() {
+    detailWrap.classList.add('hidden');
+    detailLoading.classList.add('hidden');
+    detailError.classList.add('hidden');
+    detailBody.classList.add('hidden');
+    detailJson.classList.add('hidden');
+  }
+
+  /** Limpa lista de campanhas e detalhe (ex.: ao mudar o anunciante). */
+  function resetCampaignsView() {
+    hideCampaignDetail();
+    detailError.textContent = '';
+    detailBody.innerHTML = '';
+    detailPre.textContent = '';
+    window.__dv360DetailAdv = undefined;
+    window.__dv360DetailCid = undefined;
+    window.__dv360DetailName = undefined;
+    var advId = selectedAdvertiserId();
+    if (!advId) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="text-base-content/50 text-sm">Escolha um anunciante e carregue as campanhas.</td></tr>';
+    } else {
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="text-base-content/50 text-sm">Anunciante alterado. Clique em <strong>Carregar campanhas</strong>.</td></tr>';
+    }
+  }
+
+  function showCampaignDetail(advertiserId, campaignId) {
+    detailWrap.classList.remove('hidden');
+    detailLoading.classList.remove('hidden');
+    detailError.classList.add('hidden');
+    detailError.textContent = '';
+    detailBody.classList.add('hidden');
+    detailJson.classList.add('hidden');
+    window.__dv360DetailAdv = advertiserId;
+    window.__dv360DetailCid = campaignId;
+    var q = new URLSearchParams({ advertiser_id: advertiserId });
+    var url = "{{ url_for('dv360.campaign_detail', campaign_id='__CID__') }}".replace('__CID__', encodeURIComponent(campaignId)) + '?' + q.toString();
+    jsonFetch(url).then(function (res) {
+      detailLoading.classList.add('hidden');
+      if (!res.ok || !res.body.success) {
+        detailError.textContent = (res.body && res.body.error) ? res.body.error : ('HTTP ' + res.status);
+        detailError.classList.remove('hidden');
+        return;
+      }
+      var d = res.body.campaign || {};
+      window.__dv360DetailName = campaignName(d);
+      var geoSummary = res.body.geo_summary != null ? String(res.body.geo_summary) : '—';
+      var geoRegions = Array.isArray(res.body.geo_regions) ? res.body.geo_regions : [];
+      var geoErr = res.body.geo_error;
+      var m = res.body.campaign_metrics || {};
+      var stRaw = campaignEntityStatusCode(d);
+      var stCode = stRaw || '—';
+      var stLabel = entityStatusLabel(stRaw);
+      var lc = res.body.lifecycle || {};
+      var lcMain = lc.label_pt || stLabel;
+      detailPre.textContent = JSON.stringify(
+        {
+          campaign: d,
+          lifecycle: res.body.lifecycle,
+          geo_summary: geoSummary,
+          geo_regions: res.body.geo_regions,
+          geo_error: geoErr,
+          campaign_metrics: m,
+        },
+        null,
+        2
+      );
+      detailJson.classList.remove('hidden');
+      function metricLine(label, value) {
+        if (!value) return '';
+        return (
+          '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">' +
+          escapeHtml(label) +
+          '</span>' +
+          '<p class="text-sm text-base-content mt-0.5 leading-snug">' +
+          escapeHtml(String(value)) +
+          '</p></div>'
+        );
+      }
+      var budgetsBlock = '';
+      if (Array.isArray(m.budgets_text) && m.budgets_text.length) {
+        budgetsBlock =
+          '<div class="mt-2"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm text-base-content space-y-0.5">';
+        m.budgets_text.forEach(function (line) {
+          budgetsBlock += '<li>' + escapeHtml(String(line)) + '</li>';
+        });
+        budgetsBlock += '</ul></div>';
+      }
+      var perfBlock = '';
+      if (m.performance_goal_label_pt || m.performance_target_text) {
+        perfBlock =
+          metricLine('Meta de performance (tipo)', m.performance_goal_label_pt || '—') +
+          metricLine('Meta / teto (valor na API)', m.performance_target_text || '—');
+      }
+      var head =
+        '<div class="rounded-lg border border-base-200 bg-base-200/40 p-3 mb-3 space-y-3">' +
+        '<div class="space-y-2 border-b border-base-300/80 pb-3">' +
+        '<p class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Objetivo e custo-alvo (CPM / CPA / CPC…)</p>' +
+        metricLine('Objetivo da campanha', m.campaign_goal_label_pt || '—') +
+        perfBlock +
+        metricLine('Gasto planejado (voo)', m.planned_spend_text || '—') +
+        metricLine('Datas planejadas (voo)', m.planned_dates_text || '—') +
+        metricLine('Impacto / alcance (frequência)', m.frequency_cap_text || '—') +
+        budgetsBlock +
+        '</div>' +
+        '<div class="rounded-md bg-base-100/80 border border-base-300/60 p-2 text-xs text-base-content/70 leading-snug">' +
+        escapeHtml(m.delivery_note_pt || '') +
+        '</div>' +
+        formatGeoRegionsHtml(geoSummary, geoRegions, geoErr) +
+        '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Situação</span>' +
+        '<p class="text-sm text-base-content mt-0.5"><strong>' + escapeHtml(String(lcMain)) + '</strong></p>' +
+        '<div class="text-xs text-base-content/60 mt-2 space-y-1 leading-snug">' +
+        formatCampaignStatusMetaHtml({ lifecycle: lc, entityStatus: stRaw }) +
+        '</div></div>' +
+        '<div id="campaign-detail-actions" class="flex flex-wrap gap-2"></div></div>';
+      var rows = [
+        ['displayName', 'Nome'],
+        ['name', 'Nome interno'],
+        ['campaignId', 'ID da campanha'],
+        ['advertiserId', 'ID do anunciante'],
+        ['updateTime', 'Última atualização'],
+        ['createTime', 'Criação'],
+        ['startDate', 'Data de início'],
+        ['endDate', 'Data de fim'],
+      ];
+      var used = {};
+      var parts = [head, '<dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">'];
+      rows.forEach(function (pair) {
+        var key = pair[0];
+        var label = pair[1];
+        if (!(key in d)) return;
+        used[key] = true;
+        var raw = d[key];
+        var val = formatFieldValue(raw);
+        parts.push(
+          '<div class="min-w-0"><dt class="text-xs font-medium text-base-content/60">' + escapeHtml(label) + '</dt><dd class="mt-0.5 text-base-content break-words whitespace-pre-wrap">' + escapeHtml(val) + '</dd></div>'
+        );
+      });
+      Object.keys(d).sort().forEach(function (key) {
+        if (used[key] || key === 'entityStatus') return;
+        var raw = d[key];
+        if (raw !== null && typeof raw === 'object') return;
+        parts.push(
+          '<div class="min-w-0"><dt class="text-xs font-medium text-base-content/60">' + escapeHtml(key) + '</dt><dd class="mt-0.5 text-base-content break-words">' + escapeHtml(formatFieldValue(raw)) + '</dd></div>'
+        );
+      });
+      parts.push('</dl>');
+      detailBody.innerHTML = parts.join('');
+      /* Listagem por vezes devolve entityStatus desatualizado ou vazio; o GET do detalhe é a fonte correta. */
+      var trSync = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
+      if (trSync && trSync.__dv360Campaign) {
+        if (d.entityStatus != null && d.entityStatus !== '') trSync.__dv360Campaign.entityStatus = d.entityStatus;
+        if (res.body.lifecycle) trSync.__dv360Campaign.lifecycle = res.body.lifecycle;
+        var sc = trSync.querySelector('td:nth-child(3)');
+        if (sc) sc.innerHTML = formatCampaignStatusRowHtml(trSync.__dv360Campaign);
+        attachRowActions(trSync.querySelector('td:last-child'), advertiserId, trSync.__dv360Campaign, trSync);
+      }
+      var actEl = detailBody.querySelector('#campaign-detail-actions');
+      if (actEl) {
+        actEl.innerHTML = '';
+        var flightDone = res.body.lifecycle && res.body.lifecycle.code === 'FINISHED_FLIGHT';
+        if (flightDone) {
+          actEl.innerHTML =
+            '<p class="text-xs text-base-content/50 max-w-prose">O período planejado do voo já terminou; pausar ou reativar não está disponível aqui.</p>';
+        } else if (stRaw === 'ENTITY_STATUS_ACTIVE') {
+          var pb = document.createElement('button');
+          pb.type = 'button';
+          pb.className = 'btn btn-warning btn-sm';
+          pb.textContent = 'Pausar campanha';
+          pb.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            pauseCampaignFromDetail(advertiserId, campaignId, campaignName(d));
+          });
+          actEl.appendChild(pb);
+        } else if (stRaw === 'ENTITY_STATUS_PAUSED' || stRaw === 'ENTITY_STATUS_DRAFT') {
+          var ab = document.createElement('button');
+          ab.type = 'button';
+          ab.className = 'btn btn-success btn-sm';
+          ab.textContent = stRaw === 'ENTITY_STATUS_DRAFT' ? 'Ativar campanha' : 'Reativar campanha';
+          ab.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            activateCampaignFromDetail(advertiserId, campaignId, campaignName(d), stRaw === 'ENTITY_STATUS_DRAFT');
+          });
+          actEl.appendChild(ab);
+        }
+      }
+      detailBody.classList.remove('hidden');
+    }).catch(function () {
+      detailLoading.classList.add('hidden');
+      detailError.textContent = 'Erro de rede ao obter detalhes.';
+      detailError.classList.remove('hidden');
+    });
+  }
+
+  function attachRowActions(tdBtn, advertiserId, campaignObj, tr) {
+    tdBtn.innerHTML = '';
+    var id = campaignObj && campaignObj.campaignId != null ? String(campaignObj.campaignId) : '';
+    if (!id) {
+      tdBtn.innerHTML = '<span class="text-xs text-base-content/40">—</span>';
+      return;
+    }
+    var st = campaignEntityStatusCode(campaignObj);
+    var nm = campaignName(campaignObj);
+    if (campaignLifecycleFlightFinished(campaignObj)) {
+      tdBtn.innerHTML =
+        '<span class="text-xs text-base-content/40" title="Voo planejado já terminou">—</span>';
+      return;
+    }
+    if (st === 'ENTITY_STATUS_ACTIVE') {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-warning btn-xs';
+      b.textContent = 'Pausar';
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        pauseCampaign(advertiserId, id, nm, b, tr);
+      });
+      tdBtn.appendChild(b);
+    } else if (st === 'ENTITY_STATUS_PAUSED' || st === 'ENTITY_STATUS_DRAFT') {
+      var b2 = document.createElement('button');
+      b2.type = 'button';
+      b2.className = 'btn btn-success btn-xs';
+      b2.textContent = st === 'ENTITY_STATUS_DRAFT' ? 'Ativar' : 'Reativar';
+      b2.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        activateCampaign(advertiserId, id, nm, b2, tr);
+      });
+      tdBtn.appendChild(b2);
+    } else {
+      tdBtn.innerHTML = '<span class="text-xs text-base-content/40">—</span>';
+    }
+  }
+
+  function renderRows(campaigns) {
+    tbody.innerHTML = '';
+    if (!campaigns || !campaigns.length) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="4" class="text-sm text-base-content/50">Nenhuma campanha devolvida pela API.</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+    var advId = selectedAdvertiserId();
+    campaigns.forEach(function (c) {
+      var id = c.campaignId != null ? String(c.campaignId) : '';
+      var st = campaignEntityStatusCode(c);
+      var tr = document.createElement('tr');
+      tr.className = 'cursor-pointer hover:bg-base-200/60';
+      tr.setAttribute('data-campaign-id', id);
+      tr.setAttribute('tabindex', '0');
+      tr.setAttribute('role', 'button');
+      tr.setAttribute('aria-label', 'Ver detalhes: ' + campaignName(c));
+      tr.__dv360Campaign = Object.assign({}, c);
+      tr.innerHTML =
+        '<td class="min-w-0 align-top break-words whitespace-normal" title="' +
+        campaignName(c).replace(/"/g, '&quot;') +
+        '">' +
+        escapeHtml(campaignName(c)) +
+        '</td>' +
+        '<td><code class="text-xs">' + escapeHtml(id) + '</code></td>' +
+        '<td class="text-xs align-top">' + formatCampaignStatusRowHtml(c) + '</td>' +
+        '<td class="align-top"></td>';
+      var tdBtn = tr.querySelector('td:last-child');
+      attachRowActions(tdBtn, advId, tr.__dv360Campaign, tr);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  /** Bloco «Praça (geo DV360)» no detalhe: nomes + tipo e assignedTargetingOptionId quando existirem. */
+  function formatGeoRegionsHtml(summary, regions, geoErr) {
+    var bits = [];
+    bits.push(
+      '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Praça (geo DV360)</span>'
+    );
+    if (geoErr) {
+      bits.push('<p class="text-xs text-warning mt-1">Geo: ' + escapeHtml(String(geoErr)) + '</p>');
+    }
+    var sum = summary != null && String(summary).trim() !== '' ? String(summary) : '—';
+    if (Array.isArray(regions) && regions.length) {
+      bits.push('<ul class="mt-1.5 list-none text-sm text-base-content space-y-1.5 pl-0">');
+      regions.forEach(function (r) {
+        if (!r || typeof r !== 'object') return;
+        var name = r.displayName != null ? String(r.displayName) : '—';
+        var tt = r.targetingType != null ? String(r.targetingType) : '';
+        var oid = r.assignedTargetingOptionId != null ? String(r.assignedTargetingOptionId) : '';
+        var meta = [];
+        if (tt) {
+          meta.push(
+            '<span class="text-base-content/50">tipo</span> <code class="text-[11px] bg-base-200 px-0.5 rounded">' +
+              escapeHtml(tt) +
+              '</code>'
+          );
+        }
+        if (oid) {
+          meta.push(
+            '<span class="text-base-content/50">ID</span> <code class="text-[11px] bg-base-200 px-0.5 rounded">' +
+              escapeHtml(oid) +
+              '</code>'
+          );
+        }
+        bits.push(
+          '<li class="border-l-2 border-base-300 pl-2">' +
+            '<span class="font-medium">' +
+            escapeHtml(name) +
+            '</span>' +
+            (meta.length
+              ? '<div class="text-xs text-base-content/60 mt-0.5">' + meta.join(' · ') + '</div>'
+              : '') +
+            '</li>'
+        );
+      });
+      bits.push('</ul>');
+      if (sum && sum !== '—') {
+        bits.push('<p class="text-xs text-base-content/50 mt-2">Resumo: ' + escapeHtml(sum) + '</p>');
+      }
+    } else {
+      bits.push('<p class="text-sm text-base-content mt-0.5 leading-snug">' + escapeHtml(sum) + '</p>');
+    }
+    bits.push('</div>');
+    return bits.join('');
+  }
+
+  /** Lista: só o rótulo principal (ex.: Finalizada / Ativa no período do voo). */
+  function formatCampaignStatusRowHtml(c) {
+    if (!c || typeof c !== 'object') return '—';
+    var lc = c.lifecycle || {};
+    var main = lc.label_pt || entityStatusLabel(campaignEntityStatusCode(c));
+    return '<span class="font-medium leading-snug">' + escapeHtml(String(main)) + '</span>';
+  }
+
+  /** Detalhe: API, datas de voo, notas (sem repetir o título principal). */
+  function formatCampaignStatusMetaHtml(c) {
+    if (!c || typeof c !== 'object') return '';
+    var lc = c.lifecycle || {};
+    var api = campaignEntityStatusCode(c) || '—';
+    var bits = [];
+    bits.push(
+      '<p><code class="text-[11px] bg-base-200 px-1 rounded">entityStatus</code> = ' + escapeHtml(String(api)) + '</p>'
+    );
+    bits.push(
+      '<p class="text-base-content/50">“Ativa” na API não implica voo a decorrer se as datas planejadas já passaram.</p>'
+    );
+    if (lc.flight_start && lc.flight_end) {
+      bits.push(
+        '<p class="text-base-content/55">Voo planejado: ' +
+          escapeHtml(String(lc.flight_start)) +
+          ' – ' +
+          escapeHtml(String(lc.flight_end)) +
+          '</p>'
+      );
+    } else if (lc.flight_end) {
+      bits.push('<p class="text-base-content/55">Fim do voo: ' + escapeHtml(String(lc.flight_end)) + '</p>');
+    }
+    if (lc.hint_pt) {
+      bits.push('<p class="text-base-content/50">' + escapeHtml(String(lc.hint_pt)) + '</p>');
+    }
+    return bits.join('');
+  }
+
+  function syncCampaignRowFromApi(campaignId, entityStatus, lifecycle) {
+    var tr = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
+    if (!tr || !tr.__dv360Campaign) return;
+    if (entityStatus) tr.__dv360Campaign.entityStatus = entityStatus;
+    if (lifecycle) tr.__dv360Campaign.lifecycle = lifecycle;
+    if (!entityStatus && !lifecycle) return;
+    var statusCell = tr.querySelector('td:nth-child(3)');
+    if (statusCell) statusCell.innerHTML = formatCampaignStatusRowHtml(tr.__dv360Campaign);
+    attachRowActions(tr.querySelector('td:last-child'), selectedAdvertiserId(), tr.__dv360Campaign, tr);
+  }
+
+  function pauseCampaign(advertiserId, campaignId, campaignDisplayName, btn, row) {
+    function doPause() {
+      btn.disabled = true;
+      hideGlobal();
+      jsonFetch(URL_PAUSE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ advertiser_id: advertiserId }),
+      }).then(function (res) {
+        btn.disabled = false;
+        if (!res.ok || !res.body.success) {
+          var err = (res.body && res.body.error) ? res.body.error : 'HTTP ' + res.status;
+          showGlobal(err, 'err');
+          return;
+        }
+        showGlobal('Campanha pausada com sucesso.', 'ok');
+        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_PAUSED';
+        if (row.__dv360Campaign) {
+          row.__dv360Campaign.entityStatus = ns;
+          if (res.body.lifecycle) row.__dv360Campaign.lifecycle = res.body.lifecycle;
+        }
+        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
+      }).catch(function () {
+        btn.disabled = false;
+        showGlobal('Falha de rede ao pausar.', 'err');
+      });
+    }
+
+    var safeName = escapeHtml(campaignDisplayName || '—');
+    var safeId = escapeHtml(String(campaignId));
+    var msg =
+      'A campanha <strong>' +
+      safeName +
+      '</strong> (ID <strong>' +
+      safeId +
+      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).';
+
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm({
+        theme: 'warning',
+        title: 'Pausar campanha',
+        message: msg,
+        confirmText: 'Pausar',
+        cancelText: 'Cancelar',
+        onConfirm: doPause,
+      });
+      return;
+    }
+    if (!confirm('Pausar a campanha "' + (campaignDisplayName || campaignId) + '" (ID ' + campaignId + ') no DV360?')) return;
+    doPause();
+  }
+
+  function activateCampaign(advertiserId, campaignId, campaignDisplayName, btn, row) {
+    function doAct() {
+      btn.disabled = true;
+      hideGlobal();
+      jsonFetch(URL_ACTIVATE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ advertiser_id: advertiserId }),
+      }).then(function (res) {
+        btn.disabled = false;
+        if (!res.ok || !res.body.success) {
+          var err = (res.body && res.body.error) ? res.body.error : 'HTTP ' + res.status;
+          showGlobal(err, 'err');
+          return;
+        }
+        showGlobal('Campanha ativada com sucesso.', 'ok');
+        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_ACTIVE';
+        if (row.__dv360Campaign) {
+          row.__dv360Campaign.entityStatus = ns;
+          if (res.body.lifecycle) row.__dv360Campaign.lifecycle = res.body.lifecycle;
+        }
+        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
+      }).catch(function () {
+        btn.disabled = false;
+        showGlobal('Falha de rede ao ativar.', 'err');
+      });
+    }
+
+    var safeName = escapeHtml(campaignDisplayName || '—');
+    var safeId = escapeHtml(String(campaignId));
+    var msg =
+      'A campanha <strong>' +
+      safeName +
+      '</strong> (ID <strong>' +
+      safeId +
+      '</strong>) será <strong>ativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).';
+
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm({
+        theme: 'success',
+        title: 'Ativar campanha',
+        message: msg,
+        confirmText: 'Ativar',
+        cancelText: 'Cancelar',
+        onConfirm: doAct,
+      });
+      return;
+    }
+    if (!confirm('Ativar a campanha "' + (campaignDisplayName || campaignId) + '" (ID ' + campaignId + ') no DV360?')) return;
+    doAct();
+  }
+
+  function pauseCampaignFromDetail(advertiserId, campaignId, displayName) {
+    function doPause() {
+      hideGlobal();
+      jsonFetch(URL_PAUSE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ advertiser_id: advertiserId }),
+      }).then(function (res) {
+        if (!res.ok || !res.body.success) {
+          showGlobal((res.body && res.body.error) || 'HTTP ' + res.status, 'err');
+          return;
+        }
+        showGlobal('Campanha pausada com sucesso.', 'ok');
+        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_PAUSED';
+        var trD = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
+        if (trD && trD.__dv360Campaign) {
+          trD.__dv360Campaign.entityStatus = ns;
+          if (res.body.lifecycle) trD.__dv360Campaign.lifecycle = res.body.lifecycle;
+        }
+        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
+        showCampaignDetail(advertiserId, campaignId);
+      }).catch(function () {
+        showGlobal('Falha de rede ao pausar.', 'err');
+      });
+    }
+    var safeName = escapeHtml(displayName || '—');
+    var safeId = escapeHtml(String(campaignId));
+    var msg =
+      'A campanha <strong>' +
+      safeName +
+      '</strong> (ID <strong>' +
+      safeId +
+      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).';
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm({
+        theme: 'warning',
+        title: 'Pausar campanha',
+        message: msg,
+        confirmText: 'Pausar',
+        cancelText: 'Cancelar',
+        onConfirm: doPause,
+      });
+      return;
+    }
+    if (!confirm('Pausar a campanha "' + (displayName || campaignId) + '" (ID ' + campaignId + ') no DV360?')) return;
+    doPause();
+  }
+
+  function activateCampaignFromDetail(advertiserId, campaignId, displayName, isDraft) {
+    function doAct() {
+      hideGlobal();
+      jsonFetch(URL_ACTIVATE_TMPL.replace('__CID__', encodeURIComponent(campaignId)), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ advertiser_id: advertiserId }),
+      }).then(function (res) {
+        if (!res.ok || !res.body.success) {
+          showGlobal((res.body && res.body.error) || 'HTTP ' + res.status, 'err');
+          return;
+        }
+        showGlobal(isDraft ? 'Campanha ativada com sucesso.' : 'Campanha reativada com sucesso.', 'ok');
+        var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_ACTIVE';
+        var trD = tbody.querySelector('tr[data-campaign-id="' + String(campaignId) + '"]');
+        if (trD && trD.__dv360Campaign) {
+          trD.__dv360Campaign.entityStatus = ns;
+          if (res.body.lifecycle) trD.__dv360Campaign.lifecycle = res.body.lifecycle;
+        }
+        syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
+        showCampaignDetail(advertiserId, campaignId);
+      }).catch(function () {
+        showGlobal('Falha de rede ao ativar.', 'err');
+      });
+    }
+    var safeName = escapeHtml(displayName || '—');
+    var safeId = escapeHtml(String(campaignId));
+    var msg =
+      'A campanha <strong>' +
+      safeName +
+      '</strong> (ID <strong>' +
+      safeId +
+      '</strong>) passará a <strong>ACTIVE</strong> no Display &amp; Video 360 (<code>entityStatus</code>).';
+    var title = isDraft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
+    var btnText = isDraft ? 'Ativar' : 'Reativar';
+    if (typeof window.showConfirm === 'function') {
+      window.showConfirm({
+        theme: 'success',
+        title: title,
+        message: msg,
+        confirmText: btnText,
+        cancelText: 'Cancelar',
+        onConfirm: doAct,
+      });
+      return;
+    }
+    if (!confirm((isDraft ? 'Ativar' : 'Reativar') + ' a campanha no DV360?')) return;
+    doAct();
+  }
+
+  function loadAdvertisers() {
+    advSelect.innerHTML = '<option value="">Carregando…</option>';
+    hideGlobal();
+    jsonFetch("{{ url_for('dv360.advertisers') }}").then(function (res) {
+      advSelect.innerHTML = '';
+      if (res.status === 401) {
+        advSelect.innerHTML = '<option value="">Não autenticado</option>';
+        showGlobal((res.body && res.body.error) || 'Inicie sessão no mesmo host.', 'err');
+        return;
+      }
+      if (!res.body || !res.body.success) {
+        advSelect.innerHTML = '<option value="">Erro ao listar</option>';
+        showGlobal((res.body && res.body.error) || 'Erro ao listar anunciantes.', 'err');
+        return;
+      }
+      var list = (res.body.data && res.body.data.advertisers) || [];
+      if (!list.length) {
+        advSelect.innerHTML = '<option value="">Nenhum anunciante</option>';
+        advHint.textContent = 'Verifique DV360_PARTNER_ID e permissões.';
+        return;
+      }
+      var opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = 'Selecione…';
+      advSelect.appendChild(opt0);
+      list.forEach(function (a) {
+        var id = a.advertiserId != null ? String(a.advertiserId) : '';
+        if (!id) return;
+        var o = document.createElement('option');
+        o.value = id;
+        o.textContent = (a.displayName || a.name || id) + ' (' + id + ')';
+        advSelect.appendChild(o);
+      });
+      advHint.textContent = list.length + ' anunciante(s) no partner.';
+    }).catch(function () {
+      advSelect.innerHTML = '<option value="">Erro de rede</option>';
+      showGlobal('Erro de rede ao carregar anunciantes.', 'err');
+    });
+  }
+
+  function loadCampaigns() {
+    var advId = selectedAdvertiserId();
+    if (!advId) {
+      showGlobal('Selecione um anunciante.', 'info');
+      return;
+    }
+    hideGlobal();
+    tbody.innerHTML = '<tr><td colspan="4" class="text-sm">A carregar…</td></tr>';
+    btnLoad.disabled = true;
+    var q = new URLSearchParams({ advertiser_id: advId });
+    jsonFetch("{{ url_for('dv360.campaigns') }}?" + q.toString()).then(function (res) {
+      btnLoad.disabled = false;
+      if (res.status === 401) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">Não autenticado.</td></tr>';
+        showGlobal((res.body && res.body.error) || 'Inicie sessão.', 'err');
+        return;
+      }
+      if (!res.body || !res.body.success) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">' + escapeHtml((res.body && res.body.error) || 'Erro') + '</td></tr>';
+        return;
+      }
+      var data = res.body.data || {};
+      var campaigns = data.campaigns || [];
+      renderRows(campaigns);
+    }).catch(function () {
+      btnLoad.disabled = false;
+      tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">Erro de rede.</td></tr>';
+    });
+  }
+
+  tbody.addEventListener('click', function (ev) {
+    if (ev.target.closest('button')) return;
+    var tr = ev.target.closest('tr[data-campaign-id]');
+    if (!tr) return;
+    var cid = tr.getAttribute('data-campaign-id');
+    if (!cid) return;
+    var advId = selectedAdvertiserId();
+    if (!advId) {
+      showGlobal('Selecione um anunciante.', 'info');
+      return;
+    }
+    showCampaignDetail(advId, cid);
+  });
+
+  tbody.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    if (ev.target.closest('button')) return;
+    var tr = ev.target.closest && ev.target.closest('tr[data-campaign-id]');
+    if (!tr) return;
+    ev.preventDefault();
+    tr.click();
+  });
+
+  detailClose.addEventListener('click', hideCampaignDetail);
+
+  advSelect.addEventListener('change', function () {
+    hideGlobal();
+    resetCampaignsView();
+  });
+
+  btnLoad.addEventListener('click', loadCampaigns);
+  loadAdvertisers();
+})();
+</script>
+{% endblock %}

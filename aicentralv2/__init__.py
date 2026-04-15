@@ -134,9 +134,10 @@ def create_app(config_class=Config):
         from .sales_war_room import bp as sales_war_room_bp
         app.register_blueprint(sales_war_room_bp)
 
-        from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp
+        from .dv360_routes import bp as dv360_bp, pages_bp as dv360_pages_bp, parametros_bp
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)
+        app.register_blueprint(parametros_bp)
         
         app.logger.info("OK Rotas registradas")
     except Exception as e:

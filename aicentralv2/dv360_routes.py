@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("dv360", __name__, url_prefix="/api/dv360")
 pages_bp = Blueprint("dv360_pages", __name__, url_prefix="/dv360")
+parametros_bp = Blueprint("parametros", __name__, url_prefix="/parametros")
 
 
 def _json_preview(obj: Any, max_len: int = 80000) -> str:
@@ -29,6 +30,19 @@ def _json_preview(obj: Any, max_len: int = 80000) -> str:
     if len(s) > max_len:
         return s[:max_len] + "\n\n... (saída truncada)"
     return s
+
+
+def _campaign_finished_flight(
+    client: Any, advertiser_id: str, campaign_id: str
+) -> tuple[bool, Optional[dict[str, Any]]]:
+    """True se o voo planejado já terminou (calendário), independentemente de entityStatus ACTIVE."""
+    camp = client.get_campaign(str(advertiser_id).strip(), str(campaign_id).strip())
+    if not camp.get("success"):
+        return False, None
+    lc = DV360API.infer_campaign_lifecycle_pt(camp.get("data") or {})
+    if lc.get("code") == "FINISHED_FLIGHT":
+        return True, lc
+    return False, lc
 
 
 def _query_params() -> dict:
@@ -155,6 +169,185 @@ def campaigns():
     return jsonify(client.list_campaigns(advertiser_id, _query_params()))
 
 
+@bp.route("/campaigns/geo-summaries", methods=["POST"])
+@login_required_api
+def campaign_geo_summaries():
+    """
+    Resumo de praça (geo) por campanha. Corpo JSON:
+    {\"advertiser_id\": \"...\", \"campaign_ids\": [\"1\", \"2\", ...]} (máx. 80 ids por pedido).
+    """
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    advertiser_id = str(payload.get("advertiser_id") or "").strip()
+    raw_ids = payload.get("campaign_ids") or []
+    if not advertiser_id:
+        return jsonify({"success": False, "error": "advertiser_id é obrigatório", "http_code": 400}), 400
+    if not isinstance(raw_ids, list):
+        return jsonify({"success": False, "error": "campaign_ids deve ser uma lista", "http_code": 400}), 400
+    ids: list[str] = []
+    for x in raw_ids[:80]:
+        s = str(x).strip()
+        if s and s not in ids:
+            ids.append(s)
+    client = get_dv360_client()
+    summaries: dict[str, str] = {}
+    errors: dict[str, str] = {}
+    for cid in ids:
+        pack = client.get_geo_summary_for_campaign(advertiser_id, cid)
+        summary = str(pack.get("summary") or "—")
+        summaries[cid] = summary
+        if summary == "—":
+            err_parts: list[str] = []
+            if pack.get("campaign_geo_error"):
+                err_parts.append(str(pack["campaign_geo_error"]))
+            if pack.get("insertion_orders_error"):
+                err_parts.append(str(pack["insertion_orders_error"]))
+            if err_parts:
+                errors[cid] = "; ".join(err_parts)
+    return jsonify(
+        {
+            "success": True,
+            "summaries": summaries,
+            "errors": errors or None,
+            "requested": len(ids),
+        }
+    )
+
+
+@bp.route("/campaigns/<campaign_id>/detail", methods=["GET"])
+@login_required_api
+def campaign_detail(campaign_id: str):
+    """Campanha + praça (geo) + estado. Query: advertiser_id obrigatório."""
+    advertiser_id = request.args.get("advertiser_id", "").strip()
+    if not advertiser_id:
+        return jsonify({"success": False, "error": "advertiser_id é obrigatório", "http_code": 400}), 400
+    cid = campaign_id.strip()
+    client = get_dv360_client()
+    camp = client.get_campaign(advertiser_id, cid)
+    if not camp.get("success"):
+        return jsonify(camp)
+    pack = client.get_geo_summary_for_campaign(advertiser_id, cid)
+    summary = str(pack.get("summary") or "—")
+    regions = pack.get("regions") if isinstance(pack.get("regions"), list) else []
+    geo_err = pack.get("campaign_geo_error")
+    cdata = camp.get("data") or {}
+    commercial = DV360API.summarize_campaign_commercial_snapshot(cdata)
+    lifecycle = DV360API.infer_campaign_lifecycle_pt(cdata)
+    return jsonify(
+        {
+            "success": True,
+            "campaign": cdata,
+            "lifecycle": lifecycle,
+            "geo_summary": summary,
+            "geo_regions": regions,
+            "geo_source": pack.get("geo_source"),
+            "geo_error": geo_err,
+            "insertion_orders_error": pack.get("insertion_orders_error"),
+            "campaign_metrics": commercial,
+        }
+    )
+
+
+@bp.route("/campaigns/<campaign_id>", methods=["GET"])
+@login_required_api
+def campaign_one(campaign_id: str):
+    """Detalhe de uma campanha (advertisers.campaigns.get). Query: advertiser_id obrigatório."""
+    advertiser_id = request.args.get("advertiser_id", "").strip()
+    if not advertiser_id:
+        return jsonify({"success": False, "error": "advertiser_id é obrigatório", "http_code": 400}), 400
+    client = get_dv360_client()
+    return jsonify(client.get_campaign(advertiser_id, campaign_id.strip()))
+
+
+@bp.route("/campaigns/<campaign_id>/pause", methods=["POST"])
+@login_required_api
+def campaign_pause(campaign_id: str):
+    """Pausa campanha no DV360 (PATCH entityStatus=ENTITY_STATUS_PAUSED). Corpo JSON: {\"advertiser_id\": \"...\"}."""
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+    advertiser_id = str(payload.get("advertiser_id") or "").strip()
+    if not advertiser_id:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "advertiser_id é obrigatório no corpo JSON",
+                    "http_code": 400,
+                }
+            ),
+            400,
+        )
+    client = get_dv360_client()
+    fin, lc_fin = _campaign_finished_flight(client, advertiser_id, campaign_id)
+    if fin:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "O período planejado do voo já terminou; pausar ou reativar não se aplica.",
+                    "http_code": 409,
+                    "lifecycle": lc_fin,
+                }
+            ),
+            409,
+        )
+    result = client.patch_campaign_entity_status(
+        advertiser_id,
+        campaign_id.strip(),
+        "ENTITY_STATUS_PAUSED",
+    )
+    if isinstance(result, dict) and result.get("success") and isinstance(result.get("data"), dict):
+        result = dict(result)
+        result["lifecycle"] = DV360API.infer_campaign_lifecycle_pt(result["data"])
+    return jsonify(result)
+
+
+@bp.route("/campaigns/<campaign_id>/activate", methods=["POST"])
+@login_required_api
+def campaign_activate(campaign_id: str):
+    """Ativa campanha no DV360 (PATCH entityStatus=ENTITY_STATUS_ACTIVE). Corpo JSON: {\"advertiser_id\": \"...\"}."""
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+    advertiser_id = str(payload.get("advertiser_id") or "").strip()
+    if not advertiser_id:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "advertiser_id é obrigatório no corpo JSON",
+                    "http_code": 400,
+                }
+            ),
+            400,
+        )
+    client = get_dv360_client()
+    fin, lc_fin = _campaign_finished_flight(client, advertiser_id, campaign_id)
+    if fin:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "O período planejado do voo já terminou; pausar ou reativar não se aplica.",
+                    "http_code": 409,
+                    "lifecycle": lc_fin,
+                }
+            ),
+            409,
+        )
+    result = client.patch_campaign_entity_status(
+        advertiser_id,
+        campaign_id.strip(),
+        "ENTITY_STATUS_ACTIVE",
+    )
+    if isinstance(result, dict) and result.get("success") and isinstance(result.get("data"), dict):
+        result = dict(result)
+        result["lifecycle"] = DV360API.infer_campaign_lifecycle_pt(result["data"])
+    return jsonify(result)
+
+
 @bp.route("/insertion-orders", methods=["GET"])
 @login_required_api
 def insertion_orders():
@@ -261,3 +454,10 @@ def combined_audience(audience_id: str):
 def custom_list(advertiser_id: str, custom_list_id: str):
     client = get_dv360_client()
     return jsonify(client.get_custom_list(advertiser_id, custom_list_id))
+
+
+@parametros_bp.route("/testesDV", methods=["GET"])
+@login_required
+def testes_dv():
+    """Listar e pausar campanhas DV360 (chama APIs JSON com a sessão do browser)."""
+    return render_template("parametros_testes_dv.html")

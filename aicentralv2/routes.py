@@ -10294,6 +10294,48 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_criativos_validados': request.form.get('id_criativos_validados', type=int),
         }
 
+    def _diff_campanha_pi_para_auditoria(campanha, data):
+        """Compara registo anterior com payload do formulário; retorna (dados_anteriores, dados_novos) só com campos alterados."""
+        from datetime import date, datetime
+        from decimal import Decimal
+
+        def norm(v, field):
+            if v is None or v == '':
+                return None
+            if isinstance(v, datetime):
+                if field in ('periodo_inicio', 'periodo_fim', 'mes_ref'):
+                    return v.date().isoformat()
+                return v.isoformat()
+            if isinstance(v, date):
+                return v.isoformat()
+            if isinstance(v, bool):
+                return bool(v)
+            if isinstance(v, int) and not isinstance(v, bool):
+                return int(v)
+            if isinstance(v, float):
+                return float(v)
+            if isinstance(v, Decimal):
+                return str(v)
+            s = str(v).strip()
+            return s if s else None
+
+        keys = (
+            'id_pi', 'id_cliente', 'link_dash', 'mes_ref', 'mes_ref_comp', 'nome_campanha',
+            'obj_contratados', 'id_centralx', 'under', 'id_objetivos_campanha',
+            'periodo_inicio', 'periodo_fim', 'id_status', 'totalizador_atingido',
+            'totalizador_gasto', 'valor_plataforma', 'id_plataforma', 'id_criativos_validados',
+        )
+        anterior, novo = {}, {}
+        for k in keys:
+            if k not in data:
+                continue
+            o = norm(campanha.get(k), k)
+            n = norm(data.get(k), k)
+            if o != n:
+                anterior[k] = o
+                novo[k] = n
+        return anterior, novo
+
     def _carregar_auxiliares_campanha():
         """Carrega dados auxiliares para selects do formulário de campanha"""
         return {
@@ -10707,6 +10749,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             valor_antigo = campanha.get('valor_plataforma')
 
             if db.atualizar_campanha_pi(id_camp, data):
+                dados_ant_audit, dados_novos_audit = _diff_campanha_pi_para_auditoria(campanha, data)
+                if dados_ant_audit or dados_novos_audit:
+                    registrar_auditoria(
+                        acao='UPDATE',
+                        modulo='campanhas_pi',
+                        descricao=f'Campanha PI atualizada: {data.get("nome_campanha") or campanha.get("nome_campanha")}',
+                        registro_id=id_camp,
+                        registro_tipo='campanha_pi',
+                        dados_anteriores=dados_ant_audit,
+                        dados_novos=dados_novos_audit,
+                    )
                 id_pi = data.get('id_pi') or campanha.get('id_pi')
                 if id_pi:
                     if valor_antigo:

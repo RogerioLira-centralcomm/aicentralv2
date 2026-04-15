@@ -192,6 +192,25 @@
   background-color: var(--color-primary-dark);
 }
 
+/* Mesma identidade com classes Daisy: .btn.btn-primary (CDN / especificidade) */
+.btn.btn-primary {
+  background-color: var(--color-primary) !important;
+  color: var(--color-white) !important;
+  border-color: transparent !important;
+}
+
+.btn.btn-primary:hover {
+  background-color: var(--color-primary-dark) !important;
+  color: var(--color-white) !important;
+}
+
+.btn.btn-primary:focus-visible {
+  background-color: var(--color-primary-dark) !important;
+  color: var(--color-white) !important;
+  outline: 2px solid var(--color-primary-dark) !important;
+  outline-offset: 2px !important;
+}
+
 .btn-secondary {
   background-color: var(--color-secondary);
   color: var(--color-white);
@@ -544,16 +563,86 @@ select:not([multiple]):not([size]):not(.select) {
     background-size: 1rem;
 }
 
-/* Garantir texto visível em TODOS os selects (DaisyUI e plain) */
-html body select,
-html body select.select,
-html body .select {
-    color: #1f2937 !important;
+/*
+ * Selects — legibilidade global (DaisyUI + preflight color:inherit + Windows/Chrome):
+ * - DaisyUI .select: appearance:none, sem color explícito → texto “invisível” em vários casos.
+ * - Exceções: selects com estilo próprio (seta SVG) mantêm appearance:none noutros ficheiros CSS.
+ */
+html body select:not(:disabled),
+html body select.select:not(:disabled),
+html body .select > select:not(:disabled),
+html body .form-control > select:not(:disabled),
+html body .form-control select:not(:disabled) {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    --tw-text-opacity: 1 !important;
+    opacity: 1 !important;
+    background-color: #ffffff !important;
+    font-weight: 500;
+}
+
+/* Daisy select: aspeto nativo + espaço para seta (não alterar selects custom tipo SWR/modal) */
+html body select.select:not(:disabled):not([multiple]),
+html body select[class*="select-"]:not(:disabled):not([multiple]),
+html body .form-control > select.select:not(:disabled):not([multiple]),
+html body .form-control > select[class*="select-"]:not(:disabled):not([multiple]) {
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+    -moz-appearance: auto !important;
+    background-image: none !important;
+    padding-right: 2.75rem !important;
+}
+
+html body select:focus:not(:disabled),
+html body select.select:focus:not(:disabled) {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    --tw-text-opacity: 1 !important;
+}
+
+html body select.select:focus-visible:not(:disabled),
+html body select.select:focus:not(:disabled) {
+    outline: 2px solid var(--color-primary, #1e4d4f) !important;
+    outline-offset: 2px !important;
+    box-shadow: none !important;
+}
+
+html body select:disabled,
+html body select.select:disabled {
+    color: #6b7280 !important;
+    -webkit-text-fill-color: #6b7280 !important;
+    --tw-text-opacity: 1 !important;
+    background-color: #f3f4f6 !important;
+    opacity: 1 !important;
 }
 
 html body select option {
-    color: #1f2937 !important;
+    color: #111827 !important;
     background-color: #ffffff !important;
+}
+
+[data-theme="centralcomm"] select:not(:disabled),
+[data-theme="centralcomm"] select.select:not(:disabled),
+[data-theme="centralcomm"] .select > select:not(:disabled),
+[data-theme="centralcomm"] .form-control select:not(:disabled) {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    --tw-text-opacity: 1 !important;
+}
+
+[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]),
+[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]) {
+    appearance: auto !important;
+    -webkit-appearance: menulist !important;
+    background-image: none !important;
+    padding-right: 2.75rem !important;
+}
+
+[data-theme="centralcomm"] select.select:focus-visible:not(:disabled),
+[data-theme="centralcomm"] select[class*="select-"]:focus-visible:not(:disabled) {
+    outline: 2px solid var(--color-primary, #1e4d4f) !important;
+    outline-offset: 2px !important;
+    box-shadow: none !important;
 }
 
 /* Fix DaisyUI menu hover/focus: prevent same-color bg+text */

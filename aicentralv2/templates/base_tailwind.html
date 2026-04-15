@@ -11,7 +11,8 @@
 
             {% if APP_CONFIG.get('USE_CSS_CDN') or not APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
                 <!-- Tailwind + DaisyUI via CDN (fallback/dev) -->
-                <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+                {# forms: removido — estilizava todos os <select> (appearance:none + cor) e conflitava com DaisyUI / design-system em dezenas de páginas. #}
+                <script src="https://cdn.tailwindcss.com?plugins=typography,aspect-ratio"></script>
                 <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.2/dist/full.min.css" rel="stylesheet" type="text/css" />
             {% endif %}
             {% if APP_CONFIG.get('HAS_TAILWIND_BUILD') %}
@@ -402,6 +403,7 @@
                             <li><a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">Cargos</a></li>
                             <li><a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">Logs de Auditoria</a></li>
                             <li><a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">Assistente IA</a></li>
+                            <li><a href="{{ url_for('parametros.testes_dv') }}" class="{% if request.endpoint == 'parametros.testes_dv' %}active{% endif %}">Testes DV360</a></li>
                         </ul>
                     </div>
                     {% endif %}
@@ -666,6 +668,11 @@
                                     <li>
                                         <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
                                             Assistente IA
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('parametros.testes_dv') }}" class="{% if request.endpoint == 'parametros.testes_dv' %}active{% endif %}">
+                                            Testes DV360
                                         </a>
                                     </li>
                                 </ul>
@@ -1011,5 +1018,35 @@
     </script>
 
     {% block scripts %}{% endblock %}
+
+    {# Depois de todo o CSS (incl. estilos injetados pelo tailwindcss.com no dev): selects legíveis. #}
+    <style id="cc-select-native-readability">
+        html[data-theme="centralcomm"] body select:not(:disabled),
+        html[data-theme="centralcomm"] body select.select:not(:disabled) {
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            --tw-text-opacity: 1 !important;
+            opacity: 1 !important;
+            background-color: #fff !important;
+        }
+        html[data-theme="centralcomm"] body select.select:not(:disabled):not([multiple]),
+        html[data-theme="centralcomm"] body select[class*="select-"]:not(:disabled):not([multiple]) {
+            appearance: auto !important;
+            -webkit-appearance: menulist !important;
+            background-image: none !important;
+            padding-right: 2.75rem !important;
+        }
+        html[data-theme="centralcomm"] body select.select:focus-visible:not(:disabled),
+        html[data-theme="centralcomm"] body select.select:focus:not(:disabled),
+        html[data-theme="centralcomm"] body select[class*="select-"]:focus-visible:not(:disabled):not([multiple]) {
+            outline: 2px solid #1e4d4f !important;
+            outline-offset: 2px !important;
+            box-shadow: none !important;
+        }
+        html[data-theme="centralcomm"] body select option {
+            color: #111827 !important;
+            background-color: #fff !important;
+        }
+    </style>
 </body>
 </html>

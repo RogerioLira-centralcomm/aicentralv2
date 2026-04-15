@@ -12,6 +12,7 @@ ou ``flask --app run.py dv360-verify`` (na raiz do repo).
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any, Mapping, Optional
 
 import requests
@@ -27,6 +28,26 @@ DV360_ENDPOINTS = (
     "firstPartyAndPartnerAudiences",
     "combinedAudiences",
     "customLists",
+)
+
+# Filtro para bulkList em line items: geo + cidade + postal + país + listas + proximidade + POI + cadeias.
+# Sem cidade/postal/país, muitas contas devolviam praça vazia apesar de targeting local nos LIs.
+_DV360_LINE_ITEM_LOCATION_FILTER = (
+    'targetingType="TARGETING_TYPE_GEO_REGION" OR '
+    'targetingType="TARGETING_TYPE_CITY" OR '
+    'targetingType="TARGETING_TYPE_POSTAL_CODE" OR '
+    'targetingType="TARGETING_TYPE_COUNTRY" OR '
+    'targetingType="TARGETING_TYPE_REGIONAL_LOCATION_LIST" OR '
+    'targetingType="TARGETING_TYPE_PROXIMITY_LOCATION_LIST" OR '
+    'targetingType="TARGETING_TYPE_POI" OR '
+    'targetingType="TARGETING_TYPE_BUSINESS_CHAIN"'
+)
+# Fallback se a API v4 rejeitar algum tipo do filtro alargado (HTTP 400).
+_DV360_LINE_ITEM_LOCATION_FILTER_LEGACY = (
+    'targetingType="TARGETING_TYPE_GEO_REGION" OR '
+    'targetingType="TARGETING_TYPE_REGIONAL_LOCATION_LIST" OR '
+    'targetingType="TARGETING_TYPE_PROXIMITY_LOCATION_LIST" OR '
+    'targetingType="TARGETING_TYPE_POI"'
 )
 
 
@@ -141,6 +162,34 @@ class DV360API:
     def _get_json(self, url: str, token: str) -> dict[str, Any]:
         try:
             r = requests.get(url, headers=self._headers(token), timeout=self.timeout)
+        except requests.RequestException as e:
+            return {
+                "http_code": 0,
+                "request_error": str(e),
+                "text": "",
+                "data": None,
+            }
+        text = r.text or ""
+        parsed = None
+        try:
+            parsed = r.json()
+        except ValueError:
+            pass
+        return {
+            "http_code": r.status_code,
+            "request_error": None,
+            "text": text,
+            "data": parsed,
+        }
+
+    def _patch_json(self, url: str, token: str, body: dict[str, Any]) -> dict[str, Any]:
+        try:
+            r = requests.patch(
+                url,
+                headers=self._headers(token),
+                json=body,
+                timeout=self.timeout,
+            )
         except requests.RequestException as e:
             return {
                 "http_code": 0,
@@ -656,14 +705,1099 @@ class DV360API:
             "token_preview": token[:20] + "...",
         }
 
+    @staticmethod
+    def infer_campaign_lifecycle_pt(campaign: Optional[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Situação legível: combina `entityStatus` (API) com datas do voo em `campaignFlight.plannedDates`.
+
+        Isto explica casos como campanha ainda ACTIVE na API mas com voo já em 2022 — mostramos "Finalizada".
+        """
+        today = date.today()
+        out: dict[str, Any] = {
+            "code": "UNKNOWN",
+            "label_pt": "Estado desconhecido",
+            "entity_status": None,
+            "flight_start": None,
+            "flight_end": None,
+            "hint_pt": None,
+        }
+        if not campaign or not isinstance(campaign, dict):
+            return out
+
+        es = campaign.get("entityStatus") if campaign.get("entityStatus") is not None else campaign.get("entity_status")
+        es_s = str(es).strip() if es is not None else ""
+        out["entity_status"] = es_s or None
+
+        def _parse_date(d: Any) -> Optional[date]:
+            if not isinstance(d, dict):
+                return None
+            try:
+                return date(int(d["year"]), int(d["month"]), int(d["day"]))
+            except (KeyError, TypeError, ValueError):
+                return None
+
+        start_d: Optional[date] = None
+        end_d: Optional[date] = None
+        cf = campaign.get("campaignFlight")
+        if isinstance(cf, dict):
+            pd = cf.get("plannedDates")
+            if isinstance(pd, dict):
+                start_d = _parse_date(pd.get("startDate"))
+                end_d = _parse_date(pd.get("endDate"))
+        if start_d:
+            out["flight_start"] = start_d.isoformat()
+        if end_d:
+            out["flight_end"] = end_d.isoformat()
+
+        if es_s == "ENTITY_STATUS_ARCHIVED":
+            out["code"] = "ARCHIVED"
+            out["label_pt"] = "Arquivada"
+            return out
+        if es_s == "ENTITY_STATUS_SCHEDULED_FOR_DELETION":
+            out["code"] = "SCHEDULED_DELETION"
+            out["label_pt"] = "Agendada para eliminação"
+            return out
+        if es_s == "ENTITY_STATUS_DRAFT":
+            out["code"] = "DRAFT"
+            out["label_pt"] = "Rascunho"
+            return out
+        if es_s == "ENTITY_STATUS_SCHEDULED_FOR_ACTIVE":
+            out["code"] = "SCHEDULED_FOR_ACTIVE"
+            out["label_pt"] = "Agendada para ativação"
+            return out
+        if es_s == "ENTITY_STATUS_PAUSED":
+            out["code"] = "PAUSED"
+            if end_d and end_d < today:
+                out["label_pt"] = "Pausada (o período planejado do voo já terminou)"
+            else:
+                out["label_pt"] = "Pausada"
+            return out
+
+        # ACTIVE ou UNSPECIFIED: usar datas do voo quando existirem
+        if end_d and end_d < today:
+            out["code"] = "FINISHED_FLIGHT"
+            if es_s == "ENTITY_STATUS_ACTIVE":
+                out["label_pt"] = "Finalizada (voo já terminou)"
+                out["hint_pt"] = (
+                    "A API ainda pode marcar entityStatus ACTIVE; no DV360 pode arquivar ou pausar se quiser refletir o fim."
+                )
+            else:
+                out["label_pt"] = "Finalizada (voo já terminou)"
+            return out
+
+        if start_d and start_d > today:
+            out["code"] = "SCHEDULED_FLIGHT"
+            out["label_pt"] = "Agendada (voo ainda não começou)"
+            return out
+
+        if start_d and end_d and start_d <= today <= end_d:
+            out["code"] = "IN_FLIGHT"
+            if es_s == "ENTITY_STATUS_ACTIVE":
+                out["label_pt"] = "Ativa (dentro do período do voo)"
+            else:
+                out["label_pt"] = f"No período do voo ({es_s or 'estado API indefinido'})"
+            return out
+
+        if es_s == "ENTITY_STATUS_ACTIVE":
+            out["code"] = "ACTIVE_NO_FLIGHT_WINDOW"
+            out["label_pt"] = "Ativa na API (sem datas de voo no recurso para calcular fim/início)"
+            return out
+
+        out["code"] = "OTHER"
+        out["label_pt"] = es_s or "Indefinido"
+        return out
+
     def list_campaigns(self, advertiser_id: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-        return self._list_advertiser_child(advertiser_id, "campaigns", "campanhas", params)
+        """
+        Lista campanhas. Corrige `entityStatus` em falta ou UNSPECIFIED com GET da campanha
+        (a listagem por vezes não devolve o mesmo estado que o recurso completo).
+        """
+        out = self._list_advertiser_child(advertiser_id, "campaigns", "campanhas", params)
+        if not out.get("success"):
+            return out
+        data = out.get("data")
+        if not isinstance(data, dict):
+            return out
+        camps = data.get("campaigns")
+        if not isinstance(camps, list):
+            return out
+        aid = str(advertiser_id).strip()
+        fixed = 0
+        max_fix = 50
+        for camp in camps:
+            if fixed >= max_fix:
+                break
+            if not isinstance(camp, dict):
+                continue
+            if camp.get("entityStatus") is None and camp.get("entity_status"):
+                camp["entityStatus"] = camp.get("entity_status")
+            es = camp.get("entityStatus")
+            if es is not None and str(es).strip() not in ("", "ENTITY_STATUS_UNSPECIFIED"):
+                continue
+            cid = str(camp.get("campaignId") or "").strip()
+            if not cid:
+                continue
+            got = self.get_campaign(aid, cid)
+            if not got.get("success"):
+                continue
+            full = got.get("data") or {}
+            full_es = full.get("entityStatus")
+            if full_es is not None and str(full_es).strip():
+                camp["entityStatus"] = full_es
+                fixed += 1
+        for camp in camps:
+            if isinstance(camp, dict):
+                camp["lifecycle"] = DV360API.infer_campaign_lifecycle_pt(camp)
+        return out
+
+    def get_campaign(self, advertiser_id: str, campaign_id: str) -> dict[str, Any]:
+        """GET um recurso Campaign (v4 advertisers.campaigns.get)."""
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+        aid = str(advertiser_id).strip()
+        cid = str(campaign_id).strip()
+        if not aid or not cid:
+            return {
+                "success": False,
+                "error": "advertiser_id e campaign_id são obrigatórios.",
+                "http_code": 400,
+            }
+        api_url = f"{self.api_base}/advertisers/{aid}/campaigns/{cid}"
+        res = self._get_json(api_url, token)
+        if res["request_error"]:
+            return {"success": False, "error": "Erro HTTP: " + res["request_error"], "http_code": 0}
+        code = res["http_code"]
+        if code == 200 and isinstance(res["data"], dict):
+            return {"success": True, "data": res["data"], "http_code": 200, "url_used": api_url}
+        return {
+            "success": False,
+            "error": f"Erro HTTP {code} ao obter campanha",
+            "error_details": res["data"],
+            "http_code": code,
+            "url_tried": api_url,
+        }
+
+    def list_campaign_geo_assigned_options(
+        self,
+        advertiser_id: str,
+        campaign_id: str,
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        Lista opções de targeting geo (praça / região) atribuídas à campanha.
+        GET .../targetingTypes/TARGETING_TYPE_GEO_REGION/assignedTargetingOptions
+        """
+        params = dict(params or {})
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+        aid = str(advertiser_id).strip()
+        cid = str(campaign_id).strip()
+        if not aid or not cid:
+            return {
+                "success": False,
+                "error": "advertiser_id e campaign_id são obrigatórios.",
+                "http_code": 400,
+            }
+        if "pageSize" not in params:
+            params["pageSize"] = 200
+        from urllib.parse import urlencode
+
+        ttype = "TARGETING_TYPE_GEO_REGION"
+        base = f"{self.api_base}/advertisers/{aid}/campaigns/{cid}/targetingTypes/{ttype}/assignedTargetingOptions"
+        api_url = base + ("?" + urlencode(params) if params else "")
+        res = self._get_json(api_url, token)
+        if res["request_error"]:
+            return {"success": False, "error": "Erro HTTP: " + res["request_error"], "http_code": 0}
+        code = res["http_code"]
+        if code == 200 and isinstance(res["data"], dict):
+            return {"success": True, "data": res["data"], "http_code": 200, "url_used": api_url}
+        # Sem geo ao nível da campanha o DV360 costuma responder 404; tratar como lista vazia
+        # para seguir com fallback (insertion orders / line items).
+        if code == 404:
+            return {
+                "success": True,
+                "data": {"assignedTargetingOptions": []},
+                "http_code": 404,
+                "url_used": api_url,
+                "treated_as_empty": True,
+            }
+        return {
+            "success": False,
+            "error": f"Erro HTTP {code} ao listar geo da campanha",
+            "error_details": res["data"],
+            "http_code": code,
+            "url_tried": api_url,
+        }
+
+    def list_insertion_order_geo_assigned_options(
+        self,
+        advertiser_id: str,
+        insertion_order_id: str,
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        Geo atribuída ao insertion order (muitas campanhas só têm targeting de região no IO).
+        GET .../insertionOrders/{ioId}/targetingTypes/TARGETING_TYPE_GEO_REGION/assignedTargetingOptions
+        """
+        params = dict(params or {})
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+        aid = str(advertiser_id).strip()
+        ioid = str(insertion_order_id).strip()
+        if not aid or not ioid:
+            return {
+                "success": False,
+                "error": "advertiser_id e insertion_order_id são obrigatórios.",
+                "http_code": 400,
+            }
+        if "pageSize" not in params:
+            params["pageSize"] = 200
+        from urllib.parse import urlencode
+
+        ttype = "TARGETING_TYPE_GEO_REGION"
+        base = (
+            f"{self.api_base}/advertisers/{aid}/insertionOrders/{ioid}"
+            f"/targetingTypes/{ttype}/assignedTargetingOptions"
+        )
+        api_url = base + ("?" + urlencode(params) if params else "")
+        res = self._get_json(api_url, token)
+        if res["request_error"]:
+            return {"success": False, "error": "Erro HTTP: " + res["request_error"], "http_code": 0}
+        code = res["http_code"]
+        if code == 200 and isinstance(res["data"], dict):
+            return {"success": True, "data": res["data"], "http_code": 200, "url_used": api_url}
+        if code == 404:
+            return {
+                "success": True,
+                "data": {"assignedTargetingOptions": []},
+                "http_code": 404,
+                "url_used": api_url,
+                "treated_as_empty": True,
+            }
+        return {
+            "success": False,
+            "error": f"Erro HTTP {code} ao listar geo do insertion order",
+            "error_details": res["data"],
+            "http_code": code,
+            "url_tried": api_url,
+        }
+
+    @staticmethod
+    def _geo_region_details_from_option(o: dict[str, Any]) -> Optional[dict[str, Any]]:
+        """REST pode expor geoRegionDetails no topo ou dentro de `details` (oneof)."""
+        det = o.get("geoRegionDetails")
+        if isinstance(det, dict):
+            return det
+        details = o.get("details")
+        if isinstance(details, dict):
+            inner = details.get("geoRegionDetails")
+            if isinstance(inner, dict):
+                return inner
+        return None
+
+    @staticmethod
+    def _details_union_dict(o: dict[str, Any], key: str) -> Optional[dict[str, Any]]:
+        inner = o.get(key)
+        if isinstance(inner, dict):
+            return inner
+        details = o.get("details")
+        if isinstance(details, dict):
+            inner2 = details.get(key)
+            if isinstance(inner2, dict):
+                return inner2
+        return None
+
+    @staticmethod
+    def _location_label_from_assigned_option(o: dict[str, Any]) -> Optional[str]:
+        """Texto legível de praça/local a partir de um AssignedTargetingOption (vários targetingType)."""
+        det = DV360API._geo_region_details_from_option(o)
+        if isinstance(det, dict):
+            label = (
+                det.get("displayName")
+                or det.get("geoRegionDisplayName")
+                or det.get("regionName")
+                or det.get("geoRegionId")
+                or det.get("regionId")
+            )
+            if not label and isinstance(det.get("geoRegion"), dict):
+                gr = det["geoRegion"]
+                label = gr.get("displayName") or gr.get("name") or gr.get("geoRegionId")
+            if label is not None and str(label).strip():
+                return str(label).strip()
+        poi = o.get("poiDetails") or DV360API._details_union_dict(o, "poiDetails")
+        if isinstance(poi, dict) and poi.get("displayName"):
+            return str(poi["displayName"]).strip()
+        city = o.get("cityDetails") or DV360API._details_union_dict(o, "cityDetails")
+        if isinstance(city, dict):
+            label = city.get("displayName") or city.get("name") or city.get("cityId")
+            if label is not None and str(label).strip():
+                return str(label).strip()
+        postal = o.get("postalCodeDetails") or DV360API._details_union_dict(o, "postalCodeDetails")
+        if isinstance(postal, dict):
+            label = postal.get("displayName") or postal.get("postalCode")
+            if label is not None and str(label).strip():
+                return str(label).strip()
+        country = o.get("countryDetails") or DV360API._details_union_dict(o, "countryDetails")
+        if isinstance(country, dict):
+            label = country.get("displayName") or country.get("countryCode")
+            if label is not None and str(label).strip():
+                return str(label).strip()
+        chain = o.get("businessChainDetails") or DV360API._details_union_dict(o, "businessChainDetails")
+        if isinstance(chain, dict):
+            label = chain.get("displayName") or chain.get("businessChainId")
+            if label is not None and str(label).strip():
+                return str(label).strip()
+        rll = o.get("regionalLocationListDetails") or DV360API._details_union_dict(
+            o, "regionalLocationListDetails"
+        )
+        if isinstance(rll, dict) and rll.get("regionalLocationListId") is not None:
+            lid = str(rll["regionalLocationListId"]).strip()
+            neg = bool(rll.get("negative"))
+            prefix = "Excluir lista regional " if neg else "Lista regional "
+            return f"{prefix}#{lid}"
+        pll = o.get("proximityLocationListDetails") or DV360API._details_union_dict(
+            o, "proximityLocationListDetails"
+        )
+        if isinstance(pll, dict) and pll.get("proximityLocationListId") is not None:
+            lid = str(pll["proximityLocationListId"]).strip()
+            rad = pll.get("proximityRadius")
+            unit = str(pll.get("proximityRadiusUnit") or "").replace("PROXIMITY_RADIUS_UNIT_", "")
+            if rad is not None:
+                return f"Proximidade (lista #{lid}, raio {rad} {unit})".strip()
+            return f"Proximidade (lista #{lid})"
+        toid = o.get("targetingOptionId")
+        if toid is not None and str(toid).strip():
+            return f"Targeting option {toid}"
+        return None
+
+    @staticmethod
+    def summarize_location_assigned_options(data: Optional[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+        """
+        Praça / local a partir de:
+        - resposta `assignedTargetingOptions` ou
+        - `bulkListAssignedTargetingOptions` (`lineItemAssignedTargetingOptions`).
+        """
+        if not data or not isinstance(data, dict):
+            return "—", []
+        opts: list[dict[str, Any]] = []
+        raw = data.get("assignedTargetingOptions")
+        if isinstance(raw, list):
+            for x in raw:
+                if isinstance(x, dict):
+                    opts.append(x)
+        liato = data.get("lineItemAssignedTargetingOptions")
+        if isinstance(liato, list):
+            for wrap in liato:
+                if not isinstance(wrap, dict):
+                    continue
+                inner = wrap.get("assignedTargetingOption")
+                if isinstance(inner, dict):
+                    merged = dict(inner)
+                    if wrap.get("targetingType") and not merged.get("targetingType"):
+                        merged["targetingType"] = wrap["targetingType"]
+                    if wrap.get("targetingOptionId") and not merged.get("targetingOptionId"):
+                        merged["targetingOptionId"] = wrap["targetingOptionId"]
+                    opts.append(merged)
+        if not opts:
+            return "—", []
+        names: list[str] = []
+        regions: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for o in opts:
+            label = DV360API._location_label_from_assigned_option(o)
+            if not label:
+                continue
+            key = label.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(label)
+            regions.append(
+                {
+                    "displayName": label,
+                    "assignedTargetingOptionId": o.get("assignedTargetingOptionId"),
+                    "targetingType": o.get("targetingType"),
+                }
+            )
+        summary = ", ".join(names) if names else "—"
+        return summary, regions
+
+    @staticmethod
+    def summarize_geo_assigned_options(data: Optional[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+        """Compat: mesmo que summarize_location_assigned_options."""
+        return DV360API.summarize_location_assigned_options(data)
+
+    @staticmethod
+    def _infer_targeting_type_from_assigned_option(o: dict[str, Any]) -> str:
+        """Quando `targetingType` vem vazio no assigned option, deduz pelo oneof `details`."""
+        if DV360API._geo_region_details_from_option(o):
+            return "TARGETING_TYPE_GEO_REGION"
+        if o.get("cityDetails") or DV360API._details_union_dict(o, "cityDetails"):
+            return "TARGETING_TYPE_CITY"
+        if o.get("postalCodeDetails") or DV360API._details_union_dict(o, "postalCodeDetails"):
+            return "TARGETING_TYPE_POSTAL_CODE"
+        if o.get("countryDetails") or DV360API._details_union_dict(o, "countryDetails"):
+            return "TARGETING_TYPE_COUNTRY"
+        if o.get("poiDetails") or DV360API._details_union_dict(o, "poiDetails"):
+            return "TARGETING_TYPE_POI"
+        if o.get("businessChainDetails") or DV360API._details_union_dict(o, "businessChainDetails"):
+            return "TARGETING_TYPE_BUSINESS_CHAIN"
+        pll = o.get("proximityLocationListDetails") or DV360API._details_union_dict(
+            o, "proximityLocationListDetails"
+        )
+        if isinstance(pll, dict) and pll.get("proximityLocationListId") is not None:
+            return "TARGETING_TYPE_PROXIMITY_LOCATION_LIST"
+        rll = o.get("regionalLocationListDetails") or DV360API._details_union_dict(
+            o, "regionalLocationListDetails"
+        )
+        if isinstance(rll, dict) and rll.get("regionalLocationListId") is not None:
+            return "TARGETING_TYPE_REGIONAL_LOCATION_LIST"
+        return ""
+
+    @staticmethod
+    def _label_from_targeting_option_payload(payload: dict[str, Any]) -> Optional[str]:
+        """Nome amigável do recurso global `TargetingOption` (GET targetingOptions)."""
+        dn = payload.get("displayName")
+        if dn is not None and str(dn).strip():
+            return str(dn).strip()
+        return DV360API._location_label_from_assigned_option(payload)
+
+    @staticmethod
+    def _assigned_option_needs_targeting_option_resolve(base: Optional[str], targeting_option_id: str) -> bool:
+        if not str(targeting_option_id).strip():
+            return False
+        if base is None:
+            return True
+        b = str(base).strip()
+        if b.startswith("Targeting option "):
+            return True
+        if b == str(targeting_option_id).strip():
+            return True
+        if b.isdigit():
+            return True
+        return False
+
+    def get_targeting_option(
+        self, advertiser_id: str, targeting_type: str, targeting_option_id: str
+    ) -> dict[str, Any]:
+        """
+        GET .../targetingTypes/{targetingType}/targetingOptions/{targetingOptionId}?advertiserId=
+        Usado para obter o nome da região quando o assigned option só traz IDs.
+        """
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+        aid = str(advertiser_id).strip()
+        tt = str(targeting_type).strip()
+        toid = str(targeting_option_id).strip()
+        if not aid or not tt or not toid:
+            return {
+                "success": False,
+                "error": "advertiser_id, targeting_type e targeting_option_id são obrigatórios.",
+                "http_code": 400,
+            }
+        from urllib.parse import quote, urlencode
+
+        seg_tt = quote(tt, safe="")
+        seg_id = quote(toid, safe="")
+        q = urlencode({"advertiserId": aid})
+        api_url = f"{self.api_base}/targetingTypes/{seg_tt}/targetingOptions/{seg_id}?{q}"
+        res = self._get_json(api_url, token)
+        if res["request_error"]:
+            return {"success": False, "error": "Erro HTTP: " + res["request_error"], "http_code": 0}
+        code = res["http_code"]
+        if code == 200 and isinstance(res["data"], dict):
+            return {"success": True, "data": res["data"], "http_code": 200, "url_used": api_url}
+        return {
+            "success": False,
+            "error": f"Erro HTTP {code} ao obter targetingOption",
+            "error_details": res["data"],
+            "http_code": code,
+            "url_tried": api_url,
+        }
+
+    def _label_for_assigned_option_resolved(
+        self,
+        advertiser_id: str,
+        o: dict[str, Any],
+        resolve_cache: dict[tuple[str, str], Optional[str]],
+        resolutions_used: list[int],
+        max_resolutions: int,
+    ) -> Optional[str]:
+        toid_raw = o.get("targetingOptionId")
+        toid = str(toid_raw).strip() if toid_raw is not None else ""
+        tt = str(o.get("targetingType") or "").strip() or DV360API._infer_targeting_type_from_assigned_option(o)
+        base = DV360API._location_label_from_assigned_option(o)
+        if not toid or not tt:
+            return base
+        if not DV360API._assigned_option_needs_targeting_option_resolve(base, toid):
+            return base
+        key = (tt, toid)
+        if key in resolve_cache:
+            return resolve_cache[key] or base
+        if resolutions_used[0] >= max_resolutions:
+            return base
+        resolutions_used[0] += 1
+        got = self.get_targeting_option(advertiser_id, tt, toid)
+        if got.get("success") and isinstance(got.get("data"), dict):
+            resolved = DV360API._label_from_targeting_option_payload(got["data"])
+            resolve_cache[key] = resolved
+            return resolved or base
+        resolve_cache[key] = None
+        return base
+
+    def summarize_location_assigned_options_resolved(
+        self,
+        advertiser_id: str,
+        data: Optional[dict[str, Any]],
+        resolve_cache: dict[tuple[str, str], Optional[str]],
+        resolutions_used: list[int],
+        max_resolutions: int = 120,
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """Como `summarize_location_assigned_options`, mas resolve nomes via `targetingOptions.get`."""
+        if not data or not isinstance(data, dict):
+            return "—", []
+        opts: list[dict[str, Any]] = []
+        raw = data.get("assignedTargetingOptions")
+        if isinstance(raw, list):
+            for x in raw:
+                if isinstance(x, dict):
+                    opts.append(x)
+        liato = data.get("lineItemAssignedTargetingOptions")
+        if isinstance(liato, list):
+            for wrap in liato:
+                if not isinstance(wrap, dict):
+                    continue
+                inner = wrap.get("assignedTargetingOption")
+                if isinstance(inner, dict):
+                    merged = dict(inner)
+                    if wrap.get("targetingType") and not merged.get("targetingType"):
+                        merged["targetingType"] = wrap["targetingType"]
+                    if wrap.get("targetingOptionId") and not merged.get("targetingOptionId"):
+                        merged["targetingOptionId"] = wrap["targetingOptionId"]
+                    opts.append(merged)
+        if not opts:
+            return "—", []
+        names: list[str] = []
+        regions: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        aid = str(advertiser_id).strip()
+        for o in opts:
+            label = self._label_for_assigned_option_resolved(
+                aid, o, resolve_cache, resolutions_used, max_resolutions
+            )
+            if not label:
+                continue
+            key = label.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(label)
+            regions.append(
+                {
+                    "displayName": label,
+                    "assignedTargetingOptionId": o.get("assignedTargetingOptionId"),
+                    "targetingType": o.get("targetingType") or DV360API._infer_targeting_type_from_assigned_option(o),
+                }
+            )
+        summary = ", ".join(names) if names else "—"
+        return summary, regions
+
+    def summarize_geo_assigned_options_resolved(
+        self,
+        advertiser_id: str,
+        data: Optional[dict[str, Any]],
+        resolve_cache: dict[tuple[str, str], Optional[str]],
+        resolutions_used: list[int],
+        max_resolutions: int = 120,
+    ) -> tuple[str, list[dict[str, Any]]]:
+        return self.summarize_location_assigned_options_resolved(
+            advertiser_id, data, resolve_cache, resolutions_used, max_resolutions
+        )
+
+    @staticmethod
+    def _dv360_micros_to_float(value: Any) -> Optional[float]:
+        """Valores monetários / metas na API vêm em micros (ex.: 500000000 → 500 unidades)."""
+        try:
+            return int(str(value)) / 1_000_000.0
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _dv360_format_date(d: Any) -> str:
+        if not isinstance(d, dict):
+            return ""
+        y, m, day = d.get("year"), d.get("month"), d.get("day")
+        if y is None or m is None or day is None:
+            return ""
+        try:
+            return f"{int(y):04d}-{int(m):02d}-{int(day):02d}"
+        except (TypeError, ValueError):
+            return ""
+
+    @staticmethod
+    def summarize_campaign_commercial_snapshot(
+        campaign: Optional[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """
+        Metas CPM/CPA/CPC, voo planejado, orçamentos e cap de frequência a partir do GET Campaign.
+        Impressões e custo **entregues** não constam deste endpoint — ver `delivery_note_pt`.
+        """
+        _cg_pt: dict[str, str] = {
+            "CAMPAIGN_GOAL_TYPE_UNSPECIFIED": "Objetivo não especificado",
+            "CAMPAIGN_GOAL_TYPE_BRAND_AWARENESS": "Notoriedade da marca",
+            "CAMPAIGN_GOAL_TYPE_BRAND_CONSIDERATION": "Consideração da marca",
+            "CAMPAIGN_GOAL_TYPE_PERFORMANCE": "Performance",
+            "CAMPAIGN_GOAL_TYPE_APP_INSTALL": "Instalação de app",
+            "CAMPAIGN_GOAL_TYPE_ONLINE_ACTION": "Ação online",
+            "CAMPAIGN_GOAL_TYPE_OFFLINE_ACTION": "Ação offline",
+            "CAMPAIGN_GOAL_TYPE_NON_COMMERCIAL": "Não comercial",
+        }
+        _pg_pt: dict[str, str] = {
+            "PERFORMANCE_GOAL_TYPE_UNSPECIFIED": "Meta de performance não especificada",
+            "PERFORMANCE_GOAL_TYPE_CPM": "CPM (custo por mil impressões)",
+            "PERFORMANCE_GOAL_TYPE_CPC": "CPC (custo por clique)",
+            "PERFORMANCE_GOAL_TYPE_CPA": "CPA (custo por aquisição)",
+            "PERFORMANCE_GOAL_TYPE_CPIAVC": "CPIAVC (custo por impressão audível e visível)",
+            "PERFORMANCE_GOAL_TYPE_VCPM": "vCPM (custo por mil impressões visíveis)",
+            "PERFORMANCE_GOAL_TYPE_VIEWABILITY": "Viewability (visibilidade)",
+            "PERFORMANCE_GOAL_TYPE_CTR": "CTR (taxa de cliques)",
+            "PERFORMANCE_GOAL_TYPE_CLICK_CVR": "CVR de cliques",
+            "PERFORMANCE_GOAL_TYPE_IMPRESSION_CVR": "CVR de impressões",
+            "PERFORMANCE_GOAL_TYPE_VIDEO_COMPLETION_RATE": "Taxa de conclusão de vídeo",
+        }
+        _bu_pt: dict[str, str] = {
+            "BUDGET_UNIT_UNSPECIFIED": "Unidade não especificada",
+            "BUDGET_UNIT_CURRENCY": "Moeda",
+            "BUDGET_UNIT_IMPRESSIONS": "Impressões",
+        }
+        _tu_pt: dict[str, str] = {
+            "TIME_UNIT_UNSPECIFIED": "período",
+            "TIME_UNIT_LIFETIME": "vida útil",
+            "TIME_UNIT_MONTHS": "mês(es)",
+            "TIME_UNIT_WEEKS": "semana(s)",
+            "TIME_UNIT_DAYS": "dia(s)",
+            "TIME_UNIT_HOURS": "hora(s)",
+            "TIME_UNIT_MINUTES": "minuto(s)",
+        }
+        delivery_note_pt = (
+            "Impressões entregues e custo real consolidado não vêm neste detalhe da API (só configuração). "
+            "No DV360 use relatórios, Query Tool ou exportações agendadas para métricas de desempenho."
+        )
+        snap: dict[str, Any] = {
+            "campaign_goal_type": None,
+            "campaign_goal_label_pt": "",
+            "performance_goal_type": None,
+            "performance_goal_label_pt": "",
+            "performance_target_text": "",
+            "planned_spend_text": "",
+            "planned_dates_text": "",
+            "frequency_cap_text": "",
+            "budgets_text": [],
+            "delivery_note_pt": delivery_note_pt,
+        }
+        if not campaign or not isinstance(campaign, dict):
+            return snap
+
+        cg = campaign.get("campaignGoal")
+        if isinstance(cg, dict):
+            gt = cg.get("campaignGoalType")
+            if gt is not None:
+                gts = str(gt)
+                snap["campaign_goal_type"] = gts
+                snap["campaign_goal_label_pt"] = _cg_pt.get(
+                    gts, gts.replace("CAMPAIGN_GOAL_TYPE_", "").replace("_", " ").title()
+                )
+            pg = cg.get("performanceGoal")
+            if isinstance(pg, dict):
+                pt = pg.get("performanceGoalType")
+                if pt is not None:
+                    pts = str(pt)
+                    snap["performance_goal_type"] = pts
+                    snap["performance_goal_label_pt"] = _pg_pt.get(
+                        pts, pts.replace("PERFORMANCE_GOAL_TYPE_", "").replace("_", " ").title()
+                    )
+                if pg.get("performanceGoalString"):
+                    snap["performance_target_text"] = str(pg["performanceGoalString"]).strip()
+                elif pg.get("performanceGoalPercentageMicros") is not None:
+                    pv = DV360API._dv360_micros_to_float(pg.get("performanceGoalPercentageMicros"))
+                    if pv is not None:
+                        snap["performance_target_text"] = f"{pv:.4f}%".rstrip("0").rstrip(".").rstrip("%") + "%"
+                elif pg.get("performanceGoalAmountMicros") is not None:
+                    amt = DV360API._dv360_micros_to_float(pg.get("performanceGoalAmountMicros"))
+                    if amt is not None:
+                        snap["performance_target_text"] = (
+                            f"{amt:,.4f}".rstrip("0").rstrip(".").rstrip(",") + " (moeda do anunciante)"
+                        )
+
+        cf = campaign.get("campaignFlight")
+        if isinstance(cf, dict):
+            if cf.get("plannedSpendAmountMicros") is not None:
+                ps = DV360API._dv360_micros_to_float(cf.get("plannedSpendAmountMicros"))
+                if ps is not None:
+                    snap["planned_spend_text"] = (
+                        f"{ps:,.4f}".rstrip("0").rstrip(".").rstrip(",") + " (gasto planejado no voo)"
+                    )
+            pd = cf.get("plannedDates")
+            if isinstance(pd, dict):
+                sd = DV360API._dv360_format_date(pd.get("startDate"))
+                ed = DV360API._dv360_format_date(pd.get("endDate"))
+                if sd and ed:
+                    snap["planned_dates_text"] = f"{sd} até {ed}"
+                elif sd:
+                    snap["planned_dates_text"] = f"Início {sd}" + (" (sem data de fim)" if not ed else "")
+
+        fc = campaign.get("frequencyCap")
+        if isinstance(fc, dict):
+            if fc.get("unlimited") is True:
+                snap["frequency_cap_text"] = "Cap de frequência: ilimitado nesta campanha."
+            else:
+                tu = str(fc.get("timeUnit") or "")
+                tuc = fc.get("timeUnitCount")
+                mi = fc.get("maxImpressions")
+                mv = fc.get("maxViews")
+                bits: list[str] = []
+                if mi is not None:
+                    bits.append(f"até {mi} impressões")
+                if mv is not None:
+                    bits.append(f"até {mv} visualizações")
+                if bits:
+                    period = _tu_pt.get(tu, tu or "período")
+                    cnt = ""
+                    if tuc is not None:
+                        try:
+                            cnt = f"{int(tuc)} "
+                        except (TypeError, ValueError):
+                            cnt = f"{tuc} "
+                    snap["frequency_cap_text"] = (
+                        "Cap de frequência: " + ", ".join(bits) + f" por {cnt}{period}."
+                    )
+
+        budgets_raw = campaign.get("campaignBudgets")
+        if isinstance(budgets_raw, list):
+            for b in budgets_raw:
+                if not isinstance(b, dict):
+                    continue
+                nm = (b.get("displayName") or b.get("budgetId") or "Orçamento").strip()
+                unit = str(b.get("budgetUnit") or "")
+                unit_pt = _bu_pt.get(unit, unit)
+                micros = b.get("budgetAmountMicros")
+                amt = DV360API._dv360_micros_to_float(micros) if micros is not None else None
+                if amt is not None:
+                    if unit == "BUDGET_UNIT_IMPRESSIONS":
+                        line = f"{nm}: {amt:,.0f} (orçamento em impressões, escala micros da API)"
+                    else:
+                        line = (
+                            f"{nm}: {amt:,.4f}".rstrip("0").rstrip(".").rstrip(",")
+                            + f" ({unit_pt}, moeda do anunciante)"
+                        )
+                else:
+                    line = f"{nm}: ({unit_pt})"
+                dr = b.get("dateRange")
+                if isinstance(dr, dict):
+                    d0 = DV360API._dv360_format_date(dr.get("startDate"))
+                    d1 = DV360API._dv360_format_date(dr.get("endDate"))
+                    if d0 or d1:
+                        line += f" — {d0 or '?'} → {d1 or '?'}"
+                snap["budgets_text"].append(line)
+
+        return snap
+
+    def get_geo_summary_for_campaign(
+        self, advertiser_id: str, campaign_id: str, max_insertion_orders: int = 20
+    ) -> dict[str, Any]:
+        """
+        Resumo de praça: campanha (GEO_REGION); insertion orders da campanha; por fim line items
+        (bulkList — onde o targeting de local costuma estar).
+        """
+        aid = str(advertiser_id).strip()
+        cid = str(campaign_id).strip()
+        resolve_cache: dict[tuple[str, str], Optional[str]] = {}
+        resolutions_used = [0]
+        max_geo_resolutions = 120
+
+        geo = self.list_campaign_geo_assigned_options(aid, cid, {})
+        summary, regions = "—", []
+        if geo.get("success"):
+            summary, regions = self.summarize_geo_assigned_options_resolved(
+                aid, geo.get("data"), resolve_cache, resolutions_used, max_geo_resolutions
+            )
+        campaign_geo_error = None if geo.get("success") else geo.get("error")
+
+        if summary != "—":
+            return {
+                "success": True,
+                "summary": summary,
+                "regions": regions,
+                "geo_source": "campaign",
+                "campaign_geo_error": campaign_geo_error,
+            }
+
+        io_res = self.list_insertion_orders(
+            aid, {"filter": f'campaignId="{cid}"', "pageSize": 50}
+        )
+        insertion_orders_error = None if io_res.get("success") else io_res.get("error")
+        if not io_res.get("success"):
+            return {
+                "success": True,
+                "summary": "—",
+                "regions": [],
+                "geo_source": None,
+                "campaign_geo_error": campaign_geo_error,
+                "insertion_orders_error": insertion_orders_error,
+            }
+
+        raw = io_res.get("data") or {}
+        orders = raw.get("insertionOrders") or []
+        if not isinstance(orders, list):
+            orders = []
+
+        merged_names: list[str] = []
+        merged_regions: list[dict[str, Any]] = []
+        seen_labels: set[str] = set()
+        seen_option_keys: set[str] = set()
+
+        cap = max(1, min(int(max_insertion_orders), 20))
+        for ord_ in orders[:cap]:
+            if not isinstance(ord_, dict):
+                continue
+            ioid = str(ord_.get("insertionOrderId") or "").strip()
+            if not ioid:
+                continue
+            gio = self.list_insertion_order_geo_assigned_options(aid, ioid, {})
+            if not gio.get("success"):
+                continue
+            s, r = self.summarize_geo_assigned_options_resolved(
+                aid, gio.get("data"), resolve_cache, resolutions_used, max_geo_resolutions
+            )
+            if s == "—":
+                continue
+            for part in s.split(", "):
+                p = part.strip()
+                if p and p not in seen_labels:
+                    seen_labels.add(p)
+                    merged_names.append(p)
+            for reg in r:
+                if not isinstance(reg, dict):
+                    continue
+                oid = reg.get("assignedTargetingOptionId")
+                key = str(oid) if oid is not None else str(reg.get("displayName") or "")
+                if key and key not in seen_option_keys:
+                    seen_option_keys.add(key)
+                    merged_regions.append(reg)
+
+        def _merge_location_summary(s: str, rlist: list[dict[str, Any]]) -> None:
+            if s == "—":
+                return
+            for part in s.split(", "):
+                p = part.strip()
+                if p and p not in seen_labels:
+                    seen_labels.add(p)
+                    merged_names.append(p)
+            for reg in rlist:
+                if not isinstance(reg, dict):
+                    continue
+                oid = reg.get("assignedTargetingOptionId")
+                key = str(oid) if oid is not None else str(reg.get("displayName") or "")
+                if key and key not in seen_option_keys:
+                    seen_option_keys.add(key)
+                    merged_regions.append(reg)
+
+        if merged_names:
+            return {
+                "success": True,
+                "summary": ", ".join(merged_names),
+                "regions": merged_regions,
+                "geo_source": "insertion_order",
+                "campaign_geo_error": None,
+                "insertion_orders_error": insertion_orders_error,
+            }
+
+        # Geo muitas vezes só existe nos line items (nem campanha nem IO).
+        line_items_error: Optional[str] = None
+        li_res = self.list_line_items(
+            aid, {"filter": f'campaignId="{cid}"', "pageSize": 200}
+        )
+        lids: list[str] = []
+        if li_res.get("success"):
+            ldata = li_res.get("data") or {}
+            for li in ldata.get("lineItems") or []:
+                if isinstance(li, dict) and li.get("lineItemId") is not None:
+                    lids.append(str(li["lineItemId"]).strip())
+            npt = ldata.get("nextPageToken")
+            if npt and len(lids) < 120:
+                li_res2 = self.list_line_items(
+                    aid,
+                    {
+                        "filter": f'campaignId="{cid}"',
+                        "pageSize": 200,
+                        "pageToken": npt,
+                    },
+                )
+                if li_res2.get("success"):
+                    ldata2 = li_res2.get("data") or {}
+                    for li in ldata2.get("lineItems") or []:
+                        if isinstance(li, dict) and li.get("lineItemId") is not None:
+                            lids.append(str(li["lineItemId"]).strip())
+        else:
+            line_items_error = li_res.get("error")
+
+        chunk_size = 25
+        for i in range(0, min(len(lids), 120), chunk_size):
+            chunk = lids[i : i + chunk_size]
+            if not chunk:
+                break
+            bulk = self.bulk_list_line_items_assigned_geo_like(aid, chunk, {})
+            if not bulk.get("success"):
+                line_items_error = bulk.get("error")
+                continue
+            s_li, r_li = self.summarize_location_assigned_options_resolved(
+                aid, bulk.get("data"), resolve_cache, resolutions_used, max_geo_resolutions
+            )
+            _merge_location_summary(s_li, r_li)
+            bt = (bulk.get("data") or {}).get("nextPageToken")
+            if bt:
+                bulk2 = self.bulk_list_line_items_assigned_geo_like(
+                    aid, chunk, {"pageToken": bt}
+                )
+                if bulk2.get("success"):
+                    s2, r2 = self.summarize_location_assigned_options_resolved(
+                        aid, bulk2.get("data"), resolve_cache, resolutions_used, max_geo_resolutions
+                    )
+                    _merge_location_summary(s2, r2)
+
+        if merged_names:
+            return {
+                "success": True,
+                "summary": ", ".join(merged_names),
+                "regions": merged_regions,
+                "geo_source": "line_item",
+                "campaign_geo_error": None,
+                "insertion_orders_error": insertion_orders_error,
+                "line_items_error": line_items_error,
+            }
+
+        return {
+            "success": True,
+            "summary": "—",
+            "regions": [],
+            "geo_source": None,
+            "campaign_geo_error": campaign_geo_error,
+            "insertion_orders_error": insertion_orders_error,
+            "line_items_error": line_items_error,
+        }
+
+    def patch_campaign_entity_status(
+        self,
+        advertiser_id: str,
+        campaign_id: str,
+        entity_status: str,
+    ) -> dict[str, Any]:
+        """Atualiza entityStatus da campanha (ex.: ENTITY_STATUS_PAUSED)."""
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+        aid = str(advertiser_id).strip()
+        cid = str(campaign_id).strip()
+        if not aid or not cid:
+            return {
+                "success": False,
+                "error": "advertiser_id e campaign_id são obrigatórios.",
+                "http_code": 400,
+            }
+        from urllib.parse import urlencode
+
+        api_url = (
+            f"{self.api_base}/advertisers/{aid}/campaigns/{cid}"
+            f"?{urlencode({'updateMask': 'entityStatus'})}"
+        )
+        res = self._patch_json(api_url, token, {"entityStatus": entity_status})
+        if res["request_error"]:
+            return {
+                "success": False,
+                "error": "Erro HTTP: " + res["request_error"],
+                "http_code": 0,
+            }
+        code = res["http_code"]
+        if code == 200 and isinstance(res["data"], dict):
+            return {
+                "success": True,
+                "data": res["data"],
+                "http_code": 200,
+                "url_used": api_url,
+            }
+        return {
+            "success": False,
+            "error": f"Erro HTTP {code} ao atualizar campanha",
+            "error_details": res["data"],
+            "http_code": code,
+            "url_tried": api_url,
+        }
 
     def list_insertion_orders(self, advertiser_id: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         return self._list_advertiser_child(advertiser_id, "insertionOrders", "insertion orders", params)
 
     def list_line_items(self, advertiser_id: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         return self._list_advertiser_child(advertiser_id, "lineItems", "line items", params)
+
+    def bulk_list_line_items_assigned_geo_like(
+        self,
+        advertiser_id: str,
+        line_item_ids: list[str],
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        GET .../lineItems:bulkListAssignedTargetingOptions
+        (geo, listas regionais, proximidade, POI — onde a praça costuma estar na prática).
+        """
+        params = dict(params or {})
+        ids = [str(x).strip() for x in line_item_ids if str(x).strip()]
+        if not ids:
+            return {"success": False, "error": "line_item_ids vazio", "http_code": 400}
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+        aid = str(advertiser_id).strip()
+        if not aid:
+            return {"success": False, "error": "advertiser_id obrigatório", "http_code": 400}
+        from urllib.parse import urlencode
+
+        q: list[tuple[str, str]] = [("filter", params.get("filter") or _DV360_LINE_ITEM_LOCATION_FILTER)]
+        page_size = params.get("pageSize", 5000)
+        q.append(("pageSize", str(int(page_size))))
+        if params.get("pageToken"):
+            q.append(("pageToken", str(params["pageToken"])))
+        for lid in ids:
+            q.append(("lineItemIds", lid))
+        api_url = f"{self.api_base}/advertisers/{aid}/lineItems:bulkListAssignedTargetingOptions?{urlencode(q)}"
+        res = self._get_json(api_url, token)
+        if res["request_error"]:
+            return {"success": False, "error": "Erro HTTP: " + res["request_error"], "http_code": 0}
+        code = res["http_code"]
+        if code == 400 and not params.get("filter") and q[0][1] == _DV360_LINE_ITEM_LOCATION_FILTER:
+            q2: list[tuple[str, str]] = [("filter", _DV360_LINE_ITEM_LOCATION_FILTER_LEGACY)]
+            q2.append(("pageSize", str(int(page_size))))
+            if params.get("pageToken"):
+                q2.append(("pageToken", str(params["pageToken"])))
+            for lid in ids:
+                q2.append(("lineItemIds", lid))
+            api_url = f"{self.api_base}/advertisers/{aid}/lineItems:bulkListAssignedTargetingOptions?{urlencode(q2)}"
+            res = self._get_json(api_url, token)
+            if res["request_error"]:
+                return {"success": False, "error": "Erro HTTP: " + res["request_error"], "http_code": 0}
+            code = res["http_code"]
+        if code == 200 and isinstance(res["data"], dict):
+            return {"success": True, "data": res["data"], "http_code": 200, "url_used": api_url}
+        return {
+            "success": False,
+            "error": f"Erro HTTP {code} ao listar targeting (line items)",
+            "error_details": res["data"],
+            "http_code": code,
+            "url_tried": api_url,
+        }
 
     def list_creatives(self, advertiser_id: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         return self._list_advertiser_child(advertiser_id, "creatives", "criativos", params)

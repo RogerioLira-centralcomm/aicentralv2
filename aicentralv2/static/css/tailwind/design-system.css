@@ -561,7 +561,8 @@ html body select option {
 [data-theme="centralcomm"] .menu li > a:focus,
 [data-theme="centralcomm"] .menu li > a:focus-visible,
 [data-theme="centralcomm"] .menu li > button:hover,
-[data-theme="centralcomm"] .menu li > button:focus {
+[data-theme="centralcomm"] .menu li > button:focus,
+[data-theme="centralcomm"] .menu li > button:focus-visible {
     background-color: #f3f4f6 !important;
     color: #1f2937 !important;
 }
@@ -576,6 +577,92 @@ html body select option {
 [data-theme="centralcomm"] .menu li > a.active:focus {
     background-color: #d1fae5 !important;
     color: #1E4D4F !important;
+}
+
+/*
+ * Dropdown do utilizador na navbar (.nav-dd-menu.menu): maior especificidade que
+ * o DaisyUI .menu para evitar fundo e texto/ícone na mesma cor no hover/focus.
+ */
+[data-theme="centralcomm"] .nav-dd-menu.menu li > button:hover,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > button:focus,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > button:focus-visible {
+    background-color: #f3f4f6 !important;
+    color: #111827 !important;
+}
+
+[data-theme="centralcomm"] .nav-dd-menu.menu li > button:hover svg,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > button:focus svg,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > button:focus-visible svg {
+    stroke: #374151 !important;
+    color: #374151 !important;
+}
+
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a:not(.text-error):hover,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a:not(.text-error):focus,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a:not(.text-error):focus-visible {
+    background-color: #f3f4f6 !important;
+    color: #111827 !important;
+}
+
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a:not(.text-error):hover svg,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a:not(.text-error):focus svg,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a:not(.text-error):focus-visible svg {
+    stroke: #374151 !important;
+    color: #374151 !important;
+}
+
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.text-error:hover,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.text-error:focus,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.text-error:focus-visible {
+    background-color: #fef2f2 !important;
+    color: #b91c1c !important;
+}
+
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.text-error:hover svg,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.text-error:focus svg,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.text-error:focus-visible svg {
+    stroke: #b91c1c !important;
+    color: #b91c1c !important;
+}
+
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.active:hover,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.active:focus,
+[data-theme="centralcomm"] .nav-dd-menu.menu li > a.active:focus-visible {
+    background-color: #d1fae5 !important;
+    color: #1e4d4f !important;
+}
+
+[data-theme="centralcomm"] .nav-dd.nav-dd-end > .btn.btn-ghost:hover,
+[data-theme="centralcomm"] .nav-dd.nav-dd-end > .btn.btn-ghost:focus-visible {
+    background-color: rgba(15, 23, 42, 0.08) !important;
+    color: #111827 !important;
+}
+
+[data-theme="centralcomm"] .nav-dd.nav-dd-end > .btn.btn-ghost:hover .opacity-50,
+[data-theme="centralcomm"] .nav-dd.nav-dd-end > .btn.btn-ghost:focus-visible .opacity-50 {
+    opacity: 0.75 !important;
+}
+
+/*
+ * Modais (<dialog class="modal">): evitar colapso de contraste no hover do DaisyUI
+ * (ex.: Vincular NF — btn-ghost no ✕/Cancelar; btn-primary em Salvar).
+ */
+[data-theme="centralcomm"] dialog.modal .btn.btn-ghost:hover,
+[data-theme="centralcomm"] dialog.modal .btn.btn-ghost:focus-visible {
+    background-color: rgba(15, 23, 42, 0.08) !important;
+    color: #111827 !important;
+}
+
+[data-theme="centralcomm"] dialog.modal .btn.btn-ghost:hover svg,
+[data-theme="centralcomm"] dialog.modal .btn.btn-ghost:focus-visible svg {
+    stroke: #374151 !important;
+    color: #374151 !important;
+}
+
+[data-theme="centralcomm"] dialog.modal .btn.btn-primary:hover,
+[data-theme="centralcomm"] dialog.modal .btn.btn-primary:focus-visible {
+    background-color: var(--color-primary-dark, #153638) !important;
+    color: #ffffff !important;
 }
 
 /* Utility classes */

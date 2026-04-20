@@ -11864,3 +11864,179 @@ def obter_leads_metricas(ano=None, mes=None):
     except Exception as e:
         current_app.logger.error(f"Erro obter_leads_metricas: {e}")
         raise
+
+
+# ==================== DV360 — CLIENTES / ANUNCIANTES ====================
+
+def _normalizar_dv_anunciante_id(dv_anunciante_id) -> str:
+    if dv_anunciante_id is None:
+        return ''
+    return str(dv_anunciante_id).strip()
+
+
+def listar_dv_clientes_por_cliente(cliente_id: int):
+    """Lista mapeamentos cliente ↔ anunciante DV360 para um cliente (com nome_fantasia)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT d.id, d.created_at, d.updated_at, d.cliente_id, d.dv_anunciante_id,
+                       c.nome_fantasia
+                FROM dv_clientes d
+                LEFT JOIN tbl_cliente c ON c.id_cliente = d.cliente_id
+                WHERE d.cliente_id = %s
+                ORDER BY d.updated_at DESC NULLS LAST, d.id DESC
+                ''',
+                (cliente_id,),
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def listar_todos_dv_clientes_com_cliente():
+    """Lista todos os mapeamentos dv_clientes com nome_fantasia (uso interno / admin)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT d.id, d.created_at, d.updated_at, d.cliente_id, d.dv_anunciante_id,
+                       c.nome_fantasia
+                FROM dv_clientes d
+                LEFT JOIN tbl_cliente c ON c.id_cliente = d.cliente_id
+                ORDER BY c.nome_fantasia NULLS LAST, d.dv_anunciante_id
+                '''
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_dv_cliente_por_id(registro_id: int):
+    """Uma linha de dv_clientes por id."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, created_at, updated_at, cliente_id, dv_anunciante_id
+                FROM dv_clientes
+                WHERE id = %s
+                ''',
+                (registro_id,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def _dv_anunciante_id_ja_existe(cursor, dv_anunciante_id: str, exceto_id: Optional[int] = None) -> bool:
+    """True se dv_anunciante_id já existe na tabela (unicidade global)."""
+    if exceto_id is not None:
+        cursor.execute(
+            '''
+            SELECT 1 FROM dv_clientes
+            WHERE dv_anunciante_id = %s AND id <> %s
+            LIMIT 1
+            ''',
+            (dv_anunciante_id, exceto_id),
+        )
+    else:
+        cursor.execute(
+            '''
+            SELECT 1 FROM dv_clientes
+            WHERE dv_anunciante_id = %s
+            LIMIT 1
+            ''',
+            (dv_anunciante_id,),
+        )
+    return cursor.fetchone() is not None
+
+
+def criar_dv_cliente(cliente_id: int, dv_anunciante_id: str):
+    """
+    Insere mapeamento. Retorna id da linha ou None se dv_anunciante_id já existir (global).
+    """
+    adv = _normalizar_dv_anunciante_id(dv_anunciante_id)
+    if not adv:
+        raise ValueError('dv_anunciante_id inválido ou vazio')
+    if cliente_id is None:
+        raise ValueError('cliente_id é obrigatório')
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if _dv_anunciante_id_ja_existe(cursor, adv):
+                return None
+            cursor.execute(
+                '''
+                INSERT INTO dv_clientes (cliente_id, dv_anunciante_id)
+                VALUES (%s, %s)
+                RETURNING id
+                ''',
+                (int(cliente_id), adv),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return row['id'] if row else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_dv_cliente(registro_id: int, dv_anunciante_id: str) -> bool:
+    """
+    Atualiza dv_anunciante_id. Retorna False se o registro não existir.
+    Levanta ValueError se o novo id for vazio ou já existir noutro registo (unicidade global).
+    """
+    adv = _normalizar_dv_anunciante_id(dv_anunciante_id)
+    if not adv:
+        raise ValueError('dv_anunciante_id inválido ou vazio')
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT id, cliente_id FROM dv_clientes WHERE id = %s',
+                (registro_id,),
+            )
+            existente = cursor.fetchone()
+            if not existente:
+                return False
+            if _dv_anunciante_id_ja_existe(cursor, adv, exceto_id=registro_id):
+                raise ValueError(
+                    'Este dv_anunciante_id já está em uso noutro mapeamento'
+                )
+            cursor.execute(
+                '''
+                UPDATE dv_clientes
+                SET dv_anunciante_id = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                ''',
+                (adv, registro_id),
+            )
+            conn.commit()
+            return True
+    except ValueError:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_dv_cliente(registro_id: int) -> bool:
+    """Remove por id. Retorna True se apagou uma linha."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM dv_clientes WHERE id = %s RETURNING id', (registro_id,))
+            row = cursor.fetchone()
+            conn.commit()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e

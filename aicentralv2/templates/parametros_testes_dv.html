@@ -4,8 +4,9 @@
 
 {% block styles %}
 <style>
-  /* Ocupa a linha no flex para não cortar o nome do anunciante com um max-width artificial. */
-  #adv-select {
+  /* Ocupa a linha no flex para não cortar o texto dos selects com um max-width artificial. */
+  #adv-select-dv,
+  #adv-select-api {
     width: 100%;
     min-width: 0;
     max-width: none;
@@ -20,30 +21,78 @@
     <a href="{{ url_for('dv360_pages.diagnostico') }}" class="link link-primary text-sm">Diagnóstico DV360</a>
   </div>
 
-  <div class="alert alert-warning text-sm">
-    <span>Use o <strong>mesmo host</strong> em que fez login (<code>localhost</code> vs <code>127.0.0.1</code>). Em desenvolvimento, prefira <code>http://</code> se o servidor não tiver TLS.</span>
-  </div>
-
   <div id="dv360-global-msg" class="hidden alert alert-error text-sm"></div>
 
   <div class="card bg-base-100 border border-base-200 shadow-sm">
     <div class="card-body gap-4 py-5">
-      <div class="flex flex-col sm:flex-row sm:flex-nowrap sm:items-end gap-3 w-full min-w-0">
-        <div class="form-control flex-1 min-w-0 w-full">
-          <label class="label py-0" for="adv-select">
-            <span class="label-text text-sm font-medium">Anunciante</span>
+      <div class="flex flex-col gap-4 w-full min-w-0">
+        <div class="form-control flex-1 min-w-0 w-full gap-2">
+          <label class="label py-0 pb-1.5" for="adv-select-dv">
+            <span class="label-text text-sm font-medium">Cliente / anunciante (dv_clientes)</span>
           </label>
-          <select id="adv-select" class="select select-bordered select-sm w-full min-w-0">
+          <div id="dv360-adv-dv-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
+            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+            <span>A aguardar mapeamentos…</span>
+          </div>
+          <select id="adv-select-dv" class="select select-bordered select-sm w-full min-w-0">
             <option value="">Carregando…</option>
           </select>
+          <p id="adv-hint-dv" class="text-xs text-base-content/60"></p>
         </div>
-        <button type="button" id="btn-load-campaigns" class="btn btn-primary btn-sm w-full sm:w-auto shrink-0">
-          Carregar campanhas
-        </button>
+        <div class="form-control flex-1 min-w-0 w-full gap-2">
+          <label class="label py-0 pb-1.5" for="adv-select-api">
+            <span class="label-text text-sm font-medium">Anunciante (API partner DV360)</span>
+          </label>
+          <div id="dv360-adv-api-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
+            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+            <span>A aguardar a API…</span>
+          </div>
+          <select id="adv-select-api" class="select select-bordered select-sm w-full min-w-0">
+            <option value="">Carregando…</option>
+          </select>
+          <p id="adv-hint-api" class="text-xs text-base-content/60"></p>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:flex-nowrap sm:items-end gap-3 w-full min-w-0">
+          <p id="adv-hint-source" class="text-xs text-base-content/55 sm:flex-1 order-2 sm:order-1 min-w-0 leading-snug">
+            As campanhas usam o anunciante do select que alterar por último (com valor). Se não mexer nos dois, prioriza dv_clientes.
+          </p>
+          <div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 shrink-0 w-full sm:w-auto justify-end">
+            <button type="button" id="btn-add-dv-mapping" class="btn btn-outline btn-sm btn-square shrink-0" title="Novo mapeamento em dv_clientes" aria-label="Novo mapeamento dv_clientes">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            </button>
+            <button type="button" id="btn-load-campaigns" class="btn btn-primary btn-sm shrink-0">
+              Carregar campanhas
+            </button>
+          </div>
+        </div>
       </div>
-      <p id="adv-hint" class="text-xs text-base-content/60"></p>
     </div>
   </div>
+
+  <dialog id="modal-dv-cliente-mapping" class="modal">
+    <div class="modal-box max-w-md">
+      <h3 class="font-semibold text-base text-base-content">Novo mapeamento dv_clientes</h3>
+      <p class="text-xs text-base-content/60 mt-1">Associa um cliente a um ID de anunciante no DV360.</p>
+      <form id="form-dv-cliente-mapping" class="flex flex-col gap-3 mt-4">
+        <div class="form-control w-full">
+          <label class="label py-0 pb-1" for="modal-dv-cliente-id"><span class="label-text text-sm font-medium">Cliente</span></label>
+          <select id="modal-dv-cliente-id" name="cliente_id" class="select select-bordered select-sm w-full" required>
+            <option value="">A carregar…</option>
+          </select>
+        </div>
+        <div class="form-control w-full">
+          <label class="label py-0 pb-1" for="modal-dv-anunciante-id"><span class="label-text text-sm font-medium">dv_anunciante_id</span></label>
+          <input type="text" id="modal-dv-anunciante-id" name="dv_anunciante_id" class="input input-bordered input-sm w-full" autocomplete="off" placeholder="Ex.: 1234567890" required />
+        </div>
+        <p id="modal-dv-mapping-msg" class="text-sm hidden min-h-[1.25rem]" role="status"></p>
+        <div class="modal-action mt-2 flex-wrap gap-2">
+          <button type="button" id="modal-dv-mapping-cancel" class="btn btn-ghost btn-sm">Cancelar</button>
+          <button type="submit" id="modal-dv-mapping-save" class="btn btn-primary btn-sm">Guardar</button>
+        </div>
+      </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
+  </dialog>
 
   <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
     <table class="table table-sm table-zebra">
@@ -52,12 +101,12 @@
           <th>Nome</th>
           <th>ID</th>
           <th>Situação</th>
-          <th class="w-28">Ações</th>
+          <th class="w-20">Ações</th>
         </tr>
       </thead>
       <tbody id="campaign-rows">
         <tr>
-          <td colspan="4" class="text-base-content/50 text-sm">Escolha um anunciante e carregue as campanhas.</td>
+          <td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv_clientes) ou um anunciante da API e carregue as campanhas.</td>
         </tr>
       </tbody>
     </table>
@@ -72,7 +121,10 @@
         <h2 class="text-base font-semibold text-base-content">Detalhe da campanha (DV360)</h2>
         <button type="button" id="campaign-detail-close" class="btn btn-ghost btn-xs">Fechar</button>
       </div>
-      <p id="campaign-detail-loading" class="text-sm text-base-content/60 hidden">A carregar…</p>
+      <p id="campaign-detail-loading" class="hidden flex items-center gap-2 text-sm text-base-content/60" role="status">
+        <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>A aguardar a API…</span>
+      </p>
       <p id="campaign-detail-error" class="text-sm text-error hidden"></p>
       <div id="campaign-detail-body" class="hidden text-sm"></div>
       <details id="campaign-detail-json" class="hidden">
@@ -85,11 +137,26 @@
 
 <script>
 (function () {
-  const advSelect = document.getElementById('adv-select');
+  const advSelectDv = document.getElementById('adv-select-dv');
+  const advSelectApi = document.getElementById('adv-select-api');
+  const advLoadingDv = document.getElementById('dv360-adv-dv-loading');
+  const advLoadingApi = document.getElementById('dv360-adv-api-loading');
+  const advHintDv = document.getElementById('adv-hint-dv');
+  const advHintApi = document.getElementById('adv-hint-api');
+  const advHintSource = document.getElementById('adv-hint-source');
   const btnLoad = document.getElementById('btn-load-campaigns');
+  const btnAddDvMapping = document.getElementById('btn-add-dv-mapping');
+  const modalDvMapping = document.getElementById('modal-dv-cliente-mapping');
+  const formDvMapping = document.getElementById('form-dv-cliente-mapping');
+  const selModalCliente = document.getElementById('modal-dv-cliente-id');
+  const inpModalAdv = document.getElementById('modal-dv-anunciante-id');
+  const modalDvMsg = document.getElementById('modal-dv-mapping-msg');
+  const btnModalDvSave = document.getElementById('modal-dv-mapping-save');
+  const btnModalDvCancel = document.getElementById('modal-dv-mapping-cancel');
   const tbody = document.getElementById('campaign-rows');
   const globalMsg = document.getElementById('dv360-global-msg');
-  const advHint = document.getElementById('adv-hint');
+  /** Último select alterado pelo utilizador: 'dv' | 'api' | null (null = prioridade dv_clientes se ambos têm valor). */
+  var lastAdvertiserSource = null;
   const detailWrap = document.getElementById('campaign-detail-wrap');
   const detailLoading = document.getElementById('campaign-detail-loading');
   const detailError = document.getElementById('campaign-detail-error');
@@ -114,7 +181,35 @@
   }
 
   function selectedAdvertiserId() {
-    return (advSelect.value || '').trim();
+    var dvVal = (advSelectDv.value || '').trim();
+    var apiVal = (advSelectApi.value || '').trim();
+    if (!dvVal && !apiVal) return '';
+    if (lastAdvertiserSource === 'dv') {
+      if (dvVal) return dvVal;
+      return apiVal;
+    }
+    if (lastAdvertiserSource === 'api') {
+      if (apiVal) return apiVal;
+      return dvVal;
+    }
+    if (dvVal) return dvVal;
+    return apiVal;
+  }
+
+  function refreshAdvertiserSourceHint() {
+    if (!advHintSource) return;
+    var dvVal = (advSelectDv.value || '').trim();
+    var apiVal = (advSelectApi.value || '').trim();
+    var id = selectedAdvertiserId();
+    if (!id) {
+      advHintSource.textContent =
+        'Escolha um anunciante num dos selects. Se ambos tiverem valor e não alterar nenhum, usa-se primeiro dv_clientes.';
+      return;
+    }
+    var src = '—';
+    if (id === dvVal && dvVal) src = 'dv_clientes';
+    else if (id === apiVal && apiVal) src = 'API partner';
+    advHintSource.textContent = 'Anunciante activo para pedidos DV360: ' + id + ' (' + src + ').';
   }
 
   function campaignName(c) {
@@ -156,6 +251,9 @@
 
   var URL_PAUSE_TMPL = "{{ url_for('dv360.campaign_pause', campaign_id='__CID__') }}";
   var URL_ACTIVATE_TMPL = "{{ url_for('dv360.campaign_activate', campaign_id='__CID__') }}";
+  var CLIENT_MAPPINGS_URL = {% if session.get('user_type') in ('admin', 'superadmin') %}{{ url_for('dv360.client_mappings_list', all=1) | tojson }}{% else %}{{ url_for('dv360.client_mappings_list') | tojson }}{% endif %};
+  var URL_CLIENTES_MAPEAMENTO_DV = {{ url_for('dv360.clientes_para_mapeamento_dv') | tojson }};
+  var URL_CLIENT_MAPPINGS_POST = {{ url_for('dv360.client_mappings_create') | tojson }};
 
   function formatFieldValue(v) {
     if (v === null || v === undefined) return '—';
@@ -171,7 +269,7 @@
     detailJson.classList.add('hidden');
   }
 
-  /** Limpa lista de campanhas e detalhe (ex.: ao mudar o anunciante). */
+  /** Limpa lista de campanhas e detalhe (ex.: ao mudar o mapeamento dv_clientes). */
   function resetCampaignsView() {
     hideCampaignDetail();
     detailError.textContent = '';
@@ -183,10 +281,10 @@
     var advId = selectedAdvertiserId();
     if (!advId) {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="text-base-content/50 text-sm">Escolha um anunciante e carregue as campanhas.</td></tr>';
+        '<tr><td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv_clientes) ou um anunciante da API e carregue as campanhas.</td></tr>';
     } else {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="text-base-content/50 text-sm">Anunciante alterado. Clique em <strong>Carregar campanhas</strong>.</td></tr>';
+        '<tr><td colspan="4" class="text-base-content/50 text-sm">Seleção alterada. Clique em <strong>Carregar campanhas</strong>.</td></tr>';
     }
   }
 
@@ -375,7 +473,8 @@
     if (st === 'ENTITY_STATUS_ACTIVE') {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'btn btn-warning btn-xs';
+      b.className =
+        'btn btn-warning btn-xs h-7 min-h-0 px-2 py-0 text-[11px] font-medium leading-tight normal-case shrink-0';
       b.textContent = 'Pausar';
       b.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -385,11 +484,12 @@
     } else if (st === 'ENTITY_STATUS_PAUSED' || st === 'ENTITY_STATUS_DRAFT') {
       var b2 = document.createElement('button');
       b2.type = 'button';
-      b2.className = 'btn btn-success btn-xs';
+      b2.className =
+        'btn btn-success btn-xs h-7 min-h-0 px-2 py-0 text-[11px] font-medium leading-tight normal-case shrink-0';
       b2.textContent = st === 'ENTITY_STATUS_DRAFT' ? 'Ativar' : 'Reativar';
       b2.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        activateCampaign(advertiserId, id, nm, b2, tr);
+        activateCampaign(advertiserId, id, nm, b2, tr, st === 'ENTITY_STATUS_DRAFT');
       });
       tdBtn.appendChild(b2);
     } else {
@@ -424,7 +524,7 @@
         '</td>' +
         '<td><code class="text-xs">' + escapeHtml(id) + '</code></td>' +
         '<td class="text-xs align-top">' + formatCampaignStatusRowHtml(c) + '</td>' +
-        '<td class="align-top"></td>';
+        '<td class="align-top w-20 py-1"></td>';
       var tdBtn = tr.querySelector('td:last-child');
       attachRowActions(tdBtn, advId, tr.__dv360Campaign, tr);
       tbody.appendChild(tr);
@@ -574,7 +674,8 @@
       safeName +
       '</strong> (ID <strong>' +
       safeId +
-      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).';
+      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).' +
+      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
 
     if (typeof window.showConfirm === 'function') {
       window.showConfirm({
@@ -587,11 +688,20 @@
       });
       return;
     }
-    if (!confirm('Pausar a campanha "' + (campaignDisplayName || campaignId) + '" (ID ' + campaignId + ') no DV360?')) return;
+    if (
+      !confirm(
+        'Pausar a campanha "' +
+          (campaignDisplayName || campaignId) +
+          '" (ID ' +
+          campaignId +
+          ') no DV360? O estado na API será alterado (entityStatus → PAUSED).'
+      )
+    )
+      return;
     doPause();
   }
 
-  function activateCampaign(advertiserId, campaignId, campaignDisplayName, btn, row) {
+  function activateCampaign(advertiserId, campaignId, campaignDisplayName, btn, row, isDraft) {
     function doAct() {
       btn.disabled = true;
       hideGlobal();
@@ -606,7 +716,7 @@
           showGlobal(err, 'err');
           return;
         }
-        showGlobal('Campanha ativada com sucesso.', 'ok');
+        showGlobal(draft ? 'Campanha ativada com sucesso.' : 'Campanha reativada com sucesso.', 'ok');
         var ns = (res.body.data && res.body.data.entityStatus) || 'ENTITY_STATUS_ACTIVE';
         if (row.__dv360Campaign) {
           row.__dv360Campaign.entityStatus = ns;
@@ -615,31 +725,49 @@
         syncCampaignRowFromApi(campaignId, ns, res.body.lifecycle);
       }).catch(function () {
         btn.disabled = false;
-        showGlobal('Falha de rede ao ativar.', 'err');
+        showGlobal('Falha de rede ao ativar ou reativar.', 'err');
       });
     }
 
+    var draft = !!isDraft;
     var safeName = escapeHtml(campaignDisplayName || '—');
     var safeId = escapeHtml(String(campaignId));
+    var lead = draft
+      ? 'A campanha <strong>sairá do rascunho</strong> e será <strong>ativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).'
+      : 'A campanha será <strong>reativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).';
     var msg =
       'A campanha <strong>' +
       safeName +
       '</strong> (ID <strong>' +
       safeId +
-      '</strong>) será <strong>ativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).';
+      '</strong>): ' +
+      lead +
+      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
+    var titleRow = draft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
+    var btnTextRow = draft ? 'Ativar' : 'Reativar';
 
     if (typeof window.showConfirm === 'function') {
       window.showConfirm({
         theme: 'success',
-        title: 'Ativar campanha',
+        title: titleRow,
         message: msg,
-        confirmText: 'Ativar',
+        confirmText: btnTextRow,
         cancelText: 'Cancelar',
         onConfirm: doAct,
       });
       return;
     }
-    if (!confirm('Ativar a campanha "' + (campaignDisplayName || campaignId) + '" (ID ' + campaignId + ') no DV360?')) return;
+    if (
+      !confirm(
+        btnTextRow +
+          ' a campanha "' +
+          (campaignDisplayName || campaignId) +
+          '" (ID ' +
+          campaignId +
+          ') no DV360? O estado na API será alterado (entityStatus → ACTIVE).'
+      )
+    )
+      return;
     doAct();
   }
 
@@ -675,7 +803,8 @@
       safeName +
       '</strong> (ID <strong>' +
       safeId +
-      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).';
+      '</strong>) será <strong>pausada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → PAUSED).' +
+      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
     if (typeof window.showConfirm === 'function') {
       window.showConfirm({
         theme: 'warning',
@@ -687,7 +816,16 @@
       });
       return;
     }
-    if (!confirm('Pausar a campanha "' + (displayName || campaignId) + '" (ID ' + campaignId + ') no DV360?')) return;
+    if (
+      !confirm(
+        'Pausar a campanha "' +
+          (displayName || campaignId) +
+          '" (ID ' +
+          campaignId +
+          ') no DV360? O estado na API será alterado (entityStatus → PAUSED).'
+      )
+    )
+      return;
     doPause();
   }
 
@@ -718,12 +856,17 @@
     }
     var safeName = escapeHtml(displayName || '—');
     var safeId = escapeHtml(String(campaignId));
+    var lead = isDraft
+      ? 'A campanha <strong>sairá do rascunho</strong> e será <strong>ativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).'
+      : 'A campanha será <strong>reativada</strong> no Display &amp; Video 360 (<code>entityStatus</code> → ACTIVE).';
     var msg =
       'A campanha <strong>' +
       safeName +
       '</strong> (ID <strong>' +
       safeId +
-      '</strong>) passará a <strong>ACTIVE</strong> no Display &amp; Video 360 (<code>entityStatus</code>).';
+      '</strong>): ' +
+      lead +
+      '<p class="mt-2 text-sm text-base-content/80">O estado da campanha na API do DV360 <strong>será alterado</strong>; não é apenas uma alteração local nesta página.</p>';
     var title = isDraft ? 'Ativar campanha (rascunho)' : 'Reativar campanha';
     var btnText = isDraft ? 'Ativar' : 'Reativar';
     if (typeof window.showConfirm === 'function') {
@@ -737,58 +880,205 @@
       });
       return;
     }
-    if (!confirm((isDraft ? 'Ativar' : 'Reativar') + ' a campanha no DV360?')) return;
+    if (
+      !confirm(
+        (isDraft ? 'Ativar' : 'Reativar') +
+          ' a campanha "' +
+          (displayName || campaignId) +
+          '" (ID ' +
+          campaignId +
+          ') no DV360? O estado na API será alterado (entityStatus → ACTIVE).'
+      )
+    )
+      return;
     doAct();
   }
 
-  function loadAdvertisers() {
-    advSelect.innerHTML = '<option value="">Carregando…</option>';
+  function loadDvClientMappings() {
+    advSelectDv.innerHTML = '<option value="">Carregando…</option>';
     hideGlobal();
-    jsonFetch("{{ url_for('dv360.advertisers') }}").then(function (res) {
-      advSelect.innerHTML = '';
-      if (res.status === 401) {
-        advSelect.innerHTML = '<option value="">Não autenticado</option>';
-        showGlobal((res.body && res.body.error) || 'Inicie sessão no mesmo host.', 'err');
-        return;
-      }
-      if (!res.body || !res.body.success) {
-        advSelect.innerHTML = '<option value="">Erro ao listar</option>';
-        showGlobal((res.body && res.body.error) || 'Erro ao listar anunciantes.', 'err');
-        return;
-      }
-      var list = (res.body.data && res.body.data.advertisers) || [];
-      if (!list.length) {
-        advSelect.innerHTML = '<option value="">Nenhum anunciante</option>';
-        advHint.textContent = 'Verifique DV360_PARTNER_ID e permissões.';
-        return;
-      }
-      var opt0 = document.createElement('option');
-      opt0.value = '';
-      opt0.textContent = 'Selecione…';
-      advSelect.appendChild(opt0);
-      list.forEach(function (a) {
-        var id = a.advertiserId != null ? String(a.advertiserId) : '';
-        if (!id) return;
-        var o = document.createElement('option');
-        o.value = id;
-        o.textContent = (a.displayName || a.name || id) + ' (' + id + ')';
-        advSelect.appendChild(o);
+    if (advLoadingDv) advLoadingDv.classList.remove('hidden');
+    advSelectDv.disabled = true;
+    return jsonFetch(CLIENT_MAPPINGS_URL)
+      .then(function (res) {
+        advSelectDv.innerHTML = '';
+        if (res.status === 401) {
+          advSelectDv.innerHTML = '<option value="">Não autenticado</option>';
+          showGlobal((res.body && res.body.error) || 'Inicie sessão no mesmo host.', 'err');
+          return;
+        }
+        if (!res.body || !res.body.success) {
+          advSelectDv.innerHTML = '<option value="">Erro ao listar</option>';
+          showGlobal((res.body && res.body.error) || 'Erro ao listar mapeamentos dv_clientes.', 'err');
+          return;
+        }
+        var list = res.body.data || [];
+        if (!list.length) {
+          advSelectDv.innerHTML = '<option value="">Nenhum mapeamento</option>';
+          if (advHintDv) advHintDv.textContent = 'Nenhum registo em dv_clientes para este contexto.';
+          return;
+        }
+        var opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = 'Selecione…';
+        advSelectDv.appendChild(opt0);
+        list.forEach(function (row) {
+          var idAdv = row.dv_anunciante_id != null ? String(row.dv_anunciante_id).trim() : '';
+          if (!idAdv) return;
+          var nome =
+            row.nome_fantasia != null && String(row.nome_fantasia).trim() !== ''
+              ? String(row.nome_fantasia).trim()
+              : '—';
+          var o = document.createElement('option');
+          o.value = idAdv;
+          o.textContent = nome + ' ' + idAdv;
+          advSelectDv.appendChild(o);
+        });
+        if (advHintDv) advHintDv.textContent = list.length + ' mapeamento(s) em dv_clientes.';
+      })
+      .catch(function () {
+        advSelectDv.innerHTML = '<option value="">Erro de rede</option>';
+        showGlobal('Erro de rede ao carregar mapeamentos.', 'err');
+      })
+      .finally(function () {
+        if (advLoadingDv) advLoadingDv.classList.add('hidden');
+        advSelectDv.disabled = false;
+        refreshAdvertiserSourceHint();
       });
-      advHint.textContent = list.length + ' anunciante(s) no partner.';
-    }).catch(function () {
-      advSelect.innerHTML = '<option value="">Erro de rede</option>';
-      showGlobal('Erro de rede ao carregar anunciantes.', 'err');
-    });
+  }
+
+  function clearModalDvMappingMsg() {
+    if (!modalDvMsg) return;
+    modalDvMsg.textContent = '';
+    modalDvMsg.className = 'text-sm hidden min-h-[1.25rem]';
+  }
+
+  function showModalDvMappingMsg(text, kind) {
+    if (!modalDvMsg) return;
+    modalDvMsg.textContent = text;
+    modalDvMsg.classList.remove('hidden', 'text-error', 'text-success', 'text-info');
+    modalDvMsg.classList.add(kind === 'ok' ? 'text-success' : kind === 'info' ? 'text-info' : 'text-error');
+    modalDvMsg.classList.remove('hidden');
+  }
+
+  function loadModalClientesForSelect() {
+    if (!selModalCliente) return Promise.resolve();
+    selModalCliente.innerHTML = '<option value="">A carregar…</option>';
+    selModalCliente.disabled = true;
+    return jsonFetch(URL_CLIENTES_MAPEAMENTO_DV)
+      .then(function (res) {
+        selModalCliente.innerHTML = '';
+        if (res.status === 401 || !res.body || !res.body.success) {
+          selModalCliente.innerHTML = '<option value="">Erro ao carregar</option>';
+          showModalDvMappingMsg((res.body && res.body.error) || 'Não foi possível carregar a lista de clientes.', 'err');
+          return;
+        }
+        var list = res.body.data || [];
+        if (!list.length) {
+          selModalCliente.innerHTML = '<option value="">Sem clientes</option>';
+          return;
+        }
+        var opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = 'Selecione o cliente…';
+        selModalCliente.appendChild(opt0);
+        list.forEach(function (row) {
+          var id = row.id_cliente != null ? String(row.id_cliente) : '';
+          if (!id) return;
+          var nf =
+            row.nome_fantasia != null && String(row.nome_fantasia).trim() !== ''
+              ? String(row.nome_fantasia).trim()
+              : '—';
+          var o = document.createElement('option');
+          o.value = id;
+          o.textContent = nf;
+          selModalCliente.appendChild(o);
+        });
+        if (list.length === 1) selModalCliente.value = String(list[0].id_cliente);
+      })
+      .catch(function () {
+        selModalCliente.innerHTML = '<option value="">Erro de rede</option>';
+        showModalDvMappingMsg('Erro de rede ao carregar clientes.', 'err');
+      })
+      .finally(function () {
+        selModalCliente.disabled = false;
+      });
+  }
+
+  function openModalDvMapping() {
+    if (!modalDvMapping || !formDvMapping || !inpModalAdv) return;
+    clearModalDvMappingMsg();
+    inpModalAdv.value = '';
+    modalDvMapping.showModal();
+    loadModalClientesForSelect();
+  }
+
+  function closeModalDvMapping() {
+    if (modalDvMapping) modalDvMapping.close();
+    clearModalDvMappingMsg();
+  }
+
+  function loadPartnerAdvertisers() {
+    advSelectApi.innerHTML = '<option value="">Carregando…</option>';
+    hideGlobal();
+    if (advLoadingApi) advLoadingApi.classList.remove('hidden');
+    advSelectApi.disabled = true;
+    jsonFetch("{{ url_for('dv360.advertisers') }}")
+      .then(function (res) {
+        advSelectApi.innerHTML = '';
+        if (res.status === 401) {
+          advSelectApi.innerHTML = '<option value="">Não autenticado</option>';
+          showGlobal((res.body && res.body.error) || 'Inicie sessão no mesmo host.', 'err');
+          return;
+        }
+        if (!res.body || !res.body.success) {
+          advSelectApi.innerHTML = '<option value="">Erro ao listar</option>';
+          showGlobal((res.body && res.body.error) || 'Erro ao listar anunciantes.', 'err');
+          return;
+        }
+        var list = (res.body.data && res.body.data.advertisers) || [];
+        if (!list.length) {
+          advSelectApi.innerHTML = '<option value="">Nenhum anunciante</option>';
+          if (advHintApi) advHintApi.textContent = 'Verifique DV360_PARTNER_ID e permissões.';
+          return;
+        }
+        var opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = 'Selecione…';
+        advSelectApi.appendChild(opt0);
+        list.forEach(function (a) {
+          var id = a.advertiserId != null ? String(a.advertiserId) : '';
+          if (!id) return;
+          var o = document.createElement('option');
+          o.value = id;
+          o.textContent = (a.displayName || a.name || id) + ' (' + id + ')';
+          advSelectApi.appendChild(o);
+        });
+        if (advHintApi) advHintApi.textContent = list.length + ' anunciante(s) no partner.';
+      })
+      .catch(function () {
+        advSelectApi.innerHTML = '<option value="">Erro de rede</option>';
+        showGlobal('Erro de rede ao carregar anunciantes.', 'err');
+      })
+      .finally(function () {
+        if (advLoadingApi) advLoadingApi.classList.add('hidden');
+        advSelectApi.disabled = false;
+        refreshAdvertiserSourceHint();
+      });
   }
 
   function loadCampaigns() {
     var advId = selectedAdvertiserId();
     if (!advId) {
-      showGlobal('Selecione um anunciante.', 'info');
+      showGlobal('Selecione um anunciante num dos selects (dv_clientes ou API partner).', 'info');
       return;
     }
     hideGlobal();
-    tbody.innerHTML = '<tr><td colspan="4" class="text-sm">A carregar…</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="4" class="py-8 text-center text-sm text-base-content/70">' +
+      '<span class="inline-flex items-center justify-center gap-2">' +
+      '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>' +
+      '<span>A aguardar a API…</span></span></td></tr>';
     btnLoad.disabled = true;
     var q = new URLSearchParams({ advertiser_id: advId });
     jsonFetch("{{ url_for('dv360.campaigns') }}?" + q.toString()).then(function (res) {
@@ -819,7 +1109,7 @@
     if (!cid) return;
     var advId = selectedAdvertiserId();
     if (!advId) {
-      showGlobal('Selecione um anunciante.', 'info');
+      showGlobal('Selecione um anunciante num dos selects (dv_clientes ou API partner).', 'info');
       return;
     }
     showCampaignDetail(advId, cid);
@@ -836,13 +1126,100 @@
 
   detailClose.addEventListener('click', hideCampaignDetail);
 
-  advSelect.addEventListener('change', function () {
+  advSelectDv.addEventListener('change', function () {
+    lastAdvertiserSource = 'dv';
     hideGlobal();
     resetCampaignsView();
+    refreshAdvertiserSourceHint();
+  });
+  advSelectApi.addEventListener('change', function () {
+    lastAdvertiserSource = 'api';
+    hideGlobal();
+    resetCampaignsView();
+    refreshAdvertiserSourceHint();
   });
 
+  if (btnAddDvMapping) btnAddDvMapping.addEventListener('click', openModalDvMapping);
+  if (btnModalDvCancel) btnModalDvCancel.addEventListener('click', closeModalDvMapping);
+  if (modalDvMapping) {
+    modalDvMapping.addEventListener('close', function () {
+      clearModalDvMappingMsg();
+      if (inpModalAdv) inpModalAdv.value = '';
+    });
+  }
+  if (formDvMapping) {
+    formDvMapping.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      clearModalDvMappingMsg();
+      var cidStr = (selModalCliente && selModalCliente.value ? selModalCliente.value : '').trim();
+      var advRaw = (inpModalAdv && inpModalAdv.value ? inpModalAdv.value : '').trim();
+      var clienteId = parseInt(cidStr, 10);
+      if (!cidStr || !advRaw) {
+        showModalDvMappingMsg('Preencha cliente e dv_anunciante_id.', 'err');
+        return;
+      }
+      if (isNaN(clienteId)) {
+        showModalDvMappingMsg('Cliente inválido.', 'err');
+        return;
+      }
+      if (btnModalDvSave) btnModalDvSave.disabled = true;
+      jsonFetch(URL_CLIENT_MAPPINGS_POST, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ cliente_id: clienteId, dv_anunciante_id: advRaw }),
+      })
+        .then(function (res) {
+          if (res.status === 409) {
+            showModalDvMappingMsg(
+              (res.body && res.body.error) ||
+                'Este dv_anunciante_id já está em uso noutro mapeamento.',
+              'err'
+            );
+            return;
+          }
+          if (res.status === 403) {
+            showModalDvMappingMsg((res.body && res.body.error) || 'Acesso negado para este cliente.', 'err');
+            return;
+          }
+          if (res.status === 400) {
+            showModalDvMappingMsg((res.body && res.body.error) || 'Dados inválidos.', 'err');
+            return;
+          }
+          if (res.status === 201 && res.body && res.body.success) {
+            var newAdv =
+              res.body.data && res.body.data.dv_anunciante_id != null
+                ? String(res.body.data.dv_anunciante_id).trim()
+                : advRaw;
+            showModalDvMappingMsg('Mapeamento criado com sucesso.', 'ok');
+            loadDvClientMappings()
+              .then(function () {
+                if (newAdv && advSelectDv) {
+                  advSelectDv.value = newAdv;
+                  lastAdvertiserSource = 'dv';
+                  refreshAdvertiserSourceHint();
+                  resetCampaignsView();
+                }
+              })
+              .catch(function () {
+                showGlobal('Mapeamento criado, mas falhou ao atualizar a lista. Recarregue a página ou abra de novo o select.', 'info');
+              });
+            setTimeout(closeModalDvMapping, 900);
+            return;
+          }
+          showModalDvMappingMsg((res.body && res.body.error) || 'Pedido falhou (HTTP ' + res.status + ').', 'err');
+        })
+        .catch(function () {
+          showModalDvMappingMsg('Erro de rede ao guardar.', 'err');
+        })
+        .finally(function () {
+          if (btnModalDvSave) btnModalDvSave.disabled = false;
+        });
+    });
+  }
+
   btnLoad.addEventListener('click', loadCampaigns);
-  loadAdvertisers();
+  loadDvClientMappings();
+  loadPartnerAdvertisers();
 })();
 </script>
 {% endblock %}

@@ -10,8 +10,9 @@ import json
 import logging
 from typing import Any, Optional
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request, session
 
+from aicentralv2 import db
 from aicentralv2.auth import login_required, login_required_api
 from aicentralv2.services.dv360_client import DV360_ENDPOINTS, DV360API, get_dv360_client
 
@@ -454,6 +455,207 @@ def combined_audience(audience_id: str):
 def custom_list(advertiser_id: str, custom_list_id: str):
     client = get_dv360_client()
     return jsonify(client.get_custom_list(advertiser_id, custom_list_id))
+
+
+def _is_dv_session_admin() -> bool:
+    return session.get("user_type") in ("admin", "superadmin")
+
+
+def _session_cliente_id() -> Optional[int]:
+    cid = session.get("cliente_id")
+    if cid is None:
+        return None
+    try:
+        return int(cid)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pode_aceder_cliente(cliente_id: int) -> bool:
+    if _is_dv_session_admin():
+        return True
+    sid = _session_cliente_id()
+    return sid is not None and sid == int(cliente_id)
+
+
+@bp.route("/client-mappings", methods=["GET"])
+@login_required_api
+def client_mappings_list():
+    """
+    Lista mapeamentos dv_clientes para um cliente (com nome_fantasia via JOIN).
+    Administradores: ?all=1 lista todos; senão query cliente_id obrigatório.
+    Utilizador normal: só o próprio cliente (ignora all=1).
+    """
+    q_cid = request.args.get("cliente_id", type=int)
+    if _is_dv_session_admin() and _truthy("all"):
+        rows = db.listar_todos_dv_clientes_com_cliente()
+        return jsonify({"success": True, "data": rows})
+
+    if _is_dv_session_admin():
+        if q_cid is None:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "cliente_id é obrigatório para administradores (ou use all=1)",
+                        "http_code": 400,
+                    }
+                ),
+                400,
+            )
+        target = q_cid
+    else:
+        sid = _session_cliente_id()
+        if sid is None:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Sessão sem cliente associado",
+                        "http_code": 400,
+                    }
+                ),
+                400,
+            )
+        if q_cid is not None and q_cid != sid:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Acesso negado a outro cliente",
+                        "http_code": 403,
+                    }
+                ),
+                403,
+            )
+        target = sid
+
+    if not _pode_aceder_cliente(target):
+        return jsonify({"success": False, "error": "Acesso negado", "http_code": 403}), 403
+
+    rows = db.listar_dv_clientes_por_cliente(target)
+    return jsonify({"success": True, "data": rows})
+
+
+@bp.route("/clientes-para-mapeamento-dv", methods=["GET"])
+@login_required_api
+def clientes_para_mapeamento_dv():
+    """
+    Lista clientes para o modal de novo mapeamento dv_clientes (id_cliente, nome_fantasia, razao_social).
+    Administradores: todos os clientes (ordenados por nome_fantasia). Utilizador normal: só o da sessão.
+    """
+    if _is_dv_session_admin():
+        rows = db.obter_clientes_para_filtro()
+        return jsonify({"success": True, "data": rows})
+    sid = _session_cliente_id()
+    if sid is None:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Sessão sem cliente associado",
+                    "http_code": 400,
+                }
+            ),
+            400,
+        )
+    cli = db.obter_cliente_por_id(sid)
+    nome = (cli or {}).get("nome_fantasia") or "—"
+    razao = (cli or {}).get("razao_social")
+    return jsonify(
+        {
+            "success": True,
+            "data": [{"id_cliente": sid, "nome_fantasia": nome, "razao_social": razao}],
+        }
+    )
+
+
+@bp.route("/client-mappings", methods=["POST"])
+@login_required_api
+def client_mappings_create():
+    """Cria mapeamento cliente_id + dv_anunciante_id."""
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    raw_cid = payload.get("cliente_id")
+    dv_anunciante_id = payload.get("dv_anunciante_id")
+    try:
+        cliente_id = int(raw_cid)
+    except (TypeError, ValueError):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "cliente_id inválido ou em falta",
+                    "http_code": 400,
+                }
+            ),
+            400,
+        )
+
+    if not _pode_aceder_cliente(cliente_id):
+        return jsonify({"success": False, "error": "Acesso negado", "http_code": 403}), 403
+
+    try:
+        new_id = db.criar_dv_cliente(cliente_id, dv_anunciante_id)
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e), "http_code": 400}), 400
+
+    if new_id is None:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Este dv_anunciante_id já está em uso noutro mapeamento",
+                    "http_code": 409,
+                }
+            ),
+            409,
+        )
+
+    row = db.obter_dv_cliente_por_id(new_id)
+    return jsonify({"success": True, "data": row}), 201
+
+
+@bp.route("/client-mappings/<int:mapping_id>", methods=["PATCH"])
+@login_required_api
+def client_mappings_update(mapping_id: int):
+    """Atualiza dv_anunciante_id de um mapeamento existente."""
+    row = db.obter_dv_cliente_por_id(mapping_id)
+    if not row:
+        return jsonify({"success": False, "error": "Registo não encontrado", "http_code": 404}), 404
+    if not _pode_aceder_cliente(int(row["cliente_id"])):
+        return jsonify({"success": False, "error": "Acesso negado", "http_code": 403}), 403
+
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    dv_anunciante_id = payload.get("dv_anunciante_id")
+
+    try:
+        ok = db.atualizar_dv_cliente(mapping_id, dv_anunciante_id)
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e), "http_code": 400}), 400
+
+    if not ok:
+        return jsonify({"success": False, "error": "Registo não encontrado", "http_code": 404}), 404
+
+    updated = db.obter_dv_cliente_por_id(mapping_id)
+    return jsonify({"success": True, "data": updated})
+
+
+@bp.route("/client-mappings/<int:mapping_id>", methods=["DELETE"])
+@login_required_api
+def client_mappings_delete(mapping_id: int):
+    """Remove um mapeamento por id."""
+    row = db.obter_dv_cliente_por_id(mapping_id)
+    if not row:
+        return jsonify({"success": False, "error": "Registo não encontrado", "http_code": 404}), 404
+    if not _pode_aceder_cliente(int(row["cliente_id"])):
+        return jsonify({"success": False, "error": "Acesso negado", "http_code": 403}), 403
+
+    db.excluir_dv_cliente(mapping_id)
+    return jsonify({"success": True, "data": {"id": mapping_id}})
 
 
 @parametros_bp.route("/testesDV", methods=["GET"])

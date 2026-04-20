@@ -554,13 +554,23 @@ textarea:focus {
     box-shadow: 0 0 0 3px rgba(30, 77, 79, 0.1);
 }
 
-/* Selects sem DaisyUI: seta customizada */
-select:not([multiple]):not([size]):not(.select) {
+/*
+ * Selects sem classe Daisy .select: uma seta só (SVG + appearance:none).
+ * Sem appearance:none o browser desenha a seta nativa em cima da SVG → duas setas (ex.: /clientes).
+ */
+select:not([multiple]):not([size]):not(.select):not(.swr-consolidadas-select):not(.modal-ativ-input) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     padding-right: 2.5rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.6rem center;
     background-size: 1rem;
+}
+
+select:not([multiple]):not([size]):not(.select):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
+    display: none;
 }
 
 /*
@@ -581,16 +591,24 @@ html body .form-control select:not(:disabled) {
     font-weight: 500;
 }
 
-/* Daisy select: aspeto nativo + espaço para seta (não alterar selects custom tipo SWR/modal) */
-html body select.select:not(:disabled):not([multiple]),
-html body select[class*="select-"]:not(:disabled):not([multiple]),
-html body .form-control > select.select:not(:disabled):not([multiple]),
-html body .form-control > select[class*="select-"]:not(:disabled):not([multiple]) {
-    appearance: auto !important;
-    -webkit-appearance: menulist !important;
-    -moz-appearance: auto !important;
-    background-image: none !important;
-    padding-right: 2.75rem !important;
+/* Daisy select: uma só seta (appearance:none + SVG) — menulist nativo gerava duas setas em vários browsers */
+html body select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
+html body select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
+html body .form-control > select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
+html body .form-control > select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input) {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.6rem center !important;
+    background-size: 1rem !important;
+    padding-right: 2.5rem !important;
+}
+
+html body select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand,
+html body select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
+    display: none;
 }
 
 html body select:focus:not(:disabled),
@@ -630,12 +648,21 @@ html body select option {
     --tw-text-opacity: 1 !important;
 }
 
-[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]),
-[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]) {
-    appearance: auto !important;
-    -webkit-appearance: menulist !important;
-    background-image: none !important;
-    padding-right: 2.75rem !important;
+[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input),
+[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input) {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.6rem center !important;
+    background-size: 1rem !important;
+    padding-right: 2.5rem !important;
+}
+
+[data-theme="centralcomm"] select.select:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand,
+[data-theme="centralcomm"] select[class*="select-"]:not(:disabled):not([multiple]):not(.swr-consolidadas-select):not(.modal-ativ-input)::-ms-expand {
+    display: none;
 }
 
 [data-theme="centralcomm"] select.select:focus-visible:not(:disabled),

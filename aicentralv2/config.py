@@ -5,9 +5,16 @@ Todas as configurações centralizadas neste arquivo, incluindo
 configurações de terceiros (ex.: Pinecone).
 """
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-# Carregar variáveis de ambiente
+# Raiz do repositório (pai do pacote `aicentralv2/`), onde está o `.env`.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_ENV_PATH = _PROJECT_ROOT / ".env"
+
+# Carregar `.env` pelo caminho fixo para funcionar mesmo quando o cwd não é a raiz do projeto.
+load_dotenv(_ENV_PATH)
 load_dotenv()
 
 
@@ -72,7 +79,7 @@ class Config:
 		'https://displayvideo.googleapis.com/v4',
 	).rstrip('/')
 	DV360_TIMEOUT = int(os.getenv('DV360_TIMEOUT', '30'))
-    
+
 	@property
 	def DATABASE_URI(self):
 		"""Retorna a URI completa do banco de dados"""

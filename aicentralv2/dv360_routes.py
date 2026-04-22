@@ -60,6 +60,14 @@ def _query_params() -> dict:
     return out
 
 
+def _campaign_filter_query_params(campaign_id: str) -> dict[str, Any]:
+    """pageSize/pageToken/orderBy da query HTTP + filtro fixo por campanha (`campaignId`)."""
+    cid = campaign_id.strip()
+    out: dict[str, Any] = dict(_query_params())
+    out["filter"] = f'campaignId="{cid}"'
+    return out
+
+
 def _truthy(name: str) -> bool:
     v = request.args.get(name, "").lower()
     return v in ("1", "true", "yes", "on")
@@ -247,6 +255,34 @@ def campaign_detail(campaign_id: str):
             "insertion_orders_error": pack.get("insertion_orders_error"),
             "campaign_metrics": commercial,
         }
+    )
+
+
+@bp.route("/campaigns/<campaign_id>/insertion-orders", methods=["GET"])
+@login_required_api
+def campaigns_insertion_orders_for_campaign(campaign_id: str):
+    """Pedidos de inserção da campanha (`filter=campaignId="..."`). Query: advertiser_id obrigatório."""
+    advertiser_id = request.args.get("advertiser_id", "").strip()
+    if not advertiser_id:
+        return jsonify({"success": False, "error": "advertiser_id é obrigatório", "http_code": 400}), 400
+    client = get_dv360_client()
+    return jsonify(
+        client.list_insertion_orders(
+            advertiser_id, _campaign_filter_query_params(campaign_id)
+        )
+    )
+
+
+@bp.route("/campaigns/<campaign_id>/line-items", methods=["GET"])
+@login_required_api
+def campaigns_line_items_for_campaign(campaign_id: str):
+    """Line items da campanha (`filter=campaignId="..."`). Query: advertiser_id obrigatório."""
+    advertiser_id = request.args.get("advertiser_id", "").strip()
+    if not advertiser_id:
+        return jsonify({"success": False, "error": "advertiser_id é obrigatório", "http_code": 400}), 400
+    client = get_dv360_client()
+    return jsonify(
+        client.list_line_items(advertiser_id, _campaign_filter_query_params(campaign_id))
     )
 
 

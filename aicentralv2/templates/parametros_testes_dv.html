@@ -11,6 +11,9 @@
     min-width: 0;
     max-width: none;
   }
+  .dv360-tab-panel {
+    outline: none;
+  }
 </style>
 {% endblock %}
 
@@ -23,47 +26,220 @@
 
   <div id="dv360-global-msg" class="hidden alert alert-error text-sm"></div>
 
-  <div class="card bg-base-100 border border-base-200 shadow-sm">
-    <div class="card-body gap-4 py-5">
-      <div class="flex flex-col gap-4 w-full min-w-0">
-        <div class="form-control flex-1 min-w-0 w-full gap-2">
-          <label class="label py-0 pb-1.5" for="adv-select-dv">
-            <span class="label-text text-sm font-medium">Cliente / anunciante (dv_clientes)</span>
-          </label>
-          <div id="dv360-adv-dv-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
-            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
-            <span>A aguardar mapeamentos…</span>
+  <div class="card bg-base-100 border border-base-200 shadow-lg overflow-hidden">
+    <div class="border-b border-base-200 bg-gradient-to-r from-base-200/50 via-base-100 to-base-100 px-3 sm:px-5 pt-4 pb-3">
+      <div role="tablist" aria-label="Secções Testes DV360" id="dv360-tablist" class="tabs tabs-boxed tabs-sm shadow-sm flex-wrap gap-y-2">
+        <button type="button" role="tab" id="tab-dv360-0" aria-selected="true" aria-controls="panel-dv360-0" tabindex="0" class="tab tab-active gap-2 px-3 sm:px-4">
+          <i class="fa-solid fa-database text-primary text-xs opacity-90" aria-hidden="true"></i>
+          <span class="whitespace-nowrap">Cliente / anunciante</span>
+        </button>
+        <button type="button" role="tab" id="tab-dv360-1" aria-selected="false" aria-controls="panel-dv360-1" tabindex="-1" class="tab gap-2 px-3 sm:px-4">
+          <i class="fa-solid fa-table-list text-primary text-xs opacity-90" aria-hidden="true"></i>
+          <span class="whitespace-nowrap">Campanhas</span>
+          <span id="tab-dv360-campaigns-badge" class="badge badge-primary badge-sm font-normal tabular-nums hidden"></span>
+        </button>
+        <button type="button" role="tab" id="tab-dv360-2" aria-selected="false" aria-controls="panel-dv360-2" tabindex="-1" class="tab gap-2 px-3 sm:px-4">
+          <i class="fa-solid fa-magnifying-glass-chart text-primary text-xs opacity-90" aria-hidden="true"></i>
+          <span class="whitespace-nowrap">Detalhe</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="panel-dv360-0" role="tabpanel" aria-labelledby="tab-dv360-0" class="dv360-tab-panel p-4 sm:p-5 space-y-4" aria-hidden="false">
+      <div class="card bg-base-100 border border-base-200 shadow-sm">
+        <div class="card-body gap-4 py-5">
+          <div class="flex flex-col gap-4 w-full min-w-0">
+            <div class="form-control flex-1 min-w-0 w-full gap-2">
+              <label class="label py-0 pb-1.5" for="adv-select-dv">
+                <span class="label-text text-sm font-medium">Cliente / anunciante (dv_clientes)</span>
+              </label>
+              <div id="dv360-adv-dv-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
+                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                <span>A aguardar mapeamentos…</span>
+              </div>
+              <select id="adv-select-dv" class="select select-bordered select-sm w-full min-w-0">
+                <option value="">Carregando…</option>
+              </select>
+              <p id="adv-hint-dv" class="text-xs text-base-content/60"></p>
+            </div>
+            <div class="form-control flex-1 min-w-0 w-full gap-2">
+              <label class="label py-0 pb-1.5" for="adv-select-api">
+                <span class="label-text text-sm font-medium">Anunciante (API partner DV360)</span>
+              </label>
+              <div id="dv360-adv-api-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
+                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                <span>A aguardar a API…</span>
+              </div>
+              <select id="adv-select-api" class="select select-bordered select-sm w-full min-w-0">
+                <option value="">Carregando…</option>
+              </select>
+              <p id="adv-hint-api" class="text-xs text-base-content/60"></p>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:flex-nowrap sm:items-end gap-3 w-full min-w-0">
+              <p id="adv-hint-source" class="text-xs text-base-content/55 sm:flex-1 order-2 sm:order-1 min-w-0 leading-snug">
+                As campanhas usam o anunciante do select que alterar por último (com valor). Se não mexer nos dois, prioriza dv_clientes.
+              </p>
+              <div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 shrink-0 w-full sm:w-auto justify-end">
+                <button type="button" id="btn-add-dv-mapping" class="btn btn-outline btn-sm btn-square shrink-0" title="Novo mapeamento em dv_clientes" aria-label="Novo mapeamento dv_clientes">
+                  <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                </button>
+                <button type="button" id="btn-load-campaigns" class="btn btn-primary btn-sm shrink-0 gap-2">
+                  <i class="fa-solid fa-download" aria-hidden="true"></i>
+                  Carregar campanhas
+                </button>
+              </div>
+            </div>
           </div>
-          <select id="adv-select-dv" class="select select-bordered select-sm w-full min-w-0">
-            <option value="">Carregando…</option>
-          </select>
-          <p id="adv-hint-dv" class="text-xs text-base-content/60"></p>
         </div>
-        <div class="form-control flex-1 min-w-0 w-full gap-2">
-          <label class="label py-0 pb-1.5" for="adv-select-api">
-            <span class="label-text text-sm font-medium">Anunciante (API partner DV360)</span>
-          </label>
-          <div id="dv360-adv-api-loading" class="hidden flex items-center gap-2 text-xs text-base-content/60" aria-live="polite">
-            <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
-            <span>A aguardar a API…</span>
-          </div>
-          <select id="adv-select-api" class="select select-bordered select-sm w-full min-w-0">
-            <option value="">Carregando…</option>
-          </select>
-          <p id="adv-hint-api" class="text-xs text-base-content/60"></p>
-        </div>
-        <div class="flex flex-col sm:flex-row sm:flex-nowrap sm:items-end gap-3 w-full min-w-0">
-          <p id="adv-hint-source" class="text-xs text-base-content/55 sm:flex-1 order-2 sm:order-1 min-w-0 leading-snug">
-            As campanhas usam o anunciante do select que alterar por último (com valor). Se não mexer nos dois, prioriza dv_clientes.
+      </div>
+
+      <details class="collapse collapse-arrow bg-base-100 border border-base-200 shadow-sm rounded-lg">
+        <summary class="collapse-title text-sm font-medium py-3 min-h-0">
+          DV360 · Hierarquia, autenticação e relatórios
+        </summary>
+        <div class="collapse-content text-xs text-base-content/80 space-y-2 !pb-4 pt-0">
+          <p>
+            <strong>Hierarquia:</strong> Campanha → Pedido de inserção (IO) → Line item. Orçamentos, pacing e grande parte do targeting aplicam-se ao IO/LI; a campanha agrupa objectivos.
           </p>
-          <div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 shrink-0 w-full sm:w-auto justify-end">
-            <button type="button" id="btn-add-dv-mapping" class="btn btn-outline btn-sm btn-square shrink-0" title="Novo mapeamento em dv_clientes" aria-label="Novo mapeamento dv_clientes">
-              <i class="fa-solid fa-plus" aria-hidden="true"></i>
-            </button>
-            <button type="button" id="btn-load-campaigns" class="btn btn-primary btn-sm shrink-0">
-              Carregar campanhas
-            </button>
+          <p>
+            <strong>Autenticação:</strong> Esta aplicação usa OAuth no <code class="text-[11px]">.env</code>
+            (<code class="text-[11px]">DV360_CLIENT_ID</code>, <code class="text-[11px]">DV360_CLIENT_SECRET</code>,
+            <code class="text-[11px]">DV360_REFRESH_TOKEN</code>, <code class="text-[11px]">DV360_PARTNER_ID</code>)
+            para chamar <code class="text-[11px]">displayvideo.googleapis.com</code>.
+          </p>
+          <p>
+            <strong>Métricas de desempenho:</strong> Impressões, cliques e relatórios completos costumam vir do UI do DV360, Query Tool ou da
+            <strong>Bid Manager API</strong> — produto e âmbitos OAuth diferentes da Display&nbsp;Video&nbsp;API&nbsp;v4.
+          </p>
+          <p class="flex flex-wrap gap-x-3 gap-y-1">
+            <a href="https://developers.google.com/display-video/api/guides/getting-started/overview" class="link link-primary text-xs" target="_blank" rel="noopener noreferrer">Display &amp; Video 360 API — overview</a>
+            <a href="https://developers.google.com/bid-manager/guides/reporting/overview" class="link link-primary text-xs" target="_blank" rel="noopener noreferrer">Bid Manager · Reporting</a>
+          </p>
+        </div>
+      </details>
+    </div>
+
+    <div id="panel-dv360-1" role="tabpanel" aria-labelledby="tab-dv360-1" class="dv360-tab-panel hidden p-4 sm:p-5" tabindex="-1" aria-hidden="true">
+      <div class="flex flex-col gap-3 mb-4">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+          <div class="form-control w-full sm:w-auto sm:min-w-[220px]">
+            <label class="label py-0 pb-1" for="campaign-status-filter">
+              <span class="label-text text-xs font-medium text-base-content/80">Estado na API (<code class="text-[11px]">entityStatus</code>)</span>
+            </label>
+            <select id="campaign-status-filter" class="select select-bordered select-sm w-full">
+              <option value="">Todos os estados</option>
+              <option value="ENTITY_STATUS_ACTIVE">Ativa</option>
+              <option value="ENTITY_STATUS_PAUSED">Pausada</option>
+              <option value="ENTITY_STATUS_DRAFT">Rascunho</option>
+              <option value="ENTITY_STATUS_SCHEDULED_FOR_ACTIVE">Agendada para ativação</option>
+              <option value="ENTITY_STATUS_SCHEDULED_FOR_DELETION">Agendada para eliminação</option>
+              <option value="ENTITY_STATUS_ARCHIVED">Arquivada</option>
+              <option value="ENTITY_STATUS_UNSPECIFIED">Não especificado</option>
+            </select>
           </div>
+          <p id="campaign-filter-summary" class="text-xs text-base-content/65 leading-snug sm:flex-1 sm:pt-6 sm:pb-1 min-h-[2.25rem]" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
+        <table class="table table-sm table-zebra">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>ID</th>
+              <th>Situação</th>
+              <th class="w-20">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="campaign-rows">
+            <tr>
+              <td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv_clientes) ou um anunciante da API e carregue as campanhas.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-xs text-base-content/50 px-3 py-2 border-t border-base-200 leading-snug">
+          O filtro aplicado usa <code class="text-[11px]">entityStatus</code> na API DV360 (o resumo «Situação» pode combinar também datas de voo). Clique numa linha para abrir o detalhe na aba <strong>Detalhe</strong>.
+        </p>
+      </div>
+    </div>
+
+    <div id="panel-dv360-2" role="tabpanel" aria-labelledby="tab-dv360-2" class="dv360-tab-panel hidden p-4 sm:p-5 space-y-4" tabindex="-1" aria-hidden="true">
+      <div id="dv360-detail-empty" class="rounded-xl border border-dashed border-base-300 bg-base-200/25 min-h-[12rem] flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+        <i class="fa-regular fa-folder-open text-4xl text-base-content/30" aria-hidden="true"></i>
+        <p class="text-sm font-medium text-base-content/85 max-w-md">Nenhuma campanha em foco</p>
+        <p class="text-xs text-base-content/55 max-w-sm leading-relaxed">
+          Na aba <strong>Cliente / anunciante</strong> carregue as campanhas; depois escolha uma linha na aba <strong>Campanhas</strong> para ver objectivos, geo, IO e line items aqui.
+        </p>
+        <button type="button" id="dv360-detail-empty-goto-list" class="btn btn-outline btn-sm gap-2 mt-1">
+          <i class="fa-solid fa-table-list" aria-hidden="true"></i>
+          Ir para campanhas
+        </button>
+      </div>
+
+      <div id="campaign-detail-wrap" class="hidden card bg-base-100 border border-base-200 shadow-sm">
+        <div class="card-body gap-3 py-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base font-semibold text-base-content">Detalhe da campanha (DV360)</h2>
+            <button type="button" id="campaign-detail-close" class="btn btn-ghost btn-xs">Fechar</button>
+          </div>
+      <p id="campaign-detail-loading" class="hidden flex items-center gap-2 text-sm text-base-content/60" role="status">
+        <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>A aguardar a API…</span>
+      </p>
+      <p id="campaign-detail-error" class="text-sm text-error hidden"></p>
+      <div id="campaign-detail-body" class="hidden text-sm"></div>
+      <details id="campaign-detail-json" class="hidden">
+        <summary class="cursor-pointer text-xs text-primary font-medium">JSON completo (API)</summary>
+        <pre id="campaign-detail-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-80 whitespace-pre-wrap break-all"></pre>
+      </details>
+
+      <div id="dv360-api-reports-wrap" class="mt-4 pt-4 border-t border-base-200">
+        <h3 class="text-sm font-semibold text-base-content">Relatórios e métricas (Google DV360 API)</h3>
+        <p class="text-xs text-base-content/60 mt-1 leading-snug">
+          Dados abaixo vêm do mesmo pedido à API oficial <strong>Display&nbsp;&amp;&nbsp;Video&nbsp;360</strong> (<code class="text-xs">displayvideo.googleapis.com</code>) que o detalhe da campanha: objectivos comerciais, orçamentos, datas de voo e notas de entrega. Métricas de desempenho (impressões, cliques, CPA) no UI do DV360 / Query Tool ou em APIs de reporting com outro âmbito OAuth.
+        </p>
+        <div id="dv360-api-reports-body" class="mt-3 text-sm rounded-lg border border-base-200 bg-base-200/30 p-3 space-y-2 hidden"></div>
+        <p id="dv360-api-reports-placeholder" class="mt-2 text-xs text-base-content/50">
+          Abra o detalhe de uma campanha para carregar os dados da API DV360 aqui.
+        </p>
+      </div>
+
+      <div id="dv360-hierarchy-wrap" class="mt-4 pt-4 border-t border-base-200">
+        <h3 class="text-sm font-semibold text-base-content">Pedidos de inserção e line items (esta campanha)</h3>
+        <p class="text-xs text-base-content/60 mt-1 leading-snug">
+          Listagens via API com <code class="text-xs">filter=campaignId</code> (
+          <code class="text-xs">advertisers.insertionOrders.list</code> /
+          <code class="text-xs">advertisers.lineItems.list</code>
+          ).
+        </p>
+        <div class="mt-3 space-y-5">
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/70">Pedidos de inserção</h4>
+            <p id="dv360-io-loading" class="hidden mt-2 flex items-center gap-2 text-xs text-base-content/60" role="status">
+              <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+              <span>A aguardar IO…</span>
+            </p>
+            <p id="dv360-io-error" class="hidden mt-2 text-sm text-error"></p>
+            <div id="dv360-io-table-wrap" class="mt-2 overflow-x-auto hidden"></div>
+            <details id="dv360-io-json-details" class="mt-2 hidden">
+              <summary class="cursor-pointer text-xs text-primary font-medium">JSON bruto (insertion orders)</summary>
+              <pre id="dv360-io-json-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
+            </details>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-base-content/70">Line items</h4>
+            <p id="dv360-li-loading" class="hidden mt-2 flex items-center gap-2 text-xs text-base-content/60" role="status">
+              <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+              <span>A aguardar line items…</span>
+            </p>
+            <p id="dv360-li-error" class="hidden mt-2 text-sm text-error"></p>
+            <div id="dv360-li-table-wrap" class="mt-2 overflow-x-auto hidden"></div>
+            <details id="dv360-li-json-details" class="mt-2 hidden">
+              <summary class="cursor-pointer text-xs text-primary font-medium">JSON bruto (line items)</summary>
+              <pre id="dv360-li-json-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-56 whitespace-pre-wrap break-all"></pre>
+            </details>
+          </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>
@@ -93,46 +269,6 @@
     </div>
     <form method="dialog" class="modal-backdrop"><button type="submit" class="cursor-default" aria-label="Fechar">close</button></form>
   </dialog>
-
-  <div class="overflow-x-auto rounded-lg border border-base-200 bg-base-100">
-    <table class="table table-sm table-zebra">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>ID</th>
-          <th>Situação</th>
-          <th class="w-20">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="campaign-rows">
-        <tr>
-          <td colspan="4" class="text-base-content/50 text-sm">Escolha um mapeamento (dv_clientes) ou um anunciante da API e carregue as campanhas.</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="text-xs text-base-content/50 px-3 py-2 border-t border-base-200 leading-snug">
-      Na lista mostra-se só o <strong>estado resumido</strong> (ex.: finalizada no calendário vs. ativa na API). Abra o detalhe da campanha para ver <code>entityStatus</code>, datas de voo, praça (geo) e o resto.
-    </p>
-  </div>
-
-  <div id="campaign-detail-wrap" class="hidden card bg-base-100 border border-base-200 shadow-sm">
-    <div class="card-body gap-3 py-4">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-base font-semibold text-base-content">Detalhe da campanha (DV360)</h2>
-        <button type="button" id="campaign-detail-close" class="btn btn-ghost btn-xs">Fechar</button>
-      </div>
-      <p id="campaign-detail-loading" class="hidden flex items-center gap-2 text-sm text-base-content/60" role="status">
-        <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
-        <span>A aguardar a API…</span>
-      </p>
-      <p id="campaign-detail-error" class="text-sm text-error hidden"></p>
-      <div id="campaign-detail-body" class="hidden text-sm"></div>
-      <details id="campaign-detail-json" class="hidden">
-        <summary class="cursor-pointer text-xs text-primary font-medium">JSON completo (API)</summary>
-        <pre id="campaign-detail-pre" class="mt-2 text-xs bg-base-200 p-3 rounded-lg overflow-auto max-h-80 whitespace-pre-wrap break-all"></pre>
-      </details>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -164,6 +300,87 @@
   const detailJson = document.getElementById('campaign-detail-json');
   const detailPre = document.getElementById('campaign-detail-pre');
   const detailClose = document.getElementById('campaign-detail-close');
+  const dv360ApiReportsBody = document.getElementById('dv360-api-reports-body');
+  const dv360ApiReportsPlaceholder = document.getElementById('dv360-api-reports-placeholder');
+  const dv360IoLoading = document.getElementById('dv360-io-loading');
+  const dv360IoError = document.getElementById('dv360-io-error');
+  const dv360IoTableWrap = document.getElementById('dv360-io-table-wrap');
+  const dv360IoJsonDetails = document.getElementById('dv360-io-json-details');
+  const dv360IoJsonPre = document.getElementById('dv360-io-json-pre');
+  const dv360LiLoading = document.getElementById('dv360-li-loading');
+  const dv360LiError = document.getElementById('dv360-li-error');
+  const dv360LiTableWrap = document.getElementById('dv360-li-table-wrap');
+  const dv360LiJsonDetails = document.getElementById('dv360-li-json-details');
+  const dv360LiJsonPre = document.getElementById('dv360-li-json-pre');
+  var URL_IO_FOR_CAMPAIGN_TMPL = {{ url_for('dv360.campaigns_insertion_orders_for_campaign', campaign_id='__CID__') | tojson }};
+  var URL_LI_FOR_CAMPAIGN_TMPL = {{ url_for('dv360.campaigns_line_items_for_campaign', campaign_id='__CID__') | tojson }};
+
+  const detailEmptyEl = document.getElementById('dv360-detail-empty');
+  const tabCampaignBadge = document.getElementById('tab-dv360-campaigns-badge');
+  const btnDetailEmptyGotoList = document.getElementById('dv360-detail-empty-goto-list');
+  const campaignStatusFilterEl = document.getElementById('campaign-status-filter');
+  const campaignFilterSummaryEl = document.getElementById('campaign-filter-summary');
+
+  /** Abas principais do Testes DV360 (0 = cliente, 1 = lista, 2 = detalhe). */
+  function setActiveTab(index) {
+    if (index < 0 || index > 2) return;
+    [0, 1, 2].forEach(function (j) {
+      var btn = document.getElementById('tab-dv360-' + j);
+      var panel = document.getElementById('panel-dv360-' + j);
+      if (!btn || !panel) return;
+      var on = j === index;
+      btn.classList.toggle('tab-active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;
+      panel.classList.toggle('hidden', !on);
+      panel.hidden = !on;
+      panel.setAttribute('aria-hidden', on ? 'false' : 'true');
+    });
+  }
+
+  function updateCampaignTabCount(n) {
+    if (!tabCampaignBadge) return;
+    var num = typeof n === 'number' && n >= 0 ? n : 0;
+    if (num > 0) {
+      tabCampaignBadge.textContent = String(num);
+      tabCampaignBadge.classList.remove('hidden');
+    } else {
+      tabCampaignBadge.textContent = '';
+      tabCampaignBadge.classList.add('hidden');
+    }
+  }
+
+  /** Resumo textual (contagem + filtro) acima da tabela de campanhas. */
+  function updateFilterSummary(displayedCount) {
+    if (!campaignFilterSummaryEl) return;
+    if (typeof displayedCount !== 'number' || displayedCount < 0) {
+      campaignFilterSummaryEl.textContent = '';
+      return;
+    }
+    var fv = campaignStatusFilterEl ? (campaignStatusFilterEl.value || '').trim() : '';
+    var label = fv ? entityStatusLabel(fv) : 'Todos os estados';
+    var n =
+      displayedCount === 0
+        ? '0 campanhas'
+        : displayedCount === 1
+          ? '1 campanha'
+          : displayedCount + ' campanhas';
+    campaignFilterSummaryEl.textContent = n + ' · filtro: ' + label;
+  }
+
+  function clearFilterSummary() {
+    if (campaignFilterSummaryEl) campaignFilterSummaryEl.textContent = '';
+  }
+
+  /** URL da rota JSON de campanhas com `advertiser_id` e filtro opcional da API DV360. */
+  function campaignsListUrl(advertiserId) {
+    var q = new URLSearchParams({ advertiser_id: String(advertiserId).trim() });
+    var fv = campaignStatusFilterEl ? (campaignStatusFilterEl.value || '').trim() : '';
+    if (fv) {
+      q.set('filter', 'entityStatus="' + fv + '"');
+    }
+    return "{{ url_for('dv360.campaigns') }}?" + q.toString();
+  }
 
   function showGlobal(msg, kind) {
     globalMsg.textContent = msg;
@@ -255,23 +472,236 @@
   var URL_CLIENTES_MAPEAMENTO_DV = {{ url_for('dv360.clientes_para_mapeamento_dv') | tojson }};
   var URL_CLIENT_MAPPINGS_POST = {{ url_for('dv360.client_mappings_create') | tojson }};
 
+  function _z2(n) {
+    return n < 10 ? '0' + n : String(n);
+  }
+
+  /** Instante (objeto Date) no fuso local: dd/mm/yyyy HH:MM:SS. */
+  function formatLocalDateTimeDdMmYyyyHhMmSs(d) {
+    return (
+      _z2(d.getDate()) +
+      '/' +
+      _z2(d.getMonth() + 1) +
+      '/' +
+      d.getFullYear() +
+      ' ' +
+      _z2(d.getHours()) +
+      ':' +
+      _z2(d.getMinutes()) +
+      ':' +
+      _z2(d.getSeconds())
+    );
+  }
+
   function formatFieldValue(v) {
     if (v === null || v === undefined) return '—';
     if (typeof v === 'object') return JSON.stringify(v, null, 2);
+    if (typeof v === 'string') {
+      var t = v.trim();
+      if (/^\d{4}-\d{2}-\d{2}T/.test(t)) {
+        var d = new Date(t);
+        if (!isNaN(d.getTime())) {
+          return formatLocalDateTimeDdMmYyyyHhMmSs(d);
+        }
+      }
+    }
     return String(v);
   }
 
-  function hideCampaignDetail() {
+  /** Resumo comercial/resumo de entrega devolvidos por <code>summarize_campaign_commercial_snapshot</code> na API DV360. */
+  function renderDv360ApiReportsPanel(body) {
+    if (!dv360ApiReportsBody) return;
+    if (dv360ApiReportsPlaceholder) dv360ApiReportsPlaceholder.classList.add('hidden');
+    var m = body && body.campaign_metrics ? body.campaign_metrics : {};
+    var parts = [];
+    function line(label, val) {
+      if (val == null || val === '') return;
+      parts.push(
+        '<div class="min-w-0"><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">' +
+          escapeHtml(label) +
+          '</span><p class="text-sm text-base-content mt-0.5 leading-snug">' +
+          escapeHtml(String(val)) +
+          '</p></div>'
+      );
+    }
+    line('Fonte', 'Google Display & Video 360 API (OAuth + advertisers.campaigns.get)');
+    line('Objetivo (resumo PT)', m.campaign_goal_label_pt);
+    line('Meta de performance (tipo)', m.performance_goal_label_pt);
+    line('Meta / teto', m.performance_target_text);
+    line('Gasto planejado (voo)', m.planned_spend_text);
+    line('Datas planejadas (voo)', m.planned_dates_text);
+    line('Impacto / alcance', m.frequency_cap_text);
+    if (Array.isArray(m.budgets_text) && m.budgets_text.length) {
+      var b =
+        '<div><span class="text-xs font-semibold uppercase tracking-wide text-base-content/50">Orçamentos (campanha)</span><ul class="mt-1 list-disc list-inside text-sm space-y-0.5">';
+      m.budgets_text.forEach(function (t) {
+        b += '<li>' + escapeHtml(String(t)) + '</li>';
+      });
+      b += '</ul></div>';
+      parts.push(b);
+    }
+    if (m.delivery_note_pt) {
+      parts.push(
+        '<p class="text-xs text-base-content/70 leading-snug border-t border-base-300/60 pt-2">' +
+          escapeHtml(String(m.delivery_note_pt)) +
+          '</p>'
+      );
+    }
+    if (!parts.length) {
+      parts.push('<p class="text-xs text-base-content/60">Sem bloco comercial resumido na resposta da API para esta campanha.</p>');
+    }
+    dv360ApiReportsBody.innerHTML = '<div class="space-y-2">' + parts.join('') + '</div>';
+    dv360ApiReportsBody.classList.remove('hidden');
+  }
+
+  function clearDv360ApiReportsPanel() {
+    if (dv360ApiReportsBody) {
+      dv360ApiReportsBody.innerHTML = '';
+      dv360ApiReportsBody.classList.add('hidden');
+    }
+    if (dv360ApiReportsPlaceholder) dv360ApiReportsPlaceholder.classList.remove('hidden');
+  }
+
+  function extractDv360List(body, arrayKey) {
+    var d = body && body.data;
+    if (!d || typeof d !== 'object') return [];
+    var arr = d[arrayKey];
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function renderIoLiTable(rows, idField) {
+    if (!rows.length) {
+      return '<p class="text-xs text-base-content/60 py-2">Nenhum registo devolvido pela API para este filtro.</p>';
+    }
+    var h =
+      '<table class="table table-xs table-zebra w-full"><thead><tr><th>Nome</th><th>ID</th><th>Estado</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      if (!r || typeof r !== 'object') return;
+      var id = r[idField] != null ? String(r[idField]) : '—';
+      var nm = r.displayName || r.name || '—';
+      var st = r.entityStatus != null && r.entityStatus !== '' ? String(r.entityStatus) : '—';
+      h +=
+        '<tr><td class="max-w-[14rem] truncate align-top" title="' +
+        escapeHtml(nm) +
+        '">' +
+        escapeHtml(nm) +
+        '</td><td class="align-top whitespace-nowrap"><code class="text-xs">' +
+        escapeHtml(id) +
+        '</code></td><td class="text-xs align-top">' +
+        escapeHtml(st) +
+        '</td></tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function clearHierarchyPanels() {
+    if (dv360IoLoading) dv360IoLoading.classList.add('hidden');
+    if (dv360LiLoading) dv360LiLoading.classList.add('hidden');
+    if (dv360IoError) {
+      dv360IoError.classList.add('hidden');
+      dv360IoError.textContent = '';
+    }
+    if (dv360LiError) {
+      dv360LiError.classList.add('hidden');
+      dv360LiError.textContent = '';
+    }
+    if (dv360IoTableWrap) {
+      dv360IoTableWrap.innerHTML = '';
+      dv360IoTableWrap.classList.add('hidden');
+    }
+    if (dv360LiTableWrap) {
+      dv360LiTableWrap.innerHTML = '';
+      dv360LiTableWrap.classList.add('hidden');
+    }
+    if (dv360IoJsonPre) dv360IoJsonPre.textContent = '';
+    if (dv360LiJsonPre) dv360LiJsonPre.textContent = '';
+    if (dv360IoJsonDetails) dv360IoJsonDetails.classList.add('hidden');
+    if (dv360LiJsonDetails) dv360LiJsonDetails.classList.add('hidden');
+  }
+
+  function loadCampaignHierarchy(advertiserId, campaignId) {
+    if (!advertiserId || !campaignId) return;
+    clearHierarchyPanels();
+    if (dv360IoLoading) dv360IoLoading.classList.remove('hidden');
+    if (dv360LiLoading) dv360LiLoading.classList.remove('hidden');
+    var enc = encodeURIComponent(campaignId);
+    var urlIo = URL_IO_FOR_CAMPAIGN_TMPL.replace('__CID__', enc);
+    var urlLi = URL_LI_FOR_CAMPAIGN_TMPL.replace('__CID__', enc);
+    var q = new URLSearchParams({ advertiser_id: String(advertiserId) });
+    Promise.all([
+      jsonFetch(urlIo + '?' + q.toString()),
+      jsonFetch(urlLi + '?' + q.toString()),
+    ])
+      .then(function (results) {
+        var resIo = results[0];
+        var resLi = results[1];
+        if (dv360IoLoading) dv360IoLoading.classList.add('hidden');
+        if (dv360LiLoading) dv360LiLoading.classList.add('hidden');
+        if (!resIo.ok || !resIo.body.success) {
+          if (dv360IoError) {
+            dv360IoError.textContent =
+              resIo.body && resIo.body.error ? String(resIo.body.error) : 'HTTP ' + resIo.status;
+            dv360IoError.classList.remove('hidden');
+          }
+        } else {
+          var rowsIo = extractDv360List(resIo.body, 'insertionOrders');
+          if (dv360IoTableWrap) {
+            dv360IoTableWrap.innerHTML = renderIoLiTable(rowsIo, 'insertionOrderId');
+            dv360IoTableWrap.classList.remove('hidden');
+          }
+          if (dv360IoJsonPre) dv360IoJsonPre.textContent = JSON.stringify(resIo.body, null, 2);
+          if (dv360IoJsonDetails) dv360IoJsonDetails.classList.remove('hidden');
+        }
+        if (!resLi.ok || !resLi.body.success) {
+          if (dv360LiError) {
+            dv360LiError.textContent =
+              resLi.body && resLi.body.error ? String(resLi.body.error) : 'HTTP ' + resLi.status;
+            dv360LiError.classList.remove('hidden');
+          }
+        } else {
+          var rowsLi = extractDv360List(resLi.body, 'lineItems');
+          if (dv360LiTableWrap) {
+            dv360LiTableWrap.innerHTML = renderIoLiTable(rowsLi, 'lineItemId');
+            dv360LiTableWrap.classList.remove('hidden');
+          }
+          if (dv360LiJsonPre) dv360LiJsonPre.textContent = JSON.stringify(resLi.body, null, 2);
+          if (dv360LiJsonDetails) dv360LiJsonDetails.classList.remove('hidden');
+        }
+      })
+      .catch(function () {
+        if (dv360IoLoading) dv360IoLoading.classList.add('hidden');
+        if (dv360LiLoading) dv360LiLoading.classList.add('hidden');
+        if (dv360IoError) {
+          dv360IoError.textContent = 'Erro de rede ao pedir insertion orders.';
+          dv360IoError.classList.remove('hidden');
+        }
+        if (dv360LiError) {
+          dv360LiError.textContent = 'Erro de rede ao pedir line items.';
+          dv360LiError.classList.remove('hidden');
+        }
+      });
+  }
+
+  function hideCampaignDetail(opts) {
+    opts = opts || {};
     detailWrap.classList.add('hidden');
+    if (detailEmptyEl) detailEmptyEl.classList.remove('hidden');
     detailLoading.classList.add('hidden');
     detailError.classList.add('hidden');
+    detailError.textContent = '';
     detailBody.classList.add('hidden');
     detailJson.classList.add('hidden');
+    clearDv360ApiReportsPanel();
+    clearHierarchyPanels();
+    if (opts.goToCampaignsTab) setActiveTab(1);
   }
 
   /** Limpa lista de campanhas e detalhe (ex.: ao mudar o mapeamento dv_clientes). */
   function resetCampaignsView() {
     hideCampaignDetail();
+    updateCampaignTabCount(0);
+    clearFilterSummary();
     detailError.textContent = '';
     detailBody.innerHTML = '';
     detailPre.textContent = '';
@@ -289,7 +719,11 @@
   }
 
   function showCampaignDetail(advertiserId, campaignId) {
+    setActiveTab(2);
+    if (detailEmptyEl) detailEmptyEl.classList.add('hidden');
     detailWrap.classList.remove('hidden');
+    clearDv360ApiReportsPanel();
+    clearHierarchyPanels();
     detailLoading.classList.remove('hidden');
     detailError.classList.add('hidden');
     detailError.textContent = '';
@@ -304,6 +738,8 @@
       if (!res.ok || !res.body.success) {
         detailError.textContent = (res.body && res.body.error) ? res.body.error : ('HTTP ' + res.status);
         detailError.classList.remove('hidden');
+        clearDv360ApiReportsPanel();
+        clearHierarchyPanels();
         return;
       }
       var d = res.body.campaign || {};
@@ -449,10 +885,14 @@
         }
       }
       detailBody.classList.remove('hidden');
+      renderDv360ApiReportsPanel(res.body);
+      loadCampaignHierarchy(advertiserId, campaignId);
     }).catch(function () {
       detailLoading.classList.add('hidden');
       detailError.textContent = 'Erro de rede ao obter detalhes.';
       detailError.classList.remove('hidden');
+      clearDv360ApiReportsPanel();
+      clearHierarchyPanels();
     });
   }
 
@@ -503,8 +943,14 @@
       var tr = document.createElement('tr');
       tr.innerHTML = '<td colspan="4" class="text-sm text-base-content/50">Nenhuma campanha devolvida pela API.</td>';
       tbody.appendChild(tr);
+      updateCampaignTabCount(0);
+      updateFilterSummary(0);
+      setActiveTab(1);
       return;
     }
+    updateCampaignTabCount(campaigns.length);
+    updateFilterSummary(campaigns.length);
+    setActiveTab(1);
     var advId = selectedAdvertiserId();
     campaigns.forEach(function (c) {
       var id = c.campaignId != null ? String(c.campaignId) : '';
@@ -591,12 +1037,72 @@
     return bits.join('');
   }
 
-  /** Lista: só o rótulo principal (ex.: Finalizada / Ativa no período do voo). */
+  function pad2(n) {
+    return n < 10 ? '0' + n : String(n);
+  }
+
+  /** Parse yyyy-mm-dd como meia-noite UTC (evita deslocamento de fuso). */
+  function parseIsoDateUtc(iso) {
+    if (!iso || typeof iso !== 'string') return null;
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+    if (!m) return null;
+    var y = parseInt(m[1], 10);
+    var mo = parseInt(m[2], 10);
+    var d = parseInt(m[3], 10);
+    return new Date(Date.UTC(y, mo - 1, d));
+  }
+
+  /** Data curta dd/mm/aa a partir de ISO yyyy-mm-dd. */
+  function formatDdMmYy(iso) {
+    var dt = parseIsoDateUtc(iso);
+    if (!dt) return '';
+    var d = dt.getUTCDate();
+    var m = dt.getUTCMonth() + 1;
+    var y = dt.getUTCFullYear() % 100;
+    return pad2(d) + '/' + pad2(m) + '/' + pad2(y);
+  }
+
+  /** Dias de calendário inclusivos entre duas datas ISO; null se inválido ou início &gt; fim. */
+  function inclusiveDays(startIso, endIso) {
+    var a = parseIsoDateUtc(startIso);
+    var b = parseIsoDateUtc(endIso);
+    if (!a || !b) return null;
+    var diff = Math.round((b.getTime() - a.getTime()) / 86400000);
+    if (diff < 0) return null;
+    return diff + 1;
+  }
+
+  /** Segunda linha da coluna Situação: voo + duração (só dias quando início e fim existem). */
+  function formatCampaignFlightDatesSecondaryHtml(lc) {
+    if (!lc || typeof lc !== 'object') return '';
+    var fs = lc.flight_start != null ? String(lc.flight_start).trim() : '';
+    var fe = lc.flight_end != null ? String(lc.flight_end).trim() : '';
+    if (!fs && !fe) return '';
+    var inner;
+    if (fs && fe) {
+      var d1 = formatDdMmYy(fs) || fs;
+      var d2 = formatDdMmYy(fe) || fe;
+      var n = inclusiveDays(fs, fe);
+      inner = escapeHtml(d1) + ' — ' + escapeHtml(d2);
+      if (n != null) {
+        inner += ' · ' + escapeHtml(String(n)) + (n === 1 ? ' dia' : ' dias');
+      }
+    } else {
+      var one = fs ? formatDdMmYy(fs) || fs : formatDdMmYy(fe) || fe;
+      inner = escapeHtml(one);
+    }
+    return '<div class="text-[11px] text-base-content/65 mt-1 leading-snug">' + inner + '</div>';
+  }
+
+  /** Lista: rótulo principal + linha opcional com datas de voo / duração. */
   function formatCampaignStatusRowHtml(c) {
     if (!c || typeof c !== 'object') return '—';
     var lc = c.lifecycle || {};
     var main = lc.label_pt || entityStatusLabel(campaignEntityStatusCode(c));
-    return '<span class="font-medium leading-snug">' + escapeHtml(String(main)) + '</span>';
+    var bits = ['<span class="font-medium leading-snug">' + escapeHtml(String(main)) + '</span>'];
+    var sub = formatCampaignFlightDatesSecondaryHtml(lc);
+    if (sub) bits.push(sub);
+    return bits.join('');
   }
 
   /** Detalhe: API, datas de voo, notas (sem repetir o título principal). */
@@ -612,15 +1118,27 @@
       '<p class="text-base-content/50">“Ativa” na API não implica voo a decorrer se as datas planejadas já passaram.</p>'
     );
     if (lc.flight_start && lc.flight_end) {
-      bits.push(
-        '<p class="text-base-content/55">Voo planejado: ' +
-          escapeHtml(String(lc.flight_start)) +
-          ' – ' +
-          escapeHtml(String(lc.flight_end)) +
-          '</p>'
-      );
+      var fs = String(lc.flight_start).trim();
+      var fe = String(lc.flight_end).trim();
+      var d1 = formatDdMmYy(fs) || fs;
+      var d2 = formatDdMmYy(fe) || fe;
+      var n = inclusiveDays(fs, fe);
+      var vp =
+        escapeHtml(d1) +
+        ' — ' +
+        escapeHtml(d2) +
+        (n != null
+          ? ' · ' + escapeHtml(String(n)) + (n === 1 ? ' dia' : ' dias')
+          : '');
+      bits.push('<p class="text-base-content/55">Voo planejado: ' + vp + '</p>');
     } else if (lc.flight_end) {
-      bits.push('<p class="text-base-content/55">Fim do voo: ' + escapeHtml(String(lc.flight_end)) + '</p>');
+      var feOnly = String(lc.flight_end).trim();
+      var endFmt = formatDdMmYy(feOnly) || feOnly;
+      bits.push('<p class="text-base-content/55">Fim do voo: ' + escapeHtml(endFmt) + '</p>');
+    } else if (lc.flight_start) {
+      var fsOnly = String(lc.flight_start).trim();
+      var startFmt = formatDdMmYy(fsOnly) || fsOnly;
+      bits.push('<p class="text-base-content/55">Início do voo: ' + escapeHtml(startFmt) + '</p>');
     }
     if (lc.hint_pt) {
       bits.push('<p class="text-base-content/50">' + escapeHtml(String(lc.hint_pt)) + '</p>');
@@ -1080,16 +1598,19 @@
       '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>' +
       '<span>A aguardar a API…</span></span></td></tr>';
     btnLoad.disabled = true;
-    var q = new URLSearchParams({ advertiser_id: advId });
-    jsonFetch("{{ url_for('dv360.campaigns') }}?" + q.toString()).then(function (res) {
+    jsonFetch(campaignsListUrl(advId)).then(function (res) {
       btnLoad.disabled = false;
       if (res.status === 401) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">Não autenticado.</td></tr>';
+        clearFilterSummary();
+        updateCampaignTabCount(0);
         showGlobal((res.body && res.body.error) || 'Inicie sessão.', 'err');
         return;
       }
       if (!res.body || !res.body.success) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">' + escapeHtml((res.body && res.body.error) || 'Erro') + '</td></tr>';
+        clearFilterSummary();
+        updateCampaignTabCount(0);
         return;
       }
       var data = res.body.data || {};
@@ -1098,6 +1619,8 @@
     }).catch(function () {
       btnLoad.disabled = false;
       tbody.innerHTML = '<tr><td colspan="4" class="text-sm text-error">Erro de rede.</td></tr>';
+      clearFilterSummary();
+      updateCampaignTabCount(0);
     });
   }
 
@@ -1124,7 +1647,23 @@
     tr.click();
   });
 
-  detailClose.addEventListener('click', hideCampaignDetail);
+  detailClose.addEventListener('click', function () {
+    hideCampaignDetail({ goToCampaignsTab: true });
+  });
+
+  [0, 1, 2].forEach(function (idx) {
+    var tBtn = document.getElementById('tab-dv360-' + idx);
+    if (tBtn) {
+      tBtn.addEventListener('click', function () {
+        setActiveTab(idx);
+      });
+    }
+  });
+  if (btnDetailEmptyGotoList) {
+    btnDetailEmptyGotoList.addEventListener('click', function () {
+      setActiveTab(1);
+    });
+  }
 
   advSelectDv.addEventListener('change', function () {
     lastAdvertiserSource = 'dv';
@@ -1138,6 +1677,17 @@
     resetCampaignsView();
     refreshAdvertiserSourceHint();
   });
+
+  if (campaignStatusFilterEl) {
+    campaignStatusFilterEl.addEventListener('change', function () {
+      var advId = selectedAdvertiserId();
+      if (!advId) {
+        clearFilterSummary();
+        return;
+      }
+      loadCampaigns();
+    });
+  }
 
   if (btnAddDvMapping) btnAddDvMapping.addEventListener('click', openModalDvMapping);
   if (btnModalDvCancel) btnModalDvCancel.addEventListener('click', closeModalDvMapping);
@@ -1218,6 +1768,7 @@
   }
 
   btnLoad.addEventListener('click', loadCampaigns);
+  setActiveTab(0);
   loadDvClientMappings();
   loadPartnerAdvertisers();
 })();

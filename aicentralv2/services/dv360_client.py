@@ -1339,6 +1339,38 @@ class DV360API:
             return ""
 
     @staticmethod
+    def _dv360_iso_to_date(iso: str) -> Optional[date]:
+        """Converte yyyy-mm-dd em date; None se inválido."""
+        if not iso or not isinstance(iso, str):
+            return None
+        parts = iso.strip().split("-")
+        if len(parts) != 3:
+            return None
+        try:
+            return date(int(parts[0]), int(parts[1]), int(parts[2]))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _dv360_format_iso_date_dd_mm_yy(iso: str) -> str:
+        """yyyy-mm-dd → dd/mm/aa."""
+        d = DV360API._dv360_iso_to_date(iso)
+        if not d:
+            return ""
+        return f"{d.day:02d}/{d.month:02d}/{d.year % 100:02d}"
+
+    @staticmethod
+    def _dv360_inclusive_calendar_days_between_iso(start_iso: str, end_iso: str) -> Optional[int]:
+        """Dias de calendário inclusivos entre duas datas ISO."""
+        a = DV360API._dv360_iso_to_date(start_iso)
+        b = DV360API._dv360_iso_to_date(end_iso)
+        if not a or not b:
+            return None
+        if b < a:
+            return None
+        return (b - a).days + 1
+
+    @staticmethod
     def summarize_campaign_commercial_snapshot(
         campaign: Optional[dict[str, Any]],
     ) -> dict[str, Any]:
@@ -1446,9 +1478,23 @@ class DV360API:
                 sd = DV360API._dv360_format_date(pd.get("startDate"))
                 ed = DV360API._dv360_format_date(pd.get("endDate"))
                 if sd and ed:
-                    snap["planned_dates_text"] = f"{sd} até {ed}"
+                    dd_s = DV360API._dv360_format_iso_date_dd_mm_yy(sd)
+                    dd_e = DV360API._dv360_format_iso_date_dd_mm_yy(ed)
+                    n_days = DV360API._dv360_inclusive_calendar_days_between_iso(sd, ed)
+                    if dd_s and dd_e:
+                        if n_days is not None:
+                            dia_word = "dia" if n_days == 1 else "dias"
+                            snap["planned_dates_text"] = f"{dd_s} até {dd_e} · {n_days} {dia_word}"
+                        else:
+                            snap["planned_dates_text"] = f"{dd_s} até {dd_e}"
+                    else:
+                        snap["planned_dates_text"] = f"{sd} até {ed}"
                 elif sd:
-                    snap["planned_dates_text"] = f"Início {sd}" + (" (sem data de fim)" if not ed else "")
+                    dd0 = DV360API._dv360_format_iso_date_dd_mm_yy(sd)
+                    start_disp = dd0 if dd0 else sd
+                    snap["planned_dates_text"] = (
+                        f"Início {start_disp}" + (" (sem data de fim)" if not ed else "")
+                    )
 
         fc = campaign.get("frequencyCap")
         if isinstance(fc, dict):

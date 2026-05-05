@@ -226,6 +226,17 @@ def register_commands(app):
         print(f"RESULTADO: FALHA (passo: {result.get('step_failed')})")
         sys.exit(1)
 
+    @app.cli.command("dv360-oauth")
+    def dv360_oauth_command():
+        """Gera refresh token com scopes display-video + doubleclickbidmanager (abre o browser)."""
+        import subprocess
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        script = root / "scripts" / "dv360_oauth_refresh_token.py"
+        r = subprocess.run([sys.executable, str(script)], cwd=str(root))
+        raise SystemExit(r.returncode)
+
     @app.cli.command('init-db')
     def init_db_command():
         """Inicializa o banco de dados"""

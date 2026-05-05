@@ -5,15 +5,17 @@ Gerenciamento de conexão com PostgreSQL
 =====================================================
 """
 
+import json
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 from flask import g, current_app
 import os
 import hashlib
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import re
 import secrets
 
@@ -246,6 +248,54 @@ def init_db(app):
                 )
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_lead_comunicacoes_lead ON cadu_lead_comunicacoes(id_lead)')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cadu_pi_com_vendas (
+                    id SERIAL PRIMARY KEY,
+                    id_resp_comercial INTEGER NOT NULL,
+                    percentual VARCHAR(20),
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP),
+                    CONSTRAINT fk_cadu_pi_com_vendas_resp FOREIGN KEY (id_resp_comercial)
+                        REFERENCES tbl_contato_cliente(id_contato_cliente),
+                    CONSTRAINT uq_cadu_pi_com_vendas_id_resp UNIQUE (id_resp_comercial)
+                )
+            ''')
+            cursor.execute(
+                'CREATE INDEX IF NOT EXISTS idx_cadu_pi_com_vendas_resp ON cadu_pi_com_vendas(id_resp_comercial)'
+            )
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'cadu_pi_com_vendas'
+                    ) THEN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'cadu_pi_com_vendas' AND column_name = 'created_at'
+                        ) THEN
+                            ALTER TABLE cadu_pi_com_vendas
+                            ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE
+                                DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'cadu_pi_com_vendas' AND column_name = 'updated_at'
+                        ) THEN
+                            ALTER TABLE cadu_pi_com_vendas
+                            ADD COLUMN updated_at TIMESTAMP WITHOUT TIME ZONE
+                                DEFAULT DATE_TRUNC('second', CURRENT_TIMESTAMP);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'cadu_pi_com_vendas' AND column_name = 'percentual'
+                        ) THEN
+                            ALTER TABLE cadu_pi_com_vendas ADD COLUMN percentual VARCHAR(20);
+                        END IF;
+                    END IF;
+                END $$;
+            ''')
 
         conn.commit()
     app.logger.info("OK Banco de dados inicializado")
@@ -708,7 +758,7 @@ def obter_cliente_por_id(id_cliente):
                 c.inscricao_estadual,
                 c.inscricao_municipal,
                 c.status,
-                c.id_centralx,
+                NULL::varchar AS id_centralx,
                 c.bairro,
                 c.cidade,
                 c.logradouro,
@@ -749,16 +799,16 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
             cursor.execute('''
                 INSERT INTO tbl_cliente (
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
-                    inscricao_estadual, status, id_centralx, bairro, cidade, logradouro, numero, 
+                    inscricao_estadual, status, bairro, cidade, logradouro, numero, 
                     complemento, cep, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
                     percentual
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
-                inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
+                inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
                 percentual
             ))
@@ -789,7 +839,6 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     inscricao_municipal = %s,
                     inscricao_estadual = %s,
                     status = %s,
-                    id_centralx = %s,
                     bairro = %s,
                     cidade = %s,
                     logradouro = %s,
@@ -805,7 +854,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                 WHERE id_cliente = %s
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
-                inscricao_estadual, status, id_centralx, bairro, cidade, rua, numero,
+                inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
                 percentual, vendas_central_comm, id_cliente
             ))
@@ -8587,13 +8636,54 @@ def obter_plataformas_campanha():
                     id_plataforma,
                     descricao,
                     indice,
-                    id_centralx,
-                    cor,
-                    status
+                    status,
+                    tech_partner,
+                    tech_fee,
+                    metodo_pagamento,
+                    detalhe_pagamento
                 FROM cadu_pi_camp_plataforma
                 ORDER BY indice
             ''')
             return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_id_plataforma_dv360():
+    """
+    ID em cadu_pi_camp_plataforma para campanhas DV360.
+    Ordem: variável de ambiente PI_PLATAFORMA_DV360_ID (ou Config) se existir na tabela;
+    senão primeira linha activa cuja descrição contenha «dv360» ou «display video 360».
+    """
+    from aicentralv2.config import Config
+
+    oid = getattr(Config, "PI_PLATAFORMA_DV360_ID", None)
+    if oid is not None:
+        row = obter_plataforma_campanha_por_id(int(oid))
+        if row and row.get("id_plataforma") is not None:
+            return int(row["id_plataforma"])
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id_plataforma
+                FROM cadu_pi_camp_plataforma
+                WHERE COALESCE(status, TRUE)
+                  AND (
+                    LOWER(TRIM(descricao)) LIKE %s
+                    OR LOWER(TRIM(descricao)) LIKE %s
+                  )
+                ORDER BY indice NULLS LAST, id_plataforma
+                LIMIT 1
+                """,
+                ("%dv360%", "%display%video%360%"),
+            )
+            r = cursor.fetchone()
+            if r and r.get("id_plataforma") is not None:
+                return int(r["id_plataforma"])
+            return None
     except Exception as e:
         conn.rollback()
         raise e
@@ -8609,9 +8699,11 @@ def obter_plataforma_campanha_por_id(id_plataforma):
                     id_plataforma,
                     descricao,
                     indice,
-                    id_centralx,
-                    cor,
-                    status
+                    status,
+                    tech_partner,
+                    tech_fee,
+                    metodo_pagamento,
+                    detalhe_pagamento
                 FROM cadu_pi_camp_plataforma
                 WHERE id_plataforma = %s
             ''', (id_plataforma,))
@@ -8627,15 +8719,20 @@ def criar_plataforma_campanha(data):
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO cadu_pi_camp_plataforma (descricao, indice, id_centralx, cor, status)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO cadu_pi_camp_plataforma (
+                    descricao, indice, status,
+                    tech_partner, tech_fee, metodo_pagamento, detalhe_pagamento
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_plataforma
             ''', (
                 data.get('descricao'),
                 data.get('indice'),
-                data.get('id_centralx'),
-                data.get('cor'),
                 data.get('status', True),
+                data.get('tech_partner'),
+                data.get('tech_fee'),
+                data.get('metodo_pagamento'),
+                data.get('detalhe_pagamento'),
             ))
             result = cursor.fetchone()
             conn.commit()
@@ -8654,16 +8751,20 @@ def atualizar_plataforma_campanha(id_plataforma, data):
                 UPDATE cadu_pi_camp_plataforma
                 SET descricao = %s,
                     indice = %s,
-                    id_centralx = %s,
-                    cor = %s,
-                    status = %s
+                    status = %s,
+                    tech_partner = %s,
+                    tech_fee = %s,
+                    metodo_pagamento = %s,
+                    detalhe_pagamento = %s
                 WHERE id_plataforma = %s
             ''', (
                 data.get('descricao'),
                 data.get('indice'),
-                data.get('id_centralx'),
-                data.get('cor'),
                 data.get('status', True),
+                data.get('tech_partner'),
+                data.get('tech_fee'),
+                data.get('metodo_pagamento'),
+                data.get('detalhe_pagamento'),
                 id_plataforma,
             ))
             conn.commit()
@@ -11866,7 +11967,7 @@ def obter_leads_metricas(ano=None, mes=None):
         raise
 
 
-# ==================== DV360 — CLIENTES / ANUNCIANTES ====================
+# ==================== DV360 — tabela dv360_advertisers (mapeamento cliente ↔ anunciante) ====================
 
 def _normalizar_dv_anunciante_id(dv_anunciante_id) -> str:
     if dv_anunciante_id is None:
@@ -11874,7 +11975,7 @@ def _normalizar_dv_anunciante_id(dv_anunciante_id) -> str:
     return str(dv_anunciante_id).strip()
 
 
-def listar_dv_clientes_por_cliente(cliente_id: int):
+def listar_dv360_advertisers_por_cliente(cliente_id: int):
     """Lista mapeamentos cliente ↔ anunciante DV360 para um cliente (com nome_fantasia)."""
     conn = get_db()
     try:
@@ -11883,7 +11984,7 @@ def listar_dv_clientes_por_cliente(cliente_id: int):
                 '''
                 SELECT d.id, d.created_at, d.updated_at, d.cliente_id, d.dv_anunciante_id,
                        c.nome_fantasia
-                FROM dv_clientes d
+                FROM dv360_advertisers d
                 LEFT JOIN tbl_cliente c ON c.id_cliente = d.cliente_id
                 WHERE d.cliente_id = %s
                 ORDER BY d.updated_at DESC NULLS LAST, d.id DESC
@@ -11895,8 +11996,8 @@ def listar_dv_clientes_por_cliente(cliente_id: int):
         raise e
 
 
-def listar_todos_dv_clientes_com_cliente():
-    """Lista todos os mapeamentos dv_clientes com nome_fantasia (uso interno / admin)."""
+def listar_todos_dv360_advertisers_com_cliente():
+    """Lista todos os mapeamentos em dv360_advertisers com nome_fantasia (uso interno / admin)."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -11904,7 +12005,7 @@ def listar_todos_dv_clientes_com_cliente():
                 '''
                 SELECT d.id, d.created_at, d.updated_at, d.cliente_id, d.dv_anunciante_id,
                        c.nome_fantasia
-                FROM dv_clientes d
+                FROM dv360_advertisers d
                 LEFT JOIN tbl_cliente c ON c.id_cliente = d.cliente_id
                 ORDER BY c.nome_fantasia NULLS LAST, d.dv_anunciante_id
                 '''
@@ -11914,15 +12015,15 @@ def listar_todos_dv_clientes_com_cliente():
         raise e
 
 
-def obter_dv_cliente_por_id(registro_id: int):
-    """Uma linha de dv_clientes por id."""
+def obter_dv360_advertiser_por_id(registro_id: int):
+    """Uma linha de dv360_advertisers por id."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 '''
                 SELECT id, created_at, updated_at, cliente_id, dv_anunciante_id
-                FROM dv_clientes
+                FROM dv360_advertisers
                 WHERE id = %s
                 ''',
                 (registro_id,),
@@ -11932,12 +12033,37 @@ def obter_dv_cliente_por_id(registro_id: int):
         raise e
 
 
+def obter_cliente_id_por_dv_anunciante_id(dv_anunciante_id: str) -> Optional[int]:
+    """Resolve cliente_id a partir do ID de anunciante DV360 em dv360_advertisers (trim)."""
+    if not dv_anunciante_id or not str(dv_anunciante_id).strip():
+        return None
+    adv = str(dv_anunciante_id).strip()
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT cliente_id FROM dv360_advertisers
+                WHERE dv_anunciante_id = %s
+                ORDER BY id DESC
+                LIMIT 1
+                ''',
+                (adv,),
+            )
+            row = cursor.fetchone()
+            if not row or row.get("cliente_id") is None:
+                return None
+            return int(row["cliente_id"])
+    except Exception as e:
+        raise e
+
+
 def _dv_anunciante_id_ja_existe(cursor, dv_anunciante_id: str, exceto_id: Optional[int] = None) -> bool:
     """True se dv_anunciante_id já existe na tabela (unicidade global)."""
     if exceto_id is not None:
         cursor.execute(
             '''
-            SELECT 1 FROM dv_clientes
+            SELECT 1 FROM dv360_advertisers
             WHERE dv_anunciante_id = %s AND id <> %s
             LIMIT 1
             ''',
@@ -11946,7 +12072,7 @@ def _dv_anunciante_id_ja_existe(cursor, dv_anunciante_id: str, exceto_id: Option
     else:
         cursor.execute(
             '''
-            SELECT 1 FROM dv_clientes
+            SELECT 1 FROM dv360_advertisers
             WHERE dv_anunciante_id = %s
             LIMIT 1
             ''',
@@ -11955,7 +12081,7 @@ def _dv_anunciante_id_ja_existe(cursor, dv_anunciante_id: str, exceto_id: Option
     return cursor.fetchone() is not None
 
 
-def criar_dv_cliente(cliente_id: int, dv_anunciante_id: str):
+def criar_dv360_advertiser(cliente_id: int, dv_anunciante_id: str):
     """
     Insere mapeamento. Retorna id da linha ou None se dv_anunciante_id já existir (global).
     """
@@ -11972,7 +12098,7 @@ def criar_dv_cliente(cliente_id: int, dv_anunciante_id: str):
                 return None
             cursor.execute(
                 '''
-                INSERT INTO dv_clientes (cliente_id, dv_anunciante_id)
+                INSERT INTO dv360_advertisers (cliente_id, dv_anunciante_id)
                 VALUES (%s, %s)
                 RETURNING id
                 ''',
@@ -11986,7 +12112,7 @@ def criar_dv_cliente(cliente_id: int, dv_anunciante_id: str):
         raise e
 
 
-def atualizar_dv_cliente(registro_id: int, dv_anunciante_id: str) -> bool:
+def atualizar_dv360_advertiser(registro_id: int, dv_anunciante_id: str) -> bool:
     """
     Atualiza dv_anunciante_id. Retorna False se o registro não existir.
     Levanta ValueError se o novo id for vazio ou já existir noutro registo (unicidade global).
@@ -11999,7 +12125,7 @@ def atualizar_dv_cliente(registro_id: int, dv_anunciante_id: str) -> bool:
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                'SELECT id, cliente_id FROM dv_clientes WHERE id = %s',
+                'SELECT id, cliente_id FROM dv360_advertisers WHERE id = %s',
                 (registro_id,),
             )
             existente = cursor.fetchone()
@@ -12011,7 +12137,7 @@ def atualizar_dv_cliente(registro_id: int, dv_anunciante_id: str) -> bool:
                 )
             cursor.execute(
                 '''
-                UPDATE dv_clientes
+                UPDATE dv360_advertisers
                 SET dv_anunciante_id = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
@@ -12028,15 +12154,1471 @@ def atualizar_dv_cliente(registro_id: int, dv_anunciante_id: str) -> bool:
         raise e
 
 
-def excluir_dv_cliente(registro_id: int) -> bool:
+def excluir_dv360_advertiser(registro_id: int) -> bool:
     """Remove por id. Retorna True se apagou uma linha."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('DELETE FROM dv_clientes WHERE id = %s RETURNING id', (registro_id,))
+            cursor.execute(
+                'DELETE FROM dv360_advertisers WHERE id = %s RETURNING id',
+                (registro_id,),
+            )
             row = cursor.fetchone()
             conn.commit()
             return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== DV360 — tabela dv360_campaigns (PI ↔ campaigns_id DV360) ====================
+
+def _normalizar_campaigns_id(campaigns_id) -> str:
+    if campaigns_id is None:
+        return ''
+    return str(campaigns_id).strip()
+
+
+def _campaigns_id_ja_existe(
+    cursor, campaigns_id: str, exceto_id: Optional[int] = None
+) -> bool:
+    """True se campaigns_id já existe na tabela (unicidade global)."""
+    if exceto_id is not None:
+        cursor.execute(
+            '''
+            SELECT 1 FROM dv360_campaigns
+            WHERE campaigns_id = %s AND id <> %s
+            LIMIT 1
+            ''',
+            (campaigns_id, exceto_id),
+        )
+    else:
+        cursor.execute(
+            '''
+            SELECT 1 FROM dv360_campaigns
+            WHERE campaigns_id = %s
+            LIMIT 1
+            ''',
+            (campaigns_id,),
+        )
+    return cursor.fetchone() is not None
+
+
+def listar_dv360_campaigns_por_campanha(campanha_id: int):
+    """Lista linhas de dv360_campaigns para uma campanha PI."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, created_at, updated_at, campaigns_id, campanha_id,
+                       budget, spent, kpi_goal, kpi_atual, kpi_type,
+                       report_start_date, report_end_date
+                FROM dv360_campaigns
+                WHERE campanha_id = %s
+                ORDER BY updated_at DESC NULLS LAST, id DESC
+                ''',
+                (int(campanha_id),),
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def listar_dv360_campaigns_agrupados_por_campanhas(
+    campanha_ids: List[int],
+) -> Dict[int, List[Dict[str, Any]]]:
+    """Agrupa mapeamentos dv360_campaigns por campanha_id (para enriquecer listagens PI)."""
+    if not campanha_ids:
+        return {}
+    ids = [int(x) for x in campanha_ids]
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, campanha_id, campaigns_id,
+                       budget, spent, kpi_goal, kpi_atual, kpi_type,
+                       report_start_date, report_end_date
+                FROM dv360_campaigns
+                WHERE campanha_id = ANY(%s)
+                ORDER BY campanha_id, id
+                ''',
+                (ids,),
+            )
+            rows = cursor.fetchall()
+    except Exception as e:
+        raise e
+    out: Dict[int, List[Dict[str, Any]]] = {}
+    for r in rows:
+        cid = int(r["campanha_id"])
+        out.setdefault(cid, []).append(
+            {
+                "id": r["id"],
+                "campaigns_id": r["campaigns_id"],
+                "budget": r.get("budget"),
+                "spent": r.get("spent"),
+                "kpi_goal": r.get("kpi_goal"),
+                "kpi_atual": r.get("kpi_atual"),
+                "kpi_type": r.get("kpi_type"),
+                "report_start_date": r.get("report_start_date"),
+                "report_end_date": r.get("report_end_date"),
+            }
+        )
+    return out
+
+
+def excluir_dv360_campaigns_por_campanha(campanha_id: int) -> int:
+    """Remove todos os mapeamentos DV360 para uma campanha PI. Retorna linhas apagadas."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'DELETE FROM dv360_campaigns WHERE campanha_id = %s',
+                (int(campanha_id),),
+            )
+            n = cursor.rowcount or 0
+            conn.commit()
+            return int(n)
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def listar_todos_dv360_campaigns():
+    """Lista todos os mapeamentos com nome da campanha PI e cliente (admin)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT m.id, m.created_at, m.updated_at, m.campaigns_id, m.campanha_id,
+                       m.budget, m.spent, m.kpi_goal, m.kpi_atual, m.kpi_type,
+                       m.report_start_date, m.report_end_date,
+                       c.nome_campanha, c.id_cliente, cli.nome_fantasia AS cliente_nome
+                FROM dv360_campaigns m
+                LEFT JOIN cadu_pi_campanha c ON c.id_campanha = m.campanha_id
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.id_cliente
+                ORDER BY c.nome_campanha NULLS LAST, m.campaigns_id
+                '''
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        raise e
+
+
+def obter_dv360_campaign_por_id(registro_id: int):
+    """Uma linha de dv360_campaigns por id."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, created_at, updated_at, campaigns_id, campanha_id,
+                       budget, spent, kpi_goal, kpi_atual, kpi_type,
+                       report_start_date, report_end_date
+                FROM dv360_campaigns
+                WHERE id = %s
+                ''',
+                (registro_id,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def criar_dv360_campaign(campanha_id: int, campaigns_id: str):
+    """
+    Insere mapeamento. Retorna id da linha ou None se campaigns_id já existir (global).
+    """
+    cid = _normalizar_campaigns_id(campaigns_id)
+    if not cid:
+        raise ValueError('campaigns_id inválido ou vazio')
+    if campanha_id is None:
+        raise ValueError('campanha_id é obrigatório')
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if _campaigns_id_ja_existe(cursor, cid):
+                return None
+            cursor.execute(
+                '''
+                INSERT INTO dv360_campaigns (campanha_id, campaigns_id)
+                VALUES (%s, %s)
+                RETURNING id
+                ''',
+                (int(campanha_id), cid),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return row['id'] if row else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_dv360_campaign(
+    registro_id: int,
+    *,
+    campanha_id: Optional[int] = None,
+    campaigns_id: Optional[str] = None,
+) -> bool:
+    """
+    Atualiza campanha_id e/ou campaigns_id.
+    Retorna False se o registro não existir.
+    Levanta ValueError se campaigns_id vazio ou já existir noutro registo.
+    """
+    if campanha_id is None and campaigns_id is None:
+        raise ValueError('Indique campanha_id ou campaigns_id para atualizar.')
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, campanha_id, campaigns_id FROM dv360_campaigns WHERE id = %s
+                ''',
+                (registro_id,),
+            )
+            existente = cursor.fetchone()
+            if not existente:
+                return False
+
+            novo_campanha = (
+                int(campanha_id) if campanha_id is not None else existente['campanha_id']
+            )
+            if campaigns_id is not None:
+                adv = _normalizar_campaigns_id(campaigns_id)
+                if not adv:
+                    raise ValueError('campaigns_id inválido ou vazio')
+                if _campaigns_id_ja_existe(cursor, adv, exceto_id=registro_id):
+                    raise ValueError(
+                        'Este campaigns_id já está em uso noutro mapeamento'
+                    )
+                novo_campaigns = adv
+            else:
+                novo_campaigns = existente['campaigns_id']
+
+            cursor.execute(
+                '''
+                UPDATE dv360_campaigns
+                SET campanha_id = %s,
+                    campaigns_id = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                ''',
+                (novo_campanha, novo_campaigns, registro_id),
+            )
+            conn.commit()
+            return True
+    except ValueError:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_dv360_campaign_metricas_api(
+    registro_id: int,
+    *,
+    budget: Optional[Any] = None,
+    spent: Optional[Any] = None,
+    kpi_goal: Optional[Any] = None,
+    kpi_atual: Optional[Any] = None,
+    kpi_type: Optional[str] = None,
+) -> bool:
+    """
+    Actualiza métricas extraídas do GET Campaign DV360 (budget, spent, kpi_goal, kpi_atual, kpi_type).
+    Aceita None para gravar NULL. Retorna False se o registo não existir.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                UPDATE dv360_campaigns
+                SET budget = %s,
+                    spent = %s,
+                    kpi_goal = %s,
+                    kpi_atual = %s,
+                    kpi_type = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                ''',
+                (budget, spent, kpi_goal, kpi_atual, kpi_type, registro_id),
+            )
+            ok = cursor.rowcount > 0
+            conn.commit()
+            return bool(ok)
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_dv360_campaign_metricas_manuais(
+    registro_id: int,
+    *,
+    spent: Any = ...,
+    kpi_atual: Any = ...,
+) -> bool:
+    """
+    Actualiza spent e/ou kpi_atual (entrada manual). Use None para NULL.
+    Omita um parâmetro com o default (... = Ellipsis) para não alterar essa coluna.
+    Retorna False se o registo não existir.
+    """
+    if spent is ... and kpi_atual is ...:
+        raise ValueError('Indique spent e/ou kpi_atual para actualizar.')
+
+    sets: List[str] = []
+    params: List[Any] = []
+    if spent is not ...:
+        sets.append('spent = %s')
+        params.append(spent)
+    if kpi_atual is not ...:
+        sets.append('kpi_atual = %s')
+        params.append(kpi_atual)
+    sets.append('updated_at = CURRENT_TIMESTAMP')
+    params.append(registro_id)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                UPDATE dv360_campaigns
+                SET {", ".join(sets)}
+                WHERE id = %s
+                ''',
+                tuple(params),
+            )
+            ok = cursor.rowcount > 0
+            conn.commit()
+            return bool(ok)
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_dv360_campaign_periodo(
+    registro_id: int,
+    *,
+    report_start_date: Optional[Any],
+    report_end_date: Optional[Any],
+) -> bool:
+    """
+    Grava período do relatório Bid Manager (report_start_date / report_end_date).
+    None em cada campo grava NULL. Retorna False se o registo não existir.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                UPDATE dv360_campaigns
+                SET report_start_date = %s,
+                    report_end_date = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                ''',
+                (report_start_date, report_end_date, registro_id),
+            )
+            ok = cursor.rowcount > 0
+            conn.commit()
+            return bool(ok)
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_dv360_campaign(registro_id: int) -> bool:
+    """Remove por id. Retorna True se apagou uma linha."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'DELETE FROM dv360_campaigns WHERE id = %s RETURNING id',
+                (registro_id,),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return row is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== DV360 — tabela dv360_insertion_orders ====================
+
+
+def obter_dv360_campaign_por_campaigns_id(campaigns_id: str):
+    """
+    Resolve mapeamento PI ↔ DV360 pela string campaigns_id (ID da campanha na API).
+    Retorna dict com id, campanha_id, campaigns_id, budget, spent, kpi_goal, kpi_atual, kpi_type,
+    report_start_date, report_end_date ou None.
+    """
+    cid = _normalizar_campaigns_id(campaigns_id)
+    if not cid:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, campanha_id, campaigns_id,
+                       budget, spent, kpi_goal, kpi_atual, kpi_type,
+                       report_start_date, report_end_date
+                FROM dv360_campaigns
+                WHERE campaigns_id = %s
+                LIMIT 1
+                ''',
+                (cid,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        raise e
+
+
+def _dv360_io_jsonb(val: Any) -> Any:
+    """Adapta dict/list para coluna JSONB; None → NULL."""
+    if val is None:
+        return None
+    if isinstance(val, (dict, list)):
+        return Json(val)
+    return Json(json.loads(json.dumps(val, default=str)))
+
+
+def upsert_dv360_insertion_order(dv360_campaign_id: int, io_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Insere ou actualiza um insertion order a partir do payload JSON da API DV360 (camelCase).
+    Retorna {'inserted': bool} — inserted True quando foi INSERT (RETURNING xmax = 0).
+    """
+    if not isinstance(io_payload, dict):
+        raise ValueError('io_payload deve ser um dict')
+    ioid = io_payload.get('insertionOrderId')
+    if ioid is None or str(ioid).strip() == '':
+        raise ValueError('insertionOrderId em falta no payload')
+
+    name = io_payload.get('name')
+    if name is not None:
+        name = str(name).strip()[:512] or None
+    adv = io_payload.get('advertiserId')
+    if adv is not None:
+        adv = str(adv).strip()[:64] or None
+    camp = io_payload.get('campaignId')
+    if camp is not None:
+        camp = str(camp).strip()[:64] or None
+    disp = io_payload.get('displayName')
+    if disp is not None:
+        disp = str(disp).strip()[:255] or None
+    es = io_payload.get('entityStatus')
+    if es is not None:
+        es = str(es).strip()[:64] or None
+    iot = io_payload.get('insertionOrderType')
+    if iot is not None:
+        iot = str(iot).strip()[:64] or None
+    bo = io_payload.get('billableOutcome')
+    if bo is not None:
+        bo = str(bo).strip()[:64] or None
+    oo = io_payload.get('optimizationObjective')
+    if oo is not None:
+        oo = str(oo).strip()[:64] or None
+    rt = io_payload.get('reservationType')
+    if rt is not None:
+        rt = str(rt).strip()[:64] or None
+
+    ut = io_payload.get('updateTime')
+    if ut is not None and ut != '':
+        ut = str(ut).strip()
+    else:
+        ut = None
+
+    pacing = _dv360_io_jsonb(io_payload.get('pacing'))
+    freq = _dv360_io_jsonb(io_payload.get('frequencyCap'))
+    kpi = _dv360_io_jsonb(io_payload.get('kpi'))
+    budget = _dv360_io_jsonb(io_payload.get('budget'))
+    bid = _dv360_io_jsonb(io_payload.get('bidStrategy'))
+    partners = _dv360_io_jsonb(io_payload.get('partnerCosts'))
+    integ = _dv360_io_jsonb(io_payload.get('integrationDetails'))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                INSERT INTO dv360_insertion_orders (
+                    dv360_campaign_id,
+                    insertion_order_id,
+                    name,
+                    advertiser_id,
+                    campaign_id,
+                    display_name,
+                    entity_status,
+                    insertion_order_type,
+                    billable_outcome,
+                    optimization_objective,
+                    reservation_type,
+                    update_time,
+                    pacing,
+                    frequency_cap,
+                    kpi,
+                    budget,
+                    bid_strategy,
+                    partner_costs,
+                    integration_details
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (insertion_order_id) DO UPDATE SET
+                    dv360_campaign_id = EXCLUDED.dv360_campaign_id,
+                    name = EXCLUDED.name,
+                    advertiser_id = EXCLUDED.advertiser_id,
+                    campaign_id = EXCLUDED.campaign_id,
+                    display_name = EXCLUDED.display_name,
+                    entity_status = EXCLUDED.entity_status,
+                    insertion_order_type = EXCLUDED.insertion_order_type,
+                    billable_outcome = EXCLUDED.billable_outcome,
+                    optimization_objective = EXCLUDED.optimization_objective,
+                    reservation_type = EXCLUDED.reservation_type,
+                    update_time = EXCLUDED.update_time,
+                    pacing = EXCLUDED.pacing,
+                    frequency_cap = EXCLUDED.frequency_cap,
+                    kpi = EXCLUDED.kpi,
+                    budget = EXCLUDED.budget,
+                    bid_strategy = EXCLUDED.bid_strategy,
+                    partner_costs = EXCLUDED.partner_costs,
+                    integration_details = EXCLUDED.integration_details,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING (xmax = 0)::boolean AS inserted
+                ''',
+                (
+                    int(dv360_campaign_id),
+                    str(ioid).strip(),
+                    name,
+                    adv,
+                    camp,
+                    disp,
+                    es,
+                    iot,
+                    bo,
+                    oo,
+                    rt,
+                    ut,
+                    pacing,
+                    freq,
+                    kpi,
+                    budget,
+                    bid,
+                    partners,
+                    integ,
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            ins = bool(row and row.get('inserted'))
+            return {'inserted': ins}
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def contar_dv360_insertion_orders_por_dv360_campaign(dv360_campaign_id: int) -> int:
+    """Número de linhas em dv360_insertion_orders para um dv360_campaigns.id."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT COUNT(*)::int AS n
+                FROM dv360_insertion_orders
+                WHERE dv360_campaign_id = %s
+                ''',
+                (int(dv360_campaign_id),),
+            )
+            row = cursor.fetchone()
+            if not row or row.get('n') is None:
+                return 0
+            return int(row['n'])
+    except Exception as e:
+        raise e
+
+
+def listar_dv360_insertion_orders_por_dv360_campaign(dv360_campaign_id: int) -> List[Dict[str, Any]]:
+    """Lista linhas de dv360_insertion_orders para um dv360_campaigns.id (ordenado por insertion_order_id)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id, insertion_order_id, display_name, entity_status, campaign_id,
+                       update_time, created_at, updated_at
+                FROM dv360_insertion_orders
+                WHERE dv360_campaign_id = %s
+                ORDER BY insertion_order_id
+                ''',
+                (int(dv360_campaign_id),),
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        raise e
+
+
+def listar_dv360_insertion_orders_completos_por_dv360_campaign(
+    dv360_campaign_id: int,
+) -> List[Dict[str, Any]]:
+    """
+    Todas as colunas de negócio de dv360_insertion_orders para reconstruir o payload estilo API.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT insertion_order_id, name, advertiser_id, campaign_id, display_name,
+                       entity_status, insertion_order_type, billable_outcome,
+                       optimization_objective, reservation_type, update_time,
+                       pacing, frequency_cap, kpi, budget, bid_strategy,
+                       partner_costs, integration_details
+                FROM dv360_insertion_orders
+                WHERE dv360_campaign_id = %s
+                ORDER BY insertion_order_id
+                ''',
+                (int(dv360_campaign_id),),
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        raise e
+
+
+# ==================== DV360 — tabela dv360_line_items ====================
+
+
+def obter_dv360_insertion_order_internal_id(
+    dv360_campaign_id: int, insertion_order_id: str
+) -> Optional[int]:
+    """Resolve dv360_insertion_orders.id pelo par campaign DV360 + insertion_order_id."""
+    ioid = str(insertion_order_id or "").strip()
+    if not ioid:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id FROM dv360_insertion_orders
+                WHERE dv360_campaign_id = %s AND insertion_order_id = %s
+                LIMIT 1
+                ''',
+                (int(dv360_campaign_id), ioid),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return int(row["id"])
+    except Exception as e:
+        raise e
+
+
+def _dv360_li_jsonb(val: Any) -> Any:
+    if val is None:
+        return None
+    if isinstance(val, (dict, list)):
+        return Json(val)
+    return Json(json.loads(json.dumps(val, default=str)))
+
+
+def upsert_dv360_line_item(
+    dv360_insertion_order_pk: int, li_payload: Dict[str, Any]
+) -> Dict[str, Any]:
+    """UPSERT line item a partir do JSON da API DV360 (camelCase)."""
+    if not isinstance(li_payload, dict):
+        raise ValueError("li_payload deve ser um dict")
+    lid = li_payload.get("lineItemId")
+    if lid is None or str(lid).strip() == "":
+        raise ValueError("lineItemId em falta no payload")
+
+    name = li_payload.get("name")
+    if name is not None:
+        name = str(name).strip()[:512] or None
+    adv = li_payload.get("advertiserId")
+    if adv is not None:
+        adv = str(adv).strip()[:64] or None
+    camp = li_payload.get("campaignId")
+    if camp is not None:
+        camp = str(camp).strip()[:64] or None
+    ioid = li_payload.get("insertionOrderId")
+    if ioid is not None:
+        ioid = str(ioid).strip()[:64] or None
+    disp = li_payload.get("displayName")
+    if disp is not None:
+        disp = str(disp).strip()[:255] or None
+    es = li_payload.get("entityStatus")
+    if es is not None:
+        es = str(es).strip()[:64] or None
+    lit = li_payload.get("type") or li_payload.get("lineItemType")
+    if lit is not None:
+        lit = str(lit).strip()[:64] or None
+
+    ut = li_payload.get("updateTime")
+    if ut is not None and ut != "":
+        ut = str(ut).strip()
+    else:
+        ut = None
+
+    pacing = _dv360_li_jsonb(li_payload.get("pacing"))
+    budget = _dv360_li_jsonb(li_payload.get("budget"))
+    partners = _dv360_li_jsonb(li_payload.get("partnerCosts"))
+    targeting = _dv360_li_jsonb(li_payload.get("targeting"))
+    integ = _dv360_li_jsonb(li_payload.get("integrationDetails"))
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                INSERT INTO dv360_line_items (
+                    dv360_insertion_order_id,
+                    line_item_id,
+                    advertiser_id,
+                    campaign_id,
+                    insertion_order_id,
+                    name,
+                    display_name,
+                    entity_status,
+                    line_item_type,
+                    update_time,
+                    pacing,
+                    budget,
+                    partner_costs,
+                    targeting,
+                    integration_details
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (line_item_id) DO UPDATE SET
+                    dv360_insertion_order_id = EXCLUDED.dv360_insertion_order_id,
+                    advertiser_id = EXCLUDED.advertiser_id,
+                    campaign_id = EXCLUDED.campaign_id,
+                    insertion_order_id = EXCLUDED.insertion_order_id,
+                    name = EXCLUDED.name,
+                    display_name = EXCLUDED.display_name,
+                    entity_status = EXCLUDED.entity_status,
+                    line_item_type = EXCLUDED.line_item_type,
+                    update_time = EXCLUDED.update_time,
+                    pacing = EXCLUDED.pacing,
+                    budget = EXCLUDED.budget,
+                    partner_costs = EXCLUDED.partner_costs,
+                    targeting = EXCLUDED.targeting,
+                    integration_details = EXCLUDED.integration_details,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING (xmax = 0)::boolean AS inserted
+                ''',
+                (
+                    int(dv360_insertion_order_pk),
+                    str(lid).strip(),
+                    adv,
+                    camp,
+                    ioid,
+                    name,
+                    disp,
+                    es,
+                    lit,
+                    ut,
+                    pacing,
+                    budget,
+                    partners,
+                    targeting,
+                    integ,
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            ins = bool(row and row.get("inserted"))
+            return {"inserted": ins}
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def contar_dv360_line_items_por_dv360_campaign(dv360_campaign_id: int) -> int:
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT COUNT(*)::int AS n
+                FROM dv360_line_items li
+                INNER JOIN dv360_insertion_orders io ON io.id = li.dv360_insertion_order_id
+                WHERE io.dv360_campaign_id = %s
+                ''',
+                (int(dv360_campaign_id),),
+            )
+            row = cursor.fetchone()
+            if not row or row.get("n") is None:
+                return 0
+            return int(row["n"])
+    except Exception as e:
+        raise e
+
+
+def listar_dv360_line_items_por_dv360_campaign(dv360_campaign_id: int) -> List[Dict[str, Any]]:
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT li.id, li.line_item_id, li.name, li.display_name, li.entity_status,
+                       li.insertion_order_id, li.dv360_insertion_order_id,
+                       li.update_time, li.created_at, li.updated_at
+                FROM dv360_line_items li
+                INNER JOIN dv360_insertion_orders io ON io.id = li.dv360_insertion_order_id
+                WHERE io.dv360_campaign_id = %s
+                ORDER BY li.insertion_order_id NULLS LAST, li.line_item_id
+                ''',
+                (int(dv360_campaign_id),),
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        raise e
+
+
+# ==================== DV360 — dv360_campaign_metrics_daily ====================
+
+
+def upsert_dv360_campaign_metrics_daily_row(
+    dv360_campaign_id: int,
+    metric_date: Any,
+    *,
+    spent: Any = None,
+    impressions: Any = None,
+    cpm: Any = None,
+    clicks: Any = None,
+    cpc: Any = None,
+    source: str = "bid_manager",
+) -> None:
+    """Uma linha diária (ON CONFLICT atualiza métricas e collected_at)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                INSERT INTO dv360_campaign_metrics_daily (
+                    dv360_campaign_id, metric_date, spent, impressions, cpm, clicks, cpc,
+                    source, collected_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (dv360_campaign_id, metric_date) DO UPDATE SET
+                    spent = EXCLUDED.spent,
+                    impressions = EXCLUDED.impressions,
+                    cpm = EXCLUDED.cpm,
+                    clicks = EXCLUDED.clicks,
+                    cpc = EXCLUDED.cpc,
+                    source = EXCLUDED.source,
+                    collected_at = CURRENT_TIMESTAMP
+                ''',
+                (
+                    int(dv360_campaign_id),
+                    metric_date,
+                    spent,
+                    impressions,
+                    cpm,
+                    clicks,
+                    cpc,
+                    source,
+                ),
+            )
+            conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def listar_dv360_campaign_metrics_daily(
+    dv360_campaign_id: int,
+    start_date: Optional[Any] = None,
+    end_date: Optional[Any] = None,
+) -> List[Dict[str, Any]]:
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if start_date is not None and end_date is not None:
+                cursor.execute(
+                    '''
+                    SELECT metric_date, spent, impressions, cpm, clicks, cpc,
+                           source, collected_at
+                    FROM dv360_campaign_metrics_daily
+                    WHERE dv360_campaign_id = %s
+                      AND metric_date >= %s AND metric_date <= %s
+                    ORDER BY metric_date ASC
+                    ''',
+                    (int(dv360_campaign_id), start_date, end_date),
+                )
+            else:
+                cursor.execute(
+                    '''
+                    SELECT metric_date, spent, impressions, cpm, clicks, cpc,
+                           source, collected_at
+                    FROM dv360_campaign_metrics_daily
+                    WHERE dv360_campaign_id = %s
+                    ORDER BY metric_date ASC
+                    ''',
+                    (int(dv360_campaign_id),),
+                )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        raise e
+
+
+# ==================== DV360 — dv360_audit_log ====================
+
+
+def registrar_dv360_audit(
+    entity_table: str,
+    entity_pk: Optional[str],
+    action: str,
+    *,
+    changed_by: Optional[int] = None,
+    summary: Optional[str] = None,
+    diff: Optional[Any] = None,
+    resource: Optional[str] = None,
+    resource_key: Optional[str] = None,
+) -> Optional[int]:
+    """Regista auditoria. Retorna id da linha."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if diff is not None and isinstance(diff, (dict, list)):
+                dj: Any = Json(diff)
+            elif diff is not None:
+                dj = Json(json.loads(json.dumps(diff, default=str)))
+            else:
+                dj = None
+            cursor.execute(
+                '''
+                INSERT INTO dv360_audit_log (
+                    entity_table, entity_pk, action, changed_by, summary, diff,
+                    resource, resource_key
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                ''',
+                (
+                    str(entity_table)[:128],
+                    str(entity_pk)[:128] if entity_pk is not None else None,
+                    str(action)[:16],
+                    int(changed_by) if changed_by is not None else None,
+                    summary,
+                    dj,
+                    str(resource)[:128] if resource else None,
+                    str(resource_key)[:256] if resource_key else None,
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return int(row["id"]) if row and row.get("id") is not None else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def listar_dv360_audit_recent(
+    *,
+    entity_table: Optional[str] = None,
+    limit: int = 200,
+) -> List[Dict[str, Any]]:
+    lim = max(1, min(int(limit), 500))
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if entity_table:
+                cursor.execute(
+                    '''
+                    SELECT id, entity_table, entity_pk, action, changed_by, changed_at,
+                           summary, diff, resource, resource_key
+                    FROM dv360_audit_log
+                    WHERE entity_table = %s
+                    ORDER BY changed_at DESC, id DESC
+                    LIMIT %s
+                    ''',
+                    (entity_table, lim),
+                )
+            else:
+                cursor.execute(
+                    '''
+                    SELECT id, entity_table, entity_pk, action, changed_by, changed_at,
+                           summary, diff, resource, resource_key
+                    FROM dv360_audit_log
+                    ORDER BY changed_at DESC, id DESC
+                    LIMIT %s
+                    ''',
+                    (lim,),
+                )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        raise e
+
+
+def atualizar_dv360_advertiser_cache(registro_id: int, display_name: Optional[str]) -> bool:
+    """Atualiza display_name e api_synced_at em dv360_advertisers."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            dn = str(display_name).strip()[:512] if display_name else None
+            cursor.execute(
+                '''
+                UPDATE dv360_advertisers
+                SET display_name = %s,
+                    api_synced_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                ''',
+                (dn, int(registro_id)),
+            )
+            ok = cursor.rowcount > 0
+            conn.commit()
+            return bool(ok)
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== INCENTIVOS PI - CRUD ====================
+
+INCENTIVOS_FAIXAS = (
+    '10k',
+    '50k',
+    '100k',
+    '200k',
+    '300k',
+    '400k',
+    '500k',
+    '600k',
+    '750k',
+    '2000k',
+)
+
+
+def _sql_select_incentivos_cols(alias='i'):
+    """Colunas da faixa com alias pct_{faixa} para uso em SELECT."""
+    parts = []
+    for f in INCENTIVOS_FAIXAS:
+        parts.append(f'{alias}."{f}" AS pct_{f}')
+    return ',\n       '.join(parts)
+
+
+def obter_clientes_agencias():
+    """Clientes cuja tbl_agencia indica perfil agência (key TRUE ou display Sim/S)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    cli.id_cliente,
+                    cli.nome_fantasia,
+                    cli.razao_social,
+                    cli.cnpj
+                FROM tbl_cliente cli
+                LEFT JOIN tbl_agencia ag ON ag.id_agencia = cli.pk_id_tbl_agencia
+                WHERE COALESCE(cli.status, true) = true
+                  AND (
+                    COALESCE((ag.key IS TRUE), false)
+                    OR LOWER(TRIM(COALESCE(ag.display, ''))) IN ('sim', 's')
+                  )
+                ORDER BY cli.nome_fantasia ASC NULLS LAST, cli.razao_social ASC NULLS LAST
+                '''
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cliente_ids_com_incentivo():
+    """Distinct cliente_id que já possuem linha em cadu_pi_incentivos."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT DISTINCT cliente_id
+                FROM cadu_pi_incentivos
+                WHERE cliente_id IS NOT NULL
+                '''
+            )
+            rows = cursor.fetchall()
+            return [r['cliente_id'] for r in rows if r.get('cliente_id') is not None]
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_incentivos():
+    conn = get_db()
+    cols = _sql_select_incentivos_cols('i')
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                SELECT
+                    i.id,
+                    i.cliente_id,
+                    cli.percentual AS bv,
+                    {cols},
+                    i.created_at,
+                    i.updated_at,
+                    cli.nome_fantasia AS cliente_nome,
+                    cli.razao_social AS cliente_razao
+                FROM cadu_pi_incentivos i
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
+                ORDER BY cli.nome_fantasia ASC NULLS LAST, i.id ASC
+                '''
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_incentivo_por_id(id_incentivo):
+    conn = get_db()
+    cols = _sql_select_incentivos_cols('i')
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                SELECT
+                    i.id,
+                    i.cliente_id,
+                    cli.percentual AS bv,
+                    {cols},
+                    i.created_at,
+                    i.updated_at,
+                    cli.nome_fantasia AS cliente_nome,
+                    cli.razao_social AS cliente_razao
+                FROM cadu_pi_incentivos i
+                LEFT JOIN tbl_cliente cli ON cli.id_cliente = i.cliente_id
+                WHERE i.id = %s
+                ''',
+                (id_incentivo,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_incentivo(data):
+    conn = get_db()
+    faixas_sql = ', '.join(f'"{f}"' for f in INCENTIVOS_FAIXAS)
+    placeholders = ', '.join(['%s'] * (1 + len(INCENTIVOS_FAIXAS)))
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                INSERT INTO cadu_pi_incentivos (
+                    cliente_id, {faixas_sql}, created_at, updated_at
+                )
+                VALUES ({placeholders}, NOW(), NOW())
+                RETURNING id
+                ''',
+                (
+                    data.get('cliente_id'),
+                    *[data.get(f) for f in INCENTIVOS_FAIXAS],
+                ),
+            )
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_incentivo(id_incentivo, data):
+    conn = get_db()
+    sets = ['cliente_id = %s'] + [f'"{f}" = %s' for f in INCENTIVOS_FAIXAS] + ['updated_at = NOW()']
+    set_sql = ',\n                    '.join(sets)
+    vals = [
+        data.get('cliente_id'),
+        *[data.get(f) for f in INCENTIVOS_FAIXAS],
+        id_incentivo,
+    ]
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'''
+                UPDATE cadu_pi_incentivos
+                SET {set_sql}
+                WHERE id = %s
+                ''',
+                tuple(vals),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_incentivo(id_incentivo):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                DELETE FROM cadu_pi_incentivos
+                WHERE id = %s
+                ''',
+                (id_incentivo,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== CADU PI COM VENDAS ====================
+
+
+def _int_id(val):
+    """Normaliza id vindo do PG/psycopg (int, str, Decimal) para comparar sets."""
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def obter_opcoes_resp_comercial_pi_com_vendas(id_linha_edicao=None):
+    """Mesma base que o select de executivo no PI (`obter_vendedores_centralcomm`); remove quem já está em cadu_pi_com_vendas.
+
+    IDs são comparados como int para evitar lista vazia por mismatch Decimal/int/str entre tabelas.
+    Não usar (%s IS NULL OR ...) com dois NULL — psycopg levanta IndeterminateDatatype.
+    """
+    conn = get_db()
+    try:
+        todos = obter_vendedores_centralcomm(incluir_usuario_comercial=False) or []
+        with conn.cursor() as cursor:
+            if id_linha_edicao is None:
+                cursor.execute(
+                    '''
+                    SELECT v.id_resp_comercial
+                    FROM cadu_pi_com_vendas v
+                    WHERE v.id_resp_comercial IS NOT NULL
+                    '''
+                )
+            else:
+                cursor.execute(
+                    '''
+                    SELECT v.id_resp_comercial
+                    FROM cadu_pi_com_vendas v
+                    WHERE v.id_resp_comercial IS NOT NULL
+                      AND v.id <> %s
+                    ''',
+                    (id_linha_edicao,),
+                )
+            ocupados = set()
+            for r in cursor.fetchall():
+                i = _int_id(r.get('id_resp_comercial'))
+                if i is not None:
+                    ocupados.add(i)
+        out = []
+        for v in todos:
+            cid = _int_id(v.get('id_contato_cliente'))
+            if cid is not None and cid not in ocupados:
+                out.append(v)
+        return out
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def listar_cadu_pi_com_vendas():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    v.id,
+                    v.id_resp_comercial,
+                    v.percentual,
+                    v.created_at,
+                    v.updated_at,
+                    c.nome_completo AS resp_nome
+                FROM cadu_pi_com_vendas v
+                LEFT JOIN tbl_contato_cliente c ON v.id_resp_comercial = c.id_contato_cliente
+                ORDER BY c.nome_completo ASC NULLS LAST, v.id ASC
+                '''
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cadu_pi_com_vendas_por_id(row_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    v.id,
+                    v.id_resp_comercial,
+                    v.percentual,
+                    v.created_at,
+                    v.updated_at,
+                    c.nome_completo AS resp_nome
+                FROM cadu_pi_com_vendas v
+                LEFT JOIN tbl_contato_cliente c ON v.id_resp_comercial = c.id_contato_cliente
+                WHERE v.id = %s
+                ''',
+                (row_id,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def existe_outro_cadu_pi_com_vendas_mesmo_resp(id_resp_comercial, exceto_id=None):
+    """True se já existe outra linha com o mesmo id_resp_comercial.
+
+    Com exceto_id=None (novo registro), não passar NULL em SQL — psycopg gera
+    IndeterminateDatatype em (%s IS NULL OR id <> %s).
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            if exceto_id is None:
+                cursor.execute(
+                    '''
+                    SELECT 1
+                    FROM cadu_pi_com_vendas
+                    WHERE id_resp_comercial = %s
+                    LIMIT 1
+                    ''',
+                    (id_resp_comercial,),
+                )
+            else:
+                cursor.execute(
+                    '''
+                    SELECT 1
+                    FROM cadu_pi_com_vendas
+                    WHERE id_resp_comercial = %s
+                      AND id <> %s
+                    LIMIT 1
+                    ''',
+                    (id_resp_comercial, exceto_id),
+                )
+            return cursor.fetchone() is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def _row_pk_val(row):
+    """Extrai o primeiro id de um resultado RETURNING (dict_row / Row)."""
+    if row is None:
+        return None
+    try:
+        if hasattr(row, 'get'):
+            v = row.get('id')
+            if v is not None:
+                return int(v)
+            ks = list(row.keys()) if hasattr(row, 'keys') else []
+            if len(ks) == 1:
+                return int(row[ks[0]])
+    except (TypeError, ValueError, KeyError):
+        pass
+    try:
+        return int(row['id'])
+    except Exception:
+        try:
+            return int(row[0])
+        except Exception:
+            return None
+
+
+def criar_cadu_pi_com_vendas(data):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                INSERT INTO cadu_pi_com_vendas (
+                    id_resp_comercial, percentual, created_at, updated_at
+                )
+                VALUES (%s, %s, NOW(), NOW())
+                RETURNING id
+                ''',
+                (data.get('id_resp_comercial'), data.get('percentual')),
+            )
+            result = cursor.fetchone()
+            conn.commit()
+            pk = _row_pk_val(result)
+            if pk is None and result is not None:
+                try:
+                    current_app.logger.warning(
+                        'cadu_pi_com_vendas INSERT sem id em RETURNING; row=%s',
+                        result,
+                    )
+                except Exception:
+                    pass
+            return pk
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cadu_pi_com_vendas(row_id, data):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                UPDATE cadu_pi_com_vendas
+                SET id_resp_comercial = %s,
+                    percentual = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                ''',
+                (data.get('id_resp_comercial'), data.get('percentual'), row_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_cadu_pi_com_vendas(row_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                DELETE FROM cadu_pi_com_vendas
+                WHERE id = %s
+                ''',
+                (row_id,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
     except Exception as e:
         conn.rollback()
         raise e

@@ -6,14 +6,20 @@ Variáveis de ambiente (.env), alinhadas ao hub PHP:
   DV360_PARTNER_ID, DV360_API_BASE_URL (opcional, default v4),
   DV360_TIMEOUT (opcional, segundos).
 
+OAuth usa também ``doubleclickbidmanager`` (Bid Manager / relatórios DV360).
+Se o refresh token for antigo, regenere o consentimento com os scopes actuais.
+
 Teste no terminal (exit 0 = OK): ``python scripts/verify_dv360.py``
 ou ``flask --app run.py dv360-verify`` (na raiz do repo).
+
+Novo refresh token com ambos os scopes: ``python scripts/dv360_oauth_refresh_token.py``
+(grava ``DV360_REFRESH_TOKEN`` no ``.env`` automaticamente; redirect URI no Google Cloud — ver cabeçalho do script).
 """
 from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any, Mapping, Optional
+from typing import Any, List, Mapping, Optional
 
 import requests
 from google.auth.transport.requests import Request
@@ -21,7 +27,13 @@ from google.oauth2.credentials import Credentials
 
 logger = logging.getLogger(__name__)
 
-DV360_SCOPES = ("https://www.googleapis.com/auth/display-video",)
+DV360_SCOPES = (
+    "https://www.googleapis.com/auth/display-video",
+    "https://www.googleapis.com/auth/doubleclickbidmanager",
+)
+# Refresh tokens antigos só com consentimento Display Video — usar só este scope como fallback.
+DV360_SCOPES_DISPLAY_VIDEO_ONLY = ("https://www.googleapis.com/auth/display-video",)
+BID_MANAGER_API_BASE = "https://doubleclickbidmanager.googleapis.com/v2"
 
 DV360_ENDPOINTS = (
     "googleAudiences",
@@ -62,6 +74,7 @@ class DV360API:
         self.api_base = (config.get("DV360_API_BASE_URL") or "https://displayvideo.googleapis.com/v4").rstrip("/")
         self.timeout = int(config.get("DV360_TIMEOUT") or 30)
         self._oauth_creds: Optional[Credentials] = None
+        self.last_oauth_error: Optional[str] = None
 
     def is_configured(self) -> bool:
         return bool(
@@ -71,25 +84,102 @@ class DV360API:
             and self.refresh_token != "COLE_SEU_REFRESH_TOKEN_AQUI"
         )
 
+    def oauth_failure_message_for_user(self) -> str:
+        """Mensagem para APIs/UI quando ``get_access_token`` falha."""
+        detail = (self.last_oauth_error or "").strip()
+        low = detail.lower()
+        msg = "Falha ao obter Access Token."
+        if "invalid_grant" in low:
+            msg += (
+                " O refresh token foi revogado ou expirou — gere um novo no fluxo OAuth "
+                "(Google Cloud) e actualize DV360_REFRESH_TOKEN no .env."
+            )
+        elif "invalid_client" in low or "unauthorized_client" in low:
+            msg += " Verifique DV360_CLIENT_ID e DV360_CLIENT_SECRET no .env."
+        elif not self.is_configured():
+            msg += " Preencha DV360_CLIENT_ID, DV360_CLIENT_SECRET e DV360_REFRESH_TOKEN (sem placeholders)."
+        else:
+            msg += " Verifique credenciais .env, rede e quotas Google."
+        if detail and detail not in msg:
+            msg += f" Detalhe técnico: {detail[:280]}"
+        return msg
+
+    def _oauth_error_payload(self, **extra: Any) -> dict[str, Any]:
+        err: dict[str, Any] = {
+            "success": False,
+            "error": self.oauth_failure_message_for_user(),
+            "http_code": 0,
+        }
+        if self.last_oauth_error:
+            err["oauth_error_detail"] = self.last_oauth_error
+        err.update(extra)
+        return err
+
     def get_access_token(self) -> Optional[str]:
+        self.last_oauth_error = None
         if not self.is_configured():
+            self.last_oauth_error = (
+                "Credenciais DV360 incompletas ou ainda com placeholders no .env."
+            )
             return None
-        try:
-            if self._oauth_creds is None:
-                self._oauth_creds = Credentials(
+
+        if self._oauth_creds is not None:
+            if self._oauth_creds.token and self._oauth_creds.valid:
+                return self._oauth_creds.token
+            try:
+                self._oauth_creds.refresh(Request())
+                if self._oauth_creds.token:
+                    return self._oauth_creds.token
+            except Exception as e:
+                logger.warning("DV360 OAuth re-refresh falhou, repetindo pedido completo: %s", e)
+                self._oauth_creds = None
+
+        last_exc: Optional[BaseException] = None
+        for scopes in (DV360_SCOPES, DV360_SCOPES_DISPLAY_VIDEO_ONLY):
+            try:
+                c = Credentials(
                     token=None,
                     refresh_token=self.refresh_token,
                     token_uri="https://oauth2.googleapis.com/token",
                     client_id=self.client_id,
                     client_secret=self.client_secret,
-                    scopes=DV360_SCOPES,
+                    scopes=scopes,
                 )
-            if not self._oauth_creds.valid:
-                self._oauth_creds.refresh(Request())
-            return self._oauth_creds.token or None
-        except Exception as e:
-            logger.error("DV360 OAuth refresh failed: %s", e)
-            return None
+                c.refresh(Request())
+                self._oauth_creds = c
+                if scopes == DV360_SCOPES_DISPLAY_VIDEO_ONLY:
+                    logger.warning(
+                        "DV360 OAuth: access token só com scope display-video. "
+                        "Para relatórios Bid Manager (Spent/eCPM), autorize também doubleclickbidmanager e "
+                        "regenere o refresh token."
+                    )
+                tok = c.token or None
+                if not tok:
+                    self.last_oauth_error = "Resposta OAuth sem access_token após refresh."
+                    self._oauth_creds = None
+                    return None
+                return tok
+            except Exception as e:
+                last_exc = e
+                logger.warning("DV360 OAuth refresh (scopes=%s): %s", scopes, e)
+                estr = str(e).lower()
+                if scopes == DV360_SCOPES and (
+                    "invalid_scope" in estr or "bad request" in estr
+                ):
+                    logger.warning(
+                        "DV360 OAuth: o refresh token actual não aceita estes scopes em conjunto — "
+                        "é típico de token antigo (só display-video). (1) Google Cloud → Ecrã de consentimento "
+                        "OAuth → âmbitos: inclua "
+                        "https://www.googleapis.com/auth/doubleclickbidmanager. "
+                        "(2) python scripts/dv360_oauth_refresh_token.py — novo consentimento no browser. "
+                        "(3) Reinicie o servidor."
+                    )
+                continue
+
+        self.last_oauth_error = str(last_exc) if last_exc else "Refresh OAuth falhou."
+        logger.error("DV360 OAuth: todas as tentativas de refresh falharam: %s", last_exc)
+        self._oauth_creds = None
+        return None
 
     def verify_installation(self, *, list_advertisers: bool = True) -> dict[str, Any]:
         """
@@ -129,6 +219,18 @@ class DV360API:
             out["messages"].append(f"oauth: FALHA — {conn.get('error', 'desconhecido')}")
             return out
         out["messages"].append("oauth: OK (access token obtido junto ao Google)")
+
+        bm = self.test_bid_manager_api_access()
+        out["details"]["bid_manager"] = {
+            k: bm.get(k) for k in ("ok", "http_code", "error_hint") if k in bm
+        }
+        if not bm.get("ok"):
+            out["step_failed"] = "bid_manager"
+            out["messages"].append(
+                f"bid_manager: FALHA — {bm.get('error_hint', 'sem acesso à API de relatórios')}"
+            )
+            return out
+        out["messages"].append("bid_manager: OK (relatórios DV360 / Bid Manager autorizados)")
 
         if not list_advertisers:
             out["ok"] = True
@@ -210,17 +312,70 @@ class DV360API:
             "data": parsed,
         }
 
+    def _post_json(self, url: str, token: str, body: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+        try:
+            r = requests.post(
+                url,
+                headers=self._headers(token),
+                json=body if body is not None else {},
+                timeout=self.timeout,
+            )
+        except requests.RequestException as e:
+            return {
+                "http_code": 0,
+                "request_error": str(e),
+                "text": "",
+                "data": None,
+            }
+        text = r.text or ""
+        parsed = None
+        try:
+            parsed = r.json()
+        except ValueError:
+            pass
+        return {
+            "http_code": r.status_code,
+            "request_error": None,
+            "text": text,
+            "data": parsed,
+        }
+
+    def _delete_bm(self, path: str) -> dict[str, Any]:
+        """DELETE na Bid Manager API v2 (doubleclickbidmanager)."""
+        token = self.get_access_token()
+        if not token:
+            return {"http_code": 0, "request_error": "no_token", "text": "", "data": None}
+        url = f"{BID_MANAGER_API_BASE.rstrip('/')}/{path.lstrip('/')}"
+        try:
+            r = requests.delete(url, headers=self._headers(token), timeout=self.timeout)
+        except requests.RequestException as e:
+            return {"http_code": 0, "request_error": str(e), "text": "", "data": None}
+        text = r.text or ""
+        parsed = None
+        try:
+            parsed = r.json()
+        except ValueError:
+            pass
+        return {"http_code": r.status_code, "request_error": None, "text": text, "data": parsed}
+
+    def _get_bm(self, path: str) -> dict[str, Any]:
+        token = self.get_access_token()
+        if not token:
+            return {"http_code": 0, "request_error": "no_token", "text": "", "data": None}
+        url = f"{BID_MANAGER_API_BASE.rstrip('/')}/{path.lstrip('/')}"
+        return self._get_json(url, token)
+
+    def _post_bm(self, path: str, body: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+        token = self.get_access_token()
+        if not token:
+            return {"http_code": 0, "request_error": "no_token", "text": "", "data": None}
+        url = f"{BID_MANAGER_API_BASE.rstrip('/')}/{path.lstrip('/')}"
+        return self._post_json(url, token, body)
+
     def get_audience_data(self, audience_id: str) -> dict[str, Any]:
         token = self.get_access_token()
         if not token:
-            return {
-                "success": False,
-                "error": (
-                    "Falha ao obter Access Token. Verifique se seu Client Secret e "
-                    "Refresh Token estão corretos e válidos."
-                ),
-                "http_code": 0,
-            }
+            return self._oauth_error_payload()
         for endpoint in DV360_ENDPOINTS:
             url = f"{self.api_base}/{endpoint}/{audience_id}"
             res = self._get_json(url, token)
@@ -271,15 +426,7 @@ class DV360API:
             "advertiser_id_trimmed": str(advertiser_id).strip() if advertiser_id else None,
         }
         if not token:
-            return {
-                "success": False,
-                "error": (
-                    "Falha ao obter Access Token. Verifique se seu Client Secret e "
-                    "Refresh Token estão corretos e válidos."
-                ),
-                "http_code": 0,
-                "debug": debug_info,
-            }
+            return self._oauth_error_payload(debug=debug_info)
         if not self.partner_id:
             return {
                 "success": False,
@@ -488,7 +635,7 @@ class DV360API:
 
     def list_all_audiences(self, advertiser_id: Optional[str] = None) -> dict[str, Any]:
         if not self.get_access_token():
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         all_audiences: dict[str, Any] = {}
         errors: dict[str, Any] = {}
         for endpoint in DV360_ENDPOINTS:
@@ -541,7 +688,7 @@ class DV360API:
         params = dict(params or {})
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         if "pageSize" not in params:
             params["pageSize"] = 100
         urls_to_try = [
@@ -586,7 +733,7 @@ class DV360API:
         params = dict(params or {})
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         if not self.partner_id:
             return {"success": False, "error": "DV360_PARTNER_ID não configurado.", "http_code": 0}
         partner_id = self.partner_id
@@ -695,15 +842,50 @@ class DV360API:
             }
         token = self.get_access_token()
         if not token:
+            err = self._oauth_error_payload()
             return {
                 "success": False,
-                "error": "Falha ao obter Access Token. Verifique suas credenciais.",
+                "error": err.get("error"),
+                "oauth_error_detail": err.get("oauth_error_detail"),
             }
         return {
             "success": True,
             "message": "Conexão estabelecida com sucesso! Access Token obtido.",
             "token_preview": token[:20] + "...",
         }
+
+    def test_bid_manager_api_access(self) -> dict[str, Any]:
+        """
+        GET mínimo à Bid Manager API v2 — valida scope ``doubleclickbidmanager`` no token.
+        Sem isto, relatórios (Spent/eCPM) falham com insufficient authentication scopes.
+        """
+        token = self.get_access_token()
+        if not token:
+            return {
+                "ok": False,
+                "http_code": 0,
+                "error_hint": self.oauth_failure_message_for_user(),
+            }
+        url = f"{BID_MANAGER_API_BASE}/queries"
+        res = self._get_json(url, token)
+        code = int(res.get("http_code") or 0)
+        if 200 <= code < 300:
+            return {"ok": True, "http_code": code}
+        err_txt = (res.get("text") or "")[:500]
+        data = res.get("data")
+        if isinstance(data, dict):
+            em = data.get("error")
+            if isinstance(em, dict) and em.get("message"):
+                err_txt = str(em.get("message"))
+            elif data.get("message"):
+                err_txt = str(data.get("message"))
+        low = (err_txt or "").lower()
+        if code == 403 or "insufficient" in low or "scope" in low:
+            err_txt = (
+                "Token sem scope Bid Manager. Corra: python scripts/dv360_oauth_refresh_token.py "
+                "e actualize DV360_REFRESH_TOKEN no .env (veja cabeçalho do script)."
+            )
+        return {"ok": False, "http_code": code, "error_hint": err_txt or f"HTTP {code}"}
 
     @staticmethod
     def infer_campaign_lifecycle_pt(campaign: Optional[dict[str, Any]]) -> dict[str, Any]:
@@ -854,7 +1036,7 @@ class DV360API:
         """GET um recurso Campaign (v4 advertisers.campaigns.get)."""
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         aid = str(advertiser_id).strip()
         cid = str(campaign_id).strip()
         if not aid or not cid:
@@ -891,7 +1073,7 @@ class DV360API:
         params = dict(params or {})
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         aid = str(advertiser_id).strip()
         cid = str(campaign_id).strip()
         if not aid or not cid:
@@ -944,7 +1126,7 @@ class DV360API:
         params = dict(params or {})
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         aid = str(advertiser_id).strip()
         ioid = str(insertion_order_id).strip()
         if not aid or not ioid:
@@ -1189,7 +1371,7 @@ class DV360API:
         """
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         aid = str(advertiser_id).strip()
         tt = str(targeting_type).strip()
         toid = str(targeting_option_id).strip()
@@ -1369,6 +1551,68 @@ class DV360API:
         if b < a:
             return None
         return (b - a).days + 1
+
+    @staticmethod
+    def extract_campaign_metrics_for_db(campaign: dict) -> dict[str, Any]:
+        """
+        budget (moeda): soma de campaignBudgets em moeda; se não houver, fallback
+        campaignFlight.plannedSpendAmountMicros (orçamento planejado do voo — alinha ao Budget na UI).
+        kpi_goal / kpi_type: campaignGoal.performanceGoal (KPI Goal na UI).
+        spent e kpi_atual: mantidos a None — não constam do GET Campaign; plannedSpend não é «Spent»
+        entregue e o kpi dos IOs é a meta (Goal), não o KPI actual (documentação Google DV360 v4).
+        """
+        out: dict[str, Any] = {
+            "budget": None,
+            "spent": None,
+            "kpi_goal": None,
+            "kpi_atual": None,
+            "kpi_type": None,
+        }
+        if not isinstance(campaign, dict):
+            return out
+        total = 0.0
+        found = False
+        skipped_impressions = 0
+        for b in campaign.get("campaignBudgets") or []:
+            if not isinstance(b, dict):
+                continue
+            unit = b.get("budgetUnit")
+            if unit == "BUDGET_UNIT_IMPRESSIONS":
+                if b.get("budgetAmountMicros") is not None:
+                    skipped_impressions += 1
+                continue
+            if unit == "BUDGET_UNIT_CURRENCY" and b.get("budgetAmountMicros") is not None:
+                v = DV360API._dv360_micros_to_float(b["budgetAmountMicros"])
+                if v is not None:
+                    total += v
+                    found = True
+        if skipped_impressions:
+            logger.info(
+                "DV360 extract_campaign_metrics_for_db: ignorados %s orçamento(s) "
+                "BUDGET_UNIT_IMPRESSIONS (não misturados com moeda).",
+                skipped_impressions,
+            )
+        if found:
+            out["budget"] = round(total, 4)
+
+        flight = campaign.get("campaignFlight") if isinstance(campaign.get("campaignFlight"), dict) else {}
+        planned = DV360API._dv360_micros_to_float(flight.get("plannedSpendAmountMicros"))
+        if planned is not None and not found:
+            out["budget"] = round(planned, 4)
+
+        pg = ((campaign.get("campaignGoal") or {}).get("performanceGoal")) or {}
+        if isinstance(pg, dict):
+            if pg.get("performanceGoalType"):
+                out["kpi_type"] = str(pg["performanceGoalType"]).strip() or None
+            if pg.get("performanceGoalAmountMicros") is not None:
+                v = DV360API._dv360_micros_to_float(pg["performanceGoalAmountMicros"])
+                if v is not None:
+                    out["kpi_goal"] = round(v, 4)
+            elif pg.get("performanceGoalPercentageMicros") is not None:
+                v = DV360API._dv360_micros_to_float(pg["performanceGoalPercentageMicros"])
+                if v is not None:
+                    out["kpi_goal"] = round(v, 4)
+        return out
 
     @staticmethod
     def summarize_campaign_commercial_snapshot(
@@ -1745,7 +1989,7 @@ class DV360API:
         """Atualiza entityStatus da campanha (ex.: ENTITY_STATUS_PAUSED)."""
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         aid = str(advertiser_id).strip()
         cid = str(campaign_id).strip()
         if not aid or not cid:
@@ -1805,7 +2049,7 @@ class DV360API:
             return {"success": False, "error": "line_item_ids vazio", "http_code": 400}
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         aid = str(advertiser_id).strip()
         if not aid:
             return {"success": False, "error": "advertiser_id obrigatório", "http_code": 400}
@@ -1858,7 +2102,7 @@ class DV360API:
         params = dict(params or {})
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token.", "http_code": 0}
+            return self._oauth_error_payload()
         if "pageSize" not in params:
             params["pageSize"] = 100
         from urllib.parse import urlencode
@@ -1884,7 +2128,7 @@ class DV360API:
         params = dict(params or {})
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token", "http_code": 0}
+            return self._oauth_error_payload()
         if not self.partner_id:
             return {"success": False, "error": "DV360_PARTNER_ID não configurado.", "http_code": 0}
         q = {"partnerId": self.partner_id, "pageSize": 100, **params}
@@ -1921,7 +2165,7 @@ class DV360API:
     def get_google_audience(self, google_audience_id: str) -> dict[str, Any]:
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token", "http_code": 0}
+            return self._oauth_error_payload()
         if not self.partner_id:
             return {"success": False, "error": "DV360_PARTNER_ID não configurado.", "http_code": 0}
         from urllib.parse import urlencode
@@ -1962,7 +2206,7 @@ class DV360API:
     def get_first_party_audience(self, advertiser_id: str, audience_id: str) -> dict[str, Any]:
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Falha ao obter Access Token", "http_code": 0}
+            return self._oauth_error_payload()
         api_url = f"{self.api_base}/advertisers/{advertiser_id}/firstPartyAndPartnerAudiences/{audience_id}"
         res = self._get_json(api_url, token)
         if res["request_error"]:
@@ -1993,7 +2237,7 @@ class DV360API:
     def get_first_party_and_partner_audience(self, audience_id: str) -> dict[str, Any]:
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Não foi possível obter o token de acesso", "http_code": 0}
+            return self._oauth_error_payload()
         if not self.partner_id:
             return {"success": False, "error": "DV360_PARTNER_ID não configurado.", "http_code": 0}
         from urllib.parse import urlencode
@@ -2024,7 +2268,7 @@ class DV360API:
     def get_combined_audience(self, audience_id: str) -> dict[str, Any]:
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Não foi possível obter o token de acesso", "http_code": 0}
+            return self._oauth_error_payload()
         if not self.partner_id:
             return {"success": False, "error": "DV360_PARTNER_ID não configurado.", "http_code": 0}
         from urllib.parse import urlencode
@@ -2055,7 +2299,7 @@ class DV360API:
     def get_custom_list(self, advertiser_id: str, custom_list_id: str) -> dict[str, Any]:
         token = self.get_access_token()
         if not token:
-            return {"success": False, "error": "Não foi possível obter o token de acesso", "http_code": 0}
+            return self._oauth_error_payload()
         api_url = f"{self.api_base}/advertisers/{advertiser_id}/customLists/{custom_list_id}"
         res = self._get_json(api_url, token)
         if res["request_error"]:

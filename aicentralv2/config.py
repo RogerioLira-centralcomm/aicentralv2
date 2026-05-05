@@ -69,7 +69,7 @@ class Config:
 	# Paginação de listagens
 	CLIENTES_PER_PAGE = int(os.getenv('CLIENTES_PER_PAGE', '25'))
 
-	# Display & Video 360 (OAuth instalado — mesmas variáveis que o hub PHP; não versionar segredos)
+	# Display & Video 360 + Bid Manager (relatórios); não versionar segredos. Refresh token tem de incluir os scopes em dv360_client.DV360_SCOPES.
 	DV360_CLIENT_ID = os.getenv('DV360_CLIENT_ID', '')
 	DV360_CLIENT_SECRET = os.getenv('DV360_CLIENT_SECRET', '')
 	DV360_REFRESH_TOKEN = os.getenv('DV360_REFRESH_TOKEN', '')
@@ -79,6 +79,10 @@ class Config:
 		'https://displayvideo.googleapis.com/v4',
 	).rstrip('/')
 	DV360_TIMEOUT = int(os.getenv('DV360_TIMEOUT', '30'))
+
+	# Campanha PI: ID da plataforma DV360 em cadu_pi_camp_plataforma (opcional). Vazio → deteção por descrição na BD.
+	_PI_PLT_DV360_RAW = os.getenv('PI_PLATAFORMA_DV360_ID', '').strip()
+	PI_PLATAFORMA_DV360_ID = int(_PI_PLT_DV360_RAW) if _PI_PLT_DV360_RAW.isdigit() else None
 
 	@property
 	def DATABASE_URI(self):

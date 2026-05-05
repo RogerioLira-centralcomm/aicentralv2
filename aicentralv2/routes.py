@@ -18,6 +18,7 @@ from aicentralv2.email_service import (
 )
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
 from aicentralv2.services.cotacao_linhas_image_import import extrair_itens_linhas_de_upload
+from psycopg.errors import UniqueViolation, ForeignKeyViolation, NotNullViolation, ProgrammingError
 
 # Helper para serializar dados para JSON
 def serializar_para_json(obj):
@@ -46,6 +47,111 @@ def _int_safe(v):
         return int(v)
     except (TypeError, ValueError):
         return None
+
+
+VALID_METODOS_PLATAFORMA_CAMPANHA = frozenset({'cartao_credito', 'pix', 'boleto'})
+
+
+def _parse_plataforma_tech_fee(raw):
+    """Percentual 0–100 com até 2 casas decimais; None se vazio."""
+    if raw is None or str(raw).strip() == '':
+        return None
+    valor = float(str(raw).replace(',', '.'))
+    if valor < 0 or valor > 100:
+        raise ValueError('Tech fee deve estar entre 0 e 100%.')
+    return round(valor, 2)
+
+
+def _parse_incentivo_pct(raw):
+    """Percentual inteiro 0–100 como string para varchar; None se vazio."""
+    if raw is None or str(raw).strip() == '':
+        return None
+    valor = int(round(float(str(raw).replace(',', '.'))))
+    if valor < 0 or valor > 100:
+        raise ValueError('Percentual deve estar entre 0 e 100.')
+    return str(valor)
+
+
+def _form_id_contato_cliente(raw):
+    """Parseia id do select (`int`, '123', '123.0'); None se vazio/inválido.
+
+    `request.form.get(..., type=int)` falha para '123.0' (comum com Numeric/Decimal no HTML).
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        try:
+            return int(float(s))
+        except (ValueError, TypeError):
+            return None
+
+
+def _parse_pi_com_vendas_pct(raw):
+    """Percentual inteiro 0–4 com sufixo % na persistência; None se vazio."""
+    if raw is None or str(raw).strip() == '':
+        return None
+    s = str(raw).strip().replace('%', '').replace(',', '.').strip()
+    valor = int(round(float(s)))
+    if valor < 0 or valor > 4:
+        raise ValueError('Percentual deve estar entre 0 e 4%.')
+    return f'{valor}%'
+
+
+def _comissao_row_to_js(r, opts_rows):
+    """Monta dict só com tipos serializáveis em JSON (evita Decimal/datetime no |tojson)."""
+    raw_pct = r.get('percentual')
+    pct_s = '' if raw_pct is None else str(raw_pct).strip()
+    pct_num = ''
+    if pct_s:
+        p = pct_s.replace('%', '').strip().replace(',', '.')
+        try:
+            pct_num = str(int(round(float(p))))
+        except (ValueError, TypeError):
+            pct_num = ''
+    rid = r.get('id')
+    id_resp = r.get('id_resp_comercial')
+    opcoes = []
+    for o in opts_rows or []:
+        try:
+            cid = o.get('id_contato_cliente')
+            if cid is None:
+                continue
+            opcoes.append({
+                'id': int(cid),
+                'nome': str(o.get('nome_completo') or ''),
+            })
+        except (TypeError, ValueError):
+            continue
+    return {
+        'id': int(rid) if rid is not None else None,
+        'id_resp_comercial': int(id_resp) if id_resp is not None else None,
+        'percentual': pct_s,
+        'pct_input': pct_num,
+        'opcoes_resp': opcoes,
+    }
+
+
+def _ids_vendedores_cc_exec_sql():
+    """IDs int dos mesmos executivos do formulário de PI (`obter_vendedores_centralcomm`)."""
+    out = set()
+    for o in db.obter_vendedores_centralcomm(incluir_usuario_comercial=False) or []:
+        cid = o.get('id_contato_cliente')
+        if cid is None:
+            continue
+        try:
+            out.add(int(cid))
+        except (TypeError, ValueError):
+            continue
+    return out
 
 
 def rotulo_e_url_lista_pi(pi_row, id_pi_nav=None, busca_nav=None):
@@ -217,58 +323,19 @@ def client_accessible_api(f):
 
 
 def init_routes(app):
-    def _volume_qty_campanha(value):
-        """Volume (impressões, meta, etc.) para CPM e metas. None se vazio ou <= 0.
-        Texto sem vírgula: vários pontos = milhar BR; um ponto + até 2 decimais = decimal (ex.: 1500000.0 do banco)."""
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, (int, float)):
-            v = float(value)
-            return v if v > 0 else None
-        try:
-            from decimal import Decimal
-            if isinstance(value, Decimal):
-                v = float(value)
-                return v if v > 0 else None
-        except ImportError:
-            pass
-        s = re.sub(r'[^0-9.,]', '', str(value).strip())
-        if not s:
-            return None
-        if ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        else:
-            parts = s.split('.')
-            if len(parts) > 2:
-                s = s.replace('.', '')
-            elif len(parts) == 2:
-                if len(parts[1]) <= 2:
-                    pass
-                else:
-                    s = s.replace('.', '')
-        try:
-            v = float(s)
-            return v if v > 0 else None
-        except (ValueError, TypeError):
-            return None
+    from aicentralv2.campanha_pi_metrics import (
+        anexar_preco_metrica_campanha as _anexar_preco_metrica_campanha,
+        meses_ref_pi_seguros as _meses_ref_pi_seguros,
+        parse_brl_float as _parse_brl_float,
+        sigla_metrica_preco,
+        volume_qty_campanha as _volume_qty_campanha,
+    )
 
     def parse_volume_campanha(value):
         v = _volume_qty_campanha(value)
         return float(v) if v is not None else 0.0
 
     app.jinja_env.filters['parse_volume_campanha'] = parse_volume_campanha
-
-    def sigla_metrica_preco(objetivo_nome, modalidade):
-        """Mesma regra que cadu_pi.html / cadu_pi_form (Preço R$ por métrica)."""
-        if modalidade == 'cpm':
-            return 'CPM'
-        n = (objetivo_nome or '').upper()
-        for k in ('CPV', 'CPA', 'CPC', 'CPL', 'CPI'):
-            if k in n:
-                return k
-        return '—'
 
     app.jinja_env.filters['sigla_metrica_preco'] = sigla_metrica_preco
     app.jinja_env.globals['sigla_metrica_preco'] = sigla_metrica_preco
@@ -1240,113 +1307,12 @@ def init_routes(app):
             app.logger.error(f"Erro ao excluir cliente {cliente_id}: {e}")
             return jsonify({'success': False, 'message': f'Erro ao excluir cliente: {str(e)}'}), 500
 
-    def _parse_brl_float(value):
-        """Converte valor monetário (VARCHAR/Numeric) para float — alinhado ao SQL do dashboard."""
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, (int, float)):
-            return float(value)
-        try:
-            from decimal import Decimal
-            if isinstance(value, Decimal):
-                return float(value)
-        except ImportError:
-            pass
-        if isinstance(value, str) and not value.strip():
-            return None
-        if not value and value != 0:
-            return None
-        s = re.sub(r'[^0-9.,]', '', str(value).strip().replace('R$', '').strip())
-        if not s:
-            return None
-        try:
-            if re.match(r'^[0-9]+,[0-9]+$', s):
-                return float(s.replace(',', '.'))
-            if re.match(r'^[0-9.]+,[0-9]+$', s):
-                return float(s.replace('.', '').replace(',', '.'))
-            # Sem vírgula: um único ponto → decimal (ex.: 1500.50 vindo de VARCHAR); vários → milhar BR (1.234.567)
-            if s.count('.') == 1:
-                return float(s)
-            if '.' in s:
-                return float(s.replace('.', ''))
-            if re.match(r'^[0-9]+$', s):
-                return float(s)
-            return float(s.replace('.', '').replace(',', '.'))
-        except (ValueError, TypeError):
-            return None
-
     def _jinja_parse_brl_float(value):
-        """Template: mesmo critério de _parse_brl_float; ausente → 0.0 (evita replace BR em Decimal)."""
+        """Template: mesmo critério de parse_brl_float; ausente → 0.0 (evita replace BR em Decimal)."""
         x = _parse_brl_float(value)
         return float(x) if x is not None else 0.0
 
     app.jinja_env.filters['parse_brl_float'] = _jinja_parse_brl_float
-
-    def _volume_para_preco_campanha(obj_contratados, totalizador_atingido):
-        """Usa meta contratada; se vazia, volume atingido (para não ficar em branco)."""
-        v = _volume_qty_campanha(obj_contratados)
-        if v is not None:
-            return v
-        return _volume_qty_campanha(totalizador_atingido)
-
-    def _preco_unitario_por_metrica(
-        objetivo_nome, obj_contratados, valor_reais, nome_campanha=None, totalizador_atingido=None
-    ):
-        """
-        CPM: (investimento / impressões) * 1000 (volume = impressões totais).
-        CPV, CPA, CPC, CPL, etc.: investimento / unidade.
-        Sem palavra-chave: assume CPM (mídia display / volume + investimento).
-        """
-        vol = _volume_para_preco_campanha(obj_contratados, totalizador_atingido)
-        if vol is None or valor_reais is None or float(valor_reais) <= 0:
-            return None, None
-        vr = float(valor_reais)
-        partes = [
-            (objetivo_nome or '').strip().upper(),
-            (nome_campanha or '').strip().upper(),
-        ]
-        texto = ' '.join(p for p in partes if p).strip()
-
-        # Métricas por unidade (prioridade antes de heurísticas amplas)
-        if texto:
-            if any(k in texto for k in ('CPV', 'CPA', 'CPC', 'CPL', 'CPI')):
-                return vr / vol, 'unit'
-            if any(k in texto for k in (
-                'CONVERS', 'LEAD', 'CLIQUE', 'CLICK', 'AÇÃO', 'ACAO',
-                'INSTALL', 'INSTALA', 'CADASTRO', 'COMPRA', 'VENDA',
-            )):
-                return vr / vol, 'unit'
-
-            # CPM / impressões (inclui display, vídeo por impressão, etc.)
-            if any(k in texto for k in (
-                'CPM', 'IMPRESS', 'DISPLAY', 'VIEWABILITY', 'ALCANCE', 'REACH',
-                'AWARENESS', 'RECONHECIMENTO', 'BRANDING', 'VISUALIZAÇÃO', 'VISUALIZACAO',
-            )):
-                return (vr / vol) * 1000, 'cpm'
-
-        # Padrão: maioria das campanhas de mídia com volume + valor
-        return (vr / vol) * 1000, 'cpm'
-
-    def _anexar_preco_metrica_campanha(row):
-        """Igual ao payload de /api/cadu-pi/<id>/campanhas (coluna Preço em Operação/Faturamento)."""
-        r = dict(row)
-        v_total = _parse_brl_float(r.get('valor_total_plataforma')) or 0
-        v_plat = _parse_brl_float(r.get('valor_plataforma')) or 0
-        valor_para_preco = v_total if v_total > 0 else v_plat
-        if valor_para_preco <= 0:
-            valor_para_preco = _parse_brl_float(r.get('totalizador_gasto')) or 0
-        preco_metrica, modalidade_preco = _preco_unitario_por_metrica(
-            r.get('objetivo_nome'),
-            r.get('obj_contratados'),
-            valor_para_preco,
-            r.get('nome_campanha'),
-            r.get('totalizador_atingido'),
-        )
-        r['preco_metrica_brl'] = round(preco_metrica, 2) if preco_metrica is not None else None
-        r['preco_metrica_modalidade'] = modalidade_preco
-        return r
 
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
@@ -9849,17 +9815,31 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def plataforma_campanha_nova():
         """Criar nova plataforma de campanha"""
         try:
-            data = {
-                'descricao': request.form.get('descricao', '').strip(),
-                'indice': request.form.get('indice', type=int),
-                'id_centralx': request.form.get('id_centralx', '').strip() or None,
-                'cor': request.form.get('cor', '').strip() or None,
-                'status': request.form.get('status') == 'on',
-            }
-
-            if not data['descricao']:
+            descricao = request.form.get('descricao', '').strip()
+            if not descricao:
                 flash('A descrição da plataforma é obrigatória!', 'error')
                 return redirect(url_for('plataformas_campanha'))
+
+            try:
+                tech_fee = _parse_plataforma_tech_fee(request.form.get('tech_fee'))
+            except ValueError as ve:
+                flash(str(ve), 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            metodo_pagamento = (request.form.get('metodo_pagamento') or '').strip() or None
+            if metodo_pagamento and metodo_pagamento not in VALID_METODOS_PLATAFORMA_CAMPANHA:
+                flash('Método de pagamento inválido.', 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            data = {
+                'descricao': descricao,
+                'indice': request.form.get('indice', type=int),
+                'status': request.form.get('status') == 'on',
+                'tech_partner': request.form.get('tech_partner', '').strip() or None,
+                'tech_fee': tech_fee,
+                'metodo_pagamento': metodo_pagamento,
+                'detalhe_pagamento': request.form.get('detalhe_pagamento', '').strip() or None,
+            }
 
             id_plat = db.criar_plataforma_campanha(data)
 
@@ -9885,17 +9865,31 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 flash('Plataforma de campanha não encontrada!', 'error')
                 return redirect(url_for('plataformas_campanha'))
 
-            data = {
-                'descricao': request.form.get('descricao', '').strip(),
-                'indice': request.form.get('indice', type=int),
-                'id_centralx': request.form.get('id_centralx', '').strip() or None,
-                'cor': request.form.get('cor', '').strip() or None,
-                'status': request.form.get('status') == 'on',
-            }
-
-            if not data['descricao']:
+            descricao = request.form.get('descricao', '').strip()
+            if not descricao:
                 flash('A descrição da plataforma é obrigatória!', 'error')
                 return redirect(url_for('plataformas_campanha'))
+
+            try:
+                tech_fee = _parse_plataforma_tech_fee(request.form.get('tech_fee'))
+            except ValueError as ve:
+                flash(str(ve), 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            metodo_pagamento = (request.form.get('metodo_pagamento') or '').strip() or None
+            if metodo_pagamento and metodo_pagamento not in VALID_METODOS_PLATAFORMA_CAMPANHA:
+                flash('Método de pagamento inválido.', 'error')
+                return redirect(url_for('plataformas_campanha'))
+
+            data = {
+                'descricao': descricao,
+                'indice': request.form.get('indice', type=int),
+                'status': request.form.get('status') == 'on',
+                'tech_partner': request.form.get('tech_partner', '').strip() or None,
+                'tech_fee': tech_fee,
+                'metodo_pagamento': metodo_pagamento,
+                'detalhe_pagamento': request.form.get('detalhe_pagamento', '').strip() or None,
+            }
 
             if db.atualizar_plataforma_campanha(id_plat, data):
                 flash(f'Plataforma "{data["descricao"]}" atualizada com sucesso!', 'success')
@@ -9937,6 +9931,334 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             flash('Não é possível excluir esta plataforma pois está em uso.', 'error')
 
         return redirect(url_for('plataformas_campanha'))
+
+    # ==================== INCENTIVOS PI - ROTAS ====================
+
+    @app.route('/incentivos')
+    @login_required
+    def incentivos_lista():
+        """Lista incentivos PI por agência."""
+        try:
+            rows = db.obter_incentivos()
+            incentivos_view = []
+            for r in rows:
+                js = {
+                    'id': r['id'],
+                    'cliente_id': r['cliente_id'],
+                }
+                for f in db.INCENTIVOS_FAIXAS:
+                    k = f'pct_{f}'
+                    js[k] = r.get(k)
+                incentivos_view.append({'row': r, 'js': js})
+            agencias = db.obter_clientes_agencias()
+            ocupados = db.obter_cliente_ids_com_incentivo()
+            agencias_js = [
+                {
+                    'id': a['id_cliente'],
+                    'label': (a.get('nome_fantasia') or a.get('razao_social') or str(a['id_cliente'])),
+                }
+                for a in agencias
+            ]
+            return render_template(
+                'incentivos.html',
+                incentivos_view=incentivos_view,
+                agencias_js=agencias_js,
+                clientes_com_incentivo=ocupados,
+                faixas=db.INCENTIVOS_FAIXAS,
+            )
+        except Exception as e:
+            app.logger.error(f'Erro ao listar incentivos: {str(e)}')
+            flash('Erro ao carregar incentivos.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/incentivos/novo', methods=['POST'])
+    @login_required
+    def incentivo_novo():
+        try:
+            cliente_id = request.form.get('cliente_id', type=int)
+            if not cliente_id:
+                flash('Selecione uma agência.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            permitidos = {r['id_cliente'] for r in db.obter_clientes_agencias()}
+            if cliente_id not in permitidos:
+                flash('Cliente inválido ou não é agência.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            if cliente_id in db.obter_cliente_ids_com_incentivo():
+                flash('Esta agência já possui incentivo cadastrado.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            try:
+                data = {'cliente_id': cliente_id}
+                for f in db.INCENTIVOS_FAIXAS:
+                    data[f] = _parse_incentivo_pct(request.form.get(f'pct_{f}'))
+            except ValueError as ve:
+                flash(str(ve), 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            nid = db.criar_incentivo(data)
+            if nid:
+                flash('Incentivo criado com sucesso!', 'success')
+            else:
+                flash('Erro ao criar incentivo.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao criar incentivo: {str(e)}')
+            flash('Erro ao criar incentivo.', 'error')
+
+        return redirect(url_for('incentivos_lista'))
+
+    @app.route('/incentivos/<int:id_inc>/editar', methods=['POST'])
+    @login_required
+    def incentivo_editar(id_inc):
+        try:
+            existente = db.obter_incentivo_por_id(id_inc)
+            if not existente:
+                flash('Incentivo não encontrado.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            cliente_id = request.form.get('cliente_id', type=int)
+            if not cliente_id:
+                flash('Selecione uma agência.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            permitidos = {r['id_cliente'] for r in db.obter_clientes_agencias()}
+            if cliente_id not in permitidos:
+                flash('Cliente inválido ou não é agência.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            ocupados = set(db.obter_cliente_ids_com_incentivo())
+            anterior = existente.get('cliente_id')
+            if cliente_id != anterior and cliente_id in ocupados:
+                flash('Esta agência já possui incentivo cadastrado.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            try:
+                data = {'cliente_id': cliente_id}
+                for f in db.INCENTIVOS_FAIXAS:
+                    data[f] = _parse_incentivo_pct(request.form.get(f'pct_{f}'))
+            except ValueError as ve:
+                flash(str(ve), 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            if db.atualizar_incentivo(id_inc, data):
+                flash('Incentivo atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar incentivo.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao atualizar incentivo: {str(e)}')
+            flash('Erro ao atualizar incentivo.', 'error')
+
+        return redirect(url_for('incentivos_lista'))
+
+    @app.route('/incentivos/<int:id_inc>/excluir', methods=['POST'])
+    @login_required
+    def incentivo_excluir(id_inc):
+        try:
+            existente = db.obter_incentivo_por_id(id_inc)
+            if not existente:
+                flash('Incentivo não encontrado.', 'error')
+                return redirect(url_for('incentivos_lista'))
+
+            if db.excluir_incentivo(id_inc):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='incentivos_pi',
+                    descricao=f'Incentivo PI removido (id={id_inc}, cliente_id={existente.get("cliente_id")})',
+                    registro_id=id_inc,
+                    registro_tipo='cadu_pi_incentivos',
+                    dados_anteriores=dict(existente),
+                )
+                flash('Incentivo excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir incentivo.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao excluir incentivo: {str(e)}')
+            flash('Erro ao excluir incentivo.', 'error')
+
+        return redirect(url_for('incentivos_lista'))
+
+    # ==================== CADU PI COM VENDAS - ROTAS ====================
+
+    @app.route('/cadu-pi-com-vendas')
+    @app.route('/comissoes')
+    @login_required
+    def cadu_pi_com_vendas_lista():
+        try:
+            rows = db.listar_cadu_pi_com_vendas()
+            # Mesma lista do select do PI — sem filtro na UI; duplicado bloqueia no POST.
+            v_cc = db.obter_vendedores_centralcomm(incluir_usuario_comercial=False) or []
+            opcoes_novo_js = []
+            for o in v_cc:
+                try:
+                    cid = o.get('id_contato_cliente')
+                    if cid is None:
+                        continue
+                    opcoes_novo_js.append({
+                        'id': int(cid),
+                        'nome': str(o.get('nome_completo') or ''),
+                    })
+                except (TypeError, ValueError):
+                    continue
+            rows_js = [_comissao_row_to_js(r, v_cc) for r in rows]
+            return render_template(
+                'cadu_pi_com_vendas.html',
+                rows=rows,
+                rows_js=rows_js,
+                opcoes_novo_js=opcoes_novo_js,
+                opcoes_novo_rows=v_cc,
+            )
+        except Exception as e:
+            app.logger.error(f'Erro ao listar cadu_pi_com_vendas: {str(e)}', exc_info=True)
+            flash(
+                'Não foi possível carregar os dados das comissões. Verifique se a tabela existe no banco ou tente novamente.',
+                'error',
+            )
+            return render_template(
+                'cadu_pi_com_vendas.html',
+                rows=[],
+                rows_js=[],
+                opcoes_novo_js=[],
+                opcoes_novo_rows=[],
+            )
+
+    @app.route('/cadu-pi-com-vendas/novo', methods=['POST'])
+    @login_required
+    def cadu_pi_com_vendas_novo():
+        dest = 'cadu_pi_com_vendas_lista'
+        try:
+            id_resp = _form_id_contato_cliente(request.form.get('id_resp_comercial'))
+            if id_resp is None:
+                flash('Selecione o responsável comercial.', 'error')
+                return redirect(url_for(dest))
+
+            permitidos = _ids_vendedores_cc_exec_sql()
+            if id_resp not in permitidos:
+                flash('Responsável comercial inválido para este cadastro.', 'error')
+                return redirect(url_for(dest))
+
+            if db.existe_outro_cadu_pi_com_vendas_mesmo_resp(id_resp, None):
+                flash('Este colaborador já está cadastrado.', 'error')
+                return redirect(url_for(dest))
+
+            try:
+                pct = _parse_pi_com_vendas_pct(request.form.get('percentual'))
+            except ValueError as ve:
+                flash(str(ve), 'error')
+                return redirect(url_for(dest))
+
+            if pct is None:
+                flash('Informe o percentual (0 a 4%).', 'error')
+                return redirect(url_for(dest))
+
+            try:
+                nid = db.criar_cadu_pi_com_vendas({
+                    'id_resp_comercial': id_resp,
+                    'percentual': pct,
+                })
+            except UniqueViolation:
+                flash('Este colaborador já possui comissão cadastrada.', 'error')
+                return redirect(url_for(dest))
+            except ForeignKeyViolation:
+                flash('Responsável comercial inválido para o cadastro.', 'error')
+                return redirect(url_for(dest))
+            except NotNullViolation:
+                flash('Dados incompletos para gravar comissão.', 'error')
+                return redirect(url_for(dest))
+            except ProgrammingError as pe:
+                app.logger.error(f'cadu_pi_com_vendas SQL: {pe}', exc_info=True)
+                flash(
+                    'Erro ao gravar no banco: confira se a tabela cadu_pi_com_vendas tem as colunas '
+                    'id_resp_comercial, percentual, created_at e updated_at.',
+                    'error',
+                )
+                return redirect(url_for(dest))
+
+            if nid:
+                flash('Registro criado com sucesso!', 'success')
+            else:
+                app.logger.error('cadu_pi_com_vendas INSERT não devolveu id (RETURNING).')
+                flash('Erro ao criar registro (sem confirmação do banco). Verifique logs.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao criar cadu_pi_com_vendas: {str(e)}', exc_info=True)
+            flash('Erro ao criar registro.', 'error')
+
+        return redirect(url_for(dest))
+
+    @app.route('/cadu-pi-com-vendas/<int:row_id>/editar', methods=['POST'])
+    @login_required
+    def cadu_pi_com_vendas_editar(row_id):
+        dest = 'cadu_pi_com_vendas_lista'
+        try:
+            existente = db.obter_cadu_pi_com_vendas_por_id(row_id)
+            if not existente:
+                flash('Registro não encontrado.', 'error')
+                return redirect(url_for(dest))
+
+            id_resp = _form_id_contato_cliente(request.form.get('id_resp_comercial'))
+            if id_resp is None:
+                flash('Selecione o responsável comercial.', 'error')
+                return redirect(url_for(dest))
+
+            permitidos = _ids_vendedores_cc_exec_sql()
+            if id_resp not in permitidos:
+                flash('Responsável comercial inválido para este cadastro.', 'error')
+                return redirect(url_for(dest))
+
+            if db.existe_outro_cadu_pi_com_vendas_mesmo_resp(id_resp, row_id):
+                flash('Este colaborador já está cadastrado.', 'error')
+                return redirect(url_for(dest))
+
+            try:
+                pct = _parse_pi_com_vendas_pct(request.form.get('percentual'))
+            except ValueError as ve:
+                flash(str(ve), 'error')
+                return redirect(url_for(dest))
+
+            if pct is None:
+                flash('Informe o percentual (0 a 4%).', 'error')
+                return redirect(url_for(dest))
+
+            if db.atualizar_cadu_pi_com_vendas(row_id, {
+                'id_resp_comercial': id_resp,
+                'percentual': pct,
+            }):
+                flash('Registro atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar registro.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao atualizar cadu_pi_com_vendas: {str(e)}')
+            flash('Erro ao atualizar registro.', 'error')
+
+        return redirect(url_for(dest))
+
+    @app.route('/cadu-pi-com-vendas/<int:row_id>/excluir', methods=['POST'])
+    @login_required
+    def cadu_pi_com_vendas_excluir(row_id):
+        dest = 'cadu_pi_com_vendas_lista'
+        try:
+            existente = db.obter_cadu_pi_com_vendas_por_id(row_id)
+            if not existente:
+                flash('Registro não encontrado.', 'error')
+                return redirect(url_for(dest))
+
+            if db.excluir_cadu_pi_com_vendas(row_id):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='cadu_pi_com_vendas',
+                    descricao=f'cadu_pi_com_vendas removido (id={row_id}, id_resp_comercial={existente.get("id_resp_comercial")})',
+                    registro_id=row_id,
+                    registro_tipo='cadu_pi_com_vendas',
+                    dados_anteriores=dict(existente),
+                )
+                flash('Registro excluído com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir registro.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao excluir cadu_pi_com_vendas: {str(e)}')
+            flash('Erro ao excluir registro.', 'error')
+
+        return redirect(url_for(dest))
 
     # ==================== LINK DESTINOS PI - ROTAS ====================
 
@@ -10345,33 +10667,6 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'plataformas': db.obter_plataformas_campanha(),
             'criativos_validados': db.obter_criativos_validados_campanha(),
         }
-
-    def _meses_ref_pi_seguros(meses_raw, fallback_mes_ref):
-        """Só entradas M/AA ou MM/AA; evita IndexError no Jinja (split '/') e SQL divergente."""
-        out = []
-        for m in (meses_raw or []):
-            s = (str(m).strip() if m is not None else '')
-            if '/' not in s:
-                continue
-            parts = s.split('/')
-            if len(parts) < 2:
-                continue
-            try:
-                int(parts[0].strip())
-                int(parts[1].strip())
-            except ValueError:
-                continue
-            out.append(s)
-        fb = (str(fallback_mes_ref).strip() if fallback_mes_ref else '')
-        if not out and fb and '/' in fb:
-            try:
-                p = fb.split('/')
-                int(p[0].strip())
-                int(p[1].strip())
-                out = [fb]
-            except (ValueError, IndexError):
-                pass
-        return out
 
     def _mes_ref_comp_ordem(m):
         if not m or '/' not in str(m):

@@ -401,9 +401,13 @@
                             <li><a href="{{ url_for('tipos_cliente') }}" class="{% if request.endpoint == 'tipos_cliente' %}active{% endif %}">Tipos de Cliente</a></li>
                             <li><a href="{{ url_for('tbl_setor') }}" class="{% if request.endpoint == 'tbl_setor' %}active{% endif %}">Setores</a></li>
                             <li><a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">Cargos</a></li>
+                            <li><a href="{{ url_for('plataformas_campanha') }}" class="{% if request.endpoint == 'plataformas_campanha' %}active{% endif %}">Plataformas de Campanha</a></li>
+                            <li><a href="{{ url_for('incentivos_lista') }}" class="{% if request.endpoint == 'incentivos_lista' %}active{% endif %}">Incentivos</a></li>
+                            <li><a href="{{ url_for('cadu_pi_com_vendas_lista') }}" class="{% if request.endpoint == 'cadu_pi_com_vendas_lista' %}active{% endif %}">Comissões</a></li>
                             <li><a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">Logs de Auditoria</a></li>
                             <li><a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">Assistente IA</a></li>
                             <li><a href="{{ url_for('parametros.testes_dv') }}" class="{% if request.endpoint == 'parametros.testes_dv' %}active{% endif %}">Testes DV360</a></li>
+                            <li><a href="{{ url_for('parametros.testes_dv_legado') }}" class="{% if request.endpoint == 'parametros.testes_dv_legado' %}active{% endif %}">Testes DV360 (legado)</a></li>
                         </ul>
                     </div>
                     {% endif %}
@@ -661,6 +665,21 @@
                                         </a>
                                     </li>
                                     <li>
+                                        <a href="{{ url_for('plataformas_campanha') }}" class="{% if request.endpoint == 'plataformas_campanha' %}active{% endif %}">
+                                            Plataformas de Campanha
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('incentivos_lista') }}" class="{% if request.endpoint == 'incentivos_lista' %}active{% endif %}">
+                                            Incentivos
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cadu_pi_com_vendas_lista') }}" class="{% if request.endpoint == 'cadu_pi_com_vendas_lista' %}active{% endif %}">
+                                            Comissões
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">
                                             Logs de Auditoria
                                         </a>
@@ -673,6 +692,11 @@
                                     <li>
                                         <a href="{{ url_for('parametros.testes_dv') }}" class="{% if request.endpoint == 'parametros.testes_dv' %}active{% endif %}">
                                             Testes DV360
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('parametros.testes_dv_legado') }}" class="{% if request.endpoint == 'parametros.testes_dv_legado' %}active{% endif %}">
+                                            Testes DV360 (legado)
                                         </a>
                                     </li>
                                 </ul>

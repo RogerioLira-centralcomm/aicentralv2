@@ -51,7 +51,10 @@
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Descrição</th>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Índice</th>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Cor</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Tech Partner</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Tech Fee</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Método Pagto</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Detalhe Pagto</th>
               <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase">Status</th>
               <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Ações</th>
             </tr>
@@ -64,16 +67,28 @@
                 <span class="font-medium text-gray-800">{{ p.descricao or '—' }}</span>
               </td>
               <td class="py-2 px-3 text-gray-600">{{ p.indice if p.indice is not none else '—' }}</td>
-              <td class="py-2 px-3">
-                {% if p.cor %}
-                  <span class="inline-flex items-center gap-1.5">
-                    <span class="w-4 h-4 rounded border border-gray-300" style="background-color: {{ p.cor }};"></span>
-                    <span class="text-gray-600 text-xs">{{ p.cor }}</span>
-                  </span>
+              <td class="py-2 px-3 text-gray-600">{{ p.tech_partner or '—' }}</td>
+              <td class="py-2 px-3 text-gray-600">
+                {% if p.tech_fee is not none %}
+                  {{ '%.2f'|format(p.tech_fee|float) }}%
                 {% else %}
-                  <span class="text-gray-400">—</span>
+                  —
                 {% endif %}
               </td>
+              <td class="py-2 px-3 text-gray-600">
+                {% if p.metodo_pagamento == 'cartao_credito' %}
+                  Cartão de Crédito
+                {% elif p.metodo_pagamento == 'pix' %}
+                  PIX
+                {% elif p.metodo_pagamento == 'boleto' %}
+                  Boleto
+                {% elif p.metodo_pagamento %}
+                  {{ p.metodo_pagamento }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="py-2 px-3 text-gray-600 max-w-[12rem] truncate" title="{{ (p.detalhe_pagamento or '')|e }}">{{ p.detalhe_pagamento or '—' }}</td>
               <td class="py-2 px-3 text-center">
                 {% if p.status %}
                   <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Ativo</span>
@@ -83,7 +98,8 @@
               </td>
               <td class="py-2 px-3">
                 <div class="flex items-center justify-center gap-2">
-                  <button onclick="abrirModalEditar({{ p.id_plataforma }}, '{{ p.descricao|e }}', {{ p.indice if p.indice is not none else 'null' }}, '{{ p.cor|e if p.cor else '#000000' }}', {{ 'true' if p.status else 'false' }})"
+                  <button type="button"
+                          onclick='abrirModalEditar({{ {"id": p.id_plataforma, "descricao": p.descricao or "", "indice": p.indice, "status": true if p.status else false, "tech_partner": p.tech_partner or "", "tech_fee": (p.tech_fee|float) if p.tech_fee is not none else none, "metodo_pagamento": p.metodo_pagamento or "", "detalhe_pagamento": p.detalhe_pagamento or ""} | tojson }})'
                           class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
                           title="Editar">
                     <i class="fas fa-edit"></i>
@@ -144,19 +160,44 @@
                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <label for="cor" class="block text-sm font-medium text-gray-700 mb-1">Cor</label>
-            <input type="color" id="cor" name="cor" value="#000000"
-                   class="w-full h-10 px-1 py-1 border border-gray-300 rounded-md cursor-pointer">
+        <div class="mb-4">
+          <label for="tech_partner" class="block text-sm font-medium text-gray-700 mb-1">Tech Partner</label>
+          <input type="text" id="tech_partner" name="tech_partner" maxlength="120"
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+
+        <div class="mb-4">
+          <label for="tech_fee" class="block text-sm font-medium text-gray-700 mb-1">Tech fee (%)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="tech_fee" name="tech_fee" step="0.01" min="0" max="100" placeholder="0,00"
+                   class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <span class="text-sm text-gray-500 shrink-0">%</span>
           </div>
-          <div class="flex items-end pb-1">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="status" name="status" checked
-                     class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
-              <span class="text-sm font-medium text-gray-700">Ativo</span>
-            </label>
-          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="metodo_pagamento" class="block text-sm font-medium text-gray-700 mb-1">Método de pagamento</label>
+          <select id="metodo_pagamento" name="metodo_pagamento"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 bg-white">
+            <option value="">—</option>
+            <option value="cartao_credito">Cartão de Crédito</option>
+            <option value="pix">PIX</option>
+            <option value="boleto">Boleto</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label for="detalhe_pagamento" class="block text-sm font-medium text-gray-700 mb-1">Detalhe do pagamento</label>
+          <textarea id="detalhe_pagamento" name="detalhe_pagamento" rows="2" maxlength="500"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"></textarea>
+        </div>
+
+        <div class="mb-4">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="status" name="status" checked
+                   class="w-4 h-4 text-gray-800 border-gray-300 rounded focus:ring-gray-400">
+            <span class="text-sm font-medium text-gray-700">Ativo</span>
+          </label>
         </div>
 
         <div class="mt-6 flex justify-end gap-3">
@@ -188,33 +229,41 @@
     });
   });
 
+  function resetCamposPlataformaModal() {
+    document.getElementById('descricao').value = '';
+    document.getElementById('indice').value = '';
+    document.getElementById('tech_partner').value = '';
+    document.getElementById('tech_fee').value = '';
+    document.getElementById('metodo_pagamento').value = '';
+    document.getElementById('detalhe_pagamento').value = '';
+    document.getElementById('status').checked = true;
+  }
+
   function abrirModalNovo() {
     document.getElementById('modal_title').textContent = 'Nova Plataforma';
     document.getElementById('plataformaForm').action = "{{ url_for('plataforma_campanha_nova') }}";
-    document.getElementById('descricao').value = '';
-    document.getElementById('indice').value = '';
-    document.getElementById('cor').value = '#000000';
-    document.getElementById('status').checked = true;
+    resetCamposPlataformaModal();
     modal_plataforma.showModal();
   }
 
-  function abrirModalEditar(id, descricao, indice, cor, status) {
+  function abrirModalEditar(obj) {
     document.getElementById('modal_title').textContent = 'Editar Plataforma';
-    document.getElementById('plataformaForm').action = "{{ url_for('plataforma_campanha_editar', id_plat=0) }}".replace('0', id);
-    document.getElementById('descricao').value = descricao;
-    document.getElementById('indice').value = indice !== null ? indice : '';
-    document.getElementById('cor').value = cor;
-    document.getElementById('status').checked = status;
+    document.getElementById('plataformaForm').action = "{{ url_for('plataforma_campanha_editar', id_plat=0) }}".replace('0', String(obj.id));
+    document.getElementById('descricao').value = obj.descricao || '';
+    document.getElementById('indice').value = obj.indice !== null && obj.indice !== undefined ? obj.indice : '';
+    document.getElementById('tech_partner').value = obj.tech_partner || '';
+    document.getElementById('tech_fee').value =
+      obj.tech_fee !== null && obj.tech_fee !== undefined ? String(obj.tech_fee) : '';
+    document.getElementById('metodo_pagamento').value = obj.metodo_pagamento || '';
+    document.getElementById('detalhe_pagamento').value = obj.detalhe_pagamento || '';
+    document.getElementById('status').checked = !!obj.status;
     modal_plataforma.showModal();
   }
 
   document.getElementById('modal_plataforma').addEventListener('close', function() {
     document.getElementById('modal_title').textContent = 'Nova Plataforma';
     document.getElementById('plataformaForm').action = "{{ url_for('plataforma_campanha_nova') }}";
-    document.getElementById('descricao').value = '';
-    document.getElementById('indice').value = '';
-    document.getElementById('cor').value = '#000000';
-    document.getElementById('status').checked = true;
+    resetCamposPlataformaModal();
   });
 </script>
 {% endblock %}

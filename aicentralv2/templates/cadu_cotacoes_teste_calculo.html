@@ -1,0 +1,531 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Cotações (teste cálculo) - CentralComm AI{% endblock %}
+
+{% block styles %}
+<style>
+  .badge-status { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-enviada { background: #1f2937; color: #fff; }
+  .badge-aprovada { background: #dcfce7; color: #166534; }
+  .badge-rejeitada { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+  .badge-analise { background: #fef3c7; color: #92400e; }
+  .badge-default { background: #f1f5f9; color: #475569; }
+
+  .lista-table tbody tr { cursor: pointer; transition: background 0.15s ease; }
+  .lista-table tbody tr:hover { background: #f8fafc; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-3 pb-6">
+
+  <div class="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-sm">
+    <strong>Ambiente de teste de cálculo.</strong> Estas cotações não aparecem na lista principal nem no pipeline; números começam com TEST-COT.
+  </div>
+
+  {# ====== FILTROS ====== #}
+  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="relative">
+        <i class="fa-solid fa-user-tie absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select name="executivo_id" id="filtro_executivo" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 160px;">
+          <option value="">Todos executivos</option>
+          {% for vendedor in vendedores %}
+            <option value="{{ vendedor.id_contato_cliente }}" {% if request.args.get('responsavel_comercial')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
+              {{ vendedor.nome_completo }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="relative">
+        <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select name="mes" id="filtro_mes" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 130px;">
+          <option value="">Todos meses</option>
+          <option value="01" {% if request.args.get('mes') == '01' %}selected{% endif %}>Janeiro</option>
+          <option value="02" {% if request.args.get('mes') == '02' %}selected{% endif %}>Fevereiro</option>
+          <option value="03" {% if request.args.get('mes') == '03' %}selected{% endif %}>Março</option>
+          <option value="04" {% if request.args.get('mes') == '04' %}selected{% endif %}>Abril</option>
+          <option value="05" {% if request.args.get('mes') == '05' %}selected{% endif %}>Maio</option>
+          <option value="06" {% if request.args.get('mes') == '06' %}selected{% endif %}>Junho</option>
+          <option value="07" {% if request.args.get('mes') == '07' %}selected{% endif %}>Julho</option>
+          <option value="08" {% if request.args.get('mes') == '08' %}selected{% endif %}>Agosto</option>
+          <option value="09" {% if request.args.get('mes') == '09' %}selected{% endif %}>Setembro</option>
+          <option value="10" {% if request.args.get('mes') == '10' %}selected{% endif %}>Outubro</option>
+          <option value="11" {% if request.args.get('mes') == '11' %}selected{% endif %}>Novembro</option>
+          <option value="12" {% if request.args.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
+        </select>
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <input type="text" name="busca" id="filtro_busca"
+               value="{{ request.args.get('busca', '') }}"
+               placeholder="Buscar cliente..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+               style="min-width: 200px;"
+               onkeyup="debounceAplicarFiltros()">
+      </div>
+      <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+        {% set status_icons = [
+          ('Rascunho', 'fa-file-pen', request.args.get('status') == 'Rascunho'),
+          ('Em Análise', 'fa-magnifying-glass', request.args.get('status') == 'Em Análise'),
+          ('Enviada', 'fa-paper-plane', request.args.get('status') == 'Enviada'),
+          ('Aprovada', 'fa-circle-check', request.args.get('status') == 'Aprovada'),
+          ('Rejeitada', 'fa-circle-xmark', request.args.get('status') == 'Rejeitada')
+        ] %}
+        {% for status, icon, active in status_icons %}
+        <button type="button" onclick="filtrarPorStatus('{{ status }}')"
+                class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors {% if active %}bg-indigo-100{% endif %}"
+                title="{{ status }}">
+          <i class="fa-solid {{ icon }} text-sm {% if active %}text-indigo-600{% else %}text-gray-400{% endif %}"></i>
+        </button>
+        {% endfor %}
+      </div>
+      <a href="{{ url_for('crm_pipeline') }}" class="text-xs text-gray-400 hover:text-indigo-600 transition-colors ml-1">
+        <i class="fa-solid fa-columns mr-1"></i>Pipeline
+      </a>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm text-gray-500" id="totalCotacoes">{{ cotacoes|length if cotacoes else 0 }} {{ 'cotação' if (cotacoes|length if cotacoes else 0) == 1 else 'cotações' }}</span>
+      <a href="{{ url_for('cotacoes_teste_calculo.cotacao_teste_calculo_nova') }}"
+         class="text-sm font-medium text-white rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5"
+         style="background-color: #72cd80;">
+        <i class="fas fa-plus text-xs"></i> Nova
+      </a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- elif category == 'warning' %} bg-amber-100 text-amber-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {# ====== TABELA COMPACTA ====== #}
+  {% if cotacoes and cotacoes|length > 0 %}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm lista-table">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 150px;">Cotação</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="max-width: 280px;">Cliente / Campanha</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 110px;">Executivo</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 120px;">Período</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 120px;">Valor</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 90px;">Status</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 100px;">Itens</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style="width: 50px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100" id="cotacoesTableBody">
+          {% for cotacao in cotacoes %}
+          {% set hoje = now().date() %}
+          {% set dias_para_inicio = (cotacao.periodo_inicio - hoje).days if cotacao.periodo_inicio else none %}
+          {% set status_enviada = cotacao.status == 'Enviada' %}
+          {% set sem_responsavel = not cotacao.responsavel_nome %}
+          {% set urgente = status_enviada and dias_para_inicio is not none and dias_para_inicio >= 0 and dias_para_inicio <= 7 %}
+
+          <tr class="{% if urgente %}bg-amber-50/60{% endif %}"
+              onclick="window.location.href='/parametros/cotacoes-teste-calculo/{{ cotacao.id }}/detalhes'">
+
+            {# — COTAÇÃO — #}
+            <td class="py-2.5 px-3 align-top" onclick="event.stopPropagation()">
+              <a href="/parametros/cotacoes-teste-calculo/{{ cotacao.id }}/detalhes" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                {{ cotacao.numero_cotacao }}
+              </a>
+              <div class="text-[11px] text-gray-400">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
+            </td>
+
+            {# — CLIENTE / CAMPANHA — #}
+            <td class="py-2.5 px-3 align-top max-w-[280px]">
+              <div class="text-xs font-semibold text-gray-800 truncate">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
+              <div class="text-[11px] text-gray-400 truncate">{{ cotacao.nome_campanha or '—' }}</div>
+            </td>
+
+            {# — EXECUTIVO — #}
+            <td class="py-2.5 px-3 align-top">
+              {% if sem_responsavel %}
+              <div class="flex items-center gap-1 text-amber-600">
+                <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                <span class="text-[11px] font-medium">Sem responsável</span>
+              </div>
+              {% else %}
+              <div class="text-xs text-gray-700 truncate max-w-[100px]">{{ cotacao.responsavel_nome }}</div>
+              {% endif %}
+            </td>
+
+            {# — PERÍODO — #}
+            <td class="py-2.5 px-3 text-center align-top whitespace-nowrap">
+              {% if cotacao.periodo_inicio %}
+              <div class="text-[11px] text-gray-600">
+                {{ cotacao.periodo_inicio.strftime('%d/%m') }}{% if cotacao.periodo_fim %} a {{ cotacao.periodo_fim.strftime('%d/%m') }}{% endif %}
+              </div>
+              {% if status_enviada and dias_para_inicio is not none %}
+                {% if dias_para_inicio < 0 %}
+                <div class="text-[10px] font-medium text-red-500">Já iniciou</div>
+                {% elif dias_para_inicio == 0 %}
+                <div class="text-[10px] font-medium text-red-500">Inicia hoje!</div>
+                {% elif dias_para_inicio <= 3 %}
+                <div class="text-[10px] font-medium text-red-500">{{ dias_para_inicio }}d p/ início</div>
+                {% elif dias_para_inicio <= 7 %}
+                <div class="text-[10px] font-medium text-amber-500">{{ dias_para_inicio }}d p/ início</div>
+                {% else %}
+                <div class="text-[10px] text-gray-400">{{ dias_para_inicio }}d p/ início</div>
+                {% endif %}
+              {% endif %}
+              {% else %}
+              <span class="text-[11px] text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# — VALOR — #}
+            <td class="py-2.5 px-3 text-right align-top whitespace-nowrap">
+              {% set bruto = cotacao.valor_total_bruto|default(0, true)|float %}
+              {% set liquido = cotacao.valor_total_liquido|default(0, true)|float %}
+              {% if bruto > 0 or liquido > 0 %}
+              <div class="text-[11px] font-semibold text-gray-700">R$ {{ "{:,.2f}".format(bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+              <div class="text-[10px] text-emerald-600">R$ {{ "{:,.2f}".format(liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</div>
+              {% else %}
+              <span class="text-[11px] text-gray-400">—</span>
+              {% endif %}
+            </td>
+
+            {# — STATUS — #}
+            <td class="py-2.5 px-3 text-center align-top">
+              {% set status_display = 'Rascunho' if (cotacao.status == 'Pendente' or not cotacao.status) else cotacao.status %}
+              {% if status_display == 'Enviada' %}
+              <span class="badge-status badge-enviada">{{ status_display }}</span>
+              {% elif status_display == 'Aprovada' %}
+              <span class="badge-status badge-aprovada">{{ status_display }}</span>
+              {% elif status_display == 'Rejeitada' %}
+              <span class="badge-status badge-rejeitada">{{ status_display }}</span>
+              {% elif status_display == 'Em Análise' %}
+              <span class="badge-status badge-analise">{{ status_display }}</span>
+              {% else %}
+              <span class="badge-status badge-default">{{ status_display }}</span>
+              {% endif %}
+            </td>
+
+            {# — CONTADORES — #}
+            <td class="py-2.5 px-3 text-center align-top">
+              <div class="flex items-center justify-center gap-1.5">
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded-full text-[10px] font-bold {% if (cotacao.total_linhas or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Itens">
+                  <i class="fa-solid fa-list text-[8px] mr-0.5"></i>{{ cotacao.total_linhas or 0 }}
+                </span>
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded-full text-[10px] font-bold {% if (cotacao.total_audiencias or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Audiências">
+                  <i class="fa-solid fa-users text-[8px] mr-0.5"></i>{{ cotacao.total_audiencias or 0 }}
+                </span>
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1 rounded-full text-[10px] font-bold {% if (cotacao.total_anexos or 0) > 0 %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-400{% endif %}" title="Anexos">
+                  <i class="fa-solid fa-paperclip text-[8px] mr-0.5"></i>{{ cotacao.total_anexos or 0 }}
+                </span>
+              </div>
+            </td>
+
+            {# — AÇÕES — #}
+            <td class="py-2.5 px-3 text-center align-top" onclick="event.stopPropagation()">
+              <button onclick="abrirModalCotacao({{ cotacao.id }})"
+                      class="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Detalhes">
+                <i class="fa-solid fa-ellipsis-vertical text-xs"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+    <div class="text-center py-16 bg-white rounded-xl border border-gray-200">
+      <i class="fas fa-file-invoice text-6xl text-gray-200 mb-4"></i>
+      <p class="text-gray-400 text-lg mb-2">Nenhuma cotação encontrada.</p>
+      <p class="text-gray-400 text-sm mb-4">Ajuste os filtros ou crie uma nova cotação.</p>
+      <a href="{{ url_for('cotacoes_teste_calculo.cotacao_teste_calculo_nova') }}"
+         class="inline-flex items-center gap-1.5 text-sm font-medium text-white rounded-lg px-5 py-2 transition-colors shadow-sm"
+         style="background-color: #72cd80;">
+        <i class="fas fa-plus text-xs"></i> Criar Cotação
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Modal Detalhes Cotação -->
+<dialog id="modal_cotacao_lista" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div>
+        <h3 class="font-semibold text-lg text-gray-800" id="mcl_titulo">-</h3>
+        <p class="text-sm text-gray-500" id="mcl_subtitulo">-</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <p class="text-xl font-bold text-gray-800" id="mcl_valor">R$ 0</p>
+          <span class="text-xs px-2 py-0.5 rounded" id="mcl_status_badge">-</span>
+        </div>
+        <button onclick="document.getElementById('modal_cotacao_lista').close()" class="p-2 hover:bg-gray-200 rounded">
+          <i class="fa-solid fa-xmark text-gray-500"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Corpo -->
+    <div class="p-6 space-y-4" style="max-height: 50vh; overflow-y: auto;">
+      <!-- Info Grid -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Cliente</p>
+          <p class="text-sm text-gray-800 font-medium" id="mcl_cliente">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Campanha</p>
+          <p class="text-sm text-gray-800" id="mcl_campanha">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Executivo</p>
+          <p class="text-sm text-gray-800" id="mcl_executivo">-</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-gray-400 uppercase">Período</p>
+          <p class="text-sm text-gray-800" id="mcl_periodo">-</p>
+        </div>
+      </div>
+
+      <!-- Contadores -->
+      <div class="flex items-center gap-4 pt-2 border-t border-gray-100">
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+          <i class="fa-solid fa-list text-gray-400 text-sm"></i>
+          <span class="text-sm text-gray-700"><strong id="mcl_total_itens">0</strong> Itens da Proposta</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+          <i class="fa-solid fa-users text-gray-400 text-sm"></i>
+          <span class="text-sm text-gray-700"><strong id="mcl_total_audiencias">0</strong> Audiências</span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+          <i class="fa-solid fa-paperclip text-gray-400 text-sm"></i>
+          <span class="text-sm text-gray-700"><strong id="mcl_total_anexos">0</strong> Anexos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+      <div class="flex items-center gap-2">
+        <a id="mcl_link_itens" href="#" 
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+          <i class="fa-solid fa-list text-xs"></i>Itens da Proposta
+        </a>
+        <a id="mcl_link_audiencias" href="#" 
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+          <i class="fa-solid fa-users text-xs"></i>Audiências Selecionadas
+        </a>
+      </div>
+      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()" 
+              class="hidden inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
+        <i class="fa-solid fa-trash-can text-xs"></i>Enviar para Confirmação
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<script>
+let debounceTimer;
+
+function debounceAplicarFiltros() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(aplicarFiltros, 500);
+}
+
+function aplicarFiltros() {
+  const executivo = document.getElementById('filtro_executivo').value;
+  const mes = document.getElementById('filtro_mes').value;
+  const busca = document.getElementById('filtro_busca').value.trim();
+  const urlParams = new URLSearchParams(window.location.search);
+  const status = urlParams.get('status');
+
+  setCookie('cc_filtro_exec', executivo, 30);
+  setCookie('cc_filtro_mes', mes, 30);
+  setCookie('cotacoes_busca', busca, 30);
+  if (status) setCookie('cotacoes_status', status, 30);
+
+  let params = new URLSearchParams();
+  params.set('responsavel_comercial', executivo);
+  if (mes) params.set('mes', mes);
+  if (busca) params.set('busca', busca);
+  if (status) params.set('status', status);
+
+  window.location.href = '/parametros/cotacoes-teste-calculo' + (params.toString() ? '?' + params.toString() : '');
+}
+
+function filtrarPorStatus(status) {
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentStatus = urlParams.get('status');
+
+  if (currentStatus === status) {
+    urlParams.delete('status');
+    setCookie('cotacoes_status', '', 30);
+  } else {
+    urlParams.set('status', status);
+    setCookie('cotacoes_status', status, 30);
+  }
+
+  window.location.href = '/parametros/cotacoes-teste-calculo' + (urlParams.toString() ? '?' + urlParams.toString() : '');
+}
+
+(function restoreCotacoesFilters() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('_restored')) return;
+  const cExec = getCookie('cc_filtro_exec');
+  const cMes = getCookie('cc_filtro_mes');
+  const cBusca = getCookie('cotacoes_busca');
+  const cStatus = getCookie('cotacoes_status');
+  let needsRedirect = false;
+  const rp = new URLSearchParams(params);
+  if (cExec && !params.has('responsavel_comercial')) { rp.set('responsavel_comercial', cExec); needsRedirect = true; }
+  if (cMes && !params.has('mes')) {
+    let monthVal = cMes;
+    if (monthVal.includes('/')) monthVal = monthVal.split('/')[0];
+    rp.set('mes', monthVal.padStart(2, '0'));
+    needsRedirect = true;
+  }
+  if (cBusca && !params.has('busca')) { rp.set('busca', cBusca); needsRedirect = true; }
+  if (cStatus && !params.has('status')) { rp.set('status', cStatus); needsRedirect = true; }
+  if (!needsRedirect) return;
+  rp.set('_restored', '1');
+  window.location.href = '/parametros/cotacoes-teste-calculo?' + rp.toString();
+})();
+
+let _cotacaoModalAtual = null;
+
+async function abrirModalCotacao(cotacaoId) {
+  try {
+    const resp = await fetch(`/api/crm/pipeline/cotacao/${cotacaoId}`);
+    const data = await resp.json();
+    if (!data.success) {
+      showToast(data.message || 'Erro ao carregar cotação', 'error');
+      return;
+    }
+
+    const c = data.cotacao;
+    _cotacaoModalAtual = c;
+
+    document.getElementById('mcl_titulo').textContent = c.numero_cotacao || '-';
+    document.getElementById('mcl_subtitulo').textContent = c.nome_campanha || 'Sem campanha';
+    document.getElementById('mcl_cliente').textContent = c.cliente_nome || 'Sem cliente';
+    document.getElementById('mcl_campanha').textContent = c.nome_campanha || '-';
+    document.getElementById('mcl_executivo').textContent = c.executivo_nome || '-';
+
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '-';
+    const periodo = c.periodo_inicio ? fmtDate(c.periodo_inicio) + (c.periodo_fim ? ' - ' + fmtDate(c.periodo_fim) : '') : '-';
+    document.getElementById('mcl_periodo').textContent = periodo;
+
+    const fmtMoney = (v) => 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    document.getElementById('mcl_valor').textContent = fmtMoney(c.valor_bruto || c.valor_total_proposta);
+
+    const badge = document.getElementById('mcl_status_badge');
+    badge.textContent = c.status || 'Rascunho';
+    badge.className = 'text-xs px-2 py-0.5 rounded ';
+    if (c.status === 'Enviada') badge.className += 'bg-gray-800 text-white font-semibold';
+    else if (c.status === 'Aprovada') badge.className += 'bg-gray-200 text-gray-700';
+    else if (c.status === 'Rejeitada') badge.className += 'bg-gray-300 text-gray-600 line-through';
+    else badge.className += 'bg-gray-100 text-gray-500';
+
+    const totalItens = (c.itens || []).length;
+    const totalAudiencias = (c.audiencias || []).length;
+    const totalAnexos = (c.anexos || []).length;
+    document.getElementById('mcl_total_itens').textContent = totalItens;
+    document.getElementById('mcl_total_audiencias').textContent = totalAudiencias;
+    document.getElementById('mcl_total_anexos').textContent = totalAnexos;
+
+    document.getElementById('mcl_link_itens').href = `/parametros/cotacoes-teste-calculo/${c.id}/detalhes`;
+    document.getElementById('mcl_link_audiencias').href = `/parametros/cotacoes-teste-calculo/${c.id}/detalhes`;
+
+    const btnDeletar = document.getElementById('mcl_btn_deletar');
+    const statusPermitido = c.status === 'Rascunho' || c.status === 'Em Análise' || c.status === 'Pendente' || !c.status;
+    btnDeletar.classList.toggle('hidden', !statusPermitido);
+
+    document.getElementById('modal_cotacao_lista').showModal();
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao carregar cotação', 'error');
+  }
+}
+
+function confirmarExclusaoCotacao() {
+  if (!_cotacaoModalAtual) return;
+  const c = _cotacaoModalAtual;
+  const totalItens = (c.itens || []).length;
+  const totalAudiencias = (c.audiencias || []).length;
+  const totalAnexos = (c.anexos || []).length;
+
+  document.getElementById('modal_cotacao_lista').close();
+
+  showConfirm({
+    title: 'Excluir Cotação',
+    message: `Tem certeza que deseja excluir a cotação <strong>${c.numero_cotacao}</strong>?`,
+    detail: `
+      <div class="bg-red-50 rounded-lg p-3 space-y-1.5 text-sm border border-red-100">
+        <p class="font-medium text-red-700">Serão excluídos permanentemente:</p>
+        <div class="flex items-center gap-2 text-red-600"><i class="fa-solid fa-list w-4 text-center"></i><span>${totalItens} Iten${totalItens !== 1 ? 's' : ''} da Proposta</span></div>
+        <div class="flex items-center gap-2 text-red-600"><i class="fa-solid fa-users w-4 text-center"></i><span>${totalAudiencias} Audiência${totalAudiencias !== 1 ? 's' : ''} Selecionada${totalAudiencias !== 1 ? 's' : ''}</span></div>
+        <div class="flex items-center gap-2 text-red-600"><i class="fa-solid fa-paperclip w-4 text-center"></i><span>${totalAnexos} Anexo${totalAnexos !== 1 ? 's' : ''}</span></div>
+      </div>
+    `,
+    theme: 'danger',
+    confirmText: 'Excluir Cotação',
+    onConfirm: () => deletarCotacao(c.id)
+  });
+}
+
+async function deletarCotacao(cotacaoId) {
+  try {
+    const resp = await fetch(`/api/cotacoes-teste-calculo/${cotacaoId}/deletar`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('Cotação excluída com sucesso!', 'success');
+      setTimeout(() => window.location.reload(), 500);
+    } else {
+      showToast(data.message || 'Erro ao excluir cotação', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao excluir cotação', 'error');
+  }
+}
+
+function duplicarCotacao(cotacaoId) {
+  if (!confirm('Deseja duplicar esta cotação?')) return;
+  
+  fetch(`/api/cotacoes-teste-calculo/${cotacaoId}/duplicar`, {
+    method: 'POST'
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      showToast('Cotação duplicada com sucesso!', 'success');
+      window.location.href = `/parametros/cotacoes-teste-calculo/${data.nova_cotacao_id}/detalhes`;
+    } else {
+      showToast(data.message || 'Erro ao duplicar', 'error');
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showToast('Erro ao duplicar cotação', 'error');
+  });
+}
+</script>
+{% endblock %}

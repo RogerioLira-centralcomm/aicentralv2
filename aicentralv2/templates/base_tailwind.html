@@ -403,6 +403,8 @@
                             <li><a href="{{ url_for('tbl_cargo_contato') }}" class="{% if request.endpoint == 'tbl_cargo_contato' %}active{% endif %}">Cargos</a></li>
                             <li><a href="{{ url_for('plataformas_campanha') }}" class="{% if request.endpoint == 'plataformas_campanha' %}active{% endif %}">Plataformas de Campanha</a></li>
                             <li><a href="{{ url_for('incentivos_lista') }}" class="{% if request.endpoint == 'incentivos_lista' %}active{% endif %}">Incentivos</a></li>
+                            <li><a href="{{ url_for('faixas_calculo_pi_lista') }}" class="{% if request.endpoint == 'faixas_calculo_pi_lista' %}active{% endif %}">Faixas cálculo PI</a></li>
+                            <li><a href="{{ url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list') }}" class="{% if request.endpoint and request.endpoint.startswith('cotacoes_teste_calculo.') %}active{% endif %}">Cotações (teste cálculo)</a></li>
                             <li><a href="{{ url_for('cadu_pi_com_vendas_lista') }}" class="{% if request.endpoint == 'cadu_pi_com_vendas_lista' %}active{% endif %}">Comissões</a></li>
                             <li><a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">Logs de Auditoria</a></li>
                             <li><a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">Assistente IA</a></li>
@@ -672,6 +674,16 @@
                                     <li>
                                         <a href="{{ url_for('incentivos_lista') }}" class="{% if request.endpoint == 'incentivos_lista' %}active{% endif %}">
                                             Incentivos
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('faixas_calculo_pi_lista') }}" class="{% if request.endpoint == 'faixas_calculo_pi_lista' %}active{% endif %}">
+                                            Faixas cálculo PI
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list') }}" class="{% if request.endpoint and request.endpoint.startswith('cotacoes_teste_calculo.') %}active{% endif %}">
+                                            Cotações (teste cálculo)
                                         </a>
                                     </li>
                                     <li>

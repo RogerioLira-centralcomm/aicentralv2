@@ -1182,12 +1182,30 @@ def init_routes(app):
                 elif not pk_id_tbl_agencia:
                     return _edit_error('Agência é obrigatória para Pessoa Jurídica!')
 
+                mc_raw = request.form.get('margem_cc', '').strip()
+                try:
+                    margem_cc_val = int(mc_raw) if mc_raw != '' else None
+                except ValueError:
+                    margem_cc_val = None
+                if margem_cc_val is None or margem_cc_val < 20 or margem_cc_val > 30:
+                    return _edit_error('Margem CC deve ser um inteiro entre 20 e 30.')
+
                 percentual_valor = None
                 if pessoa == 'J' and percentual:
                     try:
                         percentual_normalizado = percentual.replace(',', '.')
                         percentual_valor = float(percentual_normalizado)
                     except ValueError:
+                        percentual_valor = None
+
+                if pessoa == 'J' and pk_id_tbl_agencia:
+                    ag_ed = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
+                    ag_key_ed = (str(ag_ed.get('key')).lower() if isinstance(ag_ed, dict) and ag_ed.get('key') is not None else '')
+                    is_ag_sim_ed = (ag_ed.get('key') is True) or (ag_key_ed in ('sim', 'true', '1', 's', 'yes', 'y'))
+                    if is_ag_sim_ed:
+                        if not percentual:
+                            return _edit_error('BV é obrigatório quando Agência = Sim.')
+                    else:
                         percentual_valor = None
 
                 if not db.atualizar_cliente(
@@ -1203,6 +1221,7 @@ def init_routes(app):
                     pk_id_aux_estado=pk_id_aux_estado,
                     vendas_central_comm=vendas_central_comm,
                     percentual=percentual_valor,
+                    margem_cc=margem_cc_val,
                     id_centralx=id_centralx,
                     status=status,
                     cep=cep,
@@ -3210,13 +3229,21 @@ def init_routes(app):
                 elif not pk_id_tbl_agencia:
                     return _val_error('Agência é obrigatória para Pessoa Jurídica!')
 
-                # Percentual obrigatório quando Agência = Sim (Pessoa Jurídica)
+                mc_raw_novo = request.form.get('margem_cc', '').strip()
+                try:
+                    margem_cc_novo = int(mc_raw_novo) if mc_raw_novo != '' else None
+                except ValueError:
+                    margem_cc_novo = None
+                if margem_cc_novo is None or margem_cc_novo < 20 or margem_cc_novo > 30:
+                    return _val_error('Margem CC deve ser um inteiro entre 20 e 30.')
+
+                # BV obrigatório quando Agência = Sim (Pessoa Jurídica)
                 if pessoa == 'J' and pk_id_tbl_agencia:
                     ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
-                    ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and 'key' in ag else '')
-                    if (ag.get('key') is True) or (ag_key in ['sim','true','1','s','yes','y']):
+                    ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and ag.get('key') is not None else '')
+                    if (ag.get('key') is True) or (ag_key in ('sim', 'true', '1', 's', 'yes', 'y')):
                         if not percentual:
-                            return _val_error('Percentual é obrigatório quando Agência = Sim.')
+                            return _val_error('BV é obrigatório quando Agência = Sim.')
 
                 percentual_valor = None
                 if pessoa == 'J' and percentual:
@@ -3224,6 +3251,13 @@ def init_routes(app):
                         percentual_normalizado = percentual.replace(',', '.')
                         percentual_valor = float(percentual_normalizado)
                     except ValueError:
+                        percentual_valor = None
+
+                if pessoa == 'J' and pk_id_tbl_agencia:
+                    ag2 = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
+                    ag_key2 = (str(ag2.get('key')).lower() if isinstance(ag2, dict) and ag2.get('key') is not None else '')
+                    is_ag_sim_novo = (ag2.get('key') is True) or (ag_key2 in ('sim', 'true', '1', 's', 'yes', 'y'))
+                    if not is_ag_sim_novo:
                         percentual_valor = None
 
                 id_cliente = db.criar_cliente(
@@ -3244,7 +3278,8 @@ def init_routes(app):
                     rua=logradouro,
                     numero=numero,
                     complemento=complemento,
-                    percentual=percentual_valor
+                    percentual=percentual_valor,
+                    margem_cc=margem_cc_novo,
                 )
                 
                 # Registro de auditoria
@@ -9931,6 +9966,100 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             flash('Não é possível excluir esta plataforma pois está em uso.', 'error')
 
         return redirect(url_for('plataformas_campanha'))
+
+    # ==================== FAIXAS CALCULO PI - ROTAS ====================
+
+    def _form_cadu_pi_faixa_calculo():
+        def nz(key):
+            s = (request.form.get(key) or '').strip()
+            return s if s else None
+
+        return {
+            'faixa': nz('faixa'),
+            'atingimento': nz('atingimento'),
+            'perc_privado': nz('perc_privado'),
+            'perc_governo': nz('perc_governo'),
+            'fator_gov': nz('fator_gov'),
+        }
+
+    @app.route('/faixas-calculo-pi')
+    @login_required
+    def faixas_calculo_pi_lista():
+        try:
+            linhas = db.listar_cadu_pi_faixas_calculo()
+            return render_template('faixas_calculo_pi.html', linhas=linhas or [])
+        except Exception as e:
+            app.logger.error(f'Erro ao listar faixas cálculo PI: {e}')
+            flash('Erro ao carregar faixas de cálculo.', 'error')
+            return redirect(url_for('index'))
+
+    @app.route('/faixas-calculo-pi/novo', methods=['POST'])
+    @login_required
+    def faixa_calculo_pi_novo():
+        try:
+            data = _form_cadu_pi_faixa_calculo()
+            if not data.get('faixa'):
+                flash('Faixa é obrigatória.', 'error')
+                return redirect(url_for('faixas_calculo_pi_lista'))
+
+            nid = db.criar_cadu_pi_faixa_calculo(data)
+            if nid:
+                flash('Faixa de cálculo criada com sucesso!', 'success')
+            else:
+                flash('Erro ao criar faixa de cálculo.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao criar faixa cálculo PI: {e}')
+            flash('Erro ao criar faixa de cálculo.', 'error')
+        return redirect(url_for('faixas_calculo_pi_lista'))
+
+    @app.route('/faixas-calculo-pi/<int:id_fc>/editar', methods=['POST'])
+    @login_required
+    def faixa_calculo_pi_editar(id_fc):
+        try:
+            existente = db.obter_cadu_pi_faixa_calculo_por_id(id_fc)
+            if not existente:
+                flash('Registro não encontrado.', 'error')
+                return redirect(url_for('faixas_calculo_pi_lista'))
+
+            data = _form_cadu_pi_faixa_calculo()
+            if not data.get('faixa'):
+                flash('Faixa é obrigatória.', 'error')
+                return redirect(url_for('faixas_calculo_pi_lista'))
+
+            if db.atualizar_cadu_pi_faixa_calculo(id_fc, data):
+                flash('Faixa de cálculo atualizada com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar faixa de cálculo.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao atualizar faixa cálculo PI: {e}')
+            flash('Erro ao atualizar faixa de cálculo.', 'error')
+        return redirect(url_for('faixas_calculo_pi_lista'))
+
+    @app.route('/faixas-calculo-pi/<int:id_fc>/excluir', methods=['POST'])
+    @login_required
+    def faixa_calculo_pi_excluir(id_fc):
+        try:
+            existente = db.obter_cadu_pi_faixa_calculo_por_id(id_fc)
+            if not existente:
+                flash('Registro não encontrado.', 'error')
+                return redirect(url_for('faixas_calculo_pi_lista'))
+
+            if db.excluir_cadu_pi_faixa_calculo(id_fc):
+                registrar_auditoria(
+                    acao='deletar',
+                    modulo='faixas_calculo_pi',
+                    descricao=f'Faixa cálculo PI removida (id={id_fc})',
+                    registro_id=id_fc,
+                    registro_tipo='cadu_pi_faixas_calculo',
+                    dados_anteriores=dict(existente),
+                )
+                flash('Faixa de cálculo excluída com sucesso!', 'success')
+            else:
+                flash('Erro ao excluir faixa de cálculo.', 'error')
+        except Exception as e:
+            app.logger.error(f'Erro ao excluir faixa cálculo PI: {e}')
+            flash('Erro ao excluir faixa de cálculo.', 'error')
+        return redirect(url_for('faixas_calculo_pi_lista'))
 
     # ==================== INCENTIVOS PI - ROTAS ====================
 

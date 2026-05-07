@@ -770,6 +770,7 @@ def obter_cliente_por_id(id_cliente):
                 c.pk_id_aux_estado,
                 c.vendas_central_comm,
                 c.percentual,
+                c.margem_cc,
                 c.data_cadastro,
                 c.data_modificacao,
                 c.pk_id_tbl_agencia as pk_id_aux_agencia,
@@ -790,7 +791,7 @@ def obter_cliente_por_id(id_cliente):
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None, 
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_aux_agencia=None,
-                pk_id_aux_estado=None, vendas_central_comm=None, percentual=None):
+                pk_id_aux_estado=None, vendas_central_comm=None, percentual=None, margem_cc=None):
     """Cria um novo cliente"""
     conn = get_db()
 
@@ -801,16 +802,16 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, bairro, cidade, logradouro, numero, 
                     complemento, cep, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                    percentual
+                    percentual, margem_cc
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s
+                    %s, %s
                 ) RETURNING id_cliente
             ''', (
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                percentual
+                percentual, margem_cc
             ))
             
             id_cliente = cursor.fetchone()['id_cliente']
@@ -824,7 +825,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
                      numero=None, complemento=None, cep=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None,
-                     percentual=None):
+                     percentual=None, margem_cc=None):
     """Atualiza um cliente existente"""
     conn = get_db()
 
@@ -849,6 +850,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     pk_id_aux_estado = %s,
                     id_tipo_cliente = %s,
                     percentual = %s,
+                    margem_cc = %s,
                     vendas_central_comm = %s,
                     data_modificacao = NOW()
                 WHERE id_cliente = %s
@@ -856,7 +858,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
-                percentual, vendas_central_comm, id_cliente
+                percentual, margem_cc, vendas_central_comm, id_cliente
             ))
             
             conn.commit()
@@ -5386,6 +5388,9 @@ def atualizar_status_briefing(briefing_id, novo_status, progresso=None):
 
 # ==================== COTAÇÕES ====================
 
+ORIGEM_TESTE_CALCULO = 'teste_calculo'
+
+
 def criar_tabela_cotacoes():
     """Verifica se a tabela cadu_cotacoes existe no banco de dados"""
     conn = get_db()
@@ -5405,9 +5410,19 @@ def criar_tabela_cotacoes():
             if not table_exists:
                 raise Exception("Tabela 'cadu_cotacoes' não existe no banco de dados!")
             
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS origem VARCHAR(120)"
+            )
+            conn.commit()
             return True
     except Exception as e:
         raise e
+
+
+def cotacao_e_teste_calculo(cotacao_id):
+    """True se a cotação foi criada pelo fluxo Parâmetros > teste de cálculo."""
+    c = obter_cotacao_por_id(cotacao_id)
+    return bool(c and (c.get('origem') == ORIGEM_TESTE_CALCULO))
 
 
 def obter_cotacoes(cliente_id=None, status=None):
@@ -5470,8 +5485,20 @@ def obter_cotacoes_por_vendedor(vendedor_id):
         raise e
 
 
-def obter_cotacoes_filtradas(cliente_id=None, responsavel_id=None, mes=None, busca=None, status=None):
-    """Obtém cotações com filtros avançados para listagem"""
+def obter_cotacoes_filtradas(
+    cliente_id=None,
+    responsavel_id=None,
+    mes=None,
+    busca=None,
+    status=None,
+    *,
+    excluir_teste_calculo=True,
+    apenas_teste_calculo=False,
+):
+    """Obtém cotações com filtros avançados para listagem.
+
+    Cotações com origem teste_calculo ficam só no fluxo Parâmetros > teste cálculo.
+    """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -5493,6 +5520,13 @@ def obter_cotacoes_filtradas(cliente_id=None, responsavel_id=None, mes=None, bus
                 WHERE c.deleted_at IS NULL
             '''
             params = []
+
+            if apenas_teste_calculo:
+                query += ' AND c.origem = %s'
+                params.append(ORIGEM_TESTE_CALCULO)
+            elif excluir_teste_calculo:
+                query += ' AND (c.origem IS DISTINCT FROM %s)'
+                params.append(ORIGEM_TESTE_CALCULO)
             
             if cliente_id:
                 query += ' AND c.client_id = %s'
@@ -5575,7 +5609,10 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
     try:
         with conn.cursor() as cursor:
             # Gerar número de cotação único
-            numero_cotacao = f"COT-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(3).upper()}"
+            if kwargs.get('origem') == ORIGEM_TESTE_CALCULO:
+                numero_cotacao = f"TEST-COT-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(3).upper()}"
+            else:
+                numero_cotacao = f"COT-{datetime.now().strftime('%Y%m')}-{secrets.token_hex(3).upper()}"
             
             # Preparar campos dinamicamente
             campos = ['numero_cotacao', 'client_id', 'nome_campanha', 'periodo_inicio', 'created_at', 'updated_at']
@@ -6934,9 +6971,10 @@ def obter_cotacoes_pipeline(filtros=None):
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = cot.client_id
                 LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cot.responsavel_comercial
                 WHERE cot.deleted_at IS NULL
+                    AND (cot.origem IS DISTINCT FROM %s)
             '''
             
-            params = []
+            params = [ORIGEM_TESTE_CALCULO]
             
             # Aplicar filtros
             if filtros.get('executivo_id'):
@@ -8289,6 +8327,40 @@ def criar_cadu_pi(data):
         raise e
 
 
+def _normalizar_data_campo_cotacao_para_pi(val):
+    """Converte periodo_inicio/fim da cotação em date ou None.
+
+    Cotações podem guardar texto livre (ex.: «Junho»); colunas date do PI exigem valor válido.
+    """
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    s = str(val).strip()
+    if not s:
+        return None
+    try:
+        if len(s) >= 10 and s[4] == '-' and s[7] == '-':
+            return date.fromisoformat(s[:10])
+    except ValueError:
+        pass
+    try:
+        dt = datetime.fromisoformat(s.replace('Z', '+00:00'))
+        return dt.date()
+    except ValueError:
+        pass
+    m = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', s)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            return date(y, mo, d)
+        except ValueError:
+            return None
+    return None
+
+
 def gerar_pi_de_cotacao(cotacao_id):
     """Gera um PI automaticamente a partir de uma cotação aprovada.
     Retorna o id_pi gerado ou None se já existir PI vinculado."""
@@ -8341,21 +8413,15 @@ def gerar_pi_de_cotacao(cotacao_id):
     comissao_agencia = round(valor_bruto * perc_agencia / 100, 2) if perc_agencia else 0
     comissao_parceiro = round(valor_bruto * perc_parceiro / 100, 2) if perc_parceiro else 0
 
-    # --- mes_ref / mes_ref_comp a partir de periodo_inicio ---
+    pi_periodo_inicio = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
+    pi_periodo_fim = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_fim'))
+
+    # --- mes_ref (coluna date no BD) e mes_ref_comp (MM/AAAA) ---
     mes_ref = None
     mes_ref_comp = None
-    periodo_inicio = cotacao.get('periodo_inicio')
-    if periodo_inicio:
-        if isinstance(periodo_inicio, str):
-            try:
-                periodo_inicio = datetime.fromisoformat(periodo_inicio)
-            except ValueError:
-                periodo_inicio = None
-        if periodo_inicio:
-            meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-            mes_ref = meses[periodo_inicio.month - 1]
-            mes_ref_comp = f"{periodo_inicio.month:02d}/{periodo_inicio.year}"
+    if pi_periodo_inicio:
+        mes_ref = date(pi_periodo_inicio.year, pi_periodo_inicio.month, 1)
+        mes_ref_comp = f"{pi_periodo_inicio.month:02d}/{pi_periodo_inicio.year}"
 
     data = {
         'id_cliente': cotacao.get('client_id'),
@@ -8373,8 +8439,8 @@ def gerar_pi_de_cotacao(cotacao_id):
         'comissao_parceiro': comissao_parceiro,
         'valor_liquido_pr': None,
         'valor_plataformas': None,
-        'periodo_inicio': cotacao.get('periodo_inicio'),
-        'periodo_fim': cotacao.get('periodo_fim'),
+        'periodo_inicio': pi_periodo_inicio,
+        'periodo_fim': pi_periodo_fim,
         'mes_ref': mes_ref,
         'mes_ref_comp': mes_ref_comp,
         'resp_comercial': cotacao.get('responsavel_comercial'),
@@ -8675,7 +8741,7 @@ def obter_id_plataforma_dv360():
                     LOWER(TRIM(descricao)) LIKE %s
                     OR LOWER(TRIM(descricao)) LIKE %s
                   )
-                ORDER BY indice NULLS LAST, id_plataforma
+                ORDER BY LENGTH(TRIM(descricao)), indice NULLS LAST, id_plataforma
                 LIMIT 1
                 """,
                 ("%dv360%", "%display%video%360%"),
@@ -8711,6 +8777,359 @@ def obter_plataforma_campanha_por_id(id_plataforma):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def _parse_percentual_texto_para_fracao(val):
+    """Converte string de percentual ('4', '4%', '30', '0,04') em fração 0–1."""
+    if val is None or val == '':
+        return None
+    s = str(val).strip().replace('%', '').replace(',', '.')
+    try:
+        x = float(s)
+    except (ValueError, TypeError):
+        return None
+    if x > 1:
+        x = x / 100.0
+    return x
+
+
+def _normalizar_tech_fee_para_fracao(tf_raw):
+    """
+    tech_fee em cadu_pi_camp_plataforma: 14 ou 0,14 → fração 0,14.
+    Valores > 1 são tratados como percentual inteiro (14 → 0,14).
+    """
+    if tf_raw is None:
+        return None
+    try:
+        x = float(tf_raw)
+    except (TypeError, ValueError):
+        return None
+    if x < 0:
+        return None
+    if x > 1:
+        return x / 100.0
+    return float(x)
+
+
+def obter_tech_fee_fracao_por_nome_plataforma(nome_plataforma):
+    """
+    TF (fração) a partir de cadu_pi_camp_plataforma.tech_fee.
+
+    Ordem de resolução:
+    1) Opção «DV360» no modal → mesmo ID que o PI (`obter_id_plataforma_dv360` / PI_PLATAFORMA_DV360_ID),
+       evitando que um LIKE pegue outra linha com TF diferente.
+    2) Descrição exatamente igual ao nome (trim, case-insensitive).
+    3) Descrição que contenha o nome; preferência por menor comprimento e match por prefixo.
+
+    Retorna (fração ou None, descricao_encontrada ou None, fonte ou None).
+    fonte ∈ {'dv360_id','descricao_exata','descricao_contem'}.
+    """
+    if not nome_plataforma or not str(nome_plataforma).strip():
+        return None, None, None
+    nome = str(nome_plataforma).strip()
+
+    # 1) DV360 — alinhado ao restante do sistema (env PI_PLATAFORMA_DV360_ID)
+    if nome.upper().replace(' ', '') == 'DV360':
+        pid = obter_id_plataforma_dv360()
+        if pid:
+            row = obter_plataforma_campanha_por_id(int(pid))
+            if row and row.get('tech_fee') is not None:
+                tf = _normalizar_tech_fee_para_fracao(row['tech_fee'])
+                if tf is not None:
+                    return tf, row.get('descricao'), 'dv360_id'
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT descricao, tech_fee
+                FROM cadu_pi_camp_plataforma
+                WHERE COALESCE(status, TRUE)
+                  AND LOWER(TRIM(descricao)) = LOWER(TRIM(%s))
+                ORDER BY id_plataforma
+                LIMIT 1
+                ''',
+                (nome,),
+            )
+            row = cursor.fetchone()
+            if row and row.get('tech_fee') is not None:
+                tf = _normalizar_tech_fee_para_fracao(row['tech_fee'])
+                if tf is not None:
+                    return tf, row.get('descricao'), 'descricao_exata'
+
+            cursor.execute(
+                '''
+                SELECT descricao, tech_fee
+                FROM cadu_pi_camp_plataforma
+                WHERE COALESCE(status, TRUE)
+                  AND LOWER(TRIM(descricao)) LIKE LOWER(%s)
+                ORDER BY
+                  CASE WHEN LOWER(TRIM(descricao)) LIKE LOWER(%s) THEN 0 ELSE 1 END,
+                  LENGTH(TRIM(descricao)),
+                  indice NULLS LAST,
+                  id_plataforma
+                LIMIT 1
+                ''',
+                (f'%{nome}%', f'{nome}%'),
+            )
+            row = cursor.fetchone()
+            if row and row.get('tech_fee') is not None:
+                tf = _normalizar_tech_fee_para_fracao(row['tech_fee'])
+                if tf is not None:
+                    return tf, row.get('descricao'), 'descricao_contem'
+            return None, None, None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_margem_cc_fracao_por_cliente(cliente_id):
+    """margem_cc em tbl_cliente como fração (30 → 0,30)."""
+    frac, _raw = obter_margem_cc_fracao_e_bruto(cliente_id)
+    return frac
+
+
+def obter_margem_cc_fracao_e_bruto(cliente_id):
+    """Retorna (fração 0–1, valor bruto do cadastro ou None)."""
+    if not cliente_id:
+        return None, None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT margem_cc FROM tbl_cliente WHERE id_cliente = %s',
+                (int(cliente_id),),
+            )
+            row = cursor.fetchone()
+            if not row or row.get('margem_cc') is None:
+                return None, None
+            raw = row['margem_cc']
+            try:
+                m = float(raw)
+            except (TypeError, ValueError):
+                return None, raw
+            frac = m / 100.0 if m > 1 else m
+            return frac, raw
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_com_vendas_fracao_por_resp_comercial(id_resp_comercial):
+    """Percentual COM em cadu_pi_com_vendas para o executivo → fração."""
+    frac, _raw = obter_com_vendas_fracao_e_bruto(id_resp_comercial)
+    return frac
+
+
+def obter_com_vendas_fracao_e_bruto(id_resp_comercial):
+    """Retorna (fração 0–1, texto percentual do cadastro ou None)."""
+    if not id_resp_comercial:
+        return None, None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT percentual FROM cadu_pi_com_vendas
+                WHERE id_resp_comercial = %s
+                LIMIT 1
+                ''',
+                (int(id_resp_comercial),),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None, None
+            raw = row.get('percentual')
+            return _parse_percentual_texto_para_fracao(raw), raw
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def _cotacao_tem_agencia_para_inc(agencia_id):
+    """Incentivo só se houver agência válida na cotação (id > 0)."""
+    if agencia_id is None:
+        return False
+    if isinstance(agencia_id, str) and not str(agencia_id).strip():
+        return False
+    try:
+        return int(agencia_id) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+_INCENTIVO_FAIXA_LIMITES = (
+    ('10k', 10_000),
+    ('50k', 50_000),
+    ('100k', 100_000),
+    ('200k', 200_000),
+    ('300k', 300_000),
+    ('400k', 400_000),
+    ('500k', 500_000),
+    ('600k', 600_000),
+    ('750k', 750_000),
+    ('2000k', 2_000_000),
+)
+
+
+def cliente_possui_incentivo(cliente_id: int) -> bool:
+    """Retorna True se existir cadastro em cadu_pi_incentivos para o cliente_id."""
+    if not cliente_id:
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT 1
+                FROM cadu_pi_incentivos i
+                WHERE i.cliente_id = %s
+                LIMIT 1
+                ''',
+                (int(cliente_id),),
+            )
+            return cursor.fetchone() is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_incentivo_fracao_por_cliente_volume(cliente_id, volume):
+    """
+    Percentual de incentivo (fração) em cadu_pi_incentivos para o cliente informado.
+    Em cotações com agência, usar o id da agência (tbl_cliente da agência), não o anunciante.
+    Faixa por volume contratado; volume 0 ou None usa faixa 10k.
+    """
+    if not cliente_id:
+        return None
+    vol = float(volume or 0)
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cols = ', '.join(f'i."{f}" AS pct_{f}' for f in INCENTIVOS_FAIXAS)
+            cursor.execute(
+                f'''
+                SELECT {cols}
+                FROM cadu_pi_incentivos i
+                WHERE i.cliente_id = %s
+                LIMIT 1
+                ''',
+                (int(cliente_id),),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            faixa_key = '2000k'
+            for key, lim in _INCENTIVO_FAIXA_LIMITES:
+                if vol <= lim:
+                    faixa_key = key
+                    break
+            pct_col = f'pct_{faixa_key}'
+            raw = row.get(pct_col)
+            return _parse_percentual_texto_para_fracao(raw)
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def calcular_preco_unitario_teste_calculo(
+    *,
+    valor_unitario_tabela,
+    nome_plataforma,
+    cliente_id,
+    id_resp_comercial,
+    volume_contratado,
+    imposto_percentual_externo,
+    agencia_id=None,
+):
+    """
+    Opex = val_tab/(1-TF); Preço = Opex/(1-(Mcc+Com+Inc+Imp)).
+    Inc (incentivo) só entra se a cotação tiver agência; busca em cadu_pi_incentivos pela agência.
+    imposto_percentual_externo: ex. 15 → fração 0,15.
+    Retorna dict com frações, valores monetários e warnings.
+    """
+    warnings = []
+    val_tab = float(valor_unitario_tabela or 0)
+    if val_tab <= 0:
+        return {'success': False, 'message': 'Valor unitário tabela inválido'}
+
+    tf, plat_desc, tf_fonte = obter_tech_fee_fracao_por_nome_plataforma(nome_plataforma)
+    if tf is None:
+        tf = 0.0
+        warnings.append(f'TF não encontrado para a plataforma «{nome_plataforma}»; usando 0.')
+
+    if tf >= 1:
+        return {'success': False, 'message': 'Tech fee (TF) deve ser menor que 100%.'}
+
+    mcc, mcc_raw_cadastro = obter_margem_cc_fracao_e_bruto(cliente_id)
+    if mcc is None:
+        mcc = 0.0
+        warnings.append('margem_cc não encontrada para o cliente; usando 0.')
+
+    com, com_raw_cadastro = obter_com_vendas_fracao_e_bruto(id_resp_comercial)
+    if com is None:
+        com = 0.0
+        warnings.append('Comissão (COM) não cadastrada para o executivo; usando 0.')
+
+    # Incentivo: apenas com agência na cotação (id válido); cadastro opcional por agência
+    tem_agencia = _cotacao_tem_agencia_para_inc(agencia_id)
+    if not tem_agencia:
+        inc = 0.0
+        inc_vol_base = float(volume_contratado or 0)
+        inc_provisionado_maximo = False
+    else:
+        # Se a agência possui incentivo cadastrado, provisiona no máximo (2000k) para o cálculo.
+        inc_provisionado_maximo = cliente_possui_incentivo(int(agencia_id))
+        inc_vol_base = 2_000_000 if inc_provisionado_maximo else float(volume_contratado or 0)
+        inc = obter_incentivo_fracao_por_cliente_volume(int(agencia_id), inc_vol_base)
+        if inc is None:
+            inc = 0.0
+            warnings.append(
+                'Incentivo não cadastrado para esta agência (ou faixa); usando 0.'
+            )
+        elif inc_provisionado_maximo:
+            warnings.append('Incentivo provisionado no máximo (faixa 2000k) para esta agência.')
+
+    try:
+        imp_pct = float(imposto_percentual_externo)
+    except (TypeError, ValueError):
+        imp_pct = 15.0
+    imp = imp_pct / 100.0 if imp_pct > 1 else imp_pct
+
+    soma = (mcc or 0) + (com or 0) + (inc or 0) + (imp or 0)
+    if soma >= 1:
+        return {
+            'success': False,
+            'message': 'Soma de Mcc+COM+Inc+Imp deve ser menor que 100%.',
+            'detalhe': {'mcc': mcc, 'com': com, 'inc': inc, 'imp': imp},
+        }
+
+    denom_margens = 1.0 - soma
+    if denom_margens <= 0:
+        return {'success': False, 'message': 'Denominador de margens inválido.'}
+
+    opex = val_tab / (1.0 - tf)
+    preco = opex / denom_margens
+
+    return {
+        'success': True,
+        'tf': tf,
+        'tf_fonte': tf_fonte,
+        'mcc': mcc,
+        'margem_cc_cadastro': mcc_raw_cadastro,
+        'com': com,
+        'com_percentual_cadastro': com_raw_cadastro,
+        'inc': inc,
+        'inc_volume_base': inc_vol_base,
+        'inc_provisionado_maximo': inc_provisionado_maximo,
+        'imp': imp,
+        'opex_unit': round(opex, 6),
+        'preco_unit': round(preco, 6),
+        'plataforma_match': plat_desc,
+        'incentivo_com_agencia': tem_agencia,
+        'warnings': warnings,
+    }
 
 
 def criar_plataforma_campanha(data):
@@ -8783,6 +9202,137 @@ def excluir_plataforma_campanha(id_plataforma):
                 DELETE FROM cadu_pi_camp_plataforma
                 WHERE id_plataforma = %s
             ''', (id_plataforma,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+# ==================== CADU PI FAIXAS CALCULO - CRUD ====================
+
+def listar_cadu_pi_faixas_calculo():
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    id,
+                    created_at,
+                    updated_at,
+                    faixa,
+                    atingimento,
+                    perc_privado,
+                    perc_governo,
+                    fator_gov
+                FROM cadu_pi_faixas_calculo
+                ORDER BY id ASC
+                '''
+            )
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_cadu_pi_faixa_calculo_por_id(id_faixa):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    id,
+                    created_at,
+                    updated_at,
+                    faixa,
+                    atingimento,
+                    perc_privado,
+                    perc_governo,
+                    fator_gov
+                FROM cadu_pi_faixas_calculo
+                WHERE id = %s
+                ''',
+                (id_faixa,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def criar_cadu_pi_faixa_calculo(data):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                INSERT INTO cadu_pi_faixas_calculo (
+                    faixa, atingimento, perc_privado, perc_governo, fator_gov,
+                    created_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+                RETURNING id
+                ''',
+                (
+                    data.get('faixa'),
+                    data.get('atingimento'),
+                    data.get('perc_privado'),
+                    data.get('perc_governo'),
+                    data.get('fator_gov'),
+                ),
+            )
+            result = cursor.fetchone()
+            conn.commit()
+            return result['id'] if result else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cadu_pi_faixa_calculo(id_faixa, data):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                UPDATE cadu_pi_faixas_calculo
+                SET faixa = %s,
+                    atingimento = %s,
+                    perc_privado = %s,
+                    perc_governo = %s,
+                    fator_gov = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                ''',
+                (
+                    data.get('faixa'),
+                    data.get('atingimento'),
+                    data.get('perc_privado'),
+                    data.get('perc_governo'),
+                    data.get('fator_gov'),
+                    id_faixa,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_cadu_pi_faixa_calculo(id_faixa):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                DELETE FROM cadu_pi_faixas_calculo
+                WHERE id = %s
+                ''',
+                (id_faixa,),
+            )
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:

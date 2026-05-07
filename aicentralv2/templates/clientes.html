@@ -405,7 +405,16 @@
           </div>
         </div>
 
-        <!-- Linha 2: Tipo + Executivo + Agência + Percentual -->
+        <div id="margem_cc_fields" class="grid grid-cols-2 md:grid-cols-12 gap-3">
+          <div class="form-control col-span-1 md:col-span-3">
+            <label class="text-xs font-medium text-gray-600 mb-1">Margem CC (%)*</label>
+            <input name="margem_cc" type="number" min="20" max="30" step="1" required
+                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400"
+                   placeholder="20 a 30">
+          </div>
+        </div>
+
+        <!-- Linha 2: Tipo + Executivo + Agência + BV -->
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
           <div id="tipo_cliente_fields" class="form-control col-span-1 md:col-span-2">
             <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
@@ -430,12 +439,12 @@
             <select name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for agencia in agencias %}
-                <option value="{{ agencia.id_agencia }}">{{ agencia.display }}</option>
+                <option value="{{ agencia.id_agencia }}" data-agencia-sim="{% if agencia.key %}1{% else %}0{% endif %}">{{ agencia.display }}</option>
               {% endfor %}
             </select>
           </div>
           <div id="percentual_fields" class="form-control col-span-1 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600 mb-1">Percentual</label>
+            <label class="text-xs font-medium text-gray-600 mb-1">BV (%)</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
           </div>
         </div>
@@ -709,6 +718,11 @@ document.addEventListener('DOMContentLoaded', function() {
     pessoaRadios.forEach(radio => {
       radio.addEventListener('change', togglePessoaFieldsModal);
     });
+
+    const selAgenciaCliente = formCliente.querySelector('select[name="pk_id_tbl_agencia"]');
+    if (selAgenciaCliente) {
+      selAgenciaCliente.addEventListener('change', atualizarVisibilidadeBv);
+    }
     
     // Handler para blur do CNPJ/CPF no modal
     const cnpjInput = document.getElementById('input_cnpj');
@@ -827,7 +841,9 @@ function abrirModalNovo() {
   
   // Limpar mensagens de erro
   document.getElementById('cnpjcpf_msg').innerText = '';
-  
+  const inpMargem = document.querySelector('#form_cliente input[name="margem_cc"]');
+  if (inpMargem) inpMargem.value = '';
+
   // Atualizar campos visíveis
   togglePessoaFieldsModal();
   
@@ -900,8 +916,15 @@ async function abrirModalEditar(clienteId) {
     // Informações comerciais
     document.querySelector('select[name="vendas_central_comm"]').value = cliente.vendas_central_comm || '';
     document.querySelector('select[name="pk_id_tbl_agencia"]').value = cliente.pk_id_tbl_agencia || '';
+
+    const inpMargemEd = document.querySelector('#form_cliente input[name="margem_cc"]');
+    if (inpMargemEd) {
+      inpMargemEd.value = (cliente.margem_cc !== undefined && cliente.margem_cc !== null && cliente.margem_cc !== '')
+        ? String(parseInt(cliente.margem_cc, 10))
+        : '';
+    }
     
-    // Percentual - formatar com vírgula
+    // BV (percentual) - formatar com vírgula
     if (cliente.percentual) {
       const percentualFormatado = parseFloat(cliente.percentual).toFixed(2).replace('.', ',');
       document.querySelector('input[name="percentual"]').value = percentualFormatado;
@@ -1006,7 +1029,6 @@ function togglePessoaFieldsModal() {
   const inputRazaoSocial = document.getElementById('input_razao_social');
   
   const selectAgencia = document.querySelector('select[name="pk_id_tbl_agencia"]');
-  const percentualFields = document.getElementById('percentual_fields');
 
   if (pessoa === 'F') {
     // Pessoa Física — campos ocultos com valores automáticos
@@ -1014,11 +1036,6 @@ function togglePessoaFieldsModal() {
     selectTipoCliente.required = false;
     agenciaFields.style.display = 'none';
     if (selectAgencia) selectAgencia.required = false;
-    if (percentualFields) {
-      percentualFields.style.display = 'none';
-      const inputPercentual = percentualFields.querySelector('input[name="percentual"]');
-      if (inputPercentual) inputPercentual.value = '';
-    }
     inscricoesFields.style.display = 'none';
     razaoSocialFields.style.display = 'none';
     inputRazaoSocial.required = false;
@@ -1036,7 +1053,6 @@ function togglePessoaFieldsModal() {
     selectTipoCliente.required = true;
     agenciaFields.style.display = '';
     if (selectAgencia) selectAgencia.required = true;
-    if (percentualFields) percentualFields.style.display = '';
     inscricoesFields.style.display = '';
     razaoSocialFields.style.display = '';
     inputRazaoSocial.required = true;
@@ -1045,6 +1061,31 @@ function togglePessoaFieldsModal() {
     document.getElementById('input_cnpj').placeholder = 'Digite o CNPJ';
     document.getElementById('label_nome_fantasia').innerText = 'Nome Fantasia *';
     document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome fantasia';
+  }
+
+  atualizarVisibilidadeBv();
+}
+
+function atualizarVisibilidadeBv() {
+  const formCliente = document.getElementById('form_cliente');
+  if (!formCliente) return;
+  const pessoa = formCliente.querySelector('input[name="pessoa"]:checked')?.value || 'J';
+  const percentualFields = document.getElementById('percentual_fields');
+  if (!percentualFields) return;
+  const inputPercentual = percentualFields.querySelector('input[name="percentual"]');
+  if (pessoa !== 'J') {
+    percentualFields.style.display = 'none';
+    if (inputPercentual) inputPercentual.value = '';
+    return;
+  }
+  const sel = formCliente.querySelector('select[name="pk_id_tbl_agencia"]');
+  const opt = sel?.selectedOptions?.[0];
+  const sim = opt && opt.getAttribute('data-agencia-sim') === '1';
+  if (sim) {
+    percentualFields.style.display = '';
+  } else {
+    percentualFields.style.display = 'none';
+    if (inputPercentual) inputPercentual.value = '';
   }
 }
 
@@ -1691,6 +1732,8 @@ function preencherAbaDetalhes(cliente, contatos) {
     ${cliente.pessoa !== 'F' ? `<div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">Razão:</span><span class="truncate">${cliente.razao_social || '—'}</span></div>` : ''}
     <div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">${cliente.pessoa === 'F' ? 'Nome' : 'Fantasia'}:</span><span class="truncate">${cliente.nome_fantasia || '—'}</span></div>
     <div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Executivo:</span><span>${cliente.executivo_nome || '—'}</span></div>
+    <div class="flex items-center md:col-span-2"><span class="font-semibold text-base-content/70 w-16">Margem CC:</span><span>${(cliente.margem_cc !== undefined && cliente.margem_cc !== null && cliente.margem_cc !== '') ? cliente.margem_cc + '%' : '—'}</span></div>
+    ${cliente.pessoa === 'J' && cliente.agencia_key === true && cliente.percentual ? `<div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">BV:</span><span>${parseFloat(cliente.percentual).toFixed(2).replace('.', ',')}%</span></div>` : ''}
     ${cliente.pessoa !== 'F' ? `<div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Insc. Est.:</span><span>${cliente.inscricao_estadual || '—'}</span></div><div class="flex items-center"><span class="font-semibold text-base-content/70 w-16">Insc. Mun.:</span><span>${cliente.inscricao_municipal || '—'}</span></div>` : ''}
   `;
   

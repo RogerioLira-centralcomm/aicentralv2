@@ -1,0 +1,213 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Faixas cálculo PI — CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold text-gray-800">Faixas cálculo PI</h1>
+        {% if linhas %}<span class="text-xs text-gray-500">({{ linhas|length }})</span>{% endif %}
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <input type="text" id="searchInput" placeholder="Buscar..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+        <button type="button" onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Nova faixa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    {% if linhas and linhas|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm whitespace-nowrap" id="tabela_faixas">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">ID</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Faixa</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Atingimento</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">% privado</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">% governo</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Fator gov</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Atualizado</th>
+              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-28">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100" id="faixasTableBody">
+            {% for r in linhas %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="py-2 px-2 text-gray-600">#{{ r.id }}</td>
+              <td class="py-2 px-2 font-medium text-gray-800">{{ r.faixa or '—' }}</td>
+              <td class="py-2 px-2 text-gray-600">{{ r.atingimento or '—' }}</td>
+              <td class="py-2 px-2 text-gray-600">{{ r.perc_privado or '—' }}</td>
+              <td class="py-2 px-2 text-gray-600">{{ r.perc_governo or '—' }}</td>
+              <td class="py-2 px-2 text-gray-600">{{ r.fator_gov or '—' }}</td>
+              <td class="py-2 px-2 text-gray-500 text-xs">
+                {% if r.updated_at %}
+                  {{ r.updated_at|format_datetime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="py-2 px-2">
+                <div class="flex items-center justify-center gap-2">
+                  <button type="button"
+                          onclick='abrirModalEditar({{ {"id": r.id, "faixa": r.faixa or "", "atingimento": r.atingimento or "", "perc_privado": r.perc_privado or "", "perc_governo": r.perc_governo or "", "fator_gov": r.fator_gov or ""} | tojson }})'
+                          class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                          title="Editar">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <form method="POST"
+                        action="{{ url_for('faixa_calculo_pi_excluir', id_fc=r.id) }}"
+                        onsubmit="return confirm('Excluir esta faixa?');"
+                        class="inline">
+                    <button type="submit"
+                            class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-12">
+        <i class="fas fa-table text-6xl text-gray-300 mb-4"></i>
+        <p class="text-gray-500 text-lg mb-4">Nenhuma faixa cadastrada.</p>
+        <button type="button" onclick="abrirModalNovo()"
+                class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i>Cadastrar primeira faixa
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<dialog id="modal_faixa" class="modal">
+  <div class="modal-box w-11/12 max-w-xl bg-white p-0 rounded-lg max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+      <h3 class="font-semibold text-base text-gray-800" id="modal_title">Nova faixa</h3>
+      <button type="button" onclick="modal_faixa.close()" class="p-1.5 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500 text-sm"></i>
+      </button>
+    </div>
+
+    <div class="p-4">
+      <form id="faixaForm" method="POST" action="{{ url_for('faixa_calculo_pi_novo') }}">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+          <div class="sm:col-span-1">
+            <label for="faixa" class="block text-xs font-medium text-gray-700 mb-0.5">Faixa <span class="text-red-500">*</span></label>
+            <input type="text" id="faixa" name="faixa" required maxlength="500"
+                   class="w-full py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+          </div>
+          <div class="sm:col-span-1">
+            <label for="atingimento" class="block text-xs font-medium text-gray-700 mb-0.5">Atingimento</label>
+            <input type="text" id="atingimento" name="atingimento" maxlength="500"
+                   class="w-full py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+          <div>
+            <label for="perc_privado" class="block text-xs font-medium text-gray-700 mb-0.5">% privado</label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="perc_privado" name="perc_privado" maxlength="500"
+                     class="min-w-0 flex-1 py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
+            </div>
+          </div>
+          <div>
+            <label for="perc_governo" class="block text-xs font-medium text-gray-700 mb-0.5">% governo</label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="perc_governo" name="perc_governo" maxlength="500"
+                     class="min-w-0 flex-1 py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+              <span class="text-xs text-gray-500 shrink-0 tabular-nums">%</span>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="fator_gov" class="block text-xs font-medium text-gray-700 mb-0.5">Fator gov</label>
+          <input type="text" id="fator_gov" name="fator_gov" maxlength="500"
+                 class="w-full py-1.5 px-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400">
+        </div>
+
+        <div class="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-3">
+          <button type="button" onclick="modal_faixa.close()"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors">
+            Cancelar
+          </button>
+          <button type="submit"
+                  class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const EDIT_URL_TMPL = "{{ url_for('faixa_calculo_pi_editar', id_fc=999999999) }}";
+
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    document.querySelectorAll('#faixasTableBody tr').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(searchTerm) ? '' : 'none';
+    });
+  });
+
+  function resetModalFaixa() {
+    document.getElementById('modal_title').textContent = 'Nova faixa';
+    document.getElementById('faixaForm').action = "{{ url_for('faixa_calculo_pi_novo') }}";
+    ['faixa', 'atingimento', 'perc_privado', 'perc_governo', 'fator_gov'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  }
+
+  function abrirModalNovo() {
+    resetModalFaixa();
+    modal_faixa.showModal();
+  }
+
+  function abrirModalEditar(obj) {
+    document.getElementById('modal_title').textContent = 'Editar faixa';
+    document.getElementById('faixaForm').action = EDIT_URL_TMPL.replace('999999999', String(obj.id));
+    document.getElementById('faixa').value = obj.faixa !== undefined && obj.faixa !== null ? String(obj.faixa) : '';
+    document.getElementById('atingimento').value = obj.atingimento !== undefined && obj.atingimento !== null ? String(obj.atingimento) : '';
+    document.getElementById('perc_privado').value = obj.perc_privado !== undefined && obj.perc_privado !== null ? String(obj.perc_privado) : '';
+    document.getElementById('perc_governo').value = obj.perc_governo !== undefined && obj.perc_governo !== null ? String(obj.perc_governo) : '';
+    document.getElementById('fator_gov').value = obj.fator_gov !== undefined && obj.fator_gov !== null ? String(obj.fator_gov) : '';
+    modal_faixa.showModal();
+  }
+
+  document.getElementById('modal_faixa').addEventListener('close', function() {
+    resetModalFaixa();
+  });
+</script>
+{% endblock %}

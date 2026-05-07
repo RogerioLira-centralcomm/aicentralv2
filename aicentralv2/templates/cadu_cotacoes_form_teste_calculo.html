@@ -1,0 +1,1303 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-2">
+  <div class="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-sm">
+    <strong>Teste de cálculo.</strong> Cotação isolada da lista principal (origem teste_calculo).
+  </div>
+  <!-- Header Compacto (max 66px) estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
+    <div class="flex items-center justify-between gap-4">
+      <!-- Voltar + Título -->
+      <div class="flex items-center gap-3">
+        <a href="{{ url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+          <i class="fas fa-arrow-left text-sm"></i>
+        </a>
+        <div>
+          <h1 class="text-lg font-semibold text-gray-800">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
+          <p class="text-xs text-gray-500">{% if modo == 'novo' %}Criar nova cotação{% else %}Atualizar dados da cotação{% endif %}</p>
+        </div>
+      </div>
+      
+      <!-- Ações -->
+      <div class="flex items-center gap-2">
+        <button type="submit" form="cotacao_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
+          <i class="fas fa-save mr-1"></i>{% if modo == 'novo' %}Criar{% else %}Salvar{% endif %}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-3">
+        {% for category, message in messages %}
+          <div class="px-4 py-2 rounded border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border-green-200 text-green-700{% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form id="cotacao_form" method="POST">
+
+    <!-- Card 1: Identificação -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Identificação</h2>
+
+        {% if modo == 'editar' and cotacao %}
+        <div class="mb-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Nº Cotação</label>
+          <input type="text" value="{{ cotacao.numero_cotacao }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-100 text-gray-500" disabled>
+        </div>
+        {% endif %}
+
+        <div class="w-full mb-2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">
+            Nome da Campanha *
+            {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'nome_campanha')">Corrigir</button>{% endif %}
+          </label>
+          <input type="text" name="nome_campanha" id="nome_campanha"
+                 value="{{ cotacao.nome_campanha if cotacao else '' }}"
+                 class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none"
+                 placeholder="Ex: Campanha Verão 2025" required
+                 {% if modo == 'editar' %}readonly{% endif %}>
+        </div>
+
+        <div class="w-full md:w-1/2">
+          <label class="block text-xs font-medium text-gray-600 mb-1">Responsável Comercial</label>
+          <select name="responsavel_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+            <option value="">Selecione...</option>
+            {% for vendedor in vendedores %}
+            <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Envolvidos -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Envolvidos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+          <!-- Coluna 1: Cliente -->
+          <div class="bg-base-200/50 p-4 border border-base-200 rounded-box space-y-2">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
+              <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-3 py-1.5 border border-gray-200 rounded bg-white text-sm truncate h-8 flex items-center text-gray-700">
+                  <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
+                </div>
+                <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
+                  <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;" title="Novo Cliente">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Contato do Cliente</label>
+              <select name="client_user_id" id="client_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+                <option value="">Selecione...</option>
+                {% if cotacao and contatos_cliente %}
+                  {% for contato in contatos_cliente %}
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Coluna 2: Agência -->
+          <div id="bloco_agencia" class="bg-base-200/50 p-4 border border-base-200 rounded-box space-y-2">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
+              <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-3 py-1.5 border border-gray-200 rounded bg-white text-sm truncate h-8 flex items-center text-gray-700">
+                  <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
+                </div>
+                <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
+                  <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;" title="Nova Agência">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
+                <button type="button" onclick="limparAgenciaSelecionada()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
+                  <i class="fas fa-times text-xs"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Contato Agência</label>
+              <select name="agencia_user_id" id="agencia_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+                <option value="">Selecione...</option>
+                {% if cotacao and contatos_agencia %}
+                  {% for contato in contatos_agencia %}
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Coluna 3: Parceiro -->
+          <div id="bloco_parceiro" class="bg-base-200/50 p-4 border border-base-200 rounded-box space-y-2">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Parceiro</label>
+              <input type="hidden" name="id_parceiro" id="id_parceiro" value="{% if modo == 'editar' and cotacao and cotacao.id_parceiro %}{{ cotacao.id_parceiro }}{% endif %}">
+              <div class="flex gap-1 items-center">
+                <div class="flex-1 px-3 py-1.5 border border-gray-200 rounded bg-white text-sm truncate h-8 flex items-center text-gray-700">
+                  <span id="nome_parceiro_selecionado">{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %}{{ cotacao.parceiro_nome }}{% else %}Nenhum{% endif %}</span>
+                </div>
+                <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;">
+                  <i class="fas fa-search text-xs"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-1.5 rounded border border-gray-300 hover:bg-gray-50 transition-colors" style="color:#72cd80;border-color:#72cd80;" title="Novo Parceiro">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
+                <button type="button" onclick="limparParceiroSelecionado()" class="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="Limpar">
+                  <i class="fas fa-times text-xs"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Contato Parceiro</label>
+              <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+                <option value="">Selecione...</option>
+                {% if cotacao and contatos_parceiro %}
+                  {% for contato in contatos_parceiro %}
+                  <option value="{{ contato.id_contato_cliente }}" {% if cotacao.parceiro_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Briefing (Opcional) -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6 overflow-visible">
+      <div class="card-body p-4 overflow-visible">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Briefing (Opcional)</h2>
+        <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
+        <div class="relative">
+          <div class="join w-full">
+            <input type="text"
+                   id="briefing_busca"
+                   class="input input-bordered input-sm join-item flex-1"
+                   placeholder="Digite para buscar briefing..."
+                   value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
+                   oninput="buscarBriefingsAutocomplete(this.value)"
+                   onfocus="mostrarSugestoesBriefing()"
+                   autocomplete="off">
+            <button type="button" id="briefing_btn_busca" class="btn btn-sm join-item" style="background-color:#72cd80;border-color:#72cd80;color:#fff;" onclick="mostrarSugestoesBriefing()" title="Buscar briefing">
+              <i class="fas fa-search text-xs"></i>
+            </button>
+            <button type="button" id="briefing_btn_limpar" class="btn btn-sm join-item bg-gray-100 border-gray-300 hover:bg-red-100 text-gray-500 hover:text-red-600" onclick="limparBriefingSelecionado()" title="Limpar briefing">
+              <i class="fas fa-times text-xs"></i>
+            </button>
+          </div>
+          <div id="briefing_sugestoes" class="absolute z-50 w-full bg-white border border-gray-200 rounded-b shadow-lg max-h-48 overflow-y-auto hidden">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Prazos -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Prazos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Início *</label>
+            <div class="join w-full">
+              <button type="button" class="btn btn-sm btn-square join-item" onclick="document.getElementById('periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-xs"></i>
+              </button>
+              <input type="date" id="periodo_inicio" name="periodo_inicio"
+                     value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
+                     class="input input-bordered input-sm join-item flex-1"
+                     onclick="this.showPicker()" required>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Término</label>
+            <div class="join w-full">
+              <button type="button" class="btn btn-sm btn-square join-item" onclick="document.getElementById('periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-xs"></i>
+              </button>
+              <input type="date" id="periodo_fim" name="periodo_fim"
+                     value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
+                     class="input input-bordered input-sm join-item flex-1"
+                     onclick="this.showPicker()">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Budget Est. (R$)</label>
+            <input type="text" id="budget_estimado" name="budget_estimado_display" value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+            <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if modo == 'editar' %}
+    <!-- Card Status (apenas em edição) -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Status</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+            <select name="status" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
+              <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+              <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
+              <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
+              <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+              <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+              <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Card 5: Escopo e Notas -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+      <div class="card-body p-4">
+        <h2 class="card-title text-sm font-semibold text-gray-800">Escopo e Notas</h2>
+
+        <div class="w-full mb-3">
+          <label class="block text-xs font-medium text-gray-600 mb-1">
+            Objetivo da Campanha
+            {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'objetivo_campanha')">Corrigir</button>{% endif %}
+          </label>
+          <textarea name="objetivo_campanha" id="objetivo_campanha"
+                    class="w-full text-sm border border-gray-200 rounded px-3 py-2 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none resize-none"
+                    rows="2" placeholder="Descreva o objetivo..."
+                    {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+        </div>
+
+        <div class="bg-base-200 p-4 rounded-lg">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Anotações da Cotação</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Observações Gerais
+                {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'observacoes')">Corrigir</button>{% endif %}
+              </label>
+              <textarea name="observacoes" id="observacoes"
+                        class="w-full text-sm border border-gray-200 rounded px-3 py-2 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none resize-none"
+                        rows="2" placeholder="Notas gerais..."
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes if cotacao else '' }}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">
+                Observações Internas
+                {% if modo == 'editar' %}<button type="button" class="btn btn-xs btn-ghost text-info" onclick="tornarEditavel(this, 'observacoes_internas')">Corrigir</button>{% endif %}
+              </label>
+              <textarea name="observacoes_internas" id="observacoes_internas"
+                        class="w-full text-sm border border-gray-200 rounded px-3 py-2 {% if modo == 'editar' %}bg-gray-100{% else %}bg-gray-50{% endif %} focus:bg-white focus:border-gray-400 focus:outline-none resize-none"
+                        rows="2" placeholder="Notas internas (não visíveis ao cliente)..."
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <input type="hidden" name="origem" value="Admin">
+  </form>
+</div>
+
+<!-- Modal de Busca de Cliente -->
+<dialog id="modal_escolher_cliente" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Cliente</h3>
+    </div>
+    
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_cliente_modal" 
+          placeholder="Digite nome, CNPJ, razão social..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarClientesModal()"
+        >
+        <button onclick="limparBuscaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal de Busca de Agência -->
+<dialog id="modal_escolher_agencia" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Agência</h3>
+    </div>
+    
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_agencia_modal" 
+          placeholder="Digite nome da agência..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarAgenciasModal()"
+        >
+        <button onclick="limparBuscaAgenciaModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_agencia_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal de Busca de Parceiro Regional -->
+<dialog id="modal_escolher_parceiro" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl bg-white p-0 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800">Buscar Parceiro</h3>
+    </div>
+    
+    <div class="p-6">
+      <div class="flex gap-2 mb-4">
+        <input 
+          type="text" 
+          id="busca_parceiro_modal" 
+          placeholder="Digite nome do parceiro regional..." 
+          class="flex-1 text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+          onkeyup="buscarParceirosModal()"
+        >
+        <button onclick="limparBuscaParceiroModal()" class="p-2 rounded hover:bg-gray-100 text-gray-400">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div id="resultados_parceiro_modal" class="max-h-96 overflow-y-auto">
+        <p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+      <form method="dialog">
+        <button class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Modal Criar Novo Cliente -->
+<dialog id="modal_novo_cliente_cotacao" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-none overflow-visible">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-lg text-gray-800" id="nc_modal_title">Novo Cliente</h3>
+      <button type="button" onclick="document.getElementById('modal_novo_cliente_cotacao').close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <form id="nc_form" class="space-y-3">
+        <input type="hidden" id="nc_contexto" value="cliente">
+
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+          <div class="form-control col-span-1 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
+            <div class="flex gap-0">
+              <label id="nc_label_pj" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncTogglePessoa('J')">
+                <input type="radio" name="nc_pessoa" value="J" class="hidden" checked>
+                <span>PJ</span>
+              </label>
+              <label id="nc_label_pf" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="ncTogglePessoa('F')">
+                <input type="radio" name="nc_pessoa" value="F" class="hidden">
+                <span>PF</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-control col-span-1 md:col-span-2">
+            <label id="nc_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
+            <input id="nc_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+          </div>
+          <div class="form-control col-span-1 md:col-span-4">
+            <label id="nc_label_fantasia" class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
+            <input id="nc_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+          </div>
+          <div id="nc_razao_fields" class="form-control col-span-1 md:col-span-4">
+            <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
+            <input id="nc_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+          <div id="nc_tipo_fields" class="form-control col-span-1 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
+            <select id="nc_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for tipo in tipos_cliente|default([]) %}
+                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-control col-span-1 md:col-span-5">
+            <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
+            <select id="nc_vendas" name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for v in vendedores_cc|default([]) %}
+                <option value="{{ v.id_contato_cliente }}">{{ v.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="nc_agencia_fields" class="form-control col-span-1 md:col-span-3">
+            <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
+            <select id="nc_agencia" name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+              <option value="">Selecione</option>
+              {% for ag in agencias_opts|default([]) %}
+                <option value="{{ ag.id_agencia }}" data-key="{{ ag.key|default(false) }}">{{ ag.display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="nc_percentual_fields" class="form-control col-span-1 md:col-span-2" style="display:none;">
+            <label id="nc_percentual_label" class="text-xs font-medium text-gray-600 mb-1">Percentual*</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
+          </div>
+        </div>
+
+        <div id="nc_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
+            <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+          </div>
+          <div class="form-control">
+            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
+            <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+          </div>
+        </div>
+
+        <div class="border-t border-gray-200 pt-3 mt-3">
+          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
+          <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
+              <input id="nc_cep" name="cep" oninput="mascaraCep(this)" onkeydown="ncBuscarCep(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
+              <select id="nc_estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+                <option value="">UF</option>
+                {% for estado in estados|default([]) %}
+                  <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
+              <input id="nc_cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+            </div>
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
+              <input id="nc_bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+            </div>
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
+              <input id="nc_logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+            </div>
+          </div>
+          <div class="grid grid-cols-4 gap-3 mt-3">
+            <div class="form-control">
+              <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
+              <input name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+            </div>
+            <div class="form-control col-span-3">
+              <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
+              <input name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
+          <button type="button" onclick="document.getElementById('modal_novo_cliente_cotacao').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+          <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-save mr-2"></i>Cadastrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
+</dialog>
+
+<script>
+// ============================================
+// FUNÇÕES UTILITÁRIAS
+// ============================================
+
+function tornarEditavel(btn, fieldId) {
+  const field = document.getElementById(fieldId);
+  field.removeAttribute('readonly');
+  field.classList.remove('bg-gray-100');
+  field.classList.add('bg-white');
+  field.focus();
+  btn.style.display = 'none';
+}
+
+function atualizarEstadoBriefing() {
+  const clienteId = document.getElementById('client_id').value;
+  const agenciaId = document.getElementById('agencia_id').value;
+  const disabled = !clienteId && !agenciaId;
+
+  const briefingBusca = document.getElementById('briefing_busca');
+  const briefingBtnBusca = document.getElementById('briefing_btn_busca');
+  const briefingBtnLimpar = document.getElementById('briefing_btn_limpar');
+
+  if (briefingBusca) briefingBusca.disabled = disabled;
+  if (briefingBtnBusca) briefingBtnBusca.disabled = disabled;
+  if (briefingBtnLimpar) briefingBtnLimpar.disabled = disabled;
+}
+
+// ============================================
+// BUSCA DE CLIENTES (MODAL)
+// ============================================
+
+async function buscarClientesModal() {
+  const termo = document.getElementById('busca_cliente_modal').value.trim();
+  const resultados = document.getElementById('resultados_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo,
+        agencia: false
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        html += `
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+               onclick="selecionarClienteForm('${clienteId}', '${cliente.nome_fantasia.replace(/'/g, "\\'")}')">
+            <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
+          </div>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum cliente encontrado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar clientes</p>';
+  }
+}
+
+function limparBuscaModal() {
+  document.getElementById('busca_cliente_modal').value = '';
+  document.getElementById('resultados_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar clientes...</p>';
+}
+
+async function selecionarClienteForm(clienteId, nomeFantasia) {
+  document.getElementById('client_id').value = clienteId;
+  document.getElementById('nome_cliente_selecionado').textContent = nomeFantasia;
+
+  const event = new Event('change', { bubbles: true });
+  document.getElementById('client_id').dispatchEvent(event);
+
+  document.getElementById('modal_escolher_cliente').close();
+
+  atualizarEstadoBriefing();
+
+  try {
+    const response = await fetch(`/api/cliente/${clienteId}`);
+    if (response.ok) {
+      const cliente = await response.json();
+      if (cliente.vendas_central_comm) {
+        const selectResp = document.querySelector('select[name="responsavel_comercial"]');
+        if (selectResp) {
+          selectResp.value = cliente.vendas_central_comm;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao buscar dados do cliente:', error);
+  }
+}
+</script>
+
+<script>
+// ============================================
+// AUTO-PREENCHIMENTO DE DATAS E MOEDA
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const periodoInicio = document.getElementById('periodo_inicio');
+    const periodoFim = document.getElementById('periodo_fim');
+    
+    if (periodoInicio && !periodoInicio.value) {
+        const hoje = new Date();
+        const dataInicio = new Date(hoje);
+        dataInicio.setDate(dataInicio.getDate() + 7);
+        periodoInicio.value = dataInicio.toISOString().split('T')[0];
+    }
+    
+    if (periodoFim && !periodoFim.value) {
+        const hoje = new Date();
+        const dataFim = new Date(hoje);
+        dataFim.setDate(dataFim.getDate() + 37);
+        periodoFim.value = dataFim.toISOString().split('T')[0];
+    }
+});
+
+function formatarMoedaReal(input, hiddenFieldId) {
+  let value = input.value.replace(/\D/g, '');
+  
+  if (value === '') {
+    input.value = '';
+    document.getElementById(hiddenFieldId).value = '';
+    return;
+  }
+  
+  value = (parseInt(value, 10) / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  
+  input.value = value;
+  
+  const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+  document.getElementById(hiddenFieldId).value = valorNumerico;
+}
+
+document.getElementById('cotacao_form').addEventListener('submit', function(e) {
+  const campos = ['budget_estimado'];
+  campos.forEach(campo => {
+    const displayInput = document.getElementById(campo);
+    const hiddenInput = document.getElementById(campo + '_hidden');
+    if (displayInput && displayInput.value) {
+      if (!displayInput.value.includes(',')) {
+        formatarMoedaReal(displayInput, campo + '_hidden');
+      }
+    }
+  });
+
+  const statusSelect = document.querySelector('select[name="status"]');
+  const statusAtual = '{{ cotacao.status if cotacao else "" }}';
+  if (statusSelect && statusSelect.value === 'Aprovada' && statusAtual !== 'Aprovada') {
+    const confirmou = confirm(
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
+      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
+      'Deseja continuar com a aprovação?'
+    );
+    if (!confirmou) {
+      e.preventDefault();
+      return false;
+    }
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const campos = ['budget_estimado'];
+  campos.forEach(campo => {
+    const displayInput = document.getElementById(campo);
+    if (displayInput && displayInput.value) {
+      formatarMoedaReal(displayInput, campo + '_hidden');
+    }
+  });
+  
+  const clienteSelect = document.getElementById('client_id');
+  if (clienteSelect) {
+    clienteSelect.addEventListener('change', async function() {
+      const clienteId = this.value;
+      const contatoSelect = document.getElementById('client_user_id');
+
+      briefingsCache = [];
+      limparBriefingSelecionado();
+      contatoSelect.innerHTML = '<option value="">Selecione um contato</option>';
+      
+      if (clienteId) {
+        try {
+          await carregarBriefingsCliente(clienteId);
+
+          const responseContatos = await fetch(`/api/clientes/${clienteId}/contatos-briefing`);
+          if (responseContatos.ok) {
+            const contatos = await responseContatos.json();
+            contatos.forEach(contato => {
+              const option = document.createElement('option');
+              option.value = contato.id_contato_cliente;
+              option.textContent = contato.nome_completo + (contato.email ? ` - ${contato.email}` : '');
+              contatoSelect.appendChild(option);
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao carregar dados do cliente:', error);
+        }
+      }
+    });
+  }
+
+  atualizarEstadoBriefing();
+});
+
+// ============================================
+// BUSCA DE AGÊNCIA
+// ============================================
+
+async function buscarAgenciasModal() {
+  const termo = document.getElementById('busca_agencia_modal').value.trim();
+  const resultados = document.getElementById('resultados_agencia_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo,
+        agencia: true
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
+        html += `
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+               onclick="selecionarAgenciaForm('${clienteId}', '${nomeEscapado}')">
+            <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
+          </div>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhuma agência encontrada</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar agências:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar agências</p>';
+  }
+}
+
+function limparBuscaAgenciaModal() {
+  document.getElementById('busca_agencia_modal').value = '';
+  document.getElementById('resultados_agencia_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar agências...</p>';
+}
+
+async function selecionarAgenciaForm(agenciaId, nomeAgencia) {
+  document.getElementById('agencia_id').value = agenciaId;
+  document.getElementById('nome_agencia_selecionada').textContent = nomeAgencia;
+  document.getElementById('modal_escolher_agencia').close();
+  limparBuscaAgenciaModal();
+
+  atualizarEstadoBriefing();
+
+  await carregarContatosAgencia(agenciaId);
+}
+
+async function carregarContatosAgencia(agenciaId) {
+  const contatoAgenciaSelect = document.getElementById('agencia_user_id');
+  contatoAgenciaSelect.innerHTML = '<option value="">Selecione...</option>';
+  
+  if (agenciaId) {
+    try {
+      const response = await fetch(`/api/clientes/${agenciaId}/todos-contatos`);
+      if (response.ok) {
+        const contatos = await response.json();
+        contatos.forEach(contato => {
+          const option = document.createElement('option');
+          option.value = contato.id_contato_cliente;
+          option.textContent = contato.nome_completo + (contato.email ? ` - ${contato.email}` : '');
+          contatoAgenciaSelect.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contatos da agência:', error);
+    }
+  }
+}
+
+function limparAgenciaSelecionada() {
+  document.getElementById('agencia_id').value = '';
+  document.getElementById('nome_agencia_selecionada').textContent = 'Nenhuma';
+  document.getElementById('agencia_user_id').innerHTML = '<option value="">Selecione...</option>';
+
+  atualizarEstadoBriefing();
+}
+
+// ============================================
+// BUSCA DE PARCEIRO REGIONAL
+// ============================================
+
+async function buscarParceirosModal() {
+  const termo = document.getElementById('busca_parceiro_modal').value.trim();
+  const resultados = document.getElementById('resultados_parceiro_modal');
+
+  if (termo.length < 2) {
+    resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/clientes/buscar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: termo,
+        razao: termo,
+        tipo_cliente: 'Parceiro Regional'
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.clientes.length > 0) {
+      let html = '<div class="space-y-2">';
+      result.clientes.forEach(cliente => {
+        const documento = cliente.cnpj || '-';
+        const clienteId = cliente.pk_id_tbl_cliente;
+        const nomeEscapado = (cliente.nome_fantasia || '').replace(/'/g, "\\'");
+        html += `
+          <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 cursor-pointer transition" 
+               onclick="selecionarParceiroForm('${clienteId}', '${nomeEscapado}')">
+            <p class="font-semibold text-sm text-gray-800">${cliente.nome_fantasia}</p>
+            <p class="text-xs text-gray-500">${cliente.razao_social || '-'}</p>
+            <p class="text-xs text-gray-400">${documento}</p>
+          </div>
+        `;
+      });
+      html += '</div>';
+      resultados.innerHTML = html;
+    } else {
+      resultados.innerHTML = '<p class="text-center text-gray-400 py-8">Nenhum parceiro regional encontrado</p>';
+    }
+  } catch (error) {
+    console.error('Erro ao buscar parceiros regionais:', error);
+    resultados.innerHTML = '<p class="text-center text-red-500 py-8">Erro ao buscar parceiros regionais</p>';
+  }
+}
+
+function limparBuscaParceiroModal() {
+  document.getElementById('busca_parceiro_modal').value = '';
+  document.getElementById('resultados_parceiro_modal').innerHTML = '<p class="text-center text-gray-400 py-8">Digite para buscar parceiros regionais...</p>';
+}
+
+async function selecionarParceiroForm(parceiroId, nomeParceiro) {
+  document.getElementById('id_parceiro').value = parceiroId;
+  document.getElementById('nome_parceiro_selecionado').textContent = nomeParceiro;
+  document.getElementById('modal_escolher_parceiro').close();
+  limparBuscaParceiroModal();
+
+  await carregarContatosParceiro(parceiroId);
+}
+
+function limparParceiroSelecionado() {
+  document.getElementById('id_parceiro').value = '';
+  document.getElementById('nome_parceiro_selecionado').textContent = 'Nenhum';
+  document.getElementById('parceiro_user_id').innerHTML = '<option value="">Selecione...</option>';
+}
+
+async function carregarContatosParceiro(parceiroId) {
+  const contatoParceiroSelect = document.getElementById('parceiro_user_id');
+  contatoParceiroSelect.innerHTML = '<option value="">Selecione...</option>';
+
+  if (parceiroId) {
+    try {
+      const response = await fetch(`/api/clientes/${parceiroId}/todos-contatos`);
+      if (response.ok) {
+        const contatos = await response.json();
+        contatos.forEach(contato => {
+          const option = document.createElement('option');
+          option.value = contato.id_contato_cliente;
+          option.textContent = contato.nome_completo + (contato.email ? ` - ${contato.email}` : '');
+          contatoParceiroSelect.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contatos do parceiro:', error);
+    }
+  }
+}
+
+// ============================================
+// BUSCA DE BRIEFING COM AUTOCOMPLETE
+// ============================================
+
+let briefingBuscaTimeout = null;
+let briefingsCache = [];
+
+async function buscarBriefingsAutocomplete(termo) {
+  const clienteId = document.getElementById('client_id').value;
+  const sugestoesDiv = document.getElementById('briefing_sugestoes');
+  
+  if (briefingBuscaTimeout) {
+    clearTimeout(briefingBuscaTimeout);
+  }
+  
+  if (!clienteId) {
+    sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Selecione um cliente primeiro</div>';
+    sugestoesDiv.classList.remove('hidden');
+    return;
+  }
+  
+  if (termo.length < 2) {
+    if (briefingsCache.length > 0) {
+      renderizarSugestoesBriefing(briefingsCache, termo);
+    } else {
+      await carregarBriefingsCliente(clienteId);
+      renderizarSugestoesBriefing(briefingsCache, termo);
+    }
+    return;
+  }
+  
+  briefingBuscaTimeout = setTimeout(async () => {
+    try {
+      if (briefingsCache.length === 0) {
+        await carregarBriefingsCliente(clienteId);
+      }
+      
+      const filtrados = briefingsCache.filter(b => 
+        b.titulo.toLowerCase().includes(termo.toLowerCase())
+      );
+      
+      renderizarSugestoesBriefing(filtrados, termo);
+    } catch (error) {
+      console.error('Erro ao buscar briefings:', error);
+      sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-red-500">Erro ao buscar briefings</div>';
+      sugestoesDiv.classList.remove('hidden');
+    }
+  }, 300);
+}
+
+async function carregarBriefingsCliente(clienteId) {
+  try {
+    const response = await fetch(`/api/briefings/cliente/${clienteId}`);
+    if (response.ok) {
+      briefingsCache = await response.json();
+    } else {
+      briefingsCache = [];
+    }
+  } catch (error) {
+    console.error('Erro ao carregar briefings:', error);
+    briefingsCache = [];
+  }
+}
+
+function renderizarSugestoesBriefing(briefings, termo) {
+  const sugestoesDiv = document.getElementById('briefing_sugestoes');
+  
+  if (!briefings || briefings.length === 0) {
+    sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Nenhum briefing encontrado</div>';
+    sugestoesDiv.classList.remove('hidden');
+    return;
+  }
+  
+  let html = '';
+  briefings.forEach(briefing => {
+    const statusClass = getStatusClassBriefing(briefing.status);
+    html += `
+      <div class="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0" 
+           onclick="selecionarBriefing(${briefing.id}, '${briefing.titulo.replace(/'/g, "\\'")}')">
+        <div class="flex justify-between items-center">
+          <span class="text-sm font-medium text-gray-800">${briefing.titulo}</span>
+          <span class="px-1.5 py-0.5 text-xs rounded ${statusClass}">${briefing.status || 'Rascunho'}</span>
+        </div>
+        ${briefing.objetivo ? `<p class="text-xs text-gray-500 truncate mt-0.5">${briefing.objetivo.substring(0, 60)}${briefing.objetivo.length > 60 ? '...' : ''}</p>` : ''}
+      </div>
+    `;
+  });
+  
+  sugestoesDiv.innerHTML = html;
+  sugestoesDiv.classList.remove('hidden');
+}
+
+function getStatusClassBriefing(status) {
+  const classes = {
+    'rascunho': 'bg-slate-100 text-slate-600',
+    'pendente': 'bg-amber-100 text-amber-600',
+    'aceito': 'bg-green-100 text-green-600',
+    'rejeitado': 'bg-red-100 text-red-600'
+  };
+  return classes[status] || 'bg-gray-100 text-gray-600';
+}
+
+function selecionarBriefing(briefingId, titulo) {
+  document.getElementById('briefing_id').value = briefingId;
+  document.getElementById('briefing_busca').value = titulo;
+  document.getElementById('briefing_sugestoes').classList.add('hidden');
+}
+
+function limparBriefingSelecionado() {
+  document.getElementById('briefing_id').value = '';
+  document.getElementById('briefing_busca').value = '';
+  document.getElementById('briefing_sugestoes').classList.add('hidden');
+}
+
+function mostrarSugestoesBriefing() {
+  const clienteId = document.getElementById('client_id').value;
+  const termo = document.getElementById('briefing_busca').value;
+  
+  if (clienteId) {
+    buscarBriefingsAutocomplete(termo);
+  } else {
+    const sugestoesDiv = document.getElementById('briefing_sugestoes');
+    sugestoesDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">Selecione um cliente primeiro</div>';
+    sugestoesDiv.classList.remove('hidden');
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const briefingContainer = document.getElementById('briefing_busca');
+  const sugestoesDiv = document.getElementById('briefing_sugestoes');
+  
+  if (briefingContainer && sugestoesDiv && !briefingContainer.contains(e.target) && !sugestoesDiv.contains(e.target)) {
+    sugestoesDiv.classList.add('hidden');
+  }
+});
+
+// ==================== MODAL NOVO CLIENTE ====================
+
+function abrirModalNovoCliente(contexto) {
+  const form = document.getElementById('nc_form');
+  form.reset();
+  document.getElementById('nc_contexto').value = contexto;
+
+  ncTogglePessoa('J');
+
+  const agenciaSelect = document.getElementById('nc_agencia');
+  const tipoSelect = document.getElementById('nc_tipo_cliente');
+
+  agenciaSelect.value = '';
+  tipoSelect.value = '';
+
+  const titles = { cliente: 'Novo Cliente', agencia: 'Nova Agência', parceiro: 'Novo Parceiro Regional' };
+  document.getElementById('nc_modal_title').textContent = titles[contexto] || 'Novo Cliente';
+
+  const vendasSelect = document.getElementById('nc_vendas');
+  const userId = '{{ session.get("user_id", "") }}';
+  if (userId) {
+    vendasSelect.value = userId;
+  }
+
+  const percFields = document.getElementById('nc_percentual_fields');
+  const percInput = percFields.querySelector('input[name="percentual"]');
+
+  if (contexto === 'cliente') {
+    for (const opt of agenciaSelect.options) {
+      if (opt.dataset.key === 'False' || opt.dataset.key === 'false') { agenciaSelect.value = opt.value; break; }
+    }
+    percFields.style.display = 'none';
+    percInput.required = false;
+    percInput.value = '';
+  } else if (contexto === 'agencia') {
+    for (const opt of agenciaSelect.options) {
+      if (opt.dataset.key === 'True' || opt.dataset.key === 'true') { agenciaSelect.value = opt.value; break; }
+    }
+    percFields.style.display = '';
+    percInput.required = true;
+  } else if (contexto === 'parceiro') {
+    for (const opt of agenciaSelect.options) {
+      if (opt.dataset.key === 'False' || opt.dataset.key === 'false') { agenciaSelect.value = opt.value; break; }
+    }
+    for (const opt of tipoSelect.options) {
+      if (opt.textContent.trim().toLowerCase().includes('parceiro')) { tipoSelect.value = opt.value; break; }
+    }
+    percFields.style.display = '';
+    percInput.required = true;
+  }
+
+  document.getElementById('modal_novo_cliente_cotacao').showModal();
+}
+
+function ncTogglePessoa(tipo) {
+  const lblPj = document.getElementById('nc_label_pj');
+  const lblPf = document.getElementById('nc_label_pf');
+  const razaoFields = document.getElementById('nc_razao_fields');
+  const inscFields = document.getElementById('nc_inscricoes_fields');
+  const agenciaFields = document.getElementById('nc_agencia_fields');
+  const lblCnpj = document.getElementById('nc_label_cnpj');
+  const inputCnpj = document.getElementById('nc_cnpj');
+
+  if (tipo === 'J') {
+    lblPj.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700';
+    lblPf.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50';
+    lblPj.querySelector('input').checked = true;
+    razaoFields.style.display = '';
+    inscFields.style.display = '';
+    agenciaFields.style.display = '';
+    lblCnpj.textContent = 'CNPJ*';
+    inputCnpj.placeholder = 'CNPJ';
+    inputCnpj.maxLength = 18;
+    document.getElementById('nc_razao_social').required = true;
+  } else {
+    lblPf.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700';
+    lblPj.className = 'cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50';
+    lblPf.querySelector('input').checked = true;
+    razaoFields.style.display = 'none';
+    inscFields.style.display = 'none';
+    agenciaFields.style.display = 'none';
+    lblCnpj.textContent = 'CPF*';
+    inputCnpj.placeholder = 'CPF';
+    inputCnpj.maxLength = 14;
+    document.getElementById('nc_razao_social').required = false;
+  }
+}
+
+async function ncBuscarCep(event) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  const cep = document.getElementById('nc_cep').value.replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await resp.json();
+    if (data.erro) { showToast('CEP não encontrado', 'warning'); return; }
+    document.getElementById('nc_logradouro').value = data.logradouro || '';
+    document.getElementById('nc_bairro').value = data.bairro || '';
+    document.getElementById('nc_cidade').value = data.localidade || '';
+    const estadoSelect = document.getElementById('nc_estado');
+    for (const opt of estadoSelect.options) {
+      if (opt.dataset.sigla === data.uf) { estadoSelect.value = opt.value; break; }
+    }
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById('nc_form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const contexto = document.getElementById('nc_contexto').value;
+  const formData = new FormData(this);
+
+  formData.set('_return_json', '1');
+
+  const pessoa = formData.get('nc_pessoa');
+  formData.set('pessoa', pessoa);
+  formData.delete('nc_pessoa');
+
+  if (pessoa === 'F') {
+    formData.set('pk_id_tbl_agencia', '2');
+    if (!formData.get('razao_social')) {
+      formData.set('razao_social', formData.get('nome_fantasia'));
+    }
+  }
+
+  try {
+    const response = await fetch('/clientes/novo', { method: 'POST', body: formData, redirect: 'follow' });
+    const data = await response.json();
+
+    if (!data.success) {
+      showToast(data.message || 'Erro ao cadastrar. Verifique os campos obrigatórios.', 'error');
+      return;
+    }
+
+    document.getElementById('modal_novo_cliente_cotacao').close();
+
+    const novoId = data.id_cliente;
+    const nome = data.nome_fantasia || data.razao_social || 'Novo cliente';
+
+    if (contexto === 'cliente') {
+      document.getElementById('client_id').value = novoId;
+      document.getElementById('nome_cliente_selecionado').textContent = nome;
+      document.getElementById('client_id').dispatchEvent(new Event('change', { bubbles: true }));
+      atualizarEstadoBriefing();
+      try {
+        const cResp = await fetch(`/api/cliente/${novoId}/contatos`);
+        const contatos = await cResp.json();
+        const sel = document.getElementById('client_user_id');
+        sel.innerHTML = '<option value="">Selecione...</option>';
+        (contatos || []).forEach(c => { sel.innerHTML += `<option value="${c.id_contato_cliente}">${c.nome_completo}</option>`; });
+      } catch(_) {}
+    } else if (contexto === 'agencia') {
+      document.getElementById('agencia_id').value = novoId;
+      document.getElementById('nome_agencia_selecionada').textContent = nome;
+      atualizarEstadoBriefing();
+      await carregarContatosAgencia(novoId);
+    } else if (contexto === 'parceiro') {
+      document.getElementById('id_parceiro').value = novoId;
+      document.getElementById('nome_parceiro_selecionado').textContent = nome;
+      await carregarContatosParceiro(novoId);
+    }
+
+    showToast(`${nome} cadastrado com sucesso!`, 'success');
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao cadastrar cliente.', 'error');
+  }
+});
+
+</script>
+{% endblock %}

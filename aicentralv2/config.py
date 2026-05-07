@@ -84,6 +84,13 @@ class Config:
 	_PI_PLT_DV360_RAW = os.getenv('PI_PLATAFORMA_DV360_ID', '').strip()
 	PI_PLATAFORMA_DV360_ID = int(_PI_PLT_DV360_RAW) if _PI_PLT_DV360_RAW.isdigit() else None
 
+	# Imposto (%) usado no cálculo de preço unitário — cotações teste cálculo; ex.: 15 ou 15.5
+	_PI_IMP_RAW = os.getenv('PI_IMPOSTO_PERCENTUAL', os.getenv('IMPOSTO_PERCENTUAL', '15')).strip()
+	try:
+		PI_IMPOSTO_PERCENTUAL = float(_PI_IMP_RAW.replace(',', '.'))
+	except ValueError:
+		PI_IMPOSTO_PERCENTUAL = 15.0
+
 	@property
 	def DATABASE_URI(self):
 		"""Retorna a URI completa do banco de dados"""

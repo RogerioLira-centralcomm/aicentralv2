@@ -1191,6 +1191,25 @@ document.addEventListener('DOMContentLoaded', function() {
   let imagemAtualUrl = null;
   let audienciaAtualId = null;
 
+  /** Atualiza mensagens do painel de loading (Passo 1 = prompt, Passo 2 = imagem). */
+  function setPreviewLoadingPhase(phase) {
+    const titleEl = document.getElementById('preview-loading-title');
+    const hintEl = document.getElementById('preview-loading-hint');
+    const statusEl = document.getElementById('status-geracao');
+    mostrarEstadoPreview('loading');
+    if (phase === 'prompt') {
+      if (statusEl) statusEl.textContent = 'Passo 1/2 — A preparar prompt...';
+      if (titleEl) titleEl.textContent = 'A preparar prompt...';
+      if (hintEl) hintEl.textContent = 'Aguarde alguns segundos';
+    } else if (phase === 'gerar') {
+      const modelo = document.getElementById('modelo-imagem').value;
+      const shortName = modelo && modelo.includes('/') ? modelo.split('/')[1] : (modelo || 'modelo');
+      if (statusEl) statusEl.textContent = 'Passo 2/2 — A gerar imagem (' + shortName + ')...';
+      if (titleEl) titleEl.textContent = 'A gerar imagem...';
+      if (hintEl) hintEl.textContent = 'Pode levar 20–40 segundos';
+    }
+  }
+
   window.abrirModalGerarImagem = async function(id, nome, categoria, descricao, imagemUrl) {
     console.log('Dados recebidos:', { id, nome, categoria, descricao, imagemUrl });
     console.log('imagemUrl type:', typeof imagemUrl, 'value:', imagemUrl, 'trimmed:', imagemUrl ? imagemUrl.trim() : 'null');
@@ -1247,21 +1266,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('modal-gerar-imagem').showModal();
     
-    await prepararPrompt(nome, categoria, descricao);
+    const promptOk = await prepararPrompt(nome, categoria, descricao);
+    if (promptOk) {
+      await gerarImagem();
+    }
   };
 
   async function prepararPrompt(nome, categoria, descricao) {
-    // v2 - Descrição opcional
     const textarea = document.getElementById('prompt-textarea');
+    const btnReg = document.getElementById('btn-regenerar-prompt');
+    const btnGer = document.getElementById('btn-gerar-imagem');
+    if (btnReg) btnReg.disabled = true;
+    if (btnGer) btnGer.disabled = true;
+
     textarea.value = 'Carregando prompt...';
     textarea.disabled = true;
-    
+
+    setPreviewLoadingPhase('prompt');
+
     try {
-      // Garantir que pelo menos o nome existe
       if (!nome || nome.trim() === '') {
         throw new Error('Nome da audiência é obrigatório');
       }
-      
+
       const response = await fetch('/api/preparar-prompt-imagem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1271,20 +1298,25 @@ document.addEventListener('DOMContentLoaded', function() {
           descricao: descricao ? descricao.trim() : ''
         })
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         textarea.value = data.prompt;
         textarea.disabled = false;
-      } else {
-        throw new Error(data.error || 'Erro ao preparar prompt');
+        return true;
       }
+      throw new Error(data.error || 'Erro ao preparar prompt');
     } catch (error) {
       console.error('Erro:', error);
       textarea.value = 'Erro ao gerar prompt. Tente novamente.';
       textarea.disabled = false;
+      if (btnReg) btnReg.disabled = false;
+      if (btnGer) btnGer.disabled = false;
+      mostrarEstadoPreview('vazio');
+      document.getElementById('status-geracao').textContent = '';
       mostrarToast('Erro ao preparar prompt', 'error');
+      return false;
     }
   }
 
@@ -1292,7 +1324,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const nome = document.getElementById('modal-titulo').textContent.replace('Gerar Imagem - ', '');
     const categoria = document.getElementById('modal-categoria').textContent;
     const descricao = document.getElementById('audiencia-descricao').value;
-    await prepararPrompt(nome, categoria, descricao);
+    const promptOk = await prepararPrompt(nome, categoria, descricao);
+    if (promptOk) {
+      await gerarImagem();
+    }
   };
 
   window.gerarImagem = async function() {
@@ -1303,10 +1338,11 @@ document.addEventListener('DOMContentLoaded', function() {
       mostrarToast('Prompt muito curto. Mínimo 50 caracteres.', 'warning');
       return;
     }
-    
-    mostrarEstadoPreview('loading');
+
+    const btnRegen = document.getElementById('btn-regenerar-prompt');
     document.getElementById('btn-gerar-imagem').disabled = true;
-    document.getElementById('status-geracao').textContent = `Gerando com ${modelo.split('/')[1]}...`;
+    if (btnRegen) btnRegen.disabled = true;
+    setPreviewLoadingPhase('gerar');
     
     try {
       const response = await fetch('/api/gerar-imagem-audiencia', {
@@ -1390,6 +1426,8 @@ document.addEventListener('DOMContentLoaded', function() {
       mostrarToast('Erro ao gerar imagem. Tente novamente.', 'error');
     } finally {
       document.getElementById('btn-gerar-imagem').disabled = false;
+      const btnRegenFinally = document.getElementById('btn-regenerar-prompt');
+      if (btnRegenFinally) btnRegenFinally.disabled = false;
     }
   };
 
@@ -1627,14 +1665,14 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Estado Inicial -->
             <div id="preview-vazio" class="text-center p-4 absolute inset-0 flex flex-col items-center justify-center">
               <i class="fas fa-image text-2xl text-base-content/40 mb-1 block"></i>
-              <p class="text-xs text-base-content/60">Clique em "Gerar Imagem" para criar</p>
+              <p class="text-xs text-base-content/60">A imagem aparecerá aqui após a geração</p>
             </div>
             
             <!-- Loading State (oculto por padrão) -->
             <div id="preview-loading" class="absolute inset-0 flex flex-col items-center justify-center p-4" style="display: none;">
               <span class="loading loading-spinner loading-md text-primary mb-2"></span>
-              <p class="text-xs font-semibold mb-1">Gerando imagem...</p>
-              <p class="text-[10px] text-base-content/60">Isso pode levar 20-40 segundos</p>
+              <p id="preview-loading-title" class="text-xs font-semibold mb-1">A gerar...</p>
+              <p id="preview-loading-hint" class="text-[10px] text-base-content/60 text-center px-2">Aguarde</p>
             </div>
             
             <!-- Imagem Gerada (oculto por padrão) -->

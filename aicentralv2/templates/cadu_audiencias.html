@@ -1213,7 +1213,9 @@ document.addEventListener('DOMContentLoaded', function() {
   window.abrirModalGerarImagem = async function(id, nome, categoria, descricao, imagemUrl) {
     console.log('Dados recebidos:', { id, nome, categoria, descricao, imagemUrl });
     console.log('imagemUrl type:', typeof imagemUrl, 'value:', imagemUrl, 'trimmed:', imagemUrl ? imagemUrl.trim() : 'null');
-    
+
+    const semImagemSalva = !(imagemUrl && String(imagemUrl).trim());
+
     audienciaAtualId = id;
     
     document.getElementById('modal-titulo').textContent = `Gerar Imagem - ${nome}`;
@@ -1266,13 +1268,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('modal-gerar-imagem').showModal();
     
-    const promptOk = await prepararPrompt(nome, categoria, descricao);
-    if (promptOk) {
+    const promptOk = await prepararPrompt(nome, categoria, descricao, {
+      preservarPreview: !semImagemSalva
+    });
+    if (promptOk && semImagemSalva) {
       await gerarImagem();
     }
   };
 
-  async function prepararPrompt(nome, categoria, descricao) {
+  async function prepararPrompt(nome, categoria, descricao, opts) {
+    opts = opts || {};
+    const preservarPreview = !!opts.preservarPreview;
+
     const textarea = document.getElementById('prompt-textarea');
     const btnReg = document.getElementById('btn-regenerar-prompt');
     const btnGer = document.getElementById('btn-gerar-imagem');
@@ -1282,7 +1289,12 @@ document.addEventListener('DOMContentLoaded', function() {
     textarea.value = 'Carregando prompt...';
     textarea.disabled = true;
 
-    setPreviewLoadingPhase('prompt');
+    if (preservarPreview) {
+      const statusEl = document.getElementById('status-geracao');
+      if (statusEl) statusEl.textContent = 'A preparar prompt...';
+    } else {
+      setPreviewLoadingPhase('prompt');
+    }
 
     try {
       if (!nome || nome.trim() === '') {
@@ -1304,6 +1316,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.success) {
         textarea.value = data.prompt;
         textarea.disabled = false;
+        if (btnReg) btnReg.disabled = false;
+        if (btnGer) btnGer.disabled = false;
+        if (preservarPreview) {
+          const statusEl = document.getElementById('status-geracao');
+          if (statusEl) statusEl.textContent = '';
+        }
         return true;
       }
       throw new Error(data.error || 'Erro ao preparar prompt');
@@ -1313,7 +1331,11 @@ document.addEventListener('DOMContentLoaded', function() {
       textarea.disabled = false;
       if (btnReg) btnReg.disabled = false;
       if (btnGer) btnGer.disabled = false;
-      mostrarEstadoPreview('vazio');
+      if (preservarPreview && imagemAtualUrl) {
+        mostrarEstadoPreview('imagem');
+      } else {
+        mostrarEstadoPreview('vazio');
+      }
       document.getElementById('status-geracao').textContent = '';
       mostrarToast('Erro ao preparar prompt', 'error');
       return false;

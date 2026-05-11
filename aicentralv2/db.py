@@ -5738,7 +5738,11 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                         meio=None, tipo_peca=None, segmentacao=None, formatos=None, canal=None,
                         objetivo_kpi=None, data_inicio=None, data_fim=None, investimento_bruto=None,
                         especificacoes=None, praca=None, desconto_percentual=None, valor_unitario_tabela=None,
-                        valor_unitario_negociado=None, investimento_liquido=None):
+                        valor_unitario_negociado=None, investimento_liquido=None,
+                        perc_margem_cc=None, perc_tech_fee=None, perc_com_vendas=None,
+                        perc_pl_incentivos=None, perc_impostos=None,
+                        val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
+                        val_pl_incentivos=None, val_impostos=None):
     """Cria uma nova linha de cotação"""
     import json
     
@@ -5792,7 +5796,17 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
         safe_value(desconto_percentual),
         safe_value(valor_unitario_tabela),
         safe_value(valor_unitario_negociado),
-        safe_value(investimento_liquido)
+        safe_value(investimento_liquido),
+        safe_value(perc_margem_cc),
+        safe_value(perc_tech_fee),
+        safe_value(perc_com_vendas),
+        safe_value(perc_pl_incentivos),
+        safe_value(perc_impostos),
+        safe_value(val_margem_cc),
+        safe_value(val_tech_fee),
+        safe_value(val_com_vendas),
+        safe_value(val_pl_incentivos),
+        safe_value(val_impostos)
     ])
     
     conn = get_db()
@@ -5805,9 +5819,12 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                     valor_unitario, valor_total, ordem, is_subtotal, subtotal_label, is_header, dados_extras,
                     meio, tipo_peca, segmentacao, formatos, canal, objetivo_kpi, data_inicio, data_fim,
                     investimento_bruto, especificacoes, praca, desconto_percentual, valor_unitario_tabela,
-                    valor_unitario_negociado, investimento_liquido
+                    valor_unitario_negociado, investimento_liquido,
+                    perc_margem_cc, perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
+                    val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', valores)
             linha_id = cursor.fetchone()['id']
@@ -5870,7 +5887,9 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'is_header', 'dados_extras', 'meio', 'tipo_peca', 'segmentacao', 'formatos',
             'canal', 'objetivo_kpi', 'data_inicio', 'data_fim', 'investimento_bruto',
             'especificacoes', 'praca', 'desconto_percentual', 'valor_unitario_tabela',
-            'valor_unitario_negociado', 'investimento_liquido'
+            'valor_unitario_negociado', 'investimento_liquido',
+            'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas', 'perc_pl_incentivos', 'perc_impostos',
+            'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos'
         }
         
         campos_atualizacao = {}
@@ -9042,11 +9061,14 @@ def calcular_preco_unitario_teste_calculo(
     volume_contratado,
     imposto_percentual_externo,
     agencia_id=None,
+    margem_cc_override=None,
 ):
     """
     Opex = val_tab/(1-TF); Preço = Opex/(1-(Mcc+Com+Inc+Imp)).
     Inc (incentivo) só entra se a cotação tiver agência; busca em cadu_pi_incentivos pela agência.
     imposto_percentual_externo: ex. 15 → fração 0,15.
+    margem_cc_override: opcional. Se informado e estiver entre 0.20 e 0.30 (ou 20 e 30 em
+    percentual), substitui o Mcc lido do cadastro do cliente.
     Retorna dict com frações, valores monetários e warnings.
     """
     warnings = []
@@ -9062,10 +9084,28 @@ def calcular_preco_unitario_teste_calculo(
     if tf >= 1:
         return {'success': False, 'message': 'Tech fee (TF) deve ser menor que 100%.'}
 
-    mcc, mcc_raw_cadastro = obter_margem_cc_fracao_e_bruto(cliente_id)
-    if mcc is None:
-        mcc = 0.0
-        warnings.append('margem_cc não encontrada para o cliente; usando 0.')
+    mcc_override_frac = None
+    if margem_cc_override is not None and margem_cc_override != '':
+        try:
+            v = float(margem_cc_override)
+            v_frac = v / 100.0 if v > 1 else v
+            if 0.20 <= v_frac <= 0.30:
+                mcc_override_frac = v_frac
+            else:
+                warnings.append('Margem CC fora do intervalo permitido (20%–30%); usando cadastro do cliente.')
+        except (TypeError, ValueError):
+            warnings.append('Margem CC inválida; usando cadastro do cliente.')
+
+    if mcc_override_frac is not None:
+        _, mcc_raw_cadastro = obter_margem_cc_fracao_e_bruto(cliente_id)
+        mcc = mcc_override_frac
+        mcc_origem = 'override'
+    else:
+        mcc, mcc_raw_cadastro = obter_margem_cc_fracao_e_bruto(cliente_id)
+        if mcc is None:
+            mcc = 0.0
+            warnings.append('margem_cc não encontrada para o cliente; usando 0.')
+        mcc_origem = 'cadastro'
 
     com, com_raw_cadastro = obter_com_vendas_fracao_e_bruto(id_resp_comercial)
     if com is None:
@@ -9117,6 +9157,8 @@ def calcular_preco_unitario_teste_calculo(
         'tf': tf,
         'tf_fonte': tf_fonte,
         'mcc': mcc,
+        'mcc_origem': mcc_origem,
+        'mcc_override_aplicado': mcc_override_frac,
         'margem_cc_cadastro': mcc_raw_cadastro,
         'com': com,
         'com_percentual_cadastro': com_raw_cadastro,

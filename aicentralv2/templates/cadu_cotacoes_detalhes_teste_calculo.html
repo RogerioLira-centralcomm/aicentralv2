@@ -31,6 +31,41 @@
   .aba-content.active {
     display: block;
   }
+
+  /* Corrige sobreposição do outline do DaisyUI sobre labels em selects/inputs
+     compactos dentro dos modais.
+
+     O base_tailwind.html define globalmente, ao final do <body>, a regra:
+       html[data-theme="centralcomm"] body
+         select[class*="select-"]:focus-visible:not(:disabled):not([multiple]) {
+         outline: 2px solid #1e4d4f !important;
+         outline-offset: 2px !important;
+       }
+     A especificidade dela é (0,5,3) e usa !important. Para vencer, precisamos
+     IGUAL OU MAIOR especificidade + !important. Aqui a especificidade fica
+     (0,6,4): adicionamos dialog.modal (+1 classe, +1 elemento), select-bordered
+     (+1 classe), e replicamos :not(:disabled):not([multiple]).
+
+     Anulamos o outline externo e desenhamos a marcação de foco com uma sombra
+     INSET (renderizada inteiramente dentro do campo). Assim é matematicamente
+     impossível o foco transbordar para cima do label (que está colado por usar
+     label py-0). */
+  html[data-theme="centralcomm"] body dialog.modal select.select-bordered:focus:not(:disabled):not([multiple]),
+  html[data-theme="centralcomm"] body dialog.modal select.select-bordered:focus-visible:not(:disabled):not([multiple]),
+  html[data-theme="centralcomm"] body dialog.modal select[class*="select-"]:focus:not(:disabled):not([multiple]),
+  html[data-theme="centralcomm"] body dialog.modal select[class*="select-"]:focus-visible:not(:disabled):not([multiple]) {
+    outline: none !important;
+    outline-offset: 0 !important;
+    border-color: #1e4d4f !important;
+    box-shadow: 0 0 0 2px #1e4d4f inset !important;
+  }
+  html[data-theme="centralcomm"] body dialog.modal input.input-bordered:focus:not(:disabled),
+  html[data-theme="centralcomm"] body dialog.modal input.input-bordered:focus-visible:not(:disabled) {
+    outline: none !important;
+    outline-offset: 0 !important;
+    border-color: #1e4d4f !important;
+    box-shadow: 0 0 0 2px #1e4d4f inset !important;
+  }
 </style>
 
 <script>
@@ -328,6 +363,19 @@ function formatarNumero(valor) {
   return parseInt(valor).toLocaleString('pt-BR');
 }
 
+function aplicarMascaraInteiro(input) {
+  var cursorPos = input.selectionStart;
+  var tamanhoAnterior = input.value.length;
+  var valor = input.value.replace(/\D/g, '');
+  if (valor === '') {
+    input.value = '';
+    return;
+  }
+  input.value = parseInt(valor, 10).toLocaleString('pt-BR');
+  var diff = input.value.length - tamanhoAnterior;
+  try { input.setSelectionRange(cursorPos + diff, cursorPos + diff); } catch (e) {}
+}
+
 // ============================================
 // PERCENTUAL DE COMISSÃO (AGÊNCIA / PARCEIRO)
 // ============================================
@@ -382,7 +430,95 @@ function precificacaoTesteSatisfeita(prefix) {
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
   var kpiEl = document.getElementById(p + 'objetivo_kpi');
   var kpi = kpiEl && kpiEl.value && String(kpiEl.value).trim();
-  return !!(platEl && platEl.value && String(platEl.value).trim() && valTab > 0 && kpi);
+  var mccCheck = lerMargemCcOverride(p);
+
+  var invEl = document.getElementById(p + 'investimento_bruto');
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var inv = invEl ? parseMoeda(invEl.value) : 0;
+  var vol = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+  var xor = (inv > 0) !== (vol > 0);
+
+  return !!(platEl && platEl.value && String(platEl.value).trim() && valTab > 0 && kpi && mccCheck.valid && xor);
+}
+
+function atualizarBtnCalcularPreco(prefix) {
+  var p = prefix || '';
+  var btn = document.getElementById(p + 'btn_calcular_preco');
+  if (btn) btn.disabled = !precificacaoTesteSatisfeita(p);
+  if (_ultimoCalculoLinha[p] && !calculoSincronizado(p)) {
+    limparResultadoCalculo(p);
+    if (btn) btn.disabled = !precificacaoTesteSatisfeita(p);
+  }
+  atualizarBtnSalvarLinha(p);
+}
+
+function limparResultadoCalculo(prefix) {
+  var p = prefix || '';
+  var valEl = document.getElementById(p + 'valor_unitario');
+  if (valEl) valEl.value = '';
+  limparResumoPrecificacaoTeste(p);
+  var cache = _ultimoCalculoLinha[p];
+  if (cache && cache.source) {
+    var derivedFieldId = (cache.source === 'invest')
+      ? (p + 'volume_contratado')
+      : (p + 'investimento_bruto');
+    var activeId = document.activeElement && document.activeElement.id;
+    if (activeId !== derivedFieldId) {
+      var el = document.getElementById(derivedFieldId);
+      if (el) el.value = '';
+    }
+  }
+  _ultimoCalculoLinha[p] = null;
+}
+
+var _ultimoCalculoLinha = { '': null, 'edit_': null };
+
+function _snapshotCamposCalculo(prefix) {
+  var p = prefix || '';
+  var platEl = document.getElementById(p + 'plataforma');
+  var kpiEl = document.getElementById(p + 'objetivo_kpi');
+  var mccCheck = lerMargemCcOverride(p);
+  return {
+    plataforma: platEl ? String(platEl.value || '').trim() : '',
+    kpi: kpiEl ? String(kpiEl.value || '').trim() : '',
+    val_tab: parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value) || 0,
+    mcc_override: mccCheck.valid ? mccCheck.percent : null,
+    invest_bruto: parseMoeda(document.getElementById(p + 'investimento_bruto').value) || 0,
+    volume_contratado: parseInt(String(document.getElementById(p + 'volume_contratado').value || '').replace(/\D/g, ''), 10) || 0
+  };
+}
+
+function calculoSincronizado(prefix) {
+  var p = prefix || '';
+  var cache = _ultimoCalculoLinha[p];
+  if (!cache) return false;
+  var atual = _snapshotCamposCalculo(p);
+  if (cache.plataforma !== atual.plataforma) return false;
+  if (cache.kpi !== atual.kpi) return false;
+  if (Math.abs((cache.val_tab || 0) - atual.val_tab) > 0.005) return false;
+  var mccA = cache.mcc_override == null ? null : Number(cache.mcc_override);
+  var mccB = atual.mcc_override == null ? null : Number(atual.mcc_override);
+  if ((mccA == null) !== (mccB == null)) return false;
+  if (mccA != null && Math.abs(mccA - mccB) > 0.001) return false;
+  if (Math.abs((cache.invest_bruto || 0) - atual.invest_bruto) > 0.005) return false;
+  if ((cache.volume_contratado || 0) !== atual.volume_contratado) return false;
+  return true;
+}
+
+function atualizarBtnSalvarLinha(prefix) {
+  var p = prefix || '';
+  var btnId = (p === 'edit_') ? 'edit_btn_salvar_linha' : 'btn_salvar_linha';
+  var btn = document.getElementById(btnId);
+  if (!btn) return;
+  var ok = calculoSincronizado(p);
+  btn.disabled = !ok;
+  if (ok) {
+    btn.removeAttribute('title');
+    btn.style.cursor = '';
+  } else {
+    btn.setAttribute('title', 'Clique em Calcular antes de salvar.');
+    btn.style.cursor = 'not-allowed';
+  }
 }
 
 function pctFmt(x) {
@@ -399,13 +535,42 @@ function limparResumoPrecificacaoTeste(prefix) {
   limparResumoDerivacaoCliente(p);
 }
 
-function obterBudgetEstimadoCotacao() {
-  var root = document.querySelector('[data-budget-estimado]');
-  if (!root) return 0;
-  var raw = root.getAttribute('data-budget-estimado');
-  if (raw == null || raw === '') return 0;
+function obterMargemCcCadastroPercent() {
+  var root = document.querySelector('[data-margem-cc-cliente]');
+  if (!root) return null;
+  var raw = root.getAttribute('data-margem-cc-cliente');
+  if (raw == null || String(raw).trim() === '') return null;
   var v = parseFloat(String(raw).replace(',', '.'));
-  return isNaN(v) ? 0 : v;
+  if (isNaN(v)) return null;
+  return v > 1 ? v : v * 100;
+}
+
+function lerMargemCcOverride(prefix) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'margem_cc_override');
+  if (!el) return { raw: null, valid: false, percent: null };
+  var raw = el.value;
+  if (raw == null || String(raw).trim() === '') return { raw: '', valid: false, percent: null };
+  var v = parseFloat(String(raw).replace(',', '.'));
+  if (isNaN(v)) return { raw: raw, valid: false, percent: null };
+  return { raw: raw, valid: v >= 20 && v <= 30, percent: v };
+}
+
+function inicializarMargemCcInput(prefix) {
+  var p = prefix || '';
+  var input = document.getElementById(p + 'margem_cc_override');
+  var hint = document.getElementById(p + 'margem_cc_override_hint');
+  var cadPct = obterMargemCcCadastroPercent();
+  if (input) {
+    input.value = (cadPct != null) ? cadPct.toFixed(2).replace('.', ',') : '';
+  }
+  if (hint) {
+    if (cadPct != null) {
+      hint.textContent = 'Cadastro do cliente: ' + cadPct.toFixed(2).replace('.', ',') + '%';
+    } else {
+      hint.textContent = 'Cliente sem margem cadastrada — informe manualmente (20–30%)';
+    }
+  }
 }
 
 function limparResumoDerivacaoCliente(prefix) {
@@ -422,12 +587,12 @@ function preencherResumoDerivacaoCliente(prefix) {
   var content = document.getElementById(p + 'cliente_derivacao_resumo_content');
   if (!row || !content) return;
 
-  var budget = obterBudgetEstimadoCotacao();
+  var inv = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
+  var volRaw = document.getElementById(p + 'volume_contratado').value;
+  var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
   var precoUnit = valorUnitarioEfetivoLinha(p);
   var kpiEl = document.getElementById(p + 'objetivo_kpi');
   var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
-  var volRaw = document.getElementById(p + 'volume_contratado').value;
-  var volCampo = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
 
   if (!kpi || precoUnit <= 0) {
     limparResumoDerivacaoCliente(p);
@@ -437,25 +602,25 @@ function preencherResumoDerivacaoCliente(prefix) {
   var isCpm = kpi === 'CPM';
   var html = [];
 
-  if (budget > 0) {
-    var volDeriv = isCpm ? (budget / precoUnit) * 1000 : budget / precoUnit;
+  if (inv > 0 && vol <= 0) {
+    var volDeriv = isCpm ? (inv / precoUnit) * 1000 : inv / precoUnit;
     var volArred = Math.round(volDeriv);
-    var formulaTxt = isCpm ? '(Budget ÷ preço unit.) × 1.000' : 'Budget ÷ preço unit.';
-    var volComoMoeda = 'R$ ' + formatarMoeda(volArred);
+    var formulaTxt = isCpm ? '(Invest. bruto ÷ preço unit.) × 1.000' : 'Invest. bruto ÷ preço unit.';
+    var volFormatado = formatarNumero(volArred);
     var passoDetalhe =
       isCpm
         ? '(' +
-          formatarMoeda(budget) +
+          formatarMoeda(inv) +
           ' ÷ ' +
           formatarMoeda(precoUnit) +
           ') × 1.000 = <strong class="text-sky-950">' +
-          volComoMoeda +
+          volFormatado +
           '</strong>'
-        : formatarMoeda(budget) +
+        : formatarMoeda(inv) +
           ' ÷ ' +
           formatarMoeda(precoUnit) +
           ' = <strong class="text-sky-950">' +
-          volComoMoeda +
+          volFormatado +
           '</strong>';
 
     html.push(
@@ -463,14 +628,14 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="border-b border-sky-100 bg-sky-600/10 px-3 py-2">' +
-        '<span class="text-xs font-semibold text-sky-950 tracking-tight">Derivação · budget da cotação</span>' +
+        '<span class="text-xs font-semibold text-sky-950 tracking-tight">Derivação · objetivo (invest. bruto)</span>' +
         '</div>'
     );
     html.push('<div class="p-3 space-y-3">');
     html.push('<div class="text-[11px] font-semibold text-slate-800 mb-1">Como é calculado</div>');
     html.push(
       '<ul class="text-[11px] text-gray-800 leading-relaxed space-y-1 list-none pl-0">' +
-        '<li><span class="text-gray-500 font-medium">Objetivo (volume)</span> = <span class="font-mono text-[10px] sm:text-[11px] break-all">' +
+        '<li><span class="text-gray-500 font-medium">Volume contratado</span> = <span class="font-mono text-[10px] sm:text-[11px] break-all">' +
         escHtml(formulaTxt) +
         '</span></li>' +
         '</ul>'
@@ -479,8 +644,8 @@ function preencherResumoDerivacaoCliente(prefix) {
     html.push(
       '<div class="flex flex-wrap gap-2">' +
         '<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-gray-800 border border-sky-200">' +
-        '<span class="text-gray-500">Budget (cotação)</span> ' +
-        formatarMoeda(budget) +
+        '<span class="text-gray-500">Invest. bruto</span> ' +
+        formatarMoeda(inv) +
         '</span>' +
         '<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-gray-800 border border-sky-200">' +
         '<span class="text-gray-500">Preço unit.</span> ' +
@@ -500,9 +665,9 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="rounded-lg bg-sky-50/80 border border-sky-200 px-3 py-2 text-[11px] text-sky-950">' +
-        '<span class="font-medium">Volume correspondente ao budget:</span> ' +
+        '<span class="font-medium">Volume correspondente ao invest. bruto:</span> ' +
         '<span class="font-bold tabular-nums">' +
-        volComoMoeda +
+        volFormatado +
         '</span>' +
         (isCpm ? ' <span class="text-sky-800/90">(impressões · CPM)</span>' : '') +
         '</div>'
@@ -513,18 +678,18 @@ function preencherResumoDerivacaoCliente(prefix) {
     return;
   }
 
-  if (volCampo > 0) {
-    var invDeriv = isCpm ? (volCampo / 1000) * precoUnit : volCampo * precoUnit;
+  if (vol > 0 && inv <= 0) {
+    var invDeriv = isCpm ? (vol / 1000) * precoUnit : vol * precoUnit;
     var formulaTxt2 = isCpm ? '(Volume ÷ 1.000) × preço unit.' : 'Volume × preço unit.';
     var passo2 = isCpm
       ? '(' +
-        formatarNumero(volCampo) +
+        formatarNumero(vol) +
         ' ÷ 1.000) × ' +
         formatarMoeda(precoUnit) +
         ' = <strong class="text-violet-950">' +
         formatarMoeda(invDeriv) +
         '</strong>'
-      : formatarNumero(volCampo) +
+      : formatarNumero(vol) +
         ' × ' +
         formatarMoeda(precoUnit) +
         ' = <strong class="text-violet-950">' +
@@ -536,14 +701,14 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="border-b border-violet-100 bg-violet-600/10 px-3 py-2">' +
-        '<span class="text-xs font-semibold text-violet-950 tracking-tight">Derivação · objetivo (volume no campo)</span>' +
+        '<span class="text-xs font-semibold text-violet-950 tracking-tight">Derivação · objetivo (volume contratado)</span>' +
         '</div>'
     );
     html.push('<div class="p-3 space-y-3">');
     html.push('<div class="text-[11px] font-semibold text-slate-800 mb-1">Como é calculado</div>');
     html.push(
       '<ul class="text-[11px] text-gray-800 leading-relaxed space-y-1 list-none pl-0">' +
-        '<li><span class="text-gray-500 font-medium">Investimento (preço cliente)</span> = <span class="font-mono text-[10px] sm:text-[11px] break-all">' +
+        '<li><span class="text-gray-500 font-medium">Invest. bruto</span> = <span class="font-mono text-[10px] sm:text-[11px] break-all">' +
         escHtml(formulaTxt2) +
         '</span></li>' +
         '</ul>'
@@ -553,7 +718,7 @@ function preencherResumoDerivacaoCliente(prefix) {
       '<div class="flex flex-wrap gap-2">' +
         '<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-gray-800 border border-violet-200">' +
         '<span class="text-gray-500">Volume</span> ' +
-        formatarNumero(volCampo) +
+        formatarNumero(vol) +
         '</span>' +
         '<span class="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] text-gray-800 border border-violet-200">' +
         '<span class="text-gray-500">Preço unit.</span> ' +
@@ -573,7 +738,7 @@ function preencherResumoDerivacaoCliente(prefix) {
     );
     html.push(
       '<div class="rounded-lg bg-violet-50/80 border border-violet-200 px-3 py-2 text-[11px] text-violet-950">' +
-        '<span class="font-medium">Investimento bruto correspondente:</span> ' +
+        '<span class="font-medium">Invest. bruto correspondente ao volume:</span> ' +
         '<span class="font-bold tabular-nums">R$ ' +
         formatarMoeda(invDeriv) +
         '</span>' +
@@ -623,6 +788,9 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
     j.margem_cc_cadastro !== undefined && j.margem_cc_cadastro !== null && j.margem_cc_cadastro !== ''
       ? '<span class="text-gray-500 font-normal"> · cadastro: ' + escHtml(String(j.margem_cc_cadastro)) + '</span>'
       : '';
+  var mccBadge = (j.mcc_origem === 'override')
+    ? '<span class="ml-1 inline-flex items-center rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide" title="Valor manual usado no cálculo">editado</span>'
+    : '';
   var comCad =
     j.com_percentual_cadastro !== undefined && j.com_percentual_cadastro !== null && j.com_percentual_cadastro !== ''
       ? '<span class="text-gray-500 font-normal"> · cadastro: ' + escHtml(String(j.com_percentual_cadastro)) + '</span>'
@@ -831,6 +999,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       '<td class="py-2 px-3 align-top text-gray-900"><span class="font-mono tabular-nums">' +
       pctFmt(j.mcc) +
       '</span>' +
+      mccBadge +
       mccCad +
       '</td>' +
       '<td class="py-2 px-3 text-gray-600">Margem CC do cliente.</td></tr>'
@@ -876,6 +1045,36 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
   row.classList.remove('hidden');
 }
 
+function reconstruirResumoPrecoSalvo(prefix, linha) {
+  var p = prefix || '';
+  var tf = Number(linha.perc_tech_fee || 0);
+  var mcc = Number(linha.perc_margem_cc || 0);
+  var com = Number(linha.perc_com_vendas || 0);
+  var inc = Number(linha.perc_pl_incentivos || 0);
+  var imp = Number(linha.perc_impostos || 0);
+  var preco = Number(linha.valor_unitario_negociado || linha.valor_unitario || 0);
+  var vt = Number(linha.valor_unitario_tabela || 0);
+  if (preco <= 0 || vt <= 0) return;
+  var opex = (tf < 1) ? (vt / (1 - tf)) : vt;
+  var j = {
+    success: true,
+    tf: tf, mcc: mcc, com: com, inc: inc, imp: imp,
+    opex_unit: opex,
+    preco_unit: preco,
+    plataforma_match: linha.plataforma || '',
+    incentivo_com_agencia: inc > 0,
+    inc_provisionado_maximo: false,
+    inc_volume_base: Number(linha.volume_contratado || 0),
+    warnings: [],
+    mcc_origem: 'cadastro',
+    mcc_override_aplicado: null,
+    margem_cc_cadastro: null,
+    com_percentual_cadastro: null,
+    tf_fonte: null
+  };
+  preencherResumoPrecificacaoTeste(p, j, Number(linha.volume_contratado || 0));
+}
+
 function valorUnitarioEfetivoLinha(prefix) {
   var p = prefix || '';
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
@@ -889,26 +1088,29 @@ function valorUnitarioEfetivoLinha(prefix) {
   return valTab;
 }
 
-function calcularVolumeFromInputs(edit) {
+function derivarValorPendente(edit) {
   var p = edit ? 'edit_' : '';
-  var investimento = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
-  var objetivoEl = document.getElementById(p + 'objetivo_kpi');
-  var objetivo = objetivoEl ? objetivoEl.value : '';
-  var valorUnitario = valorUnitarioEfetivoLinha(p);
+  var inv = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
+  var volRaw = document.getElementById(p + 'volume_contratado').value;
+  var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
+  var precoUnit = valorUnitarioEfetivoLinha(p);
+  var kpiEl = document.getElementById(p + 'objetivo_kpi');
+  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+  var isCpm = kpi === 'CPM';
 
-  if (investimento > 0 && valorUnitario > 0) {
-    var volume;
-    if (objetivo === 'CPM') {
-      volume = (investimento / valorUnitario) * 1000;
-    } else {
-      volume = investimento / valorUnitario;
+  if (precoUnit > 0) {
+    if (inv > 0 && vol <= 0) {
+      var v = isCpm ? (inv / precoUnit) * 1000 : inv / precoUnit;
+      document.getElementById(p + 'volume_contratado').value = formatarNumero(Math.round(v));
+    } else if (vol > 0 && inv <= 0) {
+      var i = isCpm ? (vol / 1000) * precoUnit : vol * precoUnit;
+      document.getElementById(p + 'investimento_bruto').value = formatarMoeda(i);
     }
-    document.getElementById(p + 'volume_contratado').value = formatarNumero(Math.round(volume));
-  } else {
-    document.getElementById(p + 'volume_contratado').value = '';
   }
-  if (!edit) calcularInvestimentoLiquido();
+
   preencherResumoDerivacaoCliente(p);
+  if (!edit) calcularInvestimentoLiquido();
+  atualizarBtnCalcularPreco(p);
 }
 
 var _debounceNegociado = null;
@@ -933,11 +1135,16 @@ async function aplicarFormulaPrecoUnitarioTeste(edit) {
   }
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var volParaApi = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
-  var url = '/api/cotacoes-teste-calculo/' + cid + '/preco-calculo?' + new URLSearchParams({
+  var invBrutoPre = parseMoeda(document.getElementById(p + 'investimento_bruto').value) || 0;
+  var sourceCalc = invBrutoPre > 0 ? 'invest' : 'vol';
+  var mccCheck = lerMargemCcOverride(p);
+  var qs = {
     plataforma: plat,
     valor_unitario_tabela: String(valTab).replace('.', ','),
     volume_contratado: String(volParaApi)
-  });
+  };
+  if (mccCheck.valid) qs.margem_cc = String(mccCheck.percent).replace('.', ',');
+  var url = '/api/cotacoes-teste-calculo/' + cid + '/preco-calculo?' + new URLSearchParams(qs);
   try {
     var r = await fetch(url);
     var j = await r.json();
@@ -950,8 +1157,11 @@ async function aplicarFormulaPrecoUnitarioTeste(edit) {
     if (j.warnings && j.warnings.length) {
       j.warnings.forEach(function(w) { showToast(w, 'warning', 7000); });
     }
-    calcularVolumeFromInputs(edit);
+    derivarValorPendente(edit);
     preencherResumoPrecificacaoTeste(p, j, volParaApi);
+    _ultimoCalculoLinha[p] = _snapshotCamposCalculo(p);
+    _ultimoCalculoLinha[p].source = sourceCalc;
+    atualizarBtnSalvarLinha(p);
     return true;
   } catch (e) {
     console.error(e);
@@ -966,12 +1176,12 @@ function calcularValorNegociadoLegacy(edit) {
   var valorTabela = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
   if (edit) {
     document.getElementById(p + 'valor_unitario').value = formatarMoeda(valorTabela);
-    calcularVolumeFromInputs(true);
+    derivarValorPendente(true);
     return;
   }
   if (valorTabela > 0) {
     document.getElementById(p + 'valor_unitario').value = formatarMoeda(valorTabela);
-    calcularVolumeFromInputs(false);
+    derivarValorPendente(false);
   }
 }
 
@@ -998,7 +1208,7 @@ function calcularValorNegociadoEdit() {
 function calcularVolume() {
   if (!precificacaoTesteSatisfeita('')) {
     limparResumoPrecificacaoTeste('');
-    calcularVolumeFromInputs(false);
+    derivarValorPendente(false);
     return;
   }
   void aplicarFormulaPrecoUnitarioTeste(false);
@@ -1015,7 +1225,7 @@ function calcularInvestimentoLiquido() {
 function calcularVolumeEdit() {
   if (!precificacaoTesteSatisfeita('edit_')) {
     limparResumoPrecificacaoTeste('edit_');
-    calcularVolumeFromInputs(true);
+    derivarValorPendente(true);
     return;
   }
   void aplicarFormulaPrecoUnitarioTeste(true);
@@ -1028,7 +1238,7 @@ function calcularInvestLiquidoEdit() {
 }
 </script>
 
-<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}">
+<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}">
 
   <div class="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-sm">
     <strong>Ambiente de teste de cálculo.</strong> APIs isoladas; aprovação não gera PI.
@@ -1738,7 +1948,7 @@ function calcularInvestLiquidoEdit() {
       <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
-        <select id="plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="calcularValorNegociado();">
+        <select id="plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('');">
           <option value="">Selecione...</option>
           <optgroup label="Mídia Programática">
             <option value="DV360">DV360</option>
@@ -1775,7 +1985,7 @@ function calcularInvestLiquidoEdit() {
 
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
-        <select id="objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarLabelVolume()">
+        <select id="objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('');">
           <option value="">Selecione...</option>
           <option value="CPM">CPM</option>
           <option value="CPC">CPC</option>
@@ -1847,41 +2057,71 @@ function calcularInvestLiquidoEdit() {
         <input id="especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
       </div>
 
-      <!-- Valores -->
+      <!-- Cálculo (Parâmetros + Valores em uma linha) -->
       <div class="col-span-12 border-t pt-2 mt-1">
-        <h4 class="font-semibold text-xs mb-1">Valores</h4>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
+          <h4 class="font-semibold text-xs">Cálculo</h4>
+          <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Tabela</span></label>
-            <input type="text" id="valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00" 
-                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociado();">
+            <label class="label py-0">
+              <span class="label-text text-[11px]">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+            </label>
+            <div class="join w-full">
+              <input type="text" id="margem_cc_override"
+                     class="input input-bordered input-xs join-item flex-1"
+                     inputmode="decimal" placeholder="25,00"
+                     oninput="atualizarBtnCalcularPreco('');">
+              <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-[11px] px-2 border border-l-0 border-gray-300 rounded-r">%</span>
+            </div>
+            <span id="margem_cc_override_hint" class="text-[10px] text-gray-500 mt-0.5 block"></span>
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
+            <label class="label py-0"><span class="label-text text-[11px]">Val. Unit. Tabela</span></label>
+            <div class="join w-full">
+              <input type="text" id="valor_unitario_tabela"
+                     class="input input-bordered input-xs join-item flex-1"
+                     placeholder="0,00"
+                     oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('');">
+              <button type="button" id="btn_calcular_preco"
+                      class="join-item btn btn-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-900 px-2 disabled:opacity-50"
+                      onclick="void calcularValorNegociadoAsync(false);"
+                      title="Calcular preço unitário negociado (Plataforma + KPI + Val. Unit. Tabela)"
+                      disabled>
+                <i class="fas fa-calculator"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-0"><span class="label-text text-[11px]">Val. Unit. Negociado</span></label>
             <input type="text" id="valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
-            <input type="text" id="volume_contratado" class="input input-bordered input-xs bg-gray-100" placeholder="0" readonly>
+            <label class="label py-0"><span class="label-text text-[11px]">Vol. Contratado</span></label>
+            <input type="text" id="volume_contratado" class="input input-bordered input-xs" placeholder="0"
+                   inputmode="numeric" oninput="aplicarMascaraInteiro(this); atualizarBtnCalcularPreco('');">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Invest. Bruto</span></label>
+            <label class="label py-0"><span class="label-text text-[11px]">Invest. Bruto</span></label>
             <input type="text" id="investimento_bruto" class="input input-bordered input-xs" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); calcularVolume();">
+                   oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('');">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
-            <input type="text" id="investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
+            <label class="label py-0"><span class="label-text text-[11px]">Invest. Líquido</span></label>
+            <input type="text" id="investimento_liquido" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
         <div id="preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste">
           <div id="preco_teste_resumo_content" class="text-xs"></div>
         </div>
-        <div id="cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação budget ou objetivo cliente">
+        <div id="cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
           <div id="cliente_derivacao_resumo_content" class="text-xs"></div>
         </div>
       </div>
@@ -1892,7 +2132,7 @@ function calcularInvestLiquidoEdit() {
     <!-- Footer padrão CRM -->
     <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
       <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+      <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="px-4 py-2 text-sm rounded text-white disabled:opacity-50" style="background-color: #72cd80;">
         <i class="fas fa-save mr-1"></i>Salvar
       </button>
     </div>
@@ -2016,7 +2256,7 @@ function calcularInvestLiquidoEdit() {
       <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
-        <select id="edit_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="calcularValorNegociadoEdit();">
+        <select id="edit_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('edit_');">
           <option value="">Selecione...</option>
           <optgroup label="Mídia Programática">
             <option value="DV360">DV360</option>
@@ -2053,7 +2293,7 @@ function calcularInvestLiquidoEdit() {
 
       <div class="form-control col-span-3">
         <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
-        <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="calcularVolumeEdit()">
+        <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('edit_');">
           <option value="">Selecione...</option>
           <option value="CPM">CPM</option>
           <option value="CPC">CPC</option>
@@ -2125,41 +2365,71 @@ function calcularInvestLiquidoEdit() {
         <input id="edit_especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
       </div>
 
-      <!-- Valores -->
+      <!-- Cálculo (Parâmetros + Valores em uma linha) -->
       <div class="col-span-12 border-t pt-2 mt-1">
-        <h4 class="font-semibold text-xs mb-1">Valores</h4>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
+          <h4 class="font-semibold text-xs">Cálculo</h4>
+          <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Tabela</span></label>
-            <input type="text" id="edit_valor_unitario_tabela" class="input input-bordered input-xs" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); calcularValorNegociadoEdit();">
+            <label class="label py-0">
+              <span class="label-text text-[11px]">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+            </label>
+            <div class="join w-full">
+              <input type="text" id="edit_margem_cc_override"
+                     class="input input-bordered input-xs join-item flex-1"
+                     inputmode="decimal" placeholder="25,00"
+                     oninput="atualizarBtnCalcularPreco('edit_');">
+              <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-[11px] px-2 border border-l-0 border-gray-300 rounded-r">%</span>
+            </div>
+            <span id="edit_margem_cc_override_hint" class="text-[10px] text-gray-500 mt-0.5 block"></span>
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Val. Unit. Negociado</span></label>
+            <label class="label py-0"><span class="label-text text-[11px]">Val. Unit. Tabela</span></label>
+            <div class="join w-full">
+              <input type="text" id="edit_valor_unitario_tabela"
+                     class="input input-bordered input-xs join-item flex-1"
+                     placeholder="0,00"
+                     oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('edit_');">
+              <button type="button" id="edit_btn_calcular_preco"
+                      class="join-item btn btn-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-900 px-2 disabled:opacity-50"
+                      onclick="void calcularValorNegociadoAsync(true);"
+                      title="Calcular preço unitário negociado (Plataforma + KPI + Val. Unit. Tabela)"
+                      disabled>
+                <i class="fas fa-calculator"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-0"><span class="label-text text-[11px]">Val. Unit. Negociado</span></label>
             <input type="text" id="edit_valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Vol. Contratado</span></label>
-            <input type="text" id="edit_volume_contratado" class="input input-bordered input-xs bg-gray-100" placeholder="0" readonly>
+            <label class="label py-0"><span class="label-text text-[11px]">Vol. Contratado</span></label>
+            <input type="text" id="edit_volume_contratado" class="input input-bordered input-xs" placeholder="0"
+                   inputmode="numeric" oninput="aplicarMascaraInteiro(this); atualizarBtnCalcularPreco('edit_');">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Invest. Bruto</span></label>
+            <label class="label py-0"><span class="label-text text-[11px]">Invest. Bruto</span></label>
             <input type="text" id="edit_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); calcularVolumeEdit(); calcularInvestLiquidoEdit();">
+                   oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('edit_');">
           </div>
 
           <div class="form-control">
-            <label class="label py-0"><span class="label-text text-xs">Invest. Líquido</span></label>
-            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
+            <label class="label py-0"><span class="label-text text-[11px]">Invest. Líquido</span></label>
+            <input type="text" id="edit_investimento_liquido" class="input input-bordered input-xs" placeholder="0,00"
+                   oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
         <div id="edit_preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste">
           <div id="edit_preco_teste_resumo_content" class="text-xs"></div>
         </div>
-        <div id="edit_cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação budget ou objetivo cliente">
+        <div id="edit_cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
           <div id="edit_cliente_derivacao_resumo_content" class="text-xs"></div>
         </div>
       </div>
@@ -2174,7 +2444,7 @@ function calcularInvestLiquidoEdit() {
       </button>
       <div class="flex gap-2">
         <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-        <button type="button" onclick="salvarEdicaoLinha()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
+        <button id="edit_btn_salvar_linha" type="button" onclick="salvarEdicaoLinha()" class="px-4 py-2 text-sm rounded text-white disabled:opacity-50" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>Salvar
         </button>
       </div>
@@ -3772,7 +4042,10 @@ function abrirModalNovaLinha() {
   document.getElementById('volume_contratado').value = '';
   document.getElementById('investimento_liquido').value = '';
   limparResumoPrecificacaoTeste('');
-  
+  inicializarMargemCcInput('');
+  _ultimoCalculoLinha[''] = null;
+  atualizarBtnCalcularPreco('');
+
   calcularDiasLinha();
   document.getElementById('modal_nova_linha').showModal();
 }
@@ -4259,6 +4532,11 @@ async function salvarNovaLinha() {
     mostrarBloqueioEdicao();
     return;
   }
+  if (!_ultimoCalculoLinha[''] || !calculoSincronizado('')) {
+    showToast('Clique em Calcular antes de salvar.', 'warning');
+    atualizarBtnSalvarLinha('');
+    return;
+  }
   const formatosSelecionados = Array.from(document.querySelectorAll('input[name="formatos"]:checked'))
     .map(cb => cb.value);
   
@@ -4275,6 +4553,7 @@ async function salvarNovaLinha() {
     return;
   }
   
+  const mccCheckSave = lerMargemCcOverride('');
   const data = {
     cotacao_id: parseInt(cotacaoId),
     segmentacao: document.getElementById('segmentacao').value,
@@ -4298,6 +4577,7 @@ async function salvarNovaLinha() {
     valor_unitario_negociado: parseMoeda(document.getElementById('valor_unitario').value) || 0,
     investimento_liquido: investLiquido
   };
+  if (mccCheckSave.valid) data.margem_cc = mccCheckSave.percent;
 
   try {
     const response = await fetch('/api/cotacoes-teste-calculo/linhas', {
@@ -4515,7 +4795,31 @@ async function visualizarOuEditarLinha(linhaId) {
     }, 50);
 
     aplicarEstadoModalLinha(!podeEditar());
+
+    if (linha.perc_margem_cc != null && Number(linha.perc_margem_cc) > 0) {
+      var mccPct = Number(linha.perc_margem_cc) * 100;
+      var inputMcc = document.getElementById('edit_margem_cc_override');
+      if (inputMcc) inputMcc.value = mccPct.toFixed(2).replace('.', ',');
+    } else {
+      inicializarMargemCcInput('edit_');
+    }
+
     preencherResumoDerivacaoCliente('edit_');
+
+    var temCalculoSalvo = (linha.perc_tech_fee != null
+                          && Number(linha.valor_unitario_negociado || 0) > 0);
+    if (temCalculoSalvo) {
+      reconstruirResumoPrecoSalvo('edit_', linha);
+      _ultimoCalculoLinha['edit_'] = _snapshotCamposCalculo('edit_');
+      _ultimoCalculoLinha['edit_'].source = null;
+    } else {
+      _ultimoCalculoLinha['edit_'] = null;
+    }
+
+    var btnCalcEdit = document.getElementById('edit_btn_calcular_preco');
+    if (btnCalcEdit) btnCalcEdit.disabled = !precificacaoTesteSatisfeita('edit_');
+    atualizarBtnSalvarLinha('edit_');
+
     document.getElementById('modal_editar_linha').showModal();
   } catch (error) {
     console.error('Erro:', error);
@@ -4545,6 +4849,11 @@ async function salvarEdicaoLinha() {
     mostrarBloqueioEdicao();
     return;
   }
+  if (!_ultimoCalculoLinha['edit_'] || !calculoSincronizado('edit_')) {
+    showToast('Clique em Calcular antes de salvar.', 'warning');
+    atualizarBtnSalvarLinha('edit_');
+    return;
+  }
   const linhaId = document.getElementById('edit_linha_id').value;
   
   const formatosSelecionados = Array.from(document.querySelectorAll('input[name="edit_formatos"]:checked'))
@@ -4557,6 +4866,7 @@ async function salvarEdicaoLinha() {
   const investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value) || 0;
   const investLiquido = investBruto * obterFatorLiquido();
   
+  const mccCheckSaveE = lerMargemCcOverride('edit_');
   const data = {
     segmentacao: document.getElementById('edit_segmentacao').value,
     praca: document.getElementById('edit_praca').value,
@@ -4576,6 +4886,7 @@ async function salvarEdicaoLinha() {
     investimento_liquido: investLiquido,
     produto: produtosSelecionados.join(', ')
   };
+  if (mccCheckSaveE.valid) data.margem_cc = mccCheckSaveE.percent;
 
   try {
     const response = await fetch(`/api/cotacoes-teste-calculo/linhas/${linhaId}`, {

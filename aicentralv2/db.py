@@ -210,6 +210,39 @@ def init_db(app):
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_audiencia ON cadu_cotacao_audiencias(audiencia_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_incluido ON cadu_cotacao_audiencias(incluido_proposta)')
 
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'perc_margem_cc'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN perc_margem_cc NUMERIC(8, 6);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'audiencia_calculo_plataforma'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN audiencia_calculo_plataforma VARCHAR(120);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'audiencia_calculo_kpi'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN audiencia_calculo_kpi VARCHAR(50);
+                    END IF;
+                END $$;
+            ''')
+
             # Pipeline por contato: status_pipeline em cadu_lead_contatos
             cursor.execute('''
                 DO $$
@@ -4729,6 +4762,9 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.cpm_estimado,
                 ca.investimento_sugerido,
                 ca.impressoes_estimadas,
+                ca.perc_margem_cc,
+                ca.audiencia_calculo_plataforma,
+                ca.audiencia_calculo_kpi,
                 ca.ordem_exibicao,
                 ca.incluido_proposta,
                 ca.motivo_exclusao,
@@ -4761,6 +4797,9 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 cpm_estimado,
                 investimento_sugerido,
                 impressoes_estimadas,
+                perc_margem_cc,
+                audiencia_calculo_plataforma,
+                audiencia_calculo_kpi,
                 ordem_exibicao,
                 incluido_proposta,
                 motivo_exclusao,
@@ -4774,7 +4813,8 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
 def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, audiencia_publico=None,
                                 audiencia_categoria=None, audiencia_subcategoria=None,
                                 cpm_estimado=None, investimento_sugerido=None, impressoes_estimadas=None,
-                                ordem_exibicao=0, incluido_proposta=True):
+                                ordem_exibicao=0, incluido_proposta=True, perc_margem_cc=None,
+                                audiencia_calculo_plataforma=None, audiencia_calculo_kpi=None):
     """Adiciona uma audiência à cotação"""
     conn = get_db()
     
@@ -4785,12 +4825,14 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                 (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico, 
                  audiencia_categoria, audiencia_subcategoria,
                  cpm_estimado, investimento_sugerido, impressoes_estimadas,
+                 perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
                  ordem_exibicao, incluido_proposta)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                   audiencia_categoria, audiencia_subcategoria,
                   cpm_estimado, investimento_sugerido, impressoes_estimadas,
+                  perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
                   ordem_exibicao, incluido_proposta))
             
             result = cursor.fetchone()
@@ -4803,9 +4845,17 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
         raise e
 
 
+# Omitted in atualizar_audiencia_cotacao → não altera coluna perc_margem_cc (None atualiza campo para NULL quando explícito).
+_OMIT_PERC_MARGEM_CC_AUDIENCIA = object()
+_OMIT_AUD_CALC_PLATAFORMA = object()
+_OMIT_AUD_CALC_KPI = object()
+
+
 def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investimento_sugerido=None, 
                                 impressoes_estimadas=None, ordem_exibicao=None, incluido_proposta=None, 
-                                motivo_exclusao=None):
+                                motivo_exclusao=None, perc_margem_cc=_OMIT_PERC_MARGEM_CC_AUDIENCIA,
+                                audiencia_calculo_plataforma=_OMIT_AUD_CALC_PLATAFORMA,
+                                audiencia_calculo_kpi=_OMIT_AUD_CALC_KPI):
     """Atualiza uma audiência da cotação"""
     conn = get_db()
     
@@ -4838,6 +4888,18 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
             if motivo_exclusao is not None:
                 updates.append('motivo_exclusao = %s')
                 params.append(motivo_exclusao)
+            
+            if perc_margem_cc is not _OMIT_PERC_MARGEM_CC_AUDIENCIA:
+                updates.append('perc_margem_cc = %s')
+                params.append(perc_margem_cc)
+
+            if audiencia_calculo_plataforma is not _OMIT_AUD_CALC_PLATAFORMA:
+                updates.append('audiencia_calculo_plataforma = %s')
+                params.append(audiencia_calculo_plataforma)
+
+            if audiencia_calculo_kpi is not _OMIT_AUD_CALC_KPI:
+                updates.append('audiencia_calculo_kpi = %s')
+                params.append(audiencia_calculo_kpi)
             
             if not updates:
                 return False

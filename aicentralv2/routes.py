@@ -7536,7 +7536,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         cpm_estimado=audiencia.get('cpm_estimado'),
                         investimento_sugerido=audiencia.get('investimento_sugerido'),
                         impressoes_estimadas=audiencia.get('impressoes_estimadas'),
-                        incluido_proposta=audiencia.get('incluido_proposta', True)
+                        incluido_proposta=audiencia.get('incluido_proposta', True),
+                        perc_margem_cc=audiencia.get('perc_margem_cc'),
+                        audiencia_calculo_plataforma=audiencia.get('audiencia_calculo_plataforma'),
+                        audiencia_calculo_kpi=audiencia.get('audiencia_calculo_kpi'),
                     )
                 
                 # Copiar anexos

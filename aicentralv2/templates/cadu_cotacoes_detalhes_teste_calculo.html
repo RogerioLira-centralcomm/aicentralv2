@@ -471,7 +471,14 @@ function limparResultadoCalculo(prefix) {
   _ultimoCalculoLinha[p] = null;
 }
 
-var _ultimoCalculoLinha = { '': null, 'edit_': null };
+function _calcPrefix(ev) {
+  if (ev === true) return 'edit_';
+  if (ev === false) return '';
+  if (typeof ev === 'string') return ev;
+  return '';
+}
+
+var _ultimoCalculoLinha = { '': null, 'edit_': null, 'audiencia_': null };
 
 function _snapshotCamposCalculo(prefix) {
   var p = prefix || '';
@@ -507,7 +514,10 @@ function calculoSincronizado(prefix) {
 
 function atualizarBtnSalvarLinha(prefix) {
   var p = prefix || '';
-  var btnId = (p === 'edit_') ? 'edit_btn_salvar_linha' : 'btn_salvar_linha';
+  var btnId;
+  if (p === 'edit_') btnId = 'edit_btn_salvar_linha';
+  else if (p === 'audiencia_') btnId = 'btn_salvar_audiencia';
+  else btnId = 'btn_salvar_linha';
   var btn = document.getElementById(btnId);
   if (!btn) return;
   var ok = calculoSincronizado(p);
@@ -1088,8 +1098,8 @@ function valorUnitarioEfetivoLinha(prefix) {
   return valTab;
 }
 
-function derivarValorPendente(edit) {
-  var p = edit ? 'edit_' : '';
+function derivarValorPendente(pref) {
+  var p = _calcPrefix(pref);
   var inv = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
@@ -1109,15 +1119,23 @@ function derivarValorPendente(edit) {
   }
 
   preencherResumoDerivacaoCliente(p);
-  if (!edit) calcularInvestimentoLiquido();
+  if (p === 'edit_') calcularInvestLiquidoEdit();
+  else calcularInvestimentoLiquidoPorPrefix(p);
   atualizarBtnCalcularPreco(p);
 }
 
-var _debounceNegociado = null;
-var _debounceNegociadoEdit = null;
+var _debounceNegociadoByPref = {};
 
-async function aplicarFormulaPrecoUnitarioTeste(edit) {
-  var p = edit ? 'edit_' : '';
+function scheduleCalcValorNegociado(pref) {
+  var p = _calcPrefix(pref);
+  clearTimeout(_debounceNegociadoByPref[p]);
+  _debounceNegociadoByPref[p] = setTimeout(function() {
+    void calcularValorNegociadoAsync(p);
+  }, 200);
+}
+
+async function aplicarFormulaPrecoUnitarioTeste(pref) {
+  var p = _calcPrefix(pref);
   var platEl = document.getElementById(p + 'plataforma');
   var plat = platEl ? String(platEl.value).trim() : '';
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
@@ -1157,7 +1175,7 @@ async function aplicarFormulaPrecoUnitarioTeste(edit) {
     if (j.warnings && j.warnings.length) {
       j.warnings.forEach(function(w) { showToast(w, 'warning', 7000); });
     }
-    derivarValorPendente(edit);
+    derivarValorPendente(p);
     preencherResumoPrecificacaoTeste(p, j, volParaApi);
     _ultimoCalculoLinha[p] = _snapshotCamposCalculo(p);
     _ultimoCalculoLinha[p].source = sourceCalc;
@@ -1171,61 +1189,71 @@ async function aplicarFormulaPrecoUnitarioTeste(edit) {
   }
 }
 
-function calcularValorNegociadoLegacy(edit) {
-  var p = edit ? 'edit_' : '';
+function calcularValorNegociadoLegacy(pref) {
+  var p = _calcPrefix(pref);
   var valorTabela = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
-  if (edit) {
+  if (p === 'edit_') {
     document.getElementById(p + 'valor_unitario').value = formatarMoeda(valorTabela);
-    derivarValorPendente(true);
+    derivarValorPendente(p);
     return;
   }
   if (valorTabela > 0) {
     document.getElementById(p + 'valor_unitario').value = formatarMoeda(valorTabela);
-    derivarValorPendente(false);
+    derivarValorPendente(p);
   }
 }
 
-async function calcularValorNegociadoAsync(edit) {
-  var p = edit ? 'edit_' : '';
+async function calcularValorNegociadoAsync(pref) {
+  var p = _calcPrefix(pref);
   if (precificacaoTesteSatisfeita(p)) {
-    await aplicarFormulaPrecoUnitarioTeste(edit);
+    await aplicarFormulaPrecoUnitarioTeste(p);
     return;
   }
   limparResumoPrecificacaoTeste(p);
-  calcularValorNegociadoLegacy(edit);
+  calcularValorNegociadoLegacy(p);
 }
 
 function calcularValorNegociado() {
-  clearTimeout(_debounceNegociado);
-  _debounceNegociado = setTimeout(function() { void calcularValorNegociadoAsync(false); }, 200);
+  scheduleCalcValorNegociado('');
 }
 
 function calcularValorNegociadoEdit() {
-  clearTimeout(_debounceNegociadoEdit);
-  _debounceNegociadoEdit = setTimeout(function() { void calcularValorNegociadoAsync(true); }, 200);
+  scheduleCalcValorNegociado(true);
+}
+
+function calcularValorNegociadoAsyncAudiencia() {
+  scheduleCalcValorNegociado('audiencia_');
 }
 
 function calcularVolume() {
-  if (!precificacaoTesteSatisfeita('')) {
-    limparResumoPrecificacaoTeste('');
-    derivarValorPendente(false);
+  var p = '';
+  if (!precificacaoTesteSatisfeita(p)) {
+    limparResumoPrecificacaoTeste(p);
+    derivarValorPendente(p);
     return;
   }
   void aplicarFormulaPrecoUnitarioTeste(false);
 }
 
-function calcularInvestimentoLiquido() {
-  var investBruto = parseMoeda(document.getElementById('investimento_bruto').value);
+function calcularInvestimentoLiquidoPorPrefix(pref) {
+  var p = _calcPrefix(pref);
+  var investBruto = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
+  var liqEl = document.getElementById(p + 'investimento_liquido');
+  if (!liqEl) return;
   if (investBruto > 0) {
-    var investLiquido = investBruto * obterFatorLiquido();
-    document.getElementById('investimento_liquido').value = formatarMoeda(investLiquido);
+    liqEl.value = formatarMoeda(investBruto * obterFatorLiquido());
   }
 }
 
+function calcularInvestimentoLiquido() {
+  calcularInvestimentoLiquidoPorPrefix('');
+}
+
 function calcularVolumeEdit() {
-  if (!precificacaoTesteSatisfeita('edit_')) {
-    limparResumoPrecificacaoTeste('edit_');
-    derivarValorPendente(true);
+  var p = 'edit_';
+  if (!precificacaoTesteSatisfeita(p)) {
+    limparResumoPrecificacaoTeste(p);
+    derivarValorPendente(p);
     return;
   }
   void aplicarFormulaPrecoUnitarioTeste(true);
@@ -1238,7 +1266,7 @@ function calcularInvestLiquidoEdit() {
 }
 </script>
 
-<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}">
+<div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '' }}">
 
   <div class="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-sm">
     <strong>Ambiente de teste de cálculo.</strong> APIs isoladas; aprovação não gera PI.
@@ -2708,22 +2736,129 @@ function calcularInvestLiquidoEdit() {
             </div>
           </div>
           
-          <!-- Campos editáveis -->
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">CPM (R$) *</span></label>
-            <input type="text" id="cpm_estimado" class="input input-bordered input-sm" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
-          </div>
-          
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Investimento (R$)</span></label>
-            <input type="text" id="investimento_sugerido" class="input input-bordered input-sm" placeholder="0,00"
-                   oninput="aplicarMascaraDinheiro(this); calcularImpressoesAudiencia()">
-          </div>
-          
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Impressões</span></label>
-            <input type="text" id="impressoes_estimadas" class="input input-bordered input-sm bg-gray-100" placeholder="0" readonly>
+          <!-- Precificação (teste): espelho do bloco Cálculo das linhas -->
+          <div class="md:col-span-3 border border-gray-100 rounded-lg p-3 mt-2">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
+              <h4 class="font-semibold text-xs">Precificação (teste)</h4>
+              <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-2">
+              <div class="form-control col-span-2 sm:col-span-3">
+                <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
+                <select id="audiencia_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
+                  <option value="">Selecione...</option>
+                  <optgroup label="Mídia Programática">
+                    <option value="DV360">DV360</option>
+                    <option value="Programática">Programática</option>
+                    <option value="Amazon DSP">Amazon DSP</option>
+                  </optgroup>
+                  <optgroup label="Social">
+                    <option value="Meta Ads">Meta Ads</option>
+                    <option value="TikTok Ads">TikTok Ads</option>
+                    <option value="LinkedIn Ads">LinkedIn Ads</option>
+                    <option value="Twitter/X Ads">Twitter/X Ads</option>
+                    <option value="Pinterest Ads">Pinterest Ads</option>
+                  </optgroup>
+                  <optgroup label="Search & Display">
+                    <option value="Google Ads">Google Ads</option>
+                    <option value="Microsoft Ads">Microsoft Ads</option>
+                  </optgroup>
+                  <optgroup label="Streaming/CTV">
+                    <option value="Netflix">Netflix</option>
+                    <option value="Paramount+">Paramount+</option>
+                    <option value="Disney+">Disney+</option>
+                    <option value="HBO Max">HBO Max</option>
+                    <option value="Globoplay">Globoplay</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="Spotify">Spotify</option>
+                  </optgroup>
+                  <optgroup label="Dados">
+                    <option value="Serasa">Serasa</option>
+                    <option value="Logan">Logan</option>
+                    <option value="Cadastro Positivo">Cadastro Positivo</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div class="form-control col-span-2 sm:col-span-3">
+                <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
+                <select id="audiencia_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
+                  <option value="">Selecione...</option>
+                  <option value="CPM">CPM</option>
+                  <option value="CPC">CPC</option>
+                  <option value="CPA">CPA</option>
+                  <option value="CPL">CPL</option>
+                  <option value="CPV">CPV</option>
+                  <option value="CPCV">CPCV</option>
+                  <option value="CPE">CPE</option>
+                  <option value="CPO">CPO</option>
+                  <option value="Fixo">Fixo</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+              <div class="form-control w-fit max-w-full">
+                <label class="label py-0">
+                  <span class="label-text text-[10px]">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+                </label>
+                <div class="join w-full max-w-[5.25rem]">
+                  <input type="text" id="audiencia_margem_cc_override"
+                         class="input input-bordered join-item flex-1 min-w-0 h-6 min-h-6 px-1.5 py-0 text-[10px] leading-tight border-gray-300"
+                         inputmode="decimal" placeholder="25,00"
+                         oninput="atualizarBtnCalcularPreco('audiencia_');">
+                  <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-[10px] px-1.5 border border-l-0 border-gray-300 rounded-r h-6 min-h-6">%</span>
+                </div>
+                <span id="audiencia_margem_cc_override_hint" class="text-[9px] text-gray-500 mt-0.5 block max-w-[5.25rem]"></span>
+              </div>
+
+              <div class="form-control w-fit max-w-full">
+                <label class="label py-0"><span class="label-text text-[10px]">Val. Unit. Tabela</span></label>
+                <div class="join w-full max-w-[9.25rem]">
+                  <input type="text" id="audiencia_valor_unitario_tabela"
+                         class="input input-bordered join-item flex-1 min-w-0 w-0 h-6 min-h-6 px-1.5 py-0 text-[10px] leading-tight border-gray-300"
+                         placeholder="0,00"
+                         oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('audiencia_');">
+                  <button type="button" id="audiencia_btn_calcular_preco"
+                          class="join-item btn btn-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-900 min-h-6 h-6 min-w-[1.75rem] px-1 py-0 border-0 disabled:opacity-50"
+                          onclick="void calcularValorNegociadoAsyncAudiencia();"
+                          title="Calcular preço unitário negociado (Plataforma + KPI + Val. Unit. Tabela)"
+                          disabled>
+                    <i class="fas fa-calculator text-[10px]"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-control">
+                <label class="label py-0"><span class="label-text text-[11px]">Val. Unit. Negociado</span></label>
+                <input type="text" id="audiencia_valor_unitario" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
+              </div>
+
+              <div class="form-control">
+                <label class="label py-0"><span class="label-text text-[11px]">Vol. Contratado</span></label>
+                <input type="text" id="audiencia_volume_contratado" class="input input-bordered input-xs" placeholder="0"
+                       inputmode="numeric" oninput="aplicarMascaraInteiro(this); atualizarBtnCalcularPreco('audiencia_');">
+              </div>
+
+              <div class="form-control">
+                <label class="label py-0"><span class="label-text text-[11px]">Invest. Bruto</span></label>
+                <input type="text" id="audiencia_investimento_bruto" class="input input-bordered input-xs" placeholder="0,00"
+                       oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('audiencia_');">
+              </div>
+
+              <div class="form-control">
+                <label class="label py-0"><span class="label-text text-[11px]">Invest. Líquido</span></label>
+                <input type="text" id="audiencia_investimento_liquido" class="input input-bordered input-xs" placeholder="0,00" readonly>
+              </div>
+            </div>
+
+            <div id="audiencia_preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste (audiência)">
+              <div id="audiencia_preco_teste_resumo_content" class="text-xs"></div>
+            </div>
+            <div id="audiencia_cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação investimento ou volume (audiência)">
+              <div id="audiencia_cliente_derivacao_resumo_content" class="text-xs"></div>
+            </div>
           </div>
           
           <!-- Campos ocultos para envio -->
@@ -4968,12 +5103,35 @@ async function confirmarRemoverLinha(linhaId) {
 
 let audienciasSugeridas = [];
 
+function resetAudienciaCalculoEconomicoParaNovaOuBusca() {
+  ['audiencia_plataforma', 'audiencia_objetivo_kpi', 'audiencia_valor_unitario_tabela', 'audiencia_valor_unitario',
+    'audiencia_volume_contratado', 'audiencia_investimento_bruto', 'audiencia_investimento_liquido'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  limparResumoPrecificacaoTeste('audiencia_');
+  _ultimoCalculoLinha['audiencia_'] = null;
+}
+
+function aplicarDefaultsAudienciaCalculoForm() {
+  var kpi = document.getElementById('audiencia_objetivo_kpi');
+  if (kpi) kpi.value = 'CPM';
+  var root = document.querySelector('[data-plataforma-sugestao]');
+  var sug = root ? String(root.getAttribute('data-plataforma-sugestao') || '').trim() : '';
+  var platEl = document.getElementById('audiencia_plataforma');
+  if (platEl && sug) platEl.value = sug;
+  atualizarBtnCalcularPreco('audiencia_');
+}
+
 // Abrir modal na etapa 1 (busca)
 function abrirModalAudiencia() {
   if (!podeEditar()) {
     mostrarBloqueioEdicao();
     return;
   }
+  resetAudienciaCalculoEconomicoParaNovaOuBusca();
+  aplicarDefaultsAudienciaCalculoForm();
+
   // Resetar para etapa 1
   document.getElementById('etapa_busca_audiencia').classList.remove('hidden');
   document.getElementById('etapa_detalhes_audiencia').classList.add('hidden');
@@ -4983,8 +5141,11 @@ function abrirModalAudiencia() {
   
   // Limpar flag de edição e resetar label do botão
   delete document.getElementById('form_nova_audiencia').dataset.editandoId;
-  document.getElementById('btn_salvar_audiencia').textContent = 'Adicionar à Cotação';
+  document.getElementById('btn_salvar_audiencia').innerHTML = '<i class="fas fa-plus mr-1"></i>Adicionar à Cotação';
   document.getElementById('btn_excluir_audiencia').classList.add('hidden');
+
+  inicializarMargemCcInput('audiencia_');
+  atualizarBtnSalvarLinha('audiencia_');
   
   document.getElementById('modal_adicionar_audiencia').showModal();
 }
@@ -5073,12 +5234,19 @@ async function selecionarAudienciaCard(audienciaId) {
       </svg>`;
     }
     
-    // CPM
+    resetAudienciaCalculoEconomicoParaNovaOuBusca();
+    aplicarDefaultsAudienciaCalculoForm();
+
+    // CPM do catálogo → Val. Unit. Tabela na grid de precificação
     const cpm = audiencia.cpm_venda || audiencia.cpm_custo || 0;
-    document.getElementById('cpm_estimado').value = formatarMoeda(cpm);
-    document.getElementById('investimento_sugerido').value = '';
-    document.getElementById('impressoes_estimadas').value = '0';
-    
+    const vtab = document.getElementById('audiencia_valor_unitario_tabela');
+    if (vtab && Number(cpm) > 0) {
+      vtab.value = formatarMoeda(Number(cpm));
+    }
+
+    inicializarMargemCcInput('audiencia_');
+    atualizarBtnSalvarLinha('audiencia_');
+
     // Trocar para etapa 2
     document.getElementById('etapa_busca_audiencia').classList.add('hidden');
     document.getElementById('etapa_detalhes_audiencia').classList.remove('hidden');
@@ -5093,19 +5261,7 @@ async function selecionarAudienciaCard(audienciaId) {
 function voltarBuscaAudiencia() {
   document.getElementById('etapa_detalhes_audiencia').classList.add('hidden');
   document.getElementById('etapa_busca_audiencia').classList.remove('hidden');
-}
-
-// Calcular impressões baseado em CPM e investimento
-function calcularImpressoesAudiencia() {
-  const cpm = parseMoeda(document.getElementById('cpm_estimado').value) || 0;
-  const investimento = parseMoeda(document.getElementById('investimento_sugerido').value) || 0;
-  
-  if (cpm > 0 && investimento > 0) {
-    const impressoes = Math.floor((investimento / cpm) * 1000);
-    document.getElementById('impressoes_estimadas').value = formatarNumero(impressoes);
-  } else {
-    document.getElementById('impressoes_estimadas').value = '0';
-  }
+  inicializarMargemCcInput('audiencia_');
 }
 
 async function salvarNovaAudiencia() {
@@ -5129,6 +5285,12 @@ async function salvarNovaAudiencia() {
   const formAudiencia = document.getElementById('form_nova_audiencia');
   const editandoId = formAudiencia.dataset.editandoId;
 
+  if (!calculoSincronizado('audiencia_')) {
+    showToast('Clique em Calcular antes de salvar.', 'warning');
+    atualizarBtnSalvarLinha('audiencia_');
+    return;
+  }
+
   const data = {
     cotacao_id: parseInt(cotacaoId),
     audiencia_id: document.getElementById('audiencia_id_selecionada').value || null,
@@ -5136,11 +5298,23 @@ async function salvarNovaAudiencia() {
     audiencia_publico: document.getElementById('audiencia_publico').value || null,
     audiencia_categoria: document.getElementById('audiencia_categoria').value || null,
     audiencia_subcategoria: document.getElementById('audiencia_subcategoria').value || null,
-    cpm_estimado: parseMoeda(document.getElementById('cpm_estimado').value) || null,
-    investimento_sugerido: parseMoeda(document.getElementById('investimento_sugerido').value),
-    impressoes_estimadas: parseInt(document.getElementById('impressoes_estimadas').value.replace(/\D/g, '')) || 0,
     incluido_proposta: true
   };
+
+  var platVal = document.getElementById('audiencia_plataforma').value;
+  var kpiVal = document.getElementById('audiencia_objetivo_kpi').value;
+  data.plataforma = platVal && String(platVal).trim() ? platVal.trim() : null;
+  data.objetivo_kpi = kpiVal && String(kpiVal).trim() ? kpiVal.trim() : null;
+
+  var vtAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
+  var invAud = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
+  var volAud = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
+  data.cpm_estimado = vtAud > 0 ? vtAud : null;
+  data.investimento_sugerido = invAud > 0 ? invAud : null;
+  data.impressoes_estimadas = volAud > 0 ? volAud : 0;
+
+  var mccCheckAud = lerMargemCcOverride('audiencia_');
+  if (mccCheckAud.valid) data.margem_cc = mccCheckAud.percent;
 
   try {
     let response;
@@ -5233,10 +5407,53 @@ async function editarAudienciaCotacao(audienciaId) {
     document.getElementById('audiencia_categoria_badge').textContent = aud.audiencia_categoria || 'Sem categoria';
     document.getElementById('audiencia_subcategoria_badge').textContent = aud.audiencia_subcategoria || '';
     
-    document.getElementById('cpm_estimado').value = aud.cpm_estimado ? formatarMoeda(aud.cpm_estimado) : '';
-    document.getElementById('investimento_sugerido').value = aud.investimento_sugerido ? formatarMoeda(aud.investimento_sugerido) : '';
-    document.getElementById('impressoes_estimadas').value = aud.impressoes_estimadas ? formatarNumero(aud.impressoes_estimadas) : '0';
-    
+    document.getElementById('audiencia_plataforma').value =
+      (aud.plataforma != null && String(aud.plataforma).trim()) ? aud.plataforma : (aud.audiencia_calculo_plataforma || '');
+    document.getElementById('audiencia_objetivo_kpi').value =
+      (aud.objetivo_kpi != null && String(aud.objetivo_kpi).trim())
+        ? aud.objetivo_kpi
+        : (aud.audiencia_calculo_kpi || 'CPM');
+
+    document.getElementById('audiencia_valor_unitario_tabela').value = aud.cpm_estimado ? formatarMoeda(aud.cpm_estimado) : '';
+    document.getElementById('audiencia_valor_unitario').value = '';
+    document.getElementById('audiencia_investimento_bruto').value = aud.investimento_sugerido ? formatarMoeda(aud.investimento_sugerido) : '';
+    document.getElementById('audiencia_volume_contratado').value = aud.impressoes_estimadas ? formatarNumero(aud.impressoes_estimadas) : '';
+    calcularInvestimentoLiquidoPorPrefix('audiencia_');
+
+    if (aud.perc_margem_cc != null && Number(aud.perc_margem_cc) > 0) {
+      var mccPctAud = Number(aud.perc_margem_cc) * 100;
+      var inputMccAud = document.getElementById('audiencia_margem_cc_override');
+      if (inputMccAud) inputMccAud.value = mccPctAud.toFixed(2).replace('.', ',');
+      var hintAud = document.getElementById('audiencia_margem_cc_override_hint');
+      var cadPctAud = obterMargemCcCadastroPercent();
+      if (hintAud) {
+        if (cadPctAud != null) {
+          hintAud.textContent = 'Cadastro do cliente: ' + cadPctAud.toFixed(2).replace('.', ',') + '%';
+        } else {
+          hintAud.textContent = 'Cliente sem margem cadastrada — informe manualmente (20–30%)';
+        }
+      }
+    } else {
+      inicializarMargemCcInput('audiencia_');
+    }
+
+    preencherResumoDerivacaoCliente('audiencia_');
+
+    var invL = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
+    var volL = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
+    var xorOk = (invL > 0) !== (volL > 0);
+    var tabOk = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value) > 0;
+    if (xorOk && tabOk && document.getElementById('audiencia_plataforma').value && document.getElementById('audiencia_objetivo_kpi').value) {
+      _ultimoCalculoLinha['audiencia_'] = _snapshotCamposCalculo('audiencia_');
+      _ultimoCalculoLinha['audiencia_'].source = invL > 0 ? 'invest' : 'vol';
+    } else {
+      _ultimoCalculoLinha['audiencia_'] = null;
+    }
+
+    var btnCa = document.getElementById('audiencia_btn_calcular_preco');
+    if (btnCa) btnCa.disabled = !precificacaoTesteSatisfeita('audiencia_');
+    atualizarBtnSalvarLinha('audiencia_');
+
     // Ir direto para etapa 2
     document.getElementById('etapa_busca_audiencia').classList.add('hidden');
     document.getElementById('etapa_detalhes_audiencia').classList.remove('hidden');

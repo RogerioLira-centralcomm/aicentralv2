@@ -112,6 +112,58 @@ def _to_float(val, default=0.0):
         return parsed if parsed is not None else default
 
 
+def _perc_margem_cc_fracao_audiencia(cotacao, data):
+    """Fração (0–1) para audiência: override válido 20–30%; senão margem cadastrada do cliente."""
+    if not cotacao:
+        return None
+    mcc_arg = data.get('margem_cc') if isinstance(data, dict) else None
+    if mcc_arg not in (None, ''):
+        v = _parse_float_br(mcc_arg)
+        if v is None:
+            try:
+                v = float(mcc_arg)
+            except (TypeError, ValueError):
+                v = None
+        if v is not None and 20.0 <= float(v) <= 30.0:
+            return float(v) / 100.0
+    cid = cotacao.get('client_id')
+    if cid:
+        return db.obter_margem_cc_fracao_por_cliente(cid)
+    return None
+
+
+def _audiencia_calc_meta_para_criacao(data):
+    """Plataforma e KPI persistidos na linha audiência (`plataforma` / `objetivo_kpi` como aliases opcionais)."""
+    if not isinstance(data, dict):
+        return None, None
+    plat = data.get('audiencia_calculo_plataforma')
+    if plat is None and 'plataforma' in data:
+        plat = data.get('plataforma')
+    kpi = data.get('audiencia_calculo_kpi')
+    if kpi is None and 'objetivo_kpi' in data:
+        kpi = data.get('objetivo_kpi')
+    return plat, kpi
+
+
+def _audiencia_calc_sentinels_para_atualizar(data):
+    """PATCH só inclusão omite meta; atualização envia apenas chaves presentes no JSON."""
+    if not isinstance(data, dict):
+        return db._OMIT_AUD_CALC_PLATAFORMA, db._OMIT_AUD_CALC_KPI
+    if set(data.keys()) == {'incluido_proposta'}:
+        return db._OMIT_AUD_CALC_PLATAFORMA, db._OMIT_AUD_CALC_KPI
+    plat = db._OMIT_AUD_CALC_PLATAFORMA
+    kpi = db._OMIT_AUD_CALC_KPI
+    if 'audiencia_calculo_plataforma' in data or 'plataforma' in data:
+        plat = data.get('audiencia_calculo_plataforma')
+        if plat is None:
+            plat = data.get('plataforma')
+    if 'audiencia_calculo_kpi' in data or 'objetivo_kpi' in data:
+        kpi = data.get('audiencia_calculo_kpi')
+        if kpi is None:
+            kpi = data.get('objetivo_kpi')
+    return plat, kpi
+
+
 def _recalcular_e_montar_breakdown(cotacao, data):
     """Reexecuta `calcular_preco_unitario_teste_calculo` e devolve perc_* e val_* já derivados.
 
@@ -1017,6 +1069,11 @@ def criar_audiencia_cotacao_api_teste():
         err = _guard_cotacao_teste(int(cotacao_id))
         if err:
             return err
+        cotacao = db.obter_cotacao_por_id(int(cotacao_id))
+        if not cotacao:
+            return jsonify({'error': 'Cotação não encontrada'}), 404
+        perc_mcc = _perc_margem_cc_fracao_audiencia(cotacao, data)
+        aud_plat, aud_kpi = _audiencia_calc_meta_para_criacao(data)
         audiencia_id = db.adicionar_audiencia_cotacao(
             cotacao_id=cotacao_id,
             audiencia_id=data.get('audiencia_id'),
@@ -1028,6 +1085,9 @@ def criar_audiencia_cotacao_api_teste():
             investimento_sugerido=data.get('investimento_sugerido'),
             impressoes_estimadas=data.get('impressoes_estimadas'),
             incluido_proposta=data.get('incluido_proposta', True),
+            perc_margem_cc=perc_mcc,
+            audiencia_calculo_plataforma=aud_plat,
+            audiencia_calculo_kpi=aud_kpi,
         )
         return jsonify({'success': True, 'audiencia_id': audiencia_id}), 201
     except Exception as e:
@@ -1041,13 +1101,30 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
     if err:
         return err
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
+        audiencia_row = db.obter_audiencia_cotacao_por_id(audiencia_id)
+        if not audiencia_row:
+            return jsonify({'error': 'Audiência não encontrada'}), 404
+
+        toggle_apenas_inclusao = set(data.keys()) == {'incluido_proposta'}
+        perc_margem_cc_kw = {'perc_margem_cc': db._OMIT_PERC_MARGEM_CC_AUDIENCIA}
+        if not toggle_apenas_inclusao:
+            cotacao = db.obter_cotacao_por_id(audiencia_row['cotacao_id'])
+            perc_margem_cc_kw = {
+                'perc_margem_cc': _perc_margem_cc_fracao_audiencia(cotacao, data),
+            }
+
+        aud_plat, aud_kpi = _audiencia_calc_sentinels_para_atualizar(data)
+
         db.atualizar_audiencia_cotacao(
             audiencia_cotacao_id=audiencia_id,
             cpm_estimado=data.get('cpm_estimado'),
             investimento_sugerido=data.get('investimento_sugerido'),
             impressoes_estimadas=data.get('impressoes_estimadas'),
             incluido_proposta=data.get('incluido_proposta'),
+            audiencia_calculo_plataforma=aud_plat,
+            audiencia_calculo_kpi=aud_kpi,
+            **perc_margem_cc_kw,
         )
         return jsonify({'success': True}), 200
     except Exception as e:
@@ -1062,7 +1139,11 @@ def obter_audiencia_cotacao_api_teste(audiencia_id):
         return err
     try:
         audiencia = db.obter_audiencia_cotacao_por_id(audiencia_id)
-        return jsonify(audiencia), 200
+        payload = _serializar(audiencia)
+        if isinstance(payload, dict):
+            payload['plataforma'] = payload.get('audiencia_calculo_plataforma')
+            payload['objetivo_kpi'] = payload.get('audiencia_calculo_kpi')
+        return jsonify(payload), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

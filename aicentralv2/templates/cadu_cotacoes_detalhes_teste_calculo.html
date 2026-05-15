@@ -450,6 +450,117 @@ function atualizarBtnCalcularPreco(prefix) {
     if (btn) btn.disabled = !precificacaoTesteSatisfeita(p);
   }
   atualizarBtnSalvarLinha(p);
+  atualizarIndicadorBudget(p);
+}
+
+function _formatBRL(v) {
+  var n = Number(v) || 0;
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function atualizarIndicadorBudget(prefix) {
+  var p = prefix || '';
+  var row = document.getElementById(p + 'indicador_budget_row');
+  if (!row) return;
+
+  var box = document.getElementById(p + 'indicador_budget_box');
+  var bar = document.getElementById(p + 'indicador_budget_bar');
+  var elBudget = document.getElementById(p + 'indicador_budget_valor');
+  var elExist = document.getElementById(p + 'indicador_budget_existente');
+  var elAtual = document.getElementById(p + 'indicador_budget_atual');
+  var elTotal = document.getElementById(p + 'indicador_budget_total');
+  var elPct = document.getElementById(p + 'indicador_budget_pct');
+  var elSaldo = document.getElementById(p + 'indicador_budget_saldo');
+
+  var root = document.querySelector('[data-budget-estimado]');
+  var budget = root ? (parseFloat(root.getAttribute('data-budget-estimado')) || 0) : 0;
+
+  row.classList.remove('hidden');
+
+  if (budget <= 0) {
+    if (elBudget) elBudget.textContent = 'não definido';
+    if (elExist) elExist.textContent = '—';
+    if (elAtual) elAtual.textContent = '—';
+    if (elTotal) elTotal.textContent = '—';
+    if (elPct) elPct.textContent = '—';
+    if (elSaldo) {
+      elSaldo.textContent = 'Defina o budget da campanha para acompanhar o consumo.';
+      elSaldo.className = 'font-semibold text-gray-500';
+    }
+    if (bar) bar.classList.add('hidden');
+    if (box) box.className = 'border border-gray-200 rounded-md p-2 bg-gray-50';
+    return;
+  }
+
+  var ignoraLinhaId = (p === 'edit_')
+    ? (document.getElementById('edit_linha_id') && document.getElementById('edit_linha_id').value) || null
+    : null;
+  var ignoraAudId = null;
+  if (p === 'audiencia_') {
+    var formAud = document.getElementById('form_nova_audiencia');
+    ignoraAudId = (formAud && formAud.dataset && formAud.dataset.editandoId) || null;
+  }
+
+  var somaItens = 0;
+  document.querySelectorAll('.linha-item-cotacao').forEach(function(tr) {
+    if (ignoraLinhaId && String(tr.dataset.linhaId) === String(ignoraLinhaId)) return;
+    somaItens += parseFloat(tr.dataset.investimentoBruto || '0') || 0;
+  });
+
+  var somaAud = 0;
+  document.querySelectorAll('.linha-audiencia-cotacao').forEach(function(tr) {
+    if (ignoraAudId && String(tr.dataset.audienciaId) === String(ignoraAudId)) return;
+    somaAud += parseFloat(tr.dataset.investimentoSugerido || '0') || 0;
+  });
+
+  var invEl = document.getElementById(p + 'investimento_bruto');
+  var atual = invEl ? (parseMoeda(invEl.value) || 0) : 0;
+  var existente = somaItens + somaAud;
+  var total = existente + atual;
+  var pct = (total / budget) * 100;
+  var pctClamp = Math.max(0, Math.min(100, pct));
+
+  if (elBudget) elBudget.textContent = _formatBRL(budget);
+  if (elExist) elExist.textContent = _formatBRL(existente);
+  if (elAtual) elAtual.textContent = _formatBRL(atual);
+  if (elTotal) elTotal.textContent = _formatBRL(total);
+  if (elPct) elPct.textContent = pct.toFixed(1).replace('.', ',') + '%';
+
+  if (bar) {
+    bar.classList.remove('hidden');
+    bar.value = pctClamp;
+    bar.max = 100;
+    bar.classList.remove('progress-success', 'progress-warning', 'progress-error');
+  }
+
+  var corBox = 'border border-gray-200 rounded-md p-2 bg-gray-50';
+  var corSaldoBase = 'font-semibold ';
+  if (pct > 100) {
+    var excede = total - budget;
+    if (elSaldo) {
+      elSaldo.textContent = 'Excede em ' + _formatBRL(excede);
+      elSaldo.className = corSaldoBase + 'text-red-600';
+    }
+    if (bar) bar.classList.add('progress-error');
+    corBox = 'border border-red-300 rounded-md p-2 bg-red-50';
+  } else if (pct >= 90) {
+    var faltam1 = budget - total;
+    if (elSaldo) {
+      elSaldo.textContent = 'Restam ' + _formatBRL(faltam1);
+      elSaldo.className = corSaldoBase + 'text-amber-600';
+    }
+    if (bar) bar.classList.add('progress-warning');
+    corBox = 'border border-amber-300 rounded-md p-2 bg-amber-50';
+  } else {
+    var faltam2 = budget - total;
+    if (elSaldo) {
+      elSaldo.textContent = 'Restam ' + _formatBRL(faltam2);
+      elSaldo.className = corSaldoBase + 'text-emerald-700';
+    }
+    if (bar) bar.classList.add('progress-success');
+    corBox = 'border border-gray-200 rounded-md p-2 bg-gray-50';
+  }
+  if (box) box.className = corBox;
 }
 
 function limparResultadoCalculo(prefix) {
@@ -457,18 +568,60 @@ function limparResultadoCalculo(prefix) {
   var valEl = document.getElementById(p + 'valor_unitario');
   if (valEl) valEl.value = '';
   limparResumoPrecificacaoTeste(p);
-  var cache = _ultimoCalculoLinha[p];
-  if (cache && cache.source) {
-    var derivedFieldId = (cache.source === 'invest')
-      ? (p + 'volume_contratado')
-      : (p + 'investimento_bruto');
+
+  var invId = p + 'investimento_bruto';
+  var volId = p + 'volume_contratado';
+  var liqId = p + 'investimento_liquido';
+
+  var invEl = document.getElementById(invId);
+  var volEl = document.getElementById(volId);
+  var liqEl = document.getElementById(liqId);
+
+  var invVal = invEl ? parseMoeda(invEl.value) : 0;
+  var volVal = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+
+  if (invVal > 0 && volVal > 0) {
     var activeId = document.activeElement && document.activeElement.id;
-    if (activeId !== derivedFieldId) {
-      var el = document.getElementById(derivedFieldId);
-      if (el) el.value = '';
+    var keepId;
+    if (activeId === invId) {
+      keepId = invId;
+    } else if (activeId === volId) {
+      keepId = volId;
+    } else {
+      var cache = _ultimoCalculoLinha[p];
+      if (cache && cache.source === 'invest') keepId = invId;
+      else if (cache && cache.source === 'vol') keepId = volId;
+      else keepId = invId;
+    }
+
+    var clearId = (keepId === invId) ? volId : invId;
+    var clearEl = document.getElementById(clearId);
+    if (clearEl) clearEl.value = '';
+
+    if (clearId === invId && liqEl) {
+      liqEl.value = '';
     }
   }
+
   _ultimoCalculoLinha[p] = null;
+}
+
+function _inferirSourceCalculo(opts) {
+  var inv = Number(opts && opts.investimento_bruto || 0);
+  var vol = Number(opts && opts.volume_contratado || 0);
+  var preco = Number(opts && opts.preco_unitario || 0);
+  var kpi = String(opts && opts.kpi || '').trim();
+  if (inv <= 0 || vol <= 0 || preco <= 0) return null;
+  var isCpm = kpi === 'CPM';
+  var invDerivado = isCpm ? (vol / 1000) * preco : vol * preco;
+  if (Math.abs(invDerivado - inv) <= Math.max(0.01, inv * 1e-5)) {
+    return 'vol';
+  }
+  var volDerivado = isCpm ? (inv / preco) * 1000 : inv / preco;
+  if (Math.round(volDerivado) === Math.round(vol)) {
+    return 'invest';
+  }
+  return null;
 }
 
 function _calcPrefix(ev) {
@@ -1266,6 +1419,9 @@ function calcularInvestLiquidoEdit() {
 }
 </script>
 
+{% set tem_agencia_parceiro = (cotacao.agencia_id or cotacao.id_parceiro) if cotacao else false %}
+{% set comissao_pct = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
+{% set fator_liquido = (1 - (comissao_pct / 100)) if (tem_agencia_parceiro and comissao_pct) else 1 %}
 <div class="max-w-full mx-auto px-2" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '' }}">
 
   <div class="mb-3 px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-950 text-sm">
@@ -1432,7 +1588,7 @@ function calcularInvestLiquidoEdit() {
           </button>
           {% endif %}
         </div>
-        <div class="grid grid-cols-3 gap-4 text-sm">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <span class="text-xs text-gray-500 uppercase">Criado em</span>
             <p class="font-medium text-gray-700">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao and cotacao.created_at else '-' }}</p>
@@ -1455,6 +1611,16 @@ function calcularInvestLiquidoEdit() {
               <span class="text-gray-400">-</span>
               {% endif %}
             </div>
+          </div>
+          <div id="area_budget_campanha"
+               class="-m-1 p-1 rounded{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'] %} cursor-pointer hover:bg-gray-50{% endif %}"
+               {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'] %}onclick="abrirModalEditarCampanha()" title="Clique para editar o budget da campanha"{% endif %}>
+            <span class="text-xs text-gray-500 uppercase">Budget da campanha</span>
+            <p class="font-medium text-gray-700">
+              R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}
+              <i id="icone_editar_budget_campanha" class="fas fa-edit text-xs ml-1 text-gray-400 align-middle"
+                 {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento']) %}style="display: none;"{% endif %}></i>
+            </p>
           </div>
         </div>
       </div>
@@ -1495,7 +1661,7 @@ function calcularInvestLiquidoEdit() {
           <tbody class="divide-y divide-gray-100">
             {% if linhas %}
               {% for linha in linhas %}
-              <tr class="hover:bg-gray-50 linha-item-cotacao cursor-pointer" data-linha-id="{{ linha.id }}" onclick="visualizarOuEditarLinha({{ linha.id }})" title="Clique para ver os detalhes da linha">
+              <tr class="hover:bg-gray-50 linha-item-cotacao cursor-pointer" data-linha-id="{{ linha.id }}" data-investimento-bruto="{{ linha.investimento_bruto or 0 }}" onclick="visualizarOuEditarLinha({{ linha.id }})" title="Clique para ver os detalhes da linha">
                 <td class="py-2 px-2">
                   <span class="px-1.5 py-0.5 text-xs rounded text-white inline-block" style="background-color: #3b82f6;">{{ linha.plataforma or '-' }}</span>
                 </td>
@@ -1553,48 +1719,73 @@ function calcularInvestLiquidoEdit() {
         <table class="w-full text-sm">
           <thead class="bg-gray-100">
             <tr class="text-xs text-gray-600 uppercase">
+              <th class="font-medium py-2 px-2" style="min-width: 70px;">Plataf.</th>
               <th class="font-medium py-2 px-2">Audiência</th>
-              <th class="font-medium py-2 px-2 w-20">Categoria</th>
-              <th class="font-medium py-2 px-2 w-16 text-right">CPM</th>
-              <th class="font-medium py-2 px-2 w-24 text-right">Impressões</th>
-              <th class="font-medium py-2 px-2 w-24 text-right">Invest.</th>
+              <th class="font-medium py-2 px-2 text-center" style="min-width: 50px;">KPI</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 72px;" title="Preço unitário (CPM, CPV, etc. conforme o KPI)">Preço unit.</th>
+              <th class="font-medium py-2 px-2" style="min-width: 80px;">Período</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 70px;">Volume</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Bruto</th>
+              <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Líquido</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
-              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
+              {% set aud_bruto = (aud.investimento_sugerido or 0)|float %}
+              {% set aud_liquido = aud_bruto * fator_liquido %}
+              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" data-investimento-sugerido="{{ aud.investimento_sugerido or 0 }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
+                <td class="py-2 px-2">
+                  {% if aud.audiencia_calculo_plataforma %}
+                  <span class="px-1.5 py-0.5 text-xs rounded text-white inline-block" style="background-color: #3b82f6;">{{ aud.audiencia_calculo_plataforma }}</span>
+                  {% else %}
+                  <span class="text-xs text-gray-400">-</span>
+                  {% endif %}
+                </td>
                 <td class="py-2 px-2 text-xs" title="{{ aud.audiencia_nome or '' }}">
                   <div class="font-medium text-gray-800">
                     <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
                   </div>
                   <div class="text-[10px] text-gray-400">
+                    {% if aud.audiencia_categoria %}{{ aud.audiencia_categoria }}{% endif %}
+                    {% if aud.audiencia_categoria and (aud.id_audiencia_plataforma or aud.fonte) %} &middot; {% endif %}
                     {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
                     {% if aud.id_audiencia_plataforma and aud.fonte %} | {% endif %}
                     {% if aud.fonte %}{{ aud.fonte }}{% endif %}
                   </div>
                 </td>
-                <td class="py-2 px-2 text-xs text-gray-600">{{ aud.audiencia_categoria or '-' }}</td>
-                <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-2 px-2 text-xs text-right text-gray-700">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
-                <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800">R$ {{ "{:,.2f}".format(aud.investimento_sugerido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-center">
+                  {% if aud.audiencia_calculo_kpi %}
+                  <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ aud.audiencia_calculo_kpi }}</span>
+                  {% else %}
+                  <span class="text-xs text-gray-400">-</span>
+                  {% endif %}
+                </td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap font-mono">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                {% set aud_di = aud.data_inicio or (cotacao.periodo_inicio if cotacao else None) %}
+                {% set aud_df = aud.data_fim or (cotacao.periodo_fim if cotacao else None) %}
+                <td class="py-2 px-2 text-xs text-gray-600 whitespace-nowrap">{{ aud_di.strftime('%d/%m') if aud_di else '-' }}-{{ aud_df.strftime('%d/%m') if aud_df else '' }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(aud_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+                <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(aud_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="5" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
+              <tr><td colspan="8" class="text-center text-gray-400 py-4">Nenhuma audiência adicionada</td></tr>
             {% endif %}
           </tbody>
           {% if audiencias %}
           <tfoot class="bg-gray-50">
-            {% set soma_aud = namespace(impressoes=0, investimento=0) %}
+            {% set soma_aud = namespace(bruto=0, liquido=0) %}
             {% for aud in audiencias %}
-              {% set soma_aud.impressoes = soma_aud.impressoes + (aud.impressoes_estimadas|default(0, true)|int) %}
-              {% set soma_aud.investimento = soma_aud.investimento + (aud.investimento_sugerido|default(0, true)|float) %}
+              {% set _b = aud.investimento_sugerido|default(0, true)|float %}
+              {% set soma_aud.bruto = soma_aud.bruto + _b %}
+              {% set soma_aud.liquido = soma_aud.liquido + _b * fator_liquido %}
             {% endfor %}
             <tr class="font-semibold text-xs text-gray-700">
-              <td colspan="3" class="py-2 px-2 text-right">Total</td>
-              <td class="py-2 px-2 text-right">{{ "{:,}".format(soma_aud.impressoes).replace(',', '.') }}</td>
-              <td class="py-2 px-2 text-right">R$ {{ "{:,.2f}".format(soma_aud.investimento).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td colspan="6" class="py-2 px-1 text-right">Total Audiências</td>
+              <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(soma_aud.bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
+              <td class="py-2 px-1 text-right">R$ {{ "{:,.2f}".format(soma_aud.liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
             </tr>
           </tfoot>
           {% endif %}
@@ -1663,7 +1854,7 @@ function calcularInvestLiquidoEdit() {
           <i class="fas fa-info-circle text-gray-400"></i>
           Informações Adicionais
         </h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
           <div>
             <span class="text-xs text-gray-500 uppercase">Objetivo</span>
             <p class="font-medium text-gray-700">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha else 'Awareness' }}</p>
@@ -1675,10 +1866,6 @@ function calcularInvestLiquidoEdit() {
           <div>
             <span class="text-xs text-gray-500 uppercase">Período</span>
             <p class="font-medium text-gray-700">{{ cotacao.dias_campanha if cotacao and cotacao.dias_campanha else 1 }} mês(es)</p>
-          </div>
-          <div>
-            <span class="text-xs text-gray-500 uppercase">Budget</span>
-            <p class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if cotacao else '0,00' }}</p>
           </div>
         </div>
       </div>
@@ -1703,15 +1890,20 @@ function calcularInvestLiquidoEdit() {
         {% endif %}
         {% set rf_total_itens_bruto = rf_ns.bruto %}
         {% set rf_total_itens_liquido = rf_ns.liquido %}
-        {% set rf_ns_aud = namespace(total=0) %}
+        {% set rf_ns_aud = namespace(bruto=0, liquido=0) %}
         {% if audiencias %}
           {% for aud in audiencias %}
-            {% set rf_ns_aud.total = rf_ns_aud.total + (aud.investimento_sugerido|default(0, true)|float) %}
+            {% set _ab = aud.investimento_sugerido|default(0, true)|float %}
+            {% set rf_ns_aud.bruto = rf_ns_aud.bruto + _ab %}
+            {% set rf_ns_aud.liquido = rf_ns_aud.liquido + _ab * fator_liquido %}
           {% endfor %}
         {% endif %}
-        {% set rf_total_audiencias = rf_ns_aud.total %}
-        {% set rf_subtotal_bruto = rf_total_itens_bruto + rf_total_audiencias %}
-        {% set rf_subtotal_liquido = rf_total_itens_liquido + rf_total_audiencias %}
+        {% set rf_total_aud_bruto = rf_ns_aud.bruto %}
+        {% set rf_total_aud_liquido = rf_ns_aud.liquido %}
+        {# Mantido para compatibilidade com referências antigas #}
+        {% set rf_total_audiencias = rf_total_aud_bruto %}
+        {% set rf_subtotal_bruto = rf_total_itens_bruto + rf_total_aud_bruto %}
+        {% set rf_subtotal_liquido = rf_total_itens_liquido + rf_total_aud_liquido %}
         {# Desconto = diferença entre totais bruto e líquido (itens + audiências), coerente com a coluna Valor Líquido #}
         {% set rf_desconto = [0, rf_subtotal_bruto - rf_subtotal_liquido]|max %}
         {% set rf_desconto_percentual = (100.0 * rf_desconto / rf_subtotal_bruto) if rf_subtotal_bruto > 0 else 0.0 %}
@@ -1746,7 +1938,7 @@ function calcularInvestLiquidoEdit() {
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500"><i class="fas fa-users mr-1"></i> Audiências ({{ audiencias|length if audiencias else 0 }})</span>
-            <span class="font-medium text-gray-700">R$ {{ "{:,.2f}".format(rf_total_audiencias).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
+            <span class="font-medium text-gray-700" title="Bruto / Líquido">R$ {{ "{:,.2f}".format(rf_total_aud_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}{% if fator_liquido != 1 %} <span class="text-[10px] text-gray-400">/ R$ {{ "{:,.2f}".format(rf_total_aud_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }} liq.</span>{% endif %}</span>
           </div>
           <div class="border-t border-gray-200 pt-2 mt-2">
             <p class="text-gray-500 mb-1 uppercase">Por Plataforma</p>
@@ -2146,6 +2338,18 @@ function calcularInvestLiquidoEdit() {
                    oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
+        <div id="indicador_budget_row" class="col-span-12 mt-2 hidden" role="region" aria-label="Indicador de Budget">
+          <div id="indicador_budget_box" class="border border-gray-200 rounded-md p-2 bg-gray-50">
+            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+              <span><strong>Budget:</strong> <span id="indicador_budget_valor">R$ 0,00</span></span>
+              <span>Outros itens + audi&ecirc;ncias: <span id="indicador_budget_existente">R$ 0,00</span></span>
+              <span>Esta entrada: <span id="indicador_budget_atual">R$ 0,00</span></span>
+              <span><strong>Total previsto:</strong> <span id="indicador_budget_total">R$ 0,00</span> (<span id="indicador_budget_pct">0%</span>)</span>
+              <span id="indicador_budget_saldo" class="font-semibold"></span>
+            </div>
+            <progress id="indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
+          </div>
+        </div>
         <div id="preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste">
           <div id="preco_teste_resumo_content" class="text-xs"></div>
         </div>
@@ -2454,6 +2658,18 @@ function calcularInvestLiquidoEdit() {
                    oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
+        <div id="edit_indicador_budget_row" class="col-span-12 mt-2 hidden" role="region" aria-label="Indicador de Budget">
+          <div id="edit_indicador_budget_box" class="border border-gray-200 rounded-md p-2 bg-gray-50">
+            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+              <span><strong>Budget:</strong> <span id="edit_indicador_budget_valor">R$ 0,00</span></span>
+              <span>Outros itens + audi&ecirc;ncias: <span id="edit_indicador_budget_existente">R$ 0,00</span></span>
+              <span>Esta entrada: <span id="edit_indicador_budget_atual">R$ 0,00</span></span>
+              <span><strong>Total previsto:</strong> <span id="edit_indicador_budget_total">R$ 0,00</span> (<span id="edit_indicador_budget_pct">0%</span>)</span>
+              <span id="edit_indicador_budget_saldo" class="font-semibold"></span>
+            </div>
+            <progress id="edit_indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
+          </div>
+        </div>
         <div id="edit_preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste">
           <div id="edit_preco_teste_resumo_content" class="text-xs"></div>
         </div>
@@ -2645,6 +2861,14 @@ function calcularInvestLiquidoEdit() {
         <label class="label"><span class="label-text font-semibold">Objetivo da Campanha</span></label>
         <textarea id="edit_objetivo_campanha" class="textarea textarea-bordered w-full" rows="2">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha and cotacao.objetivo_campanha != 'None' else '' }}</textarea>
       </div>
+
+      <div class="form-control">
+        <label class="label"><span class="label-text font-semibold">Budget da campanha (R$)</span></label>
+        <input type="hidden" id="edit_budget_estimado_hidden" value="{% if cotacao and cotacao.budget_estimado is not none %}{{ cotacao.budget_estimado }}{% endif %}">
+        <input type="text" id="edit_budget_estimado_display" class="input input-bordered w-full bg-white"
+               placeholder="0,00" inputmode="decimal" autocomplete="off">
+        <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho, Em Análise, Negociação ou Em Acompanhamento.</span></label>
+      </div>
       
       <div class="modal-action">
         <button type="button" onclick="document.getElementById('modal_editar_campanha').close()" class="btn btn-ghost">Cancelar</button>
@@ -2798,6 +3022,39 @@ function calcularInvestLiquidoEdit() {
               </div>
             </div>
 
+            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-2">
+              <div class="form-control col-span-2">
+                <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
+                <div class="join w-full">
+                  <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8"
+                          onclick="document.getElementById('audiencia_data_inicio').showPicker()">
+                    <i class="fas fa-calendar-alt text-gray-800"></i>
+                  </button>
+                  <input type="date" id="audiencia_data_inicio"
+                         class="input input-bordered input-sm join-item flex-1 min-h-8 h-8"
+                         onchange="calcularDiasAudiencia()">
+                </div>
+              </div>
+              <div class="form-control col-span-2">
+                <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
+                <div class="join w-full">
+                  <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8"
+                          onclick="document.getElementById('audiencia_data_fim').showPicker()">
+                    <i class="fas fa-calendar-alt text-gray-800"></i>
+                  </button>
+                  <input type="date" id="audiencia_data_fim"
+                         class="input input-bordered input-sm join-item flex-1 min-h-8 h-8"
+                         onchange="calcularDiasAudiencia()">
+                </div>
+              </div>
+              <div class="form-control col-span-2">
+                <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
+                <input type="text" id="audiencia_dias_linha"
+                       class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full"
+                       readonly value="0">
+              </div>
+            </div>
+
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
               <div class="form-control w-fit max-w-full">
                 <label class="label py-0">
@@ -2853,6 +3110,18 @@ function calcularInvestLiquidoEdit() {
               </div>
             </div>
 
+            <div id="audiencia_indicador_budget_row" class="col-span-12 mt-2 hidden" role="region" aria-label="Indicador de Budget (audiência)">
+              <div id="audiencia_indicador_budget_box" class="border border-gray-200 rounded-md p-2 bg-gray-50">
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                  <span><strong>Budget:</strong> <span id="audiencia_indicador_budget_valor">R$ 0,00</span></span>
+                  <span>Outros itens + audi&ecirc;ncias: <span id="audiencia_indicador_budget_existente">R$ 0,00</span></span>
+                  <span>Esta entrada: <span id="audiencia_indicador_budget_atual">R$ 0,00</span></span>
+                  <span><strong>Total previsto:</strong> <span id="audiencia_indicador_budget_total">R$ 0,00</span> (<span id="audiencia_indicador_budget_pct">0%</span>)</span>
+                  <span id="audiencia_indicador_budget_saldo" class="font-semibold"></span>
+                </div>
+                <progress id="audiencia_indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
+              </div>
+            </div>
             <div id="audiencia_preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste (audiência)">
               <div id="audiencia_preco_teste_resumo_content" class="text-xs"></div>
             </div>
@@ -3048,6 +3317,45 @@ function mostrarBloqueioEdicao() {
   showToast('Edição não permitida. Status deve ser: Rascunho, Em Análise ou Negociação.', 'warning');
 }
 
+function mostrarBloqueioEdicaoCampanha() {
+  showToast(
+    'Edição da campanha e do budget não permitida para este status. Permitido: Rascunho, Em Análise, Negociação ou Em Acompanhamento.',
+    'warning'
+  );
+}
+
+function atualizarBudgetCampanhaModalUi(podeEditarCampanha) {
+  var budgetDisplay = document.getElementById('edit_budget_estimado_display');
+  var budgetHidden = document.getElementById('edit_budget_estimado_hidden');
+  if (!budgetDisplay) return;
+
+  function preencherDisplayDoHidden() {
+    if (!budgetHidden || budgetHidden.value === '') return;
+    var n = parseFloat(budgetHidden.value);
+    if (Number.isNaN(n)) return;
+    budgetDisplay.value = n.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  if (podeEditarCampanha) {
+    budgetDisplay.removeAttribute('readonly');
+    budgetDisplay.removeAttribute('disabled');
+    budgetDisplay.classList.remove('bg-gray-100', 'cursor-not-allowed');
+    budgetDisplay.oninput = function () {
+      formatarMoedaReal(budgetDisplay, 'edit_budget_estimado_hidden');
+    };
+    preencherDisplayDoHidden();
+  } else {
+    budgetDisplay.oninput = null;
+    budgetDisplay.setAttribute('readonly', 'readonly');
+    budgetDisplay.setAttribute('disabled', 'disabled');
+    budgetDisplay.classList.add('bg-gray-100', 'cursor-not-allowed');
+    preencherDisplayDoHidden();
+  }
+}
+
 // Função para atualizar visibilidade dos elementos de edição baseado no status
 function atualizarElementosEdicao(novoStatus) {
   const podeEditarAgora = STATUS_PERMITE_EDICAO.includes(novoStatus);
@@ -3068,10 +3376,31 @@ function atualizarElementosEdicao(novoStatus) {
   }
   
   // Botão editar campanha (usa lista própria que inclui Em Acompanhamento)
+  const podeEditarCampanhaAgora = STATUS_PERMITE_EDICAO_CAMPANHA.includes(novoStatus);
   const btnEditarCampanha = document.getElementById('btn_editar_campanha');
   if (btnEditarCampanha) {
-    btnEditarCampanha.style.display = STATUS_PERMITE_EDICAO_CAMPANHA.includes(novoStatus) ? '' : 'none';
+    btnEditarCampanha.style.display = podeEditarCampanhaAgora ? '' : 'none';
   }
+
+  const areaBudgetCampanha = document.getElementById('area_budget_campanha');
+  const iconeBudgetCampanha = document.getElementById('icone_editar_budget_campanha');
+  if (areaBudgetCampanha) {
+    if (podeEditarCampanhaAgora) {
+      areaBudgetCampanha.classList.add('cursor-pointer', 'hover:bg-gray-50');
+      areaBudgetCampanha.onclick = function () {
+        abrirModalEditarCampanha();
+      };
+      areaBudgetCampanha.title = 'Clique para editar o budget da campanha';
+    } else {
+      areaBudgetCampanha.classList.remove('cursor-pointer', 'hover:bg-gray-50');
+      areaBudgetCampanha.onclick = null;
+      areaBudgetCampanha.title = '';
+    }
+  }
+  if (iconeBudgetCampanha) {
+    iconeBudgetCampanha.style.display = podeEditarCampanhaAgora ? 'inline' : 'none';
+  }
+  atualizarBudgetCampanhaModalUi(podeEditarCampanhaAgora);
   
   // Botão adicionar linha
   const btnAdicionarLinha = document.getElementById('btn_adicionar_linha');
@@ -4111,26 +4440,38 @@ async function salvarEdicaoCliente() {
 // Funções para editar Campanha
 function abrirModalEditarCampanha() {
   if (!STATUS_PERMITE_EDICAO_CAMPANHA.includes(statusAtualCotacao)) {
-    mostrarBloqueioEdicao();
+    mostrarBloqueioEdicaoCampanha();
     return;
   }
+  atualizarBudgetCampanhaModalUi(true);
   document.getElementById('modal_editar_campanha').showModal();
 }
 
 async function salvarEdicaoCampanha() {
   if (!STATUS_PERMITE_EDICAO_CAMPANHA.includes(statusAtualCotacao)) {
-    mostrarBloqueioEdicao();
+    mostrarBloqueioEdicaoCampanha();
     return;
   }
   const cotacaoId = document.querySelector('[data-cotacao-id]').dataset.cotacaoId;
   
   const objetivoVal = document.getElementById('edit_objetivo_campanha').value.trim();
+
+  var budgetHidden = document.getElementById('edit_budget_estimado_hidden');
+  var budgetDisplay = document.getElementById('edit_budget_estimado_display');
+  var budgetNum = 0;
+  if (budgetHidden && budgetHidden.value !== '') {
+    budgetNum = parseFloat(budgetHidden.value);
+    if (Number.isNaN(budgetNum)) budgetNum = 0;
+  } else if (budgetDisplay) {
+    budgetNum = parseMoeda(budgetDisplay.value);
+  }
   
   const data = {
     nome_campanha: document.getElementById('edit_nome_campanha').value,
     periodo_inicio: document.getElementById('edit_periodo_inicio').value || null,
     periodo_fim: document.getElementById('edit_periodo_fim').value || null,
-    objetivo_campanha: objetivoVal || null
+    objetivo_campanha: objetivoVal || null,
+    budget_estimado: budgetNum
   };
   
   try {
@@ -4409,6 +4750,8 @@ document.addEventListener('DOMContentLoaded', function() {
   carregarComentarios();
   // Calcular dias de campanha ao carregar em modo edição
   calcularDiasCampanha();
+
+  atualizarBudgetCampanhaModalUi(STATUS_PERMITE_EDICAO_CAMPANHA.includes(statusAtualCotacao));
   
   const inputImportLinhas = document.getElementById('input_importar_linhas_imagem');
   if (inputImportLinhas) {
@@ -4946,7 +5289,12 @@ async function visualizarOuEditarLinha(linhaId) {
     if (temCalculoSalvo) {
       reconstruirResumoPrecoSalvo('edit_', linha);
       _ultimoCalculoLinha['edit_'] = _snapshotCamposCalculo('edit_');
-      _ultimoCalculoLinha['edit_'].source = null;
+      _ultimoCalculoLinha['edit_'].source = _inferirSourceCalculo({
+        investimento_bruto: linha.investimento_bruto,
+        volume_contratado: linha.volume_contratado,
+        preco_unitario: linha.valor_unitario_negociado || linha.valor_unitario,
+        kpi: linha.objetivo_kpi
+      });
     } else {
       _ultimoCalculoLinha['edit_'] = null;
     }
@@ -4954,6 +5302,7 @@ async function visualizarOuEditarLinha(linhaId) {
     var btnCalcEdit = document.getElementById('edit_btn_calcular_preco');
     if (btnCalcEdit) btnCalcEdit.disabled = !precificacaoTesteSatisfeita('edit_');
     atualizarBtnSalvarLinha('edit_');
+    atualizarIndicadorBudget('edit_');
 
     document.getElementById('modal_editar_linha').showModal();
   } catch (error) {
@@ -4964,6 +5313,34 @@ async function visualizarOuEditarLinha(linhaId) {
 
 async function editarLinha(linhaId) {
   return visualizarOuEditarLinha(linhaId);
+}
+
+function calcularDiasAudiencia() {
+  const inicio = document.getElementById('audiencia_data_inicio').value;
+  const fim = document.getElementById('audiencia_data_fim').value;
+  const diasEl = document.getElementById('audiencia_dias_linha');
+  if (!diasEl) return;
+  if (inicio && fim) {
+    const di = new Date(inicio);
+    const df = new Date(fim);
+    const diffDays = Math.ceil((df - di) / (1000 * 60 * 60 * 24)) + 1;
+    diasEl.value = diffDays > 0 ? diffDays : 0;
+  } else {
+    diasEl.value = 0;
+  }
+}
+
+function _formatarDataInputAudiencia(dataStr) {
+  if (!dataStr) return '';
+  if (dataStr instanceof Date) {
+    const year = dataStr.getFullYear();
+    const month = String(dataStr.getMonth() + 1).padStart(2, '0');
+    const day = String(dataStr.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return dataStr;
+  if (typeof dataStr === 'string' && dataStr.includes('T')) return dataStr.split('T')[0];
+  return '';
 }
 
 // Funções de cálculo para edição
@@ -5146,7 +5523,19 @@ function abrirModalAudiencia() {
 
   inicializarMargemCcInput('audiencia_');
   atualizarBtnSalvarLinha('audiencia_');
-  
+  atualizarIndicadorBudget('audiencia_');
+
+  const hojeAud = new Date();
+  const dataInicioAud = new Date(hojeAud);
+  dataInicioAud.setDate(hojeAud.getDate() + 7);
+  const dataFimAud = new Date(hojeAud);
+  dataFimAud.setDate(hojeAud.getDate() + 37);
+  const elDataInicioAud = document.getElementById('audiencia_data_inicio');
+  const elDataFimAud = document.getElementById('audiencia_data_fim');
+  if (elDataInicioAud) elDataInicioAud.value = dataInicioAud.toISOString().split('T')[0];
+  if (elDataFimAud) elDataFimAud.value = dataFimAud.toISOString().split('T')[0];
+  calcularDiasAudiencia();
+
   document.getElementById('modal_adicionar_audiencia').showModal();
 }
 
@@ -5313,6 +5702,9 @@ async function salvarNovaAudiencia() {
   data.investimento_sugerido = invAud > 0 ? invAud : null;
   data.impressoes_estimadas = volAud > 0 ? volAud : 0;
 
+  data.data_inicio = (document.getElementById('audiencia_data_inicio') || {}).value || null;
+  data.data_fim = (document.getElementById('audiencia_data_fim') || {}).value || null;
+
   var mccCheckAud = lerMargemCcOverride('audiencia_');
   if (mccCheckAud.valid) data.margem_cc = mccCheckAud.percent;
 
@@ -5420,6 +5812,14 @@ async function editarAudienciaCotacao(audienciaId) {
     document.getElementById('audiencia_volume_contratado').value = aud.impressoes_estimadas ? formatarNumero(aud.impressoes_estimadas) : '';
     calcularInvestimentoLiquidoPorPrefix('audiencia_');
 
+    const cotacaoPeriodoInicio = '{{ cotacao.periodo_inicio.strftime("%Y-%m-%d") if cotacao and cotacao.periodo_inicio else "" }}';
+    const cotacaoPeriodoFim = '{{ cotacao.periodo_fim.strftime("%Y-%m-%d") if cotacao and cotacao.periodo_fim else "" }}';
+    const elDIAud = document.getElementById('audiencia_data_inicio');
+    const elDFAud = document.getElementById('audiencia_data_fim');
+    if (elDIAud) elDIAud.value = _formatarDataInputAudiencia(aud.data_inicio) || cotacaoPeriodoInicio;
+    if (elDFAud) elDFAud.value = _formatarDataInputAudiencia(aud.data_fim) || cotacaoPeriodoFim;
+    calcularDiasAudiencia();
+
     if (aud.perc_margem_cc != null && Number(aud.perc_margem_cc) > 0) {
       var mccPctAud = Number(aud.perc_margem_cc) * 100;
       var inputMccAud = document.getElementById('audiencia_margem_cc_override');
@@ -5441,11 +5841,24 @@ async function editarAudienciaCotacao(audienciaId) {
 
     var invL = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
     var volL = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
+    var valTabAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
     var xorOk = (invL > 0) !== (volL > 0);
-    var tabOk = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value) > 0;
-    if (xorOk && tabOk && document.getElementById('audiencia_plataforma').value && document.getElementById('audiencia_objetivo_kpi').value) {
+    var bothOk = invL > 0 && volL > 0;
+    var tabOk = valTabAud > 0;
+    var platOk = !!document.getElementById('audiencia_plataforma').value;
+    var kpiOk = !!document.getElementById('audiencia_objetivo_kpi').value;
+    if (tabOk && platOk && kpiOk && (xorOk || bothOk)) {
       _ultimoCalculoLinha['audiencia_'] = _snapshotCamposCalculo('audiencia_');
-      _ultimoCalculoLinha['audiencia_'].source = invL > 0 ? 'invest' : 'vol';
+      if (xorOk) {
+        _ultimoCalculoLinha['audiencia_'].source = invL > 0 ? 'invest' : 'vol';
+      } else {
+        _ultimoCalculoLinha['audiencia_'].source = _inferirSourceCalculo({
+          investimento_bruto: invL,
+          volume_contratado: volL,
+          preco_unitario: valTabAud,
+          kpi: document.getElementById('audiencia_objetivo_kpi').value
+        });
+      }
     } else {
       _ultimoCalculoLinha['audiencia_'] = null;
     }
@@ -5464,6 +5877,8 @@ async function editarAudienciaCotacao(audienciaId) {
     // Alterar label do botão para modo edição
     document.getElementById('btn_salvar_audiencia').textContent = 'Alterar Audiência';
     document.getElementById('btn_excluir_audiencia').classList.remove('hidden');
+
+    atualizarIndicadorBudget('audiencia_');
     
     document.getElementById('modal_adicionar_audiencia').showModal();
   } catch (error) {

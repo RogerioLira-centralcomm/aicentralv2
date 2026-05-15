@@ -1088,6 +1088,8 @@ def criar_audiencia_cotacao_api_teste():
             perc_margem_cc=perc_mcc,
             audiencia_calculo_plataforma=aud_plat,
             audiencia_calculo_kpi=aud_kpi,
+            data_inicio=data.get('data_inicio') or None,
+            data_fim=data.get('data_fim') or None,
         )
         return jsonify({'success': True, 'audiencia_id': audiencia_id}), 201
     except Exception as e:
@@ -1116,6 +1118,12 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
 
         aud_plat, aud_kpi = _audiencia_calc_sentinels_para_atualizar(data)
 
+        datas_kw = {}
+        if 'data_inicio' in data:
+            datas_kw['data_inicio'] = data.get('data_inicio') or None
+        if 'data_fim' in data:
+            datas_kw['data_fim'] = data.get('data_fim') or None
+
         db.atualizar_audiencia_cotacao(
             audiencia_cotacao_id=audiencia_id,
             cpm_estimado=data.get('cpm_estimado'),
@@ -1125,6 +1133,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
             audiencia_calculo_plataforma=aud_plat,
             audiencia_calculo_kpi=aud_kpi,
             **perc_margem_cc_kw,
+            **datas_kw,
         )
         return jsonify({'success': True}), 200
     except Exception as e:

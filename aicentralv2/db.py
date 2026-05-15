@@ -240,6 +240,24 @@ def init_db(app):
                         ALTER TABLE cadu_cotacao_audiencias
                             ADD COLUMN audiencia_calculo_kpi VARCHAR(50);
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'data_inicio'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN data_inicio DATE;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'data_fim'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN data_fim DATE;
+                    END IF;
                 END $$;
             ''')
 
@@ -4765,6 +4783,8 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.perc_margem_cc,
                 ca.audiencia_calculo_plataforma,
                 ca.audiencia_calculo_kpi,
+                ca.data_inicio,
+                ca.data_fim,
                 ca.ordem_exibicao,
                 ca.incluido_proposta,
                 ca.motivo_exclusao,
@@ -4800,6 +4820,8 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 perc_margem_cc,
                 audiencia_calculo_plataforma,
                 audiencia_calculo_kpi,
+                data_inicio,
+                data_fim,
                 ordem_exibicao,
                 incluido_proposta,
                 motivo_exclusao,
@@ -4814,7 +4836,8 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                                 audiencia_categoria=None, audiencia_subcategoria=None,
                                 cpm_estimado=None, investimento_sugerido=None, impressoes_estimadas=None,
                                 ordem_exibicao=0, incluido_proposta=True, perc_margem_cc=None,
-                                audiencia_calculo_plataforma=None, audiencia_calculo_kpi=None):
+                                audiencia_calculo_plataforma=None, audiencia_calculo_kpi=None,
+                                data_inicio=None, data_fim=None):
     """Adiciona uma audiência à cotação"""
     conn = get_db()
     
@@ -4826,13 +4849,15 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                  audiencia_categoria, audiencia_subcategoria,
                  cpm_estimado, investimento_sugerido, impressoes_estimadas,
                  perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
+                 data_inicio, data_fim,
                  ordem_exibicao, incluido_proposta)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                   audiencia_categoria, audiencia_subcategoria,
                   cpm_estimado, investimento_sugerido, impressoes_estimadas,
                   perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
+                  data_inicio, data_fim,
                   ordem_exibicao, incluido_proposta))
             
             result = cursor.fetchone()
@@ -4849,13 +4874,17 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
 _OMIT_PERC_MARGEM_CC_AUDIENCIA = object()
 _OMIT_AUD_CALC_PLATAFORMA = object()
 _OMIT_AUD_CALC_KPI = object()
+_OMIT_AUD_DATA_INICIO = object()
+_OMIT_AUD_DATA_FIM = object()
 
 
 def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investimento_sugerido=None, 
                                 impressoes_estimadas=None, ordem_exibicao=None, incluido_proposta=None, 
                                 motivo_exclusao=None, perc_margem_cc=_OMIT_PERC_MARGEM_CC_AUDIENCIA,
                                 audiencia_calculo_plataforma=_OMIT_AUD_CALC_PLATAFORMA,
-                                audiencia_calculo_kpi=_OMIT_AUD_CALC_KPI):
+                                audiencia_calculo_kpi=_OMIT_AUD_CALC_KPI,
+                                data_inicio=_OMIT_AUD_DATA_INICIO,
+                                data_fim=_OMIT_AUD_DATA_FIM):
     """Atualiza uma audiência da cotação"""
     conn = get_db()
     
@@ -4900,6 +4929,14 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
             if audiencia_calculo_kpi is not _OMIT_AUD_CALC_KPI:
                 updates.append('audiencia_calculo_kpi = %s')
                 params.append(audiencia_calculo_kpi)
+
+            if data_inicio is not _OMIT_AUD_DATA_INICIO:
+                updates.append('data_inicio = %s')
+                params.append(data_inicio)
+
+            if data_fim is not _OMIT_AUD_DATA_FIM:
+                updates.append('data_fim = %s')
+                params.append(data_fim)
             
             if not updates:
                 return False

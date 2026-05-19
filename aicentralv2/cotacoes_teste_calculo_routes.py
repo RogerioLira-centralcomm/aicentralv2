@@ -179,6 +179,10 @@ def _recalcular_e_montar_breakdown(cotacao, data):
     vol_in = _to_float(data.get('volume_contratado'))
     mcc_arg = data.get('margem_cc')
     mcc_override = _parse_float_br(mcc_arg) if mcc_arg not in (None, '') else None
+    fator_raw = data.get('fator_desconto')
+    fator_desconto = _to_float(fator_raw) if fator_raw not in (None, '') else 1.0
+    if fator_desconto <= 0:
+        fator_desconto = 1.0
 
     if not plat:
         return None, jsonify({'error': 'Informe a plataforma para calcular.'}), 400
@@ -202,6 +206,7 @@ def _recalcular_e_montar_breakdown(cotacao, data):
         imposto_percentual_externo=imp_pct,
         agencia_id=cotacao.get('agencia_id'),
         margem_cc_override=mcc_override,
+        fator_desconto=fator_desconto,
     )
     if not out.get('success'):
         return None, jsonify({'error': out.get('message') or 'Falha no cálculo do preço.'}), 400
@@ -237,7 +242,7 @@ def _recalcular_e_montar_breakdown(cotacao, data):
     inc = float(out.get('inc') or 0.0)
     imp = float(out.get('imp') or 0.0)
 
-    val_tech_fee = max(opex_unit - val_tab, 0.0) * volume_efetivo
+    val_tech_fee = max(opex_unit - val_tab * fator_desconto, 0.0) * volume_efetivo
     val_margem_cc = invest_bruto * mcc
     val_com_vendas = invest_bruto * com
     val_pl_incentivos = invest_bruto * inc
@@ -258,6 +263,7 @@ def _recalcular_e_montar_breakdown(cotacao, data):
         'valor_unitario': round(preco_unit, 6),
         'volume_contratado': int(volume_contratado),
         'investimento_bruto': round(invest_bruto, 2),
+        'fator_desconto': fator_desconto,
     }
     return payload_extra, None, None
 
@@ -704,6 +710,11 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
         mcc_arg = request.args.get('margem_cc')
         mcc_override = _parse_float_br(mcc_arg) if mcc_arg not in (None, '') else None
 
+        fator_arg = request.args.get('fator_desconto')
+        fator_desconto = _parse_float_br(fator_arg) if fator_arg not in (None, '') else 1.0
+        if fator_desconto is None or fator_desconto <= 0:
+            fator_desconto = 1.0
+
         out = db.calcular_preco_unitario_teste_calculo(
             valor_unitario_tabela=val_tab,
             nome_plataforma=plat,
@@ -713,6 +724,7 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
             imposto_percentual_externo=imp,
             agencia_id=cotacao.get('agencia_id'),
             margem_cc_override=mcc_override,
+            fator_desconto=fator_desconto,
         )
         if not out.get('success'):
             return jsonify(out), 400
@@ -956,6 +968,7 @@ def criar_linha_cotacao_api_teste():
             val_com_vendas=breakdown['val_com_vendas'],
             val_pl_incentivos=breakdown['val_pl_incentivos'],
             val_impostos=breakdown['val_impostos'],
+            fator_desconto=breakdown.get('fator_desconto'),
         )
         return jsonify({'success': True, 'linha_id': linha_id}), 201
     except Exception as e:
@@ -1037,6 +1050,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
             val_com_vendas=breakdown['val_com_vendas'],
             val_pl_incentivos=breakdown['val_pl_incentivos'],
             val_impostos=breakdown['val_impostos'],
+            fator_desconto=breakdown.get('fator_desconto'),
         )
         return jsonify({'success': True, 'message': 'Linha atualizada com sucesso'})
     except Exception as e:
@@ -1090,6 +1104,7 @@ def criar_audiencia_cotacao_api_teste():
             audiencia_calculo_kpi=aud_kpi,
             data_inicio=data.get('data_inicio') or None,
             data_fim=data.get('data_fim') or None,
+            fator_desconto=data.get('fator_desconto'),
         )
         return jsonify({'success': True, 'audiencia_id': audiencia_id}), 201
     except Exception as e:
@@ -1124,6 +1139,17 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
         if 'data_fim' in data:
             datas_kw['data_fim'] = data.get('data_fim') or None
 
+        fator_kw = {}
+        if 'fator_desconto' in data:
+            fator_val = data.get('fator_desconto')
+            try:
+                fator_num = float(fator_val) if fator_val not in (None, '') else 1.0
+            except (TypeError, ValueError):
+                fator_num = 1.0
+            if fator_num <= 0:
+                fator_num = 1.0
+            fator_kw['fator_desconto'] = fator_num
+
         db.atualizar_audiencia_cotacao(
             audiencia_cotacao_id=audiencia_id,
             cpm_estimado=data.get('cpm_estimado'),
@@ -1134,6 +1160,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
             audiencia_calculo_kpi=aud_kpi,
             **perc_margem_cc_kw,
             **datas_kw,
+            **fator_kw,
         )
         return jsonify({'success': True}), 200
     except Exception as e:

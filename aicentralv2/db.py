@@ -319,6 +319,30 @@ def init_db(app):
                         ALTER TABLE cadu_cotacao_audiencias
                             ADD COLUMN data_fim DATE;
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'fator_desconto'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN fator_desconto NUMERIC(8, 4) DEFAULT 1.0;
+                    END IF;
+                END $$;
+            ''')
+
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_linhas'
+                          AND column_name = 'fator_desconto'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_linhas
+                            ADD COLUMN fator_desconto NUMERIC(8, 4) DEFAULT 1.0;
+                    END IF;
                 END $$;
             ''')
 
@@ -4844,14 +4868,15 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.perc_margem_cc,
                 ca.audiencia_calculo_plataforma,
                 ca.audiencia_calculo_kpi,
-                ca.data_inicio,
-                ca.data_fim,
-                ca.ordem_exibicao,
-                ca.incluido_proposta,
-                ca.motivo_exclusao,
-                ca.added_at,
-                a.id_audiencia_plataforma,
-                a.fonte
+            ca.data_inicio,
+            ca.data_fim,
+            ca.fator_desconto,
+            ca.ordem_exibicao,
+            ca.incluido_proposta,
+            ca.motivo_exclusao,
+            ca.added_at,
+            a.id_audiencia_plataforma,
+            a.fonte
             FROM cadu_cotacao_audiencias ca
             LEFT JOIN cadu_audiencias a ON ca.audiencia_id = a.id
             WHERE ca.cotacao_id = %s
@@ -4883,6 +4908,7 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 audiencia_calculo_kpi,
                 data_inicio,
                 data_fim,
+                fator_desconto,
                 ordem_exibicao,
                 incluido_proposta,
                 motivo_exclusao,
@@ -4902,7 +4928,8 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                                 perc_tech_fee=None, perc_com_vendas=None, perc_pl_incentivos=None,
                                 perc_impostos=None,
                                 val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
-                                val_pl_incentivos=None, val_impostos=None):
+                                val_pl_incentivos=None, val_impostos=None,
+                                fator_desconto=None):
     """Adiciona uma audiência à cotação"""
     conn = get_db()
 
@@ -4917,9 +4944,10 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                  data_inicio, data_fim,
                  perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                  val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
+                 fator_desconto,
                  ordem_exibicao, incluido_proposta)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                   audiencia_categoria, audiencia_subcategoria,
@@ -4928,6 +4956,7 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                   data_inicio, data_fim,
                   perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                   val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
+                  fator_desconto if fator_desconto is not None else 1.0,
                   ordem_exibicao, incluido_proposta))
 
             result = cursor.fetchone()
@@ -4946,6 +4975,7 @@ _OMIT_AUD_CALC_PLATAFORMA = object()
 _OMIT_AUD_CALC_KPI = object()
 _OMIT_AUD_DATA_INICIO = object()
 _OMIT_AUD_DATA_FIM = object()
+_OMIT_AUD_FATOR_DESCONTO = object()
 
 
 def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investimento_sugerido=None, 
@@ -4954,7 +4984,8 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
                                 audiencia_calculo_plataforma=_OMIT_AUD_CALC_PLATAFORMA,
                                 audiencia_calculo_kpi=_OMIT_AUD_CALC_KPI,
                                 data_inicio=_OMIT_AUD_DATA_INICIO,
-                                data_fim=_OMIT_AUD_DATA_FIM):
+                                data_fim=_OMIT_AUD_DATA_FIM,
+                                fator_desconto=_OMIT_AUD_FATOR_DESCONTO):
     """Atualiza uma audiência da cotação"""
     conn = get_db()
     
@@ -5007,6 +5038,10 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
             if data_fim is not _OMIT_AUD_DATA_FIM:
                 updates.append('data_fim = %s')
                 params.append(data_fim)
+
+            if fator_desconto is not _OMIT_AUD_FATOR_DESCONTO:
+                updates.append('fator_desconto = %s')
+                params.append(fator_desconto)
             
             if not updates:
                 return False
@@ -5912,7 +5947,8 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                         perc_margem_cc=None, perc_tech_fee=None, perc_com_vendas=None,
                         perc_pl_incentivos=None, perc_impostos=None,
                         val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
-                        val_pl_incentivos=None, val_impostos=None):
+                        val_pl_incentivos=None, val_impostos=None,
+                        fator_desconto=None):
     """Cria uma nova linha de cotação"""
     import json
     
@@ -5976,7 +6012,8 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
         safe_value(val_tech_fee),
         safe_value(val_com_vendas),
         safe_value(val_pl_incentivos),
-        safe_value(val_impostos)
+        safe_value(val_impostos),
+        safe_value(fator_desconto if fator_desconto is not None else 1.0)
     ])
     
     conn = get_db()
@@ -5991,10 +6028,11 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                     investimento_bruto, especificacoes, praca, desconto_percentual, valor_unitario_tabela,
                     valor_unitario_negociado, investimento_liquido,
                     perc_margem_cc, perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
-                    val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos
+                    val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
+                    fator_desconto
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', valores)
             linha_id = cursor.fetchone()['id']
@@ -6059,7 +6097,8 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'especificacoes', 'praca', 'desconto_percentual', 'valor_unitario_tabela',
             'valor_unitario_negociado', 'investimento_liquido',
             'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas', 'perc_pl_incentivos', 'perc_impostos',
-            'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos'
+            'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos',
+            'fator_desconto'
         }
         
         campos_atualizacao = {}
@@ -9344,19 +9383,29 @@ def calcular_preco_unitario_teste_calculo(
     imposto_percentual_externo,
     agencia_id=None,
     margem_cc_override=None,
+    fator_desconto=1.0,
 ):
     """
-    Opex = val_tab/(1-TF); Preço = Opex/(1-(Mcc+Com+Inc+Imp)).
+    Opex = (val_tab * fator_desconto)/(1-TF); Preço = Opex/(1-(Mcc+Com+Inc+Imp)).
     Inc (incentivo) só entra se a cotação tiver agência; busca em cadu_pi_incentivos pela agência.
     imposto_percentual_externo: ex. 15 → fração 0,15.
     margem_cc_override: opcional. Se informado e estiver entre 0.20 e 0.30 (ou 20 e 30 em
     percentual), substitui o Mcc lido do cadastro do cliente.
+    fator_desconto: multiplicador aplicado a `valor_unitario_tabela` antes do cálculo (default 1.0).
     Retorna dict com frações, valores monetários e warnings.
     """
     warnings = []
     val_tab = float(valor_unitario_tabela or 0)
     if val_tab <= 0:
         return {'success': False, 'message': 'Valor unitário tabela inválido'}
+
+    try:
+        fator = float(fator_desconto) if fator_desconto is not None else 1.0
+    except (TypeError, ValueError):
+        fator = 1.0
+    if fator <= 0:
+        fator = 1.0
+    val_tab_efetivo = val_tab * fator
 
     tf, plat_desc, tf_fonte = obter_tech_fee_fracao_por_nome_plataforma(nome_plataforma)
     if tf is None:
@@ -9431,7 +9480,7 @@ def calcular_preco_unitario_teste_calculo(
     if denom_margens <= 0:
         return {'success': False, 'message': 'Denominador de margens inválido.'}
 
-    opex = val_tab / (1.0 - tf)
+    opex = val_tab_efetivo / (1.0 - tf)
     preco = opex / denom_margens
 
     return {
@@ -9450,6 +9499,9 @@ def calcular_preco_unitario_teste_calculo(
         'imp': imp,
         'opex_unit': round(opex, 6),
         'preco_unit': round(preco, 6),
+        'val_tab': round(val_tab, 6),
+        'val_tab_efetivo': round(val_tab_efetivo, 6),
+        'fator_desconto': fator,
         'plataforma_match': plat_desc,
         'incentivo_com_agencia': tem_agencia,
         'warnings': warnings,

@@ -4922,8 +4922,21 @@ def init_routes(app):
                 if d:
                     return d.isoformat() if hasattr(d, 'isoformat') else str(d)
                 return None
-            
-            # Preparar dados para resposta
+
+            id_pi_vinculado = None
+            try:
+                conn_pi = db.get_db()
+                with conn_pi.cursor() as cur_pi:
+                    cur_pi.execute(
+                        'SELECT id_pi FROM cadu_pi WHERE cotacao_id = %s LIMIT 1',
+                        (cotacao_id,),
+                    )
+                    row_pi = cur_pi.fetchone()
+                if row_pi:
+                    id_pi_vinculado = row_pi['id_pi']
+            except Exception as pi_err:
+                app.logger.warning(f"Falha ao verificar PI vinculado da cotação {cotacao_id}: {pi_err}")
+
             dados = {
                 'id': cotacao['id'],
                 'numero_cotacao': cotacao['numero_cotacao'],
@@ -4952,7 +4965,9 @@ def init_routes(app):
                 'itens': cotacao.get('itens', []),
                 'briefing': cotacao.get('briefing'),
                 'anexos': cotacao.get('anexos', []),
-                'audiencias': cotacao.get('audiencias', [])
+                'audiencias': cotacao.get('audiencias', []),
+                'tem_pi': id_pi_vinculado is not None,
+                'id_pi': id_pi_vinculado,
             }
             
             return jsonify({'success': True, 'cotacao': dados})
@@ -7464,13 +7479,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'tipo_peca': cotacao_original.get('tipo_peca'),
                 'valor_total_proposta': cotacao_original.get('valor_total_proposta'),
                 'agencia_id': cotacao_original.get('agencia_id'),
-                'agencia_user_id': cotacao_original.get('agencia_user_id')
+                'agencia_user_id': cotacao_original.get('agencia_user_id'),
+                'id_parceiro': cotacao_original.get('id_parceiro'),
+                'parceiro_user_id': cotacao_original.get('parceiro_user_id'),
+                'desconto_total': cotacao_original.get('desconto_total'),
+                'desconto_percentual': cotacao_original.get('desconto_percentual'),
+                'condicoes_comerciais': cotacao_original.get('condicoes_comerciais'),
             }
-            
+
             # Criar nova cotação
             resultado_nova_cotacao = db.criar_cotacao(**dados_nova_cotacao)
             nova_cotacao_id = resultado_nova_cotacao['id'] if isinstance(resultado_nova_cotacao, dict) else resultado_nova_cotacao
-            
+
             if nova_cotacao_id:
                 # Copiar linhas de cotação
                 import json
@@ -7485,7 +7505,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         if isinstance(valor, str):
                             return valor
                         return None
-                    
+
                     db.criar_linha_cotacao(
                         cotacao_id=nova_cotacao_id,
                         pedido_sugestao=linha.get('pedido_sugestao'),
@@ -7520,9 +7540,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         desconto_percentual=linha.get('desconto_percentual'),
                         valor_unitario_tabela=linha.get('valor_unitario_tabela'),
                         valor_unitario_negociado=linha.get('valor_unitario_negociado'),
-                        investimento_liquido=linha.get('investimento_liquido')
+                        investimento_liquido=linha.get('investimento_liquido'),
+                        perc_margem_cc=linha.get('perc_margem_cc'),
+                        perc_tech_fee=linha.get('perc_tech_fee'),
+                        perc_com_vendas=linha.get('perc_com_vendas'),
+                        perc_pl_incentivos=linha.get('perc_pl_incentivos'),
+                        perc_impostos=linha.get('perc_impostos'),
+                        val_margem_cc=linha.get('val_margem_cc'),
+                        val_tech_fee=linha.get('val_tech_fee'),
+                        val_com_vendas=linha.get('val_com_vendas'),
+                        val_pl_incentivos=linha.get('val_pl_incentivos'),
+                        val_impostos=linha.get('val_impostos'),
                     )
-                
+
                 # Copiar audiências
                 audiencias_originais = db.obter_audiencias_cotacao(cotacao_id)
                 for audiencia in audiencias_originais:
@@ -7536,10 +7566,22 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         cpm_estimado=audiencia.get('cpm_estimado'),
                         investimento_sugerido=audiencia.get('investimento_sugerido'),
                         impressoes_estimadas=audiencia.get('impressoes_estimadas'),
+                        ordem_exibicao=audiencia.get('ordem_exibicao', 0),
                         incluido_proposta=audiencia.get('incluido_proposta', True),
                         perc_margem_cc=audiencia.get('perc_margem_cc'),
                         audiencia_calculo_plataforma=audiencia.get('audiencia_calculo_plataforma'),
                         audiencia_calculo_kpi=audiencia.get('audiencia_calculo_kpi'),
+                        data_inicio=audiencia.get('data_inicio'),
+                        data_fim=audiencia.get('data_fim'),
+                        perc_tech_fee=audiencia.get('perc_tech_fee'),
+                        perc_com_vendas=audiencia.get('perc_com_vendas'),
+                        perc_pl_incentivos=audiencia.get('perc_pl_incentivos'),
+                        perc_impostos=audiencia.get('perc_impostos'),
+                        val_margem_cc=audiencia.get('val_margem_cc'),
+                        val_tech_fee=audiencia.get('val_tech_fee'),
+                        val_com_vendas=audiencia.get('val_com_vendas'),
+                        val_pl_incentivos=audiencia.get('val_pl_incentivos'),
+                        val_impostos=audiencia.get('val_impostos'),
                     )
                 
                 # Copiar anexos
@@ -9639,24 +9681,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return None
 
     def _parse_real_pi(value):
-        """Converte string formatada pt-BR para formato gravável com R$.
-        Ex: 'R$ 1.234,56' -> 'R$ 1.234,56' (mantém),
-            '1234.56' -> 'R$ 1.234,56' (formata),
-            '1234,56' -> 'R$ 1.234,56' (formata)
-        """
-        if not value or not str(value).strip():
-            return None
-        try:
-            cleaned = str(value).strip().replace('R$', '').strip()
-            cleaned = cleaned.replace('.', '').replace(',', '.')
-            num = float(cleaned)
-            inteiro = int(num * 100)
-            centavos = inteiro % 100
-            reais = inteiro // 100
-            parte_int = f'{reais:,}'.replace(',', '.')
-            return f'R$ {parte_int},{centavos:02d}'
-        except (ValueError, TypeError):
-            return None
+        """Wrapper local sobre db.formatar_real_br: garante formato BR canônico
+        'R$ 1.234,56' em todas as colunas monetárias do PI."""
+        return db.formatar_real_br(value)
 
     def _coletar_dados_pi_form():
         """Coleta dados do formulário de PI"""
@@ -9690,19 +9717,19 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'obs_financeiro': request.form.get('obs_financeiro', '').strip() or None,
             'obs_operacao': request.form.get('obs_operacao', '').strip() or None,
         }
+        for _k in (
+            'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
+            'perc_pl_incentivos', 'perc_impostos',
+        ):
+            data[_k] = (request.form.get(_k, '').strip() or None)
+        for _k in (
+            'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
+            'val_pl_incentivos', 'val_impostos',
+        ):
+            data[_k] = _parse_real_pi(request.form.get(_k))
         periodo_inicio = data.get('periodo_inicio')
-        if periodo_inicio:
-            from datetime import datetime
-            try:
-                dt = datetime.strptime(periodo_inicio, '%Y-%m-%d')
-                data['mes_ref'] = periodo_inicio
-                data['mes_ref_comp'] = f'{dt.month}/{dt.strftime("%y")}'
-            except ValueError:
-                data['mes_ref'] = None
-                data['mes_ref_comp'] = None
-        else:
-            data['mes_ref'] = None
-            data['mes_ref_comp'] = None
+        data['mes_ref'] = periodo_inicio or None
+        data['mes_ref_comp'] = db.formatar_mes_ref_comp(periodo_inicio)
 
         app.logger.info(f"PI Form valores salvos: valor_bruto={data['valor_bruto']}, valor_liquido={data['valor_liquido']}, comissao_agencia={data['comissao_agencia']}, comissao_parceiro={data['comissao_parceiro']}, valor_liquido_pr={data['valor_liquido_pr']}, valor_plataformas={data['valor_plataformas']}, perc_ag={data['perc_comissao_agencia']}, perc_parc={data['perc_comissao_parceiro']}")
         return data
@@ -10695,38 +10722,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         db.atualizar_pi_valores_plataforma(id_pi, _float_to_brl(novo_vr_liq), _float_to_brl(novo_total))
 
     def _parse_real_campanha(value):
-        """Converte string formatada pt-BR para formato gravável com R$.
-        Ex: 'R$ 1.234,56' -> 'R$ 1.234,56' (mantém),
-            '1234.56' -> 'R$ 1.234,56' (formata),
-            '1234,56' -> 'R$ 1.234,56' (formata)
-        """
-        if not value or not str(value).strip():
-            return None
-        try:
-            cleaned = str(value).strip().replace('R$', '').strip()
-            cleaned = cleaned.replace('.', '').replace(',', '.')
-            num = float(cleaned)
-            inteiro = int(num * 100)
-            centavos = inteiro % 100
-            reais = inteiro // 100
-            parte_int = f'{reais:,}'.replace(',', '.')
-            return f'R$ {parte_int},{centavos:02d}'
-        except (ValueError, TypeError):
-            return None
+        """Wrapper local sobre db.formatar_real_br: garante formato BR canônico
+        'R$ 1.234,56' em todas as colunas monetárias da campanha PI."""
+        return db.formatar_real_br(value)
 
     def _extrair_dados_campanha():
         """Extrai dados do formulário de campanha PI"""
-        from datetime import datetime as _dt
         periodo_inicio = request.form.get('periodo_inicio') or None
-        mes_ref = None
-        mes_ref_comp = None
-        if periodo_inicio:
-            try:
-                dt = _dt.strptime(periodo_inicio, '%Y-%m-%d')
-                mes_ref = periodo_inicio
-                mes_ref_comp = f'{dt.month}/{dt.strftime("%y")}'
-            except ValueError:
-                pass
+        mes_ref = periodo_inicio or None
+        mes_ref_comp = db.formatar_mes_ref_comp(periodo_inicio)
         return {
             'id_pi': request.form.get('id_pi', type=int),
             'id_cliente': request.form.get('id_cliente', type=int),
@@ -10746,6 +10750,20 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'valor_plataforma': _parse_real_campanha(request.form.get('valor_plataforma')),
             'id_plataforma': request.form.get('id_plataforma', type=int),
             'id_criativos_validados': request.form.get('id_criativos_validados', type=int),
+            **{
+                _k: (request.form.get(_k, '').strip() or None)
+                for _k in (
+                    'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
+                    'perc_pl_incentivos', 'perc_impostos',
+                )
+            },
+            **{
+                _k: _parse_real_campanha(request.form.get(_k))
+                for _k in (
+                    'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
+                    'val_pl_incentivos', 'val_impostos',
+                )
+            },
         }
 
     def _diff_campanha_pi_para_auditoria(campanha, data):
@@ -10778,6 +10796,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'obj_contratados', 'id_centralx', 'under', 'id_objetivos_campanha',
             'periodo_inicio', 'periodo_fim', 'id_status', 'totalizador_atingido',
             'totalizador_gasto', 'valor_plataforma', 'id_plataforma', 'id_criativos_validados',
+            'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
+            'perc_pl_incentivos', 'perc_impostos',
+            'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
+            'val_pl_incentivos', 'val_impostos',
         )
         anterior, novo = {}, {}
         for k in keys:
@@ -11747,12 +11769,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'error': 'Número da nota fiscal é obrigatório.'}), 400
 
         if data.get('data_emissao'):
-            from datetime import datetime
-            try:
-                dt = datetime.strptime(data['data_emissao'], '%Y-%m-%d')
-                data['mes_ref_comp'] = f"{dt.month}/{dt.year}"
-            except (ValueError, TypeError):
-                pass
+            data['mes_ref_comp'] = db.formatar_mes_ref_comp(data['data_emissao'])
+
+        if 'valor' in data:
+            data['valor'] = db.formatar_real_br(data.get('valor'))
 
         conn = db.get_db()
         with conn.cursor() as cursor:
@@ -11822,6 +11842,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         nota = db.obter_nota_fiscal_por_id(id_nota)
         if not nota:
             abort(404)
+
+        if 'data_emissao' in data and data.get('data_emissao'):
+            data['mes_ref_comp'] = db.formatar_mes_ref_comp(data['data_emissao'])
+
+        if 'valor' in data:
+            data['valor'] = db.formatar_real_br(data.get('valor'))
 
         def _fmt_date_val(v):
             if v is None:

@@ -20,6 +20,67 @@ import re
 import secrets
 
 
+# ==================== HELPERS DE FORMATAÇÃO CANÔNICA ====================
+
+def formatar_mes_ref_comp(data_ref):
+    """Formato canônico para a coluna mes_ref_comp: M/YY (ex.: 5/26).
+
+    Aceita date, datetime ou string ISO ('YYYY-MM-DD'). Retorna None se a
+    entrada estiver vazia ou em um formato não suportado. Use este helper
+    em TODO ponto que grava mes_ref_comp (PI, Campanha PI, NF) para evitar
+    formatos divergentes (MM/AAAA, M/AAAA, MM/YY).
+    """
+    if data_ref is None or data_ref == '':
+        return None
+    if isinstance(data_ref, str):
+        s = data_ref.strip()
+        if not s:
+            return None
+        try:
+            data_ref = datetime.strptime(s, '%Y-%m-%d').date()
+        except ValueError:
+            return None
+    if isinstance(data_ref, datetime):
+        data_ref = data_ref.date()
+    if not isinstance(data_ref, date):
+        return None
+    return f"{data_ref.month}/{data_ref.year % 100:02d}"
+
+
+def formatar_real_br(valor):
+    """Formato canônico para colunas VARCHAR monetárias: 'R$ 1.234,56'.
+
+    Aceita float, int, Decimal ou string em qualquer formato razoável
+    (BR ou US, com ou sem 'R$', com ou sem separador de milhar). Retorna
+    None se o valor estiver vazio ou não puder ser convertido em número.
+    Use este helper em TODO ponto que grava colunas vr_* / val_* / valor
+    em VARCHAR para garantir consistência.
+    """
+    if valor is None or valor == '':
+        return None
+    if isinstance(valor, (int, float, Decimal)):
+        try:
+            num = float(valor)
+        except (TypeError, ValueError):
+            return None
+    else:
+        s = str(valor).strip().replace('R$', '').strip()
+        if not s:
+            return None
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        try:
+            num = float(s)
+        except (TypeError, ValueError):
+            return None
+    inteiro = int(round(num * 100))
+    sinal = '-' if inteiro < 0 else ''
+    inteiro = abs(inteiro)
+    reais, centavos = divmod(inteiro, 100)
+    reais_fmt = format(reais, ',').replace(',', '.')
+    return f"R$ {sinal}{reais_fmt},{centavos:02d}"
+
+
 # ==================== CONFIGURAÇÃO ====================
 
 def get_db_config():
@@ -4837,34 +4898,43 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                                 cpm_estimado=None, investimento_sugerido=None, impressoes_estimadas=None,
                                 ordem_exibicao=0, incluido_proposta=True, perc_margem_cc=None,
                                 audiencia_calculo_plataforma=None, audiencia_calculo_kpi=None,
-                                data_inicio=None, data_fim=None):
+                                data_inicio=None, data_fim=None,
+                                perc_tech_fee=None, perc_com_vendas=None, perc_pl_incentivos=None,
+                                perc_impostos=None,
+                                val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
+                                val_pl_incentivos=None, val_impostos=None):
     """Adiciona uma audiência à cotação"""
     conn = get_db()
-    
+
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                INSERT INTO cadu_cotacao_audiencias 
-                (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico, 
+                INSERT INTO cadu_cotacao_audiencias
+                (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                  audiencia_categoria, audiencia_subcategoria,
                  cpm_estimado, investimento_sugerido, impressoes_estimadas,
                  perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
                  data_inicio, data_fim,
+                 perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
+                 val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                  ordem_exibicao, incluido_proposta)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                   audiencia_categoria, audiencia_subcategoria,
                   cpm_estimado, investimento_sugerido, impressoes_estimadas,
                   perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
                   data_inicio, data_fim,
+                  perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
+                  val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                   ordem_exibicao, incluido_proposta))
-            
+
             result = cursor.fetchone()
-        
+
         conn.commit()
         return result['id'] if result else None
-        
+
     except Exception as e:
         conn.rollback()
         raise e
@@ -5721,13 +5791,14 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
             
             # Adicionar campos opcionais
             campos_opcionais = [
-                'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id', 
-                'responsavel_comercial', 'briefing_id', 'tipo_peca', 
-                'budget_estimado', 'valor_total_proposta', 
+                'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id',
+                'responsavel_comercial', 'briefing_id', 'tipo_peca',
+                'budget_estimado', 'valor_total_proposta',
                 'observacoes', 'observacoes_internas', 'origem',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at',
                 'agencia_id', 'agencia_user_id',
-                'id_parceiro', 'parceiro_user_id'
+                'id_parceiro', 'parceiro_user_id',
+                'desconto_total', 'desconto_percentual', 'condicoes_comerciais'
             ]
             
             for campo in campos_opcionais:
@@ -8386,6 +8457,10 @@ def criar_cadu_pi(data):
                 'id_cont_parc_reg_financ', 'id_cont_parc_reg_midia',
                 'id_status_pi', 'id_sub_status_pi',
                 'observacoes_financeiro', 'observacoes_operacao',
+                'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
+                'perc_pl_incentivos', 'perc_impostos',
+                'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
+                'val_pl_incentivos', 'val_impostos',
             ]
             valores = [
                 data.get('id_cliente'),
@@ -8419,6 +8494,16 @@ def criar_cadu_pi(data):
                 data.get('id_sub_status_pi'),
                 data.get('obs_financeiro'),
                 data.get('obs_operacao'),
+                data.get('perc_margem_cc'),
+                data.get('perc_tech_fee'),
+                data.get('perc_com_vendas'),
+                data.get('perc_pl_incentivos'),
+                data.get('perc_impostos'),
+                data.get('val_margem_cc'),
+                data.get('val_tech_fee'),
+                data.get('val_com_vendas'),
+                data.get('val_pl_incentivos'),
+                data.get('val_impostos'),
             ]
 
             if data.get('cotacao_id'):
@@ -8531,15 +8616,83 @@ def gerar_pi_de_cotacao(cotacao_id):
     comissao_agencia = round(valor_bruto * perc_agencia / 100, 2) if perc_agencia else 0
     comissao_parceiro = round(valor_bruto * perc_parceiro / 100, 2) if perc_parceiro else 0
 
+    def _to_float(v):
+        if v is None or v == '':
+            return 0.0
+        if isinstance(v, (int, float)):
+            try:
+                return float(v)
+            except Exception:
+                return 0.0
+        s = str(v).strip().replace('R$', '').replace(' ', '')
+        if not s:
+            return 0.0
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        try:
+            return float(s)
+        except Exception:
+            return 0.0
+
+    def _normaliza_para_percentual(v):
+        """Converte um percentual armazenado na cotação (fração decimal, ex 0.3 = 30%)
+        para o formato esperado pelo PI (percentual, ex 30 = 30%).
+
+        Heurística: valores 0 < v <= 1 são tratados como fração decimal e multiplicados
+        por 100; valores > 1 são considerados já em percentual e mantidos. Mantemos
+        compatibilidade com eventuais cotações antigas que já gravaram 30, 25, etc.
+        O resultado é arredondado em 2 casas para evitar lixo de precisão de float."""
+        if v is None or v <= 0:
+            return 0.0
+        if v <= 1:
+            return round(v * 100, 2)
+        return round(v, 2)
+
+    def _primeiro_perc(chave):
+        for l in linhas or []:
+            if l.get('is_subtotal') or l.get('is_header'):
+                continue
+            v = _to_float(l.get(chave))
+            if v > 0:
+                return _normaliza_para_percentual(v)
+        return 0.0
+
+    perc_margem_cc_pi = _primeiro_perc('perc_margem_cc')
+    perc_tech_fee_pi = _primeiro_perc('perc_tech_fee')
+    perc_com_vendas_pi = _primeiro_perc('perc_com_vendas')
+    perc_pl_incentivos_pi = _primeiro_perc('perc_pl_incentivos')
+    perc_impostos_pi = _primeiro_perc('perc_impostos')
+
+    if not perc_margem_cc_pi:
+        try:
+            audiencias = obter_audiencias_cotacao(cotacao_id)
+        except Exception:
+            audiencias = []
+        for aud in audiencias or []:
+            v = _to_float(aud.get('perc_margem_cc'))
+            if v > 0:
+                perc_margem_cc_pi = _normaliza_para_percentual(v)
+                break
+
+    def _calc_val(perc):
+        if not perc or not valor_bruto:
+            return None
+        return round(float(valor_bruto) * float(perc) / 100, 2)
+
+    val_margem_cc_pi = _calc_val(perc_margem_cc_pi)
+    val_tech_fee_pi = _calc_val(perc_tech_fee_pi)
+    val_com_vendas_pi = _calc_val(perc_com_vendas_pi)
+    val_pl_incentivos_pi = _calc_val(perc_pl_incentivos_pi)
+    val_impostos_pi = _calc_val(perc_impostos_pi)
+
     pi_periodo_inicio = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
     pi_periodo_fim = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_fim'))
 
-    # --- mes_ref (coluna date no BD) e mes_ref_comp (MM/AAAA) ---
     mes_ref = None
     mes_ref_comp = None
     if pi_periodo_inicio:
         mes_ref = date(pi_periodo_inicio.year, pi_periodo_inicio.month, 1)
-        mes_ref_comp = f"{pi_periodo_inicio.month:02d}/{pi_periodo_inicio.year}"
+        mes_ref_comp = formatar_mes_ref_comp(pi_periodo_inicio)
 
     data = {
         'id_cliente': cotacao.get('client_id'),
@@ -8551,10 +8704,10 @@ def gerar_pi_de_cotacao(cotacao_id):
         'perc_comissao_agencia': perc_agencia,
         'id_parceiro': cotacao.get('id_parceiro'),
         'perc_comissao_parceiro': perc_parceiro,
-        'valor_bruto': valor_bruto,
-        'valor_liquido': valor_liquido,
-        'comissao_agencia': comissao_agencia,
-        'comissao_parceiro': comissao_parceiro,
+        'valor_bruto': formatar_real_br(valor_bruto),
+        'valor_liquido': formatar_real_br(valor_liquido),
+        'comissao_agencia': formatar_real_br(comissao_agencia) if comissao_agencia else None,
+        'comissao_parceiro': formatar_real_br(comissao_parceiro) if comissao_parceiro else None,
         'valor_liquido_pr': None,
         'valor_plataformas': None,
         'periodo_inicio': pi_periodo_inicio,
@@ -8573,6 +8726,16 @@ def gerar_pi_de_cotacao(cotacao_id):
         'obs_financeiro': None,
         'obs_operacao': f'PI gerado automaticamente da cotação #{cotacao_id}',
         'cotacao_id': cotacao_id,
+        'perc_margem_cc': perc_margem_cc_pi or None,
+        'perc_tech_fee': perc_tech_fee_pi or None,
+        'perc_com_vendas': perc_com_vendas_pi or None,
+        'perc_pl_incentivos': perc_pl_incentivos_pi or None,
+        'perc_impostos': perc_impostos_pi or None,
+        'val_margem_cc': formatar_real_br(val_margem_cc_pi),
+        'val_tech_fee': formatar_real_br(val_tech_fee_pi),
+        'val_com_vendas': formatar_real_br(val_com_vendas_pi),
+        'val_pl_incentivos': formatar_real_br(val_pl_incentivos_pi),
+        'val_impostos': formatar_real_br(val_impostos_pi),
     }
 
     return criar_cadu_pi(data)
@@ -8616,6 +8779,16 @@ def atualizar_cadu_pi(id_pi, data):
                     id_sub_status_pi = %s,
                     observacoes_financeiro = %s,
                     observacoes_operacao = %s,
+                    perc_margem_cc = %s,
+                    perc_tech_fee = %s,
+                    perc_com_vendas = %s,
+                    perc_pl_incentivos = %s,
+                    perc_impostos = %s,
+                    val_margem_cc = %s,
+                    val_tech_fee = %s,
+                    val_com_vendas = %s,
+                    val_pl_incentivos = %s,
+                    val_impostos = %s,
                     updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
                 RETURNING id_pi
@@ -8651,6 +8824,16 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('id_sub_status_pi'),
                 data.get('obs_financeiro'),
                 data.get('obs_operacao'),
+                data.get('perc_margem_cc'),
+                data.get('perc_tech_fee'),
+                data.get('perc_com_vendas'),
+                data.get('perc_pl_incentivos'),
+                data.get('perc_impostos'),
+                data.get('val_margem_cc'),
+                data.get('val_tech_fee'),
+                data.get('val_com_vendas'),
+                data.get('val_pl_incentivos'),
+                data.get('val_impostos'),
                 id_pi,
             ))
             conn.commit()
@@ -9766,6 +9949,16 @@ def obter_campanhas_pi(filtros=None):
                     c.valor_total_plataforma,
                     c.id_plataforma,
                     c.id_criativos_validados,
+                    c.perc_margem_cc,
+                    c.perc_tech_fee,
+                    c.perc_com_vendas,
+                    c.perc_pl_incentivos,
+                    c.perc_impostos,
+                    c.val_margem_cc,
+                    c.val_tech_fee,
+                    c.val_com_vendas,
+                    c.val_pl_incentivos,
+                    c.val_impostos,
                     cli.nome_fantasia AS cliente_nome,
                     obj.descricao AS objetivo_nome,
                     st.descricao AS status_nome,
@@ -9850,6 +10043,16 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.valor_total_plataforma,
                     c.id_plataforma,
                     c.id_criativos_validados,
+                    c.perc_margem_cc,
+                    c.perc_tech_fee,
+                    c.perc_com_vendas,
+                    c.perc_pl_incentivos,
+                    c.perc_impostos,
+                    c.val_margem_cc,
+                    c.val_tech_fee,
+                    c.val_com_vendas,
+                    c.val_pl_incentivos,
+                    c.val_impostos,
                     cli.nome_fantasia AS cliente_nome,
                     obj.descricao AS objetivo_nome,
                     st.descricao AS status_nome,
@@ -9882,7 +10085,11 @@ def criar_campanha_pi(data):
                     periodo_inicio, periodo_fim, id_status,
                     totalizador_atingido, totalizador_gasto,
                     valor_plataforma, id_plataforma,
-                    id_criativos_validados
+                    id_criativos_validados,
+                    perc_margem_cc, perc_tech_fee, perc_com_vendas,
+                    perc_pl_incentivos, perc_impostos,
+                    val_margem_cc, val_tech_fee, val_com_vendas,
+                    val_pl_incentivos, val_impostos
                 )
                 VALUES (
                     %s, %s, %s, %s, %s,
@@ -9891,7 +10098,11 @@ def criar_campanha_pi(data):
                     %s, %s, %s,
                     %s, %s,
                     %s, %s,
-                    %s
+                    %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s,
+                    %s, %s
                 )
                 RETURNING id_campanha
             ''', (
@@ -9913,6 +10124,16 @@ def criar_campanha_pi(data):
                 data.get('valor_plataforma'),
                 data.get('id_plataforma'),
                 data.get('id_criativos_validados'),
+                data.get('perc_margem_cc'),
+                data.get('perc_tech_fee'),
+                data.get('perc_com_vendas'),
+                data.get('perc_pl_incentivos'),
+                data.get('perc_impostos'),
+                data.get('val_margem_cc'),
+                data.get('val_tech_fee'),
+                data.get('val_com_vendas'),
+                data.get('val_pl_incentivos'),
+                data.get('val_impostos'),
             ))
             result = cursor.fetchone()
             conn.commit()
@@ -9980,7 +10201,17 @@ def atualizar_campanha_pi(id_campanha, data):
                     totalizador_gasto = %s,
                     valor_plataforma = %s,
                     id_plataforma = %s,
-                    id_criativos_validados = %s
+                    id_criativos_validados = %s,
+                    perc_margem_cc = %s,
+                    perc_tech_fee = %s,
+                    perc_com_vendas = %s,
+                    perc_pl_incentivos = %s,
+                    perc_impostos = %s,
+                    val_margem_cc = %s,
+                    val_tech_fee = %s,
+                    val_com_vendas = %s,
+                    val_pl_incentivos = %s,
+                    val_impostos = %s
                 WHERE id_campanha = %s
             ''', (
                 data.get('id_pi'),
@@ -10001,6 +10232,16 @@ def atualizar_campanha_pi(id_campanha, data):
                 data.get('valor_plataforma'),
                 data.get('id_plataforma'),
                 data.get('id_criativos_validados'),
+                data.get('perc_margem_cc'),
+                data.get('perc_tech_fee'),
+                data.get('perc_com_vendas'),
+                data.get('perc_pl_incentivos'),
+                data.get('perc_impostos'),
+                data.get('val_margem_cc'),
+                data.get('val_tech_fee'),
+                data.get('val_com_vendas'),
+                data.get('val_pl_incentivos'),
+                data.get('val_impostos'),
                 id_campanha,
             ))
             conn.commit()
@@ -10436,9 +10677,10 @@ def get_dashboard_pis_por_mes(days=90):
         with conn.cursor() as cursor:
             liq_expr = _parse_varchar_to_numeric('p.vr_liquido_pi')
             bruto_expr = _parse_varchar_to_numeric('p.vr_bruto_pi')
+            mes_ref_fallback = "(EXTRACT(MONTH FROM p.created_at)::int || '/' || TO_CHAR(p.created_at, 'YY'))"
             cursor.execute(f'''
                 SELECT
-                    COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'MM/YY')) AS mes,
+                    COALESCE(p.mes_ref_comp, {mes_ref_fallback}) AS mes,
                     COALESCE(sp.descricao, 'Sem Status') AS status_nome,
                     COUNT(*) AS total,
                     COALESCE(SUM({liq_expr}), 0) AS valor_liquido,
@@ -10446,7 +10688,7 @@ def get_dashboard_pis_por_mes(days=90):
                 FROM cadu_pi p
                 LEFT JOIN cadu_pi_aux_status sp ON p.id_status_pi = sp.id
                 WHERE p.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
-                GROUP BY COALESCE(p.mes_ref_comp, TO_CHAR(p.created_at, 'MM/YY')),
+                GROUP BY COALESCE(p.mes_ref_comp, {mes_ref_fallback}),
                          COALESCE(sp.descricao, 'Sem Status')
                 ORDER BY mes
             ''', (days,))

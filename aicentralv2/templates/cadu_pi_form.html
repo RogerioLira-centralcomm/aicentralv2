@@ -310,6 +310,65 @@
               <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}" required>
             </div>
           </div>
+
+          <!-- Linha 3: % Margem CC | % Tech Fee | % Com. Vendas | % PL Incentivos | % Impostos -->
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% Margem CC</label>
+            <input type="text" name="perc_margem_cc" id="input_perc_margem_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_margem_cc or '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% Tech Fee</label>
+            <input type="text" name="perc_tech_fee" id="input_perc_tech_fee" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Vendas</label>
+            <input type="text" name="perc_com_vendas" id="input_perc_com_vendas" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% PL Incentivos</label>
+            <input type="text" name="perc_pl_incentivos" id="input_perc_pl_incentivos" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">% Impostos</label>
+            <input type="text" name="perc_impostos" id="input_perc_impostos" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_impostos or '' }}">
+          </div>
+
+          <!-- Linha 4: R$ Margem CC | R$ Tech Fee | R$ Com. Vendas | R$ PL Incentivos | R$ Impostos (readonly) -->
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Margem CC</label>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="val_margem_cc" id="input_val_margem_cc" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.val_margem_cc or '' }}" readonly>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Tech Fee</label>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="val_tech_fee" id="input_val_tech_fee" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.val_tech_fee or '' }}" readonly>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Com. Vendas</label>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="val_com_vendas" id="input_val_com_vendas" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.val_com_vendas or '' }}" readonly>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">PL Incentivos</label>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="val_pl_incentivos" id="input_val_pl_incentivos" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.val_pl_incentivos or '' }}" readonly>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Impostos</label>
+            <div class="flex">
+              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
+              <input type="text" name="val_impostos" id="input_val_impostos" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.val_impostos or '' }}" readonly>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -399,6 +458,16 @@
     percComissaoParc: () => document.getElementById('input_perc_comissao_parceiro'),
     comissaoParc: () => document.getElementById('input_comissao_parceiro'),
     valorPlataformas: () => document.getElementById('input_valor_plataformas'),
+    percMargemCc: () => document.getElementById('input_perc_margem_cc'),
+    percTechFee: () => document.getElementById('input_perc_tech_fee'),
+    percComVendas: () => document.getElementById('input_perc_com_vendas'),
+    percPlIncentivos: () => document.getElementById('input_perc_pl_incentivos'),
+    percImpostos: () => document.getElementById('input_perc_impostos'),
+    valMargemCc: () => document.getElementById('input_val_margem_cc'),
+    valTechFee: () => document.getElementById('input_val_tech_fee'),
+    valComVendas: () => document.getElementById('input_val_com_vendas'),
+    valPlIncentivos: () => document.getElementById('input_val_pl_incentivos'),
+    valImpostos: () => document.getElementById('input_val_impostos'),
   };
 
   function parseBRL(str) {
@@ -424,6 +493,22 @@
     input.value = v.slice(0, v.length - 2) + ',' + v.slice(v.length - 2);
   }
 
+  function recalcDerivadosPercVal(bruto) {
+    var pares = [
+      [els.percMargemCc(), els.valMargemCc()],
+      [els.percTechFee(), els.valTechFee()],
+      [els.percComVendas(), els.valComVendas()],
+      [els.percPlIncentivos(), els.valPlIncentivos()],
+      [els.percImpostos(), els.valImpostos()],
+    ];
+    pares.forEach(function(par) {
+      if (!par[0] || !par[1]) return;
+      var pct = parseBRL(par[0].value);
+      var v = (bruto > 0 && pct > 0) ? bruto * pct / 100 : 0;
+      par[1].value = v > 0 ? formatBRL(v) : '';
+    });
+  }
+
   function calcValores() {
     var bruto = parseBRL(els.valorBruto().value);
     var percAg = parseBRL(els.percComissaoAg().value);
@@ -438,11 +523,15 @@
     els.valorLiquidoPR().value = liquido > 0 ? formatBRL(liquidoPR) : '';
     var basePlat = comissaoParc > 0 ? liquidoPR : liquido;
     els.valorPlataformas().value = basePlat > 0 ? formatBRL(basePlat * 0.3) : '';
+    recalcDerivadosPercVal(bruto);
   }
 
   els.valorBruto().addEventListener('input', function() { maskMoney(this); calcValores(); });
   els.percComissaoAg().addEventListener('input', function() { maskPercent(this); calcValores(); });
   els.percComissaoParc().addEventListener('input', function() { maskPercent(this); calcValores(); });
+  [els.percMargemCc(), els.percTechFee(), els.percComVendas(), els.percPlIncentivos(), els.percImpostos()].forEach(function(el) {
+    if (el) el.addEventListener('input', function() { maskPercent(this); calcValores(); });
+  });
 
   document.getElementById('input_periodo_inicio').addEventListener('change', function() {
     var fimInput = document.getElementById('input_periodo_fim');
@@ -1266,6 +1355,52 @@
 
         </div>
 
+        <div class="mt-4 pt-3 border-t border-gray-100">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">% Margem CC</label>
+              <input type="text" name="perc_margem_cc" id="nova_camp_perc_margem_cc" placeholder="0,00" value="{{ pi.perc_margem_cc or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">% Tech Fee</label>
+              <input type="text" name="perc_tech_fee" id="nova_camp_perc_tech_fee" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">% Com. Vendas</label>
+              <input type="text" name="perc_com_vendas" id="nova_camp_perc_com_vendas" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">% PL Incentivos</label>
+              <input type="text" name="perc_pl_incentivos" id="nova_camp_perc_pl_incentivos" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">% Impostos</label>
+              <input type="text" name="perc_impostos" id="nova_camp_perc_impostos" placeholder="0,00" value="{{ pi.perc_impostos or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Margem CC</label>
+              <input type="text" name="val_margem_cc" id="nova_camp_val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Tech Fee</label>
+              <input type="text" name="val_tech_fee" id="nova_camp_val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Com. Vendas</label>
+              <input type="text" name="val_com_vendas" id="nova_camp_val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">PL Incentivos</label>
+              <input type="text" name="val_pl_incentivos" id="nova_camp_val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Impostos</label>
+              <input type="text" name="val_impostos" id="nova_camp_val_impostos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+          </div>
+        </div>
+
         <div class="mt-4 pt-3 border-t border-gray-100 flex justify-center">
           <button type="submit"
             class="px-8 py-2 text-sm font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
@@ -1326,6 +1461,44 @@
     inp.addEventListener('input', function() { setTimeout(calc, 0); });
     inp.addEventListener('change', function() { setTimeout(calc, 0); });
     calc();
+  }
+
+  function formatReal(num) {
+    return 'R$ ' + num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function maskPctNova(input) {
+    var v = input.value.replace(/\D/g, '').slice(0, 4);
+    if (!v) { input.value = ''; return; }
+    if (v.length <= 2) { input.value = v; return; }
+    input.value = v.slice(0, v.length - 2) + ',' + v.slice(v.length - 2);
+  }
+  var pares = [
+    ['nova_camp_perc_margem_cc', 'nova_camp_val_margem_cc'],
+    ['nova_camp_perc_tech_fee', 'nova_camp_val_tech_fee'],
+    ['nova_camp_perc_com_vendas', 'nova_camp_val_com_vendas'],
+    ['nova_camp_perc_pl_incentivos', 'nova_camp_val_pl_incentivos'],
+    ['nova_camp_perc_impostos', 'nova_camp_val_impostos'],
+  ];
+  function recalcPercValNovaCamp() {
+    var base = inp ? parseReal(inp.value) : 0;
+    pares.forEach(function(par) {
+      var pEl = document.getElementById(par[0]);
+      var vEl = document.getElementById(par[1]);
+      if (!pEl || !vEl) return;
+      var pct = parseReal(pEl.value);
+      var v = (base > 0 && pct > 0) ? base * pct / 100 : 0;
+      vEl.value = v > 0 ? formatReal(v) : '';
+    });
+  }
+  pares.forEach(function(par) {
+    var pEl = document.getElementById(par[0]);
+    if (pEl) {
+      pEl.addEventListener('input', function() { maskPctNova(this); recalcPercValNovaCamp(); });
+    }
+  });
+  if (inp) {
+    inp.addEventListener('input', function() { setTimeout(recalcPercValNovaCamp, 0); });
+    inp.addEventListener('change', function() { setTimeout(recalcPercValNovaCamp, 0); });
   }
 })();
 </script>

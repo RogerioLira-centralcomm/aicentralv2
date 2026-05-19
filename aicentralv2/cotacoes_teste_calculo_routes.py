@@ -1184,12 +1184,34 @@ def deletar_cotacao_teste(cotacao_id):
         status = cotacao.get('status') or 'Rascunho'
         if status == 'Pendente':
             status = 'Rascunho'
-        if status not in ('Rascunho', 'Em Análise'):
+        if status != 'Rascunho':
             return (
                 jsonify(
                     {
                         'success': False,
-                        'message': f'Não é possível excluir cotações com status "{status}". Apenas cotações em Rascunho ou Em Análise podem ser excluídas.',
+                        'message': f'Não é possível excluir cotações com status "{status}". Apenas cotações em Rascunho podem ser excluídas.',
+                    }
+                ),
+                400,
+            )
+
+        conn = db.get_db()
+        with conn.cursor() as cur:
+            cur.execute(
+                'SELECT id_pi FROM cadu_pi WHERE cotacao_id = %s LIMIT 1',
+                (cotacao_id,),
+            )
+            pi_row = cur.fetchone()
+        if pi_row:
+            id_pi_vinculado = pi_row['id_pi']
+            return (
+                jsonify(
+                    {
+                        'success': False,
+                        'message': (
+                            f'Não é possível excluir: cotação possui PI vinculado '
+                            f'(id_pi {id_pi_vinculado}).'
+                        ),
                     }
                 ),
                 400,

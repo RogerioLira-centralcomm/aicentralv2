@@ -333,9 +333,12 @@
           <i class="fa-solid fa-users text-xs"></i>Audiências Selecionadas
         </a>
       </div>
-      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()" 
+      <div id="mcl_aviso_pi" class="hidden inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg">
+        <i class="fa-solid fa-circle-info text-xs"></i><span>Cotação possui PI vinculado — exclusão bloqueada</span>
+      </div>
+      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()"
               class="hidden inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
-        <i class="fa-solid fa-trash-can text-xs"></i>Enviar para Confirmação
+        <i class="fa-solid fa-trash-can text-xs"></i>Excluir Cotação
       </button>
     </div>
   </div>
@@ -455,8 +458,14 @@ async function abrirModalCotacao(cotacaoId) {
     document.getElementById('mcl_link_audiencias').href = `/parametros/cotacoes-teste-calculo/${c.id}/detalhes`;
 
     const btnDeletar = document.getElementById('mcl_btn_deletar');
-    const statusPermitido = c.status === 'Rascunho' || c.status === 'Em Análise' || c.status === 'Pendente' || !c.status;
-    btnDeletar.classList.toggle('hidden', !statusPermitido);
+    const avisoPi = document.getElementById('mcl_aviso_pi');
+    const statusPermitido = c.status === 'Rascunho' || c.status === 'Pendente' || !c.status;
+    const semPiVinculado = !c.tem_pi;
+    const podeExcluir = statusPermitido && semPiVinculado;
+    btnDeletar.classList.toggle('hidden', !podeExcluir);
+    if (avisoPi) {
+      avisoPi.classList.toggle('hidden', !(statusPermitido && !semPiVinculado));
+    }
 
     document.getElementById('modal_cotacao_lista').showModal();
   } catch (err) {

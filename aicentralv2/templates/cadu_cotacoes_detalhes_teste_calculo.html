@@ -667,10 +667,10 @@ function calculoSincronizado(prefix) {
 
 function atualizarBtnSalvarLinha(prefix) {
   var p = prefix || '';
-  var btnId;
-  if (p === 'edit_') btnId = 'edit_btn_salvar_linha';
-  else if (p === 'audiencia_') btnId = 'btn_salvar_audiencia';
-  else btnId = 'btn_salvar_linha';
+  var btnId, modalId;
+  if (p === 'edit_') { btnId = 'edit_btn_salvar_linha'; modalId = 'modal_editar_linha'; }
+  else if (p === 'audiencia_') { btnId = 'btn_salvar_audiencia'; modalId = 'modal_adicionar_audiencia'; }
+  else { btnId = 'btn_salvar_linha'; modalId = 'modal_nova_linha'; }
   var btn = document.getElementById(btnId);
   if (!btn) return;
   var ok = calculoSincronizado(p);
@@ -681,6 +681,9 @@ function atualizarBtnSalvarLinha(prefix) {
   } else {
     btn.setAttribute('title', 'Clique em Calcular antes de salvar.');
     btn.style.cursor = 'not-allowed';
+  }
+  if (typeof marcarPendenciaAba === 'function') {
+    marcarPendenciaAba(modalId, 'preco', !ok);
   }
 }
 
@@ -1652,7 +1655,7 @@ function calcularInvestLiquidoEdit() {
               <th class="font-medium py-2 px-2">Segmentação</th>
               <th class="font-medium py-2 px-2 text-center" style="min-width: 50px;">KPI</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 72px;" title="Valor unitário negociado (ex.: CPM, CPV conforme o KPI)">Preço unit.</th>
-              <th class="font-medium py-2 px-2" style="min-width: 80px;">Período</th>
+              <th class="font-medium py-2 px-2 text-center" style="min-width: 90px;">Período</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 70px;">Volume</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Bruto</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Líquido</th>
@@ -1670,7 +1673,7 @@ function calcularInvestLiquidoEdit() {
                   <span class="px-1.5 py-0.5 text-xs rounded text-white" style="background-color: #72cd80;">{{ linha.objetivo_kpi or 'CPM' }}</span>
                 </td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap font-mono">{% set pu = linha.valor_unitario_negociado if linha.valor_unitario_negociado is not none else linha.valor_unitario %}R$ {{ "{:,.2f}".format(pu or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
-                <td class="py-2 px-2 text-xs text-gray-600 whitespace-nowrap">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
+                <td class="py-2 px-2 text-xs text-center text-gray-600 whitespace-nowrap">{{ linha.data_inicio.strftime('%d/%m') if linha.data_inicio else '-' }}-{{ linha.data_fim.strftime('%d/%m') if linha.data_fim else '' }}</td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(linha.volume_contratado or 0).replace(',', '.') }}</td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_bruto or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(linha.investimento_liquido or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
@@ -1723,7 +1726,7 @@ function calcularInvestLiquidoEdit() {
               <th class="font-medium py-2 px-2">Audiência</th>
               <th class="font-medium py-2 px-2 text-center" style="min-width: 50px;">KPI</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 72px;" title="Preço unitário (CPM, CPV, etc. conforme o KPI)">Preço unit.</th>
-              <th class="font-medium py-2 px-2" style="min-width: 80px;">Período</th>
+              <th class="font-medium py-2 px-2 text-center" style="min-width: 90px;">Período</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 70px;">Volume</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Bruto</th>
               <th class="font-medium py-2 px-2 text-right" style="min-width: 90px;">Líquido</th>
@@ -1764,7 +1767,7 @@ function calcularInvestLiquidoEdit() {
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap font-mono">R$ {{ "{:,.2f}".format(aud.cpm_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 {% set aud_di = aud.data_inicio or (cotacao.periodo_inicio if cotacao else None) %}
                 {% set aud_df = aud.data_fim or (cotacao.periodo_fim if cotacao else None) %}
-                <td class="py-2 px-2 text-xs text-gray-600 whitespace-nowrap">{{ aud_di.strftime('%d/%m') if aud_di else '-' }}-{{ aud_df.strftime('%d/%m') if aud_df else '' }}</td>
+                <td class="py-2 px-2 text-xs text-center text-gray-600 whitespace-nowrap">{{ aud_di.strftime('%d/%m') if aud_di else '-' }}-{{ aud_df.strftime('%d/%m') if aud_df else '' }}</td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">{{ "{:,}".format(aud.impressoes_estimadas or 0).replace(',', '.') }}</td>
                 <td class="py-2 px-2 text-xs text-right text-gray-700 whitespace-nowrap">R$ {{ "{:,.2f}".format(aud_bruto).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
                 <td class="py-2 px-2 text-xs text-right font-semibold text-gray-800 whitespace-nowrap">R$ {{ "{:,.2f}".format(aud_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</td>
@@ -2099,188 +2102,205 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Nova Linha -->
 <dialog id="modal_nova_linha" class="modal">
-  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto p-0">
-    <!-- Header padrão CRM -->
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
-      <h3 class="font-semibold text-lg text-gray-800">Nova Linha de Cotação</h3>
-      <form method="dialog">
-        <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
-      </form>
+  <div class="modal-box max-w-6xl max-h-[90vh] p-0 flex flex-col">
+    <!-- Header padrão CRM com abas -->
+    <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+      <div class="px-6 pt-4 pb-2 flex justify-between items-center">
+        <div>
+          <h3 class="font-semibold text-base text-gray-900">Nova Linha de Cotação</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span></p>
+        </div>
+        <form method="dialog">
+          <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
+        </form>
+      </div>
+      <div class="px-6 flex gap-1 text-sm">
+        <button type="button" data-tab-trigger="briefing" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Briefing</button>
+        <button type="button" data-tab-trigger="midia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Mídia &amp; KPI</button>
+        <button type="button" data-tab-trigger="periodo" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Período</button>
+        <button type="button" data-tab-trigger="preco" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Precificação</button>
+        <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+      </div>
     </div>
-    
-    <div class="p-6">
-    <form id="form_nova_linha" class="grid grid-cols-12 gap-2" onsubmit="return false">
-      
-      <!-- Linha 1: Segmentação e Praça (mesma altura, borda padrão, colunas simétricas) -->
-      <div class="form-control col-span-6">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
-        <textarea id="segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
-                  placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
-        <label id="erro_segmentacao" class="label py-0 text-red-600 text-xs hidden">
-          <span>Mínimo de 10 caracteres</span>
-        </label>
-      </div>
 
-      <div class="form-control col-span-6">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Praça</span></label>
-        <textarea id="praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
-                  placeholder="Ex: São Paulo, Nacional, BH e região metropolitana..."></textarea>
-      </div>
+    <div class="p-6 overflow-y-auto flex-1">
+    <form id="form_nova_linha" onsubmit="return false">
 
-      <!-- Linha 2: Formatos -->
-      <div class="form-control col-span-12">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Formatos *</span></label>
-        <div class="flex flex-wrap gap-3">
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">Carroussel</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="Video" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">Video</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="Display" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">Display</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="CTV" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">CTV</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="Audio" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">Audio</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="Interativos" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">Interativos</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="formatos" value="Outros" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
-            <span class="label-text text-xs">Outros</span>
+      <!-- Aba: Briefing -->
+      <div data-tabpanel="briefing" class="grid grid-cols-12 gap-2">
+        <div class="form-control col-span-6">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
+          <textarea id="segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
+                    placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
+          <label id="erro_segmentacao" class="label py-0 text-red-600 text-xs hidden">
+            <span>Mínimo de 10 caracteres</span>
           </label>
         </div>
-        <label id="erro_formatos" class="label py-0 text-red-600 text-xs hidden">
-          <span>Selecione pelo menos um formato</span>
-        </label>
-      </div>
 
-      <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
-        <select id="plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('');">
-          <option value="">Selecione...</option>
-          <optgroup label="Mídia Programática">
-            <option value="DV360">DV360</option>
-            <option value="Programática">Programática</option>
-            <option value="Amazon DSP">Amazon DSP</option>
-          </optgroup>
-          <optgroup label="Social">
-            <option value="Meta Ads">Meta Ads</option>
-            <option value="TikTok Ads">TikTok Ads</option>
-            <option value="LinkedIn Ads">LinkedIn Ads</option>
-            <option value="Twitter/X Ads">Twitter/X Ads</option>
-            <option value="Pinterest Ads">Pinterest Ads</option>
-          </optgroup>
-          <optgroup label="Search & Display">
-            <option value="Google Ads">Google Ads</option>
-            <option value="Microsoft Ads">Microsoft Ads</option>
-          </optgroup>
-          <optgroup label="Streaming/CTV">
-            <option value="Netflix">Netflix</option>
-            <option value="Paramount+">Paramount+</option>
-            <option value="Disney+">Disney+</option>
-            <option value="HBO Max">HBO Max</option>
-            <option value="Globoplay">Globoplay</option>
-            <option value="YouTube">YouTube</option>
-            <option value="Spotify">Spotify</option>
-          </optgroup>
-          <optgroup label="Dados">
-            <option value="Serasa">Serasa</option>
-            <option value="Logan">Logan</option>
-            <option value="Cadastro Positivo">Cadastro Positivo</option>
-          </optgroup>
-        </select>
-      </div>
+        <div class="form-control col-span-6">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Praça</span></label>
+          <textarea id="praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
+                    placeholder="Ex: São Paulo, Nacional, BH e região metropolitana..."></textarea>
+        </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
-        <select id="objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('');">
-          <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPL">CPL</option>
-          <option value="CPV">CPV</option>
-          <option value="CPCV">CPCV</option>
-          <option value="CPE">CPE</option>
-          <option value="CPO">CPO</option>
-          <option value="Fixo">Fixo</option>
-        </select>
-      </div>
+        <div class="form-control col-span-12">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Formatos *</span></label>
+          <div class="flex flex-wrap gap-3">
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">Carroussel</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="Video" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">Video</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="Display" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">Display</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="CTV" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">CTV</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="Audio" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">Audio</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="Interativos" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">Interativos</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="formatos" value="Outros" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
+              <span class="label-text text-xs">Outros</span>
+            </label>
+          </div>
+          <label id="erro_formatos" class="label py-0 text-red-600 text-xs hidden">
+            <span>Selecione pelo menos um formato</span>
+          </label>
+        </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Viewability (%)</span></label>
-        <input type="number" id="viewability_minimo" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="70" value="70" min="0" max="100">
-      </div>
-
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Produto</span></label>
-        <div class="flex flex-wrap gap-2 h-8 items-center">
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Mídia</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="produto" value="Dados" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Dados</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="produto" value="Interativo" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Interativo</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="produto" value="Parceiro" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Parceiro</span>
-          </label>
+        <div class="form-control col-span-12">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Especificações</span></label>
+          <input id="especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
         </div>
       </div>
 
-      <!-- Linha 4: Datas e Especificações -->
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
-        <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
-            <i class="fas fa-calendar-alt text-gray-800"></i>
-          </button>
-          <input type="date" id="data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
+      <!-- Aba: Mídia & KPI -->
+      <div data-tabpanel="midia" class="grid grid-cols-12 gap-2 hidden">
+        <div class="form-control col-span-4">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
+          <select id="plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('');">
+            <option value="">Selecione...</option>
+            <optgroup label="Mídia Programática">
+              <option value="DV360">DV360</option>
+              <option value="Programática">Programática</option>
+              <option value="Amazon DSP">Amazon DSP</option>
+            </optgroup>
+            <optgroup label="Social">
+              <option value="Meta Ads">Meta Ads</option>
+              <option value="TikTok Ads">TikTok Ads</option>
+              <option value="LinkedIn Ads">LinkedIn Ads</option>
+              <option value="Twitter/X Ads">Twitter/X Ads</option>
+              <option value="Pinterest Ads">Pinterest Ads</option>
+            </optgroup>
+            <optgroup label="Search & Display">
+              <option value="Google Ads">Google Ads</option>
+              <option value="Microsoft Ads">Microsoft Ads</option>
+            </optgroup>
+            <optgroup label="Streaming/CTV">
+              <option value="Netflix">Netflix</option>
+              <option value="Paramount+">Paramount+</option>
+              <option value="Disney+">Disney+</option>
+              <option value="HBO Max">HBO Max</option>
+              <option value="Globoplay">Globoplay</option>
+              <option value="YouTube">YouTube</option>
+              <option value="Spotify">Spotify</option>
+            </optgroup>
+            <optgroup label="Dados">
+              <option value="Serasa">Serasa</option>
+              <option value="Logan">Logan</option>
+              <option value="Cadastro Positivo">Cadastro Positivo</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="form-control col-span-4">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
+          <select id="objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('');">
+            <option value="">Selecione...</option>
+            <option value="CPM">CPM</option>
+            <option value="CPC">CPC</option>
+            <option value="CPA">CPA</option>
+            <option value="CPL">CPL</option>
+            <option value="CPV">CPV</option>
+            <option value="CPCV">CPCV</option>
+            <option value="CPE">CPE</option>
+            <option value="CPO">CPO</option>
+            <option value="Fixo">Fixo</option>
+          </select>
+        </div>
+
+        <div class="form-control col-span-4">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Viewability (%)</span></label>
+          <input type="number" id="viewability_minimo" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="70" value="70" min="0" max="100">
+        </div>
+
+        <div class="form-control col-span-12">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Produto</span></label>
+          <div class="flex flex-wrap gap-2 h-8 items-center">
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Mídia</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="produto" value="Dados" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Dados</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="produto" value="Interativo" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Interativo</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="produto" value="Parceiro" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Parceiro</span>
+            </label>
+          </div>
         </div>
       </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
-        <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
-            <i class="fas fa-calendar-alt text-gray-800"></i>
-          </button>
-          <input type="date" id="data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
+      <!-- Aba: Período -->
+      <div data-tabpanel="periodo" class="grid grid-cols-12 gap-2 hidden">
+        <div class="form-control col-span-5">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
+          </div>
+        </div>
+
+        <div class="form-control col-span-5">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
+          </div>
+        </div>
+
+        <div class="form-control col-span-2">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
+          <input type="text" id="dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full" readonly value="0">
         </div>
       </div>
 
-      <div class="form-control col-span-2">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
-        <input type="text" id="dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full" readonly value="0">
-      </div>
-
-      <div class="form-control col-span-4">
-        <label class="label py-0"><span class="label-text font-semibold text-xs">Especificações</span></label>
-        <input id="especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
-      </div>
-
-      <!-- Cálculo (Parâmetros + Valores em uma linha) -->
-      <div class="col-span-12 border-t pt-2 mt-1">
-        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
-          <h4 class="font-semibold text-xs">Cálculo</h4>
+      <!-- Aba: Precificação -->
+      <div data-tabpanel="preco" class="hidden">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-2">
+          <h4 class="font-semibold text-xs text-gray-700">Parâmetros e Valores</h4>
           <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
@@ -2338,8 +2358,13 @@ function calcularInvestLiquidoEdit() {
                    oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
-        <div id="indicador_budget_row" class="col-span-12 mt-2 hidden" role="region" aria-label="Indicador de Budget">
-          <div id="indicador_budget_box" class="border border-gray-200 rounded-md p-2 bg-gray-50">
+      </div>
+
+      <!-- Aba: Resultado -->
+      <div data-tabpanel="resultado" class="hidden space-y-3">
+        <div id="indicador_budget_row" class="hidden" role="region" aria-label="Indicador de Budget">
+          <div id="indicador_budget_box" class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Budget</div>
             <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
               <span><strong>Budget:</strong> <span id="indicador_budget_valor">R$ 0,00</span></span>
               <span>Outros itens + audi&ecirc;ncias: <span id="indicador_budget_existente">R$ 0,00</span></span>
@@ -2350,19 +2375,24 @@ function calcularInvestLiquidoEdit() {
             <progress id="indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
           </div>
         </div>
-        <div id="preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste">
+        <div id="preco_teste_resumo_row" class="hidden" role="region" aria-label="Resumo da precificação teste">
+          <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precificação</div>
           <div id="preco_teste_resumo_content" class="text-xs"></div>
         </div>
-        <div id="cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
+        <div id="cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
+          <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
           <div id="cliente_derivacao_resumo_content" class="text-xs"></div>
+        </div>
+        <div id="resultado_vazio_nova_linha" class="text-center text-xs text-gray-400 py-8">
+          Preencha os campos das abas anteriores e clique em <strong>Calcular</strong> na aba <strong>Precificação</strong> para ver o resultado aqui.
         </div>
       </div>
 
     </form>
     </div>
-    
+
     <!-- Footer padrão CRM -->
-    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+    <div class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
       <button type="button" onclick="document.getElementById('modal_nova_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
       <button id="btn_salvar_linha" type="button" onclick="salvarNovaLinha()" class="px-4 py-2 text-sm rounded text-white disabled:opacity-50" style="background-color: #72cd80;">
         <i class="fas fa-save mr-1"></i>Salvar
@@ -2424,183 +2454,200 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Editar Linha -->
 <dialog id="modal_editar_linha" class="modal">
-  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto p-0">
-    <!-- Header padrão CRM -->
-    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
-      <h3 id="modal_editar_linha_titulo" class="font-semibold text-lg text-gray-800">Editar Linha de Cotação</h3>
-      <form method="dialog">
-        <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
-      </form>
+  <div class="modal-box max-w-6xl max-h-[90vh] p-0 flex flex-col">
+    <!-- Header padrão CRM com abas -->
+    <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+      <div class="px-6 pt-4 pb-2 flex justify-between items-center">
+        <div>
+          <h3 id="modal_editar_linha_titulo" class="font-semibold text-base text-gray-900">Editar Linha de Cotação</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span> · Linha <span id="modal_editar_linha_id_badge" class="font-medium text-gray-700">#</span></p>
+        </div>
+        <form method="dialog">
+          <button type="submit" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400" aria-label="Fechar">✕</button>
+        </form>
+      </div>
+      <div class="px-6 flex gap-1 text-sm">
+        <button type="button" data-tab-trigger="briefing" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Briefing</button>
+        <button type="button" data-tab-trigger="midia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Mídia &amp; KPI</button>
+        <button type="button" data-tab-trigger="periodo" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Período</button>
+        <button type="button" data-tab-trigger="preco" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Precificação</button>
+        <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+      </div>
     </div>
-    
-    <div class="p-6">
-    <form id="form_editar_linha" class="grid grid-cols-12 gap-2" onsubmit="return false">
+
+    <div class="p-6 overflow-y-auto flex-1">
+    <form id="form_editar_linha" onsubmit="return false">
       <input type="hidden" id="edit_linha_id">
-      
-      <!-- Linha 1: Segmentação e Praça (mesma altura, borda padrão, colunas simétricas) -->
-      <div class="form-control col-span-6">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Segmentação (Target & Interesses) *</span></label>
-        <textarea id="edit_segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
-                  placeholder="Descreva a segmentação da audiência, interesses e comportamentos..."></textarea>
-      </div>
 
-      <div class="form-control col-span-6">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Praça</span></label>
-        <textarea id="edit_praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
-                  placeholder="Ex: Nacional, SP, RJ, BH e região metropolitana..."></textarea>
-      </div>
+      <!-- Aba: Briefing -->
+      <div data-tabpanel="briefing" class="grid grid-cols-12 gap-2">
+        <div class="form-control col-span-6">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Segmentação (Target & Interesses) *</span></label>
+          <textarea id="edit_segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
+                    placeholder="Descreva a segmentação da audiência, interesses e comportamentos..."></textarea>
+        </div>
 
-      <!-- Linha 2: Formatos -->
-      <div class="form-control col-span-12">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Formatos *</span></label>
-        <div class="flex flex-wrap gap-3">
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Carroussel</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="Video" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Video</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="Display" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Display</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="CTV" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">CTV</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="Audio" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Audio</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="Interativos" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Interativos</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_formatos" value="Outros" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Outros</span>
-          </label>
+        <div class="form-control col-span-6">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Praça</span></label>
+          <textarea id="edit_praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
+                    placeholder="Ex: Nacional, SP, RJ, BH e região metropolitana..."></textarea>
+        </div>
+
+        <div class="form-control col-span-12">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Formatos *</span></label>
+          <div class="flex flex-wrap gap-3">
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Carroussel</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="Video" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Video</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="Display" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Display</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="CTV" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">CTV</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="Audio" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Audio</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="Interativos" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Interativos</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_formatos" value="Outros" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Outros</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-control col-span-12">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Especificações</span></label>
+          <input id="edit_especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
         </div>
       </div>
 
-      <!-- Linha 3: Plataforma, KPI, Viewability, Produto -->
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
-        <select id="edit_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('edit_');">
-          <option value="">Selecione...</option>
-          <optgroup label="Mídia Programática">
-            <option value="DV360">DV360</option>
-            <option value="Programática">Programática</option>
-            <option value="Amazon DSP">Amazon DSP</option>
-          </optgroup>
-          <optgroup label="Social">
-            <option value="Meta Ads">Meta Ads</option>
-            <option value="TikTok Ads">TikTok Ads</option>
-            <option value="LinkedIn Ads">LinkedIn Ads</option>
-            <option value="Twitter/X Ads">Twitter/X Ads</option>
-            <option value="Pinterest Ads">Pinterest Ads</option>
-          </optgroup>
-          <optgroup label="Search & Display">
-            <option value="Google Ads">Google Ads</option>
-            <option value="Microsoft Ads">Microsoft Ads</option>
-          </optgroup>
-          <optgroup label="Streaming/CTV">
-            <option value="Netflix">Netflix</option>
-            <option value="Paramount+">Paramount+</option>
-            <option value="Disney+">Disney+</option>
-            <option value="HBO Max">HBO Max</option>
-            <option value="Globoplay">Globoplay</option>
-            <option value="YouTube">YouTube</option>
-            <option value="Spotify">Spotify</option>
-          </optgroup>
-          <optgroup label="Dados">
-            <option value="Serasa">Serasa</option>
-            <option value="Logan">Logan</option>
-            <option value="Cadastro Positivo">Cadastro Positivo</option>
-          </optgroup>
-        </select>
-      </div>
+      <!-- Aba: Mídia & KPI -->
+      <div data-tabpanel="midia" class="grid grid-cols-12 gap-2 hidden">
+        <div class="form-control col-span-4">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
+          <select id="edit_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('edit_');">
+            <option value="">Selecione...</option>
+            <optgroup label="Mídia Programática">
+              <option value="DV360">DV360</option>
+              <option value="Programática">Programática</option>
+              <option value="Amazon DSP">Amazon DSP</option>
+            </optgroup>
+            <optgroup label="Social">
+              <option value="Meta Ads">Meta Ads</option>
+              <option value="TikTok Ads">TikTok Ads</option>
+              <option value="LinkedIn Ads">LinkedIn Ads</option>
+              <option value="Twitter/X Ads">Twitter/X Ads</option>
+              <option value="Pinterest Ads">Pinterest Ads</option>
+            </optgroup>
+            <optgroup label="Search & Display">
+              <option value="Google Ads">Google Ads</option>
+              <option value="Microsoft Ads">Microsoft Ads</option>
+            </optgroup>
+            <optgroup label="Streaming/CTV">
+              <option value="Netflix">Netflix</option>
+              <option value="Paramount+">Paramount+</option>
+              <option value="Disney+">Disney+</option>
+              <option value="HBO Max">HBO Max</option>
+              <option value="Globoplay">Globoplay</option>
+              <option value="YouTube">YouTube</option>
+              <option value="Spotify">Spotify</option>
+            </optgroup>
+            <optgroup label="Dados">
+              <option value="Serasa">Serasa</option>
+              <option value="Logan">Logan</option>
+              <option value="Cadastro Positivo">Cadastro Positivo</option>
+            </optgroup>
+          </select>
+        </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
-        <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('edit_');">
-          <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPL">CPL</option>
-          <option value="CPV">CPV</option>
-          <option value="CPCV">CPCV</option>
-          <option value="CPE">CPE</option>
-          <option value="CPO">CPO</option>
-          <option value="Fixo">Fixo</option>
-        </select>
-      </div>
+        <div class="form-control col-span-4">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
+          <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('edit_');">
+            <option value="">Selecione...</option>
+            <option value="CPM">CPM</option>
+            <option value="CPC">CPC</option>
+            <option value="CPA">CPA</option>
+            <option value="CPL">CPL</option>
+            <option value="CPV">CPV</option>
+            <option value="CPCV">CPCV</option>
+            <option value="CPE">CPE</option>
+            <option value="CPO">CPO</option>
+            <option value="Fixo">Fixo</option>
+          </select>
+        </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Viewability (%)</span></label>
-        <input type="number" id="edit_viewability_minimo" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="70" value="70" min="0" max="100">
-      </div>
+        <div class="form-control col-span-4">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Viewability (%)</span></label>
+          <input type="number" id="edit_viewability_minimo" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="70" value="70" min="0" max="100">
+        </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Produto</span></label>
-        <div class="flex flex-wrap gap-2 h-8 items-center">
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Mídia</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_produto" value="Dados" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Dados</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_produto" value="Interativo" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Interativo</span>
-          </label>
-          <label class="label cursor-pointer justify-start gap-1 py-0">
-            <input type="checkbox" name="edit_produto" value="Parceiro" class="checkbox checkbox-xs">
-            <span class="label-text text-xs">Parceiro</span>
-          </label>
+        <div class="form-control col-span-12">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Produto</span></label>
+          <div class="flex flex-wrap gap-2 h-8 items-center">
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Mídia</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_produto" value="Dados" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Dados</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_produto" value="Interativo" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Interativo</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-1 py-0">
+              <input type="checkbox" name="edit_produto" value="Parceiro" class="checkbox checkbox-xs">
+              <span class="label-text text-xs">Parceiro</span>
+            </label>
+          </div>
         </div>
       </div>
 
-      <!-- Linha 4: Datas e Especificações -->
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
-        <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
-            <i class="fas fa-calendar-alt text-gray-800"></i>
-          </button>
-          <input type="date" id="edit_data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
+      <!-- Aba: Período -->
+      <div data-tabpanel="periodo" class="grid grid-cols-12 gap-2 hidden">
+        <div class="form-control col-span-5">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="edit_data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
+          </div>
+        </div>
+
+        <div class="form-control col-span-5">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="edit_data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
+          </div>
+        </div>
+
+        <div class="form-control col-span-2">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Dias</span></label>
+          <input type="text" id="edit_dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full" readonly value="0">
         </div>
       </div>
 
-      <div class="form-control col-span-3">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
-        <div class="join w-full">
-          <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
-            <i class="fas fa-calendar-alt text-gray-800"></i>
-          </button>
-          <input type="date" id="edit_data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
-        </div>
-      </div>
-
-      <div class="form-control col-span-2">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Dias</span></label>
-        <input type="text" id="edit_dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full" readonly value="0">
-      </div>
-
-      <div class="form-control col-span-4">
-        <label class="label py-0"><span class="label-text text-xs font-semibold">Especificações</span></label>
-        <input id="edit_especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
-      </div>
-
-      <!-- Cálculo (Parâmetros + Valores em uma linha) -->
-      <div class="col-span-12 border-t pt-2 mt-1">
-        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
-          <h4 class="font-semibold text-xs">Cálculo</h4>
+      <!-- Aba: Precificação -->
+      <div data-tabpanel="preco" class="hidden">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-2">
+          <h4 class="font-semibold text-xs text-gray-700">Parâmetros e Valores</h4>
           <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
@@ -2658,8 +2705,13 @@ function calcularInvestLiquidoEdit() {
                    oninput="aplicarMascaraDinheiro(this);">
           </div>
         </div>
-        <div id="edit_indicador_budget_row" class="col-span-12 mt-2 hidden" role="region" aria-label="Indicador de Budget">
-          <div id="edit_indicador_budget_box" class="border border-gray-200 rounded-md p-2 bg-gray-50">
+      </div>
+
+      <!-- Aba: Resultado -->
+      <div data-tabpanel="resultado" class="hidden space-y-3">
+        <div id="edit_indicador_budget_row" class="hidden" role="region" aria-label="Indicador de Budget">
+          <div id="edit_indicador_budget_box" class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Budget</div>
             <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
               <span><strong>Budget:</strong> <span id="edit_indicador_budget_valor">R$ 0,00</span></span>
               <span>Outros itens + audi&ecirc;ncias: <span id="edit_indicador_budget_existente">R$ 0,00</span></span>
@@ -2670,19 +2722,24 @@ function calcularInvestLiquidoEdit() {
             <progress id="edit_indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
           </div>
         </div>
-        <div id="edit_preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste">
+        <div id="edit_preco_teste_resumo_row" class="hidden" role="region" aria-label="Resumo da precificação teste">
+          <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precificação</div>
           <div id="edit_preco_teste_resumo_content" class="text-xs"></div>
         </div>
-        <div id="edit_cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
+        <div id="edit_cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
+          <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
           <div id="edit_cliente_derivacao_resumo_content" class="text-xs"></div>
+        </div>
+        <div id="resultado_vazio_editar_linha" class="text-center text-xs text-gray-400 py-8">
+          Sem dados de cálculo. Preencha os campos na aba <strong>Precificação</strong> e clique em <strong>Calcular</strong>.
         </div>
       </div>
 
     </form>
     </div>
-    
+
     <!-- Footer padrão CRM -->
-    <div id="modal_editar_linha_footer" class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
+    <div id="modal_editar_linha_footer" class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
       <button type="button" onclick="excluirLinhaDoModal()" class="px-4 py-2 text-sm border border-red-300 rounded hover:bg-red-50 text-red-600">
         <i class="fas fa-trash mr-1"></i>Excluir
       </button>
@@ -2701,27 +2758,40 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Editar Cliente -->
 <dialog id="modal_editar_cliente" class="modal">
-  <div class="modal-box max-w-4xl">
-    <h3 class="font-bold text-lg mb-4">Editar Informações do Cliente</h3>
-    
-    <form id="form_editar_cliente" class="space-y-4">
-      <!-- Cliente e Contato (empilhados) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="space-y-3">
+  <div class="modal-box max-w-4xl p-0 flex flex-col max-h-[90vh]">
+    <!-- Header com abas + identificador -->
+    <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+      <div class="px-6 pt-4 pb-2 flex justify-between items-center">
+        <div>
+          <h3 class="font-semibold text-base text-gray-900">Editar Informações do Cliente</h3>
+          <p class="text-xs text-gray-500 mt-0.5">Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span> · <span class="font-medium text-gray-700">{{ cotacao.cliente_nome if cotacao else '—' }}</span></p>
+        </div>
+        <button type="button" onclick="document.getElementById('modal_editar_cliente').close()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100" aria-label="Fechar">✕</button>
+      </div>
+      <div class="px-6 flex gap-1 text-sm">
+        <button type="button" data-tab-trigger="cliente" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Cliente &amp; Responsável</button>
+        <button type="button" data-tab-trigger="intermediario" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Intermediário</button>
+      </div>
+    </div>
+
+    <form id="form_editar_cliente" class="p-6 overflow-y-auto flex-1" onsubmit="return false">
+      <!-- Aba: Cliente & Responsável -->
+      <div data-tabpanel="cliente" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="form-control">
             <label class="label"><span class="label-text font-semibold">Cliente *</span></label>
             <div class="relative">
               <input type="hidden" id="edit_cliente_id" value="{{ cotacao.client_id if cotacao else '' }}">
-              <input type="text" id="edit_cliente_busca" class="input input-bordered w-full" 
-                     placeholder="Digite para buscar cliente..." 
+              <input type="text" id="edit_cliente_busca" class="input input-bordered w-full"
+                     placeholder="Digite para buscar cliente..."
                      value="{{ cotacao.cliente_nome if cotacao else '' }}"
-                     autocomplete="off" 
-                     oninput="buscarClientesEditModal(this.value)" 
+                     autocomplete="off"
+                     oninput="buscarClientesEditModal(this.value)"
                      onfocus="mostrarResultadosEditModal()">
               <div id="resultados_clientes_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
             </div>
           </div>
-          
+
           <div class="form-control">
             <label class="label"><span class="label-text font-semibold">Contato do Cliente</span></label>
             <select id="edit_contato_id" class="select select-bordered w-full">
@@ -2734,91 +2804,99 @@ function calcularInvestLiquidoEdit() {
             </select>
           </div>
         </div>
-        
-        <!-- Agência e Contato Agência (empilhados) -->
-        <div id="edit_bloco_agencia" class="space-y-3">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Agência</span></label>
-            <div class="relative">
-              <input type="hidden" id="edit_agencia_id" value="{{ cotacao.agencia_id if cotacao and cotacao.agencia_id else '' }}">
-              <div class="flex gap-1">
-                <input type="text" id="edit_agencia_busca" class="input input-bordered flex-1" 
-                       placeholder="Digite para buscar agência..." 
-                       value="{{ cotacao.agencia_nome if cotacao and cotacao.agencia_nome else '' }}"
-                       autocomplete="off" 
-                       oninput="buscarAgenciasEditModal(this.value)" 
-                       onfocus="mostrarResultadosAgenciaEditModal()">
-                <button type="button" onclick="limparAgenciaEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
-                  <i class="fas fa-times text-gray-400"></i>
-                </button>
-              </div>
-              <div id="resultados_agencias_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
-            </div>
-          </div>
-          
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Contato da Agência</span></label>
-            <select id="edit_contato_agencia_id" class="select select-bordered w-full">
-              <option value="">Selecione um contato...</option>
-              {% if contatos_agencia %}
-                {% for cont in contatos_agencia %}
-                <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.agencia_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
-                {% endfor %}
-              {% endif %}
-            </select>
-          </div>
-        </div>
 
-        <!-- Parceiro e Contato Parceiro (empilhados) -->
-        <div id="edit_bloco_parceiro" class="space-y-3">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Parceiro</span></label>
-            <div class="relative">
-              <input type="hidden" id="edit_parceiro_id" value="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}">
-              <div class="flex gap-1">
-                <input type="text" id="edit_parceiro_busca" class="input input-bordered flex-1" 
-                       placeholder="Digite para buscar parceiro..." 
-                       value="{{ cotacao.parceiro_nome if cotacao and cotacao.parceiro_nome else '' }}"
-                       autocomplete="off" 
-                       oninput="buscarParceirosEditModal(this.value)" 
-                       onfocus="mostrarResultadosParceiroEditModal()">
-                <button type="button" onclick="limparParceiroEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
-                  <i class="fas fa-times text-gray-400"></i>
-                </button>
-              </div>
-              <div id="resultados_parceiros_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
-            </div>
-          </div>
-          
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Contato do Parceiro</span></label>
-            <select id="edit_contato_parceiro_id" class="select select-bordered w-full">
-              <option value="">Selecione um contato...</option>
-              {% if contatos_parceiro %}
-                {% for cont in contatos_parceiro %}
-                <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.parceiro_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
-                {% endfor %}
-              {% endif %}
-            </select>
-          </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Executivo Responsável</span></label>
+          <select id="edit_responsavel_comercial" class="select select-bordered w-full">
+            <option value="">Selecione...</option>
+            {% for user in vendedores %}
+            <option value="{{ user.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == user.id_contato_cliente %}selected{% endif %}>{{ user.nome_completo }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
-      
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Executivo Responsável</span></label>
-        <select id="edit_responsavel_comercial" class="select select-bordered w-full">
-          <option value="">Selecione...</option>
-          {% for user in vendedores %}
-          <option value="{{ user.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == user.id_contato_cliente %}selected{% endif %}>{{ user.nome_completo }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      
-      <div class="modal-action">
-        <button type="button" onclick="document.getElementById('modal_editar_cliente').close()" class="btn btn-ghost">Cancelar</button>
-        <button type="button" onclick="salvarEdicaoCliente()" class="btn text-white" style="background-color: #72cd80;">Salvar</button>
+
+      <!-- Aba: Intermediário (agência ou parceiro - mutuamente exclusivos) -->
+      <div data-tabpanel="intermediario" class="hidden space-y-4">
+        <p class="text-xs text-gray-500">Agência e parceiro são mutuamente exclusivos. Selecione um ou outro; quando ambos estiverem vazios, os dois blocos ficam disponíveis.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Bloco Agência -->
+          <div id="edit_bloco_agencia" class="space-y-3 border border-gray-200 rounded-md p-3 bg-white">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Agência</div>
+            <div class="form-control">
+              <label class="label py-0"><span class="label-text font-semibold text-xs">Agência</span></label>
+              <div class="relative">
+                <input type="hidden" id="edit_agencia_id" value="{{ cotacao.agencia_id if cotacao and cotacao.agencia_id else '' }}">
+                <div class="flex gap-1">
+                  <input type="text" id="edit_agencia_busca" class="input input-bordered flex-1"
+                         placeholder="Digite para buscar agência..."
+                         value="{{ cotacao.agencia_nome if cotacao and cotacao.agencia_nome else '' }}"
+                         autocomplete="off"
+                         oninput="buscarAgenciasEditModal(this.value)"
+                         onfocus="mostrarResultadosAgenciaEditModal()">
+                  <button type="button" onclick="limparAgenciaEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
+                    <i class="fas fa-times text-gray-400"></i>
+                  </button>
+                </div>
+                <div id="resultados_agencias_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
+              </div>
+            </div>
+
+            <div class="form-control">
+              <label class="label py-0"><span class="label-text font-semibold text-xs">Contato da Agência</span></label>
+              <select id="edit_contato_agencia_id" class="select select-bordered w-full">
+                <option value="">Selecione um contato...</option>
+                {% if contatos_agencia %}
+                  {% for cont in contatos_agencia %}
+                  <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.agencia_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Bloco Parceiro -->
+          <div id="edit_bloco_parceiro" class="space-y-3 border border-gray-200 rounded-md p-3 bg-white">
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Parceiro</div>
+            <div class="form-control">
+              <label class="label py-0"><span class="label-text font-semibold text-xs">Parceiro</span></label>
+              <div class="relative">
+                <input type="hidden" id="edit_parceiro_id" value="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}">
+                <div class="flex gap-1">
+                  <input type="text" id="edit_parceiro_busca" class="input input-bordered flex-1"
+                         placeholder="Digite para buscar parceiro..."
+                         value="{{ cotacao.parceiro_nome if cotacao and cotacao.parceiro_nome else '' }}"
+                         autocomplete="off"
+                         oninput="buscarParceirosEditModal(this.value)"
+                         onfocus="mostrarResultadosParceiroEditModal()">
+                  <button type="button" onclick="limparParceiroEditModal()" class="btn btn-ghost btn-sm" title="Limpar">
+                    <i class="fas fa-times text-gray-400"></i>
+                  </button>
+                </div>
+                <div id="resultados_parceiros_edit" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200"></div>
+              </div>
+            </div>
+
+            <div class="form-control">
+              <label class="label py-0"><span class="label-text font-semibold text-xs">Contato do Parceiro</span></label>
+              <select id="edit_contato_parceiro_id" class="select select-bordered w-full">
+                <option value="">Selecione um contato...</option>
+                {% if contatos_parceiro %}
+                  {% for cont in contatos_parceiro %}
+                  <option value="{{ cont.id_contato_cliente }}" {% if cotacao and cotacao.parceiro_user_id|int == cont.id_contato_cliente|int %}selected{% endif %}>{{ cont.nome_completo }} ({{ cont.email or '-' }})</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
     </form>
+
+    <div class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+      <button type="button" onclick="document.getElementById('modal_editar_cliente').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarEdicaoCliente()" class="btn text-white" style="background-color: #72cd80;">Salvar</button>
+    </div>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>Fechar</button>
@@ -2827,54 +2905,85 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Editar Campanha -->
 <dialog id="modal_editar_campanha" class="modal">
-  <div class="modal-box max-w-2xl">
-    <h3 class="font-bold text-lg mb-4">Editar Informações da Campanha</h3>
-    
-    <form id="form_editar_campanha" class="space-y-4">
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Nome da Campanha *</span></label>
-        <input type="text" id="edit_nome_campanha" class="input input-bordered w-full" value="{{ cotacao.nome_campanha if cotacao else '' }}">
-      </div>
-      
-      <div class="grid grid-cols-2 gap-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Período Início</span></label>
-          <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_periodo_inicio').showPicker()">
-              <i class="fas fa-calendar-alt text-gray-800"></i>
-            </button>
-            <input type="date" id="edit_periodo_inicio" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_inicio else '' }}">
-          </div>
+  <div class="modal-box max-w-2xl p-0 flex flex-col max-h-[90vh]">
+    <!-- Header com abas + identificador -->
+    <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+      <div class="px-6 pt-4 pb-2 flex justify-between items-center">
+        <div>
+          <h3 class="font-semibold text-base text-gray-900">Editar Informações da Campanha</h3>
+          <p class="text-xs text-gray-500 mt-0.5">
+            Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span>
+            {% if cotacao and cotacao.status %}
+            <span class="ml-2 inline-block px-2 py-0.5 rounded text-[10px] font-medium
+              {% if cotacao.status == 'Rascunho' %}bg-gray-200 text-gray-700
+              {% elif cotacao.status == 'Em Análise' %}bg-blue-100 text-blue-700
+              {% elif cotacao.status == 'Negociação' %}bg-amber-100 text-amber-700
+              {% elif cotacao.status == 'Em Acompanhamento' %}bg-emerald-100 text-emerald-700
+              {% else %}bg-gray-100 text-gray-700{% endif %}">
+              {{ cotacao.status }}
+            </span>
+            {% endif %}
+          </p>
         </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Período Fim</span></label>
-          <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_periodo_fim').showPicker()">
-              <i class="fas fa-calendar-alt text-gray-800"></i>
-            </button>
-            <input type="date" id="edit_periodo_fim" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_fim else '' }}">
-          </div>
-        </div>
+        <button type="button" onclick="document.getElementById('modal_editar_campanha').close()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-base leading-none font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-100" aria-label="Fechar">✕</button>
       </div>
-      
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Objetivo da Campanha</span></label>
-        <textarea id="edit_objetivo_campanha" class="textarea textarea-bordered w-full" rows="2">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha and cotacao.objetivo_campanha != 'None' else '' }}</textarea>
+      <div class="px-6 flex gap-1 text-sm">
+        <button type="button" data-tab-trigger="basico" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Básico</button>
+        <button type="button" data-tab-trigger="cronograma" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Cronograma &amp; Budget</button>
+      </div>
+    </div>
+
+    <form id="form_editar_campanha" class="p-6 overflow-y-auto flex-1 space-y-4" onsubmit="return false">
+      <!-- Aba: Básico -->
+      <div data-tabpanel="basico" class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Nome da Campanha *</span></label>
+          <input type="text" id="edit_nome_campanha" class="input input-bordered w-full" value="{{ cotacao.nome_campanha if cotacao else '' }}">
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Objetivo da Campanha</span></label>
+          <textarea id="edit_objetivo_campanha" class="textarea textarea-bordered w-full" rows="3">{{ cotacao.objetivo_campanha if cotacao and cotacao.objetivo_campanha and cotacao.objetivo_campanha != 'None' else '' }}</textarea>
+        </div>
       </div>
 
-      <div class="form-control">
-        <label class="label"><span class="label-text font-semibold">Budget da campanha (R$)</span></label>
-        <input type="hidden" id="edit_budget_estimado_hidden" value="{% if cotacao and cotacao.budget_estimado is not none %}{{ cotacao.budget_estimado }}{% endif %}">
-        <input type="text" id="edit_budget_estimado_display" class="input input-bordered w-full bg-white"
-               placeholder="0,00" inputmode="decimal" autocomplete="off">
-        <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho, Em Análise, Negociação ou Em Acompanhamento.</span></label>
-      </div>
-      
-      <div class="modal-action">
-        <button type="button" onclick="document.getElementById('modal_editar_campanha').close()" class="btn btn-ghost">Cancelar</button>
-        <button type="button" onclick="salvarEdicaoCampanha()" class="btn text-white" style="background-color: #72cd80;">Salvar</button>
+      <!-- Aba: Cronograma & Budget -->
+      <div data-tabpanel="cronograma" class="space-y-4 hidden">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Período Início</span></label>
+            <div class="join w-full">
+              <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-gray-800"></i>
+              </button>
+              <input type="date" id="edit_periodo_inicio" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_inicio else '' }}">
+            </div>
+          </div>
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Período Fim</span></label>
+            <div class="join w-full">
+              <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-gray-800"></i>
+              </button>
+              <input type="date" id="edit_periodo_fim" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao and cotacao.periodo_fim else '' }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text font-semibold">Budget da campanha (R$)</span></label>
+          <input type="hidden" id="edit_budget_estimado_hidden" value="{% if cotacao and cotacao.budget_estimado is not none %}{{ cotacao.budget_estimado }}{% endif %}">
+          <input type="text" id="edit_budget_estimado_display" class="input input-bordered w-full bg-white"
+                 placeholder="0,00" inputmode="decimal" autocomplete="off">
+          <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho, Em Análise, Negociação ou Em Acompanhamento.</span></label>
+        </div>
       </div>
     </form>
+
+    <div class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 sticky bottom-0">
+      <button type="button" onclick="document.getElementById('modal_editar_campanha').close()" class="btn btn-ghost">Cancelar</button>
+      <button type="button" onclick="salvarEdicaoCampanha()" class="btn text-white" style="background-color: #72cd80;">Salvar</button>
+    </div>
   </div>
   <form method="dialog" class="modal-backdrop">
     <button>Fechar</button>
@@ -2926,48 +3035,57 @@ function calcularInvestLiquidoEdit() {
     
     <!-- Etapa 2: Detalhes da Audiência Selecionada -->
     <div id="etapa_detalhes_audiencia" class="hidden">
-      <!-- Header padrão CRM -->
-      <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
-        <div class="flex items-center gap-2">
-          <button type="button" onclick="voltarBuscaAudiencia()" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-          </button>
-          <h3 class="font-semibold text-lg text-gray-800">Configurar Audiência</h3>
-        </div>
-        <form method="dialog">
-          <button class="btn btn-sm btn-circle btn-ghost">✕</button>
-        </form>
-      </div>
-      
-      <div class="p-6">
-        <form id="form_nova_audiencia" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input type="hidden" id="audiencia_id_selecionada">
-          
-          <!-- Card da Audiência com Thumbnail -->
-          <div class="md:col-span-3 bg-gray-100 rounded-lg p-4 flex gap-4">
-            <div id="audiencia_thumbnail" class="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-              <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
-            </div>
-            <div class="flex-1">
-              <h4 id="audiencia_nome_display" class="font-bold text-lg"></h4>
-              <div class="flex flex-wrap gap-2 mt-2">
-                <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
-                <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
-              </div>
-              <p id="audiencia_publico_display" class="text-sm text-gray-600 mt-2"></p>
+      <!-- Header padrão CRM com abas -->
+      <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+        <div class="px-6 pt-4 pb-2 flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="voltarBuscaAudiencia()" class="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Voltar à busca">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <div>
+              <h3 class="font-semibold text-base text-gray-900">Configurar Audiência</h3>
+              <p class="text-xs text-gray-500 mt-0.5">Cotação <span class="font-medium text-gray-700">{{ cotacao.numero_cotacao if cotacao else '' }}</span> · <span id="modal_audiencia_nome_badge" class="font-medium text-gray-700">—</span></p>
             </div>
           </div>
-          
-          <!-- Precificação (teste): espelho do bloco Cálculo das linhas -->
-          <div class="md:col-span-3 border border-gray-100 rounded-lg p-3 mt-2">
-            <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
-              <h4 class="font-semibold text-xs">Precificação (teste)</h4>
-              <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
-            </div>
+          <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost">✕</button>
+          </form>
+        </div>
+        <div class="px-6 flex gap-1 text-sm">
+          <button type="button" data-tab-trigger="audiencia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Audiência</button>
+          <button type="button" data-tab-trigger="midia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Mídia &amp; Período</button>
+          <button type="button" data-tab-trigger="preco" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Precificação</button>
+          <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
+        </div>
+      </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-2">
+      <div class="p-6">
+        <form id="form_nova_audiencia" onsubmit="return false">
+          <input type="hidden" id="audiencia_id_selecionada">
+
+          <!-- Aba: Audiência -->
+          <div data-tabpanel="audiencia">
+            <div class="bg-gray-100 rounded-lg p-4 flex gap-4">
+              <div id="audiencia_thumbnail" class="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h4 id="audiencia_nome_display" class="font-bold text-lg"></h4>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
+                  <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
+                </div>
+                <p id="audiencia_publico_display" class="text-sm text-gray-600 mt-2"></p>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Avance para a aba <strong>Mídia &amp; Período</strong> para configurar a precificação.</p>
+          </div>
+
+          <!-- Aba: Mídia & Período -->
+          <div data-tabpanel="midia" class="hidden">
+            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-3">
               <div class="form-control col-span-2 sm:col-span-3">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
                 <select id="audiencia_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
@@ -3022,7 +3140,7 @@ function calcularInvestLiquidoEdit() {
               </div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-2">
+            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
               <div class="form-control col-span-2">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
                 <div class="join w-full">
@@ -3054,35 +3172,42 @@ function calcularInvestLiquidoEdit() {
                        readonly value="0">
               </div>
             </div>
+          </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
-              <div class="form-control w-fit max-w-full">
+          <!-- Aba: Precificação -->
+          <div data-tabpanel="preco" class="hidden">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-2">
+              <h4 class="font-semibold text-xs text-gray-700">Parâmetros e Valores</h4>
+              <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <div class="form-control">
                 <label class="label py-0">
-                  <span class="label-text text-[10px]">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+                  <span class="label-text text-[11px]">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
                 </label>
-                <div class="join w-full max-w-[5.25rem]">
+                <div class="join w-full">
                   <input type="text" id="audiencia_margem_cc_override"
-                         class="input input-bordered join-item flex-1 min-w-0 h-6 min-h-6 px-1.5 py-0 text-[10px] leading-tight border-gray-300"
+                         class="input input-bordered input-xs join-item flex-1"
                          inputmode="decimal" placeholder="25,00"
                          oninput="atualizarBtnCalcularPreco('audiencia_');">
-                  <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-[10px] px-1.5 border border-l-0 border-gray-300 rounded-r h-6 min-h-6">%</span>
+                  <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-[11px] px-2 border border-l-0 border-gray-300 rounded-r">%</span>
                 </div>
-                <span id="audiencia_margem_cc_override_hint" class="text-[9px] text-gray-500 mt-0.5 block max-w-[5.25rem]"></span>
+                <span id="audiencia_margem_cc_override_hint" class="text-[10px] text-gray-500 mt-0.5 block"></span>
               </div>
 
-              <div class="form-control w-fit max-w-full">
-                <label class="label py-0"><span class="label-text text-[10px]">Val. Unit. Tabela</span></label>
-                <div class="join w-full max-w-[9.25rem]">
+              <div class="form-control">
+                <label class="label py-0"><span class="label-text text-[11px]">Val. Unit. Tabela</span></label>
+                <div class="join w-full">
                   <input type="text" id="audiencia_valor_unitario_tabela"
-                         class="input input-bordered join-item flex-1 min-w-0 w-0 h-6 min-h-6 px-1.5 py-0 text-[10px] leading-tight border-gray-300"
+                         class="input input-bordered input-xs join-item flex-1"
                          placeholder="0,00"
                          oninput="aplicarMascaraDinheiro(this); atualizarBtnCalcularPreco('audiencia_');">
                   <button type="button" id="audiencia_btn_calcular_preco"
-                          class="join-item btn btn-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-900 min-h-6 h-6 min-w-[1.75rem] px-1 py-0 border-0 disabled:opacity-50"
+                          class="join-item btn btn-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-900 px-2 disabled:opacity-50"
                           onclick="void calcularValorNegociadoAsyncAudiencia();"
                           title="Calcular preço unitário negociado (Plataforma + KPI + Val. Unit. Tabela)"
                           disabled>
-                    <i class="fas fa-calculator text-[10px]"></i>
+                    <i class="fas fa-calculator"></i>
                   </button>
                 </div>
               </div>
@@ -3106,12 +3231,16 @@ function calcularInvestLiquidoEdit() {
 
               <div class="form-control">
                 <label class="label py-0"><span class="label-text text-[11px]">Invest. Líquido</span></label>
-                <input type="text" id="audiencia_investimento_liquido" class="input input-bordered input-xs" placeholder="0,00" readonly>
+                <input type="text" id="audiencia_investimento_liquido" class="input input-bordered input-xs bg-gray-100" placeholder="0,00" readonly>
               </div>
             </div>
+          </div>
 
-            <div id="audiencia_indicador_budget_row" class="col-span-12 mt-2 hidden" role="region" aria-label="Indicador de Budget (audiência)">
-              <div id="audiencia_indicador_budget_box" class="border border-gray-200 rounded-md p-2 bg-gray-50">
+          <!-- Aba: Resultado -->
+          <div data-tabpanel="resultado" class="hidden space-y-3">
+            <div id="audiencia_indicador_budget_row" class="hidden" role="region" aria-label="Indicador de Budget (audiência)">
+              <div id="audiencia_indicador_budget_box" class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Budget</div>
                 <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                   <span><strong>Budget:</strong> <span id="audiencia_indicador_budget_valor">R$ 0,00</span></span>
                   <span>Outros itens + audi&ecirc;ncias: <span id="audiencia_indicador_budget_existente">R$ 0,00</span></span>
@@ -3122,14 +3251,19 @@ function calcularInvestLiquidoEdit() {
                 <progress id="audiencia_indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
               </div>
             </div>
-            <div id="audiencia_preco_teste_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo da precificação teste (audiência)">
+            <div id="audiencia_preco_teste_resumo_row" class="hidden" role="region" aria-label="Resumo da precificação teste (audiência)">
+              <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precificação</div>
               <div id="audiencia_preco_teste_resumo_content" class="text-xs"></div>
             </div>
-            <div id="audiencia_cliente_derivacao_resumo_row" class="col-span-12 mt-3 hidden" role="region" aria-label="Resumo derivação investimento ou volume (audiência)">
+            <div id="audiencia_cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação investimento ou volume (audiência)">
+              <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
               <div id="audiencia_cliente_derivacao_resumo_content" class="text-xs"></div>
             </div>
+            <div id="resultado_vazio_audiencia" class="text-center text-xs text-gray-400 py-8">
+              Configure plataforma, período e precificação e clique em <strong>Calcular</strong> para ver o resultado aqui.
+            </div>
           </div>
-          
+
           <!-- Campos ocultos para envio -->
           <input type="hidden" id="audiencia_nome">
           <input type="hidden" id="audiencia_publico">
@@ -3138,10 +3272,10 @@ function calcularInvestLiquidoEdit() {
 
         </form>
       </div>
-      
+
       <!-- Footer padrão CRM -->
-      <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between sticky bottom-0">
-        <button type="button" id="btn_excluir_audiencia" onclick="excluirAudienciaDoModal()" 
+      <div class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-between sticky bottom-0">
+        <button type="button" id="btn_excluir_audiencia" onclick="excluirAudienciaDoModal()"
                 class="hidden px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
           <i class="fas fa-trash-can mr-1"></i>Excluir
         </button>
@@ -3306,6 +3440,66 @@ function calcularInvestLiquidoEdit() {
 const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise', 'Negociação'];
 const STATUS_PERMITE_EDICAO_CAMPANHA = ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'];
 let statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
+
+// ==================== HELPER DE ABAS DOS MODAIS ====================
+// Inicializa o sistema de abas (data-tab-trigger / data-tabpanel) de um modal.
+// Idempotente: pode ser chamado várias vezes; só anexa listeners uma vez.
+function inicializarAbasModal(modalId, opts) {
+  var modal = document.getElementById(modalId);
+  if (!modal) return;
+  opts = opts || {};
+  var scope = opts.scope ? modal.querySelector(opts.scope) : modal;
+  if (!scope) scope = modal;
+
+  function ativar(nome) {
+    var triggers = scope.querySelectorAll('[data-tab-trigger]');
+    var panels = scope.querySelectorAll('[data-tabpanel]');
+    triggers.forEach(function(t){
+      var ativo = t.dataset.tabTrigger === nome;
+      t.classList.toggle('tab-active', ativo);
+      t.classList.toggle('text-gray-900', ativo);
+      t.classList.toggle('font-semibold', ativo);
+      t.classList.toggle('border-gray-900', ativo);
+      t.classList.toggle('border-transparent', !ativo);
+      t.classList.toggle('text-gray-500', !ativo);
+    });
+    panels.forEach(function(p){
+      p.classList.toggle('hidden', p.dataset.tabpanel !== nome);
+    });
+  }
+
+  if (modal.dataset.abasInit !== '1') {
+    scope.querySelectorAll('[data-tab-trigger]').forEach(function(t){
+      t.addEventListener('click', function(e){
+        e.preventDefault();
+        ativar(t.dataset.tabTrigger);
+      });
+    });
+    modal.dataset.abasInit = '1';
+  }
+
+  var primeira = scope.querySelector('[data-tab-trigger]');
+  var alvo = opts.aba || (primeira && primeira.dataset.tabTrigger);
+  if (alvo) ativar(alvo);
+}
+
+// Marca/desmarca uma bolinha de pendência (.tab-badge-erro) num trigger de aba.
+function marcarPendenciaAba(modalId, abaNome, temPendencia) {
+  var modal = document.getElementById(modalId);
+  if (!modal) return;
+  var trigger = modal.querySelector('[data-tab-trigger="' + abaNome + '"]');
+  if (!trigger) return;
+  var badge = trigger.querySelector('.tab-badge-erro');
+  if (temPendencia) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'tab-badge-erro ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-red-500 align-middle';
+      trigger.appendChild(badge);
+    }
+  } else if (badge) {
+    badge.remove();
+  }
+}
 
 // Função auxiliar para verificar se edição é permitida
 function podeEditar() {
@@ -4033,6 +4227,7 @@ function abrirModalEditarCliente() {
     mostrarBloqueioEdicao();
     return;
   }
+  inicializarAbasModal('modal_editar_cliente', { aba: 'cliente' });
   document.getElementById('modal_editar_cliente').showModal();
   toggleAgenciaParceiroEdit();
 }
@@ -4444,6 +4639,7 @@ function abrirModalEditarCampanha() {
     return;
   }
   atualizarBudgetCampanhaModalUi(true);
+  inicializarAbasModal('modal_editar_campanha', { aba: 'basico' });
   document.getElementById('modal_editar_campanha').showModal();
 }
 
@@ -4523,6 +4719,7 @@ function abrirModalNovaLinha() {
   atualizarBtnCalcularPreco('');
 
   calcularDiasLinha();
+  inicializarAbasModal('modal_nova_linha', { aba: 'briefing' });
   document.getElementById('modal_nova_linha').showModal();
 }
 
@@ -4954,25 +5151,32 @@ function validarCamposObrigatorios() {
   const formatos = document.querySelectorAll('input[name="formatos"]:checked');
   const erroFormatos = document.getElementById('erro_formatos');
   const btnSalvar = document.getElementById('btn_salvar_linha');
-  
+
   let valido = true;
-  
+  let pendenciaBriefing = false;
+
   if (segmentacao.length > 0 && segmentacao.length < 10) {
     erroSegmentacao.classList.remove('hidden');
     valido = false;
+    pendenciaBriefing = true;
   } else {
     erroSegmentacao.classList.add('hidden');
   }
-  
+
   if (formatos.length === 0 && segmentacao.length > 0) {
     erroFormatos.classList.remove('hidden');
     valido = false;
+    pendenciaBriefing = true;
   } else {
     erroFormatos.classList.add('hidden');
   }
-  
+
   if (btnSalvar) {
     btnSalvar.disabled = !valido || segmentacao.length === 0;
+  }
+
+  if (typeof marcarPendenciaAba === 'function') {
+    marcarPendenciaAba('modal_nova_linha', 'briefing', pendenciaBriefing);
   }
 }
 
@@ -5304,6 +5508,9 @@ async function visualizarOuEditarLinha(linhaId) {
     atualizarBtnSalvarLinha('edit_');
     atualizarIndicadorBudget('edit_');
 
+    var badgeEditId = document.getElementById('modal_editar_linha_id_badge');
+    if (badgeEditId) badgeEditId.textContent = '#' + linhaId;
+    inicializarAbasModal('modal_editar_linha', { aba: 'briefing' });
     document.getElementById('modal_editar_linha').showModal();
   } catch (error) {
     console.error('Erro:', error);
@@ -5536,6 +5743,7 @@ function abrirModalAudiencia() {
   if (elDataFimAud) elDataFimAud.value = dataFimAud.toISOString().split('T')[0];
   calcularDiasAudiencia();
 
+  inicializarAbasModal('modal_adicionar_audiencia', { aba: 'audiencia', scope: '#etapa_detalhes_audiencia' });
   document.getElementById('modal_adicionar_audiencia').showModal();
 }
 
@@ -5639,7 +5847,11 @@ async function selecionarAudienciaCard(audienciaId) {
     // Trocar para etapa 2
     document.getElementById('etapa_busca_audiencia').classList.add('hidden');
     document.getElementById('etapa_detalhes_audiencia').classList.remove('hidden');
-    
+
+    var badgeAudNomeSel = document.getElementById('modal_audiencia_nome_badge');
+    if (badgeAudNomeSel) badgeAudNomeSel.textContent = audiencia.nome || '—';
+    inicializarAbasModal('modal_adicionar_audiencia', { aba: 'audiencia', scope: '#etapa_detalhes_audiencia' });
+
   } catch (error) {
     console.error('Erro ao selecionar audiência:', error);
     mostrarToast('Erro ao carregar dados da audiência', 'error');
@@ -5879,7 +6091,10 @@ async function editarAudienciaCotacao(audienciaId) {
     document.getElementById('btn_excluir_audiencia').classList.remove('hidden');
 
     atualizarIndicadorBudget('audiencia_');
-    
+
+    var badgeAudNome = document.getElementById('modal_audiencia_nome_badge');
+    if (badgeAudNome) badgeAudNome.textContent = aud.audiencia_nome || '—';
+    inicializarAbasModal('modal_adicionar_audiencia', { aba: 'audiencia', scope: '#etapa_detalhes_audiencia' });
     document.getElementById('modal_adicionar_audiencia').showModal();
   } catch (error) {
     console.error('Erro:', error);

@@ -774,6 +774,52 @@
           </div>
         </div>
 
+        <div class="mt-4 pt-4 border-t border-gray-100">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Margem CC</label>
+              <input type="text" id="perc_margem_cc" name="perc_margem_cc" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Tech Fee</label>
+              <input type="text" id="perc_tech_fee" name="perc_tech_fee" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Com. Vendas</label>
+              <input type="text" id="perc_com_vendas" name="perc_com_vendas" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% PL Incentivos</label>
+              <input type="text" id="perc_pl_incentivos" name="perc_pl_incentivos" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">% Impostos</label>
+              <input type="text" id="perc_impostos" name="perc_impostos" placeholder="0,00" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Margem CC</label>
+              <input type="text" id="val_margem_cc" name="val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Tech Fee</label>
+              <input type="text" id="val_tech_fee" name="val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Com. Vendas</label>
+              <input type="text" id="val_com_vendas" name="val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">PL Incentivos</label>
+              <input type="text" id="val_pl_incentivos" name="val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-700 mb-1.5">Impostos</label>
+              <input type="text" id="val_impostos" name="val_impostos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+            </div>
+          </div>
+        </div>
+
         <div class="mt-6 pt-5 border-t border-gray-100 flex justify-center">
           <button type="submit" id="btnSalvarCampanha"
                   class="px-8 py-2.5 text-sm font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
@@ -945,6 +991,46 @@
     if (vpInput) {
       vpInput.addEventListener('input', function() { setTimeout(calcDistribuicao, 0); });
       vpInput.addEventListener('change', function() { setTimeout(calcDistribuicao, 0); });
+    }
+  })();
+
+  // ==================== AUTO-CÁLCULO PERC/VAL CAMPANHA ====================
+  var PERC_VAL_CAMP_PARES = [
+    ['perc_margem_cc', 'val_margem_cc'],
+    ['perc_tech_fee', 'val_tech_fee'],
+    ['perc_com_vendas', 'val_com_vendas'],
+    ['perc_pl_incentivos', 'val_pl_incentivos'],
+    ['perc_impostos', 'val_impostos'],
+  ];
+  function maskPctCamp(input) {
+    var v = input.value.replace(/\D/g, '').slice(0, 4);
+    if (!v) { input.value = ''; return; }
+    if (v.length <= 2) { input.value = v; return; }
+    input.value = v.slice(0, v.length - 2) + ',' + v.slice(v.length - 2);
+  }
+  function recalcPercValCampanha() {
+    var vpEl = document.getElementById('valor_plataforma');
+    var base = vpEl ? parseRealVal(vpEl.value) : 0;
+    PERC_VAL_CAMP_PARES.forEach(function(par) {
+      var pEl = document.getElementById(par[0]);
+      var vEl = document.getElementById(par[1]);
+      if (!pEl || !vEl) return;
+      var pct = parseRealVal(pEl.value);
+      var v = (base > 0 && pct > 0) ? base * pct / 100 : 0;
+      vEl.value = v > 0 ? formatarReal(v) : '';
+    });
+  }
+  (function() {
+    PERC_VAL_CAMP_PARES.forEach(function(par) {
+      var pEl = document.getElementById(par[0]);
+      if (pEl) {
+        pEl.addEventListener('input', function() { maskPctCamp(this); recalcPercValCampanha(); });
+      }
+    });
+    var vpInput = document.getElementById('valor_plataforma');
+    if (vpInput) {
+      vpInput.addEventListener('input', function() { setTimeout(recalcPercValCampanha, 0); });
+      vpInput.addEventListener('change', function() { setTimeout(recalcPercValCampanha, 0); });
     }
   })();
 
@@ -1411,6 +1497,10 @@
     resetForm();
     vrPlatMax = 0;
     document.getElementById('dist_pct').value = '0,00%';
+    ['val_margem_cc','val_tech_fee','val_com_vendas','val_pl_incentivos','val_impostos'].forEach(function(k) {
+      var el = document.getElementById(k);
+      if (el) el.value = '';
+    });
     {% if filtros.get('id_pi') %}
     document.getElementById('id_pi').value = '{{ filtros.id_pi }}';
     {% endif %}
@@ -1439,6 +1529,12 @@
     document.getElementById('totalizador_atingido').value = rawParaFormatado(c.totalizador_atingido, 'numero');
     document.getElementById('totalizador_gasto').value = rawParaFormatado(c.totalizador_gasto, 'real');
     document.getElementById('valor_plataforma').value = rawParaFormatado(c.valor_plataforma, 'real');
+
+    ['perc_margem_cc','perc_tech_fee','perc_com_vendas','perc_pl_incentivos','perc_impostos'].forEach(function(k) {
+      var el = document.getElementById(k);
+      if (el) el.value = c[k] || '';
+    });
+    if (typeof recalcPercValCampanha === 'function') recalcPercValCampanha();
 
     vrPlatMax = parseRealVal(c.valor_plataformas_pi);
     calcDistribuicao();

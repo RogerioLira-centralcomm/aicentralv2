@@ -925,6 +925,15 @@ def criar_linha_cotacao_api_teste():
         if err_resp is not None:
             return err_resp, err_status
 
+        current_app.logger.warning(
+            "[DEBUG POST linha cot=%s] data.fator_desconto=%r breakdown.fator_desconto=%r data.data_inicio=%r data.data_fim=%r",
+            cotacao_id,
+            data.get('fator_desconto'),
+            breakdown.get('fator_desconto'),
+            data.get('data_inicio'),
+            data.get('data_fim'),
+        )
+
         linha_id = db.criar_linha_cotacao(
             cotacao_id=cotacao_id,
             pedido_sugestao=data.get('pedido_sugestao'),
@@ -1007,6 +1016,15 @@ def atualizar_linha_cotacao_api_teste(linha_id):
         breakdown, err_resp, err_status = _recalcular_e_montar_breakdown(cotacao, data)
         if err_resp is not None:
             return err_resp, err_status
+
+        current_app.logger.warning(
+            "[DEBUG PUT linha %s] data.fator_desconto=%r breakdown.fator_desconto=%r data.data_inicio=%r data.data_fim=%r",
+            linha_id,
+            data.get('fator_desconto'),
+            breakdown.get('fator_desconto'),
+            data.get('data_inicio'),
+            data.get('data_fim'),
+        )
 
         db.atualizar_linha_cotacao(
             linha_id=linha_id,
@@ -1096,6 +1114,15 @@ def criar_audiencia_cotacao_api_teste():
         investimento_liquido = _to_float(data.get('investimento_liquido'))
         if investimento_liquido <= 0:
             investimento_liquido = breakdown['investimento_bruto']
+
+        current_app.logger.warning(
+            "[DEBUG POST audiencia cot=%s] data.data_inicio=%r data.data_fim=%r data.fator_desconto=%r data.keys=%s",
+            cotacao_id,
+            data.get('data_inicio'),
+            data.get('data_fim'),
+            data.get('fator_desconto'),
+            sorted(data.keys()) if isinstance(data, dict) else None,
+        )
 
         audiencia_id = db.adicionar_audiencia_cotacao(
             cotacao_id=cotacao_id,
@@ -1217,6 +1244,19 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
             datas_kw['data_inicio'] = data.get('data_inicio') or None
         if 'data_fim' in data:
             datas_kw['data_fim'] = data.get('data_fim') or None
+
+        current_app.logger.warning(
+            "[DEBUG PUT audiencia %s] toggle=%s data.data_inicio=%r data.data_fim=%r data.fator_desconto=%r "
+            "datas_kw=%s fator_kw=%s data.keys=%s",
+            audiencia_id,
+            toggle_apenas_inclusao,
+            data.get('data_inicio'),
+            data.get('data_fim'),
+            data.get('fator_desconto'),
+            datas_kw,
+            fator_kw,
+            sorted(data.keys()) if isinstance(data, dict) else None,
+        )
 
         db.atualizar_audiencia_cotacao(
             audiencia_cotacao_id=audiencia_id,

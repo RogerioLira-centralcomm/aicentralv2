@@ -5632,6 +5632,10 @@ async function salvarNovaLinha() {
   };
   if (mccCheckSave.valid) data.margem_cc = mccCheckSave.percent;
 
+  console.log('[DEBUG salvarNovaLinha] fator_desconto enviado:', data.fator_desconto,
+              '| data_inicio:', data.data_inicio, '| data_fim:', data.data_fim,
+              '| input raw:', _lerFatorDescontoInput(''));
+
   try {
     const response = await fetch('/api/cotacoes-teste-calculo/linhas', {
       method: 'POST',
@@ -5986,6 +5990,10 @@ async function salvarEdicaoLinha() {
   };
   if (mccCheckSaveE.valid) data.margem_cc = mccCheckSaveE.percent;
 
+  console.log('[DEBUG salvarEdicaoLinha id=' + linhaId + '] fator_desconto enviado:', data.fator_desconto,
+              '| data_inicio:', data.data_inicio, '| data_fim:', data.data_fim,
+              '| input raw:', _lerFatorDescontoInput('edit_'));
+
   try {
     const response = await fetch(`/api/cotacoes-teste-calculo/linhas/${linhaId}`, {
       method: 'PUT',
@@ -6313,6 +6321,14 @@ async function salvarNovaAudiencia() {
 
   var mccCheckAud = lerMargemCcOverride('audiencia_');
   if (mccCheckAud.valid) data.margem_cc = mccCheckAud.percent;
+
+  console.log('[DEBUG salvarNovaAudiencia editandoId=' + (editandoId || 'NOVO') + ']',
+              'fator_desconto enviado:', data.fator_desconto,
+              '| data_inicio:', data.data_inicio, '| data_fim:', data.data_fim,
+              '| input data_inicio raw:', document.getElementById('audiencia_data_inicio').value,
+              '| input data_fim raw:', document.getElementById('audiencia_data_fim').value,
+              '| input fator raw:', _lerFatorDescontoInput('audiencia_'),
+              '| full payload:', JSON.parse(JSON.stringify(data)));
 
   try {
     let response;

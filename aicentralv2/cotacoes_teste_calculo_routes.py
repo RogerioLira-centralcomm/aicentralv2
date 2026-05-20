@@ -1088,6 +1088,15 @@ def criar_audiencia_cotacao_api_teste():
             return jsonify({'error': 'Cotação não encontrada'}), 404
         perc_mcc = _perc_margem_cc_fracao_audiencia(cotacao, data)
         aud_plat, aud_kpi = _audiencia_calc_meta_para_criacao(data)
+
+        breakdown, err_resp, err_status = _recalcular_e_montar_breakdown(cotacao, data)
+        if err_resp is not None:
+            return err_resp, err_status
+
+        investimento_liquido = _to_float(data.get('investimento_liquido'))
+        if investimento_liquido <= 0:
+            investimento_liquido = breakdown['investimento_bruto']
+
         audiencia_id = db.adicionar_audiencia_cotacao(
             cotacao_id=cotacao_id,
             audiencia_id=data.get('audiencia_id'),
@@ -1095,16 +1104,31 @@ def criar_audiencia_cotacao_api_teste():
             audiencia_publico=data.get('audiencia_publico'),
             audiencia_categoria=data.get('audiencia_categoria'),
             audiencia_subcategoria=data.get('audiencia_subcategoria'),
-            cpm_estimado=data.get('cpm_estimado'),
-            investimento_sugerido=data.get('investimento_sugerido'),
-            impressoes_estimadas=data.get('impressoes_estimadas'),
+            cpm_estimado=_to_float(data.get('valor_unitario_tabela')) or data.get('cpm_estimado'),
+            investimento_sugerido=breakdown['investimento_bruto'],
+            impressoes_estimadas=breakdown['volume_contratado'],
             incluido_proposta=data.get('incluido_proposta', True),
             perc_margem_cc=perc_mcc,
             audiencia_calculo_plataforma=aud_plat,
             audiencia_calculo_kpi=aud_kpi,
             data_inicio=data.get('data_inicio') or None,
             data_fim=data.get('data_fim') or None,
-            fator_desconto=data.get('fator_desconto'),
+            fator_desconto=breakdown.get('fator_desconto'),
+            perc_tech_fee=breakdown['perc_tech_fee'],
+            perc_com_vendas=breakdown['perc_com_vendas'],
+            perc_pl_incentivos=breakdown['perc_pl_incentivos'],
+            perc_impostos=breakdown['perc_impostos'],
+            val_margem_cc=breakdown['val_margem_cc'],
+            val_tech_fee=breakdown['val_tech_fee'],
+            val_com_vendas=breakdown['val_com_vendas'],
+            val_pl_incentivos=breakdown['val_pl_incentivos'],
+            val_impostos=breakdown['val_impostos'],
+            valor_unitario_tabela=_to_float(data.get('valor_unitario_tabela')),
+            valor_unitario=breakdown['valor_unitario'],
+            valor_unitario_negociado=breakdown['valor_unitario_negociado'],
+            investimento_bruto=breakdown['investimento_bruto'],
+            investimento_liquido=investimento_liquido,
+            volume_contratado=breakdown['volume_contratado'],
         )
         return jsonify({'success': True, 'audiencia_id': audiencia_id}), 201
     except Exception as e:
@@ -1125,11 +1149,66 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
 
         toggle_apenas_inclusao = set(data.keys()) == {'incluido_proposta'}
         perc_margem_cc_kw = {'perc_margem_cc': db._OMIT_PERC_MARGEM_CC_AUDIENCIA}
+        breakdown_kw = {}
+        cpm_kw = {}
+        invest_sug_kw = {}
+        impr_est_kw = {}
+        fator_kw = {}
+
         if not toggle_apenas_inclusao:
             cotacao = db.obter_cotacao_por_id(audiencia_row['cotacao_id'])
             perc_margem_cc_kw = {
                 'perc_margem_cc': _perc_margem_cc_fracao_audiencia(cotacao, data),
             }
+
+            breakdown, err_resp, err_status = _recalcular_e_montar_breakdown(cotacao, data)
+            if err_resp is not None:
+                return err_resp, err_status
+
+            investimento_liquido = _to_float(data.get('investimento_liquido'))
+            if investimento_liquido <= 0:
+                investimento_liquido = breakdown['investimento_bruto']
+
+            breakdown_kw = {
+                'perc_tech_fee': breakdown['perc_tech_fee'],
+                'perc_com_vendas': breakdown['perc_com_vendas'],
+                'perc_pl_incentivos': breakdown['perc_pl_incentivos'],
+                'perc_impostos': breakdown['perc_impostos'],
+                'val_margem_cc': breakdown['val_margem_cc'],
+                'val_tech_fee': breakdown['val_tech_fee'],
+                'val_com_vendas': breakdown['val_com_vendas'],
+                'val_pl_incentivos': breakdown['val_pl_incentivos'],
+                'val_impostos': breakdown['val_impostos'],
+                'valor_unitario_tabela': _to_float(data.get('valor_unitario_tabela')),
+                'valor_unitario': breakdown['valor_unitario'],
+                'valor_unitario_negociado': breakdown['valor_unitario_negociado'],
+                'investimento_bruto': breakdown['investimento_bruto'],
+                'investimento_liquido': investimento_liquido,
+                'volume_contratado': breakdown['volume_contratado'],
+            }
+            cpm_kw['cpm_estimado'] = (
+                _to_float(data.get('valor_unitario_tabela'))
+                or data.get('cpm_estimado')
+            )
+            invest_sug_kw['investimento_sugerido'] = breakdown['investimento_bruto']
+            impr_est_kw['impressoes_estimadas'] = breakdown['volume_contratado']
+            fator_kw['fator_desconto'] = breakdown.get('fator_desconto') or 1.0
+        else:
+            if 'cpm_estimado' in data:
+                cpm_kw['cpm_estimado'] = data.get('cpm_estimado')
+            if 'investimento_sugerido' in data:
+                invest_sug_kw['investimento_sugerido'] = data.get('investimento_sugerido')
+            if 'impressoes_estimadas' in data:
+                impr_est_kw['impressoes_estimadas'] = data.get('impressoes_estimadas')
+            if 'fator_desconto' in data:
+                fator_val = data.get('fator_desconto')
+                try:
+                    fator_num = float(fator_val) if fator_val not in (None, '') else 1.0
+                except (TypeError, ValueError):
+                    fator_num = 1.0
+                if fator_num <= 0:
+                    fator_num = 1.0
+                fator_kw['fator_desconto'] = fator_num
 
         aud_plat, aud_kpi = _audiencia_calc_sentinels_para_atualizar(data)
 
@@ -1139,28 +1218,18 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
         if 'data_fim' in data:
             datas_kw['data_fim'] = data.get('data_fim') or None
 
-        fator_kw = {}
-        if 'fator_desconto' in data:
-            fator_val = data.get('fator_desconto')
-            try:
-                fator_num = float(fator_val) if fator_val not in (None, '') else 1.0
-            except (TypeError, ValueError):
-                fator_num = 1.0
-            if fator_num <= 0:
-                fator_num = 1.0
-            fator_kw['fator_desconto'] = fator_num
-
         db.atualizar_audiencia_cotacao(
             audiencia_cotacao_id=audiencia_id,
-            cpm_estimado=data.get('cpm_estimado'),
-            investimento_sugerido=data.get('investimento_sugerido'),
-            impressoes_estimadas=data.get('impressoes_estimadas'),
             incluido_proposta=data.get('incluido_proposta'),
             audiencia_calculo_plataforma=aud_plat,
             audiencia_calculo_kpi=aud_kpi,
             **perc_margem_cc_kw,
+            **cpm_kw,
+            **invest_sug_kw,
+            **impr_est_kw,
             **datas_kw,
             **fator_kw,
+            **breakdown_kw,
         )
         return jsonify({'success': True}), 200
     except Exception as e:

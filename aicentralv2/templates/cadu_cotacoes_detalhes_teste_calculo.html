@@ -753,6 +753,148 @@ function limparResumoPrecificacaoTeste(prefix) {
   var el = document.getElementById(p + 'preco_teste_resumo_content');
   if (el) el.innerHTML = '';
   limparResumoDerivacaoCliente(p);
+  limparDadosCalculo(p);
+}
+
+function limparDadosCalculo(prefix) {
+  var p = prefix || '';
+  var ids = ['dados_calculo_row', 'como_calculado_row', 'o_que_entrou_row', 'volume_row'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(p + ids[i]);
+    if (el) el.classList.add('hidden');
+  }
+}
+
+function preencherDadosCalculo(prefix, j, valTabFallback) {
+  var p = prefix || '';
+  var row = document.getElementById(p + 'dados_calculo_row');
+  var como = document.getElementById(p + 'como_calculado_row');
+  var oque = document.getElementById(p + 'o_que_entrou_row');
+  var vol = document.getElementById(p + 'volume_row');
+  if (!row || !j || !j.success) {
+    if (row) row.classList.add('hidden');
+    if (como) como.classList.add('hidden');
+    if (oque) oque.classList.add('hidden');
+    if (vol) vol.classList.add('hidden');
+    return;
+  }
+  if (como) como.classList.remove('hidden');
+
+  var valTab = Number(valTabFallback);
+  if (!isFinite(valTab) || valTab <= 0) {
+    var valTabEl = document.getElementById(p + 'valor_unitario_tabela');
+    valTab = valTabEl ? (parseMoeda(valTabEl.value) || 0) : 0;
+  }
+
+  var fator = Number(j.fator_desconto);
+  if (!isFinite(fator) || fator <= 0) fator = 1;
+  var valTabEfetivo = Number(j.val_tab_efetivo);
+  if (!isFinite(valTabEfetivo) || valTabEfetivo <= 0) valTabEfetivo = valTab * fator;
+
+  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0);
+
+  var fatorFmt = (typeof formatarFatorDescontoBr === 'function')
+    ? formatarFatorDescontoBr(fator)
+    : fator.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+  function setEl(id, value) {
+    var el = document.getElementById(p + id);
+    if (el) el.innerHTML = value;
+  }
+
+  setEl('dados_calculo_vt', 'R$ ' + formatarMoeda(valTab));
+  setEl('dados_calculo_fator', fatorFmt);
+  setEl('dados_calculo_vt_efetivo', 'R$ ' + formatarMoeda(valTabEfetivo));
+  setEl('dados_calculo_tf', pctFmt(j.tf));
+  setEl('dados_calculo_opex', 'R$ ' + formatarMoeda(j.opex_unit));
+  setEl('dados_calculo_mcc', pctFmt(j.mcc));
+  setEl('dados_calculo_com', pctFmt(j.com));
+  setEl('dados_calculo_inc', pctFmt(j.inc));
+  setEl('dados_calculo_imp', pctFmt(j.imp));
+  setEl('dados_calculo_soma', pctFmt(sumMargens));
+  setEl('dados_calculo_preco', 'R$ ' + formatarMoeda(j.preco_unit));
+
+  row.classList.remove('hidden');
+
+  preencherOQueEntrou(p, j, valTab, fator, fatorFmt);
+  preencherVolume(p, j);
+}
+
+function preencherOQueEntrou(prefix, j, valTab, fator, fatorFmt) {
+  var p = prefix || '';
+  var row = document.getElementById(p + 'o_que_entrou_row');
+  if (!row) return;
+  if (!j || !j.success) { row.classList.add('hidden'); return; }
+
+  function setEl(id, value) {
+    var el = document.getElementById(p + id);
+    if (el) el.innerHTML = value;
+  }
+
+  var platEl = document.getElementById(p + 'plataforma');
+  var plat = platEl ? String(platEl.value || '').trim() : '';
+
+  var kpiEl = document.getElementById(p + 'objetivo_kpi');
+  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var volNum = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+
+  var invEl = document.getElementById(p + 'investimento_bruto');
+  var invNum = invEl ? (parseMoeda(invEl.value) || 0) : 0;
+
+  var override = (typeof lerMargemCcOverride === 'function') ? lerMargemCcOverride(p) : { valid: false, percent: null };
+  var mccTexto;
+  if (override && override.valid && override.percent != null) {
+    mccTexto = pctFmt(Number(override.percent) / 100) + ' <span class="text-gray-500">(override)</span>';
+  } else {
+    var cadPct = (typeof obterMargemCcCadastroPercent === 'function') ? obterMargemCcCadastroPercent() : null;
+    if (cadPct != null) {
+      mccTexto = pctFmt(Number(cadPct) / 100) + ' <span class="text-gray-500">(cadastro)</span>';
+    } else {
+      mccTexto = '<span class="text-gray-500">cadastro</span>';
+    }
+  }
+
+  setEl('o_que_entrou_plataforma', plat ? escHtml(plat) : '&mdash;');
+  setEl('o_que_entrou_kpi', kpi ? escHtml(kpi) : '&mdash;');
+  setEl('o_que_entrou_vt', 'R$ ' + formatarMoeda(valTab));
+  setEl('o_que_entrou_fator', fatorFmt);
+  setEl('o_que_entrou_volume', volNum > 0 ? formatarNumero(volNum) : '&mdash;');
+  setEl('o_que_entrou_invest', invNum > 0 ? 'R$ ' + formatarMoeda(invNum) : '&mdash;');
+  setEl('o_que_entrou_mcc', mccTexto);
+
+  row.classList.remove('hidden');
+}
+
+function preencherVolume(prefix, j) {
+  var p = prefix || '';
+  var row = document.getElementById(p + 'volume_row');
+  if (!row) return;
+  if (!j || !j.success) { row.classList.add('hidden'); return; }
+
+  function setEl(id, value) {
+    var el = document.getElementById(p + id);
+    if (el) el.innerHTML = value;
+  }
+
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var volNum = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
+
+  var invEl = document.getElementById(p + 'investimento_bruto');
+  var invNum = invEl ? (parseMoeda(invEl.value) || 0) : 0;
+
+  var liqEl = document.getElementById(p + 'investimento_liquido');
+  var liqNum = liqEl ? (parseMoeda(liqEl.value) || 0) : 0;
+
+  var precoUnit = Number(j.preco_unit) || 0;
+
+  setEl('volume_contratado_val', volNum > 0 ? formatarNumero(volNum) : '&mdash;');
+  setEl('volume_preco_unit', 'R$ ' + formatarMoeda(precoUnit));
+  setEl('volume_invest_bruto', 'R$ ' + formatarMoeda(invNum));
+  setEl('volume_invest_liquido', 'R$ ' + formatarMoeda(liqNum));
+
+  row.classList.remove('hidden');
 }
 
 function obterMargemCcCadastroPercent() {
@@ -977,7 +1119,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
   var p = prefix || '';
   var row = document.getElementById(p + 'preco_teste_resumo_row');
   var content = document.getElementById(p + 'preco_teste_resumo_content');
-  if (!row || !content || !j || !j.success) return;
+  if (!j || !j.success) return;
 
   var platEl = document.getElementById(p + 'plataforma');
   var platNome = platEl && platEl.value ? String(platEl.value).trim() : '—';
@@ -1261,8 +1403,10 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
 
   html.push('</div></div>');
 
-  content.innerHTML = html.join('');
-  row.classList.remove('hidden');
+  if (content) content.innerHTML = html.join('');
+  if (row) row.classList.remove('hidden');
+
+  preencherDadosCalculo(p, j, valTab);
 }
 
 function reconstruirResumoPrecoSalvo(prefix, linha) {
@@ -1275,12 +1419,17 @@ function reconstruirResumoPrecoSalvo(prefix, linha) {
   var preco = Number(linha.valor_unitario_negociado || linha.valor_unitario || 0);
   var vt = Number(linha.valor_unitario_tabela || 0);
   if (preco <= 0 || vt <= 0) return;
-  var opex = (tf < 1) ? (vt / (1 - tf)) : vt;
+  var fator = Number(linha.fator_desconto);
+  if (!isFinite(fator) || fator <= 0) fator = 1;
+  var vtEfetivo = vt * fator;
+  var opex = (tf < 1) ? (vtEfetivo / (1 - tf)) : vtEfetivo;
   var j = {
     success: true,
     tf: tf, mcc: mcc, com: com, inc: inc, imp: imp,
     opex_unit: opex,
     preco_unit: preco,
+    fator_desconto: fator,
+    val_tab_efetivo: vtEfetivo,
     plataforma_match: linha.plataforma || '',
     incentivo_com_agencia: inc > 0,
     inc_provisionado_maximo: false,
@@ -2434,12 +2583,59 @@ function calcularInvestLiquidoEdit() {
               <span><strong>Total previsto:</strong> <span id="indicador_budget_total">R$ 0,00</span> (<span id="indicador_budget_pct">0%</span>)</span>
               <span id="indicador_budget_saldo" class="font-semibold"></span>
             </div>
-            <progress id="indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
           </div>
         </div>
-        <div id="preco_teste_resumo_row" class="hidden" role="region" aria-label="Resumo da precificação teste">
-          <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precificação</div>
-          <div id="preco_teste_resumo_content" class="text-xs"></div>
+        <div id="o_que_entrou_row" class="hidden" role="region" aria-label="O que entrou na conta">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">O que entrou na conta</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Plataforma:</span> <strong id="o_que_entrou_plataforma">&mdash;</strong></span>
+              <span><span class="text-gray-500">KPI:</span> <strong id="o_que_entrou_kpi">&mdash;</strong></span>
+              <span><span class="text-gray-500">Val. Unit. Tabela:</span> <strong id="o_que_entrou_vt">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Fator:</span> <strong id="o_que_entrou_fator">1,00</strong></span>
+              <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="o_que_entrou_volume">&mdash;</strong></span>
+              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="o_que_entrou_invest">&mdash;</strong></span>
+              <span><span class="text-gray-500">Margem CC:</span> <strong id="o_que_entrou_mcc">cadastro</strong></span>
+            </div>
+          </div>
+        </div>
+        <div id="como_calculado_row" class="hidden" role="region" aria-label="Como &eacute; calculado">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Como &eacute; calculado</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">1)</span> <strong>Opex unit&aacute;rio</strong> = Valor unit&aacute;rio de tabela &divide; (1 &minus; TF)</span>
+              <span><span class="text-gray-500">2)</span> <strong>Pre&ccedil;o unit&aacute;rio</strong> = Opex unit&aacute;rio &divide; (1 &minus; Mcc &minus; COM &minus; Inc &minus; Imp)</span>
+            </div>
+          </div>
+        </div>
+        <div id="dados_calculo_row" class="hidden" role="region" aria-label="Dados do c&aacute;lculo">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Dados do c&aacute;lculo</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Vt:</span> <strong id="dados_calculo_vt">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Fator:</span> <strong id="dados_calculo_fator">1,00</strong></span>
+              <span><span class="text-gray-500">Vt efetivo:</span> <strong id="dados_calculo_vt_efetivo">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">TF:</span> <strong id="dados_calculo_tf">0,00%</strong></span>
+              <span><span class="text-gray-500">Opex:</span> <strong id="dados_calculo_opex">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Mcc:</span> <strong id="dados_calculo_mcc">0,00%</strong></span>
+              <span><span class="text-gray-500">COM:</span> <strong id="dados_calculo_com">0,00%</strong></span>
+              <span><span class="text-gray-500">Inc:</span> <strong id="dados_calculo_inc">0,00%</strong></span>
+              <span><span class="text-gray-500">Imp:</span> <strong id="dados_calculo_imp">0,00%</strong></span>
+              <span><span class="text-gray-500">Soma margens:</span> <strong id="dados_calculo_soma">0,00%</strong></span>
+              <span><span class="text-gray-500">Pre&ccedil;o:</span> <strong id="dados_calculo_preco" class="text-emerald-900">R$ 0,00</strong></span>
+            </div>
+          </div>
+        </div>
+        <div id="volume_row" class="hidden" role="region" aria-label="Volume">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Volume</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="volume_contratado_val">&mdash;</strong></span>
+              <span><span class="text-gray-500">Val. Unit. Venda:</span> <strong id="volume_preco_unit">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="volume_invest_bruto">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Invest. L&iacute;quido:</span> <strong id="volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+            </div>
+          </div>
         </div>
         <div id="cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
           <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
@@ -2787,12 +2983,59 @@ function calcularInvestLiquidoEdit() {
               <span><strong>Total previsto:</strong> <span id="edit_indicador_budget_total">R$ 0,00</span> (<span id="edit_indicador_budget_pct">0%</span>)</span>
               <span id="edit_indicador_budget_saldo" class="font-semibold"></span>
             </div>
-            <progress id="edit_indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
           </div>
         </div>
-        <div id="edit_preco_teste_resumo_row" class="hidden" role="region" aria-label="Resumo da precificação teste">
-          <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precificação</div>
-          <div id="edit_preco_teste_resumo_content" class="text-xs"></div>
+        <div id="edit_o_que_entrou_row" class="hidden" role="region" aria-label="O que entrou na conta">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">O que entrou na conta</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Plataforma:</span> <strong id="edit_o_que_entrou_plataforma">&mdash;</strong></span>
+              <span><span class="text-gray-500">KPI:</span> <strong id="edit_o_que_entrou_kpi">&mdash;</strong></span>
+              <span><span class="text-gray-500">Val. Unit. Tabela:</span> <strong id="edit_o_que_entrou_vt">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Fator:</span> <strong id="edit_o_que_entrou_fator">1,00</strong></span>
+              <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="edit_o_que_entrou_volume">&mdash;</strong></span>
+              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="edit_o_que_entrou_invest">&mdash;</strong></span>
+              <span><span class="text-gray-500">Margem CC:</span> <strong id="edit_o_que_entrou_mcc">cadastro</strong></span>
+            </div>
+          </div>
+        </div>
+        <div id="edit_como_calculado_row" class="hidden" role="region" aria-label="Como &eacute; calculado">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Como &eacute; calculado</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">1)</span> <strong>Opex unit&aacute;rio</strong> = Valor unit&aacute;rio de tabela &divide; (1 &minus; TF)</span>
+              <span><span class="text-gray-500">2)</span> <strong>Pre&ccedil;o unit&aacute;rio</strong> = Opex unit&aacute;rio &divide; (1 &minus; Mcc &minus; COM &minus; Inc &minus; Imp)</span>
+            </div>
+          </div>
+        </div>
+        <div id="edit_dados_calculo_row" class="hidden" role="region" aria-label="Dados do c&aacute;lculo">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Dados do c&aacute;lculo</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Vt:</span> <strong id="edit_dados_calculo_vt">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Fator:</span> <strong id="edit_dados_calculo_fator">1,00</strong></span>
+              <span><span class="text-gray-500">Vt efetivo:</span> <strong id="edit_dados_calculo_vt_efetivo">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">TF:</span> <strong id="edit_dados_calculo_tf">0,00%</strong></span>
+              <span><span class="text-gray-500">Opex:</span> <strong id="edit_dados_calculo_opex">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Mcc:</span> <strong id="edit_dados_calculo_mcc">0,00%</strong></span>
+              <span><span class="text-gray-500">COM:</span> <strong id="edit_dados_calculo_com">0,00%</strong></span>
+              <span><span class="text-gray-500">Inc:</span> <strong id="edit_dados_calculo_inc">0,00%</strong></span>
+              <span><span class="text-gray-500">Imp:</span> <strong id="edit_dados_calculo_imp">0,00%</strong></span>
+              <span><span class="text-gray-500">Soma margens:</span> <strong id="edit_dados_calculo_soma">0,00%</strong></span>
+              <span><span class="text-gray-500">Pre&ccedil;o:</span> <strong id="edit_dados_calculo_preco" class="text-emerald-900">R$ 0,00</strong></span>
+            </div>
+          </div>
+        </div>
+        <div id="edit_volume_row" class="hidden" role="region" aria-label="Volume">
+          <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+            <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Volume</div>
+            <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+              <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="edit_volume_contratado_val">&mdash;</strong></span>
+              <span><span class="text-gray-500">Val. Unit. Venda:</span> <strong id="edit_volume_preco_unit">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="edit_volume_invest_bruto">R$ 0,00</strong></span>
+              <span><span class="text-gray-500">Invest. L&iacute;quido:</span> <strong id="edit_volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+            </div>
+          </div>
         </div>
         <div id="edit_cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação invest. bruto ou volume contratado">
           <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
@@ -3060,7 +3303,7 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Adicionar Audiência - 2 Etapas -->
 <dialog id="modal_adicionar_audiencia" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+  <div class="modal-box w-11/12 max-w-7xl max-h-[90vh] overflow-y-auto p-0">
     
     <!-- Etapa 1: Busca -->
     <div id="etapa_busca_audiencia">
@@ -3326,12 +3569,59 @@ function calcularInvestLiquidoEdit() {
                   <span><strong>Total previsto:</strong> <span id="audiencia_indicador_budget_total">R$ 0,00</span> (<span id="audiencia_indicador_budget_pct">0%</span>)</span>
                   <span id="audiencia_indicador_budget_saldo" class="font-semibold"></span>
                 </div>
-                <progress id="audiencia_indicador_budget_bar" class="progress w-full mt-1" value="0" max="100"></progress>
               </div>
             </div>
-            <div id="audiencia_preco_teste_resumo_row" class="hidden" role="region" aria-label="Resumo da precificação teste (audiência)">
-              <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Precificação</div>
-              <div id="audiencia_preco_teste_resumo_content" class="text-xs"></div>
+            <div id="audiencia_o_que_entrou_row" class="hidden" role="region" aria-label="O que entrou na conta (audi&ecirc;ncia)">
+              <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">O que entrou na conta</div>
+                <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+                  <span><span class="text-gray-500">Plataforma:</span> <strong id="audiencia_o_que_entrou_plataforma">&mdash;</strong></span>
+                  <span><span class="text-gray-500">KPI:</span> <strong id="audiencia_o_que_entrou_kpi">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Val. Unit. Tabela:</span> <strong id="audiencia_o_que_entrou_vt">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Fator:</span> <strong id="audiencia_o_que_entrou_fator">1,00</strong></span>
+                  <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="audiencia_o_que_entrou_volume">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="audiencia_o_que_entrou_invest">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Margem CC:</span> <strong id="audiencia_o_que_entrou_mcc">cadastro</strong></span>
+                </div>
+              </div>
+            </div>
+            <div id="audiencia_como_calculado_row" class="hidden" role="region" aria-label="Como &eacute; calculado (audi&ecirc;ncia)">
+              <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Como &eacute; calculado</div>
+                <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap">
+                  <span><span class="text-gray-500">1)</span> <strong>Opex unit&aacute;rio</strong> = Valor unit&aacute;rio de tabela &divide; (1 &minus; TF)</span>
+                  <span><span class="text-gray-500">2)</span> <strong>Pre&ccedil;o unit&aacute;rio</strong> = Opex unit&aacute;rio &divide; (1 &minus; Mcc &minus; COM &minus; Inc &minus; Imp)</span>
+                </div>
+              </div>
+            </div>
+            <div id="audiencia_dados_calculo_row" class="hidden" role="region" aria-label="Dados do c&aacute;lculo (audi&ecirc;ncia)">
+              <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Dados do c&aacute;lculo</div>
+                <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+                  <span><span class="text-gray-500">Vt:</span> <strong id="audiencia_dados_calculo_vt">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Fator:</span> <strong id="audiencia_dados_calculo_fator">1,00</strong></span>
+                  <span><span class="text-gray-500">Vt efetivo:</span> <strong id="audiencia_dados_calculo_vt_efetivo">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">TF:</span> <strong id="audiencia_dados_calculo_tf">0,00%</strong></span>
+                  <span><span class="text-gray-500">Opex:</span> <strong id="audiencia_dados_calculo_opex">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Mcc:</span> <strong id="audiencia_dados_calculo_mcc">0,00%</strong></span>
+                  <span><span class="text-gray-500">COM:</span> <strong id="audiencia_dados_calculo_com">0,00%</strong></span>
+                  <span><span class="text-gray-500">Inc:</span> <strong id="audiencia_dados_calculo_inc">0,00%</strong></span>
+                  <span><span class="text-gray-500">Imp:</span> <strong id="audiencia_dados_calculo_imp">0,00%</strong></span>
+                  <span><span class="text-gray-500">Soma margens:</span> <strong id="audiencia_dados_calculo_soma">0,00%</strong></span>
+                  <span><span class="text-gray-500">Pre&ccedil;o:</span> <strong id="audiencia_dados_calculo_preco" class="text-emerald-900">R$ 0,00</strong></span>
+                </div>
+              </div>
+            </div>
+            <div id="audiencia_volume_row" class="hidden" role="region" aria-label="Volume (audi&ecirc;ncia)">
+              <div class="border border-gray-200 rounded-md p-3 bg-gray-50">
+                <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Volume</div>
+                <div class="flex items-center gap-x-3 gap-y-1 text-xs text-gray-800 tabular-nums overflow-x-auto whitespace-nowrap">
+                  <span><span class="text-gray-500">Vol. Contratado:</span> <strong id="audiencia_volume_contratado_val">&mdash;</strong></span>
+                  <span><span class="text-gray-500">Val. Unit. Venda:</span> <strong id="audiencia_volume_preco_unit">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Invest. Bruto:</span> <strong id="audiencia_volume_invest_bruto">R$ 0,00</strong></span>
+                  <span><span class="text-gray-500">Invest. L&iacute;quido:</span> <strong id="audiencia_volume_invest_liquido" class="text-emerald-900">R$ 0,00</strong></span>
+                </div>
+              </div>
             </div>
             <div id="audiencia_cliente_derivacao_resumo_row" class="hidden" role="region" aria-label="Resumo derivação investimento ou volume (audiência)">
               <div class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Derivação</div>
@@ -6001,9 +6291,20 @@ async function salvarNovaAudiencia() {
   var vtAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
   var invAud = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
   var volAud = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
+  var precoUnitAud = parseMoeda(document.getElementById('audiencia_valor_unitario').value);
+  var liqAudInput = parseMoeda((document.getElementById('audiencia_investimento_liquido') || {}).value);
+  var investLiquidoAud = liqAudInput > 0 ? liqAudInput : (invAud * obterFatorLiquido());
+
   data.cpm_estimado = vtAud > 0 ? vtAud : null;
   data.investimento_sugerido = invAud > 0 ? invAud : null;
   data.impressoes_estimadas = volAud > 0 ? volAud : 0;
+
+  data.valor_unitario_tabela = vtAud > 0 ? vtAud : 0;
+  data.valor_unitario = precoUnitAud > 0 ? precoUnitAud : 0;
+  data.valor_unitario_negociado = precoUnitAud > 0 ? precoUnitAud : 0;
+  data.investimento_bruto = invAud > 0 ? invAud : 0;
+  data.volume_contratado = volAud > 0 ? volAud : 0;
+  data.investimento_liquido = investLiquidoAud > 0 ? investLiquidoAud : 0;
 
   data.data_inicio = (document.getElementById('audiencia_data_inicio') || {}).value || null;
   data.data_fim = (document.getElementById('audiencia_data_fim') || {}).value || null;
@@ -6111,7 +6412,10 @@ async function editarAudienciaCotacao(audienciaId) {
         ? aud.objetivo_kpi
         : (aud.audiencia_calculo_kpi || 'CPM');
 
-    document.getElementById('audiencia_valor_unitario_tabela').value = aud.cpm_estimado ? formatarMoeda(aud.cpm_estimado) : '';
+    var valTabSalvo = Number(aud.valor_unitario_tabela || 0) > 0
+      ? Number(aud.valor_unitario_tabela)
+      : Number(aud.cpm_estimado || 0);
+    document.getElementById('audiencia_valor_unitario_tabela').value = valTabSalvo > 0 ? formatarMoeda(valTabSalvo) : '';
     var fatorAud = document.getElementById('audiencia_fator_desconto');
     if (fatorAud) {
       var fatorValAud = aud.fator_desconto;
@@ -6119,10 +6423,24 @@ async function editarAudienciaCotacao(audienciaId) {
       if (!isFinite(fatorNumAud) || fatorNumAud <= 0) fatorNumAud = 1;
       fatorAud.value = formatarFatorDescontoBr(fatorNumAud);
     }
-    document.getElementById('audiencia_valor_unitario').value = '';
-    document.getElementById('audiencia_investimento_bruto').value = aud.investimento_sugerido ? formatarMoeda(aud.investimento_sugerido) : '';
-    document.getElementById('audiencia_volume_contratado').value = aud.impressoes_estimadas ? formatarNumero(aud.impressoes_estimadas) : '';
-    calcularInvestimentoLiquidoPorPrefix('audiencia_');
+    var precoUnitSalvo = Number(aud.valor_unitario_negociado || aud.valor_unitario || 0);
+    document.getElementById('audiencia_valor_unitario').value = precoUnitSalvo > 0 ? formatarMoeda(precoUnitSalvo) : '';
+    var invBrutoSalvo = Number(aud.investimento_bruto || 0) > 0
+      ? Number(aud.investimento_bruto)
+      : Number(aud.investimento_sugerido || 0);
+    document.getElementById('audiencia_investimento_bruto').value = invBrutoSalvo > 0 ? formatarMoeda(invBrutoSalvo) : '';
+    var volSalvo = Number(aud.volume_contratado || 0) > 0
+      ? Number(aud.volume_contratado)
+      : Number(aud.impressoes_estimadas || 0);
+    document.getElementById('audiencia_volume_contratado').value = volSalvo > 0 ? formatarNumero(volSalvo) : '';
+    var liqSalvo = Number(aud.investimento_liquido || 0);
+    var elLiqAud = document.getElementById('audiencia_investimento_liquido');
+    if (elLiqAud) {
+      elLiqAud.value = liqSalvo > 0 ? formatarMoeda(liqSalvo) : '';
+    }
+    if (liqSalvo <= 0) {
+      calcularInvestimentoLiquidoPorPrefix('audiencia_');
+    }
 
     const cotacaoPeriodoInicio = '{{ cotacao.periodo_inicio.strftime("%Y-%m-%d") if cotacao and cotacao.periodo_inicio else "" }}';
     const cotacaoPeriodoFim = '{{ cotacao.periodo_fim.strftime("%Y-%m-%d") if cotacao and cotacao.periodo_fim else "" }}';
@@ -6151,28 +6469,41 @@ async function editarAudienciaCotacao(audienciaId) {
 
     preencherResumoDerivacaoCliente('audiencia_');
 
-    var invL = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
-    var volL = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
-    var valTabAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
-    var xorOk = (invL > 0) !== (volL > 0);
-    var bothOk = invL > 0 && volL > 0;
-    var tabOk = valTabAud > 0;
-    var platOk = !!document.getElementById('audiencia_plataforma').value;
-    var kpiOk = !!document.getElementById('audiencia_objetivo_kpi').value;
-    if (tabOk && platOk && kpiOk && (xorOk || bothOk)) {
+    var temCalculoSalvoAud = (aud.perc_tech_fee != null
+                              && Number(aud.valor_unitario_negociado || aud.valor_unitario || 0) > 0);
+    if (temCalculoSalvoAud) {
+      reconstruirResumoPrecoSalvo('audiencia_', aud);
       _ultimoCalculoLinha['audiencia_'] = _snapshotCamposCalculo('audiencia_');
-      if (xorOk) {
-        _ultimoCalculoLinha['audiencia_'].source = invL > 0 ? 'invest' : 'vol';
-      } else {
-        _ultimoCalculoLinha['audiencia_'].source = _inferirSourceCalculo({
-          investimento_bruto: invL,
-          volume_contratado: volL,
-          preco_unitario: valTabAud,
-          kpi: document.getElementById('audiencia_objetivo_kpi').value
-        });
-      }
+      _ultimoCalculoLinha['audiencia_'].source = _inferirSourceCalculo({
+        investimento_bruto: aud.investimento_bruto,
+        volume_contratado: aud.volume_contratado,
+        preco_unitario: aud.valor_unitario_negociado || aud.valor_unitario,
+        kpi: aud.objetivo_kpi || aud.audiencia_calculo_kpi
+      });
     } else {
-      _ultimoCalculoLinha['audiencia_'] = null;
+      var invL = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
+      var volL = parseInt(String(document.getElementById('audiencia_volume_contratado').value || '').replace(/\D/g, ''), 10) || 0;
+      var valTabAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
+      var xorOk = (invL > 0) !== (volL > 0);
+      var bothOk = invL > 0 && volL > 0;
+      var tabOk = valTabAud > 0;
+      var platOk = !!document.getElementById('audiencia_plataforma').value;
+      var kpiOk = !!document.getElementById('audiencia_objetivo_kpi').value;
+      if (tabOk && platOk && kpiOk && (xorOk || bothOk)) {
+        _ultimoCalculoLinha['audiencia_'] = _snapshotCamposCalculo('audiencia_');
+        if (xorOk) {
+          _ultimoCalculoLinha['audiencia_'].source = invL > 0 ? 'invest' : 'vol';
+        } else {
+          _ultimoCalculoLinha['audiencia_'].source = _inferirSourceCalculo({
+            investimento_bruto: invL,
+            volume_contratado: volL,
+            preco_unitario: valTabAud,
+            kpi: document.getElementById('audiencia_objetivo_kpi').value
+          });
+        }
+      } else {
+        _ultimoCalculoLinha['audiencia_'] = null;
+      }
     }
 
     var btnCa = document.getElementById('audiencia_btn_calcular_preco');

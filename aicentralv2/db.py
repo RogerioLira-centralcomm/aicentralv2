@@ -331,6 +331,60 @@ def init_db(app):
                 END $$;
             ''')
 
+            # Colunas do breakdown de cálculo (espelhando cadu_cotacao_linhas) para que a
+            # aba Resultado do modal de Audiência possa rehidratar exatamente como em
+            # Itens de Proposta.
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='perc_tech_fee') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN perc_tech_fee NUMERIC(8, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='perc_com_vendas') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN perc_com_vendas NUMERIC(8, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='perc_pl_incentivos') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN perc_pl_incentivos NUMERIC(8, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='perc_impostos') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN perc_impostos NUMERIC(8, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='val_margem_cc') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN val_margem_cc NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='val_tech_fee') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN val_tech_fee NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='val_com_vendas') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN val_com_vendas NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='val_pl_incentivos') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN val_pl_incentivos NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='val_impostos') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN val_impostos NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='valor_unitario_tabela') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN valor_unitario_tabela NUMERIC(12, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='valor_unitario') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN valor_unitario NUMERIC(12, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='valor_unitario_negociado') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN valor_unitario_negociado NUMERIC(12, 6);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='investimento_bruto') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN investimento_bruto NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='investimento_liquido') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN investimento_liquido NUMERIC(12, 2);
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='cadu_cotacao_audiencias' AND column_name='volume_contratado') THEN
+                        ALTER TABLE cadu_cotacao_audiencias ADD COLUMN volume_contratado BIGINT;
+                    END IF;
+                END $$;
+            ''')
+
             cursor.execute('''
                 DO $$
                 BEGIN
@@ -4909,6 +4963,21 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 data_inicio,
                 data_fim,
                 fator_desconto,
+                perc_tech_fee,
+                perc_com_vendas,
+                perc_pl_incentivos,
+                perc_impostos,
+                val_margem_cc,
+                val_tech_fee,
+                val_com_vendas,
+                val_pl_incentivos,
+                val_impostos,
+                valor_unitario_tabela,
+                valor_unitario,
+                valor_unitario_negociado,
+                investimento_bruto,
+                investimento_liquido,
+                volume_contratado,
                 ordem_exibicao,
                 incluido_proposta,
                 motivo_exclusao,
@@ -4929,7 +4998,11 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                                 perc_impostos=None,
                                 val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
                                 val_pl_incentivos=None, val_impostos=None,
-                                fator_desconto=None):
+                                fator_desconto=None,
+                                valor_unitario_tabela=None, valor_unitario=None,
+                                valor_unitario_negociado=None,
+                                investimento_bruto=None, investimento_liquido=None,
+                                volume_contratado=None):
     """Adiciona uma audiência à cotação"""
     conn = get_db()
 
@@ -4945,9 +5018,13 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                  perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                  val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                  fator_desconto,
+                 valor_unitario_tabela, valor_unitario, valor_unitario_negociado,
+                 investimento_bruto, investimento_liquido, volume_contratado,
                  ordem_exibicao, incluido_proposta)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s,
+                        %s, %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                   audiencia_categoria, audiencia_subcategoria,
@@ -4957,6 +5034,8 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                   perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                   val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                   fator_desconto if fator_desconto is not None else 1.0,
+                  valor_unitario_tabela, valor_unitario, valor_unitario_negociado,
+                  investimento_bruto, investimento_liquido, volume_contratado,
                   ordem_exibicao, incluido_proposta))
 
             result = cursor.fetchone()
@@ -4976,6 +5055,21 @@ _OMIT_AUD_CALC_KPI = object()
 _OMIT_AUD_DATA_INICIO = object()
 _OMIT_AUD_DATA_FIM = object()
 _OMIT_AUD_FATOR_DESCONTO = object()
+_OMIT_AUD_PERC_TECH_FEE = object()
+_OMIT_AUD_PERC_COM_VENDAS = object()
+_OMIT_AUD_PERC_PL_INCENTIVOS = object()
+_OMIT_AUD_PERC_IMPOSTOS = object()
+_OMIT_AUD_VAL_MARGEM_CC = object()
+_OMIT_AUD_VAL_TECH_FEE = object()
+_OMIT_AUD_VAL_COM_VENDAS = object()
+_OMIT_AUD_VAL_PL_INCENTIVOS = object()
+_OMIT_AUD_VAL_IMPOSTOS = object()
+_OMIT_AUD_VALOR_UNITARIO_TABELA = object()
+_OMIT_AUD_VALOR_UNITARIO = object()
+_OMIT_AUD_VALOR_UNITARIO_NEGOCIADO = object()
+_OMIT_AUD_INVESTIMENTO_BRUTO = object()
+_OMIT_AUD_INVESTIMENTO_LIQUIDO = object()
+_OMIT_AUD_VOLUME_CONTRATADO = object()
 
 
 def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investimento_sugerido=None, 
@@ -4985,7 +5079,22 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
                                 audiencia_calculo_kpi=_OMIT_AUD_CALC_KPI,
                                 data_inicio=_OMIT_AUD_DATA_INICIO,
                                 data_fim=_OMIT_AUD_DATA_FIM,
-                                fator_desconto=_OMIT_AUD_FATOR_DESCONTO):
+                                fator_desconto=_OMIT_AUD_FATOR_DESCONTO,
+                                perc_tech_fee=_OMIT_AUD_PERC_TECH_FEE,
+                                perc_com_vendas=_OMIT_AUD_PERC_COM_VENDAS,
+                                perc_pl_incentivos=_OMIT_AUD_PERC_PL_INCENTIVOS,
+                                perc_impostos=_OMIT_AUD_PERC_IMPOSTOS,
+                                val_margem_cc=_OMIT_AUD_VAL_MARGEM_CC,
+                                val_tech_fee=_OMIT_AUD_VAL_TECH_FEE,
+                                val_com_vendas=_OMIT_AUD_VAL_COM_VENDAS,
+                                val_pl_incentivos=_OMIT_AUD_VAL_PL_INCENTIVOS,
+                                val_impostos=_OMIT_AUD_VAL_IMPOSTOS,
+                                valor_unitario_tabela=_OMIT_AUD_VALOR_UNITARIO_TABELA,
+                                valor_unitario=_OMIT_AUD_VALOR_UNITARIO,
+                                valor_unitario_negociado=_OMIT_AUD_VALOR_UNITARIO_NEGOCIADO,
+                                investimento_bruto=_OMIT_AUD_INVESTIMENTO_BRUTO,
+                                investimento_liquido=_OMIT_AUD_INVESTIMENTO_LIQUIDO,
+                                volume_contratado=_OMIT_AUD_VOLUME_CONTRATADO):
     """Atualiza uma audiência da cotação"""
     conn = get_db()
     
@@ -5042,7 +5151,67 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
             if fator_desconto is not _OMIT_AUD_FATOR_DESCONTO:
                 updates.append('fator_desconto = %s')
                 params.append(fator_desconto)
-            
+
+            if perc_tech_fee is not _OMIT_AUD_PERC_TECH_FEE:
+                updates.append('perc_tech_fee = %s')
+                params.append(perc_tech_fee)
+
+            if perc_com_vendas is not _OMIT_AUD_PERC_COM_VENDAS:
+                updates.append('perc_com_vendas = %s')
+                params.append(perc_com_vendas)
+
+            if perc_pl_incentivos is not _OMIT_AUD_PERC_PL_INCENTIVOS:
+                updates.append('perc_pl_incentivos = %s')
+                params.append(perc_pl_incentivos)
+
+            if perc_impostos is not _OMIT_AUD_PERC_IMPOSTOS:
+                updates.append('perc_impostos = %s')
+                params.append(perc_impostos)
+
+            if val_margem_cc is not _OMIT_AUD_VAL_MARGEM_CC:
+                updates.append('val_margem_cc = %s')
+                params.append(val_margem_cc)
+
+            if val_tech_fee is not _OMIT_AUD_VAL_TECH_FEE:
+                updates.append('val_tech_fee = %s')
+                params.append(val_tech_fee)
+
+            if val_com_vendas is not _OMIT_AUD_VAL_COM_VENDAS:
+                updates.append('val_com_vendas = %s')
+                params.append(val_com_vendas)
+
+            if val_pl_incentivos is not _OMIT_AUD_VAL_PL_INCENTIVOS:
+                updates.append('val_pl_incentivos = %s')
+                params.append(val_pl_incentivos)
+
+            if val_impostos is not _OMIT_AUD_VAL_IMPOSTOS:
+                updates.append('val_impostos = %s')
+                params.append(val_impostos)
+
+            if valor_unitario_tabela is not _OMIT_AUD_VALOR_UNITARIO_TABELA:
+                updates.append('valor_unitario_tabela = %s')
+                params.append(valor_unitario_tabela)
+
+            if valor_unitario is not _OMIT_AUD_VALOR_UNITARIO:
+                updates.append('valor_unitario = %s')
+                params.append(valor_unitario)
+
+            if valor_unitario_negociado is not _OMIT_AUD_VALOR_UNITARIO_NEGOCIADO:
+                updates.append('valor_unitario_negociado = %s')
+                params.append(valor_unitario_negociado)
+
+            if investimento_bruto is not _OMIT_AUD_INVESTIMENTO_BRUTO:
+                updates.append('investimento_bruto = %s')
+                params.append(investimento_bruto)
+
+            if investimento_liquido is not _OMIT_AUD_INVESTIMENTO_LIQUIDO:
+                updates.append('investimento_liquido = %s')
+                params.append(investimento_liquido)
+
+            if volume_contratado is not _OMIT_AUD_VOLUME_CONTRATADO:
+                updates.append('volume_contratado = %s')
+                params.append(volume_contratado)
+
             if not updates:
                 return False
             

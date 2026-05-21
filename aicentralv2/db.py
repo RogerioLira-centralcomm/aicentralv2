@@ -4924,6 +4924,7 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.audiencia_calculo_kpi,
             ca.data_inicio,
             ca.data_fim,
+            ca.periodo,
             ca.fator_desconto,
             ca.ordem_exibicao,
             ca.incluido_proposta,
@@ -4962,6 +4963,7 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 ca.audiencia_calculo_kpi,
                 ca.data_inicio,
                 ca.data_fim,
+                ca.periodo,
                 ca.fator_desconto,
                 ca.perc_tech_fee,
                 ca.perc_com_vendas,
@@ -4995,7 +4997,7 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                                 cpm_estimado=None, investimento_sugerido=None, impressoes_estimadas=None,
                                 ordem_exibicao=0, incluido_proposta=True, perc_margem_cc=None,
                                 audiencia_calculo_plataforma=None, audiencia_calculo_kpi=None,
-                                data_inicio=None, data_fim=None,
+                                data_inicio=None, data_fim=None, periodo=None,
                                 perc_tech_fee=None, perc_com_vendas=None, perc_pl_incentivos=None,
                                 perc_impostos=None,
                                 val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
@@ -5008,6 +5010,9 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
     """Adiciona uma audiência à cotação"""
     conn = get_db()
 
+    if periodo is None:
+        periodo = formatar_mes_ref_comp(data_inicio)
+
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
@@ -5016,14 +5021,14 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                  audiencia_categoria, audiencia_subcategoria,
                  cpm_estimado, investimento_sugerido, impressoes_estimadas,
                  perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
-                 data_inicio, data_fim,
+                 data_inicio, data_fim, periodo,
                  perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                  val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                  fator_desconto,
                  valor_unitario_tabela, valor_unitario, valor_unitario_negociado,
                  investimento_bruto, investimento_liquido, volume_contratado,
                  ordem_exibicao, incluido_proposta)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s,
                         %s, %s)
@@ -5032,7 +5037,7 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                   audiencia_categoria, audiencia_subcategoria,
                   cpm_estimado, investimento_sugerido, impressoes_estimadas,
                   perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
-                  data_inicio, data_fim,
+                  data_inicio, data_fim, periodo,
                   perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                   val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                   fator_desconto if fator_desconto is not None else 1.0,
@@ -5056,6 +5061,7 @@ _OMIT_AUD_CALC_PLATAFORMA = object()
 _OMIT_AUD_CALC_KPI = object()
 _OMIT_AUD_DATA_INICIO = object()
 _OMIT_AUD_DATA_FIM = object()
+_OMIT_AUD_PERIODO = object()
 _OMIT_AUD_FATOR_DESCONTO = object()
 _OMIT_AUD_PERC_TECH_FEE = object()
 _OMIT_AUD_PERC_COM_VENDAS = object()
@@ -5081,6 +5087,7 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
                                 audiencia_calculo_kpi=_OMIT_AUD_CALC_KPI,
                                 data_inicio=_OMIT_AUD_DATA_INICIO,
                                 data_fim=_OMIT_AUD_DATA_FIM,
+                                periodo=_OMIT_AUD_PERIODO,
                                 fator_desconto=_OMIT_AUD_FATOR_DESCONTO,
                                 perc_tech_fee=_OMIT_AUD_PERC_TECH_FEE,
                                 perc_com_vendas=_OMIT_AUD_PERC_COM_VENDAS,
@@ -5149,6 +5156,13 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
             if data_fim is not _OMIT_AUD_DATA_FIM:
                 updates.append('data_fim = %s')
                 params.append(data_fim)
+
+            if periodo is _OMIT_AUD_PERIODO and data_inicio is not _OMIT_AUD_DATA_INICIO:
+                periodo = formatar_mes_ref_comp(data_inicio)
+
+            if periodo is not _OMIT_AUD_PERIODO:
+                updates.append('periodo = %s')
+                params.append(periodo)
 
             if fator_desconto is not _OMIT_AUD_FATOR_DESCONTO:
                 updates.append('fator_desconto = %s')
@@ -6134,6 +6148,10 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
             return valor
         # Para qualquer outro tipo de objeto, tentar converter para string
         return str(valor)
+
+    # Derivação canônica do período (M/YY) a partir de data_inicio, quando não informado.
+    if not periodo:
+        periodo = formatar_mes_ref_comp(data_inicio)
     
     # Garantir que dados_extras não seja None (usar '{}' como default)
     dados_extras_final = dados_extras if dados_extras is not None else '{}'
@@ -6280,7 +6298,13 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
                     campos_atualizacao[k] = to_json_string(v)
                 else:
                     campos_atualizacao[k] = v
-        
+
+        # Derivação canônica do período (M/YY) a partir de data_inicio, quando não informado.
+        if 'data_inicio' in campos_atualizacao and not campos_atualizacao.get('periodo'):
+            periodo_derivado = formatar_mes_ref_comp(campos_atualizacao['data_inicio'])
+            if periodo_derivado:
+                campos_atualizacao['periodo'] = periodo_derivado
+
         if not campos_atualizacao:
             return False
         
@@ -9560,7 +9584,7 @@ def calcular_preco_unitario_teste_calculo(
     Opex = (val_tab * fator_desconto)/(1-TF); Preço = Opex/(1-(Mcc+Com+Inc+Imp)).
     Inc (incentivo) só entra se a cotação tiver agência; busca em cadu_pi_incentivos pela agência.
     imposto_percentual_externo: ex. 15 → fração 0,15.
-    margem_cc_override: opcional. Se informado e estiver entre 0.20 e 0.30 (ou 20 e 30 em
+    margem_cc_override: opcional. Se informado e estiver entre 0.05 e 0.30 (ou 5 e 30 em
     percentual), substitui o Mcc lido do cadastro do cliente.
     fator_desconto: multiplicador aplicado a `valor_unitario_tabela` antes do cálculo (default 1.0).
     Retorna dict com frações, valores monetários e warnings.
@@ -9591,10 +9615,10 @@ def calcular_preco_unitario_teste_calculo(
         try:
             v = float(margem_cc_override)
             v_frac = v / 100.0 if v > 1 else v
-            if 0.20 <= v_frac <= 0.30:
+            if 0.05 <= v_frac <= 0.30:
                 mcc_override_frac = v_frac
             else:
-                warnings.append('Margem CC fora do intervalo permitido (20%–30%); usando cadastro do cliente.')
+                warnings.append('Margem CC fora do intervalo permitido (5%–30%); usando cadastro do cliente.')
         except (TypeError, ValueError):
             warnings.append('Margem CC inválida; usando cadastro do cliente.')
 

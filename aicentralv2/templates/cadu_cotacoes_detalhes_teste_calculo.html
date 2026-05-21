@@ -378,7 +378,8 @@ function aplicarMascaraInteiro(input) {
 
 // Máscara leve para o Fator Desconto: aceita dígitos e vírgula (PT-BR) com até 4 casas.
 function aplicarMascaraFatorDescontoBr(input) {
-  var bruto = String(input.value || '').replace(/[^\d,]/g, '');
+  // Converte ponto do teclado numérico em vírgula antes de sanitizar (evita "0.95" → "095").
+  var bruto = String(input.value || '').replace(/\./g, ',').replace(/[^\d,]/g, '');
   var partes = bruto.split(',');
   if (partes.length > 2) {
     bruto = partes[0] + ',' + partes.slice(1).join('');
@@ -387,23 +388,36 @@ function aplicarMascaraFatorDescontoBr(input) {
   if (partes.length === 2 && partes[1].length > 4) {
     bruto = partes[0] + ',' + partes[1].substring(0, 4);
   }
-  if (partes[0].length > 4) {
-    bruto = partes[0].substring(0, 4) + (partes.length === 2 ? ',' + (partes[1] || '').substring(0, 4) : '');
+  if (partes.length === 1 && partes[0].length > 4) {
+    bruto = partes[0].substring(0, 4);
+  } else if (partes.length === 2 && partes[0].length > 4) {
+    bruto = partes[0].substring(0, 4) + ',' + (partes[1] || '').substring(0, 4);
   }
   input.value = bruto;
 }
 
-// Converte string PT-BR ("1,25" / "0,80") em float; fallback 1.0 se inválido/<=0.
+// Converte string PT-BR ("1,25" / "0,80" / "0.85") em float; fallback 1.0 se inválido/<=0.
 function parseFatorDescontoBr(valor) {
   if (valor === null || valor === undefined) return 1.0;
   if (typeof valor === 'number') {
-    return (isFinite(valor) && valor > 0) ? valor : 1.0;
+    var num = (isFinite(valor) && valor > 0) ? valor : 1.0;
+    if (num >= 10 && num <= 100) num = num / 100;
+    else if (num > 100) num = 1.0;
+    return num;
   }
-  var s = String(valor).trim();
-  if (s === '') return 1.0;
-  s = s.replace(/\./g, '').replace(',', '.');
+  var raw = String(valor).trim();
+  if (raw === '') return 1.0;
+  var s = raw.replace(/\s/g, '');
+  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (s.indexOf(',') >= 0) {
+    s = s.replace(',', '.');
+  }
   var n = parseFloat(s);
   if (!isFinite(n) || n <= 0) return 1.0;
+  // Entrada só com dígitos (ex.: "095" ou "85" após máscara antiga): tratar como percentual/100.
+  if (!/[.,]/.test(raw) && n >= 10 && n <= 100) n = n / 100;
+  else if (n > 100) n = 1.0;
   return n;
 }
 
@@ -915,7 +929,7 @@ function lerMargemCcOverride(prefix) {
   if (raw == null || String(raw).trim() === '') return { raw: '', valid: false, percent: null };
   var v = parseFloat(String(raw).replace(',', '.'));
   if (isNaN(v)) return { raw: raw, valid: false, percent: null };
-  return { raw: raw, valid: v >= 20 && v <= 30, percent: v };
+  return { raw: raw, valid: v >= 5 && v <= 30, percent: v };
 }
 
 function inicializarMargemCcInput(prefix) {
@@ -930,7 +944,7 @@ function inicializarMargemCcInput(prefix) {
     if (cadPct != null) {
       hint.textContent = 'Cadastro do cliente: ' + cadPct.toFixed(2).replace('.', ',') + '%';
     } else {
-      hint.textContent = 'Cliente sem margem cadastrada — informe manualmente (20–30%)';
+      hint.textContent = 'Cliente sem margem cadastrada — informe manualmente (5–30%)';
     }
   }
 }
@@ -2507,7 +2521,7 @@ function calcularInvestLiquidoEdit() {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div class="form-control">
             <label class="label py-0">
-              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
             </label>
             <div class="join w-full">
               <input type="text" id="margem_cc_override"
@@ -2531,7 +2545,8 @@ function calcularInvestLiquidoEdit() {
             <label class="label py-0"><span class="label-text text-xs font-medium">Fator Desconto</span></label>
             <input type="text" id="fator_desconto"
                    class="input input-sm input-bordered w-full"
-                   inputmode="decimal" placeholder="1,00" value="1,00"
+                   inputmode="decimal" placeholder="0,95" value="1,00"
+                   title="Multiplicador sobre o Val. Unit. Tabela (1,00 = sem desconto; 0,95 = 5% de desconto)"
                    oninput="aplicarMascaraFatorDescontoBr(this); atualizarBtnCalcularPreco('');">
           </div>
 
@@ -2907,7 +2922,7 @@ function calcularInvestLiquidoEdit() {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div class="form-control">
             <label class="label py-0">
-              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+              <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
             </label>
             <div class="join w-full">
               <input type="text" id="edit_margem_cc_override"
@@ -2931,7 +2946,8 @@ function calcularInvestLiquidoEdit() {
             <label class="label py-0"><span class="label-text text-xs font-medium">Fator Desconto</span></label>
             <input type="text" id="edit_fator_desconto"
                    class="input input-sm input-bordered w-full"
-                   inputmode="decimal" placeholder="1,00" value="1,00"
+                   inputmode="decimal" placeholder="0,95" value="1,00"
+                   title="Multiplicador sobre o Val. Unit. Tabela (1,00 = sem desconto; 0,95 = 5% de desconto)"
                    oninput="aplicarMascaraFatorDescontoBr(this); atualizarBtnCalcularPreco('edit_');">
           </div>
 
@@ -3494,7 +3510,7 @@ function calcularInvestLiquidoEdit() {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div class="form-control">
                 <label class="label py-0">
-                  <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(20–30%)</span></span>
+                  <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
                 </label>
                 <div class="join w-full">
                   <input type="text" id="audiencia_margem_cc_override"
@@ -3518,7 +3534,8 @@ function calcularInvestLiquidoEdit() {
                 <label class="label py-0"><span class="label-text text-xs font-medium">Fator Desconto</span></label>
                 <input type="text" id="audiencia_fator_desconto"
                        class="input input-sm input-bordered w-full"
-                       inputmode="decimal" placeholder="1,00" value="1,00"
+                       inputmode="decimal" placeholder="0,95" value="1,00"
+                       title="Multiplicador sobre o Val. Unit. Tabela (1,00 = sem desconto; 0,95 = 5% de desconto)"
                        oninput="aplicarMascaraFatorDescontoBr(this); atualizarBtnCalcularPreco('audiencia_');">
               </div>
 
@@ -5632,10 +5649,6 @@ async function salvarNovaLinha() {
   };
   if (mccCheckSave.valid) data.margem_cc = mccCheckSave.percent;
 
-  console.log('[DEBUG salvarNovaLinha] fator_desconto enviado:', data.fator_desconto,
-              '| data_inicio:', data.data_inicio, '| data_fim:', data.data_fim,
-              '| input raw:', _lerFatorDescontoInput(''));
-
   try {
     const response = await fetch('/api/cotacoes-teste-calculo/linhas', {
       method: 'POST',
@@ -5990,10 +6003,6 @@ async function salvarEdicaoLinha() {
   };
   if (mccCheckSaveE.valid) data.margem_cc = mccCheckSaveE.percent;
 
-  console.log('[DEBUG salvarEdicaoLinha id=' + linhaId + '] fator_desconto enviado:', data.fator_desconto,
-              '| data_inicio:', data.data_inicio, '| data_fim:', data.data_fim,
-              '| input raw:', _lerFatorDescontoInput('edit_'));
-
   try {
     const response = await fetch(`/api/cotacoes-teste-calculo/linhas/${linhaId}`, {
       method: 'PUT',
@@ -6322,14 +6331,6 @@ async function salvarNovaAudiencia() {
   var mccCheckAud = lerMargemCcOverride('audiencia_');
   if (mccCheckAud.valid) data.margem_cc = mccCheckAud.percent;
 
-  console.log('[DEBUG salvarNovaAudiencia editandoId=' + (editandoId || 'NOVO') + ']',
-              'fator_desconto enviado:', data.fator_desconto,
-              '| data_inicio:', data.data_inicio, '| data_fim:', data.data_fim,
-              '| input data_inicio raw:', document.getElementById('audiencia_data_inicio').value,
-              '| input data_fim raw:', document.getElementById('audiencia_data_fim').value,
-              '| input fator raw:', _lerFatorDescontoInput('audiencia_'),
-              '| full payload:', JSON.parse(JSON.stringify(data)));
-
   try {
     let response;
     let mensagem;
@@ -6487,7 +6488,7 @@ async function editarAudienciaCotacao(audienciaId) {
         if (cadPctAud != null) {
           hintAud.textContent = 'Cadastro do cliente: ' + cadPctAud.toFixed(2).replace('.', ',') + '%';
         } else {
-          hintAud.textContent = 'Cliente sem margem cadastrada — informe manualmente (20–30%)';
+          hintAud.textContent = 'Cliente sem margem cadastrada — informe manualmente (5–30%)';
         }
       }
     } else {

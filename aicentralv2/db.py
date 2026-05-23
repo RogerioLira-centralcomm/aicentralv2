@@ -9241,9 +9241,10 @@ def obter_plataformas_campanha():
                     tech_partner,
                     tech_fee,
                     metodo_pagamento,
-                    detalhe_pagamento
+                    detalhe_pagamento,
+                    categoria
                 FROM cadu_pi_camp_plataforma
-                ORDER BY indice
+                ORDER BY categoria NULLS LAST, indice NULLS LAST, descricao
             ''')
             return cursor.fetchall()
     except Exception as e:
@@ -9304,7 +9305,8 @@ def obter_plataforma_campanha_por_id(id_plataforma):
                     tech_partner,
                     tech_fee,
                     metodo_pagamento,
-                    detalhe_pagamento
+                    detalhe_pagamento,
+                    categoria
                 FROM cadu_pi_camp_plataforma
                 WHERE id_plataforma = %s
             ''', (id_plataforma,))
@@ -9326,6 +9328,19 @@ def _parse_percentual_texto_para_fracao(val):
     if x > 1:
         x = x / 100.0
     return x
+
+
+def _normalizar_nome_plataforma_lookup(nome):
+    """Chave canônica para alias de plataforma (sem acento, uppercase, sem espaços)."""
+    import unicodedata
+    s = unicodedata.normalize('NFD', str(nome or '').strip())
+    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+    return s.upper().replace(' ', '')
+
+
+def _plataformas_compartilham_tech_fee_dv360(nome):
+    """Opções do modal de cotação que usam o mesmo TF cadastrado para DV360."""
+    return _normalizar_nome_plataforma_lookup(nome) in ('DV360', 'PROGRAMATICA')
 
 
 def _normalizar_tech_fee_para_fracao(tf_raw):
@@ -9351,8 +9366,8 @@ def obter_tech_fee_fracao_por_nome_plataforma(nome_plataforma):
     TF (fração) a partir de cadu_pi_camp_plataforma.tech_fee.
 
     Ordem de resolução:
-    1) Opção «DV360» no modal → mesmo ID que o PI (`obter_id_plataforma_dv360` / PI_PLATAFORMA_DV360_ID),
-       evitando que um LIKE pegue outra linha com TF diferente.
+    1) Opções «DV360» e «Programática» no modal → mesmo ID que o PI
+       (`obter_id_plataforma_dv360` / PI_PLATAFORMA_DV360_ID).
     2) Descrição exatamente igual ao nome (trim, case-insensitive).
     3) Descrição que contenha o nome; preferência por menor comprimento e match por prefixo.
 
@@ -9363,8 +9378,8 @@ def obter_tech_fee_fracao_por_nome_plataforma(nome_plataforma):
         return None, None, None
     nome = str(nome_plataforma).strip()
 
-    # 1) DV360 — alinhado ao restante do sistema (env PI_PLATAFORMA_DV360_ID)
-    if nome.upper().replace(' ', '') == 'DV360':
+    # 1) DV360 / Programática — mesmo cadastro de TF (ex.: 14 → 0,14)
+    if _plataformas_compartilham_tech_fee_dv360(nome):
         pid = obter_id_plataforma_dv360()
         if pid:
             row = obter_plataforma_campanha_por_id(int(pid))

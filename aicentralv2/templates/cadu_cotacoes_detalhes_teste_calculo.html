@@ -3,6 +3,16 @@
 {% block title %}{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %} - CentralComm AI{% endblock %}
 
 {% block content %}
+{% macro opcoes_plataforma_campanha() %}
+<option value="">Selecione...</option>
+{% for categoria, items in plataformas_campanha|groupby('categoria') %}
+<optgroup label="{{ categoria }}">
+  {% for p in items %}
+  <option value="{{ p.descricao }}">{{ p.descricao }}</option>
+  {% endfor %}
+</optgroup>
+{% endfor %}
+{% endmacro %}
 <style>
   /* Estilo customizado para abas ativas - padrão CRM */
   .tab-crm {
@@ -2372,37 +2382,7 @@ function calcularInvestLiquidoEdit() {
         <div class="form-control col-span-4">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
           <select id="plataforma" class="select select-sm select-bordered w-full" onchange="atualizarBtnCalcularPreco('');">
-            <option value="">Selecione...</option>
-            <optgroup label="Mídia Programática">
-              <option value="DV360">DV360</option>
-              <option value="Programática">Programática</option>
-              <option value="Amazon DSP">Amazon DSP</option>
-            </optgroup>
-            <optgroup label="Social">
-              <option value="Meta Ads">Meta Ads</option>
-              <option value="TikTok Ads">TikTok Ads</option>
-              <option value="LinkedIn Ads">LinkedIn Ads</option>
-              <option value="Twitter/X Ads">Twitter/X Ads</option>
-              <option value="Pinterest Ads">Pinterest Ads</option>
-            </optgroup>
-            <optgroup label="Search & Display">
-              <option value="Google Ads">Google Ads</option>
-              <option value="Microsoft Ads">Microsoft Ads</option>
-            </optgroup>
-            <optgroup label="Streaming/CTV">
-              <option value="Netflix">Netflix</option>
-              <option value="Paramount+">Paramount+</option>
-              <option value="Disney+">Disney+</option>
-              <option value="HBO Max">HBO Max</option>
-              <option value="Globoplay">Globoplay</option>
-              <option value="YouTube">YouTube</option>
-              <option value="Spotify">Spotify</option>
-            </optgroup>
-            <optgroup label="Dados">
-              <option value="Serasa">Serasa</option>
-              <option value="Logan">Logan</option>
-              <option value="Cadastro Positivo">Cadastro Positivo</option>
-            </optgroup>
+            {{ opcoes_plataforma_campanha() }}
           </select>
         </div>
 
@@ -2776,37 +2756,7 @@ function calcularInvestLiquidoEdit() {
         <div class="form-control col-span-4">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
           <select id="edit_plataforma" class="select select-sm select-bordered w-full" onchange="atualizarBtnCalcularPreco('edit_');">
-            <option value="">Selecione...</option>
-            <optgroup label="Mídia Programática">
-              <option value="DV360">DV360</option>
-              <option value="Programática">Programática</option>
-              <option value="Amazon DSP">Amazon DSP</option>
-            </optgroup>
-            <optgroup label="Social">
-              <option value="Meta Ads">Meta Ads</option>
-              <option value="TikTok Ads">TikTok Ads</option>
-              <option value="LinkedIn Ads">LinkedIn Ads</option>
-              <option value="Twitter/X Ads">Twitter/X Ads</option>
-              <option value="Pinterest Ads">Pinterest Ads</option>
-            </optgroup>
-            <optgroup label="Search & Display">
-              <option value="Google Ads">Google Ads</option>
-              <option value="Microsoft Ads">Microsoft Ads</option>
-            </optgroup>
-            <optgroup label="Streaming/CTV">
-              <option value="Netflix">Netflix</option>
-              <option value="Paramount+">Paramount+</option>
-              <option value="Disney+">Disney+</option>
-              <option value="HBO Max">HBO Max</option>
-              <option value="Globoplay">Globoplay</option>
-              <option value="YouTube">YouTube</option>
-              <option value="Spotify">Spotify</option>
-            </optgroup>
-            <optgroup label="Dados">
-              <option value="Serasa">Serasa</option>
-              <option value="Logan">Logan</option>
-              <option value="Cadastro Positivo">Cadastro Positivo</option>
-            </optgroup>
+            {{ opcoes_plataforma_campanha() }}
           </select>
         </div>
 
@@ -3416,37 +3366,7 @@ function calcularInvestLiquidoEdit() {
               <div class="form-control col-span-2 sm:col-span-3">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
                 <select id="audiencia_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
-                  <option value="">Selecione...</option>
-                  <optgroup label="Mídia Programática">
-                    <option value="DV360">DV360</option>
-                    <option value="Programática">Programática</option>
-                    <option value="Amazon DSP">Amazon DSP</option>
-                  </optgroup>
-                  <optgroup label="Social">
-                    <option value="Meta Ads">Meta Ads</option>
-                    <option value="TikTok Ads">TikTok Ads</option>
-                    <option value="LinkedIn Ads">LinkedIn Ads</option>
-                    <option value="Twitter/X Ads">Twitter/X Ads</option>
-                    <option value="Pinterest Ads">Pinterest Ads</option>
-                  </optgroup>
-                  <optgroup label="Search & Display">
-                    <option value="Google Ads">Google Ads</option>
-                    <option value="Microsoft Ads">Microsoft Ads</option>
-                  </optgroup>
-                  <optgroup label="Streaming/CTV">
-                    <option value="Netflix">Netflix</option>
-                    <option value="Paramount+">Paramount+</option>
-                    <option value="Disney+">Disney+</option>
-                    <option value="HBO Max">HBO Max</option>
-                    <option value="Globoplay">Globoplay</option>
-                    <option value="YouTube">YouTube</option>
-                    <option value="Spotify">Spotify</option>
-                  </optgroup>
-                  <optgroup label="Dados">
-                    <option value="Serasa">Serasa</option>
-                    <option value="Logan">Logan</option>
-                    <option value="Cadastro Positivo">Cadastro Positivo</option>
-                  </optgroup>
+                  {{ opcoes_plataforma_campanha() }}
                 </select>
               </div>
 

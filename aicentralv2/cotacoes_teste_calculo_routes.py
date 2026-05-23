@@ -23,6 +23,30 @@ from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
 from aicentralv2.auth import login_required
+
+_ORDEM_CATEGORIA_PLATAFORMA = (
+    'Mídia Programática',
+    'Social',
+    'Search & Display',
+    'Streaming/CTV',
+    'Dados',
+)
+
+
+def _ordenar_plataformas_campanha_para_select(plataformas):
+    """Agrupa por categoria (ordem canônica) e, dentro dela, por índice/descrição."""
+    ordem = {nome: i for i, nome in enumerate(_ORDEM_CATEGORIA_PLATAFORMA)}
+    fallback = len(_ORDEM_CATEGORIA_PLATAFORMA)
+
+    def chave(p):
+        cat = (p.get('categoria') or 'Sem categoria').strip() or 'Sem categoria'
+        return (
+            ordem.get(cat, fallback),
+            p.get('indice') if p.get('indice') is not None else 9999,
+            (p.get('descricao') or '').lower(),
+        )
+
+    return sorted(plataformas, key=chave)
 from aicentralv2.services.cotacao_linhas_image_import import extrair_itens_linhas_de_upload
 
 bp = Blueprint('cotacoes_teste_calculo', __name__)
@@ -654,6 +678,14 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
         linhas = db.obter_linhas_cotacao(cotacao_id)
         audiencias = db.obter_audiencias_cotacao(cotacao_id)
         comentarios = db.obter_comentarios_cotacao(cotacao_id)
+        plataformas_campanha = []
+        for p in db.obter_plataformas_campanha():
+            if p.get('status', True) is False:
+                continue
+            cat = (p.get('categoria') or '').strip()
+            p['categoria'] = cat if cat else 'Sem categoria'
+            plataformas_campanha.append(p)
+        plataformas_campanha = _ordenar_plataformas_campanha_para_select(plataformas_campanha)
 
         return render_template(
             'cadu_cotacoes_detalhes_teste_calculo.html',
@@ -670,6 +702,7 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
             linhas=linhas,
             audiencias=audiencias,
             comentarios=comentarios,
+            plataformas_campanha=plataformas_campanha,
         )
 
     except Exception as e:

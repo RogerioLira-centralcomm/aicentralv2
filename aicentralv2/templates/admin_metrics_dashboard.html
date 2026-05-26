@@ -776,7 +776,7 @@ async function loadBriefingsCotacoesChart() {
 // Carregar top audiências
 async function loadTopAudiencias() {
     try {
-        const response = await fetch('/api/admin/metrics/audiencias/top?limit=10');
+        const response = await fetch(`/api/admin/metrics/audiencias/top?limit=10&days=${currentDays}`);
         const result = await response.json();
         
         const tbody = document.getElementById('topAudienciasTable');
@@ -802,7 +802,7 @@ async function loadTopAudiencias() {
 // Carregar top páginas
 async function loadTopPages() {
     try {
-        const response = await fetch('/api/admin/metrics/pages/top?limit=10');
+        const response = await fetch(`/api/admin/metrics/pages/top?limit=10&days=${currentDays}`);
         const result = await response.json();
         
         const tbody = document.getElementById('topPagesTable');
@@ -834,7 +834,7 @@ async function loadActiveUsers() {
         if (tbody) {
             tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-8"><span class="loading loading-spinner loading-md"></span></td></tr>`;
         }
-        const response = await fetch(`/api/admin/metrics/users/active?limit=20&segment=${encodeURIComponent(activeUsersSegment)}`);
+        const response = await fetch(`/api/admin/metrics/users/active?limit=20&segment=${encodeURIComponent(activeUsersSegment)}&days=${currentDays}`);
         const result = await response.json();
         
         if (result.success && result.data.length > 0) {

@@ -6,6 +6,7 @@ Gerenciamento de conexão com PostgreSQL
 """
 
 import json
+import logging
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Json
@@ -18,6 +19,17 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 import re
 import secrets
+
+logger = logging.getLogger(__name__)
+
+
+PLATAFORMA_CATEGORIAS_CANONICAS = (
+    'Mídia Programática',
+    'Social',
+    'Search & Display',
+    'Streaming/CTV',
+    'Dados',
+)
 
 
 # ==================== HELPERS DE FORMATAÇÃO CANÔNICA ====================
@@ -398,6 +410,57 @@ def init_db(app):
                             ADD COLUMN fator_desconto NUMERIC(8, 4) DEFAULT 1.0;
                     END IF;
                 END $$;
+            ''')
+
+            # FK para KPI/objetivo unificado com cadu_pi_camp_objetivos.
+            # As colunas string (objetivo_kpi / audiencia_calculo_kpi) permanecem
+            # como denormalização da descrição para grids e leituras legadas.
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_linhas'
+                          AND column_name = 'id_objetivo_kpi'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_linhas
+                            ADD COLUMN id_objetivo_kpi INTEGER;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_audiencias'
+                          AND column_name = 'id_audiencia_calculo_kpi'
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_audiencias
+                            ADD COLUMN id_audiencia_calculo_kpi INTEGER;
+                    END IF;
+                END $$;
+            ''')
+
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_linhas_id_objetivo_kpi ON cadu_cotacao_linhas(id_objetivo_kpi)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_id_kpi ON cadu_cotacao_audiencias(id_audiencia_calculo_kpi)')
+
+            # Migração idempotente: popula id_objetivo_kpi nas linhas/audiências
+            # existentes onde ainda está NULL e a string casa por descrição.
+            cursor.execute('''
+                UPDATE cadu_cotacao_linhas l
+                   SET id_objetivo_kpi = o.id_objetivos_campanha
+                  FROM cadu_pi_camp_objetivos o
+                 WHERE l.id_objetivo_kpi IS NULL
+                   AND l.objetivo_kpi IS NOT NULL
+                   AND TRIM(l.objetivo_kpi) <> ''
+                   AND UPPER(TRIM(o.descricao)) = UPPER(TRIM(l.objetivo_kpi))
+            ''')
+            cursor.execute('''
+                UPDATE cadu_cotacao_audiencias a
+                   SET id_audiencia_calculo_kpi = o.id_objetivos_campanha
+                  FROM cadu_pi_camp_objetivos o
+                 WHERE a.id_audiencia_calculo_kpi IS NULL
+                   AND a.audiencia_calculo_kpi IS NOT NULL
+                   AND TRIM(a.audiencia_calculo_kpi) <> ''
+                   AND UPPER(TRIM(o.descricao)) = UPPER(TRIM(a.audiencia_calculo_kpi))
             ''')
 
             # Pipeline por contato: status_pipeline em cadu_lead_contatos
@@ -4921,7 +4984,8 @@ def obter_audiencias_cotacao(cotacao_id):
                 ca.impressoes_estimadas,
                 ca.perc_margem_cc,
                 ca.audiencia_calculo_plataforma,
-                ca.audiencia_calculo_kpi,
+                ca.id_audiencia_calculo_kpi,
+                COALESCE(NULLIF(TRIM(obj.descricao), ''), ca.audiencia_calculo_kpi) AS audiencia_calculo_kpi,
             ca.data_inicio,
             ca.data_fim,
             ca.periodo,
@@ -4934,6 +4998,7 @@ def obter_audiencias_cotacao(cotacao_id):
             a.fonte
             FROM cadu_cotacao_audiencias ca
             LEFT JOIN cadu_audiencias a ON ca.audiencia_id = a.id
+            LEFT JOIN cadu_pi_camp_objetivos obj ON ca.id_audiencia_calculo_kpi = obj.id_objetivos_campanha
             WHERE ca.cotacao_id = %s
             AND ca.incluido_proposta = TRUE
             ORDER BY ca.ordem_exibicao, ca.added_at
@@ -4960,7 +5025,8 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 ca.impressoes_estimadas,
                 ca.perc_margem_cc,
                 ca.audiencia_calculo_plataforma,
-                ca.audiencia_calculo_kpi,
+                ca.id_audiencia_calculo_kpi,
+                COALESCE(NULLIF(TRIM(obj.descricao), ''), ca.audiencia_calculo_kpi) AS audiencia_calculo_kpi,
                 ca.data_inicio,
                 ca.data_fim,
                 ca.periodo,
@@ -4987,6 +5053,7 @@ def obter_audiencia_cotacao_por_id(audiencia_cotacao_id):
                 a.imagem_url
             FROM cadu_cotacao_audiencias ca
             LEFT JOIN cadu_audiencias a ON ca.audiencia_id = a.id
+            LEFT JOIN cadu_pi_camp_objetivos obj ON ca.id_audiencia_calculo_kpi = obj.id_objetivos_campanha
             WHERE ca.id = %s
         ''', (audiencia_cotacao_id,))
         return cursor.fetchone()
@@ -5006,12 +5073,19 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                                 valor_unitario_tabela=None, valor_unitario=None,
                                 valor_unitario_negociado=None,
                                 investimento_bruto=None, investimento_liquido=None,
-                                volume_contratado=None):
+                                volume_contratado=None,
+                                id_audiencia_calculo_kpi=None):
     """Adiciona uma audiência à cotação"""
     conn = get_db()
 
     if periodo is None:
         periodo = formatar_mes_ref_comp(data_inicio)
+
+    # Resolver par (id, descricao) do KPI: prioriza id_audiencia_calculo_kpi;
+    # cai em audiencia_calculo_kpi (string legada). A coluna string é mantida como
+    # denormalização da descrição para grids e leituras legadas.
+    id_kpi_resolvido, desc_kpi_resolvida = _resolver_par_kpi(id_audiencia_calculo_kpi, audiencia_calculo_kpi)
+    audiencia_calculo_kpi_final = desc_kpi_resolvida if desc_kpi_resolvida else audiencia_calculo_kpi
 
     try:
         with conn.cursor() as cursor:
@@ -5027,23 +5101,26 @@ def adicionar_audiencia_cotacao(cotacao_id, audiencia_nome, audiencia_id=None, a
                  fator_desconto,
                  valor_unitario_tabela, valor_unitario, valor_unitario_negociado,
                  investimento_bruto, investimento_liquido, volume_contratado,
-                 ordem_exibicao, incluido_proposta)
+                 ordem_exibicao, incluido_proposta,
+                 id_audiencia_calculo_kpi)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s,
-                        %s, %s)
+                        %s, %s,
+                        %s)
                 RETURNING id
             ''', (cotacao_id, audiencia_id, audiencia_nome, audiencia_publico,
                   audiencia_categoria, audiencia_subcategoria,
                   cpm_estimado, investimento_sugerido, impressoes_estimadas,
-                  perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi,
+                  perc_margem_cc, audiencia_calculo_plataforma, audiencia_calculo_kpi_final,
                   data_inicio, data_fim, periodo,
                   perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                   val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
                   fator_desconto if fator_desconto is not None else 1.0,
                   valor_unitario_tabela, valor_unitario, valor_unitario_negociado,
                   investimento_bruto, investimento_liquido, volume_contratado,
-                  ordem_exibicao, incluido_proposta))
+                  ordem_exibicao, incluido_proposta,
+                  id_kpi_resolvido))
 
             result = cursor.fetchone()
 
@@ -5078,6 +5155,7 @@ _OMIT_AUD_VALOR_UNITARIO_NEGOCIADO = object()
 _OMIT_AUD_INVESTIMENTO_BRUTO = object()
 _OMIT_AUD_INVESTIMENTO_LIQUIDO = object()
 _OMIT_AUD_VOLUME_CONTRATADO = object()
+_OMIT_AUD_ID_CALC_KPI = object()
 
 
 def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investimento_sugerido=None, 
@@ -5103,7 +5181,8 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
                                 valor_unitario_negociado=_OMIT_AUD_VALOR_UNITARIO_NEGOCIADO,
                                 investimento_bruto=_OMIT_AUD_INVESTIMENTO_BRUTO,
                                 investimento_liquido=_OMIT_AUD_INVESTIMENTO_LIQUIDO,
-                                volume_contratado=_OMIT_AUD_VOLUME_CONTRATADO):
+                                volume_contratado=_OMIT_AUD_VOLUME_CONTRATADO,
+                                id_audiencia_calculo_kpi=_OMIT_AUD_ID_CALC_KPI):
     """Atualiza uma audiência da cotação"""
     conn = get_db()
     
@@ -5145,9 +5224,20 @@ def atualizar_audiencia_cotacao(audiencia_cotacao_id, cpm_estimado=None, investi
                 updates.append('audiencia_calculo_plataforma = %s')
                 params.append(audiencia_calculo_plataforma)
 
-            if audiencia_calculo_kpi is not _OMIT_AUD_CALC_KPI:
+            # KPI da audiência: resolver par (id, descricao). Quando qualquer um dos dois
+            # campos for explicitamente passado, atualizamos ambas as colunas (denormalizadas).
+            kpi_passou = (
+                audiencia_calculo_kpi is not _OMIT_AUD_CALC_KPI
+                or id_audiencia_calculo_kpi is not _OMIT_AUD_ID_CALC_KPI
+            )
+            if kpi_passou:
+                desc_in = audiencia_calculo_kpi if audiencia_calculo_kpi is not _OMIT_AUD_CALC_KPI else None
+                id_in = id_audiencia_calculo_kpi if id_audiencia_calculo_kpi is not _OMIT_AUD_ID_CALC_KPI else None
+                id_kpi_resolvido, desc_kpi_resolvida = _resolver_par_kpi(id_in, desc_in)
+                updates.append('id_audiencia_calculo_kpi = %s')
+                params.append(id_kpi_resolvido)
                 updates.append('audiencia_calculo_kpi = %s')
-                params.append(audiencia_calculo_kpi)
+                params.append(desc_kpi_resolvida if desc_kpi_resolvida else desc_in)
 
             if data_inicio is not _OMIT_AUD_DATA_INICIO:
                 updates.append('data_inicio = %s')
@@ -6133,7 +6223,8 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                         perc_pl_incentivos=None, perc_impostos=None,
                         val_margem_cc=None, val_tech_fee=None, val_com_vendas=None,
                         val_pl_incentivos=None, val_impostos=None,
-                        fator_desconto=None):
+                        fator_desconto=None,
+                        id_objetivo_kpi=None):
     """Cria uma nova linha de cotação"""
     import json
     
@@ -6152,7 +6243,12 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
     # Derivação canônica do período (M/YY) a partir de data_inicio, quando não informado.
     if not periodo:
         periodo = formatar_mes_ref_comp(data_inicio)
-    
+
+    # Resolver par (id, descricao) do KPI: prioriza id_objetivo_kpi; cai em objetivo_kpi (string legada).
+    id_kpi_resolvido, desc_kpi_resolvida = _resolver_par_kpi(id_objetivo_kpi, objetivo_kpi)
+    # Denormaliza a descrição na coluna string legada (compatibilidade com grids e exportações).
+    objetivo_kpi_final = desc_kpi_resolvida if desc_kpi_resolvida else objetivo_kpi
+
     # Garantir que dados_extras não seja None (usar '{}' como default)
     dados_extras_final = dados_extras if dados_extras is not None else '{}'
     
@@ -6182,7 +6278,7 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
         safe_value(segmentacao),
         safe_value(formatos),
         safe_value(canal),
-        safe_value(objetivo_kpi),
+        safe_value(objetivo_kpi_final),
         safe_value(data_inicio),
         safe_value(data_fim),
         safe_value(investimento_bruto),
@@ -6202,7 +6298,8 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
         safe_value(val_com_vendas),
         safe_value(val_pl_incentivos),
         safe_value(val_impostos),
-        safe_value(fator_desconto if fator_desconto is not None else 1.0)
+        safe_value(fator_desconto if fator_desconto is not None else 1.0),
+        id_kpi_resolvido,
     ])
     
     conn = get_db()
@@ -6218,10 +6315,12 @@ def criar_linha_cotacao(cotacao_id, pedido_sugestao=None, target=None, veiculo=N
                     valor_unitario_negociado, investimento_liquido,
                     perc_margem_cc, perc_tech_fee, perc_com_vendas, perc_pl_incentivos, perc_impostos,
                     val_margem_cc, val_tech_fee, val_com_vendas, val_pl_incentivos, val_impostos,
-                    fator_desconto
+                    fator_desconto,
+                    id_objetivo_kpi
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s)
                 RETURNING id
             ''', valores)
             linha_id = cursor.fetchone()['id']
@@ -6238,9 +6337,13 @@ def obter_linhas_cotacao(cotacao_id):
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT * FROM cadu_cotacao_linhas
-                WHERE cotacao_id = %s AND is_deleted = false
-                ORDER BY ordem ASC
+                SELECT
+                    l.*,
+                    COALESCE(NULLIF(TRIM(obj.descricao), ''), l.objetivo_kpi) AS objetivo_kpi
+                FROM cadu_cotacao_linhas l
+                LEFT JOIN cadu_pi_camp_objetivos obj ON l.id_objetivo_kpi = obj.id_objetivos_campanha
+                WHERE l.cotacao_id = %s AND l.is_deleted = false
+                ORDER BY l.ordem ASC
             ''', (cotacao_id,))
             return cursor.fetchall()
     except Exception as e:
@@ -6252,7 +6355,14 @@ def obter_linha_cotacao(linha_id):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute('SELECT * FROM cadu_cotacao_linhas WHERE id = %s AND is_deleted = false', (linha_id,))
+            cursor.execute('''
+                SELECT
+                    l.*,
+                    COALESCE(NULLIF(TRIM(obj.descricao), ''), l.objetivo_kpi) AS objetivo_kpi
+                FROM cadu_cotacao_linhas l
+                LEFT JOIN cadu_pi_camp_objetivos obj ON l.id_objetivo_kpi = obj.id_objetivos_campanha
+                WHERE l.id = %s AND l.is_deleted = false
+            ''', (linha_id,))
             return cursor.fetchone()
     except Exception as e:
         raise e
@@ -6287,7 +6397,7 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
             'valor_unitario_negociado', 'investimento_liquido',
             'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas', 'perc_pl_incentivos', 'perc_impostos',
             'val_margem_cc', 'val_tech_fee', 'val_com_vendas', 'val_pl_incentivos', 'val_impostos',
-            'fator_desconto'
+            'fator_desconto', 'id_objetivo_kpi'
         }
         
         campos_atualizacao = {}
@@ -6298,6 +6408,16 @@ def atualizar_linha_cotacao(linha_id, **kwargs):
                     campos_atualizacao[k] = to_json_string(v)
                 else:
                     campos_atualizacao[k] = v
+
+        # Se vier id_objetivo_kpi e/ou objetivo_kpi, resolver o par e denormalizar a descrição.
+        if 'id_objetivo_kpi' in campos_atualizacao or 'objetivo_kpi' in campos_atualizacao:
+            id_in = campos_atualizacao.get('id_objetivo_kpi')
+            desc_in = campos_atualizacao.get('objetivo_kpi')
+            id_kpi_resolvido, desc_kpi_resolvida = _resolver_par_kpi(id_in, desc_in)
+            if id_kpi_resolvido is not None or 'id_objetivo_kpi' in campos_atualizacao:
+                campos_atualizacao['id_objetivo_kpi'] = id_kpi_resolvido
+            if desc_kpi_resolvida is not None:
+                campos_atualizacao['objetivo_kpi'] = desc_kpi_resolvida
 
         # Derivação canônica do período (M/YY) a partir de data_inicio, quando não informado.
         if 'data_inicio' in campos_atualizacao and not campos_atualizacao.get('periodo'):
@@ -6838,58 +6958,71 @@ def get_analytics_sessions_daily(days=30):
         return []
 
 
-def get_analytics_top_audiencias(limit=20):
+def get_analytics_top_audiencias(limit=20, days=30):
     """
-    Obtém top audiências mais visualizadas
-    """
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                SELECT 
-                    audiencia_id,
-                    audiencia_nome,
-                    categoria,
-                    total_views,
-                    unique_users,
-                    unique_clients
-                FROM v_analytics_top_audiencias
-                ORDER BY total_views DESC
-                LIMIT %s
-            ''', (limit,))
-            return cursor.fetchall()
-    except Exception:
-        return []
-
-
-def get_analytics_top_pages(limit=20):
-    """
-    Obtém top páginas mais visitadas
+    Obtém top audiências mais visualizadas no período especificado.
+    
+    days: número de dias para filtrar (default 30)
     """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute('''
                 SELECT 
-                    page_path,
-                    page_type,
-                    total_views,
-                    unique_users,
-                    avg_time_on_page
-                FROM v_analytics_top_pages
+                    e.entity_id AS audiencia_id,
+                    COALESCE(e.metadata->>'nome', e.entity_name, 'Sem nome') AS audiencia_nome,
+                    COALESCE(e.metadata->>'categoria', '-') AS categoria,
+                    COUNT(*) AS total_views,
+                    COUNT(DISTINCT e.user_id) AS unique_users,
+                    COUNT(DISTINCT e.client_id) AS unique_clients
+                FROM cadu_analytics_events e
+                WHERE e.event_type = 'audiencia_viewed'
+                  AND e.created_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY e.entity_id,
+                         COALESCE(e.metadata->>'nome', e.entity_name, 'Sem nome'),
+                         COALESCE(e.metadata->>'categoria', '-')
                 ORDER BY total_views DESC
                 LIMIT %s
-            ''', (limit,))
+            ''', (days, limit,))
             return cursor.fetchall()
     except Exception:
         return []
 
 
-def get_analytics_user_engagement(limit=50, segment='all'):
+def get_analytics_top_pages(limit=20, days=30):
     """
-    Obtém usuários mais ativos, com opção de filtrar por perfil (CentralComm vs clientes).
+    Obtém top páginas mais visitadas no período especificado.
+    
+    days: número de dias para filtrar (default 30)
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    p.page_path,
+                    COALESCE(p.page_type, '-') AS page_type,
+                    COUNT(*) AS total_views,
+                    COUNT(DISTINCT p.user_id) AS unique_users,
+                    COALESCE(AVG(p.time_on_page_seconds), 0) AS avg_time_on_page
+                FROM cadu_analytics_pageviews p
+                WHERE p.viewed_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                GROUP BY p.page_path, COALESCE(p.page_type, '-')
+                ORDER BY total_views DESC
+                LIMIT %s
+            ''', (days, limit,))
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def get_analytics_user_engagement(limit=50, segment='all', days=30):
+    """
+    Obtém usuários mais ativos, com opção de filtrar por perfil (CentralComm vs clientes)
+    e por período (days).
 
     segment: 'all' | 'centralcomm' | 'external'
+    days: número de dias para filtrar (default 30)
     Critério CentralComm alinhado ao login: nome_fantasia do cliente = 'CENTRALCOMM'.
     """
     if segment not in ('all', 'centralcomm', 'external'):
@@ -6908,27 +7041,40 @@ def get_analytics_user_engagement(limit=50, segment='all'):
 
             cursor.execute(
                 f'''
+                WITH user_sessions AS (
+                    SELECT
+                        s.user_id,
+                        COUNT(*) AS total_sessions,
+                        COALESCE(SUM(s.duration_seconds), 0) AS total_time_seconds,
+                        COALESCE(AVG(s.duration_seconds), 0) AS avg_session_duration,
+                        COALESCE(SUM(s.pages_viewed), 0) AS total_pageviews,
+                        COUNT(DISTINCT DATE(s.started_at)) AS active_days,
+                        MAX(s.started_at) AS last_session
+                    FROM cadu_analytics_sessions s
+                    WHERE s.started_at >= CURRENT_DATE - %s * INTERVAL '1 day'
+                    GROUP BY s.user_id
+                )
                 SELECT
-                    v.user_id,
-                    v.user_name,
-                    v.user_email,
-                    v.client_name,
-                    v.total_sessions,
-                    v.total_time_seconds,
-                    v.avg_session_duration,
-                    v.total_pageviews,
-                    v.active_days,
-                    v.last_session,
+                    us.user_id,
+                    COALESCE(c.nome_completo, c.email) AS user_name,
+                    c.email AS user_email,
+                    cli.nome_fantasia AS client_name,
+                    us.total_sessions,
+                    us.total_time_seconds,
+                    us.avg_session_duration,
+                    us.total_pageviews,
+                    us.active_days,
+                    us.last_session,
                     {cc_expr} AS is_centralcomm
-                FROM v_analytics_user_engagement v
-                LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = v.user_id
+                FROM user_sessions us
+                LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = us.user_id
                 LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.pk_id_tbl_cliente
                 WHERE 1=1
                 {where_extra}
-                ORDER BY v.total_sessions DESC
+                ORDER BY us.total_sessions DESC
                 LIMIT %s
                 ''',
-                (limit,),
+                (days, limit),
             )
             return cursor.fetchall()
     except Exception:
@@ -8798,7 +8944,460 @@ def _normalizar_data_campo_cotacao_para_pi(val):
     return None
 
 
-def gerar_pi_de_cotacao(cotacao_id):
+def parse_valor_monetario_para_float(valor):
+    """Converte valor monetário (BR/US, com ou sem R$) em float."""
+    if valor is None or valor == '':
+        return 0.0
+    if isinstance(valor, (int, float, Decimal)):
+        try:
+            return float(valor)
+        except Exception:
+            return 0.0
+    s = str(valor).strip().replace('R$', '').replace(' ', '')
+    if not s:
+        return 0.0
+    if ',' in s:
+        s = s.replace('.', '').replace(',', '.')
+    try:
+        return float(s)
+    except Exception:
+        return 0.0
+
+
+def obter_id_plataforma_por_nome(nome_plataforma):
+    """Resolve id_plataforma em cadu_pi_camp_plataforma pelo nome/descrição."""
+    if not nome_plataforma or not str(nome_plataforma).strip():
+        return None
+    nome = str(nome_plataforma).strip()
+
+    if _plataformas_compartilham_tech_fee_dv360(nome):
+        pid = obter_id_plataforma_dv360()
+        if pid:
+            return int(pid)
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id_plataforma
+                FROM cadu_pi_camp_plataforma
+                WHERE COALESCE(status, TRUE)
+                  AND LOWER(TRIM(descricao)) = LOWER(TRIM(%s))
+                ORDER BY id_plataforma
+                LIMIT 1
+                ''',
+                (nome,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row['id_plataforma']
+
+            cursor.execute(
+                '''
+                SELECT id_plataforma
+                FROM cadu_pi_camp_plataforma
+                WHERE COALESCE(status, TRUE)
+                  AND LOWER(TRIM(descricao)) LIKE LOWER(%s)
+                ORDER BY
+                  CASE WHEN LOWER(TRIM(descricao)) LIKE LOWER(%s) THEN 0 ELSE 1 END,
+                  LENGTH(TRIM(descricao)),
+                  indice NULLS LAST,
+                  id_plataforma
+                LIMIT 1
+                ''',
+                (f'%{nome}%', f'{nome}%'),
+            )
+            row = cursor.fetchone()
+            return row['id_plataforma'] if row else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_id_objetivo_campanha_por_kpi(kpi):
+    """Mapeia KPI da cotação (CPM, CPC, …) para id_objetivos_campanha."""
+    if not kpi or not str(kpi).strip():
+        return None
+    k = str(kpi).strip().upper()
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id_objetivos_campanha
+                FROM cadu_pi_camp_objetivos
+                WHERE COALESCE(status, TRUE)
+                  AND UPPER(TRIM(descricao)) = %s
+                ORDER BY indice NULLS LAST, id_objetivos_campanha
+                LIMIT 1
+                ''',
+                (k,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row['id_objetivos_campanha']
+            cursor.execute(
+                '''
+                SELECT id_objetivos_campanha
+                FROM cadu_pi_camp_objetivos
+                WHERE COALESCE(status, TRUE)
+                  AND UPPER(TRIM(descricao)) LIKE %s
+                ORDER BY LENGTH(TRIM(descricao)), indice NULLS LAST, id_objetivos_campanha
+                LIMIT 1
+                ''',
+                (f'%{k}%',),
+            )
+            row = cursor.fetchone()
+            return row['id_objetivos_campanha'] if row else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_descricao_objetivo_campanha(id_objetivo):
+    """Retorna a descrição (string) do objetivo de campanha pelo ID. None se vazio/inválido."""
+    if id_objetivo in (None, '', 0, '0'):
+        return None
+    try:
+        id_int = int(id_objetivo)
+    except (TypeError, ValueError):
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT descricao FROM cadu_pi_camp_objetivos WHERE id_objetivos_campanha = %s',
+                (id_int,),
+            )
+            row = cursor.fetchone()
+            return (row['descricao'] or '').strip() if row else None
+    except Exception:
+        return None
+
+
+def _resolver_par_kpi(id_objetivo_kpi=None, objetivo_kpi=None):
+    """Dado o id e/ou a string, retorna (id_int_ou_None, descricao_str_ou_None).
+    Preferência: se vier id válido, resolvemos a descrição pelo banco.
+    Se vier só a string, tentamos obter o id por descrição.
+    """
+    id_out = None
+    desc_out = None
+    if id_objetivo_kpi not in (None, '', 0, '0'):
+        try:
+            id_out = int(id_objetivo_kpi)
+        except (TypeError, ValueError):
+            id_out = None
+    if id_out is not None:
+        desc_out = obter_descricao_objetivo_campanha(id_out)
+    if not desc_out and objetivo_kpi:
+        desc_str = str(objetivo_kpi).strip()
+        if desc_str:
+            desc_out = desc_str
+            if id_out is None:
+                id_out = obter_id_objetivo_campanha_por_kpi(desc_str)
+                if id_out is not None:
+                    nova_desc = obter_descricao_objetivo_campanha(id_out)
+                    if nova_desc:
+                        desc_out = nova_desc
+    return id_out, desc_out
+
+
+def subtrair_valor_plataforma_pi(id_pi, valor_campanha_brl):
+    """Subtrai valor_plataforma da campanha de vr_liquido_pi e total_platafor_max_pi."""
+    pi_vals = obter_pi_valores_plataforma(id_pi)
+    if not pi_vals:
+        return
+    valor_camp = parse_valor_monetario_para_float(valor_campanha_brl)
+    if valor_camp <= 0:
+        return
+    vr_liq = parse_valor_monetario_para_float(pi_vals.get('vr_liquido_pi'))
+    total_plat = parse_valor_monetario_para_float(pi_vals.get('total_platafor_max_pi'))
+    novo_vr_liq = max(vr_liq - valor_camp, 0)
+    novo_total = max(total_plat - valor_camp, 0)
+    atualizar_pi_valores_plataforma(
+        id_pi,
+        formatar_real_br(novo_vr_liq),
+        formatar_real_br(novo_total),
+    )
+
+
+def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataforma_key, kpi_key, nome_fallback, id_kpi_key=None):
+    """Monta payload para criar_campanha_pi a partir de linha ou audiência da cotação."""
+    item_id = item.get('id', 'N/A')
+    plataforma = (
+        item.get(plataforma_key) 
+        or item.get('plataforma') 
+        or item.get('fonte')
+        or ''
+    ).strip()
+    if not plataforma:
+        logger.warning(
+            f"[criar_campanhas_pi] Item {item_id} ignorado: plataforma vazia. "
+            f"plataforma_key='{plataforma_key}', item.plataforma='{item.get('plataforma')}', "
+            f"item.{plataforma_key}='{item.get(plataforma_key)}', item.fonte='{item.get('fonte')}'"
+        )
+        return None
+
+    valor_plat = (
+        parse_valor_monetario_para_float(item.get('investimento_liquido'))
+        or parse_valor_monetario_para_float(item.get('investimento_bruto'))
+        or parse_valor_monetario_para_float(item.get('investimento_sugerido'))
+        or parse_valor_monetario_para_float(item.get('valor_total'))
+    )
+    if valor_plat <= 0:
+        logger.warning(
+            f"[criar_campanhas_pi] Item {item_id} ignorado: valor <= 0. "
+            f"investimento_liquido={item.get('investimento_liquido')}, "
+            f"investimento_bruto={item.get('investimento_bruto')}, "
+            f"investimento_sugerido={item.get('investimento_sugerido')}, "
+            f"valor_total={item.get('valor_total')}"
+        )
+        return None
+
+    periodo_ini = _normalizar_data_campo_cotacao_para_pi(item.get('data_inicio'))
+    periodo_fim = _normalizar_data_campo_cotacao_para_pi(item.get('data_fim'))
+    if not periodo_ini:
+        periodo_ini = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
+    if not periodo_fim:
+        periodo_fim = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_fim'))
+
+    mes_ref = None
+    mes_ref_comp = None
+    if periodo_ini:
+        mes_ref = date(periodo_ini.year, periodo_ini.month, 1)
+        mes_ref_comp = formatar_mes_ref_comp(periodo_ini)
+    elif cotacao.get('periodo_inicio'):
+        mes_ref_comp = formatar_mes_ref_comp(cotacao.get('periodo_inicio'))
+
+    nome = (
+        (item.get('segmentacao') or '').strip()
+        or (item.get('detalhamento') or '').strip()
+        or (item.get('audiencia_nome') or '').strip()
+        or nome_fallback
+        or plataforma
+    )
+
+    kpi = (item.get(kpi_key) or item.get('objetivo_kpi') or item.get('audiencia_calculo_kpi') or '').strip()
+    obj_contratados = item.get('volume_contratado') or item.get('impressoes_estimadas')
+
+    # Prefere usar o id_*_kpi já persistido na linha/audiência; cai para resolução
+    # por string (legado) só quando o id ainda não foi populado.
+    id_objetivos_campanha = None
+    id_kpi_direto = (
+        item.get(id_kpi_key) if id_kpi_key else None
+    ) or item.get('id_objetivo_kpi') or item.get('id_audiencia_calculo_kpi')
+    if id_kpi_direto not in (None, '', 0, '0'):
+        try:
+            id_objetivos_campanha = int(id_kpi_direto)
+        except (TypeError, ValueError):
+            id_objetivos_campanha = None
+    if id_objetivos_campanha is None and kpi:
+        id_objetivos_campanha = obter_id_objetivo_campanha_por_kpi(kpi)
+
+    return {
+        'id_pi': id_pi,
+        'id_cliente': cotacao.get('client_id'),
+        'nome_campanha': nome,
+        'valor_plataforma': formatar_real_br(valor_plat),
+        'id_plataforma': obter_id_plataforma_por_nome(plataforma),
+        'obj_contratados': obj_contratados,
+        'periodo_inicio': periodo_ini,
+        'periodo_fim': periodo_fim,
+        'mes_ref': mes_ref,
+        'mes_ref_comp': mes_ref_comp,
+        'id_objetivos_campanha': id_objetivos_campanha,
+        'id_status': 1,
+        'perc_margem_cc': item.get('perc_margem_cc'),
+        'perc_tech_fee': item.get('perc_tech_fee'),
+        'perc_com_vendas': item.get('perc_com_vendas'),
+        'perc_pl_incentivos': item.get('perc_pl_incentivos'),
+        'perc_impostos': item.get('perc_impostos'),
+        'val_margem_cc': formatar_real_br(item.get('val_margem_cc')),
+        'val_tech_fee': formatar_real_br(item.get('val_tech_fee')),
+        'val_com_vendas': formatar_real_br(item.get('val_com_vendas')),
+        'val_pl_incentivos': formatar_real_br(item.get('val_pl_incentivos')),
+        'val_impostos': formatar_real_br(item.get('val_impostos')),
+    }
+
+
+def _montar_dados_campanha_pi_geral_de_cotacao(cotacao, id_pi):
+    """Monta payload para criar_campanha_pi a partir dos dados gerais da campanha
+    da cotação (nome_campanha, objetivo_campanha, budget_estimado, período).
+
+    Esta é a campanha 'guarda-chuva' do PI, criada antes das campanhas individuais
+    de itens da proposta e audiências. Ela representa o orçamento e contexto geral
+    da campanha, sem plataforma específica.
+    """
+    cotacao_id = cotacao.get('id', 'N/A')
+    nome = (cotacao.get('nome_campanha') or '').strip() or f'Cotação #{cotacao_id}'
+
+    valor_budget = parse_valor_monetario_para_float(cotacao.get('budget_estimado'))
+
+    periodo_ini = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
+    periodo_fim = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_fim'))
+
+    mes_ref = None
+    mes_ref_comp = None
+    if periodo_ini:
+        mes_ref = date(periodo_ini.year, periodo_ini.month, 1)
+        mes_ref_comp = formatar_mes_ref_comp(periodo_ini)
+
+    return {
+        'id_pi': id_pi,
+        'id_cliente': cotacao.get('client_id'),
+        'nome_campanha': nome,
+        'valor_plataforma': formatar_real_br(valor_budget) if valor_budget > 0 else None,
+        'id_plataforma': None,
+        'obj_contratados': None,
+        'periodo_inicio': periodo_ini,
+        'periodo_fim': periodo_fim,
+        'mes_ref': mes_ref,
+        'mes_ref_comp': mes_ref_comp,
+        'id_objetivos_campanha': None,
+        'id_status': 1,
+    }
+
+
+def criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=None, audiencias=None):
+    """Cria campanhas PI a partir da campanha geral da cotação (guarda-chuva),
+    das linhas e das audiências incluídas na cotação.
+
+    Ordem de criação:
+    1. Campanha guarda-chuva (dados gerais da cotação)
+    2. Campanhas das linhas/itens da proposta
+    3. Campanhas das audiências
+    """
+    cotacao_id = cotacao.get('id', 'N/A')
+    titulo = (cotacao.get('nome_campanha') or '').strip() or f'Cotação #{cotacao_id}'
+    
+    linhas_list = linhas or []
+    audiencias_list = audiencias or []
+    logger.info(
+        f"[criar_campanhas_pi] Iniciando para PI {id_pi}, cotação {cotacao_id}. "
+        f"Total linhas: {len(linhas_list)}, Total audiências: {len(audiencias_list)}"
+    )
+    
+    campanha_geral_criada = False
+    erros_geral = 0
+    try:
+        dados_geral = _montar_dados_campanha_pi_geral_de_cotacao(cotacao, id_pi)
+        id_camp_geral = criar_campanha_pi(dados_geral)
+        if id_camp_geral:
+            campanha_geral_criada = True
+            logger.info(
+                f"[criar_campanhas_pi] Campanha guarda-chuva {id_camp_geral} criada "
+                f"da cotação {cotacao_id} (nome='{dados_geral.get('nome_campanha')}')"
+            )
+        else:
+            erros_geral += 1
+            logger.error(
+                f"[criar_campanhas_pi] Falha ao criar campanha guarda-chuva "
+                f"da cotação {cotacao_id}: retornou None"
+            )
+    except Exception as e:
+        erros_geral += 1
+        logger.exception(f"[criar_campanhas_pi] Exceção ao criar campanha guarda-chuva: {e}")
+
+    campanhas_criadas_linhas = 0
+    campanhas_criadas_audiencias = 0
+    erros_linhas = 0
+    erros_audiencias = 0
+
+    for idx, linha in enumerate(linhas_list):
+        linha_id = linha.get('id', f'idx_{idx}')
+        try:
+            if linha.get('is_subtotal') or linha.get('is_header'):
+                logger.debug(f"[criar_campanhas_pi] Linha {linha_id} ignorada: is_subtotal ou is_header")
+                continue
+            dados = _montar_dados_campanha_pi_de_item_cotacao(
+                linha,
+                id_pi,
+                cotacao,
+                plataforma_key='plataforma',
+                kpi_key='objetivo_kpi',
+                id_kpi_key='id_objetivo_kpi',
+                nome_fallback=titulo,
+            )
+            if not dados:
+                continue
+            id_camp = criar_campanha_pi(dados)
+            if id_camp:
+                campanhas_criadas_linhas += 1
+                logger.info(f"[criar_campanhas_pi] Campanha {id_camp} criada da linha {linha_id}")
+                if dados.get('valor_plataforma'):
+                    subtrair_valor_plataforma_pi(id_pi, dados['valor_plataforma'])
+            else:
+                erros_linhas += 1
+                logger.error(f"[criar_campanhas_pi] Falha ao criar campanha da linha {linha_id}: retornou None")
+        except Exception as e:
+            erros_linhas += 1
+            logger.exception(f"[criar_campanhas_pi] Exceção ao processar linha {linha_id}: {e}")
+
+    for idx, aud in enumerate(audiencias_list):
+        aud_id = aud.get('id', f'idx_{idx}')
+        try:
+            if aud.get('incluido_proposta') is False:
+                logger.debug(f"[criar_campanhas_pi] Audiência {aud_id} ignorada: incluido_proposta=False")
+                continue
+            plataforma = (
+                aud.get('audiencia_calculo_plataforma') 
+                or aud.get('plataforma') 
+                or aud.get('fonte')
+                or ''
+            ).strip()
+            if not plataforma:
+                logger.warning(
+                    f"[criar_campanhas_pi] Audiência {aud_id} ignorada: plataforma vazia. "
+                    f"audiencia_calculo_plataforma='{aud.get('audiencia_calculo_plataforma')}', "
+                    f"plataforma='{aud.get('plataforma')}', "
+                    f"fonte='{aud.get('fonte')}'"
+                )
+                continue
+            aud_item = dict(aud)
+            aud_item['audiencia_calculo_plataforma'] = plataforma
+            dados = _montar_dados_campanha_pi_de_item_cotacao(
+                aud_item,
+                id_pi,
+                cotacao,
+                plataforma_key='audiencia_calculo_plataforma',
+                kpi_key='audiencia_calculo_kpi',
+                id_kpi_key='id_audiencia_calculo_kpi',
+                nome_fallback=aud.get('audiencia_nome') or titulo,
+            )
+            if not dados:
+                continue
+            id_camp = criar_campanha_pi(dados)
+            if id_camp:
+                campanhas_criadas_audiencias += 1
+                logger.info(f"[criar_campanhas_pi] Campanha {id_camp} criada da audiência {aud_id}")
+                if dados.get('valor_plataforma'):
+                    subtrair_valor_plataforma_pi(id_pi, dados['valor_plataforma'])
+            else:
+                erros_audiencias += 1
+                logger.error(f"[criar_campanhas_pi] Falha ao criar campanha da audiência {aud_id}: retornou None")
+        except Exception as e:
+            erros_audiencias += 1
+            logger.exception(f"[criar_campanhas_pi] Exceção ao processar audiência {aud_id}: {e}")
+    
+    logger.info(
+        f"[criar_campanhas_pi] Concluído para PI {id_pi}. "
+        f"Campanhas criadas: {1 if campanha_geral_criada else 0} guarda-chuva, "
+        f"{campanhas_criadas_linhas} de linhas, {campanhas_criadas_audiencias} de audiências. "
+        f"Erros: {erros_geral} guarda-chuva, {erros_linhas} linhas, {erros_audiencias} audiências"
+    )
+    
+    return {
+        'campanha_geral': campanha_geral_criada,
+        'campanhas_linhas': campanhas_criadas_linhas,
+        'campanhas_audiencias': campanhas_criadas_audiencias,
+        'erros_geral': erros_geral,
+        'erros_linhas': erros_linhas,
+        'erros_audiencias': erros_audiencias,
+    }
+
+
+def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
     """Gera um PI automaticamente a partir de uma cotação aprovada.
     Retorna o id_pi gerado ou None se já existir PI vinculado."""
     from datetime import datetime
@@ -8928,10 +9527,12 @@ def gerar_pi_de_cotacao(cotacao_id):
         mes_ref = date(pi_periodo_inicio.year, pi_periodo_inicio.month, 1)
         mes_ref_comp = formatar_mes_ref_comp(pi_periodo_inicio)
 
+    valor_plataformas = formatar_real_br(valor_liquido) if valor_liquido else None
+
     data = {
         'id_cliente': cotacao.get('client_id'),
         'titulo_pi': cotacao.get('nome_campanha'),
-        'codigo_pi_cc': None,
+        'codigo_pi_cc': (str(codigo_pi_cc).strip() or None) if codigo_pi_cc else None,
         'id_pi_tipo': id_pi_tipo,
         'tem_agencia': bool(cotacao.get('agencia_id')),
         'id_agencia': cotacao.get('agencia_id'),
@@ -8943,7 +9544,7 @@ def gerar_pi_de_cotacao(cotacao_id):
         'comissao_agencia': formatar_real_br(comissao_agencia) if comissao_agencia else None,
         'comissao_parceiro': formatar_real_br(comissao_parceiro) if comissao_parceiro else None,
         'valor_liquido_pr': None,
-        'valor_plataformas': None,
+        'valor_plataformas': valor_plataformas,
         'periodo_inicio': pi_periodo_inicio,
         'periodo_fim': pi_periodo_fim,
         'mes_ref': mes_ref,
@@ -8972,7 +9573,17 @@ def gerar_pi_de_cotacao(cotacao_id):
         'val_impostos': formatar_real_br(val_impostos_pi),
     }
 
-    return criar_cadu_pi(data)
+    id_pi = criar_cadu_pi(data)
+    if not id_pi:
+        return None
+
+    try:
+        audiencias = obter_audiencias_cotacao(cotacao_id)
+    except Exception:
+        audiencias = []
+
+    criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=linhas, audiencias=audiencias)
+    return id_pi
 
 
 def atualizar_cadu_pi(id_pi, data):
@@ -9726,9 +10337,10 @@ def criar_plataforma_campanha(data):
             cursor.execute('''
                 INSERT INTO cadu_pi_camp_plataforma (
                     descricao, indice, status,
-                    tech_partner, tech_fee, metodo_pagamento, detalhe_pagamento
+                    tech_partner, tech_fee, metodo_pagamento, detalhe_pagamento,
+                    categoria
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_plataforma
             ''', (
                 data.get('descricao'),
@@ -9738,6 +10350,7 @@ def criar_plataforma_campanha(data):
                 data.get('tech_fee'),
                 data.get('metodo_pagamento'),
                 data.get('detalhe_pagamento'),
+                data.get('categoria'),
             ))
             result = cursor.fetchone()
             conn.commit()
@@ -9760,7 +10373,8 @@ def atualizar_plataforma_campanha(id_plataforma, data):
                     tech_partner = %s,
                     tech_fee = %s,
                     metodo_pagamento = %s,
-                    detalhe_pagamento = %s
+                    detalhe_pagamento = %s,
+                    categoria = %s
                 WHERE id_plataforma = %s
             ''', (
                 data.get('descricao'),
@@ -9770,6 +10384,7 @@ def atualizar_plataforma_campanha(id_plataforma, data):
                 data.get('tech_fee'),
                 data.get('metodo_pagamento'),
                 data.get('detalhe_pagamento'),
+                data.get('categoria'),
                 id_plataforma,
             ))
             conn.commit()

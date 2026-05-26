@@ -803,8 +803,8 @@ async function moverCotacaoStatus(novoStatus) {
 
   if (novoStatus === 'Aprovada') {
     const confirmou = confirm(
-      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
-      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um Pedido de Inserção será gerado automaticamente.\n\n' +
+      'Após a geração, não será possível reverter o status da cotação.\n\n' +
       'Deseja continuar com a aprovação?'
     );
     if (!confirmou) {
@@ -847,7 +847,7 @@ function aprovarCotacao() {
   document.getElementById('confirmar_mensagem').innerHTML = 
     `Confirma a aprovação da cotação <strong>${cotacaoAtualData?.numero_cotacao}</strong>?<br><br>` +
     `<span class="text-amber-600 text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>` +
-    `Um PI será gerado automaticamente. Após a geração, não será possível reverter o status.</span>`;
+    `Um Pedido de Inserção será gerado automaticamente. Após a geração, não será possível reverter o status.</span>`;
   document.getElementById('confirmar_btn').className = 'px-4 py-2 text-sm text-white rounded bg-green-600 hover:bg-green-700';
   document.getElementById('confirmar_btn').textContent = 'Aprovar e Gerar PI';
   document.getElementById('confirmar_motivo').value = '';

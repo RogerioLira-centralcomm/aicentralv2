@@ -367,6 +367,41 @@ function atualizarComissaoPercentual(percentual, temAgenciaOuParceiro) {
   _comissaoAvisado = false;
 }
 
+// KPI agora é persistido como FK (id_objetivo_kpi). Helpers para ler/setar
+// pelo id e ainda permitir cálculo pela descrição (CPM, CPC, etc.).
+function getKpiDescricao(prefix) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'objetivo_kpi');
+  if (!el) return '';
+  var opt = el.options[el.selectedIndex];
+  if (!opt) return '';
+  return String(opt.getAttribute('data-descricao') || opt.text || '').trim();
+}
+
+function selecionarKpiPorDescricao(prefix, descricao) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'objetivo_kpi');
+  if (!el) return false;
+  var alvo = String(descricao || '').trim().toUpperCase();
+  if (!alvo) { el.value = ''; return true; }
+  for (var i = 0; i < el.options.length; i++) {
+    var d = String(el.options[i].getAttribute('data-descricao') || el.options[i].text || '').trim().toUpperCase();
+    if (d === alvo) { el.selectedIndex = i; return true; }
+  }
+  return false;
+}
+
+function aplicarKpiNoSelect(prefix, idKpi, descricao) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'objetivo_kpi');
+  if (!el) return false;
+  if (idKpi !== undefined && idKpi !== null && String(idKpi).trim() !== '' && String(idKpi) !== '0') {
+    el.value = String(idKpi);
+    if (el.selectedIndex >= 0 && String(el.value) === String(idKpi)) return true;
+  }
+  return selecionarKpiPorDescricao(p, descricao);
+}
+
 // Funções de cálculo para Nova Linha
 function calcularValorNegociado() {
   var valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
@@ -382,9 +417,8 @@ function calcularVolume() {
   var investimento = parseMoeda(document.getElementById('investimento_bruto').value);
   var valorTabela = parseMoeda(document.getElementById('valor_unitario_tabela').value);
   var desconto = parsePercentual(document.getElementById('desconto_percentual').value);
-  var objetivoEl = document.getElementById('objetivo_kpi');
-  var objetivo = objetivoEl ? objetivoEl.value : '';
-  
+  var objetivo = getKpiDescricao('');
+
   // Usar valor com precisão total (sem arredondamento) para cálculo correto do volume
   var valorUnitario = valorTabela * (1 - desconto / 100);
   
@@ -423,9 +457,8 @@ function calcularVolumeEdit() {
   var investBruto = parseMoeda(document.getElementById('edit_investimento_bruto').value);
   var valorTabela = parseMoeda(document.getElementById('edit_valor_unitario_tabela').value);
   var desconto = parsePercentual(document.getElementById('edit_desconto_percentual').value);
-  var objetivoEl = document.getElementById('edit_objetivo_kpi');
-  var objetivo = objetivoEl ? objetivoEl.value : '';
-  
+  var objetivo = getKpiDescricao('edit_');
+
   // Usar valor com precisão total (sem arredondamento) para cálculo correto do volume
   var valorUnitario = valorTabela * (1 - desconto / 100);
   
@@ -1196,15 +1229,9 @@ function calcularInvestLiquidoEdit() {
         <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
         <select id="objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarLabelVolume()">
           <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPL">CPL</option>
-          <option value="CPV">CPV</option>
-          <option value="CPCV">CPCV</option>
-          <option value="CPE">CPE</option>
-          <option value="CPO">CPO</option>
-          <option value="Fixo">Fixo</option>
+          {% for obj in objetivos_campanha or [] %}
+          <option value="{{ obj.id_objetivos_campanha }}" data-descricao="{{ obj.descricao }}">{{ obj.descricao }}</option>
+          {% endfor %}
         </select>
       </div>
 
@@ -1474,15 +1501,9 @@ function calcularInvestLiquidoEdit() {
         <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
         <select id="edit_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="calcularVolumeEdit()">
           <option value="">Selecione...</option>
-          <option value="CPM">CPM</option>
-          <option value="CPC">CPC</option>
-          <option value="CPA">CPA</option>
-          <option value="CPL">CPL</option>
-          <option value="CPV">CPV</option>
-          <option value="CPCV">CPCV</option>
-          <option value="CPE">CPE</option>
-          <option value="CPO">CPO</option>
-          <option value="Fixo">Fixo</option>
+          {% for obj in objetivos_campanha or [] %}
+          <option value="{{ obj.id_objetivos_campanha }}" data-descricao="{{ obj.descricao }}">{{ obj.descricao }}</option>
+          {% endfor %}
         </select>
       </div>
 
@@ -2173,21 +2194,28 @@ async function alterarStatusCotacao(novoStatus) {
   const statusAnterior = selectEl ? selectEl.dataset.statusAtual : '';
 
   if (novoStatus === 'Aprovada' && statusAnterior !== 'Aprovada') {
-    const confirmou = confirm(
-      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
-      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
-      'Deseja continuar com a aprovação?'
+    const codigoPiCc = prompt(
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um Pedido de Inserção será gerado automaticamente.\n\n' +
+      'Após a geração, não será possível reverter o status da cotação.\n\n' +
+      'Digite o Código PI CC para continuar:'
     );
-    if (!confirmou) {
+    if (codigoPiCc === null) {
       if (selectEl) selectEl.value = statusAnterior;
       return;
     }
+    if (!codigoPiCc.trim()) {
+      showToast('O Código PI CC é obrigatório para aprovar.', 'warning');
+      if (selectEl) selectEl.value = statusAnterior;
+      return;
+    }
+    window._codigoPiCcAprovacao = codigoPiCc.trim();
   }
   
   try {
     const payload = { status: novoStatus };
     if (novoStatus === 'Aprovada') {
       payload.aprovada_em = new Date().toISOString();
+      payload.codigo_pi_cc = window._codigoPiCcAprovacao || '';
     }
 
     const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
@@ -3480,7 +3508,22 @@ document.addEventListener('DOMContentLoaded', function() {
           tdSeg.textContent = seg;
           const tdPlat = document.createElement('td');
           tdPlat.className = 'py-2 px-2 text-xs';
-          tdPlat.textContent = it.plataforma || '—';
+          const selPlat = document.createElement('select');
+          const ocrPlat = (it.plataforma || '').toString().trim();
+          const platResolved = it.id_plataforma != null && it.id_plataforma !== '';
+          selPlat.className = 'select select-bordered select-xs w-40 text-xs import-sel-plataforma'
+            + (platResolved || !ocrPlat ? '' : ' border-red-300');
+          selPlat.setAttribute('data-idx', String(idx));
+          if (!platResolved && ocrPlat) {
+            selPlat.title = `OCR extraiu "${ocrPlat}" e não encontrou correspondência — selecione manualmente`;
+          }
+          selPlat.appendChild(new Option('Selecione…', ''));
+          (window.__IMPORT_PLATAFORMAS__ || []).forEach(p => {
+            const opt = new Option(p.descricao, p.descricao);
+            if (platResolved && Number(it.id_plataforma) === Number(p.id)) opt.selected = true;
+            selPlat.appendChild(opt);
+          });
+          tdPlat.appendChild(selPlat);
           const tdPer = document.createElement('td');
           tdPer.className = 'py-2 px-2 text-xs whitespace-nowrap';
           const di = it.data_inicio || '';
@@ -3495,7 +3538,23 @@ document.addEventListener('DOMContentLoaded', function() {
           tdBruto.textContent = `R$ ${formatarMoeda(Number.isFinite(brutoN) ? brutoN : 0)}`;
           const tdKpi = document.createElement('td');
           tdKpi.className = 'py-2 px-2 text-xs text-center';
-          tdKpi.textContent = it.objetivo_kpi || '—';
+          const selKpi = document.createElement('select');
+          const ocrKpi = (it.objetivo_kpi || '').toString().trim();
+          const kpiResolved = it.id_objetivo_kpi != null && it.id_objetivo_kpi !== '';
+          selKpi.className = 'select select-bordered select-xs w-28 text-xs import-sel-kpi'
+            + (kpiResolved || !ocrKpi ? '' : ' border-red-300');
+          selKpi.setAttribute('data-idx', String(idx));
+          if (!kpiResolved && ocrKpi) {
+            selKpi.title = `OCR extraiu "${ocrKpi}" e não encontrou correspondência — selecione manualmente`;
+          }
+          selKpi.appendChild(new Option('Selecione…', ''));
+          (window.__IMPORT_OBJETIVOS_KPI__ || []).forEach(o => {
+            const opt = new Option(o.descricao, String(o.id));
+            opt.setAttribute('data-descricao', o.descricao);
+            if (kpiResolved && Number(it.id_objetivo_kpi) === Number(o.id)) opt.selected = true;
+            selKpi.appendChild(opt);
+          });
+          tdKpi.appendChild(selKpi);
           const tdPu = document.createElement('td');
           tdPu.className = 'py-2 px-2 text-xs text-right font-mono';
           const vu = parseFloat(it.valor_unitario_negociado != null ? it.valor_unitario_negociado : it.valor_unitario);
@@ -3699,7 +3758,8 @@ async function salvarNovaLinha() {
     segmentacao: document.getElementById('segmentacao').value,
     formatos: formatosSelecionados.join(', '),
     plataforma: document.getElementById('plataforma').value,
-    objetivo_kpi: document.getElementById('objetivo_kpi').value,
+    id_objetivo_kpi: document.getElementById('objetivo_kpi').value || null,
+    objetivo_kpi: getKpiDescricao(''),
     viewability_minimo: parseFloat(document.getElementById('viewability_minimo').value) || 70,
     data_inicio: document.getElementById('data_inicio').value,
     data_fim: document.getElementById('data_fim').value,
@@ -3749,6 +3809,17 @@ async function salvarNovaLinha() {
 // ==================== IMPORTAR LINHAS POR IMAGEM (OCR IA) ====================
 let _linhasImportacaoBuffer = [];
 
+window.__IMPORT_PLATAFORMAS__ = [
+  {% for p in (plataformas_campanha or []) %}
+  { id: {{ p.id_plataforma }}, descricao: {{ (p.descricao or '') | tojson }}, categoria: {{ (p.categoria or '') | tojson }} }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+window.__IMPORT_OBJETIVOS_KPI__ = [
+  {% for o in (objetivos_campanha or []) %}
+  { id: {{ o.id_objetivos_campanha }}, descricao: {{ (o.descricao or '') | tojson }} }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+
 function dispararImportarLinhasImagem() {
   if (!podeEditar()) {
     mostrarBloqueioEdicao();
@@ -3762,7 +3833,23 @@ function toggleTodosImportLinhas(checked) {
   document.querySelectorAll('.chk-import-linha').forEach(cb => { cb.checked = checked; });
 }
 
-function montarPayloadLinhaImportacao(item) {
+function _lerSelecoesImportLinha(tr) {
+  const selPlat = tr ? tr.querySelector('.import-sel-plataforma') : null;
+  const selKpi = tr ? tr.querySelector('.import-sel-kpi') : null;
+  const plataformaCan = selPlat ? (selPlat.value || '').trim() : '';
+  const idKpiStr = selKpi ? (selKpi.value || '').trim() : '';
+  let descKpi = '';
+  if (selKpi && selKpi.selectedOptions && selKpi.selectedOptions[0]) {
+    descKpi = selKpi.selectedOptions[0].getAttribute('data-descricao') || selKpi.selectedOptions[0].text || '';
+  }
+  return {
+    plataforma: plataformaCan,
+    id_objetivo_kpi: idKpiStr ? parseInt(idKpiStr, 10) : null,
+    objetivo_kpi: descKpi
+  };
+}
+
+function montarPayloadLinhaImportacao(item, tr) {
   const investBruto = parseFloat(item.investimento_bruto) || 0;
   const liquidoOcr = item.investimento_liquido;
   const investLiquido = (liquidoOcr != null && liquidoOcr !== '' && !Number.isNaN(Number(liquidoOcr)))
@@ -3771,12 +3858,16 @@ function montarPayloadLinhaImportacao(item) {
   const vuNeg = parseFloat(item.valor_unitario_negociado) || parseFloat(item.valor_unitario) || 0;
   const volRaw = item.volume_contratado;
   const volumeContratado = typeof volRaw === 'number' ? Math.round(volRaw) : (parseInt(String(volRaw || '').replace(/\D/g, ''), 10) || 0);
+  const sel = _lerSelecoesImportLinha(tr);
+  const plataformaFinal = sel.plataforma || (item.plataforma || '');
+  const objetivoKpiFinal = sel.objetivo_kpi || (item.objetivo_kpi || '');
   return {
     cotacao_id: parseInt(getCotacaoId(), 10),
     segmentacao: item.segmentacao || '',
     formatos: item.formatos || 'Outros',
-    plataforma: item.plataforma || '',
-    objetivo_kpi: item.objetivo_kpi || '',
+    plataforma: plataformaFinal,
+    objetivo_kpi: objetivoKpiFinal,
+    id_objetivo_kpi: sel.id_objetivo_kpi,
     viewability_minimo: parseFloat(item.viewability_minimo) || 70,
     data_inicio: item.data_inicio || '',
     data_fim: item.data_fim || '',
@@ -3814,15 +3905,27 @@ async function confirmarImportLinhasSelecionadas() {
   if (btn) btn.disabled = true;
   let ok = 0;
   let fail = 0;
+  let skippedValidacao = 0;
   try {
     for (let i = 0; i < selecionados.length; i++) {
-      const idx = parseInt(selecionados[i].getAttribute('data-idx'), 10);
+      const cb = selecionados[i];
+      const idx = parseInt(cb.getAttribute('data-idx'), 10);
       const item = _linhasImportacaoBuffer[idx];
       if (!item) {
         fail++;
         continue;
       }
-      const payload = montarPayloadLinhaImportacao(item);
+      const tr = cb.closest('tr');
+      const sel = _lerSelecoesImportLinha(tr);
+      if (!sel.plataforma || !sel.id_objetivo_kpi) {
+        skippedValidacao++;
+        const selPlat = tr ? tr.querySelector('.import-sel-plataforma') : null;
+        const selKpi = tr ? tr.querySelector('.import-sel-kpi') : null;
+        if (selPlat && !sel.plataforma) selPlat.classList.add('border-red-500');
+        if (selKpi && !sel.id_objetivo_kpi) selKpi.classList.add('border-red-500');
+        continue;
+      }
+      const payload = montarPayloadLinhaImportacao(item, tr);
       try {
         const res = await fetch('/api/cotacoes/linhas', {
           method: 'POST',
@@ -3836,15 +3939,20 @@ async function confirmarImportLinhasSelecionadas() {
         fail++;
       }
     }
-    document.getElementById('modal_preview_import_linhas').close();
+    if (skippedValidacao) {
+      showToast(`${skippedValidacao} item(ns) ignorado(s): selecione Plataforma e KPI.`, 'warning');
+    }
     if (ok) {
-      const msg = `${ok} item(ns) importado(s)${fail ? ` (${fail} falha(s))` : ''}.`;
-      showToast(msg, fail ? 'warning' : 'success');
+      document.getElementById('modal_preview_import_linhas').close();
+      const partes = [`${ok} item(ns) importado(s)`];
+      if (fail) partes.push(`${fail} falha(s)`);
+      if (skippedValidacao) partes.push(`${skippedValidacao} ignorado(s)`);
+      showToast(partes.join(' · ') + '.', (fail || skippedValidacao) ? 'warning' : 'success');
       await recalcularValorTotalCotacao();
       setTimeout(() => {
         window.location.href = `${window.location.pathname}?aba=linhas`;
       }, 600);
-    } else {
+    } else if (!skippedValidacao) {
       showToast('Nenhum item foi gravado.', 'error');
     }
   } finally {
@@ -3905,7 +4013,7 @@ async function visualizarOuEditarLinha(linhaId) {
     document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
     document.getElementById('edit_praca').value = linha.praca || '';
     document.getElementById('edit_plataforma').value = linha.plataforma || '';
-    document.getElementById('edit_objetivo_kpi').value = linha.objetivo_kpi || '';
+    aplicarKpiNoSelect('edit_', linha.id_objetivo_kpi, linha.objetivo_kpi);
     document.getElementById('edit_viewability_minimo').value = linha.viewability_minimo || 70;
     document.getElementById('edit_data_inicio').value = formatarDataInput(linha.data_inicio);
     document.getElementById('edit_data_fim').value = formatarDataInput(linha.data_fim);
@@ -3981,7 +4089,8 @@ async function salvarEdicaoLinha() {
     praca: document.getElementById('edit_praca').value,
     formatos: formatosSelecionados.join(', '),
     plataforma: document.getElementById('edit_plataforma').value,
-    objetivo_kpi: document.getElementById('edit_objetivo_kpi').value,
+    id_objetivo_kpi: document.getElementById('edit_objetivo_kpi').value || null,
+    objetivo_kpi: getKpiDescricao('edit_'),
     viewability_minimo: parseFloat(document.getElementById('edit_viewability_minimo').value) || 70,
     data_inicio: document.getElementById('edit_data_inicio').value,
     data_fim: document.getElementById('edit_data_fim').value,
@@ -4658,13 +4767,23 @@ async function confirmarAprovacao() {
   const cotacaoId = getCotacaoId();
   const motivo = document.getElementById('motivo_aprovacao').value;
   
+  const codigoPiCc = prompt('Digite o Código PI CC para gerar o Pedido de Inserção:');
+  if (codigoPiCc === null) {
+    return;
+  }
+  if (!codigoPiCc.trim()) {
+    showToast('O Código PI CC é obrigatório para aprovar.', 'warning');
+    return;
+  }
+  
   try {
     const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         status: 'Aprovada',
-        aprovada_em: new Date().toISOString()
+        aprovada_em: new Date().toISOString(),
+        codigo_pi_cc: codigoPiCc.trim()
       })
     });
     
@@ -5361,7 +5480,7 @@ async function recalcularValorTotalCotacao() {
     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
       <p class="text-xs text-amber-700">
         <i class="fas fa-exclamation-triangle mr-1"></i>
-        <strong>Atenção:</strong> Um PI (Proforma Invoice) será gerado automaticamente ao aprovar. Após a geração do PI, não será possível reverter o status desta cotação.
+        <strong>Atenção:</strong> Um Pedido de Inserção será gerado automaticamente ao aprovar. Após a geração, não será possível reverter o status desta cotação.
       </p>
     </div>
     <div class="form-control">

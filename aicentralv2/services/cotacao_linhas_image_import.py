@@ -239,7 +239,47 @@ def extrair_itens_linhas_de_imagem(
     return out, None if out else "Nenhum item válido após normalização."
 
 
-# Máximo de páginas do PDF enviadas à IA (cada página = uma chamada de visão).
+def normalizar_itens_para_cotacao(itens: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Enriquecimento pós-OCR: resolve plataforma/KPI extraídos contra as tabelas
+    cadu_pi_camp_plataforma e cadu_pi_camp_objetivos, canonizando as descrições
+    e adicionando ``id_plataforma`` / ``id_objetivo_kpi`` quando há match.
+
+    Quando não há match, mantém a string original e deixa o ID como ``None`` para
+    que o front possa sinalizar a necessidade de seleção manual.
+    """
+    if not itens:
+        return itens
+
+    from aicentralv2 import db
+
+    for it in itens:
+        if not isinstance(it, dict):
+            continue
+
+        kpi_str = (it.get("objetivo_kpi") or "").strip()
+        id_kpi = db.obter_id_objetivo_campanha_por_kpi(kpi_str) if kpi_str else None
+        desc_kpi = db.obter_descricao_objetivo_campanha(id_kpi) if id_kpi else None
+        it["id_objetivo_kpi"] = int(id_kpi) if id_kpi else None
+        if desc_kpi:
+            it["objetivo_kpi"] = desc_kpi
+
+        plat_str = (it.get("plataforma") or "").strip()
+        id_plat = db.obter_id_plataforma_por_nome(plat_str) if plat_str else None
+        desc_plat = None
+        if id_plat:
+            try:
+                row = db.obter_plataforma_campanha_por_id(int(id_plat))
+                if row:
+                    desc_plat = (row.get("descricao") or "").strip() or None
+            except Exception:
+                desc_plat = None
+        it["id_plataforma"] = int(id_plat) if id_plat else None
+        if desc_plat:
+            it["plataforma"] = desc_plat
+
+    return itens
+
+
 _MAX_PDF_PAGES = 12
 
 

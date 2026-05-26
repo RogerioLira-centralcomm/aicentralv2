@@ -499,6 +499,49 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
+// KPI agora é persistido como FK (id_objetivo_kpi). O <option> guarda o id em `value`
+// e a descrição (CPM, CPC, etc.) em `data-descricao`. Helpers para ler a descrição
+// (usada nos cálculos) e selecionar uma opção pelo texto/descrição (compat. legada).
+function getKpiDescricao(prefix) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'objetivo_kpi');
+  if (!el) return '';
+  var opt = el.options[el.selectedIndex];
+  if (!opt) return '';
+  return String(opt.getAttribute('data-descricao') || opt.text || '').trim();
+}
+
+function selecionarKpiPorDescricao(prefix, descricao) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'objetivo_kpi');
+  if (!el) return false;
+  var alvo = String(descricao || '').trim().toUpperCase();
+  if (!alvo) {
+    el.value = '';
+    return true;
+  }
+  for (var i = 0; i < el.options.length; i++) {
+    var d = String(el.options[i].getAttribute('data-descricao') || el.options[i].text || '').trim().toUpperCase();
+    if (d === alvo) {
+      el.selectedIndex = i;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Aceita id (novo) ou string descrição (legado). Retorna true se conseguiu selecionar.
+function aplicarKpiNoSelect(prefix, idKpi, descricao) {
+  var p = prefix || '';
+  var el = document.getElementById(p + 'objetivo_kpi');
+  if (!el) return false;
+  if (idKpi !== undefined && idKpi !== null && String(idKpi).trim() !== '' && String(idKpi) !== '0') {
+    el.value = String(idKpi);
+    if (el.selectedIndex >= 0 && String(el.value) === String(idKpi)) return true;
+  }
+  return selecionarKpiPorDescricao(p, descricao);
+}
+
 function precificacaoTesteSatisfeita(prefix) {
   var p = prefix || '';
   if (!getCotacaoId()) return false;
@@ -712,11 +755,10 @@ var _ultimoCalculoLinha = { '': null, 'edit_': null, 'audiencia_': null };
 function _snapshotCamposCalculo(prefix) {
   var p = prefix || '';
   var platEl = document.getElementById(p + 'plataforma');
-  var kpiEl = document.getElementById(p + 'objetivo_kpi');
   var mccCheck = lerMargemCcOverride(p);
   return {
     plataforma: platEl ? String(platEl.value || '').trim() : '',
-    kpi: kpiEl ? String(kpiEl.value || '').trim() : '',
+    kpi: getKpiDescricao(p),
     val_tab: parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value) || 0,
     mcc_override: mccCheck.valid ? mccCheck.percent : null,
     invest_bruto: parseMoeda(document.getElementById(p + 'investimento_bruto').value) || 0,
@@ -761,7 +803,7 @@ function atualizarBtnSalvarLinha(prefix) {
     btn.style.cursor = 'not-allowed';
   }
   if (typeof marcarPendenciaAba === 'function') {
-    marcarPendenciaAba(modalId, 'preco', !ok);
+    marcarPendenciaAba(modalId, 'inicio', !ok);
   }
 }
 
@@ -858,8 +900,7 @@ function preencherOQueEntrou(prefix, j, valTab, fator, fatorFmt) {
   var platEl = document.getElementById(p + 'plataforma');
   var plat = platEl ? String(platEl.value || '').trim() : '';
 
-  var kpiEl = document.getElementById(p + 'objetivo_kpi');
-  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+  var kpi = getKpiDescricao(p);
 
   var volEl = document.getElementById(p + 'volume_contratado');
   var volNum = volEl ? (parseInt(String(volEl.value).replace(/\D/g, ''), 10) || 0) : 0;
@@ -977,8 +1018,7 @@ function preencherResumoDerivacaoCliente(prefix) {
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
   var precoUnit = valorUnitarioEfetivoLinha(p);
-  var kpiEl = document.getElementById(p + 'objetivo_kpi');
-  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+  var kpi = getKpiDescricao(p);
 
   if (!kpi || precoUnit <= 0) {
     limparResumoDerivacaoCliente(p);
@@ -1148,8 +1188,7 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
   var platEl = document.getElementById(p + 'plataforma');
   var platNome = platEl && platEl.value ? String(platEl.value).trim() : '—';
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
-  var kpiEl = document.getElementById(p + 'objetivo_kpi');
-  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+  var kpi = getKpiDescricao(p);
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var volCampo = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
   var invBruto = parseMoeda(document.getElementById(p + 'investimento_bruto').value);
@@ -1487,8 +1526,7 @@ function derivarValorPendente(pref) {
   var volRaw = document.getElementById(p + 'volume_contratado').value;
   var vol = parseInt(String(volRaw).replace(/\D/g, ''), 10) || 0;
   var precoUnit = valorUnitarioEfetivoLinha(p);
-  var kpiEl = document.getElementById(p + 'objetivo_kpi');
-  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+  var kpi = getKpiDescricao(p);
   var isCpm = kpi === 'CPM';
 
   if (precoUnit > 0) {
@@ -1522,8 +1560,7 @@ async function aplicarFormulaPrecoUnitarioTeste(pref) {
   var platEl = document.getElementById(p + 'plataforma');
   var plat = platEl ? String(platEl.value).trim() : '';
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
-  var kpiEl = document.getElementById(p + 'objetivo_kpi');
-  var kpi = kpiEl ? String(kpiEl.value || '').trim() : '';
+  var kpi = getKpiDescricao(p);
   var cid = getCotacaoId();
   if (!plat || valTab <= 0 || !cid) {
     limparResumoPrecificacaoTeste(p);
@@ -2331,7 +2368,7 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Nova Linha -->
 <dialog id="modal_nova_linha" class="modal">
-  <div class="modal-box max-w-6xl max-h-[90vh] p-0 flex flex-col">
+  <div class="modal-box max-w-7xl max-h-[95vh] p-0 flex flex-col">
     <!-- Header padrão CRM com abas -->
     <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
       <div class="px-6 pt-4 pb-2 flex justify-between items-center">
@@ -2344,9 +2381,7 @@ function calcularInvestLiquidoEdit() {
         </form>
       </div>
       <div class="px-6 flex gap-1 text-sm">
-        <button type="button" data-tab-trigger="briefing" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Briefing</button>
-        <button type="button" data-tab-trigger="midia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Mídia &amp; KPI &amp; Período</button>
-        <button type="button" data-tab-trigger="preco" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Precificação</button>
+        <button type="button" data-tab-trigger="inicio" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Início</button>
         <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
       </div>
     </div>
@@ -2354,11 +2389,16 @@ function calcularInvestLiquidoEdit() {
     <div class="p-6 overflow-y-auto flex-1">
     <form id="form_nova_linha" onsubmit="return false">
 
-      <!-- Aba: Briefing -->
-      <div data-tabpanel="briefing" class="grid grid-cols-12 gap-2">
+      <!-- Aba: Início -->
+      <div data-tabpanel="inicio" class="space-y-2">
+
+      <!-- Seção: Briefing -->
+      <div>
+        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Briefing</h4>
+        <div class="grid grid-cols-12 gap-1.5">
         <div class="form-control col-span-6">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Segmentação (Target & Interesses) *</span></label>
-          <textarea id="segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
+          <textarea id="segmentacao" class="textarea textarea-bordered w-full min-h-[4.5rem] text-sm leading-snug py-2 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="2" required minlength="10"
                     placeholder="Descreva a segmentação da audiência, interesses e comportamentos..." oninput="validarCamposObrigatorios()"></textarea>
           <label id="erro_segmentacao" class="label py-0 text-red-600 text-xs hidden">
             <span>Mínimo de 10 caracteres</span>
@@ -2367,7 +2407,7 @@ function calcularInvestLiquidoEdit() {
 
         <div class="form-control col-span-6">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Praça</span></label>
-          <textarea id="praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
+          <textarea id="praca" class="textarea textarea-bordered w-full min-h-[4.5rem] text-sm leading-snug py-2 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="2"
                     placeholder="Ex: São Paulo, Nacional, BH e região metropolitana..."></textarea>
         </div>
 
@@ -2375,41 +2415,58 @@ function calcularInvestLiquidoEdit() {
           <label class="label py-0"><span class="label-text font-semibold text-xs">Especificações</span></label>
           <input id="especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
         </div>
+        </div>
       </div>
 
-      <!-- Aba: Mídia & KPI & Período -->
-      <div data-tabpanel="midia" class="grid grid-cols-12 gap-2 hidden">
-        <div class="form-control col-span-4">
+      <!-- Seção: Mídia & KPI & Período -->
+      <div class="border-t border-gray-200 pt-2">
+        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Mídia &amp; KPI &amp; Período</h4>
+        <div class="grid grid-cols-12 gap-1.5">
+        <div class="form-control col-span-3">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
           <select id="plataforma" class="select select-sm select-bordered w-full" onchange="atualizarBtnCalcularPreco('');">
             {{ opcoes_plataforma_campanha() }}
           </select>
         </div>
 
-        <div class="form-control col-span-4">
+        <div class="form-control col-span-3">
           <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
           <select id="objetivo_kpi" class="select select-sm select-bordered w-full" onchange="atualizarBtnCalcularPreco('');">
             <option value="">Selecione...</option>
-            <option value="CPM">CPM</option>
-            <option value="CPC">CPC</option>
-            <option value="CPA">CPA</option>
-            <option value="CPL">CPL</option>
-            <option value="CPV">CPV</option>
-            <option value="CPCV">CPCV</option>
-            <option value="CPE">CPE</option>
-            <option value="CPO">CPO</option>
-            <option value="Fixo">Fixo</option>
+            {% for obj in objetivos_campanha or [] %}
+            <option value="{{ obj.id_objetivos_campanha }}" data-descricao="{{ obj.descricao }}">{{ obj.descricao }}</option>
+            {% endfor %}
           </select>
         </div>
 
-        <div class="form-control col-span-4">
+        <div class="form-control col-span-2">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Viewability (%)</span></label>
           <input type="number" id="viewability_minimo" class="input input-sm input-bordered w-full" placeholder="70" value="70" min="0" max="100">
         </div>
 
-        <div class="form-control col-span-12">
+        <div class="form-control col-span-2">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8 min-w-0" onchange="calcularDiasLinha()">
+          </div>
+        </div>
+
+        <div class="form-control col-span-2">
+          <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8 min-w-0" onchange="calcularDiasLinha()">
+          </div>
+        </div>
+
+        <div class="form-control col-span-4">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Produto</span></label>
-          <div class="flex flex-wrap gap-2 h-8 items-center">
+          <div class="flex flex-wrap gap-x-2 gap-y-0 h-8 items-center">
             <label class="label cursor-pointer justify-start gap-1 py-0">
               <input type="checkbox" name="produto" value="Midia" class="checkbox checkbox-xs">
               <span class="label-text text-xs">Mídia</span>
@@ -2429,9 +2486,9 @@ function calcularInvestLiquidoEdit() {
           </div>
         </div>
 
-        <div class="form-control col-span-12">
+        <div class="form-control col-span-7">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Formatos *</span></label>
-          <div class="flex flex-wrap gap-3">
+          <div class="flex flex-wrap gap-x-2 gap-y-0 h-8 items-center">
             <label class="label cursor-pointer justify-start gap-1 py-0">
               <input type="checkbox" name="formatos" value="Carroussel" class="checkbox checkbox-xs" onchange="validarCamposObrigatorios()">
               <span class="label-text text-xs">Carroussel</span>
@@ -2466,46 +2523,27 @@ function calcularInvestLiquidoEdit() {
           </label>
         </div>
 
-        <div class="form-control col-span-5">
-          <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
-          <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_inicio').showPicker()">
-              <i class="fas fa-calendar-alt text-gray-800"></i>
-            </button>
-            <input type="date" id="data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
-          </div>
-        </div>
-
-        <div class="form-control col-span-5">
-          <label class="label py-0"><span class="label-text font-semibold text-xs">Data Fim</span></label>
-          <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('data_fim').showPicker()">
-              <i class="fas fa-calendar-alt text-gray-800"></i>
-            </button>
-            <input type="date" id="data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8" onchange="calcularDiasLinha()">
-          </div>
-        </div>
-
-        <div class="form-control col-span-2">
+        <div class="form-control col-span-1">
           <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
-          <input type="text" id="dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full" readonly value="0">
+          <input type="text" id="dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full px-1" readonly value="0">
+        </div>
         </div>
       </div>
 
-      <!-- Aba: Precificação -->
-      <div data-tabpanel="preco" class="hidden">
-        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-2">
-          <h4 class="font-semibold text-xs text-gray-700">Parâmetros e Valores</h4>
+      <!-- Seção: Precificação -->
+      <div class="border-t border-gray-200 pt-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1.5">
+          <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
           <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
           <div class="form-control">
             <label class="label py-0">
               <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
             </label>
             <div class="join w-full">
               <input type="text" id="margem_cc_override"
-                     class="input input-sm input-bordered join-item flex-1"
+                     class="input input-sm input-bordered join-item flex-1 min-w-0"
                      inputmode="decimal" placeholder="25,00"
                      oninput="atualizarBtnCalcularPreco('');">
               <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-xs px-2 border border-l-0 border-gray-300 rounded-r">%</span>
@@ -2565,6 +2603,9 @@ function calcularInvestLiquidoEdit() {
           </div>
         </div>
       </div>
+
+      </div>
+      <!-- Fim Aba Início -->
 
       <!-- Aba: Resultado -->
       <div data-tabpanel="resultado" class="hidden space-y-3">
@@ -2637,7 +2678,7 @@ function calcularInvestLiquidoEdit() {
           <div id="cliente_derivacao_resumo_content" class="text-xs"></div>
         </div>
         <div id="resultado_vazio_nova_linha" class="text-center text-xs text-gray-400 py-8">
-          Preencha os campos das abas anteriores e clique em <strong>Calcular</strong> na aba <strong>Precificação</strong> para ver o resultado aqui.
+          Preencha os campos da aba <strong>Início</strong> e clique em <strong>Calcular</strong> na seção <strong>Precificação</strong> para ver o resultado aqui.
         </div>
       </div>
 
@@ -2707,7 +2748,7 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Editar Linha -->
 <dialog id="modal_editar_linha" class="modal">
-  <div class="modal-box max-w-6xl max-h-[90vh] p-0 flex flex-col">
+  <div class="modal-box max-w-7xl max-h-[95vh] p-0 flex flex-col">
     <!-- Header padrão CRM com abas -->
     <div class="border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
       <div class="px-6 pt-4 pb-2 flex justify-between items-center">
@@ -2720,9 +2761,7 @@ function calcularInvestLiquidoEdit() {
         </form>
       </div>
       <div class="px-6 flex gap-1 text-sm">
-        <button type="button" data-tab-trigger="briefing" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Briefing</button>
-        <button type="button" data-tab-trigger="midia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Mídia &amp; KPI &amp; Período</button>
-        <button type="button" data-tab-trigger="preco" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Precificação</button>
+        <button type="button" data-tab-trigger="inicio" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Início</button>
         <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
       </div>
     </div>
@@ -2731,17 +2770,22 @@ function calcularInvestLiquidoEdit() {
     <form id="form_editar_linha" onsubmit="return false">
       <input type="hidden" id="edit_linha_id">
 
-      <!-- Aba: Briefing -->
-      <div data-tabpanel="briefing" class="grid grid-cols-12 gap-2">
+      <!-- Aba: Início -->
+      <div data-tabpanel="inicio" class="space-y-2">
+
+      <!-- Seção: Briefing -->
+      <div>
+        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Briefing</h4>
+        <div class="grid grid-cols-12 gap-1.5">
         <div class="form-control col-span-6">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Segmentação (Target & Interesses) *</span></label>
-          <textarea id="edit_segmentacao" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4" required minlength="10"
+          <textarea id="edit_segmentacao" class="textarea textarea-bordered w-full min-h-[4.5rem] text-sm leading-snug py-2 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="2" required minlength="10"
                     placeholder="Descreva a segmentação da audiência, interesses e comportamentos..."></textarea>
         </div>
 
         <div class="form-control col-span-6">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Praça</span></label>
-          <textarea id="edit_praca" class="textarea textarea-bordered w-full min-h-[7.5rem] text-sm leading-snug py-2.5 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="4"
+          <textarea id="edit_praca" class="textarea textarea-bordered w-full min-h-[4.5rem] text-sm leading-snug py-2 px-3 resize-y border border-gray-300 rounded-md focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" rows="2"
                     placeholder="Ex: Nacional, SP, RJ, BH e região metropolitana..."></textarea>
         </div>
 
@@ -2749,41 +2793,58 @@ function calcularInvestLiquidoEdit() {
           <label class="label py-0"><span class="label-text text-xs font-semibold">Especificações</span></label>
           <input id="edit_especificacoes" type="text" class="input input-bordered h-8 min-h-0 text-sm w-full" placeholder="Detalhes adicionais...">
         </div>
+        </div>
       </div>
 
-      <!-- Aba: Mídia & KPI & Período -->
-      <div data-tabpanel="midia" class="grid grid-cols-12 gap-2 hidden">
-        <div class="form-control col-span-4">
+      <!-- Seção: Mídia & KPI & Período -->
+      <div class="border-t border-gray-200 pt-2">
+        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Mídia &amp; KPI &amp; Período</h4>
+        <div class="grid grid-cols-12 gap-1.5">
+        <div class="form-control col-span-3">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
           <select id="edit_plataforma" class="select select-sm select-bordered w-full" onchange="atualizarBtnCalcularPreco('edit_');">
             {{ opcoes_plataforma_campanha() }}
           </select>
         </div>
 
-        <div class="form-control col-span-4">
+        <div class="form-control col-span-3">
           <label class="label py-0"><span class="label-text text-xs font-semibold">KPI (Tipo de Compra)</span></label>
           <select id="edit_objetivo_kpi" class="select select-sm select-bordered w-full" onchange="atualizarBtnCalcularPreco('edit_');">
             <option value="">Selecione...</option>
-            <option value="CPM">CPM</option>
-            <option value="CPC">CPC</option>
-            <option value="CPA">CPA</option>
-            <option value="CPL">CPL</option>
-            <option value="CPV">CPV</option>
-            <option value="CPCV">CPCV</option>
-            <option value="CPE">CPE</option>
-            <option value="CPO">CPO</option>
-            <option value="Fixo">Fixo</option>
+            {% for obj in objetivos_campanha or [] %}
+            <option value="{{ obj.id_objetivos_campanha }}" data-descricao="{{ obj.descricao }}">{{ obj.descricao }}</option>
+            {% endfor %}
           </select>
         </div>
 
-        <div class="form-control col-span-4">
+        <div class="form-control col-span-2">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Viewability (%)</span></label>
           <input type="number" id="edit_viewability_minimo" class="input input-sm input-bordered w-full" placeholder="70" value="70" min="0" max="100">
         </div>
 
-        <div class="form-control col-span-12">
+        <div class="form-control col-span-2">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="edit_data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8 min-w-0">
+          </div>
+        </div>
+
+        <div class="form-control col-span-2">
+          <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
+          <div class="join w-full">
+            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
+              <i class="fas fa-calendar-alt text-gray-800"></i>
+            </button>
+            <input type="date" id="edit_data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8 min-w-0">
+          </div>
+        </div>
+
+        <div class="form-control col-span-4">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Produto</span></label>
-          <div class="flex flex-wrap gap-2 h-8 items-center">
+          <div class="flex flex-wrap gap-x-2 gap-y-0 h-8 items-center">
             <label class="label cursor-pointer justify-start gap-1 py-0">
               <input type="checkbox" name="edit_produto" value="Midia" class="checkbox checkbox-xs">
               <span class="label-text text-xs">Mídia</span>
@@ -2803,9 +2864,9 @@ function calcularInvestLiquidoEdit() {
           </div>
         </div>
 
-        <div class="form-control col-span-12">
+        <div class="form-control col-span-7">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Formatos *</span></label>
-          <div class="flex flex-wrap gap-3">
+          <div class="flex flex-wrap gap-x-2 gap-y-0 h-8 items-center">
             <label class="label cursor-pointer justify-start gap-1 py-0">
               <input type="checkbox" name="edit_formatos" value="Carroussel" class="checkbox checkbox-xs">
               <span class="label-text text-xs">Carroussel</span>
@@ -2837,46 +2898,27 @@ function calcularInvestLiquidoEdit() {
           </div>
         </div>
 
-        <div class="form-control col-span-5">
-          <label class="label py-0"><span class="label-text text-xs font-semibold">Data Início</span></label>
-          <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_inicio').showPicker()">
-              <i class="fas fa-calendar-alt text-gray-800"></i>
-            </button>
-            <input type="date" id="edit_data_inicio" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
-          </div>
-        </div>
-
-        <div class="form-control col-span-5">
-          <label class="label py-0"><span class="label-text text-xs font-semibold">Data Fim</span></label>
-          <div class="join w-full">
-            <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8" onclick="document.getElementById('edit_data_fim').showPicker()">
-              <i class="fas fa-calendar-alt text-gray-800"></i>
-            </button>
-            <input type="date" id="edit_data_fim" class="input input-bordered input-sm join-item flex-1 min-h-8 h-8">
-          </div>
-        </div>
-
-        <div class="form-control col-span-2">
+        <div class="form-control col-span-1">
           <label class="label py-0"><span class="label-text text-xs font-semibold">Dias</span></label>
-          <input type="text" id="edit_dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full" readonly value="0">
+          <input type="text" id="edit_dias_linha" class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full px-1" readonly value="0">
+        </div>
         </div>
       </div>
 
-      <!-- Aba: Precificação -->
-      <div data-tabpanel="preco" class="hidden">
-        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-2">
-          <h4 class="font-semibold text-xs text-gray-700">Parâmetros e Valores</h4>
+      <!-- Seção: Precificação -->
+      <div class="border-t border-gray-200 pt-2">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1.5">
+          <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
           <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
           <div class="form-control">
             <label class="label py-0">
               <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
             </label>
             <div class="join w-full">
               <input type="text" id="edit_margem_cc_override"
-                     class="input input-sm input-bordered join-item flex-1"
+                     class="input input-sm input-bordered join-item flex-1 min-w-0"
                      inputmode="decimal" placeholder="25,00"
                      oninput="atualizarBtnCalcularPreco('edit_');">
               <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-xs px-2 border border-l-0 border-gray-300 rounded-r">%</span>
@@ -2936,6 +2978,9 @@ function calcularInvestLiquidoEdit() {
           </div>
         </div>
       </div>
+
+      </div>
+      <!-- Fim Aba Início -->
 
       <!-- Aba: Resultado -->
       <div data-tabpanel="resultado" class="hidden space-y-3">
@@ -3008,7 +3053,7 @@ function calcularInvestLiquidoEdit() {
           <div id="edit_cliente_derivacao_resumo_content" class="text-xs"></div>
         </div>
         <div id="resultado_vazio_editar_linha" class="text-center text-xs text-gray-400 py-8">
-          Sem dados de cálculo. Preencha os campos na aba <strong>Precificação</strong> e clique em <strong>Calcular</strong>.
+          Sem dados de cálculo. Preencha os campos na seção <strong>Precificação</strong> e clique em <strong>Calcular</strong>.
         </div>
       </div>
 
@@ -3269,7 +3314,7 @@ function calcularInvestLiquidoEdit() {
 
 <!-- Modal Adicionar Audiência - 2 Etapas -->
 <dialog id="modal_adicionar_audiencia" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box w-11/12 max-w-7xl max-h-[90vh] overflow-y-auto p-0">
+  <div class="modal-box w-11/12 max-w-7xl max-h-[95vh] overflow-y-auto p-0">
     
     <!-- Etapa 1: Busca -->
     <div id="etapa_busca_audiencia">
@@ -3329,9 +3374,7 @@ function calcularInvestLiquidoEdit() {
           </form>
         </div>
         <div class="px-6 flex gap-1 text-sm">
-          <button type="button" data-tab-trigger="audiencia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Audiência</button>
-          <button type="button" data-tab-trigger="midia" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Mídia &amp; KPI &amp; Período</button>
-          <button type="button" data-tab-trigger="preco" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Precificação</button>
+          <button type="button" data-tab-trigger="inicio" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Início</button>
           <button type="button" data-tab-trigger="resultado" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Resultado</button>
         </div>
       </div>
@@ -3340,55 +3383,51 @@ function calcularInvestLiquidoEdit() {
         <form id="form_nova_audiencia" onsubmit="return false">
           <input type="hidden" id="audiencia_id_selecionada">
 
-          <!-- Aba: Audiência -->
-          <div data-tabpanel="audiencia">
-            <div class="bg-gray-100 rounded-lg p-4 flex gap-4">
-              <div id="audiencia_thumbnail" class="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                <svg class="w-10 h-10 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <!-- Aba: Início -->
+          <div data-tabpanel="inicio" class="space-y-2">
+
+          <!-- Seção: Audiência -->
+          <div>
+            <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Audiência</h4>
+            <div class="bg-gray-100 rounded-lg p-2.5 flex gap-3">
+              <div id="audiencia_thumbnail" class="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <svg class="w-8 h-8 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                 </svg>
               </div>
-              <div class="flex-1">
-                <h4 id="audiencia_nome_display" class="font-bold text-lg"></h4>
-                <div class="flex flex-wrap gap-2 mt-2">
-                  <span id="audiencia_categoria_badge" class="badge badge-outline badge-sm"></span>
-                  <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-sm"></span>
+              <div class="flex-1 min-w-0">
+                <h4 id="audiencia_nome_display" class="font-bold text-sm leading-tight"></h4>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  <span id="audiencia_categoria_badge" class="badge badge-outline badge-xs"></span>
+                  <span id="audiencia_subcategoria_badge" class="badge badge-ghost badge-xs"></span>
                 </div>
-                <p id="audiencia_publico_display" class="text-sm text-gray-600 mt-2"></p>
+                <p id="audiencia_publico_display" class="text-xs text-gray-600 mt-1 line-clamp-2"></p>
               </div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Avance para a aba <strong>Mídia &amp; KPI &amp; Período</strong> para configurar a precificação.</p>
           </div>
 
-          <!-- Aba: Mídia & KPI & Período -->
-          <div data-tabpanel="midia" class="hidden">
-            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5 mb-3">
-              <div class="form-control col-span-2 sm:col-span-3">
+          <!-- Seção: Mídia & KPI & Período -->
+          <div class="border-t border-gray-200 pt-2">
+            <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Mídia &amp; KPI &amp; Período</h4>
+            <div class="grid grid-cols-12 gap-1.5">
+              <div class="form-control col-span-3">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">Plataforma</span></label>
                 <select id="audiencia_plataforma" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
                   {{ opcoes_plataforma_campanha() }}
                 </select>
               </div>
 
-              <div class="form-control col-span-2 sm:col-span-3">
+              <div class="form-control col-span-3">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">KPI (Tipo de Compra)</span></label>
                 <select id="audiencia_objetivo_kpi" class="select select-bordered w-full text-sm py-0 leading-tight" style="height: 32px;" onchange="atualizarBtnCalcularPreco('audiencia_');">
                   <option value="">Selecione...</option>
-                  <option value="CPM">CPM</option>
-                  <option value="CPC">CPC</option>
-                  <option value="CPA">CPA</option>
-                  <option value="CPL">CPL</option>
-                  <option value="CPV">CPV</option>
-                  <option value="CPCV">CPCV</option>
-                  <option value="CPE">CPE</option>
-                  <option value="CPO">CPO</option>
-                  <option value="Fixo">Fixo</option>
+                  {% for obj in objetivos_campanha or [] %}
+                  <option value="{{ obj.id_objetivos_campanha }}" data-descricao="{{ obj.descricao }}">{{ obj.descricao }}</option>
+                  {% endfor %}
                 </select>
               </div>
-            </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
-              <div class="form-control col-span-2">
+              <div class="form-control col-span-3">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">Data Início</span></label>
                 <div class="join w-full">
                   <button type="button" class="join-item btn btn-sm bg-gray-100 px-2 min-h-8 h-8"
@@ -3396,7 +3435,7 @@ function calcularInvestLiquidoEdit() {
                     <i class="fas fa-calendar-alt text-gray-800"></i>
                   </button>
                   <input type="date" id="audiencia_data_inicio"
-                         class="input input-bordered input-sm join-item flex-1 min-h-8 h-8"
+                         class="input input-bordered input-sm join-item flex-1 min-h-8 h-8 min-w-0"
                          onchange="calcularDiasAudiencia()">
                 </div>
               </div>
@@ -3408,33 +3447,33 @@ function calcularInvestLiquidoEdit() {
                     <i class="fas fa-calendar-alt text-gray-800"></i>
                   </button>
                   <input type="date" id="audiencia_data_fim"
-                         class="input input-bordered input-sm join-item flex-1 min-h-8 h-8"
+                         class="input input-bordered input-sm join-item flex-1 min-h-8 h-8 min-w-0"
                          onchange="calcularDiasAudiencia()">
                 </div>
               </div>
-              <div class="form-control col-span-2">
+              <div class="form-control col-span-1">
                 <label class="label py-0"><span class="label-text font-semibold text-xs">Dias</span></label>
                 <input type="text" id="audiencia_dias_linha"
-                       class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full"
+                       class="input input-bordered bg-gray-100 text-center h-8 min-h-0 text-sm w-full px-1"
                        readonly value="0">
               </div>
             </div>
           </div>
 
-          <!-- Aba: Precificação -->
-          <div data-tabpanel="preco" class="hidden">
-            <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-2">
-              <h4 class="font-semibold text-xs text-gray-700">Parâmetros e Valores</h4>
+          <!-- Seção: Precificação -->
+          <div class="border-t border-gray-200 pt-2">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-2 mb-1.5">
+              <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Precificação</h4>
               <span class="text-[10px] text-gray-500">Preencha somente um: Invest. Bruto <em>ou</em> Vol. Contratado</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
               <div class="form-control">
                 <label class="label py-0">
                   <span class="label-text text-xs font-medium">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></span>
                 </label>
                 <div class="join w-full">
                   <input type="text" id="audiencia_margem_cc_override"
-                         class="input input-sm input-bordered join-item flex-1"
+                         class="input input-sm input-bordered join-item flex-1 min-w-0"
                          inputmode="decimal" placeholder="25,00"
                          oninput="atualizarBtnCalcularPreco('audiencia_');">
                   <span class="join-item inline-flex items-center justify-center bg-gray-100 text-gray-600 text-xs px-2 border border-l-0 border-gray-300 rounded-r">%</span>
@@ -3493,6 +3532,9 @@ function calcularInvestLiquidoEdit() {
               </div>
             </div>
           </div>
+
+          </div>
+          <!-- Fim Aba Início -->
 
           <!-- Aba: Resultado -->
           <div data-tabpanel="resultado" class="hidden space-y-3">
@@ -3987,21 +4029,28 @@ async function alterarStatusCotacao(novoStatus) {
   const statusAnterior = selectEl ? selectEl.dataset.statusAtual : '';
 
   if (novoStatus === 'Aprovada' && statusAnterior !== 'Aprovada') {
-    const confirmou = confirm(
-      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um PI (Proforma Invoice) será gerado automaticamente.\n\n' +
-      'Após a geração do PI, não será possível reverter o status da cotação.\n\n' +
-      'Deseja continuar com a aprovação?'
+    const codigoPiCc = prompt(
+      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um Pedido de Inserção será gerado automaticamente.\n\n' +
+      'Após a geração, não será possível reverter o status da cotação.\n\n' +
+      'Digite o Código PI CC para continuar:'
     );
-    if (!confirmou) {
+    if (codigoPiCc === null) {
       if (selectEl) selectEl.value = statusAnterior;
       return;
     }
+    if (!codigoPiCc.trim()) {
+      showToast('O Código PI CC é obrigatório para aprovar.', 'warning');
+      if (selectEl) selectEl.value = statusAnterior;
+      return;
+    }
+    window._codigoPiCcAprovacao = codigoPiCc.trim();
   }
   
   try {
     const payload = { status: novoStatus };
     if (novoStatus === 'Aprovada') {
       payload.aprovada_em = new Date().toISOString();
+      payload.codigo_pi_cc = window._codigoPiCcAprovacao || '';
     }
 
     const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoId}/atualizar`, {
@@ -5026,7 +5075,7 @@ function abrirModalNovaLinha() {
   atualizarBtnCalcularPreco('');
 
   calcularDiasLinha();
-  inicializarAbasModal('modal_nova_linha', { aba: 'briefing' });
+  inicializarAbasModal('modal_nova_linha', { aba: 'inicio' });
   document.getElementById('modal_nova_linha').showModal();
 }
 
@@ -5316,7 +5365,22 @@ document.addEventListener('DOMContentLoaded', function() {
           tdSeg.textContent = seg;
           const tdPlat = document.createElement('td');
           tdPlat.className = 'py-2 px-2 text-xs';
-          tdPlat.textContent = it.plataforma || '—';
+          const selPlat = document.createElement('select');
+          const ocrPlat = (it.plataforma || '').toString().trim();
+          const platResolved = it.id_plataforma != null && it.id_plataforma !== '';
+          selPlat.className = 'select select-bordered select-xs w-40 text-xs import-sel-plataforma'
+            + (platResolved || !ocrPlat ? '' : ' border-red-300');
+          selPlat.setAttribute('data-idx', String(idx));
+          if (!platResolved && ocrPlat) {
+            selPlat.title = `OCR extraiu "${ocrPlat}" e não encontrou correspondência — selecione manualmente`;
+          }
+          selPlat.appendChild(new Option('Selecione…', ''));
+          (window.__IMPORT_PLATAFORMAS__ || []).forEach(p => {
+            const opt = new Option(p.descricao, p.descricao);
+            if (platResolved && Number(it.id_plataforma) === Number(p.id)) opt.selected = true;
+            selPlat.appendChild(opt);
+          });
+          tdPlat.appendChild(selPlat);
           const tdPer = document.createElement('td');
           tdPer.className = 'py-2 px-2 text-xs whitespace-nowrap';
           const di = it.data_inicio || '';
@@ -5331,7 +5395,23 @@ document.addEventListener('DOMContentLoaded', function() {
           tdBruto.textContent = `R$ ${formatarMoeda(Number.isFinite(brutoN) ? brutoN : 0)}`;
           const tdKpi = document.createElement('td');
           tdKpi.className = 'py-2 px-2 text-xs text-center';
-          tdKpi.textContent = it.objetivo_kpi || '—';
+          const selKpi = document.createElement('select');
+          const ocrKpi = (it.objetivo_kpi || '').toString().trim();
+          const kpiResolved = it.id_objetivo_kpi != null && it.id_objetivo_kpi !== '';
+          selKpi.className = 'select select-bordered select-xs w-28 text-xs import-sel-kpi'
+            + (kpiResolved || !ocrKpi ? '' : ' border-red-300');
+          selKpi.setAttribute('data-idx', String(idx));
+          if (!kpiResolved && ocrKpi) {
+            selKpi.title = `OCR extraiu "${ocrKpi}" e não encontrou correspondência — selecione manualmente`;
+          }
+          selKpi.appendChild(new Option('Selecione…', ''));
+          (window.__IMPORT_OBJETIVOS_KPI__ || []).forEach(o => {
+            const opt = new Option(o.descricao, String(o.id));
+            opt.setAttribute('data-descricao', o.descricao);
+            if (kpiResolved && Number(it.id_objetivo_kpi) === Number(o.id)) opt.selected = true;
+            selKpi.appendChild(opt);
+          });
+          tdKpi.appendChild(selKpi);
           const tdPu = document.createElement('td');
           tdPu.className = 'py-2 px-2 text-xs text-right font-mono';
           const vu = parseFloat(it.valor_unitario_negociado != null ? it.valor_unitario_negociado : it.valor_unitario);
@@ -5483,7 +5563,7 @@ function validarCamposObrigatorios() {
   }
 
   if (typeof marcarPendenciaAba === 'function') {
-    marcarPendenciaAba('modal_nova_linha', 'briefing', pendenciaBriefing);
+    marcarPendenciaAba('modal_nova_linha', 'inicio', pendenciaBriefing);
   }
 }
 
@@ -5548,7 +5628,8 @@ async function salvarNovaLinha() {
     segmentacao: document.getElementById('segmentacao').value,
     formatos: formatosSelecionados.join(', '),
     plataforma: document.getElementById('plataforma').value,
-    objetivo_kpi: document.getElementById('objetivo_kpi').value,
+    id_objetivo_kpi: document.getElementById('objetivo_kpi').value || null,
+    objetivo_kpi: getKpiDescricao(''),
     viewability_minimo: parseFloat(document.getElementById('viewability_minimo').value) || 70,
     data_inicio: document.getElementById('data_inicio').value,
     data_fim: document.getElementById('data_fim').value,
@@ -5600,6 +5681,17 @@ async function salvarNovaLinha() {
 // ==================== IMPORTAR LINHAS POR IMAGEM (OCR IA) ====================
 let _linhasImportacaoBuffer = [];
 
+window.__IMPORT_PLATAFORMAS__ = [
+  {% for p in (plataformas_campanha or []) %}
+  { id: {{ p.id_plataforma }}, descricao: {{ (p.descricao or '') | tojson }}, categoria: {{ (p.categoria or '') | tojson }} }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+window.__IMPORT_OBJETIVOS_KPI__ = [
+  {% for o in (objetivos_campanha or []) %}
+  { id: {{ o.id_objetivos_campanha }}, descricao: {{ (o.descricao or '') | tojson }} }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+
 function dispararImportarLinhasImagem() {
   if (!podeEditar()) {
     mostrarBloqueioEdicao();
@@ -5613,7 +5705,23 @@ function toggleTodosImportLinhas(checked) {
   document.querySelectorAll('.chk-import-linha').forEach(cb => { cb.checked = checked; });
 }
 
-function montarPayloadLinhaImportacao(item) {
+function _lerSelecoesImportLinha(tr) {
+  const selPlat = tr ? tr.querySelector('.import-sel-plataforma') : null;
+  const selKpi = tr ? tr.querySelector('.import-sel-kpi') : null;
+  const plataformaCan = selPlat ? (selPlat.value || '').trim() : '';
+  const idKpiStr = selKpi ? (selKpi.value || '').trim() : '';
+  let descKpi = '';
+  if (selKpi && selKpi.selectedOptions && selKpi.selectedOptions[0]) {
+    descKpi = selKpi.selectedOptions[0].getAttribute('data-descricao') || selKpi.selectedOptions[0].text || '';
+  }
+  return {
+    plataforma: plataformaCan,
+    id_objetivo_kpi: idKpiStr ? parseInt(idKpiStr, 10) : null,
+    objetivo_kpi: descKpi
+  };
+}
+
+function montarPayloadLinhaImportacao(item, tr) {
   const investBruto = parseFloat(item.investimento_bruto) || 0;
   const liquidoOcr = item.investimento_liquido;
   const investLiquido = (liquidoOcr != null && liquidoOcr !== '' && !Number.isNaN(Number(liquidoOcr)))
@@ -5622,12 +5730,16 @@ function montarPayloadLinhaImportacao(item) {
   const vuNeg = parseFloat(item.valor_unitario_negociado) || parseFloat(item.valor_unitario) || 0;
   const volRaw = item.volume_contratado;
   const volumeContratado = typeof volRaw === 'number' ? Math.round(volRaw) : (parseInt(String(volRaw || '').replace(/\D/g, ''), 10) || 0);
+  const sel = _lerSelecoesImportLinha(tr);
+  const plataformaFinal = sel.plataforma || (item.plataforma || '');
+  const objetivoKpiFinal = sel.objetivo_kpi || (item.objetivo_kpi || '');
   return {
     cotacao_id: parseInt(getCotacaoId(), 10),
     segmentacao: item.segmentacao || '',
     formatos: item.formatos || 'Outros',
-    plataforma: item.plataforma || '',
-    objetivo_kpi: item.objetivo_kpi || '',
+    plataforma: plataformaFinal,
+    objetivo_kpi: objetivoKpiFinal,
+    id_objetivo_kpi: sel.id_objetivo_kpi,
     viewability_minimo: parseFloat(item.viewability_minimo) || 70,
     data_inicio: item.data_inicio || '',
     data_fim: item.data_fim || '',
@@ -5665,15 +5777,27 @@ async function confirmarImportLinhasSelecionadas() {
   if (btn) btn.disabled = true;
   let ok = 0;
   let fail = 0;
+  let skippedValidacao = 0;
   try {
     for (let i = 0; i < selecionados.length; i++) {
-      const idx = parseInt(selecionados[i].getAttribute('data-idx'), 10);
+      const cb = selecionados[i];
+      const idx = parseInt(cb.getAttribute('data-idx'), 10);
       const item = _linhasImportacaoBuffer[idx];
       if (!item) {
         fail++;
         continue;
       }
-      const payload = montarPayloadLinhaImportacao(item);
+      const tr = cb.closest('tr');
+      const sel = _lerSelecoesImportLinha(tr);
+      if (!sel.plataforma || !sel.id_objetivo_kpi) {
+        skippedValidacao++;
+        const selPlat = tr ? tr.querySelector('.import-sel-plataforma') : null;
+        const selKpi = tr ? tr.querySelector('.import-sel-kpi') : null;
+        if (selPlat && !sel.plataforma) selPlat.classList.add('border-red-500');
+        if (selKpi && !sel.id_objetivo_kpi) selKpi.classList.add('border-red-500');
+        continue;
+      }
+      const payload = montarPayloadLinhaImportacao(item, tr);
       try {
         const res = await fetch('/api/cotacoes-teste-calculo/linhas', {
           method: 'POST',
@@ -5687,15 +5811,20 @@ async function confirmarImportLinhasSelecionadas() {
         fail++;
       }
     }
-    document.getElementById('modal_preview_import_linhas').close();
+    if (skippedValidacao) {
+      showToast(`${skippedValidacao} item(ns) ignorado(s): selecione Plataforma e KPI.`, 'warning');
+    }
     if (ok) {
-      const msg = `${ok} item(ns) importado(s)${fail ? ` (${fail} falha(s))` : ''}.`;
-      showToast(msg, fail ? 'warning' : 'success');
+      document.getElementById('modal_preview_import_linhas').close();
+      const partes = [`${ok} item(ns) importado(s)`];
+      if (fail) partes.push(`${fail} falha(s)`);
+      if (skippedValidacao) partes.push(`${skippedValidacao} ignorado(s)`);
+      showToast(partes.join(' · ') + '.', (fail || skippedValidacao) ? 'warning' : 'success');
       await recalcularValorTotalCotacao();
       setTimeout(() => {
         window.location.href = `${window.location.pathname}?aba=linhas`;
       }, 600);
-    } else {
+    } else if (!skippedValidacao) {
       showToast('Nenhum item foi gravado.', 'error');
     }
   } finally {
@@ -5756,7 +5885,7 @@ async function visualizarOuEditarLinha(linhaId) {
     document.getElementById('edit_segmentacao').value = linha.segmentacao || '';
     document.getElementById('edit_praca').value = linha.praca || '';
     document.getElementById('edit_plataforma').value = linha.plataforma || '';
-    document.getElementById('edit_objetivo_kpi').value = linha.objetivo_kpi || '';
+    aplicarKpiNoSelect('edit_', linha.id_objetivo_kpi, linha.objetivo_kpi);
     document.getElementById('edit_viewability_minimo').value = linha.viewability_minimo || 70;
     document.getElementById('edit_data_inicio').value = formatarDataInput(linha.data_inicio);
     document.getElementById('edit_data_fim').value = formatarDataInput(linha.data_fim);
@@ -5825,7 +5954,7 @@ async function visualizarOuEditarLinha(linhaId) {
 
     var badgeEditId = document.getElementById('modal_editar_linha_id_badge');
     if (badgeEditId) badgeEditId.textContent = '#' + linhaId;
-    inicializarAbasModal('modal_editar_linha', { aba: 'briefing' });
+    inicializarAbasModal('modal_editar_linha', { aba: 'inicio' });
     document.getElementById('modal_editar_linha').showModal();
   } catch (error) {
     console.error('Erro:', error);
@@ -5906,7 +6035,8 @@ async function salvarEdicaoLinha() {
     praca: document.getElementById('edit_praca').value,
     formatos: formatosSelecionados.join(', '),
     plataforma: document.getElementById('edit_plataforma').value,
-    objetivo_kpi: document.getElementById('edit_objetivo_kpi').value,
+    id_objetivo_kpi: document.getElementById('edit_objetivo_kpi').value || null,
+    objetivo_kpi: getKpiDescricao('edit_'),
     viewability_minimo: parseFloat(document.getElementById('edit_viewability_minimo').value) || 70,
     data_inicio: document.getElementById('edit_data_inicio').value,
     data_fim: document.getElementById('edit_data_fim').value,
@@ -6016,8 +6146,7 @@ function resetAudienciaCalculoEconomicoParaNovaOuBusca() {
 }
 
 function aplicarDefaultsAudienciaCalculoForm() {
-  var kpi = document.getElementById('audiencia_objetivo_kpi');
-  if (kpi) kpi.value = 'CPM';
+  selecionarKpiPorDescricao('audiencia_', 'CPM');
   var root = document.querySelector('[data-plataforma-sugestao]');
   var sug = root ? String(root.getAttribute('data-plataforma-sugestao') || '').trim() : '';
   var platEl = document.getElementById('audiencia_plataforma');
@@ -6061,7 +6190,7 @@ function abrirModalAudiencia() {
   if (elDataFimAud) elDataFimAud.value = dataFimAud.toISOString().split('T')[0];
   calcularDiasAudiencia();
 
-  inicializarAbasModal('modal_adicionar_audiencia', { aba: 'audiencia', scope: '#etapa_detalhes_audiencia' });
+  inicializarAbasModal('modal_adicionar_audiencia', { aba: 'inicio', scope: '#etapa_detalhes_audiencia' });
   document.getElementById('modal_adicionar_audiencia').showModal();
 }
 
@@ -6168,7 +6297,7 @@ async function selecionarAudienciaCard(audienciaId) {
 
     var badgeAudNomeSel = document.getElementById('modal_audiencia_nome_badge');
     if (badgeAudNomeSel) badgeAudNomeSel.textContent = audiencia.nome || '—';
-    inicializarAbasModal('modal_adicionar_audiencia', { aba: 'audiencia', scope: '#etapa_detalhes_audiencia' });
+    inicializarAbasModal('modal_adicionar_audiencia', { aba: 'inicio', scope: '#etapa_detalhes_audiencia' });
 
   } catch (error) {
     console.error('Erro ao selecionar audiência:', error);
@@ -6221,9 +6350,11 @@ async function salvarNovaAudiencia() {
   };
 
   var platVal = document.getElementById('audiencia_plataforma').value;
-  var kpiVal = document.getElementById('audiencia_objetivo_kpi').value;
+  var kpiIdVal = document.getElementById('audiencia_objetivo_kpi').value;
+  var kpiDesc = getKpiDescricao('audiencia_');
   data.plataforma = platVal && String(platVal).trim() ? platVal.trim() : null;
-  data.objetivo_kpi = kpiVal && String(kpiVal).trim() ? kpiVal.trim() : null;
+  data.objetivo_kpi = kpiDesc || null;
+  data.id_objetivo_kpi = kpiIdVal && String(kpiIdVal).trim() ? kpiIdVal.trim() : null;
 
   var vtAud = parseMoeda(document.getElementById('audiencia_valor_unitario_tabela').value);
   var invAud = parseMoeda(document.getElementById('audiencia_investimento_bruto').value);
@@ -6355,10 +6486,13 @@ async function editarAudienciaCotacao(audienciaId) {
 
     document.getElementById('audiencia_plataforma').value =
       (aud.plataforma != null && String(aud.plataforma).trim()) ? aud.plataforma : (aud.audiencia_calculo_plataforma || '');
-    document.getElementById('audiencia_objetivo_kpi').value =
-      (aud.objetivo_kpi != null && String(aud.objetivo_kpi).trim())
-        ? aud.objetivo_kpi
-        : (aud.audiencia_calculo_kpi || 'CPM');
+    var audIdKpi = (aud.id_objetivo_kpi != null && aud.id_objetivo_kpi !== '')
+      ? aud.id_objetivo_kpi
+      : aud.id_audiencia_calculo_kpi;
+    var audDescKpi = (aud.objetivo_kpi != null && String(aud.objetivo_kpi).trim())
+      ? aud.objetivo_kpi
+      : (aud.audiencia_calculo_kpi || 'CPM');
+    aplicarKpiNoSelect('audiencia_', audIdKpi, audDescKpi);
 
     var valTabSalvo = Number(aud.valor_unitario_tabela || 0) > 0
       ? Number(aud.valor_unitario_tabela)
@@ -6446,7 +6580,7 @@ async function editarAudienciaCotacao(audienciaId) {
             investimento_bruto: invL,
             volume_contratado: volL,
             preco_unitario: valTabAud,
-            kpi: document.getElementById('audiencia_objetivo_kpi').value
+            kpi: getKpiDescricao('audiencia_')
           });
         }
       } else {
@@ -6473,7 +6607,7 @@ async function editarAudienciaCotacao(audienciaId) {
 
     var badgeAudNome = document.getElementById('modal_audiencia_nome_badge');
     if (badgeAudNome) badgeAudNome.textContent = aud.audiencia_nome || '—';
-    inicializarAbasModal('modal_adicionar_audiencia', { aba: 'audiencia', scope: '#etapa_detalhes_audiencia' });
+    inicializarAbasModal('modal_adicionar_audiencia', { aba: 'inicio', scope: '#etapa_detalhes_audiencia' });
     document.getElementById('modal_adicionar_audiencia').showModal();
   } catch (error) {
     console.error('Erro:', error);
@@ -6776,13 +6910,23 @@ async function confirmarAprovacao() {
   const cotacaoId = getCotacaoId();
   const motivo = document.getElementById('motivo_aprovacao').value;
   
+  const codigoPiCc = prompt('Digite o Código PI CC para gerar o Pedido de Inserção:');
+  if (codigoPiCc === null) {
+    return;
+  }
+  if (!codigoPiCc.trim()) {
+    showToast('O Código PI CC é obrigatório para aprovar.', 'warning');
+    return;
+  }
+  
   try {
     const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         status: 'Aprovada',
-        aprovada_em: new Date().toISOString()
+        aprovada_em: new Date().toISOString(),
+        codigo_pi_cc: codigoPiCc.trim()
       })
     });
     
@@ -7479,7 +7623,7 @@ async function recalcularValorTotalCotacao() {
     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
       <p class="text-xs text-amber-700">
         <i class="fas fa-exclamation-triangle mr-1"></i>
-        <strong>Atenção:</strong> Um PI (Proforma Invoice) será gerado automaticamente ao aprovar. Após a geração do PI, não será possível reverter o status desta cotação.
+        <strong>Atenção:</strong> Um Pedido de Inserção será gerado automaticamente ao aprovar. Após a geração, não será possível reverter o status desta cotação.
       </p>
     </div>
     <div class="form-control">

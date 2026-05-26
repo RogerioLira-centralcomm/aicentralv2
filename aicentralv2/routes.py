@@ -17,7 +17,10 @@ from aicentralv2.email_service import (
     send_subscription_confirmation_email, send_new_subscription_internal_email
 )
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
-from aicentralv2.services.cotacao_linhas_image_import import extrair_itens_linhas_de_upload
+from aicentralv2.services.cotacao_linhas_image_import import (
+    extrair_itens_linhas_de_upload,
+    normalizar_itens_para_cotacao,
+)
 from psycopg.errors import UniqueViolation, ForeignKeyViolation, NotNullViolation, ProgrammingError
 
 # Helper para serializar dados para JSON
@@ -5292,7 +5295,20 @@ def init_routes(app):
             
             # Buscar comentários da cotação
             comentarios = db.obter_comentarios_cotacao(cotacao_id)
-            
+
+            objetivos_campanha = [
+                obj for obj in db.obter_objetivos_campanha()
+                if obj.get('status', True) is not False
+            ]
+
+            plataformas_campanha = []
+            for p in db.obter_plataformas_campanha():
+                if p.get('status', True) is False:
+                    continue
+                cat = (p.get('categoria') or '').strip()
+                p['categoria'] = cat if cat else 'Sem categoria'
+                plataformas_campanha.append(p)
+
             return render_template('cadu_cotacoes_detalhes.html', 
                                   modo='editar',
                                   cotacao=cotacao, 
@@ -5306,7 +5322,9 @@ def init_routes(app):
                                   briefing_atual=briefing_atual,
                                   linhas=linhas,
                                   audiencias=audiencias,
-                                  comentarios=comentarios)
+                                  comentarios=comentarios,
+                                  objetivos_campanha=objetivos_campanha,
+                                  plataformas_campanha=plataformas_campanha)
 
         except Exception as e:
             app.logger.error(f"Erro ao carregar detalhes da cotação: {str(e)}", exc_info=True)
@@ -6040,6 +6058,14 @@ def init_routes(app):
             if not update_data:
                 return jsonify({'success': True, 'message': 'Nenhuma alteração necessária'})
 
+            codigo_pi_cc = (data.get('codigo_pi_cc') or '').strip() or None
+            if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+                if not codigo_pi_cc:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Informe o código PI CC para aprovar e gerar o PI.',
+                    }), 400
+
             # Atualizar no banco
             db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
 
@@ -6047,7 +6073,7 @@ def init_routes(app):
             id_pi_gerado = None
             if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
                 try:
-                    id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id)
+                    id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=codigo_pi_cc)
                     if id_pi_gerado:
                         app.logger.info(f"PI {id_pi_gerado} gerado automaticamente para cotação {cotacao_id}")
                 except Exception as pi_err:
@@ -6682,6 +6708,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 formatos=data.get('formatos'),
                 canal=data.get('canal'),
                 objetivo_kpi=data.get('objetivo_kpi'),
+                id_objetivo_kpi=data.get('id_objetivo_kpi'),
                 data_inicio=data.get('data_inicio'),
                 data_fim=data.get('data_fim'),
                 investimento_bruto=data.get('investimento_bruto'),
@@ -6729,6 +6756,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             itens, err = extrair_itens_linhas_de_upload(data, ext, filename=f.filename, model=model)
             if err:
                 return jsonify({'success': False, 'error': err, 'itens': []}), 422
+            if itens:
+                try:
+                    itens = normalizar_itens_para_cotacao(itens)
+                except Exception as ex:
+                    app.logger.warning(
+                        f"normalizar_itens_para_cotacao falhou: {ex}", exc_info=True
+                    )
             return jsonify({'success': True, 'itens': serializar_para_json(itens), 'n': len(itens)})
         except RuntimeError as e:
             app.logger.warning(f"extrair_linhas_cotacao_de_imagem: {e}")
@@ -6782,6 +6816,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 formatos=data.get('formatos'),
                 canal=data.get('canal'),
                 objetivo_kpi=data.get('objetivo_kpi'),
+                id_objetivo_kpi=data.get('id_objetivo_kpi'),
                 data_inicio=data.get('data_inicio'),
                 data_fim=data.get('data_fim'),
                 investimento_bruto=data.get('investimento_bruto'),
@@ -7532,6 +7567,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         formatos=converter_json(linha.get('formatos')),
                         canal=converter_json(linha.get('canal')),
                         objetivo_kpi=linha.get('objetivo_kpi'),
+                        id_objetivo_kpi=linha.get('id_objetivo_kpi'),
                         data_inicio=linha.get('data_inicio'),
                         data_fim=linha.get('data_fim'),
                         investimento_bruto=linha.get('investimento_bruto'),
@@ -7571,6 +7607,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         perc_margem_cc=audiencia.get('perc_margem_cc'),
                         audiencia_calculo_plataforma=audiencia.get('audiencia_calculo_plataforma'),
                         audiencia_calculo_kpi=audiencia.get('audiencia_calculo_kpi'),
+                        id_audiencia_calculo_kpi=audiencia.get('id_audiencia_calculo_kpi'),
                         data_inicio=audiencia.get('data_inicio'),
                         data_fim=audiencia.get('data_fim'),
                         perc_tech_fee=audiencia.get('perc_tech_fee'),
@@ -8191,7 +8228,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """API para top audiências"""
         try:
             limit = request.args.get('limit', 20, type=int)
-            audiencias = db.get_analytics_top_audiencias(limit)
+            days = request.args.get('days', 30, type=int)
+            audiencias = db.get_analytics_top_audiencias(limit, days=days)
             
             data = []
             for a in audiencias:
@@ -8216,7 +8254,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """API para top páginas"""
         try:
             limit = request.args.get('limit', 20, type=int)
-            pages = db.get_analytics_top_pages(limit)
+            days = request.args.get('days', 30, type=int)
+            pages = db.get_analytics_top_pages(limit, days=days)
             
             data = []
             for p in pages:
@@ -8240,10 +8279,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """API para usuários mais ativos"""
         try:
             limit = request.args.get('limit', 50, type=int)
+            days = request.args.get('days', 30, type=int)
             segment = (request.args.get('segment') or 'all').strip().lower()
             if segment not in ('all', 'centralcomm', 'external'):
                 segment = 'all'
-            users = db.get_analytics_user_engagement(limit, segment=segment)
+            users = db.get_analytics_user_engagement(limit, segment=segment, days=days)
             
             data = []
             for u in users:
@@ -9869,7 +9909,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         """Lista todas as plataformas de campanha"""
         try:
             plataformas = db.obter_plataformas_campanha()
-            return render_template('plataformas_campanha.html', plataformas=plataformas)
+            return render_template(
+                'plataformas_campanha.html',
+                plataformas=plataformas,
+                categorias_canonicas=list(db.PLATAFORMA_CATEGORIAS_CANONICAS),
+            )
         except Exception as e:
             app.logger.error(f"Erro ao listar plataformas de campanha: {str(e)}")
             flash('Erro ao carregar plataformas de campanha.', 'error')
@@ -9896,6 +9940,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 flash('Método de pagamento inválido.', 'error')
                 return redirect(url_for('plataformas_campanha'))
 
+            categoria_raw = (request.form.get('categoria') or '').strip()[:80]
+
             data = {
                 'descricao': descricao,
                 'indice': request.form.get('indice', type=int),
@@ -9904,6 +9950,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'tech_fee': tech_fee,
                 'metodo_pagamento': metodo_pagamento,
                 'detalhe_pagamento': request.form.get('detalhe_pagamento', '').strip() or None,
+                'categoria': categoria_raw or None,
             }
 
             id_plat = db.criar_plataforma_campanha(data)
@@ -9946,6 +9993,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 flash('Método de pagamento inválido.', 'error')
                 return redirect(url_for('plataformas_campanha'))
 
+            categoria_raw = (request.form.get('categoria') or '').strip()[:80]
+
             data = {
                 'descricao': descricao,
                 'indice': request.form.get('indice', type=int),
@@ -9954,6 +10003,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'tech_fee': tech_fee,
                 'metodo_pagamento': metodo_pagamento,
                 'detalhe_pagamento': request.form.get('detalhe_pagamento', '').strip() or None,
+                'categoria': categoria_raw or None,
             }
 
             if db.atualizar_plataforma_campanha(id_plat, data):

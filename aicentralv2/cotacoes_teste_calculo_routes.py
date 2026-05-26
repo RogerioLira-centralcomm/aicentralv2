@@ -24,13 +24,7 @@ from werkzeug.utils import secure_filename
 from aicentralv2 import db
 from aicentralv2.auth import login_required
 
-_ORDEM_CATEGORIA_PLATAFORMA = (
-    'Mídia Programática',
-    'Social',
-    'Search & Display',
-    'Streaming/CTV',
-    'Dados',
-)
+from aicentralv2.db import PLATAFORMA_CATEGORIAS_CANONICAS as _ORDEM_CATEGORIA_PLATAFORMA
 
 
 def _ordenar_plataformas_campanha_para_select(plataformas):
@@ -47,7 +41,10 @@ def _ordenar_plataformas_campanha_para_select(plataformas):
         )
 
     return sorted(plataformas, key=chave)
-from aicentralv2.services.cotacao_linhas_image_import import extrair_itens_linhas_de_upload
+from aicentralv2.services.cotacao_linhas_image_import import (
+    extrair_itens_linhas_de_upload,
+    normalizar_itens_para_cotacao,
+)
 
 bp = Blueprint('cotacoes_teste_calculo', __name__)
 
@@ -157,26 +154,37 @@ def _perc_margem_cc_fracao_audiencia(cotacao, data):
 
 
 def _audiencia_calc_meta_para_criacao(data):
-    """Plataforma e KPI persistidos na linha audiência (`plataforma` / `objetivo_kpi` como aliases opcionais)."""
+    """Plataforma e KPI persistidos na linha audiência (`plataforma` / `objetivo_kpi` como aliases opcionais).
+
+    Retorna (plataforma, kpi_descricao, id_kpi). id_kpi é o `id_audiencia_calculo_kpi`
+    (ou `id_objetivo_kpi` como alias) e quando presente passa a ser a verdade canônica.
+    """
     if not isinstance(data, dict):
-        return None, None
+        return None, None, None
     plat = data.get('audiencia_calculo_plataforma')
     if plat is None and 'plataforma' in data:
         plat = data.get('plataforma')
     kpi = data.get('audiencia_calculo_kpi')
     if kpi is None and 'objetivo_kpi' in data:
         kpi = data.get('objetivo_kpi')
-    return plat, kpi
+    id_kpi = data.get('id_audiencia_calculo_kpi')
+    if id_kpi is None:
+        id_kpi = data.get('id_objetivo_kpi')
+    return plat, kpi, id_kpi
 
 
 def _audiencia_calc_sentinels_para_atualizar(data):
-    """PATCH só inclusão omite meta; atualização envia apenas chaves presentes no JSON."""
+    """PATCH só inclusão omite meta; atualização envia apenas chaves presentes no JSON.
+
+    Retorna (plataforma_sentinel, kpi_sentinel, id_kpi_sentinel).
+    """
     if not isinstance(data, dict):
-        return db._OMIT_AUD_CALC_PLATAFORMA, db._OMIT_AUD_CALC_KPI
+        return db._OMIT_AUD_CALC_PLATAFORMA, db._OMIT_AUD_CALC_KPI, db._OMIT_AUD_ID_CALC_KPI
     if set(data.keys()) == {'incluido_proposta'}:
-        return db._OMIT_AUD_CALC_PLATAFORMA, db._OMIT_AUD_CALC_KPI
+        return db._OMIT_AUD_CALC_PLATAFORMA, db._OMIT_AUD_CALC_KPI, db._OMIT_AUD_ID_CALC_KPI
     plat = db._OMIT_AUD_CALC_PLATAFORMA
     kpi = db._OMIT_AUD_CALC_KPI
+    id_kpi = db._OMIT_AUD_ID_CALC_KPI
     if 'audiencia_calculo_plataforma' in data or 'plataforma' in data:
         plat = data.get('audiencia_calculo_plataforma')
         if plat is None:
@@ -185,7 +193,11 @@ def _audiencia_calc_sentinels_para_atualizar(data):
         kpi = data.get('audiencia_calculo_kpi')
         if kpi is None:
             kpi = data.get('objetivo_kpi')
-    return plat, kpi
+    if 'id_audiencia_calculo_kpi' in data or 'id_objetivo_kpi' in data:
+        id_kpi = data.get('id_audiencia_calculo_kpi')
+        if id_kpi is None:
+            id_kpi = data.get('id_objetivo_kpi')
+    return plat, kpi, id_kpi
 
 
 def _recalcular_e_montar_breakdown(cotacao, data):
@@ -198,6 +210,13 @@ def _recalcular_e_montar_breakdown(cotacao, data):
     """
     plat = (data.get('plataforma') or '').strip()
     kpi = (data.get('objetivo_kpi') or '').strip()
+    # Quando o front enviar id_objetivo_kpi (FK), resolve a descrição para que a
+    # comparação `is_cpm = kpi == 'CPM'` mais abaixo permaneça correta.
+    id_kpi_in = data.get('id_objetivo_kpi') or data.get('id_audiencia_calculo_kpi')
+    if id_kpi_in not in (None, '', 0, '0'):
+        desc_resolvida = db.obter_descricao_objetivo_campanha(id_kpi_in)
+        if desc_resolvida:
+            kpi = desc_resolvida
     val_tab = _to_float(data.get('valor_unitario_tabela'))
     inv_bruto_in = _to_float(data.get('investimento_bruto'))
     vol_in = _to_float(data.get('volume_contratado'))
@@ -687,6 +706,11 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
             plataformas_campanha.append(p)
         plataformas_campanha = _ordenar_plataformas_campanha_para_select(plataformas_campanha)
 
+        objetivos_campanha = [
+            obj for obj in db.obter_objetivos_campanha()
+            if obj.get('status', True) is not False
+        ]
+
         return render_template(
             'cadu_cotacoes_detalhes_teste_calculo.html',
             modo='editar',
@@ -703,6 +727,7 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
             audiencias=audiencias,
             comentarios=comentarios,
             plataformas_campanha=plataformas_campanha,
+            objetivos_campanha=objetivos_campanha,
         )
 
     except Exception as e:
@@ -842,7 +867,33 @@ def api_atualizar_cotacao_teste(cotacao_id):
         if 'origem' in update_data and update_data['origem'] != db.ORIGEM_TESTE_CALCULO:
             update_data['origem'] = db.ORIGEM_TESTE_CALCULO
 
+        codigo_pi_cc = (data.get('codigo_pi_cc') or '').strip() or None
+        if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+            if not codigo_pi_cc:
+                return jsonify({
+                    'success': False,
+                    'message': 'Informe o código PI CC para aprovar e gerar o PI.',
+                }), 400
+
         db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
+
+        id_pi_gerado = None
+        if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+            try:
+                id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=codigo_pi_cc)
+                if id_pi_gerado:
+                    current_app.logger.info(
+                        f"PI {id_pi_gerado} gerado automaticamente para cotação teste {cotacao_id}"
+                    )
+            except Exception as pi_err:
+                current_app.logger.error(
+                    f"Erro ao gerar PI da cotação teste {cotacao_id}: {pi_err}",
+                    exc_info=True,
+                )
+                return jsonify({
+                    'success': False,
+                    'message': f'Cotação aprovada, mas houve erro ao gerar PI: {pi_err}',
+                }), 500
 
         _audit(
             acao='UPDATE',
@@ -854,7 +905,11 @@ def api_atualizar_cotacao_teste(cotacao_id):
             dados_novos=dados_novos,
         )
 
-        return jsonify({'success': True, 'message': 'Cotação atualizada com sucesso'})
+        response_data = {'success': True, 'message': 'Cotação atualizada com sucesso'}
+        if id_pi_gerado:
+            response_data['id_pi'] = id_pi_gerado
+            response_data['message'] = 'Cotação aprovada e PI gerado com sucesso'
+        return jsonify(response_data)
 
     except Exception as e:
         current_app.logger.error(f"api_atualizar_cotacao_teste: {e}", exc_info=True)
@@ -929,6 +984,13 @@ def extrair_linhas_cotacao_de_imagem_teste(cotacao_id):
         itens, err_msg = extrair_itens_linhas_de_upload(data, ext, filename=f.filename, model=model)
         if err_msg:
             return jsonify({'success': False, 'error': err_msg, 'itens': []}), 422
+        if itens:
+            try:
+                itens = normalizar_itens_para_cotacao(itens)
+            except Exception as ex:
+                current_app.logger.warning(
+                    f"normalizar_itens_para_cotacao (teste) falhou: {ex}", exc_info=True
+                )
         return jsonify({'success': True, 'itens': _serializar(itens), 'n': len(itens)})
     except RuntimeError as e:
         current_app.logger.warning(f"extrair_linhas_cotacao_de_imagem_teste: {e}")
@@ -982,6 +1044,7 @@ def criar_linha_cotacao_api_teste():
             formatos=data.get('formatos'),
             canal=data.get('canal'),
             objetivo_kpi=data.get('objetivo_kpi'),
+            id_objetivo_kpi=data.get('id_objetivo_kpi'),
             data_inicio=data.get('data_inicio'),
             data_fim=data.get('data_fim'),
             investimento_bruto=breakdown['investimento_bruto'],
@@ -1064,6 +1127,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
             formatos=data.get('formatos'),
             canal=data.get('canal'),
             objetivo_kpi=data.get('objetivo_kpi'),
+            id_objetivo_kpi=data.get('id_objetivo_kpi'),
             data_inicio=data.get('data_inicio'),
             data_fim=data.get('data_fim'),
             investimento_bruto=breakdown['investimento_bruto'],
@@ -1120,7 +1184,7 @@ def criar_audiencia_cotacao_api_teste():
         if not cotacao:
             return jsonify({'error': 'Cotação não encontrada'}), 404
         perc_mcc = _perc_margem_cc_fracao_audiencia(cotacao, data)
-        aud_plat, aud_kpi = _audiencia_calc_meta_para_criacao(data)
+        aud_plat, aud_kpi, aud_id_kpi = _audiencia_calc_meta_para_criacao(data)
 
         breakdown, err_resp, err_status = _recalcular_e_montar_breakdown(cotacao, data)
         if err_resp is not None:
@@ -1144,6 +1208,7 @@ def criar_audiencia_cotacao_api_teste():
             perc_margem_cc=perc_mcc,
             audiencia_calculo_plataforma=aud_plat,
             audiencia_calculo_kpi=aud_kpi,
+            id_audiencia_calculo_kpi=aud_id_kpi,
             data_inicio=data.get('data_inicio') or None,
             data_fim=data.get('data_fim') or None,
             fator_desconto=breakdown.get('fator_desconto'),
@@ -1243,7 +1308,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
                     fator_num = 1.0
                 fator_kw['fator_desconto'] = fator_num
 
-        aud_plat, aud_kpi = _audiencia_calc_sentinels_para_atualizar(data)
+        aud_plat, aud_kpi, aud_id_kpi = _audiencia_calc_sentinels_para_atualizar(data)
 
         datas_kw = {}
         if 'data_inicio' in data:
@@ -1256,6 +1321,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
             incluido_proposta=data.get('incluido_proposta'),
             audiencia_calculo_plataforma=aud_plat,
             audiencia_calculo_kpi=aud_kpi,
+            id_audiencia_calculo_kpi=aud_id_kpi,
             **perc_margem_cc_kw,
             **cpm_kw,
             **invest_sug_kw,
@@ -1281,6 +1347,7 @@ def obter_audiencia_cotacao_api_teste(audiencia_id):
         if isinstance(payload, dict):
             payload['plataforma'] = payload.get('audiencia_calculo_plataforma')
             payload['objetivo_kpi'] = payload.get('audiencia_calculo_kpi')
+            payload['id_objetivo_kpi'] = payload.get('id_audiencia_calculo_kpi')
         return jsonify(payload), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

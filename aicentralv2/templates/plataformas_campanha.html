@@ -50,6 +50,7 @@
             <tr>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">ID</th>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Descrição</th>
+              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Categoria</th>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Índice</th>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Tech Partner</th>
               <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Tech Fee</th>
@@ -66,6 +67,7 @@
               <td class="py-2 px-3">
                 <span class="font-medium text-gray-800">{{ p.descricao or '—' }}</span>
               </td>
+              <td class="py-2 px-3 text-gray-600">{{ p.categoria or '—' }}</td>
               <td class="py-2 px-3 text-gray-600">{{ p.indice if p.indice is not none else '—' }}</td>
               <td class="py-2 px-3 text-gray-600">{{ p.tech_partner or '—' }}</td>
               <td class="py-2 px-3 text-gray-600">
@@ -99,7 +101,7 @@
               <td class="py-2 px-3">
                 <div class="flex items-center justify-center gap-2">
                   <button type="button"
-                          onclick='abrirModalEditar({{ {"id": p.id_plataforma, "descricao": p.descricao or "", "indice": p.indice, "status": true if p.status else false, "tech_partner": p.tech_partner or "", "tech_fee": (p.tech_fee|float) if p.tech_fee is not none else none, "metodo_pagamento": p.metodo_pagamento or "", "detalhe_pagamento": p.detalhe_pagamento or ""} | tojson }})'
+                          onclick='abrirModalEditar({{ {"id": p.id_plataforma, "descricao": p.descricao or "", "categoria": p.categoria or "", "indice": p.indice, "status": true if p.status else false, "tech_partner": p.tech_partner or "", "tech_fee": (p.tech_fee|float) if p.tech_fee is not none else none, "metodo_pagamento": p.metodo_pagamento or "", "detalhe_pagamento": p.detalhe_pagamento or ""} | tojson }})'
                           class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
                           title="Editar">
                     <i class="fas fa-edit"></i>
@@ -152,6 +154,21 @@
           </label>
           <input type="text" id="descricao" name="descricao" required maxlength="150"
                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+        </div>
+
+        <div class="mb-4">
+          <label for="categoria_select" class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+          <select id="categoria_select" onchange="onCategoriaChange()"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+            <option value="">— Sem categoria —</option>
+            {% for c in (categorias_canonicas or []) %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+            <option value="__outra__">Outra...</option>
+          </select>
+          <input type="text" id="categoria_outra" maxlength="80" placeholder="Digite a categoria"
+                 class="mt-2 hidden w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400">
+          <input type="hidden" id="categoria" name="categoria">
         </div>
 
         <div class="mb-4">
@@ -219,6 +236,8 @@
 
 {% block scripts %}
 <script>
+  window.__CATEGORIAS_PLATAFORMA__ = {{ (categorias_canonicas or []) | tojson }};
+
   document.getElementById('searchInput').addEventListener('input', function() {
     const searchTerm = this.value.toLowerCase();
     const rows = document.querySelectorAll('#plataformasTableBody tr');
@@ -229,6 +248,59 @@
     });
   });
 
+  function _sincronizarCategoriaHidden() {
+    const sel = document.getElementById('categoria_select');
+    const outra = document.getElementById('categoria_outra');
+    const hidden = document.getElementById('categoria');
+    if (!sel || !hidden) return;
+    if (sel.value === '__outra__') {
+      hidden.value = (outra && outra.value ? outra.value.trim() : '').slice(0, 80);
+    } else {
+      hidden.value = sel.value || '';
+    }
+  }
+
+  function onCategoriaChange() {
+    const sel = document.getElementById('categoria_select');
+    const outra = document.getElementById('categoria_outra');
+    if (!sel || !outra) return;
+    if (sel.value === '__outra__') {
+      outra.classList.remove('hidden');
+      outra.focus();
+    } else {
+      outra.classList.add('hidden');
+      outra.value = '';
+    }
+    _sincronizarCategoriaHidden();
+  }
+
+  function aplicarCategoriaNoModal(valor) {
+    const sel = document.getElementById('categoria_select');
+    const outra = document.getElementById('categoria_outra');
+    const hidden = document.getElementById('categoria');
+    if (!sel || !outra || !hidden) return;
+    const v = (valor || '').toString().trim();
+    if (!v) {
+      sel.value = '';
+      outra.classList.add('hidden');
+      outra.value = '';
+      hidden.value = '';
+      return;
+    }
+    const canonicas = window.__CATEGORIAS_PLATAFORMA__ || [];
+    if (canonicas.indexOf(v) >= 0) {
+      sel.value = v;
+      outra.classList.add('hidden');
+      outra.value = '';
+      hidden.value = v;
+    } else {
+      sel.value = '__outra__';
+      outra.classList.remove('hidden');
+      outra.value = v;
+      hidden.value = v;
+    }
+  }
+
   function resetCamposPlataformaModal() {
     document.getElementById('descricao').value = '';
     document.getElementById('indice').value = '';
@@ -237,6 +309,7 @@
     document.getElementById('metodo_pagamento').value = '';
     document.getElementById('detalhe_pagamento').value = '';
     document.getElementById('status').checked = true;
+    aplicarCategoriaNoModal('');
   }
 
   function abrirModalNovo() {
@@ -257,8 +330,12 @@
     document.getElementById('metodo_pagamento').value = obj.metodo_pagamento || '';
     document.getElementById('detalhe_pagamento').value = obj.detalhe_pagamento || '';
     document.getElementById('status').checked = !!obj.status;
+    aplicarCategoriaNoModal(obj.categoria || '');
     modal_plataforma.showModal();
   }
+
+  document.getElementById('categoria_outra').addEventListener('input', _sincronizarCategoriaHidden);
+  document.getElementById('plataformaForm').addEventListener('submit', _sincronizarCategoriaHidden);
 
   document.getElementById('modal_plataforma').addEventListener('close', function() {
     document.getElementById('modal_title').textContent = 'Nova Plataforma';

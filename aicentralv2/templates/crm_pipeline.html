@@ -45,23 +45,18 @@
           <option value="12" {% if filtros.get('mes') == '12' %}selected{% endif %}>Dezembro</option>
         </select>
         
-        <!-- Status Icons -->
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-          {% set status_icons = [
-            ('Rascunho', 'fa-file-pen', filtros.get('status') == 'Rascunho'),
-            ('Em Análise', 'fa-magnifying-glass', filtros.get('status') == 'Em Análise'),
-            ('Enviada', 'fa-paper-plane', filtros.get('status') == 'Enviada'),
-            ('Negociação', 'fa-handshake', filtros.get('status') == 'Negociação'),
-            ('Aprovada', 'fa-circle-check', filtros.get('status') == 'Aprovada'),
-            ('Rejeitada', 'fa-circle-xmark', filtros.get('status') == 'Rejeitada')
-          ] %}
-          {% for status, icon, active in status_icons %}
-          <button type="button" onclick="filtrarPorStatus('{{ status }}')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if active %}bg-gray-200{% endif %}" 
-                  title="{{ status }}">
-            <i class="fa-solid {{ icon }} text-sm text-gray-{% if active %}800{% else %}400{% endif %}"></i>
-          </button>
-          {% endfor %}
+        <!-- Status Select -->
+        <div class="flex items-center gap-2 border-l border-gray-200 pl-3">
+          {% set status_atual = filtros.get('status') or 'TODOS' %}
+          <select name="status" id="filtro_status" onchange="aplicarFiltros()"
+                  class="text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
+            <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
+            <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+            <option value="Em Análise" {% if status_atual == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+            <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
+            <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+            <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+          </select>
         </div>
       </form>
     </div>
@@ -69,7 +64,7 @@
 
   <!-- Kanban Board -->
   <div class="flex gap-2 overflow-x-auto pb-4" style="min-height: calc(100vh - 120px);">
-    {% set status_list = ['Rascunho', 'Em Análise', 'Enviada', 'Negociação', 'Aprovada', 'Rejeitada'] %}
+    {% set status_list = ['Rascunho', 'Em Análise', 'Enviada', 'Aprovada', 'Rejeitada'] %}
     
     {% for status in status_list %}
     {% set cotacoes = colunas.get(status, []) %}
@@ -384,7 +379,6 @@
           <option value="Rascunho">Rascunho</option>
           <option value="Em Análise">Em Análise</option>
           <option value="Enviada">Enviada</option>
-          <option value="Negociação">Negociação</option>
           <option value="Aprovada">✓ Aprovada</option>
           <option value="Rejeitada">✗ Rejeitada</option>
         </select>
@@ -440,25 +434,16 @@
 function aplicarFiltros() {
   const executivo = document.getElementById('filtro_executivo').value;
   const mes = document.getElementById('filtro_mes').value;
+  const status = document.getElementById('filtro_status').value;
 
   setCookie('cc_filtro_exec', executivo, 30);
   setCookie('cc_filtro_mes', mes, 30);
+  setCookie('crm_status', status, 30);
 
   const params = new URLSearchParams();
   params.set('executivo_id', executivo);
   if (mes) params.set('mes', mes);
-  window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
-}
-
-function filtrarPorStatus(status) {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('status') === status) {
-    params.delete('status');
-    setCookie('crm_status', '', 30);
-  } else {
-    params.set('status', status);
-    setCookie('crm_status', status, 30);
-  }
+  if (status) params.set('status', status);
   window.location.href = '{{ url_for("crm_pipeline") }}?' + params.toString();
 }
 

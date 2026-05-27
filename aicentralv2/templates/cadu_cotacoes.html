@@ -62,21 +62,17 @@
                style="min-width: 200px;"
                onkeyup="debounceAplicarFiltros()">
       </div>
-      <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
-        {% set status_icons = [
-          ('Rascunho', 'fa-file-pen', request.args.get('status') == 'Rascunho'),
-          ('Em Análise', 'fa-magnifying-glass', request.args.get('status') == 'Em Análise'),
-          ('Enviada', 'fa-paper-plane', request.args.get('status') == 'Enviada'),
-          ('Aprovada', 'fa-circle-check', request.args.get('status') == 'Aprovada'),
-          ('Rejeitada', 'fa-circle-xmark', request.args.get('status') == 'Rejeitada')
-        ] %}
-        {% for status, icon, active in status_icons %}
-        <button type="button" onclick="filtrarPorStatus('{{ status }}')"
-                class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors {% if active %}bg-indigo-100{% endif %}"
-                title="{{ status }}">
-          <i class="fa-solid {{ icon }} text-sm {% if active %}text-indigo-600{% else %}text-gray-400{% endif %}"></i>
-        </button>
-        {% endfor %}
+      <div class="flex items-center gap-2 border-l border-gray-200 pl-3">
+        {% set status_atual = request.args.get('status') or 'Enviada' %}
+        <select name="status" id="filtro_status" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200">
+          <option value="TODOS" {% if status_atual == 'TODOS' %}selected{% endif %}>Todos</option>
+          <option value="Rascunho" {% if status_atual == 'Rascunho' %}selected{% endif %}>Rascunho</option>
+          <option value="Em Análise" {% if status_atual == 'Em Análise' %}selected{% endif %}>Em Análise</option>
+          <option value="Enviada" {% if status_atual == 'Enviada' %}selected{% endif %}>Enviada</option>
+          <option value="Aprovada" {% if status_atual == 'Aprovada' %}selected{% endif %}>Aprovada</option>
+          <option value="Rejeitada" {% if status_atual == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
+        </select>
       </div>
       <a href="{{ url_for('crm_pipeline') }}" class="text-xs text-gray-400 hover:text-indigo-600 transition-colors ml-1">
         <i class="fa-solid fa-columns mr-1"></i>Pipeline
@@ -350,13 +346,11 @@ function aplicarFiltros() {
   const executivo = document.getElementById('filtro_executivo').value;
   const mes = document.getElementById('filtro_mes').value;
   const busca = document.getElementById('filtro_busca').value.trim();
-  const urlParams = new URLSearchParams(window.location.search);
-  const status = urlParams.get('status');
+  const status = document.getElementById('filtro_status').value;
 
   setCookie('cc_filtro_exec', executivo, 30);
   setCookie('cc_filtro_mes', mes, 30);
   setCookie('cotacoes_busca', busca, 30);
-  if (status) setCookie('cotacoes_status', status, 30);
 
   let params = new URLSearchParams();
   params.set('responsavel_comercial', executivo);
@@ -367,28 +361,13 @@ function aplicarFiltros() {
   window.location.href = '/cotacoes' + (params.toString() ? '?' + params.toString() : '');
 }
 
-function filtrarPorStatus(status) {
-  const urlParams = new URLSearchParams(window.location.search);
-  const currentStatus = urlParams.get('status');
-
-  if (currentStatus === status) {
-    urlParams.delete('status');
-    setCookie('cotacoes_status', '', 30);
-  } else {
-    urlParams.set('status', status);
-    setCookie('cotacoes_status', status, 30);
-  }
-
-  window.location.href = '/cotacoes' + (urlParams.toString() ? '?' + urlParams.toString() : '');
-}
-
 (function restoreCotacoesFilters() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('_restored')) return;
+  setCookie('cotacoes_status', '', -1);
   const cExec = getCookie('cc_filtro_exec');
   const cMes = getCookie('cc_filtro_mes');
   const cBusca = getCookie('cotacoes_busca');
-  const cStatus = getCookie('cotacoes_status');
   let needsRedirect = false;
   const rp = new URLSearchParams(params);
   if (cExec && !params.has('responsavel_comercial')) { rp.set('responsavel_comercial', cExec); needsRedirect = true; }
@@ -399,7 +378,6 @@ function filtrarPorStatus(status) {
     needsRedirect = true;
   }
   if (cBusca && !params.has('busca')) { rp.set('busca', cBusca); needsRedirect = true; }
-  if (cStatus && !params.has('status')) { rp.set('status', cStatus); needsRedirect = true; }
   if (!needsRedirect) return;
   rp.set('_restored', '1');
   window.location.href = '/cotacoes?' + rp.toString();

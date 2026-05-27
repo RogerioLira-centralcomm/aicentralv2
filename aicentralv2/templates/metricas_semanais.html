@@ -339,12 +339,11 @@ const STATUS_COLORS = {
     'Rascunho': GRAY_300,
     'Em Análise': '#818cf8',
     'Enviada': '#38bdf8',
-    'Negociação': '#fb923c',
     'Aprovada': GREEN_600,
     'Rejeitada': RED_500
 };
 
-const FUNNEL_COLORS = ['#6366f1','#818cf8','#38bdf8','#fb923c','#059669','#1E4D4F'];
+const FUNNEL_COLORS = ['#6366f1','#818cf8','#38bdf8','#059669','#1E4D4F'];
 
 let charts = {};
 let baseTotal = {};
@@ -379,7 +378,6 @@ function statusBadge(s) {
     const colors = {
         'Em Análise': 'bg-indigo-100 text-indigo-700',
         'Enviada': 'bg-sky-100 text-sky-700',
-        'Negociação': 'bg-orange-100 text-orange-700',
         'Aprovada': 'bg-emerald-100 text-emerald-700',
         'Rejeitada': 'bg-red-100 text-red-700',
         'Rascunho': 'bg-gray-100 text-gray-500'
@@ -488,9 +486,8 @@ async function carregarFunil() {
             { label: 'Leads', count: d.leads, value: null, color: FUNNEL_COLORS[0] },
             { label: 'Cotações Criadas', count: d.cotacoes_criadas, value: d.valor_total, color: FUNNEL_COLORS[1] },
             { label: 'Enviadas', count: d.enviadas, value: null, color: FUNNEL_COLORS[2] },
-            { label: 'Negociação', count: d.negociacao, value: null, color: FUNNEL_COLORS[3] },
-            { label: 'Aprovadas', count: d.aprovadas, value: d.valor_aprovado, color: FUNNEL_COLORS[4] },
-            { label: 'PIs Gerados', count: d.pis_gerados, value: d.valor_pis, color: FUNNEL_COLORS[5] }
+            { label: 'Aprovadas', count: d.aprovadas, value: d.valor_aprovado, color: FUNNEL_COLORS[3] },
+            { label: 'PIs Gerados', count: d.pis_gerados, value: d.valor_pis, color: FUNNEL_COLORS[4] }
         ];
         const maxCount = Math.max(...stages.map(s => s.count), 1);
         const container = document.getElementById('funnelContainer');

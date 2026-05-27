@@ -102,14 +102,14 @@ function handleFileSelect(event) {
 }
 
 // Status que permitem edição (definido no início para uso em uploadAnexos)
-var STATUS_PERMITE_EDICAO_INICIAL = ['Rascunho', 'Em Análise', 'Negociação'];
+var STATUS_PERMITE_EDICAO_INICIAL = ['Rascunho', 'Em Análise'];
 var statusAtualCotacaoInicial = '{{ cotacao.status if cotacao else "Rascunho" }}';
 
 // Função de Upload de Anexos - definida no início
 async function uploadAnexos(files) {
   // Verificar se edição é permitida pelo status
   if (!STATUS_PERMITE_EDICAO_INICIAL.includes(statusAtualCotacaoInicial)) {
-    showToast('Edição não permitida. Status deve ser: Rascunho, Em Análise ou Negociação.', 'warning');
+    showToast('Edição não permitida. Status deve ser: Rascunho ou Em Análise.', 'warning');
     return;
   }
   
@@ -507,14 +507,13 @@ function calcularInvestLiquidoEdit() {
           <option value="Rascunho" {% if cotacao.status == 'Rascunho' %}selected{% endif %}>Rascunho</option>
           <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
           <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
-          <option value="Negociação" {% if cotacao.status == 'Negociação' %}selected{% endif %}>Negociação</option>
           <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
           <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
           <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
         </select>
         {% endif %}
         {% if modo == 'editar' %}
-        <a id="btn_editar_header" href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+        <a id="btn_editar_header" href="{{ url_for('cotacao_editar', cotacao_id=cotacao.id) }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors flex-shrink-0" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
           <i class="fas fa-edit mr-1"></i>Editar
         </a>
         {% endif %}
@@ -548,7 +547,7 @@ function calcularInvestLiquidoEdit() {
             Informações do Cliente
           </h2>
           {% if modo == 'editar' %}
-          <button id="btn_editar_cliente" onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+          <button id="btn_editar_cliente" onclick="abrirModalEditarCliente()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar cliente" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
             <i class="fas fa-edit text-xs"></i>
           </button>
           {% endif %}
@@ -608,7 +607,7 @@ function calcularInvestLiquidoEdit() {
                     <span class="px-1.5 py-0.5 text-xs rounded bg-red-100 text-red-600">Rejeitado</span>
                   {% endif %}
                 {% endif %}
-                {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
+                {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %}
                 <button onclick="desvincularBriefing()" class="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500" title="Desvincular briefing">
                   <i class="fas fa-unlink text-xs"></i>
                 </button>
@@ -617,7 +616,7 @@ function calcularInvestLiquidoEdit() {
             {% else %}
               <div class="flex items-center gap-2">
                 <span class="text-gray-400">Não vinculado</span>
-                {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}
+                {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %}
                 <button onclick="document.getElementById('modal_vincular_briefing').showModal()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-green-600" title="Vincular briefing">
                   <i class="fas fa-link text-xs"></i>
                 </button>
@@ -639,7 +638,7 @@ function calcularInvestLiquidoEdit() {
             Informações da Campanha
           </h2>
           {% if modo == 'editar' %}
-          <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
+          <button id="btn_editar_campanha" onclick="abrirModalEditarCampanha()" class="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" title="Editar campanha" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Em Acompanhamento'] %}style="display: none;"{% endif %}>
             <i class="fas fa-edit text-xs"></i>
           </button>
           {% endif %}
@@ -681,11 +680,11 @@ function calcularInvestLiquidoEdit() {
           </h2>
           {% if modo == 'editar' %}
           <div class="flex items-center gap-1.5">
-          <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+          <button type="button" id="btn_importar_linhas_imagem" onclick="dispararImportarLinhasImagem()" class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors" title="Importar itens a partir de imagem ou PDF (OCR por IA)" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
             <i class="fas fa-file-import mr-1 text-emerald-600"></i>Importar imagem/PDF
           </button>
           <input type="file" id="input_importar_linhas_imagem" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" class="hidden" aria-hidden="true">
-          <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
+          <button id="btn_adicionar_linha" onclick="abrirModalNovaLinha()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           </div>
@@ -758,7 +757,7 @@ function calcularInvestLiquidoEdit() {
             {% endif %}
           </h2>
           {% if modo == 'editar' %}
-          <button id="btn_adicionar_audiencia" onclick="{% if not audiencias %}event.stopPropagation(); {% endif %}abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
+          <button id="btn_adicionar_audiencia" onclick="{% if not audiencias %}event.stopPropagation(); {% endif %}abrirModalAudiencia()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
@@ -777,10 +776,10 @@ function calcularInvestLiquidoEdit() {
           <tbody class="divide-y divide-gray-100">
             {% if audiencias %}
               {% for aud in audiencias %}
-              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
+              <tr class="hover:bg-gray-50 linha-audiencia-cotacao{% if cotacao.status in ['Rascunho', 'Em Análise'] %} cursor-pointer{% endif %}" data-audiencia-id="{{ aud.id }}" {% if cotacao.status in ['Rascunho', 'Em Análise'] %}onclick="editarAudienciaCotacao({{ aud.id }})" title="Clique para editar"{% endif %}>
                 <td class="py-2 px-2 text-xs" title="{{ aud.audiencia_nome or '' }}">
                   <div class="font-medium text-gray-800">
-                    <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
+                    <i class="fas fa-pencil-alt text-gray-400 mr-1 text-[10px] icone-editar-audiencia" {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}></i>{{ aud.audiencia_nome or '-' }}
                   </div>
                   <div class="text-[10px] text-gray-400">
                     {% if aud.id_audiencia_plataforma %}ID: {{ aud.id_audiencia_plataforma }}{% endif %}
@@ -837,7 +836,7 @@ function calcularInvestLiquidoEdit() {
             <span id="contador_anexos" class="px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">0</span>
           </h2>
           {% if modo == 'editar' %}
-          <button id="btn_adicionar_anexo" onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %} display: none;{% endif %}">
+          <button id="btn_adicionar_anexo" onclick="document.getElementById('modal_adicionar_anexo').showModal()" class="px-2 py-1 text-xs rounded text-white transition-colors" style="background-color: #72cd80;{% if cotacao.status not in ['Rascunho', 'Em Análise'] %} display: none;{% endif %}">
             <i class="fas fa-plus mr-1"></i>Adicionar
           </button>
           {% endif %}
@@ -849,7 +848,7 @@ function calcularInvestLiquidoEdit() {
              ondragover="handleDragOver(event)"
              ondragleave="handleDragLeave(event)"
              ondrop="handleDrop(event)"
-             {% if cotacao.status not in ['Rascunho', 'Em Análise', 'Negociação'] %}style="display: none;"{% endif %}>
+             {% if cotacao.status not in ['Rascunho', 'Em Análise'] %}style="display: none;"{% endif %}>
           <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
           <p class="text-sm text-gray-500">Arraste arquivos aqui ou</p>
           <label class="cursor-pointer">
@@ -939,8 +938,8 @@ function calcularInvestLiquidoEdit() {
             <span class="text-gray-500 text-xs">Valor Líquido</span>
             <span class="font-medium text-green-600">R$ {{ "{:,.2f}".format(rf_subtotal_liquido).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
-          <div id="area_editar_desconto" class="flex justify-between items-center hover:bg-gray-50 rounded p-1 -m-1{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %} cursor-pointer{% endif %}" {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação'] %}onclick="document.getElementById('modal_editar_desconto').showModal()" title="Clique para editar desconto adicional na proposta"{% endif %}>
-            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span><i id="icone_editar_desconto" class="fas fa-edit text-xs ml-1 text-gray-400" {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise', 'Negociação']) %}style="display: none;"{% endif %}></i></span>
+          <div id="area_editar_desconto" class="flex justify-between items-center hover:bg-gray-50 rounded p-1 -m-1{% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %} cursor-pointer{% endif %}" {% if modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise'] %}onclick="document.getElementById('modal_editar_desconto').showModal()" title="Clique para editar desconto adicional na proposta"{% endif %}>
+            <span class="text-gray-500 text-xs">Desconto <span class="text-xs">({{ "%.1f"|format(rf_desconto_percentual) }}%)</span><i id="icone_editar_desconto" class="fas fa-edit text-xs ml-1 text-gray-400" {% if not (modo == 'editar' and cotacao.status in ['Rascunho', 'Em Análise']) %}style="display: none;"{% endif %}></i></span>
             <span class="font-medium text-red-600">-R$ {{ "{:,.2f}".format(rf_desconto).replace(',', '_').replace('.', ',').replace('_', '.') }}</span>
           </div>
           <div class="bg-gray-800 rounded p-3 text-center mt-3">
@@ -1028,7 +1027,7 @@ function calcularInvestLiquidoEdit() {
         </h3>
         <div class="space-y-2">
           <div id="acoes_aprovar_rejeitar">
-            {% if cotacao and cotacao.status in ['Enviada', 'Negociação'] %}
+            {% if cotacao and cotacao.status in ['Enviada'] %}
             <button onclick="document.getElementById('modal_aprovar').showModal()" class="w-full px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-700 text-left mb-2">
               <i class="fas fa-check mr-2 text-green-600"></i>Aprovar Proposta
             </button>
@@ -1039,7 +1038,7 @@ function calcularInvestLiquidoEdit() {
             {% elif cotacao and cotacao.status not in ['Aprovada', 'Rejeitada'] %}
             <div class="px-3 py-2 text-xs bg-amber-50 border border-amber-200 rounded text-amber-700 mb-2">
               <i class="fas fa-info-circle mr-1"></i>
-              Para aprovar ou rejeitar, a cotação precisa estar com status "Enviada" ou "Negociação".
+              Para aprovar ou rejeitar, a cotação precisa estar com status "Enviada".
             </div>
             <div class="border-t border-gray-200 my-2"></div>
             {% endif %}
@@ -1061,8 +1060,8 @@ function calcularInvestLiquidoEdit() {
             </label>
             <select id="select_tipo_email" class="w-full text-xs border border-gray-300 rounded px-2 py-1.5 mb-2 bg-white focus:border-gray-400 focus:outline-none">
               <option value="">Selecione o tipo...</option>
-              <option value="cotacao_enviada" {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada', 'Negociação'] %}disabled{% endif %}>
-                Cotação Enviada {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada', 'Negociação'] %}(requer Rascunho/Em Análise/Enviada/Negociação){% endif %}
+              <option value="cotacao_enviada" {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada'] %}disabled{% endif %}>
+                Cotação Enviada {% if cotacao and cotacao.status not in ['Rascunho', 'Em Análise', 'Enviada'] %}(requer Rascunho/Em Análise/Enviada){% endif %}
               </option>
               <option value="cotacao_aprovada" {% if cotacao and cotacao.status != 'Aprovada' %}disabled{% endif %}>
                 Cotação Aprovada {% if cotacao and cotacao.status != 'Aprovada' %}(requer Aprovada){% endif %}
@@ -2069,8 +2068,8 @@ function calcularInvestLiquidoEdit() {
 
 <script>
 // Status que permitem edição de linhas, audiências, cliente e campanha
-const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise', 'Negociação'];
-const STATUS_PERMITE_EDICAO_CAMPANHA = ['Rascunho', 'Em Análise', 'Negociação', 'Em Acompanhamento'];
+const STATUS_PERMITE_EDICAO = ['Rascunho', 'Em Análise'];
+const STATUS_PERMITE_EDICAO_CAMPANHA = ['Rascunho', 'Em Análise', 'Em Acompanhamento'];
 let statusAtualCotacao = '{{ cotacao.status if cotacao else "Rascunho" }}';
 
 // Função auxiliar para verificar se edição é permitida
@@ -2080,7 +2079,7 @@ function podeEditar() {
 
 // Função para mostrar mensagem de bloqueio de edição
 function mostrarBloqueioEdicao() {
-  showToast('Edição não permitida. Status deve ser: Rascunho, Em Análise ou Negociação.', 'warning');
+  showToast('Edição não permitida. Status deve ser: Rascunho ou Em Análise.', 'warning');
 }
 
 // Função para atualizar visibilidade dos elementos de edição baseado no status
@@ -2251,7 +2250,7 @@ function atualizarBotoesAprovarRejeitar(status) {
   const container = document.getElementById('acoes_aprovar_rejeitar');
   if (!container) return;
   
-  const statusPermiteAprovacao = ['Enviada', 'Negociação'];
+  const statusPermiteAprovacao = ['Enviada'];
   const statusFinais = ['Aprovada', 'Rejeitada'];
   
   if (statusPermiteAprovacao.includes(status)) {
@@ -2273,7 +2272,7 @@ function atualizarBotoesAprovarRejeitar(status) {
     container.innerHTML = `
       <div class="px-3 py-2 text-xs bg-amber-50 border border-amber-200 rounded text-amber-700 mb-2">
         <i class="fas fa-info-circle mr-1"></i>
-        Para aprovar ou rejeitar, a cotação precisa estar com status "Enviada" ou "Negociação".
+        Para aprovar ou rejeitar, a cotação precisa estar com status "Enviada".
       </div>
       <div class="border-t border-gray-200 my-2"></div>
     `;
@@ -2286,7 +2285,7 @@ function atualizarSelectTipoEmail(status) {
   if (!select) return;
   
   // Definir quais status permitem cada tipo de email
-  const statusPermiteCotacaoEnviada = ['Rascunho', 'Em Análise', 'Enviada', 'Negociação'];
+  const statusPermiteCotacaoEnviada = ['Rascunho', 'Em Análise', 'Enviada'];
   const statusPermiteCotacaoAprovada = ['Aprovada'];
   const statusPermiteCotacaoRejeitada = ['Rejeitada'];
   
@@ -2298,7 +2297,7 @@ function atualizarSelectTipoEmail(status) {
       option.disabled = !habilitado;
       option.textContent = habilitado 
         ? 'Cotação Enviada' 
-        : 'Cotação Enviada (requer Rascunho/Em Análise/Enviada/Negociação)';
+        : 'Cotação Enviada (requer Rascunho/Em Análise/Enviada)';
     } else if (option.value === 'cotacao_aprovada') {
       const habilitado = statusPermiteCotacaoAprovada.includes(status);
       option.disabled = !habilitado;
@@ -2491,8 +2490,8 @@ async function enviarEmailPorTipo() {
   }
   
   // Validações de status
-  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Em Análise', 'Enviada', 'Negociação'].includes(status)) {
-    showToast('Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise, Enviada ou Negociação', 'error');
+  if (tipoEmail === 'cotacao_enviada' && !['Rascunho', 'Em Análise', 'Enviada'].includes(status)) {
+    showToast('Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise ou Enviada', 'error');
     return;
   }
   if (tipoEmail === 'cotacao_aprovada' && status !== 'Aprovada') {

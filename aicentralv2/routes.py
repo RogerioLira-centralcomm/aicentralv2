@@ -4820,7 +4820,9 @@ def init_routes(app):
             responsavel_id = request.args.get('responsavel_comercial', type=int)
             mes = request.args.get('mes')
             busca = request.args.get('busca', '').strip()
-            status = request.args.get('status')
+            status = request.args.get('status', 'Enviada')
+            if status == 'TODOS':
+                status = None
 
             vendedores_auto = db.obter_vendedores_centralcomm()
 
@@ -4866,6 +4868,7 @@ def init_routes(app):
         """Pipeline Kanban de cotações para acompanhamento comercial"""
         try:
             # Coletar filtros da query string
+            status_raw = request.args.get('status')
             filtros = {
                 'executivo_id': request.args.get('executivo_id', type=int),
                 'cliente_id': request.args.get('cliente_id', type=int),
@@ -4874,7 +4877,7 @@ def init_routes(app):
                 'valor_min': request.args.get('valor_min', type=float),
                 'valor_max': request.args.get('valor_max', type=float),
                 'mes': request.args.get('mes'),
-                'status': request.args.get('status')
+                'status': None if status_raw == 'TODOS' else status_raw,
             }
             
             # Remover filtros vazios
@@ -6263,8 +6266,8 @@ def init_routes(app):
             status = cotacao.get('status', '')
             
             # Validar tipo x status
-            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Em Análise', 'Enviada', 'Negociação']:
-                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise, Enviada ou Negociação'}), 400
+            if tipo == 'cotacao_enviada' and status not in ['Rascunho', 'Em Análise', 'Enviada']:
+                return jsonify({'success': False, 'message': 'Email de cotação enviada só pode ser enviado para status Rascunho, Em Análise ou Enviada'}), 400
             if tipo == 'cotacao_aprovada' and status != 'Aprovada':
                 return jsonify({'success': False, 'message': 'Email de aprovação só pode ser enviado para cotações aprovadas'}), 400
             if tipo == 'cotacao_rejeitada' and status != 'Rejeitada':

@@ -323,7 +323,9 @@ def cotacoes_teste_calculo_list():
         responsavel_id = request.args.get('responsavel_comercial', type=int)
         mes = request.args.get('mes')
         busca = request.args.get('busca', '').strip()
-        status = request.args.get('status')
+        status = request.args.get('status', 'Enviada')
+        if status == 'TODOS':
+            status = None
 
         cliente_info = None
         if cliente_id:

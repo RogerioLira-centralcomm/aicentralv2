@@ -53,7 +53,6 @@
                             'Pendente': 'bg-yellow-500',
                             'Em Análise': 'bg-blue-500',
                             'Enviada': 'bg-purple-500',
-                            'Negociação': 'bg-orange-500',
                             'Aprovada': 'bg-green-500',
                             'Rejeitada': 'bg-red-500',
                             'Expirada': 'bg-gray-600'
@@ -132,7 +131,7 @@
                     </button>
                     
                     <!-- Botões Aprovar/Rejeitar -->
-                    {% if cotacao.status in ['Enviada', 'Negociação'] %}
+                    {% if cotacao.status == 'Enviada' %}
                     <button onclick="abrirModalAprovacao()" 
                             class="flex items-center gap-1.5 px-3 py-1.5 rounded text-white text-xs font-medium transition-all hover:scale-[1.02]"
                             style="background: linear-gradient(135deg, #72cd80 0%, #5cb868 100%);">

@@ -7595,7 +7595,6 @@ def obter_cotacoes_pipeline(filtros=None):
                 'Rascunho': [],
                 'Em Análise': [],
                 'Enviada': [],
-                'Negociação': [],
                 'Aprovada': [],
                 'Rejeitada': []
             }
@@ -7608,6 +7607,9 @@ def obter_cotacoes_pipeline(filtros=None):
                 # Tratar 'em_analise' como 'Em Análise'
                 if status == 'em_analise':
                     status = 'Em Análise'
+                # Status legado 'Negociação' (removido) → Enviada
+                if status == 'Negociação':
+                    status = 'Enviada'
                 # Ignorar 'Expirada' no pipeline (opcional: pode adicionar coluna)
                 if status in colunas:
                     colunas[status].append(cot)
@@ -7620,7 +7622,6 @@ def obter_cotacoes_pipeline(filtros=None):
             'Rascunho': [],
             'Em Análise': [],
             'Enviada': [],
-            'Negociação': [],
             'Aprovada': [],
             'Rejeitada': []
         }
@@ -7776,8 +7777,7 @@ def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id
                     COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada'), 0) as valor_aprovado,
                     COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
                     COUNT(*) FILTER (WHERE status = 'Rejeitada') as rejeitadas,
-                    COUNT(*) FILTER (WHERE status = 'Enviada') as enviadas,
-                    COUNT(*) FILTER (WHERE status = 'Negociação') as negociacao,
+                    COUNT(*) FILTER (WHERE status IN ('Enviada', 'Negociação')) as enviadas,
                     ROUND(
                         COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL / 
                         NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada')), 0) * 100, 
@@ -7808,7 +7808,7 @@ def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id
                 return data
             return {
                 'cotacoes_criadas': 0, 'valor_total': 0, 'valor_aprovado': 0,
-                'aprovadas': 0, 'rejeitadas': 0, 'enviadas': 0, 'negociacao': 0,
+                'aprovadas': 0, 'rejeitadas': 0, 'enviadas': 0,
                 'taxa_conversao': 0, 'ticket_medio': 0, 'ciclo_medio_dias': 0
             }
     except Exception as e:
@@ -11956,8 +11956,7 @@ def obter_funil_comercial(inicio, fim, executivo_id=None):
                 SELECT
                     COUNT(*) as total,
                     COUNT(*) FILTER (WHERE c.status = 'Em Análise') as em_analise,
-                    COUNT(*) FILTER (WHERE c.status = 'Enviada') as enviadas,
-                    COUNT(*) FILTER (WHERE c.status = 'Negociação') as negociacao,
+                    COUNT(*) FILTER (WHERE c.status IN ('Enviada', 'Negociação')) as enviadas,
                     COUNT(*) FILTER (WHERE c.status = 'Aprovada') as aprovadas,
                     COUNT(*) FILTER (WHERE c.status = 'Rejeitada') as rejeitadas,
                     COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) as valor_aprovado,
@@ -11983,7 +11982,6 @@ def obter_funil_comercial(inicio, fim, executivo_id=None):
                 'cotacoes_criadas': cot['total'],
                 'em_analise': cot['em_analise'],
                 'enviadas': cot['enviadas'],
-                'negociacao': cot['negociacao'],
                 'aprovadas': cot['aprovadas'],
                 'rejeitadas': cot['rejeitadas'],
                 'valor_aprovado': float(cot['valor_aprovado'] or 0),

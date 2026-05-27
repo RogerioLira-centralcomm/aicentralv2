@@ -69,7 +69,7 @@
     {% for status in status_list %}
     {% set cotacoes = colunas.get(status, []) %}
     <div class="kanban-column flex flex-col bg-gray-50 rounded border border-gray-200"
-         style="min-width: 220px; max-width: 250px; flex: 1;"
+         style="min-width: 220px; flex: 1 1 0;"
          data-status="{{ status }}"
          ondragover="handleColumnDragOver(event)"
          ondragleave="handleColumnDragLeave(event)"

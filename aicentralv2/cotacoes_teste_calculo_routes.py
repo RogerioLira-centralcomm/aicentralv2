@@ -560,6 +560,14 @@ def cotacao_teste_calculo_editar(cotacao_id):
 
             novo_status = update_kwargs.get('status')
             status_anterior = cotacao.get('status')
+
+            # Cotações aprovadas têm o status travado: descarta tentativa de alteração silenciosamente
+            # e avisa o usuário, mas mantém o resto das edições.
+            if status_anterior == 'Aprovada' and novo_status and novo_status != 'Aprovada':
+                update_kwargs.pop('status', None)
+                flash('Cotação aprovada: o status não pode ser alterado.', 'warning')
+                novo_status = 'Aprovada'
+
             if novo_status == 'Aprovada' and status_anterior != 'Aprovada':
                 update_kwargs['aprovada_em'] = datetime.now()
 
@@ -868,6 +876,13 @@ def api_atualizar_cotacao_teste(cotacao_id):
         # Bloquear mudança de origem para fora do teste
         if 'origem' in update_data and update_data['origem'] != db.ORIGEM_TESTE_CALCULO:
             update_data['origem'] = db.ORIGEM_TESTE_CALCULO
+
+        # Cotações aprovadas têm o status travado: ninguém pode alterá-lo após a aprovação.
+        if cotacao.get('status') == 'Aprovada' and 'status' in update_data:
+            return jsonify({
+                'success': False,
+                'message': 'Cotação aprovada: o status não pode ser alterado.',
+            }), 409
 
         codigo_pi_cc = (data.get('codigo_pi_cc') or '').strip() or None
         if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':

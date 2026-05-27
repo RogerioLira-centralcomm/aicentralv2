@@ -445,7 +445,7 @@ def cotacao_teste_calculo_nova():
             )
 
             flash(f'Cotação {resultado["numero_cotacao"]} criada (teste cálculo).', 'success')
-            return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list'))
+            return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list', status='Rascunho'))
 
         except Exception as e:
             current_app.logger.error(f"cotacao_teste_calculo_nova POST: {e}", exc_info=True)

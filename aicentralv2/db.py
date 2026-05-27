@@ -5904,6 +5904,43 @@ def cotacao_e_teste_calculo(cotacao_id):
     return bool(c and (c.get('origem') == ORIGEM_TESTE_CALCULO))
 
 
+def migrar_produto_interativo_para_inventario_teste():
+    """Migração one-shot: substitui 'Interativo' por 'Inventário' na coluna `produto`
+    das linhas (cadu_cotacao_linhas) vinculadas a cotações de origem 'teste_calculo'.
+
+    O campo `produto` é texto CSV (ex.: "Midia,Dados,Interativo"). A substituição
+    cobre as variações com vírgula (lista) e termos isolados, preservando espaços.
+
+    NÃO é chamada automaticamente; execute via shell/REPL ou rota administrativa
+    quando quiser sincronizar dados antigos do fluxo teste com o novo rótulo.
+
+    Returns:
+        int: número de linhas alteradas.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE cadu_cotacao_linhas l
+                   SET produto = REPLACE(REPLACE(l.produto, 'Interativo,', 'Inventário,'),
+                                         'Interativo',
+                                         'Inventário')
+                  FROM cadu_cotacoes c
+                 WHERE l.cotacao_id = c.id
+                   AND c.origem = %s
+                   AND l.produto LIKE %s
+                """,
+                (ORIGEM_TESTE_CALCULO, '%Interativo%'),
+            )
+            afetadas = cursor.rowcount
+            conn.commit()
+            return afetadas
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_cotacoes(cliente_id=None, status=None):
     """Obtém cotações com filtros opcionais"""
     conn = get_db()
@@ -9696,6 +9733,19 @@ def excluir_cadu_pi(id_pi):
             cursor.execute('DELETE FROM cadu_pi WHERE id_pi = %s', (id_pi,))
             conn.commit()
             return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def excluir_campanhas_pi_por_id_pi(id_pi):
+    """Remove campanhas vinculadas a um PI (rollback de geração automática)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_pi_campanha WHERE id_pi = %s', (id_pi,))
+            conn.commit()
+            return cursor.rowcount
     except Exception as e:
         conn.rollback()
         raise e

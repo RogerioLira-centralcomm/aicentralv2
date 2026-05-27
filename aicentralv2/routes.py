@@ -9209,8 +9209,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def cadu_pi_gerar_pastas(id_pi):
         """Chama webhook Make.com para criar pastas no Google Drive e salva os links"""
         try:
-            import requests
-            import os
+            from aicentralv2.services.pi_make_webhooks import PiMakeWebhookError, gerar_pastas_drive_pi
 
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
@@ -9219,35 +9218,11 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if pi.get('googled_pi_princ'):
                 return jsonify({'success': False, 'message': 'Pastas já foram geradas para este PI'}), 400
 
-            numero = pi.get('codigo_pi_cc') or ''
-            if not numero:
+            if not pi.get('codigo_pi_cc'):
                 return jsonify({'success': False, 'message': 'PI sem código (codigo_pi_cc)'}), 400
 
-            ref_id = pi.get('id_agencia') or pi.get('id_cliente')
-            prefixo = 'AG' if pi.get('id_agencia') else 'CL'
-            razao_social = ''
-            if ref_id:
-                cli_info = db.obter_cliente_por_id(ref_id)
-                if cli_info:
-                    razao_social = cli_info.get('razao_social') or cli_info.get('nome_fantasia') or ''
-
-            nomeagencia = f'{prefixo} | {razao_social}'
-
-            webhook_url = os.getenv('MAKE_WEBHOOK_GDRIVE')
-            if not webhook_url:
-                return jsonify({'success': False, 'message': 'Webhook de criação de pastas não configurado (MAKE_WEBHOOK_GDRIVE)'}), 500
-
-            resp = requests.get(webhook_url, params={'numero': numero, 'nomeagencia': nomeagencia}, timeout=60)
-            resp.raise_for_status()
-
-            partes = resp.text.strip().split('*****')
-            if len(partes) < 4:
-                app.logger.error(f"Webhook retornou resposta inesperada ({len(partes)} partes): {resp.text[:200]}")
-                return jsonify({'success': False, 'message': 'Resposta do webhook com formato inesperado'}), 502
-
-            princ, financ, pecas, arq_ass = partes[0], partes[1], partes[2], partes[3]
-
-            db.atualizar_cadu_pi_gdrive(id_pi, princ, financ, pecas, arq_ass)
+            pastas = gerar_pastas_drive_pi(pi, strict=True)
+            numero = pi.get('codigo_pi_cc', '')
 
             registrar_auditoria(
                 acao='UPDATE',
@@ -9255,24 +9230,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 descricao=f'Pastas Google Drive geradas para PI {numero}',
                 registro_id=id_pi,
                 registro_tipo='cadu_pi',
-                dados_novos={
-                    'googled_pi_princ': princ,
-                    'googled_pi_financ': financ,
-                    'googled_pi_pecas': pecas,
-                    'googled_pi_arq_ass': arq_ass,
-                }
+                dados_novos=pastas,
             )
 
-            return jsonify({
-                'success': True,
-                'googled_pi_princ': princ,
-                'googled_pi_financ': financ,
-                'googled_pi_pecas': pecas,
-                'googled_pi_arq_ass': arq_ass,
-            })
-        except requests.RequestException as re:
-            app.logger.error(f"Erro ao chamar webhook de pastas: {re}")
-            return jsonify({'success': False, 'message': f'Erro ao comunicar com o webhook: {str(re)}'}), 502
+            return jsonify({'success': True, **pastas})
+        except PiMakeWebhookError as wh_err:
+            app.logger.error(f"Erro ao gerar pastas Google Drive: {wh_err}")
+            status = 502 if 'webhook' in str(wh_err).lower() else 400
+            return jsonify({'success': False, 'message': str(wh_err)}), status
         except Exception as e:
             app.logger.error(f"Erro ao gerar pastas Google Drive: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
@@ -9282,7 +9247,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     def cadu_pi_enviar_producao(id_pi):
         """Altera status/sub-status do PI para produção e dispara webhooks"""
         try:
-            import requests
+            from aicentralv2.services.pi_make_webhooks import PiMakeWebhookError, disparar_webhooks_producao_pi
 
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
@@ -9295,119 +9260,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not pi.get('codigo_pi_cc'):
                 return jsonify({'success': False, 'message': 'Preencha o código do PI antes de enviar'}), 400
 
-            conn = db.get_db()
-            try:
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        UPDATE cadu_pi
-                        SET id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'Campanha em análise' LIMIT 1),
-                            id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Em aprovação' LIMIT 1),
-                            updated_at = date_trunc('second', CURRENT_TIMESTAMP)
-                        WHERE id_pi = %s
-                    ''', (id_pi,))
-                    conn.commit()
-            except Exception as e:
-                conn.rollback()
-                raise e
-
-            import os
-            from datetime import datetime, timedelta
-
+            webhook_erros = disparar_webhooks_producao_pi(pi, strict=False)
             numero = pi.get('codigo_pi_cc', '')
-            is_dev = app.config.get('DEBUG', False)
-
-            def fmt_data(val):
-                if not val:
-                    return ''
-                if isinstance(val, str):
-                    try:
-                        val = datetime.strptime(val, '%Y-%m-%d')
-                    except ValueError:
-                        return val
-                return val.strftime('%d/%m/%Y %H:%M:%S')
-
-            periodo_inicio = pi.get('periodo_inicio')
-            dt_inicio = None
-            if periodo_inicio:
-                if isinstance(periodo_inicio, str):
-                    try:
-                        dt_inicio = datetime.strptime(periodo_inicio, '%Y-%m-%d')
-                    except ValueError:
-                        dt_inicio = None
-                else:
-                    dt_inicio = periodo_inicio
-
-            webhook_erros = []
-
-            def fmt_data_curta(val):
-                if not val:
-                    return ''
-                if isinstance(val, str):
-                    try:
-                        val = datetime.strptime(val, '%Y-%m-%d')
-                    except ValueError:
-                        return val
-                return val.strftime('%d/%m/%Y %H:%M:%S')
-
-            def fmt_data_invite(val):
-                if not val:
-                    return ''
-                if isinstance(val, str):
-                    try:
-                        val = datetime.strptime(val, '%Y-%m-%d')
-                    except ValueError:
-                        return val
-                return val.strftime('%m/%d/%Y 06:00:00')
-
-            tem_agencia = bool(pi.get('id_agencia'))
-
-            url_config = os.getenv('MAKE_WEBHOOK_PI_CONFIGURACAO')
-            if url_config:
-                params_config = {
-                    'testeparam': 'yes' if is_dev else 'no',
-                    'codPI': numero,
-                    'razaosccliente': pi.get('cliente_razao_social') or '',
-                    'nomefcliente': pi.get('cliente_nome') or '',
-                    'razaoscagencia': pi.get('agencia_razao_social') or '',
-                    'nomefagencia': pi.get('agencia_nome') or '',
-                    'pastagoogleprinc': pi.get('googled_pi_princ') or '',
-                    'valorliquidopi': pi.get('vr_liquido_pi') or '',
-                    'emailresponsavelpi': pi.get('resp_comercial_email') or '',
-                    'mesref': fmt_data_curta(pi.get('mes_ref')),
-                    'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
-                    'datafim': fmt_data_curta(pi.get('periodo_fim')),
-                    'pastagooglepecas': pi.get('googled_pi_pecas') or '',
-                    'instrucoesoperacao': (pi.get('observacoes_operacao') or '').strip() or 'Sem instruções',
-                    'instrucoesfinanceiro': (pi.get('observacoes_financeiro') or '').strip() or 'Sem instruções',
-                    'nomerespPI': pi.get('resp_comercial_nome') or '',
-                    'titulo': pi.get('titulo_pi') or '',
-                    'pi_tem_agencia': 'sim' if tem_agencia else 'não',
-                }
-                try:
-                    resp = requests.get(url_config, params=params_config, timeout=30)
-                    resp.raise_for_status()
-                except Exception as wh_err:
-                    app.logger.error(f"Erro webhook PI_CONFIGURACAO: {wh_err}")
-                    webhook_erros.append(str(wh_err))
-
-            url_invites = os.getenv('MAKE_WEBHOOK_PI_INVITES')
-            if url_invites:
-                params_invites = {
-                    'testeparam': 'yes' if is_dev else 'no',
-                    'dteveinicio': fmt_data_invite(periodo_inicio),
-                    'nomerespcc': pi.get('resp_comercial_nome') or '',
-                    'emailrespcc': pi.get('resp_comercial_email') or '',
-                    'codPI': numero,
-                    'dteven5dias': fmt_data_invite(dt_inicio + timedelta(days=5)) if dt_inicio else '',
-                    'tituloPI': pi.get('titulo_pi') or '',
-                    'dtevenfim': fmt_data_invite(pi.get('periodo_fim')),
-                }
-                try:
-                    resp = requests.get(url_invites, params=params_invites, timeout=30)
-                    resp.raise_for_status()
-                except Exception as wh_err:
-                    app.logger.error(f"Erro webhook PI_INVITES: {wh_err}")
-                    webhook_erros.append(str(wh_err))
 
             registrar_auditoria(
                 acao='UPDATE',
@@ -9422,6 +9276,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if webhook_erros:
                 return jsonify({'success': True, 'warning': f'Status alterado, mas {len(webhook_erros)} webhook(s) falharam'})
             return jsonify({'success': True})
+        except PiMakeWebhookError as wh_err:
+            app.logger.error(f"Erro ao enviar PI para produção: {wh_err}")
+            return jsonify({'success': False, 'message': str(wh_err)}), 500
         except Exception as e:
             app.logger.error(f"Erro ao enviar PI para produção: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
@@ -12997,6 +12854,89 @@ Retorne apenas o texto melhorado, sem explicações.'''
             return jsonify({'success': True, 'texto': texto_melhorado})
         except Exception as e:
             app.logger.error(f"Erro api_ia_melhorar_texto: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/ia/cotacao-briefing', methods=['POST'])
+    @login_required
+    def api_ia_cotacao_briefing():
+        """Corrige ou amplia campos de briefing de uma linha/item de cotação.
+
+        Body JSON: {
+          texto: str (obrigatório),
+          acao: 'corrigir' | 'ampliar' (default 'corrigir'),
+          campo: 'segmentacao' | 'praca' | 'especificacoes' (opcional, contexto do prompt)
+        }
+        """
+        try:
+            import requests as http_requests
+            data = request.get_json(force=True) or {}
+            texto = (data.get('texto') or '').strip()
+            acao = (data.get('acao') or 'corrigir').strip().lower()
+            campo = (data.get('campo') or '').strip().lower()
+
+            if not texto:
+                return jsonify({'success': False, 'message': 'Texto obrigatório'}), 400
+            if acao not in ('corrigir', 'ampliar'):
+                return jsonify({'success': False, 'message': "Ação deve ser 'corrigir' ou 'ampliar'"}), 400
+
+            contexto_campo_map = {
+                'segmentacao': 'segmentação de audiência (target, interesses, comportamentos) de uma campanha de mídia',
+                'praca': 'praça geográfica de veiculação de uma campanha de mídia (cidades, estados, regiões)',
+                'especificacoes': 'especificações técnicas adicionais de uma linha de mídia (formatos, restrições, observações)',
+            }
+            contexto_campo = contexto_campo_map.get(campo, 'briefing de uma linha de proposta de mídia digital')
+
+            if acao == 'corrigir':
+                system_prompt = (
+                    f"Você é um redator especialista em briefings de mídia digital. "
+                    f"O texto a seguir descreve {contexto_campo}. "
+                    f"Sua tarefa é APENAS CORRIGIR: ortografia, gramática, pontuação, concordância e clareza. "
+                    f"REGRAS RÍGIDAS: \n"
+                    f"1. NÃO amplie o texto, não adicione novas ideias, exemplos, marcas, números, datas ou audiências.\n"
+                    f"2. NÃO mude o sentido nem a estrutura.\n"
+                    f"3. Mantenha o mesmo idioma do texto original (geralmente português do Brasil).\n"
+                    f"4. Mantenha tom profissional e objetivo, próprio de briefing comercial.\n"
+                    f"5. Retorne APENAS o texto corrigido, sem aspas, sem cabeçalhos, sem explicações."
+                )
+            else:
+                system_prompt = (
+                    f"Você é um redator especialista em briefings de mídia digital. "
+                    f"O texto a seguir descreve {contexto_campo}. "
+                    f"Sua tarefa é AMPLIAR mantendo o sentido original. "
+                    f"REGRAS RÍGIDAS: \n"
+                    f"1. NÃO invente marcas, audiências, métricas, percentuais, datas ou empresas que não estejam no texto.\n"
+                    f"2. Mantenha o mesmo idioma do texto original (geralmente português do Brasil).\n"
+                    f"3. Corrija eventuais erros de ortografia/gramática durante a ampliação.\n"
+                    f"4. Use tom profissional e objetivo de briefing comercial, sem enrolação.\n"
+                    f"5. Aumente o texto em no máximo o dobro do tamanho original; prefira clareza a verbosidade.\n"
+                    f"6. Retorne APENAS o texto ampliado, sem aspas, sem cabeçalhos, sem explicações."
+                )
+
+            openrouter_key = os.environ.get('OPENROUTER_API_KEY', '')
+            ai_resp = http_requests.post(
+                'https://openrouter.ai/api/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'HTTP-Referer': 'https://centralcomm.media',
+                    'X-Title': 'CentralComm AI',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'model': 'google/gemini-2.5-flash',
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': texto},
+                    ],
+                    'temperature': 0.2 if acao == 'corrigir' else 0.4,
+                    'max_tokens': 2000,
+                },
+                timeout=60,
+            )
+            ai_resp.raise_for_status()
+            texto_final = ai_resp.json()['choices'][0]['message']['content'].strip()
+            return jsonify({'success': True, 'texto': texto_final, 'acao': acao, 'campo': campo})
+        except Exception as e:
+            app.logger.error(f"Erro api_ia_cotacao_briefing: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
     @app.route('/api/ia/sugerir-atividade', methods=['POST'])

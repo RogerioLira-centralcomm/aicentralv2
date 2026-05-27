@@ -880,21 +880,56 @@ def api_atualizar_cotacao_teste(cotacao_id):
         db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
 
         id_pi_gerado = None
-        if update_data.get('status') == 'Aprovada' and cotacao.get('status') != 'Aprovada':
+        status_anterior = cotacao.get('status')
+        if update_data.get('status') == 'Aprovada' and status_anterior != 'Aprovada':
             try:
                 id_pi_gerado = db.gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=codigo_pi_cc)
                 if id_pi_gerado:
                     current_app.logger.info(
                         f"PI {id_pi_gerado} gerado automaticamente para cotação teste {cotacao_id}"
                     )
+                    from aicentralv2.services.pi_make_webhooks import (
+                        PiMakeWebhookError,
+                        executar_fluxo_producao_completo,
+                    )
+
+                    try:
+                        executar_fluxo_producao_completo(id_pi_gerado)
+                    except PiMakeWebhookError as wh_err:
+                        current_app.logger.error(
+                            f"Rollback PI teste {id_pi_gerado} após falha Make: {wh_err}",
+                            exc_info=True,
+                        )
+                        try:
+                            db.excluir_campanhas_pi_por_id_pi(id_pi_gerado)
+                            db.excluir_cadu_pi(id_pi_gerado)
+                        except Exception as rollback_err:
+                            current_app.logger.error(
+                                f"Erro no rollback do PI {id_pi_gerado}: {rollback_err}",
+                                exc_info=True,
+                            )
+                        db.atualizar_cotacao(
+                            cotacao_id=cotacao_id,
+                            status=status_anterior,
+                            aprovada_em=None,
+                        )
+                        return jsonify({
+                            'success': False,
+                            'message': f'Erro ao enviar PI para operação: {wh_err}',
+                        }), 500
             except Exception as pi_err:
                 current_app.logger.error(
                     f"Erro ao gerar PI da cotação teste {cotacao_id}: {pi_err}",
                     exc_info=True,
                 )
+                db.atualizar_cotacao(
+                    cotacao_id=cotacao_id,
+                    status=status_anterior,
+                    aprovada_em=None,
+                )
                 return jsonify({
                     'success': False,
-                    'message': f'Cotação aprovada, mas houve erro ao gerar PI: {pi_err}',
+                    'message': f'Erro ao gerar PI: {pi_err}',
                 }), 500
 
         _audit(
@@ -910,7 +945,9 @@ def api_atualizar_cotacao_teste(cotacao_id):
         response_data = {'success': True, 'message': 'Cotação atualizada com sucesso'}
         if id_pi_gerado:
             response_data['id_pi'] = id_pi_gerado
-            response_data['message'] = 'Cotação aprovada e PI gerado com sucesso'
+            response_data['message'] = (
+                f'Cotação aprovada, PI #{id_pi_gerado} gerado e enviado para operação'
+            )
         return jsonify(response_data)
 
     except Exception as e:

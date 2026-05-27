@@ -29,7 +29,7 @@ Responda APENAS com um JSON válido (sem markdown), neste formato exato:
       "data_inicio": "YYYY-MM-DD ou DD/MM/AAAA",
       "data_fim": "YYYY-MM-DD ou DD/MM/AAAA",
       "especificacoes": "texto curto ou vazio",
-      "produto": "lista separada por vírgula entre: Midia, Dados, Interativo, Parceiro",
+      "produto": "lista separada por vírgula entre: Midia, Dados, Inventário, Parceiro",
       "valor_unitario_tabela": null,
       "desconto_percentual": null,
       "valor_unitario_negociado": null,

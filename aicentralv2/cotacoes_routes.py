@@ -1,6 +1,8 @@
 """
-Rotas HTML e API para cotações no ambiente de teste de cálculo (origem=teste_calculo).
-Parâmetros > Cotações (teste cálculo); APIs sob /api/cotacoes-teste-calculo/.
+Rotas HTML e API do fluxo OFICIAL de cotações (cálculo bottom-up).
+Comercial > Cotações em /cotacoes; APIs sob /api/cotacoes/.
+Observação: internamente os registros ainda usam a flag origem=teste_calculo
+(funções db.*_teste_calculo) por compatibilidade com o histórico.
 """
 from __future__ import annotations
 
@@ -46,7 +48,7 @@ from aicentralv2.services.cotacao_linhas_image_import import (
     normalizar_itens_para_cotacao,
 )
 
-bp = Blueprint('cotacoes_teste_calculo', __name__)
+bp = Blueprint('cotacoes', __name__)
 
 
 def _audit(*args, **kwargs):
@@ -68,8 +70,9 @@ def _json_forbid():
 
 
 def _guard_cotacao_teste(cotacao_id: int):
-    if not db.cotacao_e_teste_calculo(cotacao_id):
-        return _json_forbid()
+    # Fluxo oficial: aceita qualquer cotação existente (teste ou não).
+    if not db.obter_cotacao_por_id(cotacao_id):
+        return jsonify({'success': False, 'message': 'Cotação não encontrada.'}), 404
     return None
 
 
@@ -314,9 +317,9 @@ def _recalcular_e_montar_breakdown(cotacao, data):
 # --- HTML ---
 
 
-@bp.route('/parametros/cotacoes-teste-calculo')
+@bp.route('/cotacoes')
 @login_required
-def cotacoes_teste_calculo_list():
+def cotacoes_list():
     try:
         db.criar_tabela_cotacoes()
         cliente_id = request.args.get('cliente_id', type=int)
@@ -344,22 +347,22 @@ def cotacoes_teste_calculo_list():
             busca=busca,
             status=status,
             excluir_teste_calculo=False,
-            apenas_teste_calculo=True,
+            apenas_teste_calculo=False,
         )
         vendedores = db.obter_vendedores_centralcomm()
         return render_template(
-            'cadu_cotacoes_teste_calculo.html',
+            'cadu_cotacoes.html',
             cotacoes=cotacoes or [],
             cliente_filtro=cliente_info,
             vendedores=vendedores,
             now=datetime.now,
         )
     except Exception as e:
-        current_app.logger.error(f"cotacoes_teste_calculo_list: {e}", exc_info=True)
-        flash('Erro ao carregar cotações de teste.', 'error')
+        current_app.logger.error(f"cotacoes_list: {e}", exc_info=True)
+        flash('Erro ao carregar cotações.', 'error')
         vendedores = db.obter_vendedores_centralcomm()
         return render_template(
-            'cadu_cotacoes_teste_calculo.html',
+            'cadu_cotacoes.html',
             cotacoes=[],
             cliente_filtro=None,
             vendedores=vendedores,
@@ -367,9 +370,9 @@ def cotacoes_teste_calculo_list():
         )
 
 
-@bp.route('/parametros/cotacoes-teste-calculo/nova', methods=['GET', 'POST'])
+@bp.route('/cotacoes/nova', methods=['GET', 'POST'])
 @login_required
-def cotacao_teste_calculo_nova():
+def cotacao_nova():
     if request.method == 'POST':
         try:
             client_id = request.form.get('client_id', type=int)
@@ -384,7 +387,7 @@ def cotacao_teste_calculo_nova():
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
                 return render_template(
-                    'cadu_cotacoes_form_teste_calculo.html',
+                    'cadu_cotacoes_form.html',
                     clientes=clientes,
                     vendedores=vendedores,
                     modo='novo',
@@ -408,7 +411,7 @@ def cotacao_teste_calculo_nova():
                 if request.form.get('budget_estimado')
                 else None,
                 'observacoes': request.form.get('observacoes', '').strip(),
-                'origem': db.ORIGEM_TESTE_CALCULO,
+                'origem': request.form.get('origem', '').strip(),
                 'link_publico_ativo': 'link_publico_ativo' in request.form,
                 'link_publico_token': request.form.get('link_publico_token', '').strip(),
                 'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
@@ -437,23 +440,23 @@ def cotacao_teste_calculo_nova():
 
             _audit(
                 acao='INSERT',
-                modulo='cotacoes_teste_calculo',
-                descricao=f'Cotação teste cálculo criada: {resultado["numero_cotacao"]}',
+                modulo='cotacoes',
+                descricao=f'Cotação criada: {resultado["numero_cotacao"]}',
                 registro_id=resultado['id'],
                 registro_tipo='cadu_cotacoes',
-                dados_novos={'nome_campanha': nome_campanha, 'origem': db.ORIGEM_TESTE_CALCULO},
+                dados_novos={'nome_campanha': nome_campanha, 'origem': request.form.get('origem', '').strip()},
             )
 
-            flash(f'Cotação {resultado["numero_cotacao"]} criada (teste cálculo).', 'success')
-            return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list', status='Rascunho'))
+            flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
+            return redirect(url_for('cotacoes.cotacoes_list', status='Rascunho'))
 
         except Exception as e:
-            current_app.logger.error(f"cotacao_teste_calculo_nova POST: {e}", exc_info=True)
+            current_app.logger.error(f"cotacao_nova POST: {e}", exc_info=True)
             flash(f'Erro ao criar cotação: {str(e)}', 'error')
             clientes = db.obter_clientes_simples()
             vendedores = db.obter_vendedores_centralcomm()
             return render_template(
-                'cadu_cotacoes_form_teste_calculo.html',
+                'cadu_cotacoes_form.html',
                 clientes=clientes,
                 vendedores=vendedores,
                 modo='novo',
@@ -473,7 +476,7 @@ def cotacao_teste_calculo_nova():
         briefings = db.obter_briefings_por_cliente(cliente_id_url)
 
     return render_template(
-        'cadu_cotacoes_form_teste_calculo.html',
+        'cadu_cotacoes_form.html',
         clientes=clientes,
         vendedores=vendedores,
         briefings=briefings,
@@ -486,14 +489,14 @@ def cotacao_teste_calculo_nova():
     )
 
 
-@bp.route('/parametros/cotacoes-teste-calculo/<int:cotacao_id>/editar', methods=['GET', 'POST'])
+@bp.route('/cotacoes/<int:cotacao_id>/editar', methods=['GET', 'POST'])
 @login_required
-def cotacao_teste_calculo_editar(cotacao_id):
+def cotacao_editar(cotacao_id):
     try:
         cotacao = db.obter_cotacao_por_id(cotacao_id)
-        if not cotacao or not db.cotacao_e_teste_calculo(cotacao_id):
-            flash('Cotação não encontrada ou não é de teste de cálculo.', 'error')
-            return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list'))
+        if not cotacao:
+            flash('Cotação não encontrada.', 'error')
+            return redirect(url_for('cotacoes.cotacoes_list'))
 
         if request.method == 'POST':
             nome_campanha = request.form.get('nome_campanha', '').strip()
@@ -507,7 +510,7 @@ def cotacao_teste_calculo_editar(cotacao_id):
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
                 return render_template(
-                    'cadu_cotacoes_form_teste_calculo.html',
+                    'cadu_cotacoes_form.html',
                     cotacao=cotacao,
                     clientes=clientes,
                     vendedores=vendedores,
@@ -550,36 +553,21 @@ def cotacao_teste_calculo_editar(cotacao_id):
                 else None,
                 'observacoes': request.form.get('observacoes', '').strip(),
                 'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
-                'origem': db.ORIGEM_TESTE_CALCULO,
-                'status': request.form.get('status', '').strip(),
                 'link_publico_ativo': 'link_publico_ativo' in request.form,
                 'link_publico_token': request.form.get('link_publico_token', '').strip(),
                 'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
             }
             update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None and v != ''}
 
-            novo_status = update_kwargs.get('status')
-            status_anterior = cotacao.get('status')
-
-            # Cotações aprovadas têm o status travado: descarta tentativa de alteração silenciosamente
-            # e avisa o usuário, mas mantém o resto das edições.
-            if status_anterior == 'Aprovada' and novo_status and novo_status != 'Aprovada':
-                update_kwargs.pop('status', None)
-                flash('Cotação aprovada: o status não pode ser alterado.', 'warning')
-                novo_status = 'Aprovada'
-
-            if novo_status == 'Aprovada' and status_anterior != 'Aprovada':
-                update_kwargs['aprovada_em'] = datetime.now()
-
+            # Status não é alterável pelo formulário de edição (somente na tela de detalhes).
             db.atualizar_cotacao(cotacao_id=cotacao_id, **update_kwargs)
 
-            # Sem geração automática de PI no fluxo teste
-            flash('Cotação de teste atualizada (PI não é gerado neste ambiente).', 'success')
+            flash('Cotação atualizada com sucesso!', 'success')
 
             _audit(
                 acao='UPDATE',
-                modulo='cotacoes_teste_calculo',
-                descricao=f'Cotação teste atualizada: {cotacao["numero_cotacao"]}',
+                modulo='cotacoes',
+                descricao=f'Cotação atualizada: {cotacao["numero_cotacao"]}',
                 registro_id=cotacao_id,
                 registro_tipo='cadu_cotacoes',
                 dados_anteriores={
@@ -589,7 +577,7 @@ def cotacao_teste_calculo_editar(cotacao_id):
                 dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total},
             )
 
-            return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list'))
+            return redirect(url_for('cotacoes.cotacoes_list'))
 
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores_centralcomm()
@@ -606,7 +594,7 @@ def cotacao_teste_calculo_editar(cotacao_id):
             contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
 
         return render_template(
-            'cadu_cotacoes_form_teste_calculo.html',
+            'cadu_cotacoes_form.html',
             cotacao=cotacao,
             clientes=clientes,
             vendedores=vendedores,
@@ -622,19 +610,19 @@ def cotacao_teste_calculo_editar(cotacao_id):
         )
 
     except Exception as e:
-        current_app.logger.error(f"cotacao_teste_calculo_editar: {e}", exc_info=True)
+        current_app.logger.error(f"cotacao_editar: {e}", exc_info=True)
         flash(f'Erro ao editar cotação: {str(e)}', 'error')
-        return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list'))
+        return redirect(url_for('cotacoes.cotacoes_list'))
 
 
-@bp.route('/parametros/cotacoes-teste-calculo/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])
+@bp.route('/cotacoes/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])
 @login_required
-def cotacao_teste_calculo_detalhes(cotacao_id):
+def cotacao_detalhes(cotacao_id):
     try:
         cotacao = db.obter_cotacao_por_id(cotacao_id)
-        if not cotacao or not db.cotacao_e_teste_calculo(cotacao_id):
-            flash('Cotação não encontrada ou não é de teste de cálculo.', 'error')
-            return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list'))
+        if not cotacao:
+            flash('Cotação não encontrada.', 'error')
+            return redirect(url_for('cotacoes.cotacoes_list'))
 
         if request.method == 'POST':
             try:
@@ -676,7 +664,7 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
 
                 db.atualizar_cotacao(cotacao_id, **dados)
                 flash('Cotação de teste atualizada (PI não é gerado neste ambiente).', 'success')
-                return redirect(url_for('cotacoes_teste_calculo.cotacao_teste_calculo_detalhes', cotacao_id=cotacao_id))
+                return redirect(url_for('cotacoes.cotacao_detalhes', cotacao_id=cotacao_id))
 
             except Exception as e:
                 current_app.logger.error(f"POST detalhes teste: {e}", exc_info=True)
@@ -722,7 +710,7 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
         ]
 
         return render_template(
-            'cadu_cotacoes_detalhes_teste_calculo.html',
+            'cadu_cotacoes_detalhes.html',
             modo='editar',
             cotacao=cotacao,
             cliente=cliente,
@@ -741,15 +729,15 @@ def cotacao_teste_calculo_detalhes(cotacao_id):
         )
 
     except Exception as e:
-        current_app.logger.error(f"cotacao_teste_calculo_detalhes: {e}", exc_info=True)
+        current_app.logger.error(f"cotacao_detalhes: {e}", exc_info=True)
         flash('Erro ao carregar cotação.', 'error')
-        return redirect(url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list'))
+        return redirect(url_for('cotacoes.cotacoes_list'))
 
 
 # --- API ---
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/preco-calculo', methods=['GET'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/preco-calculo', methods=['GET'])
 @login_required
 def api_preco_calculo_cotacao_teste(cotacao_id):
     """Opex e preço unitário (TF, Mcc, COM, Inc, Imp) para linha com plataforma + val. tabela."""
@@ -803,7 +791,7 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/atualizar', methods=['PATCH'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/atualizar', methods=['PATCH'])
 @login_required
 def api_atualizar_cotacao_teste(cotacao_id):
     try:
@@ -870,12 +858,13 @@ def api_atualizar_cotacao_teste(cotacao_id):
                     dados_anteriores[campo] = valor_anterior
                     dados_novos[campo] = valor_novo
 
+        # Origem é imutável por esta API: preserva o tipo da cotação (normal ou teste).
+        update_data.pop('origem', None)
+        dados_anteriores.pop('origem', None)
+        dados_novos.pop('origem', None)
+
         if not update_data:
             return jsonify({'success': True, 'message': 'Nenhuma alteração necessária'})
-
-        # Bloquear mudança de origem para fora do teste
-        if 'origem' in update_data and update_data['origem'] != db.ORIGEM_TESTE_CALCULO:
-            update_data['origem'] = db.ORIGEM_TESTE_CALCULO
 
         # Cotações aprovadas têm o status travado: ninguém pode alterá-lo após a aprovação.
         if cotacao.get('status') == 'Aprovada' and 'status' in update_data:
@@ -970,7 +959,7 @@ def api_atualizar_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/enviar-email', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/enviar-email', methods=['POST'])
 @login_required
 def enviar_email_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -979,7 +968,7 @@ def enviar_email_cotacao_teste(cotacao_id):
     return _delegate_app_view('enviar_email_cotacao', cotacao_id)
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/enviar-email-tipo', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/enviar-email-tipo', methods=['POST'])
 @login_required
 def enviar_email_cotacao_por_tipo_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -988,7 +977,7 @@ def enviar_email_cotacao_por_tipo_teste(cotacao_id):
     return _delegate_app_view('enviar_email_cotacao_por_tipo', cotacao_id)
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/duplicar', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/duplicar', methods=['POST'])
 @login_required
 def duplicar_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1009,7 +998,7 @@ def duplicar_cotacao_teste(cotacao_id):
     return resp
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/linhas/extrair-imagem', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/linhas/extrair-imagem', methods=['POST'])
 @login_required
 def extrair_linhas_cotacao_de_imagem_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1054,7 +1043,7 @@ def extrair_linhas_cotacao_de_imagem_teste(cotacao_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/linhas', methods=['POST'])
+@bp.route('/api/cotacoes/linhas', methods=['POST'])
 @login_required
 def criar_linha_cotacao_api_teste():
     try:
@@ -1126,7 +1115,7 @@ def criar_linha_cotacao_api_teste():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/linhas/<int:linha_id>', methods=['GET'])
+@bp.route('/api/cotacoes/linhas/<int:linha_id>', methods=['GET'])
 @login_required
 def obter_linha_cotacao_api_teste(linha_id):
     err = _guard_linha(linha_id)
@@ -1139,7 +1128,7 @@ def obter_linha_cotacao_api_teste(linha_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/linhas/<int:linha_id>', methods=['PUT'])
+@bp.route('/api/cotacoes/linhas/<int:linha_id>', methods=['PUT'])
 @login_required
 def atualizar_linha_cotacao_api_teste(linha_id):
     err = _guard_linha(linha_id)
@@ -1209,7 +1198,7 @@ def atualizar_linha_cotacao_api_teste(linha_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/linhas/<int:linha_id>', methods=['DELETE'])
+@bp.route('/api/cotacoes/linhas/<int:linha_id>', methods=['DELETE'])
 @login_required
 def remover_linha_cotacao_api_teste(linha_id):
     err = _guard_linha(linha_id)
@@ -1222,7 +1211,7 @@ def remover_linha_cotacao_api_teste(linha_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/audiencias', methods=['POST'])
+@bp.route('/api/cotacoes/audiencias', methods=['POST'])
 @login_required
 def criar_audiencia_cotacao_api_teste():
     try:
@@ -1287,7 +1276,7 @@ def criar_audiencia_cotacao_api_teste():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>', methods=['PUT'])
+@bp.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['PUT'])
 @login_required
 def atualizar_audiencia_cotacao_api_teste(audiencia_id):
     err = _guard_audiencia_cotacao(audiencia_id)
@@ -1389,7 +1378,7 @@ def atualizar_audiencia_cotacao_api_teste(audiencia_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>', methods=['GET'])
+@bp.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['GET'])
 @login_required
 def obter_audiencia_cotacao_api_teste(audiencia_id):
     err = _guard_audiencia_cotacao(audiencia_id)
@@ -1407,7 +1396,7 @@ def obter_audiencia_cotacao_api_teste(audiencia_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>', methods=['DELETE'])
+@bp.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['DELETE'])
 @login_required
 def remover_audiencia_cotacao_api_teste(audiencia_id):
     err = _guard_audiencia_cotacao(audiencia_id)
@@ -1420,7 +1409,7 @@ def remover_audiencia_cotacao_api_teste(audiencia_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/deletar', methods=['DELETE'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])
 @login_required
 def deletar_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1483,7 +1472,7 @@ def deletar_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/comentarios', methods=['GET'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/comentarios', methods=['GET'])
 @login_required
 def obter_comentarios_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1496,7 +1485,7 @@ def obter_comentarios_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/comentarios', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/comentarios', methods=['POST'])
 @login_required
 def adicionar_comentario_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1505,7 +1494,7 @@ def adicionar_comentario_cotacao_teste(cotacao_id):
     return _delegate_app_view('adicionar_comentario_cotacao', cotacao_id)
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/historico', methods=['GET'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/historico', methods=['GET'])
 @login_required
 def obter_historico_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1518,7 +1507,7 @@ def obter_historico_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/criar-briefing', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/criar-briefing', methods=['POST'])
 @login_required
 def criar_briefing_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1527,7 +1516,7 @@ def criar_briefing_cotacao_teste(cotacao_id):
     return _delegate_app_view('criar_briefing_cotacao', cotacao_id)
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/link-publico', methods=['PUT', 'POST', 'PATCH'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/link-publico', methods=['PUT', 'POST', 'PATCH'])
 @login_required
 def atualizar_link_publico_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1536,7 +1525,7 @@ def atualizar_link_publico_teste(cotacao_id):
     return _delegate_app_view('atualizar_link_publico', cotacao_id)
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/calcular-total', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/calcular-total', methods=['POST'])
 @login_required
 def calcular_total_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1559,7 +1548,7 @@ def calcular_total_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos', methods=['GET'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/anexos', methods=['GET'])
 @login_required
 def listar_anexos_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1572,7 +1561,7 @@ def listar_anexos_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos', methods=['POST'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/anexos', methods=['POST'])
 @login_required
 def adicionar_anexo_cotacao_teste(cotacao_id):
     err = _guard_cotacao_teste(cotacao_id)
@@ -1620,7 +1609,7 @@ def adicionar_anexo_cotacao_teste(cotacao_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['GET'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['GET'])
 @login_required
 def obter_anexo_cotacao_teste(cotacao_id, anexo_id):
     err = _guard_anexo(cotacao_id, anexo_id)
@@ -1633,7 +1622,7 @@ def obter_anexo_cotacao_teste(cotacao_id, anexo_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['PUT'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['PUT'])
 @login_required
 def editar_anexo_cotacao_teste(cotacao_id, anexo_id):
     err = _guard_anexo(cotacao_id, anexo_id)
@@ -1653,7 +1642,7 @@ def editar_anexo_cotacao_teste(cotacao_id, anexo_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@bp.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['DELETE'])
+@bp.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['DELETE'])
 @login_required
 def deletar_anexo_cotacao_teste(cotacao_id, anexo_id):
     err = _guard_anexo(cotacao_id, anexo_id)
@@ -1668,5 +1657,5 @@ def deletar_anexo_cotacao_teste(cotacao_id, anexo_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-def register_cotacoes_teste_calculo_routes(app):
+def register_cotacoes_routes(app):
     app.register_blueprint(bp)

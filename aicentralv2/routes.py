@@ -2535,7 +2535,7 @@ def init_routes(app):
     #         )
     #         status_list = db.obter_status_cotacoes()
     #         
-    #         return render_template('cadu_cotacoes.html',
+    #         return render_template('cadu_cotacoes_legado.html',
     #             cotacoes=cotacoes_list,
     #             vendedores=vendedores,
     #             clientes=clientes_list,
@@ -2548,7 +2548,7 @@ def init_routes(app):
     #     except Exception as e:
     #         app.logger.error(f"Erro ao listar cotações: {e}")
     #         flash('Erro ao carregar cotações!', 'error')
-    #         return render_template('cadu_cotacoes.html', cotacoes=[], vendedores=[], clientes=[], status_list=[])
+    #         return render_template('cadu_cotacoes_legado.html', cotacoes=[], vendedores=[], clientes=[], status_list=[])
 
     @app.route('/clientes')
     @login_required
@@ -4808,7 +4808,7 @@ def init_routes(app):
 
     # ==================== COTAÇÕES ====================
 
-    @app.route('/cotacoes')
+    @app.route('/parametros/cotacoes-teste-calculo')
     @login_required
     def cotacoes_list():
         """Lista cotações com filtros avançados"""
@@ -4837,19 +4837,21 @@ def init_routes(app):
                     cursor.execute('SELECT id_cliente, nome_fantasia, razao_social FROM tbl_cliente WHERE id_cliente = %s', (cliente_id,))
                     cliente_info = cursor.fetchone()
             
-            # Obter cotações com filtros
+            # Obter cotações com filtros (fluxo legado mostra apenas as de teste de cálculo)
             cotacoes = db.obter_cotacoes_filtradas(
                 cliente_id=cliente_id,
                 responsavel_id=responsavel_id,
                 mes=mes,
                 busca=busca,
-                status=status
+                status=status,
+                excluir_teste_calculo=False,
+                apenas_teste_calculo=True
             )
             
             app.logger.info(f"DEBUG: Cotações obtidas: {len(cotacoes) if cotacoes else 0} registros")
             
             vendedores = db.obter_vendedores_centralcomm()
-            return render_template('cadu_cotacoes.html', 
+            return render_template('cadu_cotacoes_legado.html', 
                                  cotacoes=cotacoes or [], 
                                  cliente_filtro=cliente_info, 
                                  vendedores=vendedores,
@@ -4858,7 +4860,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao listar cotações: {str(e)}", exc_info=True)
             flash('Erro ao carregar cotações.', 'error')
             vendedores = db.obter_vendedores_centralcomm()
-            return render_template('cadu_cotacoes.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores, now=datetime.now)
+            return render_template('cadu_cotacoes_legado.html', cotacoes=[], cliente_filtro=None, vendedores=vendedores, now=datetime.now)
 
     # ==================== CRM PIPELINE ====================
 
@@ -4981,7 +4983,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao obter detalhes cotação: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/cotacoes/nova', methods=['GET', 'POST'])
+    @app.route('/parametros/cotacoes-teste-calculo/nova', methods=['GET', 'POST'])
     @login_required
     def cotacao_nova():
         """Criar nova cotação"""
@@ -4998,7 +5000,7 @@ def init_routes(app):
                     flash('Cliente, nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
                     vendedores = db.obter_vendedores_centralcomm()
-                    return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo',
+                    return render_template('cadu_cotacoes_form_legado.html', clientes=clientes, vendedores=vendedores, modo='novo',
                                          tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
                                          vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
@@ -5014,7 +5016,7 @@ def init_routes(app):
                     'briefing_id': request.form.get('briefing_id', type=int) if request.form.get('briefing_id') else None,
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
                     'observacoes': request.form.get('observacoes', '').strip(),
-                    'origem': request.form.get('origem', '').strip(),
+                    'origem': db.ORIGEM_TESTE_CALCULO,
                     'link_publico_ativo': 'link_publico_ativo' in request.form,
                     'link_publico_token': request.form.get('link_publico_token', '').strip(),
                     'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
@@ -5037,22 +5039,22 @@ def init_routes(app):
 
                 registrar_auditoria(
                     acao='INSERT',
-                    modulo='cotacoes',
-                    descricao=f'Cotação criada: {resultado["numero_cotacao"]}',
+                    modulo='cotacoes_teste_calculo',
+                    descricao=f'Cotação teste cálculo criada: {resultado["numero_cotacao"]}',
                     registro_id=resultado['id'],
                     registro_tipo='cadu_cotacoes',
-                    dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total}
+                    dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total, 'origem': db.ORIGEM_TESTE_CALCULO}
                 )
 
-                flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
-                return redirect(url_for('cotacoes_list'))
+                flash(f'Cotação {resultado["numero_cotacao"]} criada (teste cálculo).', 'success')
+                return redirect(url_for('cotacoes_list', status='Rascunho'))
 
             except Exception as e:
                 app.logger.error(f"Erro ao criar cotação: {str(e)}", exc_info=True)
                 flash(f'Erro ao criar cotação: {str(e)}', 'error')
                 clientes = db.obter_clientes_simples()
                 vendedores = db.obter_vendedores_centralcomm()
-                return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, modo='novo',
+                return render_template('cadu_cotacoes_form_legado.html', clientes=clientes, vendedores=vendedores, modo='novo',
                                      tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
                                      vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
@@ -5068,11 +5070,11 @@ def init_routes(app):
             briefings = db.obter_briefings_por_cliente(cliente_id_url)
             app.logger.info(f"DEBUG cotacao_nova GET: cliente_id pre-selecionado={cliente_id_url}")
         
-        return render_template('cadu_cotacoes_form.html', clientes=clientes, vendedores=vendedores, briefings=briefings, modo='novo', cliente_selecionado=cliente_selecionado,
+        return render_template('cadu_cotacoes_form_legado.html', clientes=clientes, vendedores=vendedores, briefings=briefings, modo='novo', cliente_selecionado=cliente_selecionado,
                               tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
                               vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
 
-    @app.route('/cotacoes/<int:cotacao_id>/editar', methods=['GET', 'POST'])
+    @app.route('/parametros/cotacoes-teste-calculo/<int:cotacao_id>/editar', methods=['GET', 'POST'])
     @login_required
     def cotacao_editar(cotacao_id):
         """Editar cotação"""
@@ -5092,7 +5094,7 @@ def init_routes(app):
                     flash('Nome da campanha, data de início e valor total são obrigatórios.', 'error')
                     clientes = db.obter_clientes_simples()
                     vendedores = db.obter_vendedores_centralcomm()
-                    return render_template('cadu_cotacoes_form.html', 
+                    return render_template('cadu_cotacoes_form_legado.html', 
                                          cotacao=cotacao, clientes=clientes, vendedores=vendedores, modo='editar',
                                          tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
                                          vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
@@ -5117,7 +5119,6 @@ def init_routes(app):
                     'budget_estimado': float(request.form.get('budget_estimado', '0') or 0) if request.form.get('budget_estimado') else None,
                     'observacoes': request.form.get('observacoes', '').strip(),
                     'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
-                    'origem': request.form.get('origem', '').strip(),
                     'status': request.form.get('status', '').strip(),
                     'link_publico_ativo': 'link_publico_ativo' in request.form,
                     'link_publico_token': request.form.get('link_publico_token', '').strip(),
@@ -5174,7 +5175,7 @@ def init_routes(app):
                 contatos_agencia = db.obter_contatos_por_cliente(cotacao['agencia_id'])
             if cotacao.get('id_parceiro'):
                 contatos_parceiro = db.obter_contatos_por_cliente(cotacao['id_parceiro'])
-            return render_template('cadu_cotacoes_form.html', 
+            return render_template('cadu_cotacoes_form_legado.html', 
                                   cotacao=cotacao, clientes=clientes, vendedores=vendedores, briefings=briefings, contatos_cliente=contatos_cliente, contatos_agencia=contatos_agencia, contatos_parceiro=contatos_parceiro, modo='editar',
                                   tipos_cliente=db.obter_tipos_cliente(), agencias_opts=db.obter_aux_agencia(),
                                   vendedores_cc=db.obter_vendedores_centralcomm(), estados=db.obter_estados())
@@ -5184,7 +5185,7 @@ def init_routes(app):
             flash(f'Erro ao editar cotação: {str(e)}', 'error')
             return redirect(url_for('cotacoes_list'))
 
-    @app.route('/cotacoes/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])
+    @app.route('/parametros/cotacoes-teste-calculo/<int:cotacao_id>/detalhes', methods=['GET', 'POST'])
     @login_required
     def cotacao_detalhes(cotacao_id):
         """Página de detalhes da cotação"""
@@ -5312,7 +5313,7 @@ def init_routes(app):
                 p['categoria'] = cat if cat else 'Sem categoria'
                 plataformas_campanha.append(p)
 
-            return render_template('cadu_cotacoes_detalhes.html', 
+            return render_template('cadu_cotacoes_detalhes_legado.html', 
                                   modo='editar',
                                   cotacao=cotacao, 
                                   cliente=cliente,
@@ -6005,7 +6006,7 @@ def init_routes(app):
             return f"Erro ao baixar arquivo: {str(e)}", 500
             return "Erro ao baixar arquivo", 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/atualizar', methods=['PATCH'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/atualizar', methods=['PATCH'])
     @login_required
     def api_atualizar_cotacao(cotacao_id):
         """API para atualizar campos específicos da cotação via AJAX"""
@@ -6058,6 +6059,11 @@ def init_routes(app):
                         dados_anteriores[campo] = valor_anterior
                         dados_novos[campo] = valor_novo
 
+            # Origem é imutável por esta API: preserva o tipo da cotação (normal ou teste).
+            update_data.pop('origem', None)
+            dados_anteriores.pop('origem', None)
+            dados_novos.pop('origem', None)
+
             if not update_data:
                 return jsonify({'success': True, 'message': 'Nenhuma alteração necessária'})
 
@@ -6103,7 +6109,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao atualizar cotação via API: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/enviar-email', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/enviar-email', methods=['POST'])
     @login_required
     def enviar_email_cotacao(cotacao_id):
         """API para enviar email relacionado à cotação usando Brevo"""
@@ -6223,7 +6229,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao enviar email: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/enviar-email-tipo', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/enviar-email-tipo', methods=['POST'])
     @login_required
     def enviar_email_cotacao_por_tipo(cotacao_id):
         """
@@ -6507,7 +6513,7 @@ def init_routes(app):
             app.logger.error(f"Erro ao buscar briefings do cliente: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/gerar-comunicacao', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/gerar-comunicacao', methods=['POST'])
     @login_required
     def gerar_comunicacao_ia(cotacao_id):
         """API para gerar comunicação (email/WhatsApp) usando IA via OpenRouter"""
@@ -6674,7 +6680,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao buscar projetos do cliente: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/linhas', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/linhas', methods=['POST'])
     @login_required
     def criar_linha_cotacao_api():
         """API para criar nova linha de cotação"""
@@ -6729,7 +6735,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao criar linha de cotação: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/linhas/extrair-imagem', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/linhas/extrair-imagem', methods=['POST'])
     @login_required
     def extrair_linhas_cotacao_de_imagem(cotacao_id):
         """OCR com IA (OpenRouter / Gemini vision): extrai itens da proposta de imagem ou PDF."""
@@ -6774,7 +6780,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao extrair linhas da imagem: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/linhas/<int:linha_id>', methods=['GET'])
     @login_required
     def obter_linha_cotacao_api(linha_id):
         """Obtém dados de uma linha específica"""
@@ -6788,7 +6794,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'error': str(e)}), 500
 
 
-    @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['PUT'])
+    @app.route('/api/cotacoes-teste-calculo/linhas/<int:linha_id>', methods=['PUT'])
     @login_required
     def atualizar_linha_cotacao_api(linha_id):
         """Atualiza uma linha de cotação"""
@@ -6838,7 +6844,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'error': str(e)}), 500
 
 
-    @app.route('/api/cotacoes/linhas/<int:linha_id>', methods=['DELETE'])
+    @app.route('/api/cotacoes-teste-calculo/linhas/<int:linha_id>', methods=['DELETE'])
     @login_required
     def remover_linha_cotacao_api(linha_id):
         """Remove uma linha de cotação"""
@@ -6877,7 +6883,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao buscar audiência: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/audiencias', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/audiencias', methods=['POST'])
     @login_required
     def criar_audiencia_cotacao_api():
         """API para adicionar audiência à cotação"""
@@ -6908,7 +6914,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao adicionar audiência: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['PUT'])
+    @app.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>', methods=['PUT'])
     @login_required
     def atualizar_audiencia_cotacao_api(audiencia_id):
         """API para atualizar audiência da cotação"""
@@ -6929,7 +6935,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao atualizar audiência: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>', methods=['GET'])
     @login_required
     def obter_audiencia_cotacao_api(audiencia_id):
         """API para obter dados de uma audiência da cotação"""
@@ -6942,7 +6948,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao obter audiência: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>', methods=['DELETE'])
+    @app.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>', methods=['DELETE'])
     @login_required
     def remover_audiencia_cotacao_api(audiencia_id):
         """API para remover audiência da cotação"""
@@ -6953,7 +6959,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao remover audiência: {str(e)}", exc_info=True)
             return jsonify({'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/deletar', methods=['DELETE'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/deletar', methods=['DELETE'])
 
     @login_required
     def deletar_cotacao(cotacao_id):
@@ -6990,7 +6996,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     # ==================== COMENTÁRIOS DE COTAÇÃO ====================
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/comentarios', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/comentarios', methods=['GET'])
     @login_required
     def obter_comentarios_cotacao(cotacao_id):
         """Obtém todos os comentários de uma cotação"""
@@ -7004,7 +7010,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
     
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/comentarios', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/comentarios', methods=['POST'])
     @login_required
     def adicionar_comentario_cotacao(cotacao_id):
         """Adiciona um comentário à cotação"""
@@ -7081,7 +7087,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
     
     
-    @app.route('/api/cotacoes/comentarios/<int:comentario_id>', methods=['DELETE'])
+    @app.route('/api/cotacoes-teste-calculo/comentarios/<int:comentario_id>', methods=['DELETE'])
     @login_required
     def remover_comentario_cotacao(comentario_id):
         """Remove um comentário"""
@@ -7108,7 +7114,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/historico', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/historico', methods=['GET'])
     @login_required
     def obter_historico_cotacao(cotacao_id):
         """Obtém o histórico de alterações de uma cotação via audit log"""
@@ -7120,7 +7126,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
 
-    @app.route('/api/cotacoes/audiencias/<int:audiencia_id>/dados', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/audiencias/<int:audiencia_id>/dados', methods=['GET'])
     @login_required
     def obter_dados_audiencia_cotacao(audiencia_id):
         """Obtém dados de uma audiência específica da cotação para edição"""
@@ -7137,7 +7143,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/criar-briefing', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/criar-briefing', methods=['POST'])
     @login_required
     def criar_briefing_cotacao(cotacao_id):
         """Cria um briefing vinculado à cotação"""
@@ -7211,7 +7217,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao criar briefing para cotação: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico/gerar', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/link-publico/gerar', methods=['POST'])
     @login_required
     def gerar_link_publico(cotacao_id):
         """Gera um novo link público para a cotação"""
@@ -7252,7 +7258,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao gerar link público: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico', methods=['PUT', 'POST', 'PATCH'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/link-publico', methods=['PUT', 'POST', 'PATCH'])
     @login_required
     def atualizar_link_publico(cotacao_id):
         """Atualiza as configurações do link público da cotação"""
@@ -7312,7 +7318,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao atualizar link público: {str(e)}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    @app.route('/cotacoes/<int:cotacao_id>/pdf', methods=['GET'])
+    @app.route('/parametros/cotacoes-teste-calculo/<int:cotacao_id>/pdf', methods=['GET'])
     @login_required
     def exportar_cotacao_pdf(cotacao_id):
         """Exporta cotação para PDF"""
@@ -7488,7 +7494,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             flash(f'Erro ao exportar PDF: {str(e)}', 'error')
             return redirect(url_for('cotacao_detalhes', cotacao_id=cotacao_id))
 
-    @app.route('/api/cotacoes/<int:cotacao_id>/duplicar', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/duplicar', methods=['POST'])
     @login_required
     def duplicar_cotacao(cotacao_id):
         """Duplica uma cotação existente"""
@@ -7659,7 +7665,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/link-publico/renovar', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/link-publico/renovar', methods=['POST'])
     @login_required
     def renovar_link_publico(cotacao_id):
         """Renova a validade de um link público existente"""
@@ -7701,7 +7707,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
 
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/calcular-total', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/calcular-total', methods=['POST'])
     @login_required
     def calcular_total_cotacao(cotacao_id):
         """Calcula e atualiza o valor total da cotação"""
@@ -7733,7 +7739,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     # ==================== API ANEXOS DE COTAÇÕES ====================
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/anexos', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos', methods=['GET'])
     @login_required
     def listar_anexos_cotacao(cotacao_id):
         """Listar todos os anexos de uma cotação"""
@@ -7745,7 +7751,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
     
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/anexos', methods=['POST'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos', methods=['POST'])
     @login_required
     def adicionar_anexo_cotacao(cotacao_id):
         """Adicionar novo anexo à cotação"""
@@ -7817,7 +7823,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': f'Erro ao adicionar anexo: {str(e)}'}), 500
     
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['GET'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['GET'])
     @login_required
     def obter_anexo_cotacao(cotacao_id, anexo_id):
         """Obter dados de um anexo específico"""
@@ -7831,7 +7837,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
     
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['PUT'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['PUT'])
     @login_required
     def editar_anexo_cotacao(cotacao_id, anexo_id):
         """Editar informações de um anexo"""
@@ -7860,7 +7866,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify({'success': False, 'message': str(e)}), 500
     
     
-    @app.route('/api/cotacoes/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['DELETE'])
+    @app.route('/api/cotacoes-teste-calculo/<int:cotacao_id>/anexos/<int:anexo_id>', methods=['DELETE'])
     @login_required
     def deletar_anexo_cotacao(cotacao_id, anexo_id):
         """Deletar um anexo (soft delete)"""

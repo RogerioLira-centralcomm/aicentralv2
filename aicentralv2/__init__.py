@@ -139,8 +139,8 @@ def create_app(config_class=Config):
         app.register_blueprint(dv360_pages_bp)
         app.register_blueprint(parametros_bp)
 
-        from .cotacoes_teste_calculo_routes import register_cotacoes_teste_calculo_routes
-        register_cotacoes_teste_calculo_routes(app)
+        from .cotacoes_routes import register_cotacoes_routes
+        register_cotacoes_routes(app)
         
         app.logger.info("OK Rotas registradas")
     except Exception as e:

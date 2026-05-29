@@ -513,7 +513,7 @@ function handleColumnDrop(event) {
 
 async function atualizarStatusCotacao(cotacaoId, novoStatus) {
   try {
-    const response = await fetch(`/api/cotacoes/${cotacaoId}/atualizar`, {
+    const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: novoStatus })
@@ -724,7 +724,7 @@ async function gerarMensagemIA() {
   btnGerar.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Gerando...';
   
   try {
-    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/gerar-comunicacao`, {
+    const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/gerar-comunicacao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -804,7 +804,7 @@ async function moverCotacaoStatus(novoStatus) {
       payload.aprovada_em = new Date().toISOString();
     }
 
-    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
+    const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -859,7 +859,7 @@ async function executarAcaoConfirmada() {
       payload.aprovada_em = new Date().toISOString();
     }
 
-    const response = await fetch(`/api/cotacoes/${cotacaoAtualId}/atualizar`, {
+    const response = await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/atualizar`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -868,7 +868,7 @@ async function executarAcaoConfirmada() {
     
     if (result.success) {
       if (motivo) {
-        await fetch(`/api/cotacoes/${cotacaoAtualId}/comentarios`, {
+        await fetch(`/api/cotacoes-teste-calculo/${cotacaoAtualId}/comentarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ comentario: `[${novoStatus.toUpperCase()}] ${motivo}` })

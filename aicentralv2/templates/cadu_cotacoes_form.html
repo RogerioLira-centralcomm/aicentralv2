@@ -9,7 +9,7 @@
     <div class="flex items-center justify-between gap-4">
       <!-- Voltar + Título -->
       <div class="flex items-center gap-3">
-        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+        <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
           <i class="fas fa-arrow-left text-sm"></i>
         </a>
         <div>
@@ -250,21 +250,24 @@
     </div>
 
     {% if modo == 'editar' %}
-    <!-- Card Status (apenas em edição) -->
+    <!-- Card Status (somente leitura — alteração na tela de detalhes) -->
     <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
       <div class="card-body p-4">
         <h2 class="card-title text-sm font-semibold text-gray-800">Status</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
-            <select name="status" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
-              <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
-              <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
-              <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
-              <option value="Aprovada" {% if cotacao.status == 'Aprovada' %}selected{% endif %}>Aprovada</option>
-              <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
-              <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
-            </select>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Status atual</label>
+            {% set status_exibir = cotacao.status if cotacao.status else 'Rascunho' %}
+            {% if status_exibir == 'Pendente' %}{% set status_exibir = 'Rascunho' %}{% endif %}
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium border border-gray-200 bg-gray-50 text-gray-800">
+                {{ status_exibir }}
+              </span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1.5">
+              Para alterar o status (incluindo aprovação e geração de PI), use a
+              <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=cotacao.id) }}" class="text-indigo-600 hover:text-indigo-800 hover:underline">tela de detalhes</a>.
+            </p>
           </div>
         </div>
       </div>
@@ -740,19 +743,6 @@ document.getElementById('cotacao_form').addEventListener('submit', function(e) {
     }
   });
 
-  const statusSelect = document.querySelector('select[name="status"]');
-  const statusAtual = '{{ cotacao.status if cotacao else "" }}';
-  if (statusSelect && statusSelect.value === 'Aprovada' && statusAtual !== 'Aprovada') {
-    const confirmou = confirm(
-      '⚠️ ATENÇÃO: Ao aprovar esta cotação, um Pedido de Inserção será gerado automaticamente.\n\n' +
-      'Após a geração, não será possível reverter o status da cotação.\n\n' +
-      'Deseja continuar com a aprovação?'
-    );
-    if (!confirmou) {
-      e.preventDefault();
-      return false;
-    }
-  }
 });
 
 document.addEventListener('DOMContentLoaded', function() {

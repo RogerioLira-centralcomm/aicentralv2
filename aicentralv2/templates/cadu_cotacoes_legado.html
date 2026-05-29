@@ -1,6 +1,6 @@
 {% extends 'base_tailwind.html' %}
 
-{% block title %}Cotações (teste cálculo) - CentralComm AI{% endblock %}
+{% block title %}Cotações - CentralComm AI{% endblock %}
 
 {% block styles %}
 <style>
@@ -84,7 +84,7 @@
     </div>
     <div class="flex items-center gap-3">
       <span class="text-sm text-gray-500" id="totalCotacoes">{{ cotacoes|length if cotacoes else 0 }} {{ 'cotação' if (cotacoes|length if cotacoes else 0) == 1 else 'cotações' }}</span>
-      <a href="{{ url_for('cotacoes_teste_calculo.cotacao_teste_calculo_nova') }}"
+      <a href="{{ url_for('cotacao_nova') }}"
          class="text-sm font-medium text-white rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5"
          style="background-color: #72cd80;">
         <i class="fas fa-plus text-xs"></i> Nova
@@ -249,7 +249,7 @@
       <i class="fas fa-file-invoice text-6xl text-gray-200 mb-4"></i>
       <p class="text-gray-400 text-lg mb-2">Nenhuma cotação encontrada.</p>
       <p class="text-gray-400 text-sm mb-4">Ajuste os filtros ou crie uma nova cotação.</p>
-      <a href="{{ url_for('cotacoes_teste_calculo.cotacao_teste_calculo_nova') }}"
+      <a href="{{ url_for('cotacao_nova') }}"
          class="inline-flex items-center gap-1.5 text-sm font-medium text-white rounded-lg px-5 py-2 transition-colors shadow-sm"
          style="background-color: #72cd80;">
         <i class="fas fa-plus text-xs"></i> Criar Cotação
@@ -329,12 +329,9 @@
           <i class="fa-solid fa-users text-xs"></i>Audiências Selecionadas
         </a>
       </div>
-      <div id="mcl_aviso_pi" class="hidden inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg">
-        <i class="fa-solid fa-circle-info text-xs"></i><span>Cotação possui PI vinculado — exclusão bloqueada</span>
-      </div>
-      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()"
+      <button id="mcl_btn_deletar" onclick="confirmarExclusaoCotacao()" 
               class="hidden inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">
-        <i class="fa-solid fa-trash-can text-xs"></i>Excluir Cotação
+        <i class="fa-solid fa-trash-can text-xs"></i>Enviar para Confirmação
       </button>
     </div>
   </div>
@@ -436,14 +433,8 @@ async function abrirModalCotacao(cotacaoId) {
     document.getElementById('mcl_link_audiencias').href = `/parametros/cotacoes-teste-calculo/${c.id}/detalhes`;
 
     const btnDeletar = document.getElementById('mcl_btn_deletar');
-    const avisoPi = document.getElementById('mcl_aviso_pi');
-    const statusPermitido = c.status === 'Rascunho' || c.status === 'Pendente' || !c.status;
-    const semPiVinculado = !c.tem_pi;
-    const podeExcluir = statusPermitido && semPiVinculado;
-    btnDeletar.classList.toggle('hidden', !podeExcluir);
-    if (avisoPi) {
-      avisoPi.classList.toggle('hidden', !(statusPermitido && !semPiVinculado));
-    }
+    const statusPermitido = c.status === 'Rascunho' || c.status === 'Em Análise' || c.status === 'Pendente' || !c.status;
+    btnDeletar.classList.toggle('hidden', !statusPermitido);
 
     document.getElementById('modal_cotacao_lista').showModal();
   } catch (err) {

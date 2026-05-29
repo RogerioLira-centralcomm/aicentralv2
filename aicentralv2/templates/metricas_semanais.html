@@ -709,7 +709,7 @@ async function carregarTop10() {
             return;
         }
         tbody.innerHTML = j.data.map((d, i) => `
-            <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${d.id}'">
+            <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${d.id}/detalhes'">
                 <td class="font-bold text-primary">${i+1}</td>
                 <td class="font-medium">${d.cliente || '--'}</td>
                 <td>${d.nome_campanha || '--'}</td>
@@ -856,7 +856,7 @@ async function carregarTabela() {
         }
         badge.textContent = `${j.data.length} cotações`;
         tbody.innerHTML = j.data.map(cot => `
-            <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}'">
+            <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}/detalhes'">
                 <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
                 <td class="font-medium">${cot.cliente_nome || '--'}</td>
                 <td>${cot.nome_campanha || '--'}</td>

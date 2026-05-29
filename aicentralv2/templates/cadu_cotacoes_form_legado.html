@@ -12,7 +12,7 @@
     <div class="flex items-center justify-between gap-4">
       <!-- Voltar + Título -->
       <div class="flex items-center gap-3">
-        <a href="{{ url_for('cotacoes_teste_calculo.cotacoes_teste_calculo_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+        <a href="{{ url_for('cotacoes_list') }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
           <i class="fas fa-arrow-left text-sm"></i>
         </a>
         <div>
@@ -260,8 +260,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
-            {% set status_travado = cotacao and cotacao.status == 'Aprovada' %}
-            <select name="status" {% if status_travado %}disabled title="Cotação aprovada: o status não pode ser alterado."{% endif %} class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none {% if status_travado %}cursor-not-allowed opacity-70{% endif %}">
+            <select name="status" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
               <option value="Rascunho" {% if cotacao.status == 'Rascunho' or cotacao.status == 'Pendente' %}selected{% endif %}>Rascunho</option>
               <option value="Em Análise" {% if cotacao.status == 'Em Análise' %}selected{% endif %}>Em Análise</option>
               <option value="Enviada" {% if cotacao.status == 'Enviada' %}selected{% endif %}>Enviada</option>
@@ -269,9 +268,6 @@
               <option value="Rejeitada" {% if cotacao.status == 'Rejeitada' %}selected{% endif %}>Rejeitada</option>
               <option value="Expirada" {% if cotacao.status == 'Expirada' %}selected{% endif %}>Expirada</option>
             </select>
-            {% if status_travado %}
-            <input type="hidden" name="status" value="Aprovada">
-            {% endif %}
           </div>
         </div>
       </div>

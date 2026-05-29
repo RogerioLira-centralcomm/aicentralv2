@@ -1,6 +1,8 @@
 import re
+import csv
+import io
 from datetime import datetime
-from flask import render_template, request, jsonify, session, current_app
+from flask import render_template, request, jsonify, session, current_app, Response
 from ..auth import login_required
 from ..db import get_db
 from . import bp
@@ -62,6 +64,8 @@ def api_clientes():
     tipo = request.args.get('tipo', '')  # governo | privado
     perfil = request.args.get('perfil', '').strip()  # direto | agencia
     busca = request.args.get('busca', '').strip()
+    categoria = request.args.get('categoria', '').strip().upper()  # A | B | C
+    com_pendencias = request.args.get('com_pendencias', '').strip()  # '1' | '0' | ''
 
     if not executivo_id:
         return jsonify({'success': False, 'error': 'executivo_id obrigatório'}), 400
@@ -109,9 +113,21 @@ def api_clientes():
                 query += " AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)"
                 params.extend([f'%{busca}%', f'%{busca}%'])
 
+            if categoria in ('A', 'B', 'C'):
+                query += " AND cli.categoria_abc = %s"
+                params.append(categoria)
+
             query += """
                 GROUP BY cli.id_cliente, cli.nome_fantasia, cli.razao_social,
                          cli.categoria_abc, cli.pk_id_tbl_agencia, ag.key, ag.display
+            """
+
+            if com_pendencias == '1':
+                query += " HAVING COUNT(DISTINCT sa.id) FILTER (WHERE sa.status = 'pendente') > 0"
+            elif com_pendencias == '0':
+                query += " HAVING COUNT(DISTINCT sa.id) FILTER (WHERE sa.status = 'pendente') = 0"
+
+            query += """
                 ORDER BY
                     CASE cli.categoria_abc WHEN 'A' THEN 1 WHEN 'B' THEN 2 ELSE 3 END,
                     cli.nome_fantasia
@@ -131,65 +147,207 @@ def api_clientes():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# --------------- Export CSV (atividades / objetivos) ---------------
+
+def _csv_response(rows, header, filename):
+    buf = io.StringIO()
+    buf.write('\ufeff')  # BOM p/ Excel abrir UTF-8 corretamente
+    writer = csv.writer(buf, delimiter=';')
+    writer.writerow(header)
+    for r in rows:
+        writer.writerow(r)
+    return Response(
+        buf.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
+@bp.route('/api/export/atividades')
+@login_required
+def api_export_atividades():
+    executivo_id = request.args.get('executivo_id', type=int)
+    cliente_id = request.args.get('cliente_id', type=int)
+    if not executivo_id:
+        return jsonify({'success': False, 'error': 'executivo_id obrigatório'}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            has_new = _check_atividades_columns(cur)
+            titulo_col = "sa.titulo" if has_new else "NULL AS titulo"
+            prazo_col = "sa.data_prazo" if has_new else "NULL AS data_prazo"
+            tipo_col = "COALESCE(sa.tipo, 'atividade')" if has_new else "'atividade'"
+            query = f"""
+                SELECT
+                    COALESCE(cli.nome_fantasia, cli.razao_social) AS cliente,
+                    c.nome_completo AS contato,
+                    {tipo_col} AS tipo,
+                    {titulo_col} AS titulo,
+                    sa.descricao,
+                    sa.data_atividade,
+                    {prazo_col} AS data_prazo,
+                    sa.status
+                FROM sales_atividades sa
+                JOIN tbl_cliente cli ON cli.id_cliente = sa.cliente_id
+                LEFT JOIN tbl_contato_cliente c ON c.id_contato_cliente = sa.contato_id
+                WHERE cli.vendas_central_comm = %s
+            """
+            params = [executivo_id]
+            if cliente_id:
+                query += " AND sa.cliente_id = %s"
+                params.append(cliente_id)
+            query += " ORDER BY cli.nome_fantasia, sa.data_atividade DESC"
+            cur.execute(query, params)
+            atividades = cur.fetchall()
+
+        def _d(v):
+            return v.isoformat() if hasattr(v, 'isoformat') else (v or '')
+
+        rows = [
+            [a['cliente'], a.get('contato') or '', a.get('tipo') or '', a.get('titulo') or '',
+             a.get('descricao') or '', _d(a.get('data_atividade')), _d(a.get('data_prazo')), a.get('status') or '']
+            for a in atividades
+        ]
+        header = ['Cliente', 'Contato', 'Tipo', 'Titulo', 'Descricao', 'Data', 'Prazo', 'Status']
+        return _csv_response(rows, header, 'atividades.csv')
+    except Exception as e:
+        current_app.logger.error(f"Erro api_export_atividades: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/export/objetivos')
+@login_required
+def api_export_objetivos():
+    executivo_id = request.args.get('executivo_id', type=int)
+    cliente_id = request.args.get('cliente_id', type=int)
+    if not executivo_id:
+        return jsonify({'success': False, 'error': 'executivo_id obrigatório'}), 400
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            has_new = _check_objetivos_columns(cur)
+            prazo_col = "o.data_prazo" if has_new else "NULL AS data_prazo"
+            query = f"""
+                SELECT
+                    COALESCE(cli.nome_fantasia, cli.razao_social) AS cliente,
+                    o.texto,
+                    o.conquistado,
+                    {prazo_col} AS data_prazo,
+                    o.data_conquista,
+                    o.created_at
+                FROM sales_objetivos_cliente o
+                JOIN tbl_cliente cli ON cli.id_cliente = o.cliente_id
+                WHERE cli.vendas_central_comm = %s
+            """
+            params = [executivo_id]
+            if cliente_id:
+                query += " AND o.cliente_id = %s"
+                params.append(cliente_id)
+            query += " ORDER BY cli.nome_fantasia, o.conquistado, o.created_at DESC"
+            cur.execute(query, params)
+            objetivos = cur.fetchall()
+
+        def _d(v):
+            return v.isoformat() if hasattr(v, 'isoformat') else (v or '')
+
+        rows = [
+            [o['cliente'], o.get('texto') or '', 'Sim' if o.get('conquistado') else 'Não',
+             _d(o.get('data_prazo')), _d(o.get('data_conquista')), _d(o.get('created_at'))]
+            for o in objetivos
+        ]
+        header = ['Cliente', 'Objetivo', 'Conquistado', 'Prazo', 'Data conquista', 'Criado em']
+        return _csv_response(rows, header, 'objetivos.csv')
+    except Exception as e:
+        current_app.logger.error(f"Erro api_export_objetivos: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # --------------- Column 2: Status ---------------
 
 @bp.route('/api/cliente/<int:cliente_id>/status')
 @login_required
 def api_cliente_status(cliente_id):
+    # Janelas: mês corrente vs mês anterior (mesma fórmula de DATE_TRUNC).
+    cur_mon = "DATE_TRUNC('month', CURRENT_DATE)"
+    prev_mon = "DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')"
+    _vr_bruto_num = r"""
+        CASE
+            WHEN p.vr_bruto_pi IS NULL OR TRIM(p.vr_bruto_pi) = '' THEN 0
+            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+,[0-9]+$'
+                THEN REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ',', '.')::numeric
+            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
+                THEN REPLACE(REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '.', ''), ',', '.')::numeric
+            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+\.[0-9]{1,2}$'
+                THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.]', '', 'g')::numeric
+            WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g'), '') IS NOT NULL
+                THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g')::numeric
+            ELSE 0
+        END
+    """
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT
                     cli.id_cliente,
                     cli.nome_fantasia,
                     cli.categoria_abc,
                     vend.nome_completo AS executivo_nome,
+                    COALESCE(ct.total_contatos, 0) AS total_contatos,
                     COALESCE(cot.total_cotacoes, 0) AS total_cotacoes,
+                    COALESCE(cot.total_cotacoes_ant, 0) AS total_cotacoes_ant,
                     COALESCE(cot.cotacoes_aprovadas, 0) AS cotacoes_aprovadas,
+                    COALESCE(cot.cotacoes_aprovadas_ant, 0) AS cotacoes_aprovadas_ant,
                     COALESCE(cot.valor_bruto, 0) AS valor_bruto,
+                    COALESCE(cot.valor_bruto_ant, 0) AS valor_bruto_ant,
                     COALESCE(cot.valor_liquido, 0) AS valor_liquido,
+                    COALESCE(cot.valor_liquido_ant, 0) AS valor_liquido_ant,
+                    COALESCE(cot.erros, 0) AS erros,
+                    COALESCE(cot.erros_ant, 0) AS erros_ant,
                     COALESCE(pi_data.total_pis, 0) AS total_pis,
                     COALESCE(pi_data.pis_concluidos, 0) AS pis_concluidos,
-                    COALESCE(pi_data.valor_pis, 0) AS valor_pis
+                    COALESCE(pi_data.valor_pis, 0) AS valor_pis,
+                    COALESCE(pi_data.valor_pis_ant, 0) AS valor_pis_ant
                 FROM tbl_cliente cli
                 LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = cli.vendas_central_comm
                 LEFT JOIN LATERAL (
+                    SELECT COUNT(*) AS total_contatos
+                    FROM tbl_contato_cliente cc
+                    WHERE cc.pk_id_tbl_cliente = cli.id_cliente AND cc.status = true
+                ) ct ON true
+                LEFT JOIN LATERAL (
                     SELECT
-                        COUNT(*) AS total_cotacoes,
-                        COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3')) AS cotacoes_aprovadas,
-                        COALESCE(SUM(c.valor_total_proposta), 0) AS valor_bruto,
-                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3')), 0) AS valor_liquido
+                        COUNT(*) FILTER (WHERE DATE_TRUNC('month', c.created_at) = {cur_mon}) AS total_cotacoes,
+                        COUNT(*) FILTER (WHERE DATE_TRUNC('month', c.created_at) = {prev_mon}) AS total_cotacoes_ant,
+                        COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3') AND DATE_TRUNC('month', c.created_at) = {cur_mon}) AS cotacoes_aprovadas,
+                        COUNT(*) FILTER (WHERE c.status IN ('Aprovada', '3') AND DATE_TRUNC('month', c.created_at) = {prev_mon}) AS cotacoes_aprovadas_ant,
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE DATE_TRUNC('month', c.created_at) = {cur_mon}), 0) AS valor_bruto,
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE DATE_TRUNC('month', c.created_at) = {prev_mon}), 0) AS valor_bruto_ant,
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3') AND DATE_TRUNC('month', c.created_at) = {cur_mon}), 0) AS valor_liquido,
+                        COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status IN ('Aprovada', '3') AND DATE_TRUNC('month', c.created_at) = {prev_mon}), 0) AS valor_liquido_ant,
+                        COUNT(*) FILTER (WHERE LOWER(c.status) IN ('rejeitada', 'reprovada', 'recusada', 'expirada') AND DATE_TRUNC('month', c.created_at) = {cur_mon}) AS erros,
+                        COUNT(*) FILTER (WHERE LOWER(c.status) IN ('rejeitada', 'reprovada', 'recusada', 'expirada') AND DATE_TRUNC('month', c.created_at) = {prev_mon}) AS erros_ant
                     FROM cadu_cotacoes c
                     WHERE (c.client_id = cli.id_cliente OR c.agencia_id = cli.id_cliente)
                       AND c.deleted_at IS NULL
-                      AND DATE_TRUNC('month', c.created_at) = DATE_TRUNC('month', CURRENT_DATE)
+                      AND DATE_TRUNC('month', c.created_at) IN ({cur_mon}, {prev_mon})
                 ) cot ON true
                 LEFT JOIN LATERAL (
                     SELECT
-                        COUNT(*) AS total_pis,
-                        COUNT(*) FILTER (WHERE sp.descricao ILIKE '%%fatur%%'
+                        COUNT(*) FILTER (WHERE DATE_TRUNC('month', p.created_at) = {cur_mon}) AS total_pis,
+                        COUNT(*) FILTER (WHERE (sp.descricao ILIKE '%%fatur%%'
                                            OR sp.descricao ILIKE '%%nf emitida%%'
                                            OR sp.descricao ILIKE '%%conclu%%'
-                                           OR sp.descricao ILIKE '%%finaliz%%') AS pis_concluidos,
-                        COALESCE(SUM(
-                            CASE
-                                WHEN p.vr_bruto_pi IS NULL OR TRIM(p.vr_bruto_pi) = '' THEN 0
-                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+,[0-9]+$'
-                                    THEN REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), ',', '.')::numeric
-                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9.]+,[0-9]+$'
-                                    THEN REPLACE(REPLACE(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '.', ''), ',', '.')::numeric
-                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.,]', '', 'g'), '') ~ '^[0-9]+\.[0-9]{1,2}$'
-                                    THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9.]', '', 'g')::numeric
-                                WHEN NULLIF(REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g'), '') IS NOT NULL
-                                    THEN REGEXP_REPLACE(p.vr_bruto_pi, '[^0-9]', '', 'g')::numeric
-                                ELSE 0
-                            END
-                        ), 0) AS valor_pis
+                                           OR sp.descricao ILIKE '%%finaliz%%')
+                                           AND DATE_TRUNC('month', p.created_at) = {cur_mon}) AS pis_concluidos,
+                        COALESCE(SUM(({_vr_bruto_num})) FILTER (WHERE DATE_TRUNC('month', p.created_at) = {cur_mon}), 0) AS valor_pis,
+                        COALESCE(SUM(({_vr_bruto_num})) FILTER (WHERE DATE_TRUNC('month', p.created_at) = {prev_mon}), 0) AS valor_pis_ant
                     FROM cadu_pi p
                     LEFT JOIN cadu_pi_aux_status sp ON sp.id = p.id_status_pi
                     WHERE (p.id_cliente = cli.id_cliente OR p.id_agencia = cli.id_cliente)
-                      AND DATE_TRUNC('month', p.created_at) = DATE_TRUNC('month', CURRENT_DATE)
+                      AND DATE_TRUNC('month', p.created_at) IN ({cur_mon}, {prev_mon})
                 ) pi_data ON true
                 WHERE cli.id_cliente = %s
             """, (cliente_id,))
@@ -198,13 +356,25 @@ def api_cliente_status(cliente_id):
         if not status:
             return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
 
-        for key in ('valor_bruto', 'valor_liquido', 'valor_pis'):
+        for key in ('valor_bruto', 'valor_bruto_ant', 'valor_liquido', 'valor_liquido_ant', 'valor_pis', 'valor_pis_ant'):
             status[key] = float(status[key]) if status[key] else 0
 
         pct = 0
         if status['total_cotacoes'] > 0:
             pct = round(status['cotacoes_aprovadas'] / status['total_cotacoes'] * 100, 1)
         status['pct_aprovadas'] = pct
+
+        def _delta(atual, anterior):
+            if not anterior:
+                return None
+            return round((float(atual) - float(anterior)) / abs(float(anterior)) * 100, 1)
+
+        status['total_cotacoes_delta_pct'] = _delta(status['total_cotacoes'], status['total_cotacoes_ant'])
+        status['cotacoes_aprovadas_delta_pct'] = _delta(status['cotacoes_aprovadas'], status['cotacoes_aprovadas_ant'])
+        status['valor_bruto_delta_pct'] = _delta(status['valor_bruto'], status['valor_bruto_ant'])
+        status['valor_liquido_delta_pct'] = _delta(status['valor_liquido'], status['valor_liquido_ant'])
+        status['erros_delta_pct'] = _delta(status['erros'], status['erros_ant'])
+        status['valor_pis_delta_pct'] = _delta(status['valor_pis'], status['valor_pis_ant'])
 
         return jsonify({'success': True, 'status': status})
     except Exception as e:

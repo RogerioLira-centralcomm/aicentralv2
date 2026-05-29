@@ -7,6 +7,10 @@
     let modalContatoId = null;
     let modalClienteId = null;
     let chartInstances = {};
+    let swrCliCache = [];
+    let swrCliPage = 0;
+    const SWR_CLI_PAGE_SIZE = 12;
+    let swrFiltrosAvancados = { categoria: '', pendencias: '' };
 
 
     // ==================== Helpers ====================
@@ -47,7 +51,7 @@
 
     function badgeABC(cat) {
         const colors = { A: 'badge-success', B: 'badge-warning', C: 'badge-error' };
-        return `<span class="badge badge-sm ${colors[cat] || 'badge-ghost'}">${cat || '-'}</span>`;
+        return `<span class="badge swr-badge-abc ${colors[cat] || 'badge-ghost'}">${cat || '-'}</span>`;
     }
 
     function debounce(fn, ms) {
@@ -127,35 +131,78 @@
         try {
             const params = new URLSearchParams({ executivo_id: execId, tipo, busca });
             if (perfil) params.set('perfil', perfil);
+            if (swrFiltrosAvancados.categoria) params.set('categoria', swrFiltrosAvancados.categoria);
+            if (swrFiltrosAvancados.pendencias !== '') params.set('com_pendencias', swrFiltrosAvancados.pendencias);
             const data = await api(`/api/clientes?${params}`);
-            atualizarContadoresCarteira(data.clientes, perfil);
-            if (!data.clientes.length) {
+            swrCliCache = data.clientes || [];
+            swrCliPage = 0;
+            atualizarContadoresCarteira(swrCliCache, perfil);
+            if (!swrCliCache.length) {
+                esconderPaginacaoClientes();
                 showEmpty(container, 'Nenhum cliente encontrado.');
                 return;
             }
-            container.innerHTML = data.clientes.map(c => `
-                <div class="swr-card ${c.id_cliente == clienteSelecionadoId ? 'swr-card-active' : ''}"
-                     data-id="${c.id_cliente}">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="flex-1 min-w-0">
-                            <div class="font-medium text-sm truncate">${c.nome_fantasia || c.razao_social}</div>
-                            <div class="text-xs opacity-60">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            ${c.atividades_pendentes === 0 ? '<svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
-                            ${badgeABC(c.categoria_abc)}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            $$('.swr-card', container).forEach(el => {
-                el.addEventListener('click', () => selecionarCliente(parseInt(el.dataset.id)));
-            });
+            renderClientesPagina();
         } catch (e) {
             esconderContadoresCarteira();
+            esconderPaginacaoClientes();
             showEmpty(container, 'Erro ao carregar clientes.');
             console.error(e);
+        }
+    }
+
+    function esconderPaginacaoClientes() {
+        $('#swr-clientes-paginacao')?.classList.add('hidden');
+        $('#swr-contador-total')?.classList.add('hidden');
+    }
+
+    function renderClientesPagina() {
+        const container = $('#lista-clientes');
+        const total = swrCliCache.length;
+        const totalPages = Math.max(1, Math.ceil(total / SWR_CLI_PAGE_SIZE));
+        if (swrCliPage > totalPages - 1) swrCliPage = totalPages - 1;
+        if (swrCliPage < 0) swrCliPage = 0;
+        const start = swrCliPage * SWR_CLI_PAGE_SIZE;
+        const end = Math.min(start + SWR_CLI_PAGE_SIZE, total);
+        const pageItems = swrCliCache.slice(start, end);
+
+        container.innerHTML = pageItems.map(c => `
+            <div class="swr-card ${c.id_cliente == clienteSelecionadoId ? 'swr-card-active' : ''}"
+                 data-id="${c.id_cliente}">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-xs truncate">${c.nome_fantasia || c.razao_social}</div>
+                        <div class="text-[10px] opacity-60">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        ${c.atividades_pendentes === 0 ? '<svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
+                        ${badgeABC(c.categoria_abc)}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        $$('.swr-card', container).forEach(el => {
+            el.addEventListener('click', () => selecionarCliente(parseInt(el.dataset.id)));
+        });
+
+        const footer = $('#swr-clientes-paginacao');
+        const totalEl = $('#swr-contador-total');
+        if (totalEl) {
+            totalEl.textContent = `· ${total}`;
+            totalEl.classList.remove('hidden');
+        }
+        if (footer) {
+            if (total > SWR_CLI_PAGE_SIZE) {
+                footer.classList.remove('hidden');
+                $('#swr-cli-info').textContent = `Exibindo ${start + 1}-${end} de ${total} clientes`;
+                const prev = $('#swr-cli-prev');
+                const next = $('#swr-cli-next');
+                if (prev) prev.disabled = swrCliPage === 0;
+                if (next) next.disabled = swrCliPage >= totalPages - 1;
+            } else {
+                footer.classList.add('hidden');
+            }
         }
     }
 
@@ -185,6 +232,47 @@
 
     // ==================== Column 2: Status ====================
 
+    /**
+     * Badge de variação vs mês anterior.
+     * pct null => sem base de comparação (mês anterior zerado): não renderiza badge.
+     * lowerIsBetter inverte as cores (ex.: Erros).
+     */
+    function deltaBadge(pct, lowerIsBetter) {
+        if (pct === null || pct === undefined) return '';
+        const positivo = pct >= 0;
+        const bom = lowerIsBetter ? !positivo : positivo;
+        const cls = pct === 0 ? 'swr-delta-neutro' : (bom ? 'swr-delta-up' : 'swr-delta-down');
+        const arrow = pct === 0 ? '→' : (positivo ? '▲' : '▼');
+        return `<span class="swr-delta ${cls}" title="vs mês anterior">${arrow} ${Math.abs(pct)}%</span>`;
+    }
+
+    function metricCard(valor, label, badgeHtml) {
+        return `
+            <div class="swr-metric-card">
+                <div class="swr-metric-top">
+                    <span class="swr-metric-valor">${valor}</span>
+                    ${badgeHtml || ''}
+                </div>
+                <div class="swr-metric-label">${label}</div>
+            </div>`;
+    }
+
+    function proximoPassoStatus(s) {
+        if (s.erros > 0) {
+            return `Você tem ${s.erros} cotação(ões) rejeitada(s)/expirada(s) no mês. Revise objeções e reabra a negociação.`;
+        }
+        if (s.total_cotacoes > 0 && s.pct_aprovadas < 50) {
+            return `Conversão de ${s.pct_aprovadas}% abaixo do ideal. Priorize follow-up das cotações pendentes.`;
+        }
+        if (s.total_cotacoes === 0) {
+            return 'Sem cotações neste mês. Agende um contato para gerar nova oportunidade.';
+        }
+        if (s.cotacoes_aprovadas > 0 && s.total_pis === 0) {
+            return 'Cotações aprovadas sem PI emitido. Gere o PI para faturar.';
+        }
+        return 'Carteira em dia. Mantenha o relacionamento com contatos-chave.';
+    }
+
     async function carregarStatus(clienteId) {
         const container = $('#area-status');
         showSpinner(container);
@@ -201,31 +289,17 @@
                         <span class="text-xs opacity-60">Categoria</span>
                         ${badgeABC(s.categoria_abc)}
                     </div>
-                    <div class="grid grid-cols-2 gap-2 text-center mb-3">
-                        <div class="bg-base-200 rounded p-2">
-                            <div class="text-lg font-bold">${s.total_cotacoes}</div>
-                            <div class="text-xs opacity-60">Cotações</div>
-                        </div>
-                        <div class="bg-base-200 rounded p-2">
-                            <div class="text-lg font-bold">${s.cotacoes_aprovadas} <span class="text-xs font-normal opacity-60">(${s.pct_aprovadas}%)</span></div>
-                            <div class="text-xs opacity-60">Aprovadas</div>
-                        </div>
-                        <div class="bg-base-200 rounded p-2">
-                            <div class="text-sm font-bold">${fmtBRL(s.valor_bruto)}</div>
-                            <div class="text-xs opacity-60">Bruto</div>
-                        </div>
-                        <div class="bg-base-200 rounded p-2">
-                            <div class="text-sm font-bold">${fmtBRL(s.valor_liquido)}</div>
-                            <div class="text-xs opacity-60">Líquido</div>
-                        </div>
-                        <div class="bg-base-200 rounded p-2">
-                            <div class="text-lg font-bold">${s.total_pis} <span class="text-xs font-normal opacity-60">(${s.pis_concluidos} concl.)</span></div>
-                            <div class="text-xs opacity-60">PIs</div>
-                        </div>
-                        <div class="bg-base-200 rounded p-2">
-                            <div class="text-sm font-bold">${fmtBRL(s.valor_pis)}</div>
-                            <div class="text-xs opacity-60">Valor PIs</div>
-                        </div>
+                    <div class="swr-metric-grid mb-3">
+                        ${metricCard(s.total_contatos, 'Contatos', '')}
+                        ${metricCard(`${s.cotacoes_aprovadas} <span class="text-xs font-normal opacity-60">(${s.pct_aprovadas}%)</span>`, 'Aprovações', deltaBadge(s.cotacoes_aprovadas_delta_pct, false))}
+                        ${metricCard(`<span class="text-sm">${fmtBRL(s.valor_bruto)}</span>`, 'Faturamento', deltaBadge(s.valor_bruto_delta_pct, false))}
+                        ${metricCard(s.erros, 'Erros', deltaBadge(s.erros_delta_pct, true))}
+                        ${metricCard(`<span class="text-sm">${fmtBRL(s.valor_liquido)}</span>`, 'Líquido', deltaBadge(s.valor_liquido_delta_pct, false))}
+                        ${metricCard(`<span class="text-sm">${fmtBRL(s.valor_pis)}</span>`, 'Valor PIs', deltaBadge(s.valor_pis_delta_pct, false))}
+                    </div>
+                    <div class="swr-proximo-passo mb-2">
+                        <div class="swr-proximo-passo-label">Próximo passo sugerido</div>
+                        <div class="swr-proximo-passo-texto">${escapeHtml(proximoPassoStatus(s))}</div>
                     </div>
                     <div class="flex gap-1 mb-2">
                         <button type="button" class="btn btn-xs btn-outline flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none border-base-300" id="btn-ver-mais-status">Ver mais dados</button>
@@ -292,6 +366,7 @@
         showSpinner(container);
         try {
             const data = await api(`/api/cliente/${clienteId}/contatos`);
+            popularComunicacaoContatos(data.contatos);
             if (!data.contatos.length) {
                 showEmpty(container, 'Nenhum contato cadastrado.');
                 return;
@@ -343,6 +418,7 @@
     // ==================== Column 4: Atividades ====================
 
     function setTabAtividades(tab) {
+        atividadesTab = tab;
         $$('#tabs-atividades .tab').forEach(t => {
             t.classList.toggle('tab-active', t.dataset.tab === tab);
         });
@@ -396,6 +472,8 @@
 
     let swrActCtx = { clienteId: null, contatoId: null };
     let swrObjCtx = { clienteId: null };
+    let swrActCache = [];
+    let atividadesTab = 'todas';
 
     function _isoDateOnly(iso) {
         if (!iso) return '';
@@ -442,39 +520,78 @@
             </div>`;
     }
 
+    /** Filtra o cache de atividades conforme a aba ativa (client-side). */
+    function filtrarAtividadesPorAba() {
+        const lista = swrActCache;
+        switch (atividadesTab) {
+            case 'hoje':
+                return lista.filter(atividadeHoje);
+            case 'pendentes':
+                return lista.filter(a => a.status !== 'concluida');
+            case 'concluidas':
+                return lista.filter(a => a.status === 'concluida');
+            case 'contato':
+                return contatoSelecionadoId
+                    ? lista.filter(a => String(a.contato_id) === String(contatoSelecionadoId))
+                    : [];
+            default:
+                return lista;
+        }
+    }
+
     async function carregarAtividades(clienteId, contatoId) {
         swrActCtx = { clienteId, contatoId };
         const container = $('#lista-atividades');
         showSpinner(container);
         try {
-            const params = new URLSearchParams();
-            if (contatoId) params.set('contato_id', contatoId);
-            const data = await api(`/api/cliente/${clienteId}/atividades?${params}`);
+            const data = await api(`/api/cliente/${clienteId}/atividades`);
+            swrActCache = data.atividades || [];
+            renderAtividades();
+        } catch (e) {
+            showEmpty(container, 'Erro ao carregar atividades.');
+            console.error(e);
+        }
+    }
 
-            const lista = data.atividades || [];
-            const ativas = sortAtividadesPorPrazoAtivas(lista.filter(a => a.status !== 'concluida'));
-            const concluidas = sortAtividadesConcluidasPorData(lista.filter(a => a.status === 'concluida'));
+    function renderAtividades() {
+        const container = $('#lista-atividades');
+        if (!container) return;
+        const clienteId = swrActCtx.clienteId;
+        const contatoId = swrActCtx.contatoId;
+        const lista = swrActCache;
+        const filtrada = filtrarAtividadesPorAba();
 
-            let html = '';
+        const mostraConcluidas = (atividadesTab === 'todas' || atividadesTab === 'contato' || atividadesTab === 'concluidas');
+        const ativas = sortAtividadesPorPrazoAtivas(filtrada.filter(a => a.status !== 'concluida'));
+        const concluidas = mostraConcluidas
+            ? sortAtividadesConcluidasPorData(filtrada.filter(a => a.status === 'concluida'))
+            : [];
 
-            if (lista.length) {
-                if (ativas.length) {
-                    html += `<div class="swr-atividades-list mb-2">${ativas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
-                }
-                if (concluidas.length) {
-                    html += `<div class="divider text-xs my-2 opacity-70">Concluídas</div>`;
-                    html += `<div class="swr-atividades-list swr-atividades-list--done mb-2">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
-                }
+        let html = '';
+
+        if (atividadesTab === 'contato' && !contatoSelecionadoId) {
+            html += `
+                <div class="swr-sugestao-card swr-fade-in mb-2">
+                    <div class="text-xs text-center py-2 opacity-70">Selecione um contato na coluna ao lado.</div>
+                </div>`;
+        } else if (atividadesTab === 'concluidas') {
+            html += concluidas.length
+                ? `<div class="swr-atividades-list swr-atividades-list--done mb-2">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`
+                : `<div class="swr-sugestao-card swr-fade-in mb-2"><div class="text-xs text-center py-2 opacity-70">Nenhuma atividade concluída.</div></div>`;
+        } else {
+            if (ativas.length) {
+                html += `<div class="swr-atividades-list mb-2">${ativas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+            } else {
+                const vazio = atividadesTab === 'hoje' ? 'Nenhuma atividade para hoje.' : 'Nenhuma atividade pendente.';
+                html += `<div class="swr-sugestao-card swr-fade-in mb-2"><div class="text-xs text-center py-2 opacity-70">${vazio}</div></div>`;
             }
-
-            if (!ativas.length) {
-                html = `
-                    <div class="swr-sugestao-card swr-fade-in mb-2">
-                        <div class="text-xs text-center py-2 opacity-70">Nenhuma atividade pendente.</div>
-                    </div>
-                ` + html;
+            if (concluidas.length) {
+                html += `<div class="divider text-xs my-2 opacity-70">Concluídas</div>`;
+                html += `<div class="swr-atividades-list swr-atividades-list--done mb-2">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
             }
+        }
 
+        {
             const hoje = new Date().toISOString().slice(0, 10);
             html += `
                 <div class="divider text-xs my-2">Nova atividade</div>
@@ -627,9 +744,6 @@
                     btn.classList.remove('loading');
                 }
             });
-        } catch (e) {
-            showEmpty(container, 'Erro ao carregar atividades.');
-            console.error(e);
         }
     }
 
@@ -1079,34 +1193,123 @@
         $$('[data-modal-tab]').forEach(t => t.classList.toggle('tab-active', t.dataset.modalTab === 'comunicacao'));
     }
 
-    async function gerarComunicacao() {
-        const tipo = $('input[name="com-tipo"]:checked')?.value || 'whatsapp';
-        const tamanho = $('input[name="com-tamanho"]:checked')?.value || 'medio';
-        const objetivo = $('#com-objetivo').value.trim();
-        const produto = $('#com-produto').value;
-        const canal = $('#com-canal').value.trim();
-
+    /**
+     * Núcleo reutilizável de geração de comunicação via IA.
+     * Usado tanto pelo modal de contato quanto pela seção fixa da coluna 5.
+     */
+    async function gerarComunicacaoCore({ contatoId, clienteId, tipo, tamanho, objetivo, produto, canal, btn, previewEl, textoEl }) {
+        if (!clienteId) { showToast('Selecione um cliente.', 'warning'); return; }
+        if (!contatoId) { showToast('Selecione um contato.', 'warning'); return; }
         if (!objetivo) { showToast('Preencha o objetivo da mensagem.', 'warning'); return; }
 
-        const btn = $('#btn-gerar-comunicacao');
-        btn.classList.add('loading');
+        btn?.classList.add('loading');
         try {
             const data = await api('/api/ia/gerar-comunicacao', {
                 method: 'POST',
                 body: JSON.stringify({
-                    contato_id: modalContatoId,
-                    cliente_id: modalClienteId,
+                    contato_id: contatoId,
+                    cliente_id: clienteId,
                     tipo, tamanho, objetivo, produto, canal
                 })
             });
-            $('#com-texto').textContent = data.mensagem;
-            $('#com-preview').classList.remove('hidden');
+            if (textoEl) textoEl.textContent = data.mensagem;
+            previewEl?.classList.remove('hidden');
         } catch (e) {
             console.error(e);
             showToast('Erro ao gerar comunicação.', 'error');
         } finally {
-            btn.classList.remove('loading');
+            btn?.classList.remove('loading');
         }
+    }
+
+    function gerarComunicacao() {
+        return gerarComunicacaoCore({
+            contatoId: modalContatoId,
+            clienteId: modalClienteId,
+            tipo: $('input[name="com-tipo"]:checked')?.value || 'whatsapp',
+            tamanho: $('input[name="com-tamanho"]:checked')?.value || 'medio',
+            objetivo: $('#com-objetivo').value.trim(),
+            produto: $('#com-produto').value,
+            canal: $('#com-canal').value.trim(),
+            btn: $('#btn-gerar-comunicacao'),
+            previewEl: $('#com-preview'),
+            textoEl: $('#com-texto')
+        });
+    }
+
+    // ==================== Coluna 5: Seção Comunicação ====================
+
+    /** Preenche o select de contatos da seção Comunicação. */
+    function popularComunicacaoContatos(contatos) {
+        const sel = $('#swrc-contato');
+        if (!sel) return;
+        const atual = sel.value;
+        const opts = ['<option value="">Selecione um contato</option>']
+            .concat((contatos || []).map(c => `<option value="${c.id_contato_cliente}">${escapeHtml(c.nome_completo)}</option>`));
+        sel.innerHTML = opts.join('');
+        if (atual && [...sel.options].some(o => o.value === atual)) {
+            sel.value = atual;
+        } else if (contatoSelecionadoId) {
+            sel.value = String(contatoSelecionadoId);
+        }
+    }
+
+    function gerarComunicacaoSecao() {
+        const objSel = $('#swrc-objetivo').value.trim();
+        const tom = $('#swrc-tom').value.trim();
+        const contexto = $('#swrc-contexto').value.trim();
+        let objetivo = objSel;
+        if (tom) objetivo += objetivo ? ` (tom ${tom})` : `Mensagem em tom ${tom}`;
+        return gerarComunicacaoCore({
+            contatoId: $('#swrc-contato').value || contatoSelecionadoId || null,
+            clienteId: clienteSelecionadoId,
+            tipo: $('input[name="swrc-canal"]:checked')?.value || 'whatsapp',
+            tamanho: 'medio',
+            objetivo,
+            produto: '',
+            canal: contexto,
+            btn: $('#swrc-gerar'),
+            previewEl: $('#swrc-preview'),
+            textoEl: $('#swrc-texto')
+        });
+    }
+
+    function setTabComunicacao(tab) {
+        $$('#swrc-tabs .tab').forEach(t => t.classList.toggle('tab-active', t.dataset.ctab === tab));
+        const map = { historico: '#swrc-panel-historico', gerar: '#swrc-panel-gerar', modelos: '#swrc-panel-modelos' };
+        Object.entries(map).forEach(([k, sel]) => {
+            const el = $(sel);
+            if (el) el.classList.toggle('hidden', k !== tab);
+        });
+    }
+
+    function bindComunicacaoSecao() {
+        $('#swrc-tabs')?.addEventListener('click', (e) => {
+            const tab = e.target.closest('.tab');
+            if (tab) setTabComunicacao(tab.dataset.ctab);
+        });
+        $('#swrc-gerar')?.addEventListener('click', gerarComunicacaoSecao);
+        $('#swrc-regenerar')?.addEventListener('click', gerarComunicacaoSecao);
+        $('#swrc-copiar')?.addEventListener('click', () => {
+            navigator.clipboard.writeText($('#swrc-texto').textContent).then(() => {
+                const b = $('#swrc-copiar');
+                b.textContent = 'Copiado!';
+                setTimeout(() => b.textContent = 'Copiar', 1500);
+            });
+        });
+        $('#swrc-whatsapp')?.addEventListener('click', () => {
+            const text = encodeURIComponent($('#swrc-texto').textContent);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        });
+        $('#swrc-email')?.addEventListener('click', () => {
+            const text = $('#swrc-texto').textContent;
+            const lines = text.split('\n');
+            let subject = '';
+            let body = text;
+            const m = lines[0]?.match(/^assunto:\s*(.+)/i);
+            if (m) { subject = m[1].trim(); body = lines.slice(1).join('\n').trim(); }
+            window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+        });
     }
 
     // ==================== Links consolidadas + URL executivo ====================
@@ -1172,12 +1375,76 @@
                 if (tab.dataset.tab === 'todas') {
                     contatoSelecionadoId = null;
                     $$('.swr-card-contato').forEach(e => e.classList.remove('swr-card-active'));
-                    carregarAtividades(clienteSelecionadoId);
-                } else if (contatoSelecionadoId) {
-                    carregarAtividades(clienteSelecionadoId, contatoSelecionadoId);
                 }
+                // Filtragem client-side sobre o cache já carregado.
+                renderAtividades();
             });
         });
+
+        // ---- Paginação da coluna Clientes ----
+        $('#swr-cli-prev')?.addEventListener('click', () => {
+            if (swrCliPage > 0) { swrCliPage--; renderClientesPagina(); }
+        });
+        $('#swr-cli-next')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(swrCliCache.length / SWR_CLI_PAGE_SIZE);
+            if (swrCliPage < totalPages - 1) { swrCliPage++; renderClientesPagina(); }
+        });
+
+        // ---- Filtros avançados (header + ícone na coluna Clientes) ----
+        $('#swr-clientes-filtro')?.addEventListener('click', () => {
+            const det = $('#swr-filtros-avancados');
+            if (det) det.open = !det.open;
+        });
+        $('#swr-fa-aplicar')?.addEventListener('click', () => {
+            swrFiltrosAvancados.categoria = $('#swr-fa-categoria')?.value || '';
+            swrFiltrosAvancados.pendencias = $('#swr-fa-pendencias')?.value ?? '';
+            const det = $('#swr-filtros-avancados'); if (det) det.open = false;
+            carregarClientes();
+        });
+        $('#swr-fa-limpar')?.addEventListener('click', () => {
+            swrFiltrosAvancados = { categoria: '', pendencias: '' };
+            if ($('#swr-fa-categoria')) $('#swr-fa-categoria').value = '';
+            if ($('#swr-fa-pendencias')) $('#swr-fa-pendencias').value = '';
+            const det = $('#swr-filtros-avancados'); if (det) det.open = false;
+            carregarClientes();
+        });
+
+        // ---- Botões de ação no header ----
+        function focarColuna(sel, inputSel) {
+            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+            const col = $(sel);
+            if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const inp = inputSel ? $(inputSel) : null;
+            if (inp) setTimeout(() => inp.focus(), 250);
+        }
+        $('#swr-btn-nova-atividade')?.addEventListener('click', () => {
+            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+            setTabAtividades('todas');
+            renderAtividades();
+            focarColuna('#col-atividades', '#input-atividade');
+        });
+        $('#swr-btn-novo-objetivo')?.addEventListener('click', () => focarColuna('#col-objetivos', '#input-objetivo'));
+        $('#swr-btn-nova-mensagem')?.addEventListener('click', () => {
+            if (!clienteSelecionadoId) { showToast('Selecione um cliente.', 'warning'); return; }
+            setTabComunicacao('gerar');
+            focarColuna('#swr-comunicacao', '#swrc-objetivo');
+        });
+
+        // ---- Exportar (CSV) ----
+        function exportarCSV(tipo) {
+            const execId = $('#filtro-executivo')?.value;
+            if (!execId) { showToast('Selecione um executivo.', 'warning'); return; }
+            const params = new URLSearchParams({ executivo_id: execId });
+            if (clienteSelecionadoId) params.set('cliente_id', clienteSelecionadoId);
+            const det = $('#swr-export'); if (det) det.open = false;
+            window.location.href = `${BASE}/api/export/${tipo}?${params}`;
+        }
+        $('#swr-export-atividades')?.addEventListener('click', () => exportarCSV('atividades'));
+        $('#swr-export-objetivos')?.addEventListener('click', () => exportarCSV('objetivos'));
+
+        // ---- Seção Comunicação (coluna 5) ----
+        bindComunicacaoSecao();
+        setTabComunicacao('gerar');
 
         $$('[data-modal-tab]').forEach(tab => {
             tab.addEventListener('click', () => {

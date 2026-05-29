@@ -9204,6 +9204,241 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao excluir PI: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+    @app.route('/api/cadu_pi/calcular-percentuais', methods=['GET'])
+    @login_required
+    def api_cadu_pi_calcular_percentuais():
+        """Retorna percentuais derivados (Mcc, TF, COM, Inc, Imp) para o formulário de PI novo.
+
+        TF depende somente da plataforma; Mcc/COM/Inc/Imp dependem de cliente/exec/agência.
+        Se apenas a plataforma estiver presente, devolve TF e deixa os outros como null
+        (frontend só preenche o que vier com valor).
+        """
+        try:
+            id_cliente = request.args.get('id_cliente', type=int)
+            plataforma = (request.args.get('plataforma') or '').strip()
+            resp_comercial = request.args.get('resp_comercial', type=int)
+            id_agencia = request.args.get('id_agencia', type=int)
+            valor_bruto_raw = request.args.get('valor_bruto', '').strip()
+            valor_bruto = _parse_decimal(valor_bruto_raw) if valor_bruto_raw else 0.0
+
+            if not plataforma:
+                return jsonify({'success': False, 'message': 'Informe a plataforma.'}), 400
+
+            def _frac_to_pi_percent_display(frac):
+                if frac is None:
+                    return None
+                try:
+                    v = float(frac)
+                except (TypeError, ValueError):
+                    return None
+                if v <= 0:
+                    return '0,00'
+                pct = round(v * 100, 2) if v <= 1 else round(v, 2)
+                return f'{pct:.2f}'.replace('.', ',')
+
+            def _frac_mcc_to_pi_percent_display(frac):
+                if frac is None:
+                    return None
+                try:
+                    v = float(frac)
+                except (TypeError, ValueError):
+                    return None
+                if v <= 0:
+                    return '0,00'
+                pct = round(v * 100, 2) if v <= 1 else round(v, 2)
+                if pct < 5 or pct > 30:
+                    return '0,00'
+                return f'{pct:.2f}'.replace('.', ',')
+
+            imp_cfg = float(current_app.config.get('PI_IMPOSTO_PERCENTUAL', 15))
+
+            def _mcc_cadastro_display(raw):
+                """Retorna o valor bruto do cadastro do cliente em formato BR (ex.: '25,00').
+                Sem aplicar validação 5–30 (o frontend mostra como hint)."""
+                if raw is None or raw == '':
+                    return None
+                try:
+                    v = float(raw)
+                except (TypeError, ValueError):
+                    return None
+                pct = v if v > 1 else v * 100
+                return f'{pct:.2f}'.replace('.', ',')
+
+            if not id_cliente:
+                tf_frac, _plat_desc, _fonte = db.obter_tech_fee_fracao_por_nome_plataforma(plataforma)
+                return jsonify({
+                    'success': True,
+                    'perc_margem_cc': None,
+                    'margem_cc_cadastro': None,
+                    'perc_tech_fee': _frac_to_pi_percent_display(tf_frac),
+                    'perc_com_vendas': None,
+                    'perc_pl_incentivos': None,
+                    'perc_impostos': _frac_to_pi_percent_display(imp_cfg / 100.0),
+                    'warnings': [] if tf_frac is not None else [f'TF não encontrado para a plataforma «{plataforma}».'],
+                })
+
+            _mcc_frac, mcc_raw = db.obter_margem_cc_fracao_e_bruto(id_cliente)
+            mcc_cad_display = _mcc_cadastro_display(mcc_raw)
+
+            out = db.calcular_preco_unitario_teste_calculo(
+                valor_unitario_tabela=1,
+                nome_plataforma=plataforma,
+                cliente_id=id_cliente,
+                id_resp_comercial=resp_comercial,
+                volume_contratado=valor_bruto or 0,
+                imposto_percentual_externo=imp_cfg,
+                agencia_id=id_agencia,
+            )
+            if not out.get('success'):
+                return jsonify(out), 400
+
+            return jsonify({
+                'success': True,
+                'perc_margem_cc': _frac_mcc_to_pi_percent_display(out.get('mcc')),
+                'margem_cc_cadastro': mcc_cad_display,
+                'perc_tech_fee': _frac_to_pi_percent_display(out.get('tf')),
+                'perc_com_vendas': _frac_to_pi_percent_display(out.get('com')),
+                'perc_pl_incentivos': _frac_to_pi_percent_display(out.get('inc')),
+                'perc_impostos': _frac_to_pi_percent_display(out.get('imp')),
+                'warnings': out.get('warnings') or [],
+            })
+        except Exception as e:
+            app.logger.error(f"api_cadu_pi_calcular_percentuais: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    # ==================== ANDAMENTO (zonas de desempenho) ====================
+
+    def _safe_float(v):
+        if v is None or v == '':
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    def _calcular_zonas_andamento(pi, desvio_pct):
+        """Calcula campos derivados + as 4 fronteiras das 5 zonas para o modal.
+
+        Modelo simples baseado em múltiplos do desvio aceitável:
+          - Limite Inf  = orçado × (1 − desvio)
+          - Limite Sup  = orçado × (1 + desvio)
+          - Ruptura     = orçado × (1 + N × desvio)   (N = PI_RUPTURA_MULT_DESVIO)
+        Assim a régua escala junto com o desvio que o usuário define.
+        """
+        obj_contr = _safe_float(pi.get('objetivo_contratado_pi')) or 0.0
+        cbase = _safe_float(pi.get('custo_base_unitario')) or 0.0
+        is_cpm = bool(pi.get('meta_baseada_em_cpm'))
+        volume = (obj_contr / 1000.0) if is_cpm else obj_contr
+        midia_orcado = volume * cbase
+
+        try:
+            d = float(desvio_pct) / 100.0
+        except (TypeError, ValueError):
+            d = 0.05
+        if d < 0:
+            d = 0.0
+        mult = float(current_app.config.get('PI_RUPTURA_MULT_DESVIO', 10.0))
+
+        ruptura = midia_orcado * (1.0 + mult * d)
+        preco_cliente = (ruptura / volume) if volume > 0 else 0.0
+
+        return {
+            'volume': round(volume, 4),
+            'midia_orcado': round(midia_orcado, 2),
+            'preco_cliente_unitario': round(preco_cliente, 6),
+            'bruto_previsto': round(ruptura, 2),
+            'ruptura_mult_desvio': mult,
+            'zonas': {
+                'limite_inf': round(midia_orcado * (1 - d), 2),
+                'orcado': round(midia_orcado, 2),
+                'limite_sup': round(midia_orcado * (1 + d), 2),
+                'ruptura': round(ruptura, 2),
+            },
+        }
+
+    def _payload_andamento(pi):
+        desvio = pi.get('desvio_aceitavel_pct')
+        desvio_efetivo = _safe_float(desvio)
+        if desvio_efetivo is None:
+            desvio_efetivo = float(current_app.config.get('PI_DESVIO_ACEITAVEL_PERCENTUAL', 5.0))
+        calc = _calcular_zonas_andamento(pi, desvio_efetivo)
+        return {
+            'success': True,
+            'pi': {
+                'id_pi': pi.get('id_pi'),
+                'titulo_pi': pi.get('titulo_pi'),
+                'codigo_pi_cc': pi.get('codigo_pi_cc'),
+                'objetivo_contratado': _safe_float(pi.get('objetivo_contratado_pi')) or 0.0,
+                'custo_base_unitario': _safe_float(pi.get('custo_base_unitario')) or 0.0,
+                'meta_baseada_em_cpm': bool(pi.get('meta_baseada_em_cpm')),
+                'preco_cliente_unitario': calc['preco_cliente_unitario'],
+                'volume': calc['volume'],
+                'midia_orcado': calc['midia_orcado'],
+                'bruto_previsto': calc['bruto_previsto'],
+                'objetivo_atingido': _safe_float(pi.get('objetivo_atingido')),
+                'custo_midia_alcancado': _safe_float(pi.get('custo_midia_alcancado')),
+            },
+            'desvio_aceitavel_pct': desvio_efetivo,
+            'desvio_aceitavel_default': float(current_app.config.get('PI_DESVIO_ACEITAVEL_PERCENTUAL', 5.0)),
+            'ruptura_mult_desvio': calc.get('ruptura_mult_desvio', 10.0),
+            'zonas': calc['zonas'],
+        }
+
+    @app.route('/api/cadu_pi/<int:id_pi>/andamento', methods=['GET'])
+    @login_required
+    def api_cadu_pi_andamento_get(id_pi):
+        """Retorna dados do PI + zonas de desempenho para o modal de Andamento."""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado.'}), 404
+            if int(pi.get('id_sub_status_pi') or 0) != 3:
+                return jsonify({
+                    'success': False,
+                    'message': 'O acompanhamento só está disponível para PIs Em Andamento.',
+                }), 409
+            return jsonify(_payload_andamento(pi))
+        except Exception as e:
+            app.logger.error(f"api_cadu_pi_andamento_get: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    @app.route('/api/cadu_pi/<int:id_pi>/andamento', methods=['POST'])
+    @login_required
+    def api_cadu_pi_andamento_post(id_pi):
+        """Grava desvio aceitável customizado + objetivo atingido + custo de mídia real."""
+        try:
+            pi = db.obter_cadu_pi_por_id(id_pi)
+            if not pi:
+                return jsonify({'success': False, 'message': 'PI não encontrado.'}), 404
+            if int(pi.get('id_sub_status_pi') or 0) != 3:
+                return jsonify({
+                    'success': False,
+                    'message': 'O acompanhamento só está disponível para PIs Em Andamento.',
+                }), 409
+
+            body = request.get_json(silent=True) or {}
+            data = {
+                'desvio_aceitavel_pct': _safe_float(body.get('desvio_aceitavel_pct')),
+                'objetivo_atingido': _safe_float(body.get('objetivo_atingido')),
+                'custo_midia_alcancado': _safe_float(body.get('custo_midia_alcancado')),
+            }
+            db.atualizar_cadu_pi_andamento(id_pi, data)
+
+            registrar_auditoria(
+                acao='UPDATE',
+                modulo='cadu_pi',
+                descricao=f'Andamento atualizado (PI {pi.get("titulo_pi", "")})',
+                registro_id=id_pi,
+                registro_tipo='cadu_pi',
+                dados_novos=data,
+            )
+
+            pi_atualizado = db.obter_cadu_pi_por_id(id_pi)
+            return jsonify(_payload_andamento(pi_atualizado))
+        except Exception as e:
+            app.logger.error(f"api_cadu_pi_andamento_post: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @app.route('/api/cadu_pi/<int:id_pi>/gerar-pastas', methods=['POST'])
     @login_required
     def cadu_pi_gerar_pastas(id_pi):
@@ -9627,6 +9862,18 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'val_pl_incentivos', 'val_impostos',
         ):
             data[_k] = _parse_real_pi(request.form.get(_k))
+        data['meta_baseada_em_cpm'] = 'meta_baseada_em_cpm' in request.form
+        data['plataforma_campanha'] = (request.form.get('plataforma_campanha') or '').strip() or None
+        data['custo_base_unitario'] = _parse_decimal(request.form.get('custo_base_unitario'))
+        obj_raw = (request.form.get('objetivo_contratado_pi') or '').strip()
+        if obj_raw:
+            obj_clean = obj_raw.replace('R$', '').replace('.', '').replace(',', '.').strip()
+            try:
+                data['objetivo_contratado_pi'] = float(obj_clean)
+            except ValueError:
+                data['objetivo_contratado_pi'] = None
+        else:
+            data['objetivo_contratado_pi'] = None
         periodo_inicio = data.get('periodo_inicio')
         data['mes_ref'] = periodo_inicio or None
         data['mes_ref_comp'] = db.formatar_mes_ref_comp(periodo_inicio)
@@ -9639,6 +9886,22 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         vendedores = db.obter_vendedores_centralcomm()
         user_id = session.get('user_id')
         is_executivo = any(v['id_contato_cliente'] == user_id for v in (vendedores or []))
+
+        ordem_cat = {nome: i for i, nome in enumerate(db.PLATAFORMA_CATEGORIAS_CANONICAS)}
+        fallback_cat = len(db.PLATAFORMA_CATEGORIAS_CANONICAS)
+        plataformas_campanha = []
+        for p in db.obter_plataformas_campanha():
+            if p.get('status', True) is False:
+                continue
+            cat = (p.get('categoria') or '').strip() or 'Sem categoria'
+            p['categoria'] = cat
+            plataformas_campanha.append(p)
+        plataformas_campanha.sort(key=lambda x: (
+            ordem_cat.get(x['categoria'], fallback_cat),
+            x.get('indice') if x.get('indice') is not None else 10**9,
+            (x.get('descricao') or '').lower(),
+        ))
+
         return {
             'clientes': db.obter_clientes_simples(),
             'agencias': db.obter_aux_agencia(),
@@ -9651,6 +9914,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'estados': db.obter_estados(),
             'vendedores_cc': vendedores,
             'agencias_opts': db.obter_aux_agencia(),
+            'plataformas_campanha': plataformas_campanha,
         }
 
     # ==================== OBJETIVOS CAMPANHA PI - ROTAS ====================

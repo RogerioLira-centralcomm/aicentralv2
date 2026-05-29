@@ -226,6 +226,12 @@
                   <span class="text-[11px] text-green-600">{{ pi.valor_liquido|format_brl }}</span>
                   {% endif %}
                 </div>
+                {% if sub_status_atual|string == '3' %}
+                <button type="button" onclick="event.stopPropagation(); abrirModalAndamento({{ pi.id_pi }})"
+                        class="text-gray-400 hover:text-emerald-600 p-1" title="Acompanhar andamento">
+                  <i class="fa-solid fa-chart-line text-[12px]"></i>
+                </button>
+                {% endif %}
                 {% if pi.get('googled_pi_princ') %}
                 <a href="{{ pi.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()" class="text-gray-400 hover:text-yellow-600 p-1" title="Pasta Google Drive">
                   <i class="fa-solid fa-folder text-[11px]"></i>
@@ -566,6 +572,237 @@
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- ==================== MODAL ANDAMENTO (Lifecycle: Metas & Limites / Inserir Resultados) ==================== -->
+<dialog id="modal_andamento" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl bg-gray-50 p-0 rounded-lg shadow-2xl overflow-hidden">
+    <!-- Header -->
+    <div class="px-5 py-3 border-b border-gray-200 bg-white flex items-center justify-between">
+      <div class="min-w-0">
+        <h3 class="text-base font-semibold text-gray-800 truncate" id="andamento_titulo_pi">—</h3>
+        <p class="text-xs text-gray-500">
+          <span id="andamento_codigo_pi" class="font-mono"></span>
+          <span class="mx-1">·</span>
+          Acompanhamento de operação
+        </p>
+      </div>
+      <form method="dialog"><button class="text-gray-400 hover:text-gray-700 text-xl leading-none px-2">&times;</button></form>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-gray-200 bg-white">
+      <button type="button" id="tab_btn_metas"
+              class="flex-1 py-3 text-sm font-semibold text-gray-700 border-b-2 border-emerald-500"
+              onclick="andamentoTrocarTab('metas')">1. METAS E LIMITES</button>
+      <button type="button" id="tab_btn_resultados"
+              class="flex-1 py-3 text-sm font-semibold text-gray-400 border-b-2 border-transparent"
+              onclick="andamentoTrocarTab('resultados')">2. INSERIR RESULTADOS</button>
+    </div>
+
+    <!-- TAB 1: Metas e Limites -->
+    <section id="tab_metas" class="p-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Esquerda: Parâmetros Perseguidos -->
+        <div class="lg:col-span-4">
+          <h4 class="text-sm font-semibold text-gray-800 mb-3">Parâmetros Perseguidos</h4>
+          <div class="space-y-2">
+            <div class="bg-white border border-gray-200 rounded-md px-3 py-2 flex justify-between items-center">
+              <span class="text-xs text-gray-600">Objetivo Contratado</span>
+              <span class="text-sm font-bold text-gray-800" id="and_objetivo_contratado">—</span>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-md px-3 py-2 flex justify-between items-center">
+              <span class="text-xs text-gray-600">Custo Mídia Orçado</span>
+              <span class="text-sm font-bold text-emerald-700" id="and_custo_midia_orcado">—</span>
+            </div>
+            <div class="bg-white border border-gray-200 rounded-md px-3 py-2 flex justify-between items-center">
+              <span class="text-xs text-gray-600">Custo Unitário Base</span>
+              <span class="text-sm font-bold text-emerald-700" id="and_custo_unit_base">—</span>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Definir Desvio Aceitável <span class="text-gray-400 font-normal">(Margem operacional)</span></label>
+            <div class="flex">
+              <input type="text" id="and_input_desvio" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-white focus:border-gray-400 focus:outline-none" placeholder="5" oninput="andamentoOnDesvioChange()">
+              <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">%</span>
+            </div>
+            <p class="text-[10px] text-gray-400 mt-0.5" id="and_desvio_hint"></p>
+          </div>
+
+          <button type="button"
+                  class="mt-4 w-full bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold py-2 rounded-md inline-flex items-center justify-center gap-2"
+                  onclick="andamentoTrocarTab('resultados')">
+            Inserir Resultados Reais <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+
+        <!-- Direita: Faixas de Desempenho -->
+        <div class="lg:col-span-8">
+          <h4 class="text-sm font-semibold text-gray-800 mb-3">Faixas de Desempenho (Zonas)</h4>
+
+          <!-- Toggle Total / CPM -->
+          <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5 mb-4">
+            <button type="button" id="and_toggle_total"
+                    class="px-4 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-800"
+                    onclick="andamentoSetModoBarra('total')">Total (R$)</button>
+            <button type="button" id="and_toggle_cpm"
+                    class="px-4 py-1.5 text-xs font-semibold rounded text-gray-400"
+                    onclick="andamentoSetModoBarra('cpm')">Unitário (CPM)</button>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-lg p-4">
+            <h5 class="text-sm font-semibold text-gray-800 mb-3" id="and_titulo_barra">Limites Baseados em Custo Total de Mídia</h5>
+
+            <!-- Barra de zonas: larguras visuais fixas (25/12.5/12.5/40/10); fronteiras em 25/37.5/50/90 -->
+            <div class="relative h-6 rounded-full overflow-hidden flex bg-gray-100" id="and_barra_zonas">
+              <div class="h-full" style="background-color:#10b981; flex: 25 0 0%"  data-zone="1"></div>
+              <div class="h-full" style="background-color:#6ee7b7; flex: 12.5 0 0%" data-zone="2"></div>
+              <div class="h-full" style="background-color:#fde047; flex: 12.5 0 0%" data-zone="3"></div>
+              <div class="h-full" style="background-color:#fb923c; flex: 40 0 0%"  data-zone="4"></div>
+              <div class="h-full" style="background-color:#ef4444; flex: 10 0 0%"  data-zone="5"></div>
+            </div>
+            <div class="relative mt-2 min-h-[3.4rem] text-[11px] text-gray-600 font-medium" id="and_barra_labels">
+              <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="limite_inf" style="left:25%">
+                <span class="block" data-role="valor">—</span>
+                <span class="block text-[10px] text-gray-400" data-role="delta">—</span>
+              </span>
+              <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="orcado" style="left:37.5%">
+                <span class="block font-semibold text-gray-800" data-role="valor">—</span>
+                <span class="block text-[10px] text-gray-400" data-role="delta">Orçado</span>
+              </span>
+              <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="limite_sup" style="left:50%">
+                <span class="block" data-role="valor">—</span>
+                <span class="block text-[10px] text-gray-400" data-role="delta">—</span>
+              </span>
+              <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="ruptura" style="left:90%">
+                <span class="block text-red-600 font-semibold" data-role="valor">—</span>
+                <span class="block text-[10px] text-red-500" data-role="delta">—</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Legenda das zonas -->
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded px-3 py-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-xs text-gray-700">Zona 1 e 2: Lucrativas</span>
+            </div>
+            <div class="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded px-3 py-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+              <span class="text-xs text-gray-700">Zona 3: Risco Padrão</span>
+            </div>
+            <div class="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded px-3 py-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
+              <span class="text-xs text-gray-700">Zona 4: Alta Perda</span>
+            </div>
+            <div class="flex items-center gap-2 bg-red-50 border border-red-200 rounded px-3 py-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+              <span class="text-xs text-gray-700">Zona 5: Ruptura</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Inserir Resultados -->
+    <section id="tab_resultados" class="p-5 hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Esquerda: Inputs de Entrega Real -->
+        <div class="lg:col-span-4">
+          <h4 class="text-sm font-semibold text-gray-800 mb-3">Inputs de Entrega Real</h4>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1">Objetivo Atingido <span class="text-gray-400 font-normal">(Quantia real entregue)</span></label>
+              <input type="text" id="and_input_obj_atingido" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-white focus:border-gray-400 focus:outline-none" placeholder="0" oninput="andamentoOnResultadosChange()">
+              <div class="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded mt-1 px-2 py-1 flex justify-between">
+                <span>Contratado:</span><span class="font-semibold text-gray-700" id="and_lbl_contratado">—</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1">Custo Mídia Alcançado <span class="text-gray-400 font-normal">(Gasto final DSP)</span></label>
+              <div class="flex">
+                <input type="text" id="and_input_custo_real" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" oninput="andamentoOnResultadosChange()">
+                <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">R$</span>
+              </div>
+              <div class="text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded mt-1 px-2 py-1 flex justify-between">
+                <span>Orçado:</span><span class="font-semibold text-gray-700" id="and_lbl_orcado">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Direita: Diagnóstico e Classificação -->
+        <div class="lg:col-span-8">
+          <h4 class="text-sm font-semibold text-gray-800 mb-3">Diagnóstico e Classificação</h4>
+
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div id="and_card_dO" class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+              <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">DESVIO OBJETIVO (ΔO)</div>
+              <div class="text-2xl font-bold mt-1" id="and_card_dO_val">—</div>
+            </div>
+            <div id="and_card_dC" class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+              <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">DESVIO CUSTO (ΔC)</div>
+              <div class="text-2xl font-bold mt-1" id="and_card_dC_val">—</div>
+            </div>
+          </div>
+
+          <div id="and_zona_card" class="bg-white border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-2.5 h-2.5 rounded-full" id="and_zona_dot"></span>
+              <span class="text-sm font-semibold text-gray-800" id="and_zona_titulo">—</span>
+            </div>
+            <p class="text-xs text-gray-600 mb-3" id="and_zona_sub">—</p>
+            <div class="bg-emerald-50 border border-emerald-200 rounded p-3">
+              <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 mb-1">IMPLICAÇÕES PRÁTICAS</div>
+              <p class="text-xs text-gray-700" id="and_zona_impl">Preencha os valores para classificar a operação.</p>
+            </div>
+
+            <div class="mt-4">
+              <p class="text-[11px] text-gray-500 mb-2">Posição na Régua (Custo Mídia)</p>
+              <div class="relative h-6 rounded-full overflow-hidden flex bg-gray-100" id="and_regua_zonas">
+                <div class="h-full" style="background-color:#10b981; flex: 25 0 0%"  data-zone="1"></div>
+                <div class="h-full" style="background-color:#6ee7b7; flex: 12.5 0 0%" data-zone="2"></div>
+                <div class="h-full" style="background-color:#fde047; flex: 12.5 0 0%" data-zone="3"></div>
+                <div class="h-full" style="background-color:#fb923c; flex: 40 0 0%"  data-zone="4"></div>
+                <div class="h-full" style="background-color:#ef4444; flex: 10 0 0%"  data-zone="5"></div>
+                <div id="and_marker" class="absolute top-[-3px] bottom-[-3px] w-[3px] bg-gray-900 rounded-full hidden" style="left:0%"></div>
+              </div>
+              <div class="relative mt-2 min-h-[3.4rem] text-[11px] text-gray-600 font-medium" id="and_regua_labels">
+                <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="limite_inf" style="left:25%">
+                  <span class="block" data-role="valor">—</span>
+                  <span class="block text-[10px] text-gray-400" data-role="delta">—</span>
+                </span>
+                <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="orcado" style="left:37.5%">
+                  <span class="block font-semibold text-gray-800" data-role="valor">—</span>
+                  <span class="block text-[10px] text-gray-400" data-role="delta">Orçado</span>
+                </span>
+                <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="limite_sup" style="left:50%">
+                  <span class="block" data-role="valor">—</span>
+                  <span class="block text-[10px] text-gray-400" data-role="delta">—</span>
+                </span>
+                <span class="absolute -translate-x-1/2 text-center whitespace-nowrap leading-tight" data-bound="ruptura" style="left:90%">
+                  <span class="block text-red-600 font-semibold" data-role="valor">—</span>
+                  <span class="block text-[10px] text-red-500" data-role="delta">—</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <div class="px-5 py-3 border-t border-gray-200 bg-white flex justify-end gap-2">
+      <form method="dialog"><button class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Fechar</button></form>
+      <button type="button" id="and_btn_salvar"
+              class="px-4 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded inline-flex items-center gap-1.5"
+              onclick="andamentoSalvar()">
+        <i class="fa-solid fa-save text-xs"></i> Salvar
+      </button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop bg-black/40"><button>close</button></form>
 </dialog>
 
 <style>
@@ -1104,6 +1341,366 @@ function salvarNf() {
   .catch(err => {
     showToast('Erro ao salvar nota fiscal: ' + err.message, 'error');
   });
+}
+
+// ==================== MODAL ANDAMENTO (Lifecycle) ====================
+
+let andamentoState = null;
+let andamentoModoBarra = 'total'; // 'total' | 'cpm'
+
+const ANDAMENTO_ZONAS = {
+  1: { nome: 'Zona 1', sub: 'Lucro Elevado',         dot: '#10b981', impl: 'Operação dentro da margem ótima. Custo de mídia bem abaixo do orçado — avaliar reinvestimento.' },
+  2: { nome: 'Zona 2', sub: 'Eficiência Aceitável (Ganho)', dot: '#10b981', impl: 'Comissão garantida. A operação economizou dentro da margem esperada, gerando um pequeno lucro adicional corporativo.' },
+  3: { nome: 'Zona 3', sub: 'Risco Padrão',          dot: '#facc15', impl: 'Custo de mídia acima do orçado, dentro do desvio aceitável. Margem operacional pressionada — monitorar.' },
+  4: { nome: 'Zona 4', sub: 'Alta Perda',            dot: '#fb923c', impl: 'Custo de mídia além do desvio tolerado. Margem comercial sendo consumida — intervir.' },
+  5: { nome: 'Zona 5', sub: 'Ruptura',               dot: '#ef4444', impl: 'Custo de mídia ≥ receita do cliente. Operação no negativo — interromper ou renegociar.' },
+};
+
+function _fmtBRL(v) {
+  if (v == null || !isFinite(v)) return '—';
+  return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function _fmtInt(v) {
+  if (v == null || !isFinite(v)) return '—';
+  return Math.round(Number(v)).toLocaleString('pt-BR');
+}
+function _fmtPct(v) {
+  if (v == null || !isFinite(v)) return '—';
+  return (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%';
+}
+function _parseMoeda(s) {
+  if (s == null) return null;
+  var x = String(s).replace(/\s|R\$/g, '').replace(/\./g, '').replace(',', '.');
+  var n = parseFloat(x);
+  return isNaN(n) ? null : n;
+}
+function _parseInteiro(s) {
+  if (s == null) return null;
+  var x = String(s).replace(/\D/g, '');
+  if (x === '') return null;
+  var n = parseInt(x, 10);
+  return isNaN(n) ? null : n;
+}
+
+async function abrirModalAndamento(idPi) {
+  try {
+    const r = await fetch('/api/cadu_pi/' + idPi + '/andamento');
+    const j = await r.json();
+    if (!j.success) { showToast(j.message || 'Erro ao carregar andamento', 'error'); return; }
+    andamentoState = j;
+    andamentoModoBarra = 'total';
+    andamentoSetModoBarraButtons();
+    andamentoRenderHeader();
+    andamentoRenderTabMetas();
+    andamentoRenderTabResultados();
+    andamentoTrocarTab('metas');
+    document.getElementById('modal_andamento').showModal();
+  } catch (err) {
+    showToast('Erro ao abrir andamento: ' + err.message, 'error');
+  }
+}
+
+function andamentoTrocarTab(qual) {
+  const tabMetas = document.getElementById('tab_metas');
+  const tabRes = document.getElementById('tab_resultados');
+  const btnMetas = document.getElementById('tab_btn_metas');
+  const btnRes = document.getElementById('tab_btn_resultados');
+  if (qual === 'resultados') {
+    tabMetas.classList.add('hidden');
+    tabRes.classList.remove('hidden');
+    btnRes.className = 'flex-1 py-3 text-sm font-semibold text-gray-700 border-b-2 border-emerald-500';
+    btnMetas.className = 'flex-1 py-3 text-sm font-semibold text-gray-400 border-b-2 border-transparent';
+  } else {
+    tabMetas.classList.remove('hidden');
+    tabRes.classList.add('hidden');
+    btnMetas.className = 'flex-1 py-3 text-sm font-semibold text-gray-700 border-b-2 border-emerald-500';
+    btnRes.className = 'flex-1 py-3 text-sm font-semibold text-gray-400 border-b-2 border-transparent';
+  }
+}
+
+function andamentoRenderHeader() {
+  if (!andamentoState) return;
+  document.getElementById('andamento_titulo_pi').textContent = andamentoState.pi.titulo_pi || 'PI';
+  document.getElementById('andamento_codigo_pi').textContent = andamentoState.pi.codigo_pi_cc || ('#' + andamentoState.pi.id_pi);
+}
+
+function andamentoSetModoBarra(modo) {
+  andamentoModoBarra = modo;
+  andamentoSetModoBarraButtons();
+  andamentoRedesenharBarra();
+  andamentoRedesenharRegua();
+}
+function andamentoSetModoBarraButtons() {
+  const tot = document.getElementById('and_toggle_total');
+  const cpm = document.getElementById('and_toggle_cpm');
+  if (andamentoModoBarra === 'cpm') {
+    cpm.className = 'px-4 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-800';
+    tot.className = 'px-4 py-1.5 text-xs font-semibold rounded text-gray-400';
+    document.getElementById('and_titulo_barra').textContent = 'Limites Baseados em Custo Unitário (CPM)';
+  } else {
+    tot.className = 'px-4 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-800';
+    cpm.className = 'px-4 py-1.5 text-xs font-semibold rounded text-gray-400';
+    document.getElementById('and_titulo_barra').textContent = 'Limites Baseados em Custo Total de Mídia';
+  }
+}
+
+function andamentoRenderTabMetas() {
+  if (!andamentoState) return;
+  const p = andamentoState.pi;
+  document.getElementById('and_objetivo_contratado').textContent = _fmtInt(p.objetivo_contratado);
+  document.getElementById('and_custo_midia_orcado').textContent = _fmtBRL(p.midia_orcado);
+  document.getElementById('and_custo_unit_base').textContent = _fmtBRL(p.custo_base_unitario);
+  document.getElementById('and_input_desvio').value = (andamentoState.desvio_aceitavel_pct ?? 5)
+    .toString().replace('.', ',');
+  document.getElementById('and_desvio_hint').textContent =
+    'Default do sistema (.env DESVIO_ACEITAVEL): ' +
+    (andamentoState.desvio_aceitavel_default ?? 5).toString().replace('.', ',') + '%';
+  andamentoRedesenharBarra();
+}
+
+function andamentoOnDesvioChange() {
+  const raw = document.getElementById('and_input_desvio').value;
+  let d = parseFloat(String(raw).replace(',', '.'));
+  if (!isFinite(d) || d < 0) d = 0;
+  if (d > 100) d = 100;
+  const midia = andamentoState.pi.midia_orcado || 0;
+  const mult = andamentoState.ruptura_mult_desvio || 10;
+  andamentoState.desvio_aceitavel_pct = d;
+  andamentoState.zonas.limite_inf = Math.round(midia * (1 - d / 100) * 100) / 100;
+  andamentoState.zonas.limite_sup = Math.round(midia * (1 + d / 100) * 100) / 100;
+  andamentoState.zonas.ruptura = Math.round(midia * (1 + mult * d / 100) * 100) / 100;
+  andamentoRedesenharBarra();
+  andamentoRedesenharRegua();
+  andamentoRecalcDiagnostico();
+}
+
+// Fronteiras visuais fixas (larguras HTML 25/12.5/12.5/40/10 → 25/37.5/50/90).
+const ANDAMENTO_POS_BOUND = { limite_inf: 25, orcado: 37.5, limite_sup: 50, ruptura: 90 };
+
+function _zonasParaModo(z) {
+  // Em CPM, divide os limites por `volume` para expressar custo unitário.
+  if (andamentoModoBarra !== 'cpm') return z;
+  const vol = (andamentoState && andamentoState.pi && andamentoState.pi.volume) || 0;
+  if (!vol) return z;
+  return {
+    limite_inf: z.limite_inf / vol,
+    orcado: z.orcado / vol,
+    limite_sup: z.limite_sup / vol,
+    ruptura: z.ruptura / vol,
+  };
+}
+
+function _fmtDelta(pct) {
+  if (pct == null || !isFinite(pct)) return '—';
+  return (pct >= 0 ? '+' : '') + pct.toFixed(2).replace('.', ',') + '%';
+}
+
+/** Preenche cada label com R$ + delta% relativo ao Orçado.
+ *  Posições visuais são fixas (espaço pra labels respirarem).
+ *  Para Ruptura mostra dois deltas (vs Orçado e vs Limite Sup) — onde o "pulo" é grande. */
+function _aplicarLabelsRegua(labelsEl, z) {
+  if (!labelsEl) return;
+  const orc = z.orcado || 0;
+  const sup = z.limite_sup || 0;
+  labelsEl.querySelectorAll('[data-bound]').forEach(function(el) {
+    const b = el.getAttribute('data-bound');
+    el.style.left = ANDAMENTO_POS_BOUND[b] + '%';
+    const valEl = el.querySelector('[data-role="valor"]');
+    const dEl = el.querySelector('[data-role="delta"]');
+    if (valEl) valEl.textContent = _fmtBRL(z[b]);
+    if (!dEl) return;
+    if (b === 'orcado') {
+      dEl.textContent = 'Orçado';
+    } else if (b === 'ruptura' && orc > 0 && z[b] != null) {
+      const dOrc = (z[b] - orc) / orc * 100;
+      const dSup = sup > 0 ? (z[b] - sup) / sup * 100 : null;
+      dEl.innerHTML = _fmtDelta(dOrc) + ' vs Orçado'
+        + (dSup != null ? '<br><span class="text-gray-400">' + _fmtDelta(dSup) + ' vs Lim. Sup</span>' : '');
+    } else if (orc > 0 && z[b] != null) {
+      dEl.textContent = _fmtDelta((z[b] - orc) / orc * 100);
+    } else {
+      dEl.textContent = '—';
+    }
+  });
+}
+
+function andamentoRedesenharBarra() {
+  if (!andamentoState) return;
+  _aplicarLabelsRegua(document.getElementById('and_barra_labels'), _zonasParaModo(andamentoState.zonas));
+}
+
+function andamentoRedesenharRegua() {
+  if (!andamentoState) return;
+  _aplicarLabelsRegua(document.getElementById('and_regua_labels'), andamentoState.zonas);
+  _posicionarMarker();
+}
+
+function andamentoRenderTabResultados() {
+  if (!andamentoState) return;
+  const p = andamentoState.pi;
+  document.getElementById('and_lbl_contratado').textContent = _fmtInt(p.objetivo_contratado);
+  document.getElementById('and_lbl_orcado').textContent = _fmtBRL(p.midia_orcado);
+  document.getElementById('and_input_obj_atingido').value = p.objetivo_atingido != null ? _fmtInt(p.objetivo_atingido) : '';
+  document.getElementById('and_input_custo_real').value = p.custo_midia_alcancado != null
+    ? Number(p.custo_midia_alcancado).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '';
+  andamentoRedesenharRegua();
+  andamentoRecalcDiagnostico();
+}
+
+function andamentoOnResultadosChange() {
+  // máscaras leves
+  const objEl = document.getElementById('and_input_obj_atingido');
+  const objN = _parseInteiro(objEl.value);
+  objEl.value = objN != null ? objN.toLocaleString('pt-BR') : '';
+  const custoEl = document.getElementById('and_input_custo_real');
+  var raw = (custoEl.value || '').replace(/\D/g, '');
+  if (raw === '') { custoEl.value = ''; }
+  else {
+    var n = parseInt(raw, 10) / 100;
+    custoEl.value = n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  andamentoRecalcDiagnostico();
+}
+
+function _classificarZona(custoReal, z) {
+  if (custoReal == null) return null;
+  if (custoReal <= z.limite_inf) return 1;
+  if (custoReal <= z.orcado) return 2;
+  if (custoReal <= z.limite_sup) return 3;
+  if (custoReal <= z.ruptura) return 4;
+  return 5;
+}
+
+function andamentoRecalcDiagnostico() {
+  if (!andamentoState) return;
+  const p = andamentoState.pi;
+  const z = andamentoState.zonas;
+  const objAt = _parseInteiro(document.getElementById('and_input_obj_atingido').value);
+  const cmr = _parseMoeda(document.getElementById('and_input_custo_real').value);
+
+  // ΔO
+  const cardDOval = document.getElementById('and_card_dO_val');
+  const cardDO = document.getElementById('and_card_dO');
+  if (objAt != null && p.objetivo_contratado > 0) {
+    const dO = (objAt - p.objetivo_contratado) / p.objetivo_contratado * 100;
+    cardDOval.textContent = _fmtPct(dO);
+    _pintarCard(cardDO, cardDOval, dO);
+  } else {
+    cardDOval.textContent = '—';
+    _resetCard(cardDO, cardDOval);
+  }
+
+  // ΔC
+  const cardDCval = document.getElementById('and_card_dC_val');
+  const cardDC = document.getElementById('and_card_dC');
+  if (cmr != null && p.midia_orcado > 0) {
+    const dC = (cmr - p.midia_orcado) / p.midia_orcado * 100;
+    cardDCval.textContent = _fmtPct(dC);
+    _pintarCard(cardDC, cardDCval, dC);
+  } else {
+    cardDCval.textContent = '—';
+    _resetCard(cardDC, cardDCval);
+  }
+
+  // Zona pelo custo de mídia real
+  const zid = _classificarZona(cmr, z);
+  const zonaTitulo = document.getElementById('and_zona_titulo');
+  const zonaSub = document.getElementById('and_zona_sub');
+  const zonaDot = document.getElementById('and_zona_dot');
+  const zonaImpl = document.getElementById('and_zona_impl');
+  if (zid) {
+    const meta = ANDAMENTO_ZONAS[zid];
+    zonaTitulo.textContent = meta.nome;
+    zonaSub.textContent = meta.sub;
+    zonaDot.style.backgroundColor = meta.dot;
+    zonaImpl.textContent = meta.impl;
+  } else {
+    zonaTitulo.textContent = '—';
+    zonaSub.textContent = 'Aguardando dados';
+    zonaDot.style.backgroundColor = '#9ca3af';
+    zonaImpl.textContent = 'Preencha os valores para classificar a operação.';
+  }
+
+  _posicionarMarker();
+}
+
+function _posicionarMarker() {
+  if (!andamentoState) return;
+  const marker = document.getElementById('and_marker');
+  if (!marker) return;
+  const cmr = _parseMoeda(document.getElementById('and_input_custo_real').value);
+  if (cmr == null) { marker.classList.add('hidden'); return; }
+  const z = andamentoState.zonas;
+  // Mapeamento piecewise: dentro de cada zona o marcador se move proporcional
+  // ao valor real, mas as fronteiras visuais são fixas (25/37.5/50/90).
+  const safe = (a, b) => (b - a) || 1;
+  let pos;
+  if (cmr <= 0) {
+    pos = 0;
+  } else if (cmr <= z.limite_inf) {
+    pos = (cmr / (z.limite_inf || 1)) * 25;
+  } else if (cmr <= z.orcado) {
+    pos = 25 + ((cmr - z.limite_inf) / safe(z.limite_inf, z.orcado)) * 12.5;
+  } else if (cmr <= z.limite_sup) {
+    pos = 37.5 + ((cmr - z.orcado) / safe(z.orcado, z.limite_sup)) * 12.5;
+  } else if (cmr <= z.ruptura) {
+    pos = 50 + ((cmr - z.limite_sup) / safe(z.limite_sup, z.ruptura)) * 40;
+  } else {
+    const sobra = cmr - z.ruptura;
+    const escala = (z.ruptura - z.limite_sup) || z.ruptura || 1;
+    pos = 90 + Math.min(10, (sobra / escala) * 10);
+  }
+  pos = Math.max(0, Math.min(100, pos));
+  marker.style.left = 'calc(' + pos + '% - 1.5px)';
+  marker.classList.remove('hidden');
+}
+
+function _pintarCard(cardEl, valEl, deltaPct) {
+  cardEl.classList.remove('bg-emerald-50', 'border-emerald-200', 'bg-red-50', 'border-red-200');
+  valEl.classList.remove('text-emerald-800', 'text-red-700');
+  const ok = deltaPct <= 0; // Δ negativo = poupança (bom)
+  if (ok) {
+    cardEl.classList.add('bg-emerald-50', 'border-emerald-200');
+    valEl.classList.add('text-emerald-800');
+  } else {
+    cardEl.classList.add('bg-red-50', 'border-red-200');
+    valEl.classList.add('text-red-700');
+  }
+  // header text color follows the surface
+  cardEl.querySelectorAll('.text-emerald-700, .text-red-700').forEach(function(el){
+    el.classList.remove('text-emerald-700', 'text-red-700');
+    el.classList.add(ok ? 'text-emerald-700' : 'text-red-700');
+  });
+}
+function _resetCard(cardEl, valEl) {
+  cardEl.classList.remove('bg-red-50', 'border-red-200');
+  cardEl.classList.add('bg-emerald-50', 'border-emerald-200');
+  valEl.classList.remove('text-emerald-800', 'text-red-700');
+}
+
+async function andamentoSalvar() {
+  if (!andamentoState) return;
+  const body = {
+    desvio_aceitavel_pct: parseFloat(String(document.getElementById('and_input_desvio').value).replace(',', '.')) || null,
+    objetivo_atingido: _parseInteiro(document.getElementById('and_input_obj_atingido').value),
+    custo_midia_alcancado: _parseMoeda(document.getElementById('and_input_custo_real').value),
+  };
+  try {
+    const r = await fetch('/api/cadu_pi/' + andamentoState.pi.id_pi + '/andamento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (!j.success) { showToast(j.message || 'Erro ao salvar', 'error'); return; }
+    andamentoState = j;
+    showToast('Andamento salvo com sucesso.', 'success');
+    andamentoRenderTabMetas();
+    andamentoRenderTabResultados();
+  } catch (err) {
+    showToast('Erro ao salvar andamento: ' + err.message, 'error');
+  }
 }
 </script>
 {% endblock %}

@@ -278,6 +278,77 @@ def init_db(app):
                 )
             ''')
 
+            # Calculadora bottom-up no PI: Meta CPM + Cbase + Objetivo Contratado.
+            # Permitem reabrir o PI na mesma calculadora; os percentuais e val_* já existiam.
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'meta_baseada_em_cpm'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN meta_baseada_em_cpm BOOLEAN DEFAULT FALSE;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'custo_base_unitario'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN custo_base_unitario NUMERIC(14, 6);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'objetivo_contratado_pi'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN objetivo_contratado_pi NUMERIC(20, 2);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'plataforma_campanha'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN plataforma_campanha VARCHAR(120);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'desvio_aceitavel_pct'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN desvio_aceitavel_pct NUMERIC(5, 2);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'objetivo_atingido'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN objetivo_atingido NUMERIC(20, 2);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'custo_midia_alcancado'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN custo_midia_alcancado NUMERIC(14, 2);
+                    END IF;
+                END $$;
+            ''')
+
             # Criar índices para cadu_cotacao_audiencias
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_cotacao ON cadu_cotacao_audiencias(cotacao_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacao_audiencias_audiencia ON cadu_cotacao_audiencias(audiencia_id)')
@@ -8878,6 +8949,8 @@ def criar_cadu_pi(data):
                 'perc_pl_incentivos', 'perc_impostos',
                 'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
                 'val_pl_incentivos', 'val_impostos',
+                'meta_baseada_em_cpm', 'custo_base_unitario', 'objetivo_contratado_pi',
+                'plataforma_campanha',
             ]
             valores = [
                 data.get('id_cliente'),
@@ -8921,6 +8994,10 @@ def criar_cadu_pi(data):
                 data.get('val_com_vendas'),
                 data.get('val_pl_incentivos'),
                 data.get('val_impostos'),
+                data.get('meta_baseada_em_cpm', False),
+                data.get('custo_base_unitario'),
+                data.get('objetivo_contratado_pi'),
+                data.get('plataforma_campanha'),
             ]
 
             if data.get('cotacao_id'):
@@ -9671,6 +9748,10 @@ def atualizar_cadu_pi(id_pi, data):
                     val_com_vendas = %s,
                     val_pl_incentivos = %s,
                     val_impostos = %s,
+                    meta_baseada_em_cpm = %s,
+                    custo_base_unitario = %s,
+                    objetivo_contratado_pi = %s,
+                    plataforma_campanha = %s,
                     updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
                 RETURNING id_pi
@@ -9716,6 +9797,10 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('val_com_vendas'),
                 data.get('val_pl_incentivos'),
                 data.get('val_impostos'),
+                data.get('meta_baseada_em_cpm', False),
+                data.get('custo_base_unitario'),
+                data.get('objetivo_contratado_pi'),
+                data.get('plataforma_campanha'),
                 id_pi,
             ))
             conn.commit()
@@ -9731,6 +9816,37 @@ def excluir_cadu_pi(id_pi):
     try:
         with conn.cursor() as cursor:
             cursor.execute('DELETE FROM cadu_pi WHERE id_pi = %s', (id_pi,))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_cadu_pi_andamento(id_pi, data):
+    """UPDATE dedicado para o modal de Andamento.
+
+    Toca somente desvio_aceitavel_pct, objetivo_atingido, custo_midia_alcancado para
+    não interferir com o fluxo geral do form de PI (atualizar_cadu_pi).
+    Valores None são gravados como NULL.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cadu_pi SET
+                    desvio_aceitavel_pct = %s,
+                    objetivo_atingido = %s,
+                    custo_midia_alcancado = %s,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id_pi = %s
+                RETURNING id_pi
+            ''', (
+                data.get('desvio_aceitavel_pct'),
+                data.get('objetivo_atingido'),
+                data.get('custo_midia_alcancado'),
+                id_pi,
+            ))
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:

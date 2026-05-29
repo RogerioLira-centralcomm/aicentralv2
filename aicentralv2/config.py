@@ -91,6 +91,21 @@ class Config:
 	except ValueError:
 		PI_IMPOSTO_PERCENTUAL = 15.0
 
+	# Desvio aceitável (%) default das zonas de andamento do PI; .env DESVIO_ACEITAVEL.
+	_PI_DESVIO_RAW = os.getenv('DESVIO_ACEITAVEL', '5').strip()
+	try:
+		PI_DESVIO_ACEITAVEL_PERCENTUAL = float(_PI_DESVIO_RAW.replace(',', '.'))
+	except ValueError:
+		PI_DESVIO_ACEITAVEL_PERCENTUAL = 5.0
+
+	# Multiplicador do desvio aceitável que define a fronteira da Ruptura (Zona 5).
+	# Ruptura = orçado × (1 + N × desvio). N=10 → desvio 5% gera ruptura a +50%.
+	_PI_RUPT_MULT_RAW = os.getenv('PI_RUPTURA_MULT_DESVIO', '10').strip()
+	try:
+		PI_RUPTURA_MULT_DESVIO = float(_PI_RUPT_MULT_RAW.replace(',', '.'))
+	except ValueError:
+		PI_RUPTURA_MULT_DESVIO = 10.0
+
 	@property
 	def DATABASE_URI(self):
 		"""Retorna a URI completa do banco de dados"""

@@ -4,11 +4,11 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sales_war_room.css') }}">
 
-<div class="swr-header flex items-center gap-2 mb-2 flex-nowrap overflow-visible">
-    <h1 class="text-base font-bold whitespace-nowrap mr-1">Sales War Room</h1>
+<div class="swr-header flex items-center gap-3 mb-2 flex-nowrap overflow-visible">
+    <h1 class="text-sm font-bold whitespace-nowrap mr-1">Sales War Room</h1>
 
     <select id="filtro-executivo"
-            class="swr-exec-select text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none">
+            class="swr-exec-select text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none h-6">
         <option value="">Selecione o executivo</option>
         {% for ex in executivos %}
         <option value="{{ ex.id_contato_cliente }}">{{ ex.nome_completo }}</option>
@@ -17,23 +17,32 @@
 
     <div class="join">
         <button type="button" class="btn btn-xs join-item filtro-tipo active btn-primary" data-tipo="">Todos</button>
-        <button type="button" class="btn btn-xs join-item filtro-tipo" data-tipo="governo">Gov.</button>
-        <button type="button" class="btn btn-xs join-item filtro-tipo" data-tipo="privado">Priv.</button>
+        <button type="button" class="btn btn-xs join-item filtro-tipo" data-tipo="governo">Governo</button>
+        <button type="button" class="btn btn-xs join-item filtro-tipo" data-tipo="privado">Privado</button>
     </div>
     <div class="join">
-        <button type="button" class="btn btn-xs join-item filtro-perfil active" data-perfil="">Todos</button>
-        <button type="button" class="btn btn-xs join-item filtro-perfil" data-perfil="direto">Cliente</button>
+        <button type="button" class="btn btn-xs join-item filtro-perfil active" data-perfil="">Perfil: todos</button>
+        <button type="button" class="btn btn-xs join-item filtro-perfil" data-perfil="direto">Cliente final</button>
         <button type="button" class="btn btn-xs join-item filtro-perfil" data-perfil="agencia">Agência</button>
     </div>
 
-    <div class="flex gap-1 items-center ml-auto flex-nowrap">
-        <button type="button" id="swr-btn-nova-atividade" class="btn btn-xs btn-primary gap-0.5" title="Nova atividade"><span class="text-sm leading-none">+</span> Atividade</button>
-        <button type="button" id="swr-btn-novo-objetivo" class="btn btn-xs btn-primary gap-0.5" title="Novo objetivo"><span class="text-sm leading-none">+</span> Objetivo</button>
-        <button type="button" id="swr-btn-nova-mensagem" class="btn btn-xs btn-primary gap-0.5" title="Nova mensagem"><span class="text-sm leading-none">+</span> Mensagem</button>
+    <div class="flex gap-2 items-center ml-auto flex-nowrap">
+        <button type="button" id="swr-btn-nova-atividade" class="btn btn-xs btn-action gap-1" title="Nova atividade">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Nova atividade
+        </button>
+        <button type="button" id="swr-btn-novo-objetivo" class="btn btn-xs btn-action gap-1" title="Novo objetivo">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Novo objetivo
+        </button>
+        <button type="button" id="swr-btn-nova-mensagem" class="btn btn-xs btn-action gap-1" title="Nova mensagem">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Nova mensagem
+        </button>
 
         <details class="dropdown dropdown-end" id="swr-export">
             <summary class="btn btn-xs btn-outline gap-1" title="Exportar">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 Exportar
             </summary>
             <ul class="dropdown-content z-[20] menu p-2 shadow bg-base-100 rounded-box w-60 text-xs border border-base-300">
@@ -47,8 +56,8 @@
 
         <details class="dropdown dropdown-end" id="swr-filtros-avancados">
             <summary class="btn btn-xs btn-outline gap-1" title="Filtros avançados">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-                Filtros
+                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
+                Filtros avançados
             </summary>
             <div class="dropdown-content z-[20] p-3 shadow bg-base-100 rounded-box w-64 text-xs border border-base-300 space-y-3">
                 <div>

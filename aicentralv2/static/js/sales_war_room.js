@@ -49,6 +49,12 @@
         return d.toLocaleDateString('pt-BR');
     }
 
+    function fmtDateShort(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }
+
     function badgeABC(cat) {
         const colors = { A: 'badge-success', B: 'badge-warning', C: 'badge-error' };
         return `<span class="badge swr-badge-abc ${colors[cat] || 'badge-ghost'}">${cat || '-'}</span>`;
@@ -169,15 +175,12 @@
         container.innerHTML = pageItems.map(c => `
             <div class="swr-card ${c.id_cliente == clienteSelecionadoId ? 'swr-card-active' : ''}"
                  data-id="${c.id_cliente}">
-                <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0">
-                        <div class="font-medium text-xs truncate">${c.nome_fantasia || c.razao_social}</div>
-                        <div class="text-[10px] opacity-60">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
+                        <div class="swr-cliente-nome truncate">${(c.nome_fantasia || c.razao_social).toUpperCase()}</div>
+                        <div class="swr-cliente-subtitulo">${clienteEhAgencia(c) ? 'Agência' : 'Cliente final'} · ${c.qtd_contatos} contato(s)</div>
                     </div>
-                    <div class="flex items-center gap-1">
-                        ${c.atividades_pendentes === 0 ? '<svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
-                        ${badgeABC(c.categoria_abc)}
-                    </div>
+                    ${badgeABC(c.categoria_abc)}
                 </div>
             </div>
         `).join('');
@@ -189,7 +192,7 @@
         const footer = $('#swr-clientes-paginacao');
         const totalEl = $('#swr-contador-total');
         if (totalEl) {
-            totalEl.textContent = `· ${total}`;
+            totalEl.textContent = total;
             totalEl.classList.remove('hidden');
         }
         if (footer) {
@@ -237,22 +240,21 @@
      * pct null => sem base de comparação (mês anterior zerado): não renderiza badge.
      * lowerIsBetter inverte as cores (ex.: Erros).
      */
-    function deltaBadge(pct, lowerIsBetter) {
-        if (pct === null || pct === undefined) return '';
+    function deltaText(pct, lowerIsBetter) {
+        if (pct === null || pct === undefined) return { html: '', cls: '' };
         const positivo = pct >= 0;
         const bom = lowerIsBetter ? !positivo : positivo;
-        const cls = pct === 0 ? 'swr-delta-neutro' : (bom ? 'swr-delta-up' : 'swr-delta-down');
-        const arrow = pct === 0 ? '→' : (positivo ? '▲' : '▼');
-        return `<span class="swr-delta ${cls}" title="vs mês anterior">${arrow} ${Math.abs(pct)}%</span>`;
+        const cls = pct === 0 ? '' : (bom ? 'swr-metric-delta-up' : 'swr-metric-delta-down');
+        const arrow = pct === 0 ? '' : (positivo ? '↑' : '↓');
+        return { html: `${arrow} ${Math.abs(pct)}% vs mês ant.`, cls };
     }
 
-    function metricCard(valor, label, badgeHtml) {
+    function metricCard(valor, label, deltaPct, lowerIsBetter = false, isCurrency = false) {
+        const delta = deltaText(deltaPct, lowerIsBetter);
         return `
             <div class="swr-metric-card">
-                <div class="swr-metric-top">
-                    <span class="swr-metric-valor">${valor}</span>
-                    ${badgeHtml || ''}
-                </div>
+                <span class="swr-metric-valor${isCurrency ? ' swr-metric-currency' : ''}">${valor}</span>
+                ${delta.html ? `<span class="swr-metric-delta ${delta.cls}">${delta.html}</span>` : ''}
                 <div class="swr-metric-label">${label}</div>
             </div>`;
     }
@@ -279,36 +281,109 @@
         try {
             const data = await api(`/api/cliente/${clienteId}/status`);
             const s = data.status;
+            const clienteData = swrCliCache.find(c => c.id_cliente === clienteId) || {};
+            const nomeCliente = clienteData.nome_fantasia || clienteData.razao_social || 'Cliente';
+            const tipoCliente = clienteData.eh_agencia ? 'Agência' : 'Cliente final';
+            const categoria = s.tipo_mercado || 'Privado';
+            const prioridade = s.prioridade || 'Alta';
+            const inicial = nomeCliente.charAt(0).toUpperCase();
+            const agora = new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
             container.innerHTML = `
                 <div class="swr-status-section">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs opacity-60">Responsável</span>
-                        <span class="text-sm font-medium">${s.executivo_nome || '-'}</span>
+                    <!-- Header do cliente -->
+                    <div class="swr-status-cliente-header">
+                        <div class="swr-status-avatar-verde">${inicial}</div>
+                        <div class="swr-status-cliente-info">
+                            <div class="swr-status-cliente-nome">${escapeHtml(nomeCliente).toUpperCase()}</div>
+                            <div class="swr-status-cliente-tipo">${tipoCliente}</div>
+                        </div>
+                        <span class="swr-badge-prioridade-alta">Prioridade: ${prioridade}</span>
                     </div>
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs opacity-60">Categoria</span>
-                        ${badgeABC(s.categoria_abc)}
+
+                    <!-- Info contatos -->
+                    <div class="swr-status-info-row">
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <span class="swr-status-info-text">${s.total_contatos || 0} contato(s)</span>
                     </div>
-                    <div class="swr-metric-grid mb-3">
-                        ${metricCard(s.total_contatos, 'Contatos', '')}
-                        ${metricCard(`${s.cotacoes_aprovadas} <span class="text-xs font-normal opacity-60">(${s.pct_aprovadas}%)</span>`, 'Aprovações', deltaBadge(s.cotacoes_aprovadas_delta_pct, false))}
-                        ${metricCard(`<span class="text-sm">${fmtBRL(s.valor_bruto)}</span>`, 'Faturamento', deltaBadge(s.valor_bruto_delta_pct, false))}
-                        ${metricCard(s.erros, 'Erros', deltaBadge(s.erros_delta_pct, true))}
-                        ${metricCard(`<span class="text-sm">${fmtBRL(s.valor_liquido)}</span>`, 'Líquido', deltaBadge(s.valor_liquido_delta_pct, false))}
-                        ${metricCard(`<span class="text-sm">${fmtBRL(s.valor_pis)}</span>`, 'Valor PIs', deltaBadge(s.valor_pis_delta_pct, false))}
+
+                    <!-- Responsável e Categoria -->
+                    <div class="swr-status-details">
+                        <div class="swr-status-detail-row">
+                            <span class="swr-status-detail-label">Responsável</span>
+                            <span class="swr-status-detail-value">
+                                ${s.executivo_nome || '-'}
+                                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </span>
+                        </div>
+                        <div class="swr-status-detail-row">
+                            <span class="swr-status-detail-label">Categoria</span>
+                            <span class="swr-status-detail-value">
+                                ${categoria}
+                                <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                            </span>
+                        </div>
                     </div>
-                    <div class="swr-proximo-passo mb-2">
-                        <div class="swr-proximo-passo-label">Próximo passo sugerido</div>
-                        <div class="swr-proximo-passo-texto">${escapeHtml(proximoPassoStatus(s))}</div>
+
+                    <!-- Grid de métricas 3x2 -->
+                    <div class="swr-metrics-grid">
+                        ${metricCardNew('Contatos', s.total_contatos || 0, s.total_contatos_delta_pct, false)}
+                        ${metricCardNew('Aprovações', s.cotacoes_aprovadas || 0, s.cotacoes_aprovadas_delta_pct, false)}
+                        ${metricCardNew('Faturamento', fmtBRL(s.valor_bruto || 0), s.valor_bruto_delta_pct, false)}
+                        ${metricCardNew('Erros', s.erros || 0, s.erros_delta_pct, true)}
+                        ${metricCardNew('Líquido', fmtBRL(s.valor_liquido || 0), s.valor_liquido_delta_pct, false)}
+                        ${metricCardNew('Valor PIs', fmtBRL(s.valor_pis || 0), s.valor_pis_delta_pct, false)}
                     </div>
-                    <div class="flex gap-1 mb-2">
-                        <button type="button" class="btn btn-xs btn-outline flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none border-base-300" id="btn-ver-mais-status">Ver mais dados</button>
-                        <button type="button" class="btn btn-xs btn-ghost btn-outline flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none" id="btn-editar-cliente-swr" title="Editar cadastro do cliente">Editar cliente</button>
+
+                    <!-- Última atualização -->
+                    <div class="swr-ultima-atualizacao-row">
+                        <span>Última atualização</span>
+                        <span>Hoje, ${agora}</span>
                     </div>
-                    <div class="border-t border-base-300 pt-2 mt-1">
-                        <label class="text-xs font-medium opacity-70 block mb-1">Nota sobre o cliente</label>
-                        <textarea id="swr-nota-cliente" class="textarea textarea-bordered textarea-xs w-full min-h-[4.5rem] text-xs" maxlength="8000" placeholder="Anotações visíveis para a equipe comercial..."></textarea>
-                        <button type="button" class="btn btn-xs btn-primary w-full mt-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none" id="btn-salvar-nota-cliente">Salvar nota</button>
+
+                    <!-- Próximo passo sugerido -->
+                    <div class="swr-proximo-passo-section">
+                        <div class="swr-proximo-passo-titulo">Próximo passo sugerido</div>
+                        <div class="swr-proximo-passo-card">
+                            <div class="swr-proximo-passo-icon-circle">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            </div>
+                            <div class="swr-proximo-passo-content-text">
+                                <div class="swr-proximo-passo-main">${escapeHtml(proximoPassoStatus(s))}</div>
+                                <div class="swr-proximo-passo-sub">Prazo sugerido: Hoje</div>
+                            </div>
+                            <svg class="w-4 h-4 text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- Nota sobre o cliente -->
+                    <div class="swr-nota-cliente-section">
+                        <div class="swr-nota-cliente-header">
+                            <span class="swr-nota-cliente-titulo">Nota sobre o cliente</span>
+                            <button type="button" class="swr-nota-menu-btn">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="swr-nota-cliente-box">
+                            <textarea id="swr-nota-cliente" class="swr-nota-textarea" maxlength="8000" placeholder="Anotações visíveis para a equipe comercial..."></textarea>
+                        </div>
+                        <div class="swr-nota-autor-info">
+                            <div class="swr-nota-autor-avatar">JF</div>
+                            <div class="swr-nota-autor-details">
+                                <div class="swr-nota-autor-nome">Nota realizada por ${s.executivo_nome || 'Usuário'}</div>
+                                <div class="swr-nota-autor-data">Hoje, ${agora}</div>
+                            </div>
+                        </div>
+                        <button type="button" class="swr-ver-historico-link" id="swr-ver-historico-notas">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            Ver histórico de notas
+                        </button>
+                    </div>
+
+                    <!-- Botões de ação -->
+                    <div class="swr-status-action-buttons">
+                        <button type="button" class="swr-btn-outline" id="btn-ver-mais-status">Ver mais dados</button>
+                        <button type="button" class="swr-btn-primary" id="btn-editar-cliente-swr">Editar cliente</button>
                     </div>
                 </div>
             `;
@@ -319,6 +394,24 @@
             showEmpty(container, 'Erro ao carregar status.');
             console.error(e);
         }
+    }
+
+    function metricCardNew(label, valor, deltaPct, lowerIsBetter = false) {
+        let deltaHtml = '';
+        if (deltaPct !== null && deltaPct !== undefined) {
+            const isPositive = deltaPct >= 0;
+            const isGood = lowerIsBetter ? !isPositive : isPositive;
+            const colorClass = deltaPct === 0 ? 'text-gray-400' : (isGood ? 'text-green-500' : 'text-red-500');
+            const sign = isPositive ? '+' : '';
+            deltaHtml = `<div class="swr-metric-delta-new ${colorClass}">${sign}${deltaPct}%</div>`;
+        }
+        return `
+            <div class="swr-metric-card-new">
+                <div class="swr-metric-label-new">${label}</div>
+                <div class="swr-metric-value-new">${valor}</div>
+                ${deltaHtml}
+                <div class="swr-metric-sublabel-new">vs mês ant.</div>
+            </div>`;
     }
 
     async function carregarNotaCliente(clienteId) {
@@ -367,37 +460,58 @@
         try {
             const data = await api(`/api/cliente/${clienteId}/contatos`);
             popularComunicacaoContatos(data.contatos);
-            if (!data.contatos.length) {
+            const totalContatos = data.contatos.length;
+            if (!totalContatos) {
                 showEmpty(container, 'Nenhum contato cadastrado.');
                 return;
             }
-            container.innerHTML = data.contatos.map(c => {
+
+            const contatosVisiveis = data.contatos.slice(0, 5);
+            container.innerHTML = contatosVisiveis.map((c, idx) => {
                 const tel = (c.telefone || '').replace(/\D/g, '');
-                const semAtividade = !c.ultima_atividade;
+                const telFormatado = c.telefone || '';
+                const ehPrincipal = idx === 0 || c.principal;
+                const ultimoContato = c.ultima_atividade_data ? formatDateContato(c.ultima_atividade_data) : null;
                 return `
-                    <div class="swr-card swr-card-contato ${c.id_contato_cliente == contatoSelecionadoId ? 'swr-card-active' : ''}"
+                    <div class="swr-contato-card ${c.id_contato_cliente == contatoSelecionadoId ? 'swr-contato-card-active' : ''}"
                          data-id="${c.id_contato_cliente}">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex-1 min-w-0">
-                                <button type="button" class="swr-contato-nome-modal font-medium text-sm truncate text-left w-full block cursor-pointer bg-transparent border-0 p-0 shadow-none rounded-sm text-base-content hover:text-primary hover:underline decoration-primary/50 underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1" data-contato-id="${c.id_contato_cliente}" title="Ver detalhes">${c.nome_completo}</button>
-                                <div class="text-xs opacity-60">${c.cargo || 'Sem cargo'}</div>
-                                ${c.email ? `<div class="text-xs opacity-70 truncate mt-0.5">${c.email}</div>` : ''}
-                                ${c.telefone ? `<div class="text-xs opacity-70 mt-0.5">${c.telefone}</div>` : ''}
+                        <div class="swr-contato-card-header">
+                            <div class="swr-contato-card-info">
+                                <div class="swr-contato-nome-row">
+                                    <button type="button" class="swr-contato-nome-btn swr-contato-nome-modal" data-contato-id="${c.id_contato_cliente}">${escapeHtml(c.nome_completo)}</button>
+                                    ${ehPrincipal ? '<span class="swr-badge-principal-new">Principal</span>' : ''}
+                                </div>
+                                <div class="swr-contato-subtitulo">${escapeHtml(c.cargo || '')}</div>
+                                ${c.email ? `<div class="swr-contato-email">${escapeHtml(c.email)}</div>` : ''}
+                                ${telFormatado ? `<div class="swr-contato-telefone">${escapeHtml(telFormatado)}</div>` : ''}
                             </div>
-                            <div class="flex flex-col items-center gap-1 flex-shrink-0">
-                                ${semAtividade ? '<svg class="w-3.5 h-3.5 text-warning shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Sem atividade recente"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>' : ''}
+                            <div class="swr-contato-card-right">
+                                <div class="swr-contato-acoes-new">
+                                    ${tel ? `<a href="https://wa.me/55${tel}" target="_blank" class="swr-contato-icon swr-contato-icon-whatsapp" title="WhatsApp"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg></a>` : ''}
+                                    ${tel ? `<a href="tel:+55${tel}" class="swr-contato-icon" title="Ligar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></a>` : ''}
+                                    ${c.email ? `<a href="mailto:${c.email}" class="swr-contato-icon" title="E-mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></a>` : ''}
+                                </div>
+                                ${ultimoContato ? `<div class="swr-contato-ultimo">Último contato<br><span class="swr-contato-ultimo-data">${ultimoContato}</span></div>` : ''}
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            $$('.swr-card-contato', container).forEach(el => {
+            if (totalContatos > 5) {
+                container.innerHTML += `<div class="swr-link-ver-todos" id="swr-ver-todos-contatos">Ver todos os contatos (${totalContatos}) &gt;</div>`;
+            }
+
+            $('#swr-ver-todos-contatos')?.addEventListener('click', () => {
+                window.location.href = `/clientes?open=${clienteId}&tab=contatos`;
+            });
+
+            $$('.swr-contato-card', container).forEach(el => {
                 el.addEventListener('click', () => {
                     const id = parseInt(el.dataset.id);
                     contatoSelecionadoId = id;
-                    $$('.swr-card-contato', container).forEach(e => e.classList.remove('swr-card-active'));
-                    el.classList.add('swr-card-active');
+                    $$('.swr-contato-card', container).forEach(e => e.classList.remove('swr-contato-card-active'));
+                    el.classList.add('swr-contato-card-active');
                     setTabAtividades('contato');
                     carregarAtividades(clienteSelecionadoId, id);
                 });
@@ -415,12 +529,27 @@
         }
     }
 
+    function formatDateContato(dateStr) {
+        if (!dateStr) return null;
+        const d = new Date(dateStr);
+        const hoje = new Date();
+        const ontem = new Date(hoje);
+        ontem.setDate(ontem.getDate() - 1);
+        
+        if (d.toDateString() === hoje.toDateString()) {
+            return `Hoje, ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+        } else if (d.toDateString() === ontem.toDateString()) {
+            return `Ontem, ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
     // ==================== Column 4: Atividades ====================
 
     function setTabAtividades(tab) {
         atividadesTab = tab;
-        $$('#tabs-atividades .tab').forEach(t => {
-            t.classList.toggle('tab-active', t.dataset.tab === tab);
+        $$('#tabs-atividades .swr-tab-ativ').forEach(t => {
+            t.classList.toggle('swr-tab-ativ-active', t.dataset.tab === tab);
         });
     }
 
@@ -492,32 +621,53 @@
     const ICON_EDIT = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>';
     const ICON_TRASH = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
 
+    function badgePrioridadeAtiv(prioridade) {
+        const p = (prioridade || 'media').toLowerCase();
+        const config = {
+            alta: { label: 'A alta', color: '#ef4444', bg: '#fef2f2' },
+            media: { label: 'Média', color: '#eab308', bg: '#fefce8' },
+            baixa: { label: 'Baixa', color: '#22c55e', bg: '#f0fdf4' }
+        };
+        const c = config[p] || config.media;
+        return `<span class="swr-badge-prioridade-ativ" style="background:${c.bg};color:${c.color}"><span class="swr-badge-dot" style="background:${c.color}"></span>${c.label}</span>`;
+    }
+
     function renderAtividadeCard(a, clienteId, contatoId) {
         const vencida = atividadeVencida(a);
         const hoje = atividadeHoje(a);
         const tipo = a.tipo || 'atividade';
-        const extraClass = vencida ? 'swr-atividade-vencida' : (hoje ? 'swr-atividade-hoje' : '');
         const podeFeito = a.status !== 'concluida';
+        const prioridade = a.prioridade || 'media';
+        const tipoLabel = TIPO_LABELS[tipo] || tipo;
+        const dataFormatada = formatDateAtiv(a.data_atividade);
         return `
-            <div class="swr-atividade-card swr-fade-in mb-2 ${extraClass}" data-aid="${a.id}">
-                <div class="flex items-start gap-2 min-w-0">
-                    ${podeFeito ? `<input type="checkbox" class="checkbox checkbox-xs mt-1 swr-act-feito shrink-0" title="Marcar concluída" data-id="${a.id}" />` : '<span class="w-3.5 shrink-0"></span>'}
-                    <span class="swr-tipo-badge swr-tipo-${tipo} shrink-0 mt-0.5" title="${TIPO_LABELS[tipo] || tipo}">${TIPO_ICONS[tipo] || TIPO_ICONS.atividade}</span>
-                    <div class="min-w-0 flex-1 space-y-1">
-                        <p class="swr-atividade-texto-principal font-medium break-words [overflow-wrap:anywhere]">${escapeHtml(a.titulo || a.descricao || '—')}</p>
-                        ${a.titulo && a.descricao ? `<p class="swr-atividade-texto-sec opacity-75 break-words [overflow-wrap:anywhere]">${escapeHtml(a.descricao)}</p>` : ''}
-                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] opacity-55">
-                            <span>${fmtDate(a.data_atividade)}</span>
-                            ${a.data_prazo ? `<span class="${vencida ? 'text-error font-semibold' : (hoje ? 'text-warning font-semibold' : '')}">Prazo ${fmtDate(a.data_prazo)}</span>` : ''}
-                        </div>
-                        ${a.contato_nome ? `<div class="text-[11px] opacity-45 truncate max-w-full" title="${escapeHtml(a.contato_nome)}">${escapeHtml(a.contato_nome)}</div>` : ''}
-                        <div class="flex gap-0.5 pt-0.5">
-                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 swr-act-edit" data-id="${a.id}" title="Editar">${ICON_EDIT}</button>
-                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 text-error swr-act-del" data-id="${a.id}" title="Excluir">${ICON_TRASH}</button>
-                        </div>
-                    </div>
+            <div class="swr-ativ-card ${vencida ? 'swr-ativ-vencida' : ''}" data-aid="${a.id}">
+                <div class="swr-ativ-card-left">
+                    ${podeFeito ? `<input type="checkbox" class="swr-ativ-checkbox swr-act-feito" data-id="${a.id}" />` : '<span class="swr-ativ-checkbox-space"></span>'}
+                    <span class="swr-ativ-tipo-dot swr-tipo-dot-${tipo}"></span>
+                </div>
+                <div class="swr-ativ-card-main">
+                    <div class="swr-ativ-titulo">${escapeHtml(a.titulo || a.descricao || '—')}</div>
+                    <div class="swr-ativ-subtipo">${tipoLabel}</div>
+                </div>
+                <div class="swr-ativ-card-right">
+                    <div class="swr-ativ-contato">${a.contato_nome ? escapeHtml(a.contato_nome) : ''}</div>
+                    <div class="swr-ativ-data">${dataFormatada}</div>
+                </div>
+                <div class="swr-ativ-card-badge">
+                    ${badgePrioridadeAtiv(prioridade)}
                 </div>
             </div>`;
+    }
+
+    function formatDateAtiv(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        const hoje = new Date();
+        if (d.toDateString() === hoje.toDateString()) {
+            return `Hoje, ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
     /** Filtra o cache de atividades conforme a aba ativa (client-side). */
@@ -570,64 +720,101 @@
         let html = '';
 
         if (atividadesTab === 'contato' && !contatoSelecionadoId) {
-            html += `
-                <div class="swr-sugestao-card swr-fade-in mb-2">
-                    <div class="text-xs text-center py-2 opacity-70">Selecione um contato na coluna ao lado.</div>
-                </div>`;
+            html += `<div class="swr-ativ-vazio">Selecione um contato na coluna ao lado.</div>`;
         } else if (atividadesTab === 'concluidas') {
             html += concluidas.length
-                ? `<div class="swr-atividades-list swr-atividades-list--done mb-2">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`
-                : `<div class="swr-sugestao-card swr-fade-in mb-2"><div class="text-xs text-center py-2 opacity-70">Nenhuma atividade concluída.</div></div>`;
+                ? `<div class="swr-ativ-lista">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`
+                : `<div class="swr-ativ-vazio">Nenhuma atividade concluída.</div>`;
         } else {
             if (ativas.length) {
-                html += `<div class="swr-atividades-list mb-2">${ativas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+                const visiveis = ativas.slice(0, 8);
+                html += `<div class="swr-ativ-lista">${visiveis.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+                if (ativas.length > 8) {
+                    html += `<div class="swr-link-ver-mais" id="swr-ver-mais-atividades">+ Ver mais atividades</div>`;
+                }
             } else {
                 const vazio = atividadesTab === 'hoje' ? 'Nenhuma atividade para hoje.' : 'Nenhuma atividade pendente.';
-                html += `<div class="swr-sugestao-card swr-fade-in mb-2"><div class="text-xs text-center py-2 opacity-70">${vazio}</div></div>`;
+                html += `<div class="swr-ativ-vazio">${vazio}</div>`;
             }
-            if (concluidas.length) {
-                html += `<div class="divider text-xs my-2 opacity-70">Concluídas</div>`;
-                html += `<div class="swr-atividades-list swr-atividades-list--done mb-2">${concluidas.map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
+            if (concluidas.length && atividadesTab !== 'pendentes') {
+                html += `<div class="swr-ativ-divider">Concluídas</div>`;
+                html += `<div class="swr-ativ-lista swr-ativ-lista-done">${concluidas.slice(0, 3).map(a => renderAtividadeCard(a, clienteId, contatoId)).join('')}</div>`;
             }
         }
 
         {
             const hoje = new Date().toISOString().slice(0, 10);
             html += `
-                <div class="divider text-xs my-2">Nova atividade</div>
-                <div class="swr-form-nova-atividade">
-                    <textarea id="input-atividade" class="swr-textarea" rows="3" placeholder="Descrição da atividade..."></textarea>
-                    <select id="input-atividade-tipo" class="swr-select">
-                        <option value="atividade">Atividade</option>
-                        <option value="ligacao">Ligação</option>
-                        <option value="almoco">Almoço</option>
-                        <option value="reuniao">Reunião</option>
-                        <option value="projeto">Projeto</option>
-                        <option value="planejamento">Planejamento</option>
-                        <option value="cadu">Cadu</option>
-                    </select>
-                    <div class="swr-form-row">
-                        <label class="swr-date-field">
-                            <span class="swr-date-label">Data</span>
-                            <input type="date" id="input-atividade-data" class="swr-date" value="${hoje}" />
-                        </label>
-                        <label class="swr-date-field">
-                            <span class="swr-date-label">Prazo</span>
-                            <input type="date" id="input-atividade-prazo" class="swr-date" />
-                        </label>
+                <div class="swr-ativ-form-titulo">Nova atividade</div>
+                <div class="swr-ativ-form">
+                    <div class="swr-ativ-form-row">
+                        <label class="swr-ativ-label">Título da atividade*</label>
+                        <input type="text" id="input-atividade-titulo" class="swr-ativ-input" placeholder="Digite o título..." />
                     </div>
-                    <div class="swr-form-actions">
-                        <button type="button" class="btn btn-xs btn-primary flex-1 h-7 min-h-7 py-0 px-2 text-[11px] leading-none" id="btn-add-atividade">Criar</button>
+                    <div class="swr-ativ-form-row">
+                        <label class="swr-ativ-label">Descrição</label>
+                        <textarea id="input-atividade" class="swr-ativ-textarea" rows="2" placeholder="Descrição (opcional)..."></textarea>
                     </div>
-                    <details class="mt-1.5 group">
-                        <summary class="text-[10px] cursor-pointer opacity-60 list-none flex items-center gap-1">
-                            <span class="group-open:rotate-90 transition-transform">▸</span> IA (opcional)
-                        </summary>
-                        <div class="flex flex-col gap-1 pt-1">
-                            <button type="button" class="btn btn-xs btn-outline btn-secondary w-full" id="btn-sugerir-atividade">Sugerir acompanhamento</button>
-                            <button type="button" class="btn btn-xs btn-ghost btn-outline w-full" id="btn-add-atividade-ia">Melhorar texto e criar</button>
+                    <div class="swr-ativ-form-grid3">
+                        <div>
+                            <label class="swr-ativ-label">Tipo</label>
+                            <select id="input-atividade-tipo" class="swr-ativ-select">
+                                <option value="atividade">Atividade</option>
+                                <option value="ligacao">Ligação</option>
+                                <option value="almoco">Almoço</option>
+                                <option value="reuniao">Reunião</option>
+                                <option value="projeto">Projeto</option>
+                            </select>
                         </div>
-                    </details>
+                        <div>
+                            <label class="swr-ativ-label">Data</label>
+                            <input type="date" id="input-atividade-data" class="swr-ativ-input" value="${hoje}" />
+                        </div>
+                        <div>
+                            <label class="swr-ativ-label">Prazo</label>
+                            <input type="date" id="input-atividade-prazo" class="swr-ativ-input" />
+                        </div>
+                    </div>
+                    <div class="swr-ativ-form-grid3">
+                        <div>
+                            <label class="swr-ativ-label">Responsável</label>
+                            <select id="input-atividade-responsavel" class="swr-ativ-select">
+                                <option value="">Selecionar...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="swr-ativ-label">Objetivo vinculado</label>
+                            <select id="input-atividade-objetivo" class="swr-ativ-select">
+                                <option value="">Nenhum</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="swr-ativ-label">Prioridade</label>
+                            <select id="input-atividade-prioridade" class="swr-ativ-select">
+                                <option value="media">● Média</option>
+                                <option value="alta">● Alta</option>
+                                <option value="baixa">● Baixa</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="swr-ativ-btn-criar" id="btn-add-atividade">Criar atividade</button>
+                    <div class="swr-ativ-ia-section">
+                        <div class="swr-ativ-ia-titulo">Ações com IA</div>
+                        <div class="swr-ativ-ia-btns">
+                            <button type="button" class="swr-ativ-ia-btn" id="btn-sugerir-atividade">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                Sugerir
+                            </button>
+                            <button type="button" class="swr-ativ-ia-btn" id="btn-add-atividade-ia">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                Melhorar
+                            </button>
+                            <button type="button" class="swr-ativ-ia-btn" id="btn-gerar-followup">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                Follow-up
+                            </button>
+                        </div>
+                    </div>
                 </div>
             `;
 
@@ -749,6 +936,13 @@
 
     // ==================== Column 5: Objetivos ====================
 
+    function badgeStatusObjetivo(ativo) {
+        if (ativo) {
+            return '<span class="badge badge-xs badge-success gap-1"><span class="w-1.5 h-1.5 rounded-full bg-white"></span>Ativo</span>';
+        }
+        return '<span class="badge badge-xs badge-ghost gap-1"><span class="w-1.5 h-1.5 rounded-full bg-current opacity-50"></span>Conquistado</span>';
+    }
+
     async function carregarObjetivos(clienteId) {
         swrObjCtx.clienteId = clienteId;
         const container = $('#lista-objetivos');
@@ -757,58 +951,73 @@
             const data = await api(`/api/cliente/${clienteId}/objetivos`);
             const ativos = data.objetivos.filter(o => !o.conquistado);
             const conquistados = data.objetivos.filter(o => o.conquistado);
+            const totalObjetivos = data.objetivos.length;
             const hojePrazo = new Date().toISOString().slice(0, 10);
+            const maxVisiveis = 5;
 
             let html = `
-                <div class="swr-form-novo-objetivo mb-2">
-                    <input type="text" id="input-objetivo" class="swr-input" placeholder="Novo objetivo..." />
-                    <div class="swr-form-row items-end">
-                        <label class="swr-date-field flex-1 min-w-0">
-                            <span class="swr-date-label">Prazo</span>
-                            <input type="date" id="input-objetivo-prazo" class="swr-date" value="${hojePrazo}" />
-                        </label>
-                        <button type="button" class="btn btn-xs btn-primary btn-square h-7 w-7 min-h-7 p-0 shrink-0" id="btn-add-objetivo" title="Adicionar objetivo" aria-label="Adicionar objetivo">+</button>
-                    </div>
+                <div class="swr-obj-header">
+                    <span class="swr-obj-titulo">Objetivos</span>
+                    <button type="button" class="swr-obj-btn-novo" id="btn-toggle-form-obj">+ Novo objetivo</button>
                 </div>
-                <div id="ia-sugestoes" class="hidden mb-2"></div>
+                <div class="swr-obj-input-row">
+                    <input type="text" id="input-objetivo" class="swr-obj-input" placeholder="Novo objetivo..." />
+                    <input type="date" id="input-objetivo-prazo" class="swr-obj-input-data" value="${hojePrazo}" />
+                    <button type="button" class="swr-obj-btn-add" id="btn-add-objetivo">+</button>
+                </div>
+                <div id="ia-sugestoes" class="hidden"></div>
             `;
 
-            if (ativos.length) {
-                html += '<div class="text-xs font-semibold opacity-60 mb-1">Ativos</div>';
-                html += ativos.map(o => `
-                    <div class="flex items-start gap-1.5 py-1.5 swr-fade-in min-w-0">
-                        <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check shrink-0" data-id="${o.id}" />
-                        <div class="flex-1 min-w-0">
-                            <span class="text-xs leading-snug break-words [overflow-wrap:anywhere]">${escapeHtml(o.texto)}</span>
-                            ${o.data_prazo ? `<div class="text-[10px] opacity-50 mt-0.5">Prazo: ${fmtDate(o.data_prazo)}</div>` : ''}
+            const ativosVisiveis = ativos.slice(0, maxVisiveis);
+            if (ativosVisiveis.length) {
+                html += `<div class="swr-obj-lista">`;
+                html += ativosVisiveis.map(o => `
+                    <div class="swr-obj-item swr-fade-in" data-id="${o.id}">
+                        <input type="checkbox" class="swr-obj-checkbox swr-obj-check" data-id="${o.id}" />
+                        <div class="swr-obj-content">
+                            <div class="swr-obj-texto">${escapeHtml(o.texto)}</div>
+                            <div class="swr-obj-meta">
+                                ${o.data_prazo ? `<span class="swr-obj-data">${fmtDateShort(o.data_prazo)}</span>` : ''}
+                                <span class="swr-badge-status-obj swr-badge-ativo">Ativo</span>
+                            </div>
                         </div>
-                        <div class="flex flex-row gap-0.5 shrink-0">
-                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 swr-obj-edit" data-id="${o.id}" title="Editar">${ICON_EDIT}</button>
-                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 text-error swr-obj-del" data-id="${o.id}" title="Excluir">${ICON_TRASH}</button>
+                        <div class="swr-obj-acoes">
+                            <button type="button" class="swr-obj-acao-btn swr-obj-edit" data-id="${o.id}" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                            <button type="button" class="swr-obj-acao-btn swr-obj-del" data-id="${o.id}" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                         </div>
                     </div>
                 `).join('');
+                html += `</div>`;
             }
 
-            if (conquistados.length) {
-                html += '<div class="divider text-xs my-2">Conquistados</div>';
-                html += conquistados.map(o => `
-                    <div class="flex items-start gap-1.5 py-1.5 opacity-50 swr-fade-in swr-obj-conquistado min-w-0">
-                        <input type="checkbox" class="checkbox checkbox-xs checkbox-success mt-0.5 swr-obj-check shrink-0" data-id="${o.id}" checked />
-                        <div class="flex-1 min-w-0">
-                            <span class="text-xs line-through leading-snug break-words [overflow-wrap:anywhere]">${escapeHtml(o.texto)}</span>
-                            ${o.data_conquista ? `<div class="text-[10px] opacity-60 mt-0.5">Conquistado em ${fmtDate(o.data_conquista)}</div>` : ''}
+            const conquistadosVisiveis = conquistados.slice(0, Math.max(0, maxVisiveis - ativosVisiveis.length));
+            if (conquistadosVisiveis.length) {
+                html += `<div class="swr-obj-lista" style="opacity:0.6">`;
+                html += conquistadosVisiveis.map(o => `
+                    <div class="swr-obj-item swr-fade-in swr-obj-conquistado" data-id="${o.id}">
+                        <input type="checkbox" class="swr-obj-checkbox swr-obj-check" data-id="${o.id}" checked />
+                        <div class="swr-obj-content">
+                            <div class="swr-obj-texto" style="text-decoration:line-through">${escapeHtml(o.texto)}</div>
+                            <div class="swr-obj-meta">
+                                ${o.data_conquista ? `<span class="swr-obj-data">${fmtDateShort(o.data_conquista)}</span>` : ''}
+                                <span class="swr-badge-status-obj swr-badge-pendente">Concluído</span>
+                            </div>
                         </div>
-                        <div class="flex flex-row gap-0.5 shrink-0">
-                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 swr-obj-edit" data-id="${o.id}" title="Editar">${ICON_EDIT}</button>
-                            <button type="button" class="btn btn-ghost btn-xs btn-square h-7 w-7 min-h-0 p-0 text-error swr-obj-del" data-id="${o.id}" title="Excluir">${ICON_TRASH}</button>
+                        <div class="swr-obj-acoes">
+                            <button type="button" class="swr-obj-acao-btn swr-obj-edit" data-id="${o.id}" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                            <button type="button" class="swr-obj-acao-btn swr-obj-del" data-id="${o.id}" title="Excluir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                         </div>
                     </div>
                 `).join('');
+                html += `</div>`;
             }
 
             if (!ativos.length && !conquistados.length) {
-                html += '<div class="swr-empty-state mt-2">Nenhum objetivo cadastrado.</div>';
+                html += '<div class="swr-ativ-vazio">Nenhum objetivo cadastrado.</div>';
+            }
+
+            if (totalObjetivos > maxVisiveis) {
+                html += `<div class="swr-obj-ver-todos" id="swr-ver-todos-objetivos">Ver todos os objetivos</div>`;
             }
 
             container.innerHTML = html;
@@ -876,6 +1085,10 @@
                         showToast('Erro ao excluir objetivo.', 'error');
                     }
                 });
+            });
+
+            $('#swr-ver-todos-objetivos')?.addEventListener('click', () => {
+                window.location.href = `/clientes?open=${clienteId}&tab=objetivos`;
             });
 
             bindSugerirObjetivosIA(clienteId);
@@ -1275,7 +1488,9 @@
     }
 
     function setTabComunicacao(tab) {
-        $$('#swrc-tabs .tab').forEach(t => t.classList.toggle('tab-active', t.dataset.ctab === tab));
+        $$('#swrc-tabs .swr-com-tab').forEach(t => {
+            t.classList.toggle('swr-com-tab-active', t.dataset.ctab === tab);
+        });
         const map = { historico: '#swrc-panel-historico', gerar: '#swrc-panel-gerar', modelos: '#swrc-panel-modelos' };
         Object.entries(map).forEach(([k, sel]) => {
             const el = $(sel);
@@ -1285,8 +1500,15 @@
 
     function bindComunicacaoSecao() {
         $('#swrc-tabs')?.addEventListener('click', (e) => {
-            const tab = e.target.closest('.tab');
+            const tab = e.target.closest('.swr-com-tab');
             if (tab) setTabComunicacao(tab.dataset.ctab);
+        });
+
+        $$('.swr-com-canal-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                $$('.swr-com-canal-btn').forEach(b => b.classList.remove('swr-com-canal-btn-active'));
+                btn.classList.add('swr-com-canal-btn-active');
+            });
         });
         $('#swrc-gerar')?.addEventListener('click', gerarComunicacaoSecao);
         $('#swrc-regenerar')?.addEventListener('click', gerarComunicacaoSecao);
@@ -1368,13 +1590,13 @@
 
         $('#busca-cliente').addEventListener('input', debounce(carregarClientes, 300));
 
-        $$('#tabs-atividades .tab').forEach(tab => {
+        $$('#tabs-atividades .swr-tab-ativ').forEach(tab => {
             tab.addEventListener('click', () => {
                 setTabAtividades(tab.dataset.tab);
                 if (!clienteSelecionadoId) return;
                 if (tab.dataset.tab === 'todas') {
                     contatoSelecionadoId = null;
-                    $$('.swr-card-contato').forEach(e => e.classList.remove('swr-card-active'));
+                    $$('.swr-contato-card').forEach(e => e.classList.remove('swr-contato-card-active'));
                 }
                 // Filtragem client-side sobre o cache já carregado.
                 renderAtividades();

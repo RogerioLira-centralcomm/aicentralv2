@@ -5,7 +5,7 @@
 
 .swr-grid {
     display: grid;
-    grid-template-columns: 1fr 1.15fr 0.95fr 1.3fr 1.05fr;
+    grid-template-columns: 1fr 1.1fr 0.9fr 1.5fr 1fr;
     gap: 0.5rem;
     height: 100%;
     min-height: 480px;
@@ -14,16 +14,59 @@
 /* Header compacto: nunca quebra em duas linhas */
 .swr-header .btn,
 .swr-header .join-item {
-    font-size: 0.65rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
+    font-size: 0.625rem !important;
+    padding: 0 0.375rem !important;
     justify-content: center;
     text-align: center;
+    height: 1.5rem !important;
+    min-height: 1.5rem !important;
+    line-height: 1 !important;
+}
+
+.swr-header .btn svg {
+    width: 0.75rem !important;
+    height: 0.75rem !important;
+}
+
+.swr-header .btn-outline {
+    border-color: oklch(var(--bc) / 0.2);
+}
+
+/* Botoes de acao do header (Nova atividade, Novo objetivo, Nova mensagem) */
+.swr-header .btn-action {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    color: #374151 !important;
+}
+
+.swr-header .btn-action:hover {
+    background: #f9fafb !important;
+    border-color: #9ca3af !important;
+}
+
+.swr-header .btn-action svg {
+    color: #0d9488 !important;
+}
+
+/* Dropdowns Exportar e Filtros avançados */
+.swr-header details summary.btn {
+    font-size: 0.625rem !important;
+    height: 1.5rem !important;
+    min-height: 1.5rem !important;
+    padding: 0 0.375rem !important;
+    gap: 0.25rem !important;
+}
+
+.swr-header details summary.btn svg {
+    width: 0.7rem !important;
+    height: 0.7rem !important;
 }
 
 .swr-exec-select {
-    min-width: 160px;
-    max-width: 200px;
+    min-width: 140px;
+    max-width: 180px;
+    font-size: 0.625rem !important;
+    height: 1.5rem !important;
 }
 
 @media (max-width: 1280px) {
@@ -142,24 +185,1302 @@ html body select.swr-consolidadas-select option {
 /* Títulos e abas compactos nos cabeçalhos das colunas */
 .swr-col-header h2,
 .swr-col-header h3 {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 .swr-col-header .tabs .tab,
 #swrc-tabs .tab {
-    font-size: 0.62rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
     height: auto;
     min-height: 0;
-    padding: 0.15rem 0.4rem;
+    padding: 0.25rem 0.5rem;
 }
 
-#tabs-atividades {
+/* Tabs de atividades */
+.swr-tabs-atividades {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.swr-tab-ativ {
+    font-size: 0.5rem;
+    font-weight: 500;
+    color: #6b7280;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.swr-tab-ativ:hover {
+    color: #374151;
+}
+
+.swr-tab-ativ-active {
+    color: #111827;
+    border-bottom-color: #111827;
+    font-weight: 600;
+}
+
+/* ==================== Cards de Atividades - Novo Layout ==================== */
+.swr-ativ-card {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.swr-ativ-card:last-child {
+    border-bottom: none;
+}
+
+.swr-ativ-card-left {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.swr-ativ-checkbox {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 0.125rem;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+}
+
+.swr-ativ-checkbox-space {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.swr-ativ-tipo-dot {
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 50%;
+    background: #9ca3af;
+}
+
+.swr-tipo-dot-ligacao { background: #3b82f6; }
+.swr-tipo-dot-reuniao { background: #8b5cf6; }
+.swr-tipo-dot-email { background: #ec4899; }
+.swr-tipo-dot-whatsapp { background: #22c55e; }
+.swr-tipo-dot-almoco { background: #f59e0b; }
+.swr-tipo-dot-atividade { background: #6b7280; }
+.swr-tipo-dot-nota { background: #14b8a6; }
+
+.swr-ativ-card-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.swr-ativ-titulo {
+    font-size: 0.5rem;
+    font-weight: 500;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.swr-ativ-subtipo {
+    font-size: 0.4375rem;
+    color: #9ca3af;
+}
+
+.swr-ativ-card-right {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.swr-ativ-contato {
+    font-size: 0.4375rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.swr-ativ-data {
+    font-size: 0.375rem;
+    color: #9ca3af;
+}
+
+.swr-ativ-card-badge {
+    flex-shrink: 0;
+}
+
+.swr-ativ-vencida {
+    background: #fef2f2;
+}
+
+/* Badge de prioridade de atividade */
+.swr-badge-prioridade-ativ {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    font-size: 0.375rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.25rem;
+    border-radius: 0.125rem;
+    white-space: nowrap;
+}
+
+.swr-badge-dot {
+    width: 0.3125rem;
+    height: 0.3125rem;
+    border-radius: 50%;
+}
+
+/* Lista e elementos auxiliares de atividades */
+.swr-ativ-lista {
+    padding: 0.25rem 0;
+}
+
+.swr-ativ-lista-done {
+    opacity: 0.6;
+}
+
+.swr-ativ-vazio {
+    font-size: 0.5625rem;
+    color: #9ca3af;
+    text-align: center;
+    padding: 1rem;
+}
+
+.swr-link-ver-mais {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #166534;
+    cursor: pointer;
+    padding: 0.375rem 0;
+    text-align: center;
+}
+
+.swr-link-ver-mais:hover {
+    text-decoration: underline;
+}
+
+.swr-ativ-divider {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    text-align: center;
+    padding: 0.25rem 0;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 0.5rem;
+}
+
+/* Formulário Nova Atividade */
+.swr-ativ-form-titulo {
+    font-size: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+    padding: 0.375rem 0 0.25rem;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 0.375rem;
+}
+
+.swr-ativ-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.swr-ativ-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+}
+
+.swr-ativ-form-grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+}
+
+.swr-ativ-label {
+    font-size: 0.4375rem;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.swr-ativ-input {
+    font-size: 0.5rem;
+    padding: 0.25rem 0.375rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.1875rem;
+    background: #fff;
+    width: 100%;
+    height: 1.375rem;
+}
+
+.swr-ativ-input:focus {
+    outline: none;
+    border-color: #166534;
+}
+
+.swr-ativ-textarea {
+    font-size: 0.5rem;
+    padding: 0.25rem 0.375rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.1875rem;
+    background: #fff;
+    resize: none;
+    width: 100%;
+}
+
+.swr-ativ-textarea:focus {
+    outline: none;
+    border-color: #166534;
+}
+
+.swr-ativ-select {
+    font-size: 0.5rem;
+    padding: 0.25rem 0.375rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.1875rem;
+    background: #fff;
+    width: 100%;
+    cursor: pointer;
+    height: 1.375rem;
+}
+
+.swr-ativ-select:focus {
+    outline: none;
+    border-color: #166534;
+}
+
+.swr-ativ-btn-criar {
+    font-size: 0.5rem;
+    font-weight: 600;
+    color: #fff;
+    background: #166534;
+    border: none;
+    border-radius: 0.1875rem;
+    padding: 0.375rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 0.125rem;
+}
+
+.swr-ativ-btn-criar:hover {
+    background: #14532d;
+}
+
+/* Ações com IA */
+.swr-ativ-ia-section {
+    background: #f9fafb;
+    border-radius: 0.25rem;
+    padding: 0.375rem;
+    margin-top: 0.25rem;
+}
+
+.swr-ativ-ia-titulo {
+    font-size: 0.4375rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+}
+
+.swr-ativ-ia-btns {
+    display: flex;
+    gap: 0.25rem;
     flex-wrap: wrap;
-    gap: 0.15rem;
+}
+
+.swr-ativ-ia-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    font-size: 0.4375rem;
+    font-weight: 500;
+    color: #374151;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.1875rem;
+    padding: 0.25rem 0.375rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.swr-ativ-ia-btn svg {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+}
+
+.swr-ativ-ia-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+/* ==================== Coluna Objetivos ==================== */
+.swr-btn-menu {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    border-radius: 0.25rem;
+}
+
+.swr-btn-menu:hover {
+    background: #f3f4f6;
+}
+
+.swr-btn-menu svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.swr-obj-section {
+    padding: 0.5rem 0.625rem 0.5rem 0.625rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 0.5rem;
+}
+
+/* Objetivos Header */
+.swr-obj-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.swr-obj-titulo {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.swr-obj-btn-novo {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #166534;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #166534;
+    border-radius: 0.25rem;
+}
+
+.swr-obj-btn-novo:hover {
+    background: #f0fdf4;
+}
+
+/* Input novo objetivo */
+.swr-obj-input-row {
+    display: flex;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+}
+
+.swr-obj-input {
+    flex: 1;
+    font-size: 0.625rem;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    background: #fff;
+    height: 1.75rem;
+}
+
+.swr-obj-input:focus {
+    outline: none;
+    border-color: #166534;
+}
+
+.swr-obj-input-data {
+    width: 5.5rem;
+    font-size: 0.5625rem;
+    padding: 0.375rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    background: #fff;
+    height: 1.75rem;
+}
+
+.swr-obj-btn-add {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background: #166534;
+    border: none;
+    border-radius: 0.25rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.swr-obj-btn-add:hover {
+    background: #14532d;
+}
+
+/* Lista de objetivos */
+.swr-obj-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.swr-obj-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.375rem 0;
+}
+
+.swr-obj-checkbox {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 0.1875rem;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.swr-obj-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.swr-obj-texto {
+    font-size: 0.5625rem;
+    color: #111827;
+    line-height: 1.3;
+    margin-bottom: 0.125rem;
+}
+
+.swr-obj-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.swr-obj-data {
+    font-size: 0.4375rem;
+    color: #9ca3af;
+}
+
+.swr-badge-status-obj {
+    font-size: 0.4375rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.25rem;
+    border-radius: 0.125rem;
+}
+
+.swr-badge-ativo {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.swr-badge-pendente {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.swr-obj-acoes {
+    display: flex;
+    gap: 0.125rem;
+    flex-shrink: 0;
+}
+
+.swr-obj-acao-btn {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    border-radius: 0.1875rem;
+}
+
+.swr-obj-acao-btn:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.swr-obj-acao-btn svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.swr-obj-ver-todos {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #166534;
+    cursor: pointer;
+    padding: 0.375rem 0;
+    text-align: center;
+}
+
+.swr-obj-ver-todos:hover {
+    text-decoration: underline;
+}
+
+/* ==================== Seção Comunicação ==================== */
+.swr-comunicacao-section {
+    padding: 0.5rem 0.625rem;
+}
+
+.swr-com-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.swr-com-titulo {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.swr-com-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.swr-com-tab {
+    font-size: 0.5rem;
+    font-weight: 500;
+    color: #6b7280;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.swr-com-tab:hover {
+    color: #374151;
+}
+
+.swr-com-tab-active {
+    color: #111827;
+    border-bottom-color: #111827;
+    font-weight: 600;
+}
+
+.swr-com-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.swr-com-canal-btns {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.swr-com-canal-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    padding: 0.375rem;
+    cursor: pointer;
+}
+
+.swr-com-canal-btn svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.swr-com-canal-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.swr-com-canal-btn-active {
+    background: #f0fdf4;
+    border-color: #22c55e;
+    color: #166534;
+}
+
+.swr-com-form-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.375rem;
+}
+
+.swr-com-label {
+    font-size: 0.5rem;
+    font-weight: 500;
+    color: #6b7280;
+    display: block;
+    margin-bottom: 0.125rem;
+}
+
+.swr-com-select {
+    font-size: 0.5625rem;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    background: #fff;
+    width: 100%;
+    cursor: pointer;
+    height: 1.75rem;
+}
+
+.swr-com-select:focus {
+    outline: none;
+    border-color: #166534;
+}
+
+.swr-com-textarea {
+    font-size: 0.5625rem;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    background: #fff;
+    resize: none;
+    width: 100%;
+}
+
+.swr-com-textarea:focus {
+    outline: none;
+    border-color: #166534;
+}
+
+.swr-com-btn-gerar {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    color: #fff;
+    background: #166534;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    width: 100%;
+}
+
+.swr-com-btn-gerar:hover {
+    background: #14532d;
+}
+
+.swr-com-msg-titulo {
+    font-size: 0.4375rem;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0.375rem 0 0.1875rem;
+}
+
+.swr-com-msg-box {
+    font-size: 0.5rem;
+    background: #f9fafb;
+    border-radius: 0.1875rem;
+    padding: 0.375rem;
+    white-space: pre-wrap;
+    color: #374151;
+}
+
+.swr-com-msg-acoes {
+    display: flex;
+    gap: 0.1875rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+}
+
+.swr-com-msg-btn {
+    font-size: 0.375rem;
+    font-weight: 500;
+    padding: 0.1875rem 0.375rem;
+    border-radius: 0.125rem;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+}
+
+.swr-com-msg-btn:hover {
+    background: #f3f4f6;
+}
+
+.swr-com-msg-btn-whatsapp {
+    background: #22c55e;
+    border-color: #22c55e;
+    color: #fff;
+}
+
+.swr-com-msg-btn-whatsapp:hover {
+    background: #16a34a;
+}
+
+.swr-com-msg-btn-email {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: #fff;
+}
+
+.swr-com-msg-btn-email:hover {
+    background: #2563eb;
+}
+
+.swr-com-panel-vazio {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    text-align: center;
+    padding: 0.75rem;
 }
 
 .swr-comunicacao h3 {
-    font-size: 0.8rem;
+    font-size: 0.875rem;
+}
+
+/* Badge Principal para contatos */
+.swr-badge-principal {
+    display: inline-block;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    background: oklch(var(--p) / 0.12);
+    color: oklch(var(--p));
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* ==================== Cards de Contato - Novo Layout ==================== */
+.swr-contato-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.625rem;
+    margin-bottom: 0.375rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.swr-contato-card:hover {
+    border-color: #d1d5db;
+    background: #fafafa;
+}
+
+.swr-contato-card-active {
+    border-color: #22c55e !important;
+    background: rgba(34, 197, 94, 0.04) !important;
+}
+
+.swr-contato-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.375rem;
+}
+
+.swr-contato-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.swr-contato-nome-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.0625rem;
+}
+
+.swr-contato-nome-btn {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #111827;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+}
+
+.swr-contato-nome-btn:hover {
+    color: #166534;
+}
+
+.swr-badge-principal-new {
+    font-size: 0.4375rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.25rem;
+    border-radius: 0.125rem;
+    background: #dbeafe;
+    color: #1d4ed8;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.swr-contato-subtitulo {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    margin-bottom: 0.0625rem;
+}
+
+.swr-contato-email {
+    font-size: 0.5rem;
+    color: #6b7280;
+    margin-bottom: 0.0625rem;
+}
+
+.swr-contato-telefone {
+    font-size: 0.5rem;
+    color: #6b7280;
+}
+
+.swr-contato-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.375rem;
+}
+
+.swr-contato-acoes-new {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.swr-contato-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    transition: all 0.15s;
+}
+
+.swr-contato-icon svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.swr-contato-icon:hover {
+    background: #e5e7eb;
+}
+
+.swr-contato-icon-whatsapp {
+    color: #22c55e;
+}
+
+.swr-contato-icon-whatsapp:hover {
+    background: #dcfce7;
+}
+
+.swr-contato-ultimo {
+    font-size: 0.4375rem;
+    color: #9ca3af;
+    text-align: right;
+    line-height: 1.3;
+}
+
+.swr-contato-ultimo-data {
+    font-size: 0.5rem;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+/* Link ver todos */
+.swr-link-ver-todos {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #166534;
+    text-align: center;
+    padding: 0.5rem;
+    cursor: pointer;
+}
+
+.swr-link-ver-todos:hover {
+    text-decoration: underline;
+}
+
+/* ==================== Coluna Status - Layout Completo ==================== */
+
+/* Header do cliente com avatar */
+.swr-status-cliente-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.swr-status-avatar-verde {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: #166534;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.swr-status-cliente-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.swr-status-cliente-nome {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #111827;
+}
+
+.swr-status-cliente-tipo {
+    font-size: 0.5625rem;
+    color: #6b7280;
+    margin-top: 0.0625rem;
+}
+
+.swr-badge-prioridade-alta {
+    font-size: 0.5rem;
+    font-weight: 600;
+    padding: 0.1875rem 0.375rem;
+    border-radius: 0.1875rem;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Info de contatos */
+.swr-status-info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.swr-status-info-row svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.swr-status-info-text {
+    font-size: 0.5625rem;
+    color: #6b7280;
+}
+
+/* Detalhes Responsável/Categoria */
+.swr-status-details {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.swr-status-detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+}
+
+.swr-status-detail-label {
+    font-size: 0.5625rem;
+    color: #9ca3af;
+}
+
+.swr-status-detail-value {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.swr-status-detail-value svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+/* Grid de métricas 3x2 */
+.swr-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.25rem;
+    padding: 0.375rem 0;
+}
+
+.swr-metric-card-new {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    padding: 0.375rem 0.25rem;
+    text-align: center;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.swr-metric-label-new {
+    font-size: 0.4375rem;
+    color: #6b7280;
+    margin-bottom: 0.0625rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.swr-metric-value-new {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+    word-break: break-all;
+}
+
+.swr-metric-delta-new {
+    font-size: 0.4375rem;
+    font-weight: 600;
+    margin-top: 0.0625rem;
+}
+
+.swr-metric-sublabel-new {
+    font-size: 0.375rem;
+    color: #9ca3af;
+    margin-top: 0;
+}
+
+/* Última atualização */
+.swr-ultima-atualizacao-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.5rem;
+    color: #9ca3af;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+/* Próximo passo sugerido */
+.swr-proximo-passo-section {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.swr-proximo-passo-titulo {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.375rem;
+}
+
+.swr-proximo-passo-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+}
+
+.swr-proximo-passo-icon-circle {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #6b7280;
+}
+
+.swr-proximo-passo-icon-circle svg {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+.swr-proximo-passo-content-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.swr-proximo-passo-main {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #111827;
+    line-height: 1.4;
+}
+
+.swr-proximo-passo-sub {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    margin-top: 0.0625rem;
+}
+
+/* Nota sobre o cliente */
+.swr-nota-cliente-section {
+    padding: 0.5rem 0;
+}
+
+.swr-nota-cliente-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.375rem;
+}
+
+.swr-nota-cliente-titulo {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.swr-nota-menu-btn {
+    background: none;
+    border: none;
+    padding: 0.125rem;
+    cursor: pointer;
+    color: #9ca3af;
+}
+
+.swr-nota-menu-btn svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.swr-nota-cliente-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    margin-bottom: 0.375rem;
+}
+
+.swr-nota-textarea {
+    width: 100%;
+    min-height: 2.5rem;
+    border: none;
+    background: transparent;
+    font-size: 0.5625rem;
+    color: #374151;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+}
+
+.swr-nota-autor-info {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0;
+    border-top: 1px solid #f3f4f6;
+}
+
+.swr-nota-autor-avatar {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: #166534;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.375rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.swr-nota-autor-details {
+    flex: 1;
+}
+
+.swr-nota-autor-nome {
+    font-size: 0.5rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.swr-nota-autor-data {
+    font-size: 0.4375rem;
+    color: #9ca3af;
+}
+
+.swr-ver-historico-link {
+    display: flex;
+    align-items: center;
+    gap: 0.1875rem;
+    font-size: 0.5rem;
+    color: #6b7280;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.1875rem 0;
+}
+
+.swr-ver-historico-link svg {
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.swr-ver-historico-link:hover {
+    color: #374151;
+}
+
+/* Botões de ação do status */
+.swr-status-action-buttons {
+    display: flex;
+    gap: 0.375rem;
+    padding-top: 0.375rem;
+}
+
+.swr-btn-outline {
+    flex: 1;
+    height: 1.625rem;
+    font-size: 0.5625rem;
+    font-weight: 500;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.swr-btn-outline:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.swr-btn-primary {
+    flex: 1;
+    height: 1.625rem;
+    font-size: 0.5625rem;
+    font-weight: 500;
+    background: #166534;
+    border: 1px solid #166534;
+    border-radius: 0.25rem;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.swr-btn-primary:hover {
+    background: #14532d;
 }
 
 .swr-col-body {
@@ -170,10 +1491,10 @@ html body select.swr-consolidadas-select option {
 }
 
 .swr-card {
-    padding: 0.4rem 0.5rem;
+    padding: 0.5rem 0.625rem;
     border: 1px solid oklch(var(--b3));
-    border-radius: 0.375rem;
-    margin-bottom: 0.3rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.375rem;
     cursor: pointer;
     transition: all 0.15s ease;
 }
@@ -182,24 +1503,197 @@ html body select.swr-consolidadas-select option {
     background: oklch(var(--b2));
 }
 
-/* Badge A/B/C compacto, proporcional ao card */
-.swr-badge-abc {
-    font-size: 0.6rem;
+/* Card de cliente específico */
+.swr-card .swr-cliente-nome {
+    font-size: 0.6875rem;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+}
+
+.swr-card .swr-cliente-subtitulo {
+    font-size: 0.5625rem;
+    color: #6b7280;
+    margin-top: 0.0625rem;
+}
+
+/* Badge A/B/C circular colorido */
+.swr-badge-abc {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem !important;
+    font-weight: 700;
     line-height: 1;
-    height: auto;
-    min-height: 0;
-    padding: 0.1rem 0.3rem;
-    border-radius: 0.3rem;
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    color: #fff !important;
+    flex-shrink: 0;
+}
+
+.swr-badge-abc.badge-success { background: #22c55e !important; }
+.swr-badge-abc.badge-warning { background: #eab308 !important; }
+.swr-badge-abc.badge-error { background: #ef4444 !important; }
+.swr-badge-abc.badge-ghost { background: #9ca3af !important; }
+
+/* Badges de prioridade */
+.swr-badge-prioridade {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+}
+
+.swr-badge-prioridade-alta {
+    background: oklch(var(--er) / 0.12);
+    color: oklch(var(--er));
+}
+
+.swr-badge-prioridade-media {
+    background: oklch(var(--wa) / 0.12);
+    color: oklch(var(--wa));
+}
+
+.swr-badge-prioridade-baixa {
+    background: oklch(var(--su) / 0.12);
+    color: oklch(var(--su));
+}
+
+.swr-badge-prioridade::before {
+    content: '';
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: currentColor;
 }
 
 .swr-card-active {
-    border-color: oklch(var(--p));
-    background: oklch(var(--p) / 0.08);
+    border-color: #22c55e !important;
+    background: rgba(34, 197, 94, 0.06) !important;
 }
 
 .swr-status-section {
-    padding: 0.25rem 0;
+    padding: 0;
+}
+
+/* Botoes do header das colunas */
+.swr-btn-header-action {
+    font-size: 0.5rem;
+    font-weight: 500;
+    padding: 0.1875rem 0.375rem;
+    border-radius: 0.1875rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.swr-btn-header-primary {
+    background: #166534;
+    color: #fff;
+    border: 1px solid #166534;
+}
+
+.swr-btn-header-primary:hover {
+    background: #14532d;
+}
+
+.swr-btn-header-outline {
+    background: #fff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.swr-btn-header-outline:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+/* Contact action icons - circulares */
+.swr-contato-acoes {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.swr-contato-acao {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: none;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #6b7280;
+}
+
+.swr-contato-acao:hover {
+    background: #e5e7eb;
+}
+
+.swr-contato-acao svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.swr-contato-acao-whatsapp {
+    color: #22c55e;
+}
+
+.swr-contato-acao-whatsapp:hover {
+    background: #dcfce7;
+}
+
+/* Último contato */
+.swr-ultimo-contato {
+    font-size: 0.5rem;
+    color: #9ca3af;
+    text-align: right;
+}
+
+.swr-ultimo-contato-data {
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+/* Ver todos link */
+.swr-ver-todos {
+    display: block;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: oklch(var(--p));
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    cursor: pointer;
+}
+
+.swr-ver-todos:hover {
+    text-decoration: underline;
+}
+
+/* Status buttons footer */
+.swr-status-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+}
+
+.swr-status-buttons .btn {
+    flex: 1;
+    font-size: 0.75rem;
+    height: 2rem;
+    min-height: 2rem;
 }
 
 .swr-empty-state {
@@ -494,97 +1988,204 @@ html body select.swr-consolidadas-select option {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.25rem;
-    padding: 0.375rem 0.625rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
     border-top: 1px solid oklch(var(--b3));
     flex-shrink: 0;
+    background: oklch(var(--b1));
 }
 
 /* ==================== Cards de métricas com delta ==================== */
 .swr-metric-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.35rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
 }
 
 .swr-metric-card {
     background: oklch(var(--b2));
     border: 1px solid oklch(var(--b3));
-    border-radius: 0.4rem;
-    padding: 0.35rem 0.4rem;
-}
-
-.swr-metric-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.2rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    text-align: center;
 }
 
 .swr-metric-valor {
-    font-size: 0.9rem;
+    font-size: 1.125rem;
     font-weight: 700;
-    line-height: 1.05;
-    white-space: nowrap;
+    line-height: 1.1;
+    color: oklch(var(--bc));
 }
 
-.swr-metric-valor .text-sm {
-    font-size: 0.78rem;
+.swr-metric-valor.swr-metric-currency {
+    font-size: 0.875rem;
+}
+
+.swr-metric-delta {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    margin-top: 0.125rem;
+}
+
+.swr-metric-delta-up {
+    color: #22c55e;
+}
+
+.swr-metric-delta-down {
+    color: #ef4444;
 }
 
 .swr-metric-label {
-    font-size: 0.62rem;
+    font-size: 0.6875rem;
     opacity: 0.6;
-    margin-top: 0.1rem;
+    margin-top: 0.25rem;
 }
 
+.swr-metric-sublabel {
+    font-size: 0.5625rem;
+    opacity: 0.5;
+}
+
+/* Delta badge inline (alternativo) */
 .swr-delta {
     display: inline-flex;
     align-items: center;
     gap: 0.1rem;
-    font-size: 0.56rem;
+    font-size: 0.5625rem;
     font-weight: 600;
     line-height: 1;
-    padding: 0.1rem 0.25rem;
-    border-radius: 999px;
     white-space: nowrap;
 }
 
 .swr-delta-up {
-    color: oklch(var(--su));
-    background: oklch(var(--su) / 0.12);
+    color: #22c55e;
 }
 
 .swr-delta-down {
-    color: oklch(var(--er));
-    background: oklch(var(--er) / 0.12);
+    color: #ef4444;
 }
 
 .swr-delta-neutro {
-    color: oklch(var(--bc) / 0.6);
-    background: oklch(var(--bc) / 0.08);
+    color: oklch(var(--bc) / 0.5);
 }
 
 /* ==================== Próximo passo sugerido ==================== */
 .swr-proximo-passo {
-    border: 1px dashed oklch(var(--p) / 0.4);
-    background: oklch(var(--p) / 0.06);
-    border-radius: 0.4rem;
-    padding: 0.35rem 0.5rem;
+    background: oklch(var(--b2));
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+    margin-top: 0.625rem;
 }
 
 .swr-proximo-passo-label {
-    font-size: 0.58rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.6875rem;
+    font-weight: 600;
     opacity: 0.7;
-    margin-bottom: 0.1rem;
+    margin-bottom: 0.375rem;
+}
+
+.swr-proximo-passo-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.swr-proximo-passo-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: oklch(var(--p) / 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.swr-proximo-passo-icon svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    color: oklch(var(--p));
 }
 
 .swr-proximo-passo-texto {
-    font-size: 0.7rem;
-    line-height: 1.25;
+    flex: 1;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    font-weight: 500;
+}
+
+.swr-proximo-passo-prazo {
+    font-size: 0.6875rem;
+    opacity: 0.6;
+    margin-top: 0.125rem;
+}
+
+.swr-proximo-passo-star {
+    color: #eab308;
+    flex-shrink: 0;
+}
+
+/* ==================== Nota sobre o cliente ==================== */
+.swr-nota-section {
+    background: oklch(var(--b2));
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+    margin-top: 0.625rem;
+}
+
+.swr-nota-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.375rem;
+}
+
+.swr-nota-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.swr-nota-content {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: oklch(var(--bc) / 0.8);
+}
+
+.swr-nota-autor {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid oklch(var(--b3));
+    font-size: 0.6875rem;
+    opacity: 0.6;
+}
+
+.swr-nota-autor-avatar {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: oklch(var(--p));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.swr-nota-ver-historico {
+    font-size: 0.6875rem;
+    color: oklch(var(--p));
+    cursor: pointer;
+    margin-top: 0.375rem;
+}
+
+.swr-nota-ver-historico:hover {
+    text-decoration: underline;
 }
 
 /* ==================== Coluna 5: Objetivos + Comunicação ==================== */

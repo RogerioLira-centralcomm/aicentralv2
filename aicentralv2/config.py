@@ -98,6 +98,22 @@ class Config:
 	except ValueError:
 		PI_DESVIO_ACEITAVEL_PERCENTUAL = 5.0
 
+	# Spedy — emissão NFS-e (sandbox: https://sandbox-api.spedy.com.br/v1)
+	SPEDY_API_KEY = os.getenv('SPEDY_API_KEY', '')
+	SPEDY_API_BASE_URL = os.getenv('SPEDY_API', 'https://sandbox-api.spedy.com.br/v1').rstrip('/')
+	SPEDY_PRODUCT_ID = os.getenv(
+		'SPEDY_PRODUCT_ID',
+		'1dcacc78-34d8-43f9-806f-a2500b483275',
+	)
+	SPEDY_PRODUCT_CODE = os.getenv('SPEDY_PRODUCT_CODE', 'MIDIA-PI')
+	SPEDY_PRODUCT_NAME = os.getenv(
+		'SPEDY_PRODUCT_NAME',
+		'Servicos de midia e publicidade digital',
+	)
+	SPEDY_SEND_EMAIL_TO_CUSTOMER = os.getenv('SPEDY_SEND_EMAIL_TO_CUSTOMER', 'False').lower() in (
+		'true', '1', 'yes',
+	)
+
 	# Multiplicador do desvio aceitável que define a fronteira da Ruptura (Zona 5).
 	# Ruptura = orçado × (1 + N × desvio). N=10 → desvio 5% gera ruptura a +50%.
 	_PI_RUPT_MULT_RAW = os.getenv('PI_RUPTURA_MULT_DESVIO', '10').strip()

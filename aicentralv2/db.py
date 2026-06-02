@@ -2119,6 +2119,24 @@ def obter_estado_por_sigla(sigla: str):
         conn.rollback()
         raise e
 
+
+def obter_estado_por_id(id_estado):
+    """Retorna um estado específico por id_estado"""
+    if not id_estado:
+        return None
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id_estado, descricao, sigla, id_centralx, indice
+                FROM tbl_estado
+                WHERE id_estado = %s
+            ''', (id_estado,))
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
 # ==================== CATEGORIAS AUDIÊNCIA - CRUD ====================
 
 def obter_cadu_categorias():
@@ -8399,6 +8417,59 @@ def obter_sub_status_pi():
         raise e
 
 
+def garantir_colunas_spedy_nota_fiscal():
+    """Aplica migração idempotente dos campos Spedy em cadu_pi_nota_fiscal."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_order_id'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_order_id VARCHAR(36);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_invoice_id'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_invoice_id VARCHAR(36);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_status'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_status VARCHAR(50);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_transaction_id'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_transaction_id VARCHAR(80);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_message'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_message TEXT;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_environment'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_environment VARCHAR(30);
+                    END IF;
+                END $$;
+            ''')
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_nota_fiscal_status():
     """Retorna todos os status de nota fiscal"""
     conn = get_db()
@@ -8406,6 +8477,22 @@ def obter_nota_fiscal_status():
         with conn.cursor() as cursor:
             cursor.execute('SELECT id, descricao FROM cadu_pi_nota_fiscal_status ORDER BY id')
             return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_nota_fiscal_status_id_por_descricao(descricao):
+    """Retorna id do status de NF pela descrição."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT id FROM cadu_pi_nota_fiscal_status WHERE descricao = %s LIMIT 1',
+                (descricao,),
+            )
+            row = cursor.fetchone()
+            return row['id'] if row else None
     except Exception as e:
         conn.rollback()
         raise e
@@ -8429,6 +8516,12 @@ def obter_notas_fiscais_por_pi(id_pi):
                     nf.created_at,
                     nf.updated_at,
                     nf.status,
+                    nf.spedy_order_id,
+                    nf.spedy_invoice_id,
+                    nf.spedy_status,
+                    nf.spedy_transaction_id,
+                    nf.spedy_message,
+                    nf.spedy_environment,
                     nfs.descricao as status_descricao
                 FROM cadu_pi_nota_fiscal nf
                 LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id
@@ -8458,7 +8551,13 @@ def obter_nota_fiscal_por_id(id_nota):
                     id_pi,
                     created_at,
                     updated_at,
-                    status
+                    status,
+                    spedy_order_id,
+                    spedy_invoice_id,
+                    spedy_status,
+                    spedy_transaction_id,
+                    spedy_message,
+                    spedy_environment
                 FROM cadu_pi_nota_fiscal
                 WHERE id = %s
             ''', (id_nota,))
@@ -8477,9 +8576,13 @@ def criar_nota_fiscal(data):
                 INSERT INTO cadu_pi_nota_fiscal (
                     valor, data_emissao, data_pag_prevista, data_pag_realizado,
                     numero_nota, mes_ref_comp, id_pi, status,
-                    googled_pi_arq_ass, created_at, updated_at
+                    googled_pi_arq_ass,
+                    spedy_order_id, spedy_invoice_id, spedy_status,
+                    spedy_transaction_id, spedy_message, spedy_environment,
+                    created_at, updated_at
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
                     DATE_TRUNC('second', CURRENT_TIMESTAMP),
                     DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 ) RETURNING id
@@ -8492,7 +8595,13 @@ def criar_nota_fiscal(data):
                 data.get('mes_ref_comp'),
                 data.get('id_pi'),
                 data.get('status'),
-                data.get('googled_pi_arq_ass')
+                data.get('googled_pi_arq_ass'),
+                data.get('spedy_order_id'),
+                data.get('spedy_invoice_id'),
+                data.get('spedy_status'),
+                data.get('spedy_transaction_id'),
+                data.get('spedy_message'),
+                data.get('spedy_environment'),
             ))
             result = cursor.fetchone()
             conn.commit()
@@ -8513,6 +8622,12 @@ def atualizar_nota_fiscal(id_nota, data):
         'mes_ref_comp': 'mes_ref_comp',
         'id_pi': 'id_pi',
         'status': 'status',
+        'spedy_order_id': 'spedy_order_id',
+        'spedy_invoice_id': 'spedy_invoice_id',
+        'spedy_status': 'spedy_status',
+        'spedy_transaction_id': 'spedy_transaction_id',
+        'spedy_message': 'spedy_message',
+        'spedy_environment': 'spedy_environment',
     }
 
     sets = []
@@ -8575,6 +8690,8 @@ def obter_notas_fiscais_lista(filtros=None):
                     nf.created_at,
                     nf.updated_at,
                     nf.status,
+                    nf.spedy_status,
+                    nf.spedy_message,
                     nfs.descricao as status_descricao,
                     p.codigo_pi_cc,
                     p.titulo_pi,
@@ -8736,6 +8853,7 @@ def obter_cadu_pi_lista(filtros=None):
                         nf.numero_nota as nf_numero_nota,
                         nf.valor as nf_valor,
                         nf.status as nf_status,
+                        nf.spedy_status as nf_spedy_status,
                         nfs.descricao as nf_status_descricao
                     FROM cadu_pi_nota_fiscal nf
                     LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nf.status = nfs.id

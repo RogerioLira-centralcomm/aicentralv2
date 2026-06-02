@@ -21,6 +21,17 @@ from aicentralv2.services.cotacao_linhas_image_import import (
     extrair_itens_linhas_de_upload,
     normalizar_itens_para_cotacao,
 )
+from aicentralv2.services.spedy_service import (
+    SpedyAPIError,
+    SpedyService,
+    SPEDY_PENDING_STATUSES,
+    SPEDY_TERMINAL_STATUSES,
+    build_spedy_customer_from_pi,
+    build_spedy_transaction_id,
+    extract_invoice_from_order,
+    map_spedy_invoice_to_nf_update,
+    parse_pi_amount,
+)
 from psycopg.errors import UniqueViolation, ForeignKeyViolation, NotNullViolation, ProgrammingError
 
 # Helper para serializar dados para JSON
@@ -12084,6 +12095,234 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if not ok:
             abort(404)
         return jsonify({'success': True})
+
+    def _atualizar_pi_status_nf_emitida(id_pi):
+        conn = db.get_db()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute('''
+                    UPDATE cadu_pi
+                    SET id_sub_status_pi = (SELECT key FROM cadu_pi_sub_status WHERE display = 'Finalizado' LIMIT 1),
+                        id_status_pi = (SELECT id FROM cadu_pi_aux_status WHERE descricao = 'NF Emitida' LIMIT 1),
+                        updated_at = date_trunc('second', CURRENT_TIMESTAMP)
+                    WHERE id_pi = %s
+                ''', (id_pi,))
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            current_app.logger.error(f'Erro ao atualizar status PI após NF Spedy: {e}')
+
+    def _serializar_nota_fiscal_resposta(nota):
+        if not nota:
+            return None
+        result = dict(nota)
+        for campo in (
+            'data_emissao', 'data_pagamento_previsto', 'data_pagamento_realizado',
+            'created_at', 'updated_at',
+        ):
+            val = result.get(campo)
+            if val and hasattr(val, 'strftime'):
+                result[campo] = val.strftime('%Y-%m-%d')
+        return result
+
+    def _confirmar_spedy_nota_fiscal(nota, *, atualizar_pi=True):
+        """Consulta Spedy, persiste status e retorna payload de confirmação."""
+        if not nota or not nota.get('spedy_invoice_id'):
+            return {
+                'confirmed': False,
+                'pending': False,
+                'error': 'Nota fiscal sem vínculo Spedy.',
+            }
+
+        spedy = SpedyService()
+        try:
+            invoice = spedy.get_service_invoice(str(nota['spedy_invoice_id']))
+        except SpedyAPIError as exc:
+            return {'confirmed': False, 'pending': True, 'error': str(exc)}
+
+        update = map_spedy_invoice_to_nf_update(invoice)
+        if update:
+            db.atualizar_nota_fiscal(nota['id'], update)
+
+        status = (update.get('spedy_status') or invoice.get('status') or '').lower()
+        confirmed = status == 'authorized'
+        pending = status in SPEDY_PENDING_STATUSES or status in {'', 'processing'}
+
+        if confirmed and atualizar_pi and nota.get('id_pi'):
+            _atualizar_pi_status_nf_emitida(nota['id_pi'])
+            registrar_auditoria(
+                acao='emitir',
+                modulo='faturamento',
+                descricao=f'NFS-e Spedy autorizada - PI {nota.get("id_pi")} NF {update.get("numero_nota")}',
+                registro_id=nota['id'],
+                registro_tipo='nota_fiscal',
+                dados_novos={
+                    'spedy_invoice_id': nota.get('spedy_invoice_id'),
+                    'numero_nota': update.get('numero_nota'),
+                    'spedy_status': status,
+                },
+            )
+
+        nota_atual = db.obter_nota_fiscal_por_id(nota['id'])
+        return {
+            'confirmed': confirmed,
+            'pending': pending and not confirmed,
+            'failed': status in SPEDY_TERMINAL_STATUSES and not confirmed,
+            'spedy_status': status,
+            'spedy_message': update.get('spedy_message') or (invoice.get('processingDetail') or {}).get('message'),
+            'numero_nota': update.get('numero_nota') or (nota_atual or {}).get('numero_nota'),
+            'nota': _serializar_nota_fiscal_resposta(nota_atual),
+            'spedy_invoice': {
+                'id': invoice.get('id'),
+                'number': invoice.get('number'),
+                'status': invoice.get('status'),
+                'environmentType': invoice.get('environmentType'),
+                'amount': invoice.get('amount'),
+            },
+        }
+
+    @app.route('/api/cadu_pi/<int:id_pi>/spedy/emitir-teste', methods=['POST'])
+    @login_required
+    def api_spedy_emitir_teste_pi(id_pi):
+        """Dispara emissão de NFS-e de teste na Spedy (sandbox) para um PI."""
+        try:
+            db.garantir_colunas_spedy_nota_fiscal()
+        except Exception as exc:
+            current_app.logger.error(f'Migração Spedy NF: {exc}', exc_info=True)
+            return jsonify({'error': 'Não foi possível preparar a tabela de notas fiscais.'}), 500
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return jsonify({'error': 'PI não encontrado.'}), 404
+
+        notas = db.obter_notas_fiscais_por_pi(id_pi) or []
+        nota_alvo = notas[0] if notas else None
+        if nota_alvo and (nota_alvo.get('spedy_status') or '').lower() == 'authorized':
+            return jsonify({
+                'error': 'Este PI já possui NFS-e autorizada na Spedy.',
+                'nf_id': nota_alvo['id'],
+                'numero_nota': nota_alvo.get('numero_nota'),
+            }), 409
+
+        if nota_alvo and nota_alvo.get('spedy_invoice_id') and (
+            (nota_alvo.get('spedy_status') or '').lower() in SPEDY_PENDING_STATUSES
+            or (nota_alvo.get('spedy_status') or '').lower() == 'processing'
+        ):
+            confirm = _confirmar_spedy_nota_fiscal(nota_alvo)
+            return jsonify({
+                'success': True,
+                'already_pending': True,
+                'nf_id': nota_alvo['id'],
+                **confirm,
+            })
+
+        if not pi.get('id_cliente'):
+            return jsonify({'error': 'PI sem cliente vinculado.'}), 400
+
+        cliente = db.obter_cliente_por_id(pi['id_cliente'])
+        if not cliente:
+            return jsonify({'error': 'Cliente do PI não encontrado.'}), 400
+
+        contato = None
+        contato_id = pi.get('contato_fin_cliente')
+        if contato_id:
+            contato = db.obter_contato_por_id(contato_id)
+
+        amount = parse_pi_amount(pi)
+        if amount <= 0:
+            return jsonify({'error': 'PI sem valor líquido/bruto válido para emissão.'}), 400
+
+        try:
+            customer = build_spedy_customer_from_pi(pi, cliente, contato)
+        except SpedyAPIError as exc:
+            return jsonify({'error': str(exc)}), 400
+
+        codigo_pi = pi.get('codigo_pi_cc') or pi.get('codigo_pi_ag')
+        transaction_id = build_spedy_transaction_id(id_pi, codigo_pi)
+        valor_fmt = db.formatar_real_br(amount)
+        mes_ref = pi.get('mes_ref_comp') or db.formatar_mes_ref_comp(datetime.now().strftime('%Y-%m-%d'))
+
+        if nota_alvo:
+            nf_id = nota_alvo['id']
+            db.atualizar_nota_fiscal(nf_id, {
+                'valor': valor_fmt,
+                'mes_ref_comp': mes_ref,
+                'spedy_transaction_id': transaction_id,
+                'spedy_status': 'creating',
+                'spedy_message': 'Enviando pedido para Spedy...',
+            })
+        else:
+            nf_id = db.criar_nota_fiscal({
+                'valor': valor_fmt,
+                'mes_ref_comp': mes_ref,
+                'id_pi': id_pi,
+                'spedy_transaction_id': transaction_id,
+                'spedy_status': 'creating',
+                'spedy_message': 'Enviando pedido para Spedy...',
+                'googled_pi_arq_ass': pi.get('googled_pi_arq_ass'),
+            })
+
+        obs = f'PI {codigo_pi or id_pi} - {pi.get("titulo_pi") or ""}'.strip()
+        spedy = SpedyService()
+        try:
+            order = spedy.emit_order(
+                transaction_id=transaction_id,
+                customer=customer,
+                amount=amount,
+                observation=obs[:500],
+            )
+        except SpedyAPIError as exc:
+            db.atualizar_nota_fiscal(nf_id, {
+                'spedy_status': 'error',
+                'spedy_message': str(exc),
+            })
+            return jsonify({'error': str(exc), 'nf_id': nf_id}), 502
+
+        spedy_info = extract_invoice_from_order(order) or {}
+        if spedy_info:
+            db.atualizar_nota_fiscal(nf_id, spedy_info)
+
+        nota = db.obter_nota_fiscal_por_id(nf_id)
+        confirm = _confirmar_spedy_nota_fiscal(nota, atualizar_pi=False)
+
+        registrar_auditoria(
+            acao='solicitar',
+            modulo='faturamento',
+            descricao=f'Emissão NFS-e Spedy (teste) solicitada - PI {codigo_pi or id_pi}',
+            registro_id=nf_id,
+            registro_tipo='nota_fiscal',
+            dados_novos={
+                'transaction_id': transaction_id,
+                'spedy_order_id': spedy_info.get('spedy_order_id'),
+                'spedy_invoice_id': spedy_info.get('spedy_invoice_id'),
+            },
+        )
+
+        if confirm.get('confirmed'):
+            _atualizar_pi_status_nf_emitida(id_pi)
+
+        return jsonify({
+            'success': True,
+            'nf_id': nf_id,
+            'transaction_id': transaction_id,
+            **confirm,
+        }), 201
+
+    @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>/spedy/status', methods=['GET'])
+    @login_required
+    def api_spedy_status_nota_fiscal(id_nota):
+        """Consulta Spedy e confirma emissão da NFS-e vinculada à nota fiscal."""
+        nota = db.obter_nota_fiscal_por_id(id_nota)
+        if not nota:
+            return jsonify({'error': 'Nota fiscal não encontrada.'}), 404
+        if not nota.get('spedy_invoice_id'):
+            return jsonify({'error': 'Nota fiscal sem emissão Spedy em andamento.'}), 400
+
+        result = _confirmar_spedy_nota_fiscal(nota)
+        status_code = 200
+        if result.get('failed'):
+            status_code = 422
+        return jsonify(result), status_code
 
     # ==================== ASSINATURAS / SUBSCRIPTION ====================
 

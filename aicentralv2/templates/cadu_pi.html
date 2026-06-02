@@ -249,6 +249,29 @@
                 'mesRef': pi.mes_ref_comp or '',
                 'valorLiquido': pi.valor_liquido or ''
               } %}
+              <div class="inline-flex items-center gap-1 flex-wrap justify-center">
+              {% if origem_lista == 'faturamento' %}
+                {% if pi.get('nf_spedy_status') == 'authorized' %}
+              <span class="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-semibold bg-violet-100 text-violet-700"
+                    title="NFS-e Spedy autorizada">
+                SP ✓
+              </span>
+                {% elif pi.get('nf_id') and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
+              <button type="button"
+                      onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
+                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
+                      title="Confirmar emissão Spedy">
+                <i class="fa-solid fa-spinner fa-spin text-[9px]"></i> SP
+              </button>
+                {% else %}
+              <button type="button"
+                      onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
+                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
+                      title="Emitir NFS-e de teste via Spedy (sem e-mail ao cliente)">
+                SP
+              </button>
+                {% endif %}
+              {% endif %}
               {% if pi.get('nf_id') %}
                 {% if origem_lista == 'nf_emitida' and pi.nf_status == 1 %}
               <div class="inline-flex items-center gap-1">
@@ -301,6 +324,7 @@
               </button>
                 {% endif %}
               {% endif %}
+              </div>
             </td>
             {% endif %}
           {% endif %}
@@ -517,6 +541,108 @@
     <div class="modal-action">
       <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
       <button class="btn btn-primary btn-sm" id="btn_salvar_nf" onclick="salvarNf()">Salvar</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Modal Spedy — emissão de teste NFS-e -->
+<dialog id="modal_spedy" class="modal">
+  <div class="modal-box max-w-lg">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg" id="modal_spedy_title">Emitir NFS-e via Spedy</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle" id="modal_spedy_close_btn">✕</button></form>
+    </div>
+    <input type="hidden" id="spedy_id_pi">
+    <input type="hidden" id="spedy_nf_id">
+
+    <div id="spedy_step_confirm">
+      <p class="text-sm text-gray-600 mb-3">
+        Emissão de <strong>teste</strong> no ambiente Spedy sandbox. Revise os dados do PI antes de continuar.
+      </p>
+
+      <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4 text-sm text-amber-950">
+        <p class="font-semibold mb-2">Ao confirmar, o sistema irá:</p>
+        <ul class="list-disc pl-5 space-y-1 text-[13px]">
+          <li>Gerar a <strong>nota fiscal de serviço (NFS-e)</strong> na Spedy com os dados do PI.</li>
+          <li>Alterar o status do PI para <strong>NF Emitida</strong> após autorização da nota.</li>
+          <li>Registrar a NFS-e vinculada a este PI no cadastro interno.</li>
+        </ul>
+        <p class="mt-3 text-[13px] font-medium text-green-800">
+          <i class="fa-solid fa-envelope-circle-check mr-1"></i>
+          Nenhum e-mail será enviado ao cliente neste momento.
+        </p>
+      </div>
+
+      <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+          <div>
+            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
+            <span class="text-sm font-mono font-semibold text-blue-600" id="spedy_info_cod_pi">-</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Valor líquido</span>
+            <span class="text-sm font-semibold text-green-700" id="spedy_info_valor">-</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
+            <span class="text-sm text-gray-800" id="spedy_info_cliente">-</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-[10px] uppercase text-gray-400 font-semibold block">CNPJ</span>
+            <span class="text-sm text-gray-600 font-mono" id="spedy_info_cnpj">-</span>
+          </div>
+        </div>
+      </div>
+
+      <label class="flex items-start gap-2 cursor-pointer mb-2 px-1">
+        <input type="checkbox" id="spedy_confirm_entendido" class="checkbox checkbox-sm checkbox-primary mt-0.5"
+               onchange="toggleBotaoConfirmarSpedy()">
+        <span class="text-xs text-gray-700 leading-relaxed">
+          Entendo que a NFS-e será gerada, o status do PI será alterado para <strong>NF Emitida</strong> após a autorização
+          e que <strong>nenhum e-mail</strong> será enviado ao cliente.
+        </span>
+      </label>
+
+      <div class="modal-action mt-2">
+        <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
+        <button class="btn btn-primary btn-sm bg-violet-600 hover:bg-violet-700 border-violet-600 opacity-50 cursor-not-allowed"
+                id="btn_spedy_confirmar" disabled onclick="confirmarEmissaoSpedy()">
+          Gerar NFS-e e alterar status
+        </button>
+      </div>
+    </div>
+
+    <div id="spedy_step_progress" class="hidden">
+      <div class="flex flex-col items-center text-center py-6 gap-3">
+        <i class="fa-solid fa-spinner fa-spin text-3xl text-violet-600" id="spedy_progress_icon"></i>
+        <p class="text-sm font-medium text-gray-800" id="spedy_progress_title">Enviando para Spedy...</p>
+        <p class="text-xs text-gray-500" id="spedy_progress_message">Aguarde a confirmação da NFS-e.</p>
+        <p class="text-[11px] text-gray-400 font-mono" id="spedy_progress_status"></p>
+      </div>
+    </div>
+
+    <div id="spedy_step_result" class="hidden">
+      <div class="rounded-lg px-4 py-4 mb-4 border" id="spedy_result_box">
+        <p class="text-sm font-semibold mb-2" id="spedy_result_title"></p>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Nº NFS-e</span>
+            <span class="font-mono font-semibold" id="spedy_result_numero">-</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Status Spedy</span>
+            <span class="font-medium" id="spedy_result_status">-</span>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-3" id="spedy_result_message"></p>
+        <p class="text-xs text-gray-600 mt-2 hidden" id="spedy_result_status_pi">
+          O status do PI foi atualizado para <strong>NF Emitida</strong>. Nenhum e-mail foi enviado ao cliente.
+        </p>
+      </div>
+      <div class="modal-action mt-2">
+        <button class="btn btn-primary btn-sm" onclick="fecharModalSpedy(true)">Fechar e atualizar</button>
+      </div>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -1342,6 +1468,178 @@ function salvarNf() {
     showToast('Erro ao salvar nota fiscal: ' + err.message, 'error');
   });
 }
+
+var _spedyPollTimer = null;
+
+function toggleBotaoConfirmarSpedy() {
+  var cb = document.getElementById('spedy_confirm_entendido');
+  var btn = document.getElementById('btn_spedy_confirmar');
+  if (!cb || !btn) return;
+  var ok = cb.checked;
+  btn.disabled = !ok;
+  btn.classList.toggle('opacity-50', !ok);
+  btn.classList.toggle('cursor-not-allowed', !ok);
+}
+
+function _spedyShowStep(step) {
+  ['spedy_step_confirm', 'spedy_step_progress', 'spedy_step_result'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', id !== step);
+  });
+}
+
+function abrirModalSpedy(idPi, piInfo) {
+  document.getElementById('spedy_id_pi').value = idPi;
+  document.getElementById('spedy_nf_id').value = '';
+  document.getElementById('spedy_info_cod_pi').textContent = piInfo.codPi || '-';
+  document.getElementById('spedy_info_cliente').textContent = piInfo.cliente || '-';
+  document.getElementById('spedy_info_cnpj').textContent = piInfo.cnpj || '-';
+  document.getElementById('spedy_info_valor').textContent = piInfo.valorLiquido ? fmtValorBrl(piInfo.valorLiquido) : '-';
+  document.getElementById('spedy_progress_message').textContent = 'Aguarde a confirmação da NFS-e. Nenhum e-mail será enviado ao cliente.';
+  document.getElementById('spedy_progress_status').textContent = '';
+  var cb = document.getElementById('spedy_confirm_entendido');
+  if (cb) cb.checked = false;
+  toggleBotaoConfirmarSpedy();
+  _spedyShowStep('spedy_step_confirm');
+  document.getElementById('modal_spedy').showModal();
+}
+
+function continuarConfirmacaoSpedy(idPi, nfId) {
+  document.getElementById('spedy_id_pi').value = idPi;
+  document.getElementById('spedy_nf_id').value = nfId;
+  _spedyShowStep('spedy_step_progress');
+  document.getElementById('spedy_progress_title').textContent = 'Confirmando emissão na Spedy...';
+  document.getElementById('modal_spedy').showModal();
+  pollConfirmacaoSpedy(nfId);
+}
+
+function confirmarEmissaoSpedy() {
+  if (!document.getElementById('spedy_confirm_entendido').checked) {
+    showToast('Marque a confirmação antes de gerar a NFS-e.', 'warning');
+    return;
+  }
+  var idPi = document.getElementById('spedy_id_pi').value;
+  var btn = document.getElementById('btn_spedy_confirmar');
+  btn.disabled = true;
+  _spedyShowStep('spedy_step_progress');
+  document.getElementById('spedy_progress_title').textContent = 'Enviando pedido para Spedy...';
+
+  fetch('/api/cadu_pi/' + idPi + '/spedy/emitir-teste', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
+  })
+  .then(async function(r) {
+    var data = {};
+    try { data = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(data.error || 'Falha ao emitir NFS-e de teste');
+    return data;
+  })
+  .then(function(data) {
+    btn.disabled = false;
+    if (data.confirmed) {
+      mostrarResultadoSpedy(data, true);
+      return;
+    }
+    if (data.nf_id) {
+      document.getElementById('spedy_nf_id').value = data.nf_id;
+      pollConfirmacaoSpedy(data.nf_id);
+    } else {
+      throw new Error('Resposta inválida da emissão Spedy.');
+    }
+  })
+  .catch(function(err) {
+    btn.disabled = false;
+    _spedyShowStep('spedy_step_confirm');
+    showToast(err.message || 'Erro na emissão Spedy', 'error');
+  });
+}
+
+function pollConfirmacaoSpedy(nfId) {
+  if (_spedyPollTimer) clearInterval(_spedyPollTimer);
+  var tentativas = 0;
+  var maxTentativas = 20;
+
+  function consultar() {
+    tentativas += 1;
+    fetch('/api/cadu_pi_nota_fiscal/' + nfId + '/spedy/status')
+      .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+      .then(function(res) {
+        var data = res.data || {};
+        document.getElementById('spedy_progress_status').textContent =
+          (data.spedy_status || 'processando') + (data.spedy_message ? ' — ' + data.spedy_message : '');
+
+        if (data.confirmed) {
+          clearInterval(_spedyPollTimer);
+          _spedyPollTimer = null;
+          mostrarResultadoSpedy(data, true);
+          return;
+        }
+        if (data.failed) {
+          clearInterval(_spedyPollTimer);
+          _spedyPollTimer = null;
+          mostrarResultadoSpedy(data, false);
+          return;
+        }
+        if (tentativas >= maxTentativas && !data.pending) {
+          clearInterval(_spedyPollTimer);
+          _spedyPollTimer = null;
+          mostrarResultadoSpedy(data, false, 'Tempo esgotado aguardando confirmação da Spedy.');
+        }
+      })
+      .catch(function(err) {
+        if (tentativas >= maxTentativas) {
+          clearInterval(_spedyPollTimer);
+          _spedyPollTimer = null;
+          showToast('Erro ao confirmar emissão: ' + err.message, 'error');
+        }
+      });
+  }
+
+  consultar();
+  _spedyPollTimer = setInterval(consultar, 2500);
+}
+
+function mostrarResultadoSpedy(data, sucesso, mensagemExtra) {
+  _spedyShowStep('spedy_step_result');
+  var box = document.getElementById('spedy_result_box');
+  var title = document.getElementById('spedy_result_title');
+  var msg = document.getElementById('spedy_result_message');
+  var statusPi = document.getElementById('spedy_result_status_pi');
+
+  document.getElementById('spedy_result_numero').textContent = data.numero_nota || (data.nota && data.nota.numero_nota) || '-';
+  document.getElementById('spedy_result_status').textContent = data.spedy_status || '-';
+
+  if (sucesso) {
+    box.className = 'rounded-lg px-4 py-4 mb-4 border border-green-200 bg-green-50';
+    title.textContent = 'NFS-e autorizada com sucesso';
+    title.className = 'text-sm font-semibold mb-2 text-green-800';
+    msg.textContent = data.spedy_message || 'Emissão confirmada pela Spedy (sandbox).';
+    if (statusPi) statusPi.classList.remove('hidden');
+  } else {
+    box.className = 'rounded-lg px-4 py-4 mb-4 border border-red-200 bg-red-50';
+    title.textContent = 'Emissão não confirmada';
+    title.className = 'text-sm font-semibold mb-2 text-red-800';
+    msg.textContent = mensagemExtra || data.spedy_message || data.error || 'Verifique o cadastro do cliente e tente novamente.';
+    if (statusPi) statusPi.classList.add('hidden');
+  }
+}
+
+function fecharModalSpedy(reload) {
+  if (_spedyPollTimer) {
+    clearInterval(_spedyPollTimer);
+    _spedyPollTimer = null;
+  }
+  document.getElementById('modal_spedy').close();
+  if (reload) window.location.reload();
+}
+
+document.getElementById('modal_spedy').addEventListener('close', function() {
+  if (_spedyPollTimer) {
+    clearInterval(_spedyPollTimer);
+    _spedyPollTimer = null;
+  }
+});
 
 // ==================== MODAL ANDAMENTO (Lifecycle) ====================
 

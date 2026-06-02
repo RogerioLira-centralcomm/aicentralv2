@@ -51,8 +51,33 @@ echo ""
 echo "[3/7] Atualizando dependencias..."
 VENV_PIP="venv/bin/pip"
 [ ! -f "$VENV_PIP" ] && VENV_PIP="venv_new/bin/pip"
+
+# Pastas ~pacote em site-packages = uninstall do pip interrompido (ex.: ~vidia-cusparselt-cu13)
+cleanup_pip_orphans() {
+    local venv_pip="$1"
+    local venv_dir sp orphan removed=0
+    venv_dir="$(dirname "$(dirname "$venv_pip")")"
+
+    for sp in "$venv_dir"/lib/python*/site-packages; do
+        [ -d "$sp" ] || continue
+        for orphan in "$sp"/~*; do
+            [ -e "$orphan" ] || continue
+            echo "  > Removendo distribuicao pip invalida: $(basename "$orphan")"
+            rm -rf "$orphan"
+            removed=$((removed + 1))
+        done
+    done
+
+    if [ "$removed" -gt 0 ]; then
+        echo "  > $removed pasta(s) orfa(s) do pip removida(s)"
+    fi
+}
+
+cleanup_pip_orphans "$VENV_PIP"
 $VENV_PIP install --upgrade pip --quiet 2>&1
+cleanup_pip_orphans "$VENV_PIP"
 $VENV_PIP install -r requirements.txt --upgrade --quiet 2>&1
+cleanup_pip_orphans "$VENV_PIP"
 echo "  > OK"
 
 # 4. Criar diretorios

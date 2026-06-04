@@ -5,33 +5,33 @@
 {% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-2">
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <h1 class="text-lg font-semibold text-gray-800">PIs</h1>
+<div class="max-w-full mx-auto px-1">
+  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <h1 class="text-sm font-semibold text-gray-800">PIs</h1>
         {% set sub_status_atual = filtros.get('id_sub_status_pi') %}
         {% if sub_status_atual|string == '1' %}
-        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">Em aprovação</span>
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-700">Em aprovação</span>
         {% elif sub_status_atual|string == '2' %}
-        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Em configuração</span>
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 text-blue-700">Em configuração</span>
         {% elif sub_status_atual|string == '3' %}
-        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Em andamento</span>
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-green-100 text-green-700">Em andamento</span>
         {% elif sub_status_atual|string == '4' %}
-        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-orange-100 text-orange-700">Em faturamento</span>
         {% elif origem_lista == 'nf_emitida' %}
-        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">NF Emitida</span>
-        <div class="flex items-center gap-1 ml-2">
-          <button onclick="filtrarNfStatus('')" class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors {% if not nf_status_filtro %}bg-gray-700 text-white ring-1 ring-gray-700{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Todos</button>
-          <button onclick="filtrarNfStatus('1')" class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors {% if nf_status_filtro == '1' %}bg-yellow-500 text-white ring-1 ring-yellow-500{% else %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200{% endif %}">NF Emitida</button>
-          <button onclick="filtrarNfStatus('3')" class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors {% if nf_status_filtro == '3' %}bg-green-500 text-white ring-1 ring-green-500{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}">Pgto Realizado</button>
+        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-purple-100 text-purple-700">NF Emitida</span>
+        <div class="flex items-center gap-1 ml-1.5">
+          <button onclick="filtrarNfStatus('')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if not nf_status_filtro %}bg-gray-700 text-white ring-1 ring-gray-700{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Todos</button>
+          <button onclick="filtrarNfStatus('1')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if nf_status_filtro == '1' %}bg-yellow-500 text-white ring-1 ring-yellow-500{% else %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200{% endif %}">NF Emitida</button>
+          <button onclick="filtrarNfStatus('3')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if nf_status_filtro == '3' %}bg-green-500 text-white ring-1 ring-green-500{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}">Pgto Realizado</button>
         </div>
         {% endif %}
       </div>
 
-      <form id="filtros_form" class="flex items-center gap-3">
+      <form id="filtros_form" class="flex items-center gap-2">
         <select name="resp_comercial" id="filtro_executivo" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 150px;">
+                class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
           <option value="">Todos executivos</option>
           {% for v in vendedores %}
             <option value="{{ v.id_contato_cliente }}" {% if filtros.get('resp_comercial')|string == v.id_contato_cliente|string %}selected{% endif %}>
@@ -46,20 +46,20 @@
                  value="{{ filtros.get('cliente_nome', '') }}"
                  placeholder="Buscar cliente..."
                  autocomplete="off"
-                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-7 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
-                 style="min-width: 170px;"
+                 class="text-[10px] bg-gray-50 border border-gray-200 rounded pl-6 pr-5 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
+                 style="min-width: 140px;"
                  oninput="buscarClientesFiltro(this.value)"
                  onfocus="buscarClientesFiltro(this.value)">
-          <i class="fa-solid fa-building absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+          <i class="fa-solid fa-building absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px]"></i>
           <button type="button" id="btn_limpar_cliente" onclick="limparFiltroCliente()"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs {% if not filtros.get('id_cliente') %}hidden{% endif %}">
+                  class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[9px] {% if not filtros.get('id_cliente') %}hidden{% endif %}">
             <i class="fas fa-times"></i>
           </button>
-          <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-gray-200" style="min-width: 280px;"></div>
+          <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-40 overflow-y-auto hidden border border-gray-200 text-[10px]" style="min-width: 240px;"></div>
         </div>
 
         <select name="mes_ref_comp" id="filtro_mes_ref" onchange="aplicarFiltros()"
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 110px;">
+                class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 90px;">
           <option value="">Todos meses</option>
           {% for m in meses_ref %}
             <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>{{ nomes_meses.get(m.split('/')[0], m.split('/')[0]) }}/{{ m.split('/')[1] }}</option>
@@ -70,10 +70,10 @@
           <input type="text" name="busca" id="filtro_busca"
                  value="{{ filtros.get('search', '') }}"
                  placeholder="Buscar..."
-                 class="text-sm bg-gray-50 border border-gray-200 rounded pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
-                 style="min-width: 150px;"
+                 class="text-[10px] bg-gray-50 border border-gray-200 rounded pl-6 pr-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
+                 style="min-width: 120px;"
                  onkeyup="debounceAplicarFiltros()">
-          <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+          <i class="fa-solid fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px]"></i>
         </div>
 
       </form>
@@ -83,10 +83,10 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-3 space-y-2">
+      <div class="mb-2 space-y-1">
         {% for category, message in messages %}
           <div class="alert alert-sm {% if category == 'error' %}alert-error{% elif category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-info{% endif %}">
-            <span class="text-sm">{{ message }}</span>
+            <span class="text-[10px]">{{ message }}</span>
           </div>
         {% endfor %}
       </div>
@@ -95,152 +95,152 @@
 
   <div class="bg-white rounded border border-gray-200 overflow-hidden">
     {% if pis %}
-      <table class="table table-sm w-full">
-        <thead class="bg-gray-100 text-gray-600 text-xs uppercase">
+      <table class="table table-xs w-full">
+        <thead class="bg-gray-100 text-gray-600 text-[9px] uppercase">
           {% if sub_status_atual|string == '1' %}
           <tr>
-            <th class="font-semibold py-3" style="width: 90px;">Código</th>
-            <th class="font-semibold" style="width: 270px;">Cliente</th>
-            <th class="font-semibold" style="width: 200px;">Agência / Parceiro</th>
-            <th class="font-semibold text-right" style="width: 140px;">Valor Bruto</th>
-            <th class="font-semibold text-right" style="width: 140px;">Valor Líquido</th>
+            <th class="font-semibold py-1.5 px-2" style="width: 80px;">Código</th>
+            <th class="font-semibold px-2" style="width: 250px;">Cliente</th>
+            <th class="font-semibold px-2" style="width: 180px;">Agência / Parceiro</th>
+            <th class="font-semibold text-right px-2" style="width: 120px;">Valor Bruto</th>
+            <th class="font-semibold text-right px-2" style="width: 120px;">Valor Líquido</th>
           </tr>
           {% else %}
           <tr>
-            <th class="font-semibold py-3" style="width: 90px;">Código PI</th>
-            <th class="font-semibold" style="width: 230px;">Cliente</th>
-            <th class="font-semibold" style="width: 170px;">Agência / Parceiro</th>
-            <th class="font-semibold" style="width: 100px;">Executivo</th>
-            <th class="font-semibold text-center" style="width: 90px;">Período</th>
-            <th class="font-semibold text-center" style="width: 50px;">Camp.</th>
-            <th class="font-semibold text-right" style="width: 140px;">Bruto / Líquido</th>
+            <th class="font-semibold py-1.5 px-2" style="width: 80px;">Código PI</th>
+            <th class="font-semibold px-2" style="width: 210px;">Cliente</th>
+            <th class="font-semibold px-2" style="width: 150px;">Agência / Parceiro</th>
+            <th class="font-semibold px-2" style="width: 90px;">Executivo</th>
+            <th class="font-semibold text-center px-2" style="width: 80px;">Período</th>
+            <th class="font-semibold text-center px-2" style="width: 45px;">Camp.</th>
+            <th class="font-semibold text-right px-2" style="width: 120px;">Bruto / Líquido</th>
             {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
-            <th class="font-semibold text-center" style="width: 110px;">Nota Fiscal</th>
+            <th class="font-semibold text-center px-2" style="width: 100px;">Nota Fiscal</th>
             {% endif %}
           </tr>
           {% endif %}
         </thead>
-        <tbody class="text-sm">
+        <tbody class="text-[10px]">
           {% for pi in pis %}
           <tr id="pi-{{ pi.id_pi }}" class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}'">
           {% if sub_status_atual|string == '1' %}
-            <td class="py-2.5" style="width: 90px;">
+            <td class="py-1.5 px-2" style="width: 80px;">
               <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[80px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                <span class="font-mono text-[10px] font-semibold text-blue-600 truncate block max-w-[70px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
                 {% if pi.get('mes_ref_comp') %}
-                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                <span class="text-[9px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
                 {% endif %}
               </div>
             </td>
-            <td>
+            <td class="px-2">
               <div class="flex flex-col gap-0.5">
-                <span class="font-medium text-gray-800 text-xs whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
-                <span class="text-[11px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
+                <span class="font-medium text-gray-800 text-[10px] whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
+                <span class="text-[9px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
               </div>
             </td>
-            <td>
-              <div class="flex flex-col gap-0.5 max-w-[180px]">
+            <td class="px-2">
+              <div class="flex flex-col gap-0.5 max-w-[160px]">
                 {% if pi.get('agencia_nome') %}
-                <span class="text-xs text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+                <span class="text-[10px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
                 {% else %}
-                <span class="text-xs text-gray-300">-</span>
+                <span class="text-[10px] text-gray-300">-</span>
                 {% endif %}
                 {% if pi.get('parceiro_nome') %}
-                <span class="text-[10px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
+                <span class="text-[9px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
                 {% endif %}
               </div>
             </td>
-            <td class="text-right">
+            <td class="text-right px-2">
               {% if pi.get('valor_bruto') %}
-              <span class="font-semibold text-gray-800 text-xs">{{ pi.valor_bruto|format_brl }}</span>
+              <span class="font-semibold text-gray-800 text-[10px]">{{ pi.valor_bruto|format_brl }}</span>
               {% else %}
-              <span class="text-xs text-gray-300">-</span>
+              <span class="text-[10px] text-gray-300">-</span>
               {% endif %}
             </td>
-            <td class="text-right">
+            <td class="text-right px-2">
               {% if pi.get('valor_liquido') %}
-              <span class="text-xs text-green-600 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
+              <span class="text-[10px] text-green-600 font-semibold">{{ pi.valor_liquido|format_brl }}</span>
               {% else %}
-              <span class="text-xs text-gray-300">-</span>
+              <span class="text-[10px] text-gray-300">-</span>
               {% endif %}
             </td>
           {% else %}
-            <td class="py-2.5" style="width: 90px;">
+            <td class="py-1.5 px-2" style="width: 80px;">
               <div class="flex flex-col gap-0.5">
-                <span class="font-mono text-[11px] font-semibold text-blue-600 truncate block max-w-[80px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
+                <span class="font-mono text-[10px] font-semibold text-blue-600 truncate block max-w-[70px]" title="{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}">{{ pi.codigo_pi_cc or pi.codigo_pi_ag or '-' }}</span>
                 {% if pi.get('mes_ref_comp') %}
-                <span class="text-[10px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
+                <span class="text-[9px] text-gray-400">{{ nomes_meses.get(pi.mes_ref_comp.split('/')[0], pi.mes_ref_comp.split('/')[0]) }}/{{ pi.mes_ref_comp.split('/')[1] }}</span>
                 {% endif %}
               </div>
             </td>
-            <td>
+            <td class="px-2">
               <div class="flex flex-col gap-0.5">
-                <span class="font-medium text-gray-800 text-xs whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
-                <span class="text-[11px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
+                <span class="font-medium text-gray-800 text-[10px] whitespace-normal">{{ pi.get('titulo_pi') or 'Sem Título' }}</span>
+                <span class="text-[9px] text-gray-500">{{ pi.get('cliente_nome') or '-' }}</span>
               </div>
             </td>
-            <td>
-              <div class="flex flex-col gap-0.5 max-w-[150px]">
+            <td class="px-2">
+              <div class="flex flex-col gap-0.5 max-w-[130px]">
                 {% if pi.get('agencia_nome') %}
-                <span class="text-xs text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
+                <span class="text-[10px] text-gray-700 truncate" title="{{ pi.agencia_nome }}">{{ pi.agencia_nome }}</span>
                 {% else %}
-                <span class="text-xs text-gray-300">-</span>
+                <span class="text-[10px] text-gray-300">-</span>
                 {% endif %}
                 {% if pi.get('parceiro_nome') %}
-                <span class="text-[10px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
+                <span class="text-[9px] text-gray-400 truncate" title="{{ pi.parceiro_nome }}">{{ pi.parceiro_nome }}</span>
                 {% endif %}
               </div>
             </td>
-            <td>
+            <td class="px-2">
               {% if pi.get('resp_comercial_nome') %}
-              <span class="text-xs text-gray-700 truncate block max-w-[80px]" title="{{ pi.resp_comercial_nome }}">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
+              <span class="text-[10px] text-gray-700 truncate block max-w-[70px]" title="{{ pi.resp_comercial_nome }}">{{ pi.resp_comercial_nome.split(' ')[0] }}</span>
               {% else %}
-              <span class="text-xs text-gray-300">-</span>
+              <span class="text-[10px] text-gray-300">-</span>
               {% endif %}
             </td>
-            <td class="text-center">
+            <td class="text-center px-2">
               {% if pi.get('periodo_inicio') %}
               <div class="flex flex-col items-center">
-                <span class="text-[11px] text-gray-600">
+                <span class="text-[9px] text-gray-600">
                   {{ pi.periodo_inicio.strftime('%d/%m') }}{% if pi.get('periodo_fim') %} - {{ pi.periodo_fim.strftime('%d/%m') }} <span class="text-gray-400">({{ (pi.periodo_fim - pi.periodo_inicio).days }}d)</span>{% endif %}
                 </span>
               </div>
               {% else %}
-              <span class="text-xs text-gray-300">-</span>
+              <span class="text-[10px] text-gray-300">-</span>
               {% endif %}
             </td>
-            <td class="text-center">
-              <span class="text-xs cursor-pointer select-none inline-flex items-center gap-1 {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-blue-600 hover:text-blue-800{% else %}text-gray-300{% endif %}"
+            <td class="text-center px-2">
+              <span class="text-[10px] cursor-pointer select-none inline-flex items-center gap-0.5 {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-blue-600 hover:text-blue-800{% else %}text-gray-300{% endif %}"
                     onclick="toggleCampanhas({{ pi.id_pi }}, event)"
-                    title="Ver campanhas">{{ pi.get('total_campanhas', 0) }} {% if pi.get('total_campanhas', 0) > 0 %}<i class="fa-solid fa-chevron-down text-[9px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i>{% endif %}</span>
+                    title="Ver campanhas">{{ pi.get('total_campanhas', 0) }} {% if pi.get('total_campanhas', 0) > 0 %}<i class="fa-solid fa-chevron-down text-[8px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i>{% endif %}</span>
             </td>
-            <td class="text-right">
-              <div class="flex items-center justify-end gap-2">
+            <td class="text-right px-2">
+              <div class="flex items-center justify-end gap-1.5">
                 <div class="flex flex-col gap-0.5 items-end">
                   {% if pi.get('valor_bruto') %}
-                  <span class="font-semibold text-gray-800 text-xs">{{ pi.valor_bruto|format_brl }}</span>
+                  <span class="font-semibold text-gray-800 text-[10px]">{{ pi.valor_bruto|format_brl }}</span>
                   {% else %}
-                  <span class="text-xs text-gray-300">-</span>
+                  <span class="text-[10px] text-gray-300">-</span>
                   {% endif %}
                   {% if pi.get('valor_liquido') %}
-                  <span class="text-[11px] text-green-600">{{ pi.valor_liquido|format_brl }}</span>
+                  <span class="text-[9px] text-green-600">{{ pi.valor_liquido|format_brl }}</span>
                   {% endif %}
                 </div>
                 {% if sub_status_atual|string == '3' %}
                 <button type="button" onclick="event.stopPropagation(); abrirModalAndamento({{ pi.id_pi }})"
-                        class="text-gray-400 hover:text-emerald-600 p-1" title="Acompanhar andamento">
-                  <i class="fa-solid fa-chart-line text-[12px]"></i>
+                        class="text-gray-400 hover:text-emerald-600 p-0.5" title="Acompanhar andamento">
+                  <i class="fa-solid fa-chart-line text-[10px]"></i>
                 </button>
                 {% endif %}
                 {% if pi.get('googled_pi_princ') %}
-                <a href="{{ pi.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()" class="text-gray-400 hover:text-yellow-600 p-1" title="Pasta Google Drive">
-                  <i class="fa-solid fa-folder text-[11px]"></i>
+                <a href="{{ pi.googled_pi_princ }}" target="_blank" onclick="event.stopPropagation()" class="text-gray-400 hover:text-yellow-600 p-0.5" title="Pasta Google Drive">
+                  <i class="fa-solid fa-folder text-[9px]"></i>
                 </a>
                 {% endif %}
               </div>
             </td>
             {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
-            <td class="text-center" onclick="event.stopPropagation()">
+            <td class="text-center px-2" onclick="event.stopPropagation()">
               {% set pi_info = {
                 'codPi': pi.codigo_pi_cc or pi.codigo_pi_ag or '',
                 'titulo': pi.titulo_pi or '',
@@ -252,21 +252,21 @@
               <div class="inline-flex items-center gap-1 flex-wrap justify-center">
               {% if origem_lista == 'faturamento' %}
                 {% if pi.get('nf_spedy_status') == 'authorized' %}
-              <span class="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-semibold bg-violet-100 text-violet-700"
+              <span class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700"
                     title="NFS-e Spedy autorizada">
                 SP ✓
               </span>
                 {% elif pi.get('nf_id') and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
               <button type="button"
                       onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
+                      class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
                       title="Confirmar emissão Spedy">
-                <i class="fa-solid fa-spinner fa-spin text-[9px]"></i> SP
+                <i class="fa-solid fa-spinner fa-spin text-[8px]"></i> SP
               </button>
                 {% else %}
               <button type="button"
                       onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
-                      class="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
+                      class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
                       title="Emitir NFS-e de teste via Spedy (sem e-mail ao cliente)">
                 SP
               </button>
@@ -274,52 +274,52 @@
               {% endif %}
               {% if pi.get('nf_id') %}
                 {% if origem_lista == 'nf_emitida' and pi.nf_status == 1 %}
-              <div class="inline-flex items-center gap-1">
+              <div class="inline-flex items-center gap-0.5">
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, true)'
-                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                       title="Ver Nota Fiscal">
-                <i class="fa-solid fa-eye text-[10px]"></i>
+                <i class="fa-solid fa-eye text-[8px]"></i>
                 Ver
               </button>
               <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
-                      class="nf-status-btn inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] font-medium bg-green-100 text-green-700 hover:bg-green-200"
+                      class="nf-status-btn inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 hover:bg-green-200"
                       title="Registrar pagamento">
-                <i class="fa-solid fa-dollar-sign text-[10px]"></i>
+                <i class="fa-solid fa-dollar-sign text-[8px]"></i>
               </button>
               </div>
                 {% elif origem_lista == 'nf_emitida' %}
               <button onclick='abrirModalAlterarStatus({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }}, {{ pi.nf_status or "null" }}, "{{ pi.nf_status_descricao or "" }}")'
-                      class="nf-status-btn inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
+                      class="nf-status-btn inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
                         {% if pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
                         {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
                         {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
                       title="Alterar status de pagamento">
-                <i class="fa-solid fa-file-invoice text-[10px]"></i>
+                <i class="fa-solid fa-file-invoice text-[8px]"></i>
                 {{ pi.nf_status_descricao or 'Ver' }}
               </button>
                 {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
-                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium
+                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
                         {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
                         {% elif pi.nf_status == 2 %}bg-blue-100 text-blue-700 hover:bg-blue-200
                         {% elif pi.nf_status == 3 %}bg-green-100 text-green-700 hover:bg-green-200
                         {% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
                       title="Ver / Editar Nota Fiscal">
-                <i class="fa-solid fa-file-invoice text-[10px]"></i>
+                <i class="fa-solid fa-file-invoice text-[8px]"></i>
                 {{ pi.nf_status_descricao or 'Ver' }}
               </button>
                 {% endif %}
               {% else %}
                 {% if origem_lista == 'operacao' %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-gray-100 text-gray-500">
-                <i class="fa-solid fa-file-circle-xmark text-[10px]"></i>
+              <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-100 text-gray-500">
+                <i class="fa-solid fa-file-circle-xmark text-[8px]"></i>
                 Sem NF
               </span>
                 {% else %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, null, {{ pi_info|tojson }})'
-                      class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
+                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
                       title="Vincular Nota Fiscal">
-                <i class="fa-solid fa-plus text-[10px]"></i>
+                <i class="fa-solid fa-plus text-[8px]"></i>
                 Vincular NF
               </button>
                 {% endif %}
@@ -332,10 +332,10 @@
           {% if sub_status_atual|string != '1' %}
           <tr class="collapse-camp-row hidden" id="camp-collapse-{{ pi.id_pi }}">
             <td colspan="{% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}8{% else %}7{% endif %}" class="p-0">
-              <div class="bg-blue-50/50 px-4 py-3 border-t border-blue-100">
-                <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-2">
-                  <i class="fa-solid fa-spinner fa-spin text-blue-400 mr-2"></i>
-                  <span class="text-xs text-gray-500">Carregando campanhas...</span>
+              <div class="bg-blue-50/50 px-3 py-2 border-t border-blue-100">
+                <div id="camp-content-{{ pi.id_pi }}" class="flex items-center justify-center py-1.5">
+                  <i class="fa-solid fa-spinner fa-spin text-blue-400 mr-1.5"></i>
+                  <span class="text-[10px] text-gray-500">Carregando campanhas...</span>
                 </div>
               </div>
             </td>
@@ -345,15 +345,15 @@
         </tbody>
       </table>
 
-      <div class="px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p class="text-sm text-gray-600 shrink-0">
+      <div class="px-3 py-1.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <p class="text-[10px] text-gray-600 shrink-0">
           <strong>{{ pis|length }}</strong> PI(s)
           {% if filtros.get('id_status_pi') or filtros.get('id_sub_status_pi') or filtros.get('id_cliente') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('search') %}
           <span class="text-gray-400">• filtrado</span>
           {% endif %}
         </p>
-        <p class="text-xs text-gray-600 text-right flex flex-wrap items-center justify-end gap-x-3 gap-y-1 max-w-full">
-          <span class="whitespace-nowrap"><i class="fa-solid fa-bullhorn mr-1 text-indigo-500"></i><strong>{{ pi_footer_totais.total_campanhas }}</strong> campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}</span>
+        <p class="text-[9px] text-gray-600 text-right flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 max-w-full">
+          <span class="whitespace-nowrap"><i class="fa-solid fa-bullhorn mr-0.5 text-indigo-500"></i><strong>{{ pi_footer_totais.total_campanhas }}</strong> campanha{% if pi_footer_totais.total_campanhas != 1 %}s{% endif %}</span>
           <span class="text-gray-300 hidden sm:inline">·</span>
           <span class="whitespace-nowrap">Invest. mídia: <strong class="text-gray-800">{% if pi_footer_totais.valor_midia %}{{ pi_footer_totais.valor_midia|format_brl }}{% else %}R$ 0,00{% endif %}</strong></span>
           <span class="text-gray-300 hidden sm:inline">·</span>
@@ -363,10 +363,10 @@
         </p>
       </div>
     {% else %}
-      <div class="p-8 text-center max-w-lg mx-auto">
-        <i class="fas fa-file-contract text-4xl text-gray-300 mb-3"></i>
-        <p class="text-gray-700 font-medium">Nenhum PI encontrado.</p>
-        <p class="text-gray-500 text-sm mt-2 leading-relaxed">
+      <div class="p-6 text-center max-w-md mx-auto">
+        <i class="fas fa-file-contract text-3xl text-gray-300 mb-2"></i>
+        <p class="text-gray-700 font-medium text-[11px]">Nenhum PI encontrado.</p>
+        <p class="text-gray-500 text-[10px] mt-1.5 leading-relaxed">
           Não há PIs para esta visão ou filtros. A criação do PI não é feita por esta lista — use o fluxo próprio do sistema (por exemplo, <span class="text-gray-700">Comercial → PI Recebido</span>).
         </p>
       </div>
@@ -376,80 +376,80 @@
 
 <!-- Modal visualizar campanha (lista de PIs) -->
 <dialog id="modal_ver_campanha" class="modal">
-  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-3 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-sm text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
-      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-1 hover:bg-gray-500 rounded-lg transition-colors">
-        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
+  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
+      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
       </button>
     </div>
-    <div class="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
-      <div class="flex items-center gap-1.5 min-w-0">
-        <span class="text-gray-400 text-xs shrink-0">Cliente:</span>
-        <span id="lista_modal_cliente" class="font-semibold text-gray-800 text-sm truncate">—</span>
+    <div class="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
+      <div class="flex items-center gap-1 min-w-0">
+        <span class="text-gray-400 text-[9px] shrink-0">Cliente:</span>
+        <span id="lista_modal_cliente" class="font-semibold text-gray-800 text-[10px] truncate">—</span>
       </div>
-      <div class="flex items-center gap-1.5 shrink-0">
-        <span class="text-gray-400 text-[10px]">PI:</span>
-        <span id="lista_modal_pi_codigo" class="text-gray-500 text-xs font-mono">—</span>
+      <div class="flex items-center gap-1 shrink-0">
+        <span class="text-gray-400 text-[9px]">PI:</span>
+        <span id="lista_modal_pi_codigo" class="text-gray-500 text-[9px] font-mono">—</span>
       </div>
     </div>
-    <div class="px-5 py-4">
-      <div class="grid grid-cols-3 gap-x-4 gap-y-3">
+    <div class="px-4 py-3">
+      <div class="grid grid-cols-3 gap-x-3 gap-y-2">
         <div class="col-span-2">
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
-          <span id="view_nome_campanha" class="text-sm font-medium text-gray-800">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
+          <span id="view_nome_campanha" class="text-[10px] font-medium text-gray-800">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
-          <span id="view_obj_contratados" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
+          <span id="view_obj_contratados" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
-          <span id="view_valor_plataforma" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
+          <span id="view_valor_plataforma" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
-          <span id="view_status" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
+          <span id="view_status" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
-          <span id="view_criativos_validados" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
+          <span id="view_criativos_validados" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
-          <span id="view_periodo_inicio" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
+          <span id="view_periodo_inicio" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
-          <span id="view_periodo_fim" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
+          <span id="view_periodo_fim" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
-          <span id="view_plataforma" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
+          <span id="view_plataforma" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
-          <span id="view_objetivos" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
+          <span id="view_objetivos" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label id="view_preco_metrica_label" class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
-          <span id="view_preco_metrica" class="text-sm text-gray-700">—</span>
+          <label id="view_preco_metrica_label" class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
+          <span id="view_preco_metrica" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
-          <span id="view_under" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
+          <span id="view_under" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
-          <span id="view_totalizador_atingido" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
+          <span id="view_totalizador_atingido" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
-          <span id="view_totalizador_gasto" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
+          <span id="view_totalizador_gasto" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
-          <span id="view_link_dash" class="text-sm text-gray-700 break-all">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
+          <span id="view_link_dash" class="text-[10px] text-gray-700 break-all">—</span>
         </div>
       </div>
     </div>
@@ -459,14 +459,14 @@
 
 <!-- Modal de confirmação -->
 <dialog id="modal_confirm" class="modal">
-  <div class="modal-box max-w-sm">
-    <h3 class="font-bold text-lg" id="modal_confirm_title">Confirmar</h3>
-    <p class="py-4 text-sm" id="modal_confirm_msg"></p>
+  <div class="modal-box max-w-xs p-4">
+    <h3 class="font-bold text-[11px]" id="modal_confirm_title">Confirmar</h3>
+    <p class="py-3 text-[10px]" id="modal_confirm_msg"></p>
     <div class="modal-action">
       <form method="dialog">
-        <button class="btn btn-ghost btn-sm">Cancelar</button>
+        <button class="btn btn-ghost btn-xs text-[10px]">Cancelar</button>
       </form>
-      <button class="btn btn-primary btn-sm" id="modal_confirm_btn" onclick="">Confirmar</button>
+      <button class="btn btn-primary btn-xs text-[10px]" id="modal_confirm_btn" onclick="">Confirmar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -474,62 +474,62 @@
 
 <!-- Modal Nota Fiscal -->
 <dialog id="modal_nf" class="modal">
-  <div class="modal-box max-w-lg">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-bold text-lg" id="modal_nf_title">Nota Fiscal</h3>
-      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle">✕</button></form>
+  <div class="modal-box max-w-sm p-3">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-[11px]" id="modal_nf_title">Nota Fiscal</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-xs btn-circle">✕</button></form>
     </div>
     <input type="hidden" id="nf_id_pi">
     <input type="hidden" id="nf_id">
     <input type="hidden" id="nf_mes_ref_comp">
-    <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
-      <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+    <div class="bg-gray-50 rounded-lg px-3 py-2 mb-3 border border-gray-200">
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
         <div>
-          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
-          <span class="text-sm font-mono font-semibold text-blue-600" id="nf_info_cod_pi">-</span>
+          <span class="text-[9px] uppercase text-gray-400 font-semibold block">Cód PI</span>
+          <span class="text-[10px] font-mono font-semibold text-blue-600" id="nf_info_cod_pi">-</span>
         </div>
         <div>
-          <span class="text-[10px] uppercase text-gray-400 font-semibold block">CNPJ/CPF</span>
-          <span class="text-sm text-gray-600 font-mono whitespace-nowrap" id="nf_info_cnpj">-</span>
+          <span class="text-[9px] uppercase text-gray-400 font-semibold block">CNPJ/CPF</span>
+          <span class="text-[10px] text-gray-600 font-mono whitespace-nowrap" id="nf_info_cnpj">-</span>
         </div>
         <div class="col-span-2">
-          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Título PI</span>
-          <span class="text-sm text-gray-800 font-medium" id="nf_info_titulo">-</span>
+          <span class="text-[9px] uppercase text-gray-400 font-semibold block">Título PI</span>
+          <span class="text-[10px] text-gray-800 font-medium" id="nf_info_titulo">-</span>
         </div>
         <div class="col-span-2">
-          <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
-          <span class="text-sm text-gray-800" id="nf_info_cliente">-</span>
+          <span class="text-[9px] uppercase text-gray-400 font-semibold block">Cliente</span>
+          <span class="text-[10px] text-gray-800" id="nf_info_cliente">-</span>
         </div>
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-2 gap-2">
       <div>
-        <label class="text-xs font-medium text-gray-600 mb-1 block">Número da Nota <span class="text-red-500">*</span></label>
-        <input type="text" id="nf_numero_nota" class="input input-bordered input-sm w-full" placeholder="Nº nota" required>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Número da Nota <span class="text-red-500">*</span></label>
+        <input type="text" id="nf_numero_nota" class="input input-bordered input-xs w-full text-[10px]" placeholder="Nº nota" required>
       </div>
       <div>
-        <label class="text-xs font-medium text-gray-600 mb-1 block">Valor <span class="text-red-500">*</span></label>
-        <input type="text" id="nf_valor" class="input input-bordered input-sm w-full" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" required>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Valor <span class="text-red-500">*</span></label>
+        <input type="text" id="nf_valor" class="input input-bordered input-xs w-full text-[10px]" placeholder="R$ 0,00" data-mask="real" inputmode="decimal" required>
       </div>
       <div>
-        <label class="text-xs font-medium text-gray-600 mb-1 block">Data Emissão <span class="text-red-500">*</span></label>
-        <input type="date" id="nf_data_emissao" class="input input-bordered input-sm w-full" onclick="this.showPicker()" required>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Data Emissão <span class="text-red-500">*</span></label>
+        <input type="date" id="nf_data_emissao" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()" required>
       </div>
       <div>
-        <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto Previsto <span class="text-red-500">*</span></label>
-        <input type="date" id="nf_data_pagamento" class="input input-bordered input-sm w-full" onclick="this.showPicker()" required>
+        <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Pgto Previsto <span class="text-red-500">*</span></label>
+        <input type="date" id="nf_data_pagamento" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()" required>
       </div>
     </div>
-    <div class="border-t border-gray-200 pt-3 mt-3">
-      <p class="text-[11px] uppercase text-gray-400 font-semibold mb-2">Pagamento</p>
-      <div class="grid grid-cols-2 gap-3">
+    <div class="border-t border-gray-200 pt-2 mt-2">
+      <p class="text-[9px] uppercase text-gray-400 font-semibold mb-1.5">Pagamento</p>
+      <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="text-xs font-medium text-gray-600 mb-1 block">Pgto realizado</label>
-          <input type="date" id="nf_data_pagamento_realizado" class="input input-bordered input-sm w-full" onclick="this.showPicker()">
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Pgto realizado</label>
+          <input type="date" id="nf_data_pagamento_realizado" class="input input-bordered input-xs w-full text-[10px]" onclick="this.showPicker()">
         </div>
         <div>
-          <label class="text-xs font-medium text-gray-600 mb-1 block">Status</label>
-          <select id="nf_status" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+          <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Status</label>
+          <select id="nf_status" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
             <option value="">Selecione</option>
             {% for st in statuses_nf %}
             <option value="{{ st.id }}">{{ st.descricao }}</option>
@@ -538,9 +538,9 @@
         </div>
       </div>
     </div>
-    <div class="modal-action">
-      <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
-      <button class="btn btn-primary btn-sm" id="btn_salvar_nf" onclick="salvarNf()">Salvar</button>
+    <div class="modal-action mt-3">
+      <form method="dialog"><button class="btn btn-ghost btn-xs text-[10px]">Cancelar</button></form>
+      <button class="btn btn-primary btn-xs text-[10px]" id="btn_salvar_nf" onclick="salvarNf()">Salvar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -548,65 +548,65 @@
 
 <!-- Modal Spedy — emissão de teste NFS-e -->
 <dialog id="modal_spedy" class="modal">
-  <div class="modal-box max-w-lg">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-bold text-lg" id="modal_spedy_title">Emitir NFS-e via Spedy</h3>
-      <form method="dialog"><button class="btn btn-ghost btn-sm btn-circle" id="modal_spedy_close_btn">✕</button></form>
+  <div class="modal-box max-w-md p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-[11px]" id="modal_spedy_title">Emitir NFS-e via Spedy</h3>
+      <form method="dialog"><button class="btn btn-ghost btn-xs btn-circle" id="modal_spedy_close_btn">✕</button></form>
     </div>
     <input type="hidden" id="spedy_id_pi">
     <input type="hidden" id="spedy_nf_id">
 
     <div id="spedy_step_confirm">
-      <p class="text-sm text-gray-600 mb-3">
+      <p class="text-[10px] text-gray-600 mb-2">
         Emissão de <strong>teste</strong> no ambiente Spedy sandbox. Revise os dados do PI antes de continuar.
       </p>
 
-      <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-4 text-sm text-amber-950">
-        <p class="font-semibold mb-2">Ao confirmar, o sistema irá:</p>
-        <ul class="list-disc pl-5 space-y-1 text-[13px]">
+      <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-3 text-[10px] text-amber-950">
+        <p class="font-semibold mb-1.5">Ao confirmar, o sistema irá:</p>
+        <ul class="list-disc pl-4 space-y-0.5 text-[10px]">
           <li>Gerar a <strong>nota fiscal de serviço (NFS-e)</strong> na Spedy com os dados do PI.</li>
           <li>Alterar o status do PI para <strong>NF Emitida</strong> após autorização da nota.</li>
           <li>Registrar a NFS-e vinculada a este PI no cadastro interno.</li>
         </ul>
-        <p class="mt-3 text-[13px] font-medium text-green-800">
+        <p class="mt-2 text-[10px] font-medium text-green-800">
           <i class="fa-solid fa-envelope-circle-check mr-1"></i>
           Nenhum e-mail será enviado ao cliente neste momento.
         </p>
       </div>
 
-      <div class="bg-gray-50 rounded-lg px-4 py-3 mb-4 border border-gray-200">
-        <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+      <div class="bg-gray-50 rounded-lg px-3 py-2 mb-3 border border-gray-200">
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
           <div>
-            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cód PI</span>
-            <span class="text-sm font-mono font-semibold text-blue-600" id="spedy_info_cod_pi">-</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Cód PI</span>
+            <span class="text-[10px] font-mono font-semibold text-blue-600" id="spedy_info_cod_pi">-</span>
           </div>
           <div>
-            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Valor líquido</span>
-            <span class="text-sm font-semibold text-green-700" id="spedy_info_valor">-</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Valor líquido</span>
+            <span class="text-[10px] font-semibold text-green-700" id="spedy_info_valor">-</span>
           </div>
           <div class="col-span-2">
-            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Cliente</span>
-            <span class="text-sm text-gray-800" id="spedy_info_cliente">-</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Cliente</span>
+            <span class="text-[10px] text-gray-800" id="spedy_info_cliente">-</span>
           </div>
           <div class="col-span-2">
-            <span class="text-[10px] uppercase text-gray-400 font-semibold block">CNPJ</span>
-            <span class="text-sm text-gray-600 font-mono" id="spedy_info_cnpj">-</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">CNPJ</span>
+            <span class="text-[10px] text-gray-600 font-mono" id="spedy_info_cnpj">-</span>
           </div>
         </div>
       </div>
 
-      <label class="flex items-start gap-2 cursor-pointer mb-2 px-1">
-        <input type="checkbox" id="spedy_confirm_entendido" class="checkbox checkbox-sm checkbox-primary mt-0.5"
+      <label class="flex items-start gap-1.5 cursor-pointer mb-2 px-1">
+        <input type="checkbox" id="spedy_confirm_entendido" class="checkbox checkbox-xs checkbox-primary mt-0.5"
                onchange="toggleBotaoConfirmarSpedy()">
-        <span class="text-xs text-gray-700 leading-relaxed">
+        <span class="text-[10px] text-gray-700 leading-relaxed">
           Entendo que a NFS-e será gerada, o status do PI será alterado para <strong>NF Emitida</strong> após a autorização
           e que <strong>nenhum e-mail</strong> será enviado ao cliente.
         </span>
       </label>
 
       <div class="modal-action mt-2">
-        <form method="dialog"><button class="btn btn-ghost btn-sm">Cancelar</button></form>
-        <button class="btn btn-primary btn-sm bg-violet-600 hover:bg-violet-700 border-violet-600 opacity-50 cursor-not-allowed"
+        <form method="dialog"><button class="btn btn-ghost btn-xs text-[10px]">Cancelar</button></form>
+        <button class="btn btn-primary btn-xs text-[10px] bg-violet-600 hover:bg-violet-700 border-violet-600 opacity-50 cursor-not-allowed"
                 id="btn_spedy_confirmar" disabled onclick="confirmarEmissaoSpedy()">
           Gerar NFS-e e alterar status
         </button>
@@ -614,34 +614,34 @@
     </div>
 
     <div id="spedy_step_progress" class="hidden">
-      <div class="flex flex-col items-center text-center py-6 gap-3">
-        <i class="fa-solid fa-spinner fa-spin text-3xl text-violet-600" id="spedy_progress_icon"></i>
-        <p class="text-sm font-medium text-gray-800" id="spedy_progress_title">Enviando para Spedy...</p>
-        <p class="text-xs text-gray-500" id="spedy_progress_message">Aguarde a confirmação da NFS-e.</p>
-        <p class="text-[11px] text-gray-400 font-mono" id="spedy_progress_status"></p>
+      <div class="flex flex-col items-center text-center py-4 gap-2">
+        <i class="fa-solid fa-spinner fa-spin text-2xl text-violet-600" id="spedy_progress_icon"></i>
+        <p class="text-[10px] font-medium text-gray-800" id="spedy_progress_title">Enviando para Spedy...</p>
+        <p class="text-[9px] text-gray-500" id="spedy_progress_message">Aguarde a confirmação da NFS-e.</p>
+        <p class="text-[9px] text-gray-400 font-mono" id="spedy_progress_status"></p>
       </div>
     </div>
 
     <div id="spedy_step_result" class="hidden">
-      <div class="rounded-lg px-4 py-4 mb-4 border" id="spedy_result_box">
-        <p class="text-sm font-semibold mb-2" id="spedy_result_title"></p>
-        <div class="grid grid-cols-2 gap-2 text-sm">
+      <div class="rounded-lg px-3 py-3 mb-3 border" id="spedy_result_box">
+        <p class="text-[10px] font-semibold mb-1.5" id="spedy_result_title"></p>
+        <div class="grid grid-cols-2 gap-2 text-[10px]">
           <div>
-            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Nº NFS-e</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Nº NFS-e</span>
             <span class="font-mono font-semibold" id="spedy_result_numero">-</span>
           </div>
           <div>
-            <span class="text-[10px] uppercase text-gray-400 font-semibold block">Status Spedy</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Status Spedy</span>
             <span class="font-medium" id="spedy_result_status">-</span>
           </div>
         </div>
-        <p class="text-xs text-gray-500 mt-3" id="spedy_result_message"></p>
-        <p class="text-xs text-gray-600 mt-2 hidden" id="spedy_result_status_pi">
+        <p class="text-[9px] text-gray-500 mt-2" id="spedy_result_message"></p>
+        <p class="text-[9px] text-gray-600 mt-1.5 hidden" id="spedy_result_status_pi">
           O status do PI foi atualizado para <strong>NF Emitida</strong>. Nenhum e-mail foi enviado ao cliente.
         </p>
       </div>
       <div class="modal-action mt-2">
-        <button class="btn btn-primary btn-sm" onclick="fecharModalSpedy(true)">Fechar e atualizar</button>
+        <button class="btn btn-primary btn-xs text-[10px]" onclick="fecharModalSpedy(true)">Fechar e atualizar</button>
       </div>
     </div>
   </div>

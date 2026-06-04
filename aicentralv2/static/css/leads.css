@@ -12,11 +12,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
+    padding: 6px 12px;
     background: white;
     border-bottom: 1px solid #e5e7eb;
     flex-shrink: 0;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
@@ -32,13 +32,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 12px;
+    padding: 4px 8px;
     background: white;
     border: none;
     cursor: pointer;
     color: #6b7280;
-    font-size: 12px;
-    gap: 4px;
+    font-size: 10px;
+    gap: 3px;
     transition: background 0.15s, color 0.15s;
 }
 
@@ -74,8 +74,8 @@
 }
 
 .leads-col-header {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 5px 8px;
+    font-size: 9px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -84,14 +84,14 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
 .leads-col-toolbar {
-    padding: 6px 8px;
+    padding: 4px 6px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
+    gap: 3px;
     border-bottom: 1px solid #f3f4f6;
     flex-shrink: 0;
 }
@@ -107,18 +107,18 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    min-height: 120px;
+    min-height: 60px;
     color: #9ca3af;
-    font-size: 13px;
+    font-size: 9px;
 }
 
 /* ===== Lead Cards ===== */
 .lead-card {
-    padding: 10px 12px;
+    padding: 5px 7px;
     border-bottom: 1px solid #f3f4f6;
     cursor: pointer;
     transition: background-color 0.15s;
-    font-size: 12px;
+    font-size: 9px;
 }
 
 .lead-card:hover {
@@ -143,11 +143,11 @@
 .lead-group-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: 4px;
+    padding: 4px 7px;
     cursor: pointer;
     transition: background-color 0.15s;
-    font-size: 12px;
+    font-size: 9px;
 }
 
 .lead-group-header:hover { background-color: #f3f4f6; }
@@ -186,8 +186,8 @@
 .lead-group-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 10px;
+    gap: 3px;
+    font-size: 8px;
     color: #9ca3af;
     margin-top: 1px;
 }
@@ -250,12 +250,12 @@
 .contact-pipeline-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 10px 5px 6px;
-    border-radius: 6px;
+    gap: 5px;
+    padding: 3px 6px 3px 4px;
+    border-radius: 4px;
     cursor: pointer;
     transition: background 0.12s;
-    font-size: 11px;
+    font-size: 9px;
 }
 
 .contact-pipeline-item:hover { background: #f3f4f6; }
@@ -437,10 +437,10 @@
 .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
+    gap: 2px;
+    padding: 1px 5px;
     border-radius: 9999px;
-    font-size: 11px;
+    font-size: 8px;
     font-weight: 500;
     cursor: pointer;
     transition: opacity 0.15s;
@@ -492,10 +492,10 @@
 .ativ-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
+    gap: 2px;
+    padding: 1px 5px;
     border-radius: 9999px;
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 500;
     white-space: nowrap;
 }
@@ -518,9 +518,9 @@
 /* ===== Activity card ===== */
 .ativ-card {
     border-left: 3px solid #e5e7eb;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    border-radius: 0 6px 6px 0;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 0 5px 5px 0;
     background: #fafafa;
     transition: opacity 0.2s, background 0.15s;
 }
@@ -531,7 +531,7 @@
 .ativ-card-concluida .ativ-desc { text-decoration: line-through; }
 
 .ativ-desc {
-    font-size: 12px;
+    font-size: 9px;
     line-height: 1.4;
     overflow: hidden;
     display: -webkit-box;
@@ -615,8 +615,8 @@
 .contact-card {
     background: #f9fafb;
     border: 1px solid #f3f4f6;
-    border-radius: 8px;
-    padding: 10px;
+    border-radius: 6px;
+    padding: 6px;
     position: relative;
     transition: border-color 0.15s;
 }
@@ -629,15 +629,15 @@
 .contact-fields {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .contact-field-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 3px 0 3px 22px;
-    font-size: 11px;
+    gap: 4px;
+    padding: 2px 0 2px 16px;
+    font-size: 9px;
     border-radius: 4px;
     transition: background 0.1s;
 }
@@ -906,10 +906,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 11px;
+    gap: 3px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 9px;
     font-weight: 500;
     cursor: pointer;
     border: none;
@@ -950,19 +950,19 @@
     background: #eff6ff;
     color: #2563eb;
     border: 1px solid #bfdbfe;
-    padding: 7px 14px;
-    font-size: 12px;
+    padding: 4px 8px;
+    font-size: 9px;
     font-weight: 600;
     width: 100%;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
 }
 .leads-action-btn-nova:hover { background: #dbeafe; border-color: #93c5fd; }
 
 .leads-action-btn-incluir {
     background: #2563eb;
     color: #ffffff;
-    padding: 5px 14px;
-    min-width: 70px;
+    padding: 3px 8px;
+    min-width: 55px;
     flex: 0;
 }
 .leads-action-btn-incluir:hover { background: #1d4ed8; }
@@ -970,7 +970,7 @@
 .leads-action-btn-gerar {
     background: #7c3aed;
     color: #ffffff;
-    padding: 7px 14px;
+    padding: 4px 8px;
     width: 100%;
     font-weight: 600;
 }
@@ -979,7 +979,7 @@
 .leads-action-btn-extrair {
     background: #2563eb;
     color: #ffffff;
-    padding: 7px 14px;
+    padding: 4px 8px;
     width: 100%;
 }
 .leads-action-btn-extrair:hover { background: #1d4ed8; }
@@ -988,8 +988,8 @@
 .kanban-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    gap: 6px;
+    padding: 4px 10px;
     border-bottom: 1px solid #e5e7eb;
     background: #fff;
     flex-shrink: 0;
@@ -998,12 +998,12 @@
 .kanban-toolbar-btn {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     background: none;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 9px;
     color: #6b7280;
     cursor: pointer;
     transition: all 0.15s;
@@ -1032,8 +1032,8 @@
 }
 
 .kanban-column-header {
-    padding: 10px 12px;
-    font-size: 12px;
+    padding: 5px 8px;
+    font-size: 9px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -1048,16 +1048,16 @@
 .kanban-column-count {
     background: #e5e7eb;
     color: #6b7280;
-    padding: 1px 8px;
+    padding: 1px 5px;
     border-radius: 9999px;
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 600;
 }
 
 .kanban-column-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 6px;
 }
 
 .kanban-column-scroll::-webkit-scrollbar { width: 4px; }
@@ -1066,9 +1066,9 @@
 
 /* ===== Kanban Client Groups ===== */
 .kanban-client-group {
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 6px;
     background: white;
     overflow: hidden;
 }
@@ -1077,7 +1077,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 10px;
+    padding: 4px 8px;
     background: #f9fafb;
     border-bottom: 1px solid #f3f4f6;
     cursor: pointer;
@@ -1105,7 +1105,7 @@
 .kanban-client-contacts { }
 
 .kanban-client-name {
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 700;
     color: #374151;
     text-transform: uppercase;
@@ -1120,18 +1120,18 @@
 .kanban-client-count {
     background: #e5e7eb;
     color: #6b7280;
-    font-size: 9px;
+    font-size: 7px;
     font-weight: 600;
-    padding: 0 6px;
+    padding: 0 4px;
     border-radius: 9999px;
     flex-shrink: 0;
 }
 
 .kanban-card {
-    padding: 8px 10px;
+    padding: 5px 7px;
     cursor: grab;
     transition: background 0.12s;
-    font-size: 12px;
+    font-size: 9px;
     border-bottom: 1px solid #f3f4f6;
 }
 
@@ -1164,19 +1164,19 @@
 
 .kanban-card-company {
     color: #6b7280;
-    font-size: 11px;
-    margin-bottom: 6px;
+    font-size: 8px;
+    margin-bottom: 3px;
 }
 
 .kanban-card-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
     flex-wrap: wrap;
 }
 
 .kanban-card-value {
-    font-size: 11px;
+    font-size: 8px;
     font-weight: 600;
     color: #059669;
 }
@@ -1360,8 +1360,8 @@
 }
 
 .mesa-col-header {
-    padding: 8px 12px;
-    font-size: 11px;
+    padding: 5px 8px;
+    font-size: 9px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -1370,7 +1370,7 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     background: #fafafa;
 }
 
@@ -1379,13 +1379,13 @@
     background: #eff6ff;
     color: #2563eb;
     border: 1px solid #bfdbfe;
-    border-radius: 6px;
-    padding: 3px 8px;
+    border-radius: 4px;
+    padding: 2px 5px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 10px;
+    gap: 2px;
+    font-size: 8px;
     font-weight: 600;
     transition: background 0.15s;
 }
@@ -1396,7 +1396,7 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px;
+    padding: 8px;
 }
 
 .mesa-col-scroll::-webkit-scrollbar { width: 4px; }
@@ -1892,3 +1892,60 @@
     flex-direction: column;
     gap: 6px;
 }
+
+/* ===== Modal Compact (Leads) ===== */
+.modal-compact .modal-box {
+    padding: 12px 16px !important;
+    max-width: 480px;
+}
+.modal-compact h3 {
+    font-size: 12px !important;
+    font-weight: 600;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.modal-compact .modal-action {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+}
+.modal-compact label {
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    color: #374151;
+    margin-bottom: 2px !important;
+}
+.modal-compact input,
+.modal-compact select,
+.modal-compact textarea {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+    height: auto !important;
+    min-height: 26px !important;
+}
+.modal-compact textarea {
+    min-height: 50px !important;
+    padding: 6px 8px !important;
+}
+.modal-compact .btn {
+    font-size: 10px !important;
+    padding: 5px 16px !important;
+    min-height: 28px !important;
+    height: auto !important;
+}
+.modal-compact .btn-sm {
+    font-size: 10px !important;
+    padding: 4px 12px !important;
+    min-height: 24px !important;
+}
+.modal-compact .space-y-4 { gap: 8px !important; }
+.modal-compact .space-y-3 { gap: 6px !important; }
+.modal-compact .space-y-2 { gap: 4px !important; }
+.modal-compact .gap-4 { gap: 8px !important; }
+.modal-compact .gap-3 { gap: 6px !important; }
+.modal-compact .mb-4 { margin-bottom: 8px !important; }
+.modal-compact .mb-3 { margin-bottom: 6px !important; }
+.modal-compact .mb-2 { margin-bottom: 6px !important; }
+.modal-compact .text-sm { font-size: 10px !important; }
+.modal-compact .text-xs { font-size: 9px !important; }

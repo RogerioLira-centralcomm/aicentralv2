@@ -13,33 +13,33 @@
 </optgroup>
 {% endfor %}
 {% endmacro %}
-<div class="max-w-full mx-auto px-2">
+<div class="max-w-full mx-auto px-1">
   <!-- Header Compacto sticky -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
+  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
         {% set back_url = (return_url ~ '#pi-' ~ pi.id_pi) if return_url and pi and pi.id_pi else (return_url if return_url else url_for('cadu_pi_lista', id_sub_status_pi=pi.id_sub_status_pi if pi and pi.id_sub_status_pi else 1)) %}
-        <a href="{{ back_url }}" class="p-1.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
-          <i class="fas fa-arrow-left text-sm"></i>
+        <a href="{{ back_url }}" class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+          <i class="fas fa-arrow-left text-[10px]"></i>
         </a>
         <div>
-          <h1 class="text-lg font-semibold text-gray-800">{{ 'PI Recebido' if modo == 'novo' else 'Editar PI' }}</h1>
-          <p class="text-xs text-gray-500">{{ 'Cadastrar novo PI' if modo == 'novo' else 'Atualizar dados do PI' }}</p>
+          <h1 class="text-sm font-semibold text-gray-800">{{ 'PI Recebido' if modo == 'novo' else 'Editar PI' }}</h1>
+          <p class="text-[9px] text-gray-500">{{ 'Cadastrar novo PI' if modo == 'novo' else 'Atualizar dados do PI' }}</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <a href="{{ back_url }}" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
+      <div class="flex items-center gap-1.5">
+        <a href="{{ back_url }}" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</a>
         {% if modo == 'editar' and pi %}
-          <button type="button" onclick="abrirModalLinks()" class="px-3 py-1.5 text-sm border border-purple-400 rounded hover:bg-purple-50 text-purple-700 inline-flex items-center gap-1.5">
-            <span id="badge_total_links" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full {% if pi.total_links %}bg-purple-600 text-white{% else %}bg-gray-200 text-gray-500{% endif %}">{{ pi.total_links or 0 }}</span>
+          <button type="button" onclick="abrirModalLinks()" class="px-2 py-1 text-[10px] border border-purple-400 rounded hover:bg-purple-50 text-purple-700 inline-flex items-center gap-1">
+            <span id="badge_total_links" class="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full {% if pi.total_links %}bg-purple-600 text-white{% else %}bg-gray-200 text-gray-500{% endif %}">{{ pi.total_links or 0 }}</span>
             <i class="fas fa-link mr-0.5"></i>Links
           </button>
           {% if pi.googled_pi_princ %}
-            <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
-              <i class="fab fa-google-drive mr-1"></i>Abrir Pastas
+            <a href="{{ pi.googled_pi_princ }}" target="_blank" class="px-2 py-1 text-[10px] border border-blue-400 rounded hover:bg-blue-50 text-blue-600">
+              <i class="fab fa-google-drive mr-1"></i>Pastas
             </a>
           {% else %}
-            <button type="button" id="btn_gerar_pastas" class="px-3 py-1.5 text-sm border border-yellow-400 rounded hover:bg-yellow-50 text-yellow-700">
+            <button type="button" id="btn_gerar_pastas" class="px-2 py-1 text-[10px] border border-yellow-400 rounded hover:bg-yellow-50 text-yellow-700">
               <i class="fab fa-google-drive mr-1"></i>Gerar Pastas
             </button>
           {% endif %}
@@ -47,26 +47,26 @@
           <button type="button" id="btn_enviar_producao"
             onclick="document.getElementById('modal_confirmar_producao').showModal()"
             {% if not pi.get('googled_pi_princ') or not pi.get('id_cliente') or not pi.get('codigo_pi_cc') %}disabled{% endif %}
-            class="px-3 py-1.5 text-sm border border-orange-400 rounded hover:bg-orange-50 text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            class="px-2 py-1 text-[10px] border border-orange-400 rounded hover:bg-orange-50 text-orange-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             title="{% if not pi.get('googled_pi_princ') %}Gere as pastas primeiro{% elif not pi.get('id_cliente') %}Selecione um cliente{% elif not pi.get('codigo_pi_cc') %}Preencha o código do PI{% else %}Enviar PI para operação{% endif %}">
-            <i class="fas fa-paper-plane mr-1"></i>Enviar para Operação
+            <i class="fas fa-paper-plane mr-1"></i>Enviar Operação
           </button>
           {% elif pi.id_sub_status_pi|string == '1' and pi.total_campanhas and pi.total_campanhas > 0 %}
           <button type="button" id="btn_enviar_andamento"
             onclick="document.getElementById('modal_confirmar_andamento').showModal()"
-            class="px-3 py-1.5 text-sm border border-green-500 rounded hover:bg-green-50 text-green-700">
-            <i class="fas fa-play mr-1"></i>Iniciar todas as campanhas
+            class="px-2 py-1 text-[10px] border border-green-500 rounded hover:bg-green-50 text-green-700">
+            <i class="fas fa-play mr-1"></i>Iniciar campanhas
           </button>
           {% elif pi.id_sub_status_pi|string == '3' %}
           <button type="button" id="btn_enviar_financeiro"
             onclick="document.getElementById('modal_confirmar_financeiro').showModal()"
-            class="px-3 py-1.5 text-sm border border-amber-500 rounded hover:bg-amber-50 text-amber-700">
-            <i class="fas fa-file-invoice-dollar mr-1"></i>Enviar para Financeiro
+            class="px-2 py-1 text-[10px] border border-amber-500 rounded hover:bg-amber-50 text-amber-700">
+            <i class="fas fa-file-invoice-dollar mr-1"></i>Enviar Financeiro
           </button>
           {% endif %}
         {% endif %}
         {% if not (modo == 'editar' and pi and pi.id_sub_status_pi|string in ['3', '4']) %}
-        <button type="submit" form="pi_form" class="px-3 py-1.5 text-sm rounded text-white transition-colors" style="background-color: #72cd80;">
+        <button type="submit" form="pi_form" class="px-2 py-1 text-[10px] rounded text-white transition-colors" style="background-color: #72cd80;">
           <i class="fas fa-save mr-1"></i>{{ 'Criar PI' if modo == 'novo' else 'Salvar' }}
         </button>
         {% endif %}
@@ -76,9 +76,9 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="mb-3">
+      <div class="mb-2">
         {% for category, message in messages %}
-          <div class="px-4 py-2 rounded border text-sm {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border-green-200 text-green-700{% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
+          <div class="px-3 py-1.5 rounded border text-[10px] {% if category == 'error' %}bg-red-50 border-red-200 text-red-700{% elif category == 'success' %}bg-green-50 border-green-200 text-green-700{% else %}bg-blue-50 border-blue-200 text-blue-700{% endif %}">
             {{ message }}
           </div>
         {% endfor %}
@@ -86,7 +86,7 @@
     {% endif %}
   {% endwith %}
 
-  <div class="bg-white rounded border border-gray-200 p-4">
+  <div class="bg-white rounded border border-gray-200 p-3">
     <form id="pi_form" method="POST" action="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) if modo == 'editar' else url_for('cadu_pi_novo') }}">
       <input type="hidden" name="return_url" value="{{ return_url|default('', true) }}">
       {% if modo == 'editar' and pi %}
@@ -95,9 +95,9 @@
       {% endif %}
 
       {% if modo == 'editar' and pi and pi.cotacao_id %}
-      <div class="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm min-w-0">
-          <span class="font-semibold text-indigo-900 shrink-0"><i class="fas fa-file-invoice-dollar mr-1.5 text-indigo-600"></i>Cotação de origem</span>
+      <div class="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/60 px-2 py-1.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+        <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] min-w-0">
+          <span class="font-semibold text-indigo-900 shrink-0"><i class="fas fa-file-invoice-dollar mr-1 text-indigo-600"></i>Cotação de origem</span>
           <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-indigo-700 hover:text-indigo-900 hover:underline font-medium shrink-0">
             {{ pi.cotacao_numero or ('#' ~ pi.cotacao_id) }}
           </a>
@@ -105,30 +105,30 @@
           <span class="text-gray-600 truncate" title="{{ pi.cotacao_nome_campanha }}">— {{ pi.cotacao_nome_campanha }}</span>
           {% endif %}
           {% if pi.cotacao_status %}
-          <span class="text-xs text-gray-500">({{ pi.cotacao_status }})</span>
+          <span class="text-[9px] text-gray-500">({{ pi.cotacao_status }})</span>
           {% endif %}
         </div>
-        <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap shrink-0">
-          Abrir cotação <i class="fas fa-external-link-alt ml-0.5 text-[10px]"></i>
+        <a href="{{ url_for('cotacoes.cotacao_detalhes', cotacao_id=pi.cotacao_id) }}" class="text-[9px] font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap shrink-0">
+          Abrir cotação <i class="fas fa-external-link-alt ml-0.5 text-[8px]"></i>
         </a>
       </div>
       {% elif modo == 'editar' and pi %}
-      <div class="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
-        <i class="fas fa-unlink mr-1.5 text-gray-400"></i>Este PI não está vinculado a nenhuma cotação.
+      <div class="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[10px] text-gray-500">
+        <i class="fas fa-unlink mr-1 text-gray-400"></i>Este PI não está vinculado a nenhuma cotação.
       </div>
       {% endif %}
 
       <!-- LINHA 1: Dados Principais -->
-      <div class="mb-4">
-        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Dados do PI</h2>
-        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+      <div class="mb-3">
+        <h2 class="text-[10px] font-semibold text-gray-800 mb-2 pb-1 border-b border-gray-200">Dados do PI</h2>
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
           <div class="col-span-1 md:col-span-2">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Código PI <span class="text-red-500">*</span></label>
-            <input type="text" name="codigo_pi_cc" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}" required>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Código PI <span class="text-red-500">*</span></label>
+            <input type="text" name="codigo_pi_cc" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.codigo_pi_cc if pi and pi.codigo_pi_cc else '' }}" required>
           </div>
           <div class="col-span-1 md:col-span-2">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Tipo PI <span class="text-red-500">*</span></label>
-            <select name="id_pi_tipo" id="sel_id_pi_tipo" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Tipo PI <span class="text-red-500">*</span></label>
+            <select name="id_pi_tipo" id="sel_id_pi_tipo" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" required>
               <option value="">Selecione...</option>
               {% for t in tipos_pi %}
                 <option value="{{ t.id }}" {% if pi and pi.id_pi_tipo == t.id %}selected{% endif %}>{{ t.descricao }}</option>
@@ -136,8 +136,8 @@
             </select>
           </div>
           <div class="col-span-1 md:col-span-3">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Executivo de Vendas <span class="text-red-500">*</span></label>
-            <select name="resp_comercial" id="sel_resp_comercial" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" onchange="onExecutivoChange()" required>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Executivo de Vendas <span class="text-red-500">*</span></label>
+            <select name="resp_comercial" id="sel_resp_comercial" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" onchange="onExecutivoChange()" required>
               <option value="">Selecione...</option>
               {% for v in vendedores %}
                 <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
@@ -145,99 +145,99 @@
             </select>
           </div>
           <div class="col-span-2 md:col-span-5">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Título do PI <span class="text-red-500">*</span></label>
-            <input type="text" name="titulo_pi" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.titulo_pi if pi else '' }}" required placeholder="Ex: Campanha XYZ">
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Título do PI <span class="text-red-500">*</span></label>
+            <input type="text" name="titulo_pi" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.titulo_pi if pi else '' }}" required placeholder="Ex: Campanha XYZ">
           </div>
         </div>
       </div>
 
       <!-- LINHA 2: Cliente + Agência + Parceiro (3 colunas, alinhado com Contatos) -->
-      <div class="mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="mb-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div class="relative">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Cliente <span class="text-red-500">*</span></label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Cliente <span class="text-red-500">*</span></label>
             <div class="flex gap-1">
-              <input type="text" id="input_cliente_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
-              <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Cliente">
+              <input type="text" id="input_cliente_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+              <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="px-1.5 py-1 text-[9px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Cliente">
                 <i class="fas fa-plus"></i>
               </button>
             </div>
             <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
-            <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
+            <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
           </div>
           <div class="relative">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Agência</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Agência</label>
             <div class="flex gap-1">
-              <input type="text" id="input_agencia_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
-              <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Nova Agência">
+              <input type="text" id="input_agencia_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo %}disabled{% endif %}>
+              <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="px-1.5 py-1 text-[9px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Nova Agência">
                 <i class="fas fa-plus"></i>
               </button>
             </div>
             <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
-            <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
+            <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
           </div>
           <div class="relative">
-            <label class="block text-xs font-medium text-gray-600 mb-1">Parceiro Regional</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Parceiro Regional</label>
             <div class="flex gap-1">
-              <input type="text" id="input_parceiro_busca" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off">
-              <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Parceiro">
+              <input type="text" id="input_parceiro_busca" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="Buscar parceiro..." autocomplete="off">
+              <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="px-1.5 py-1 text-[9px] bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex-shrink-0" title="Novo Parceiro">
                 <i class="fas fa-plus"></i>
               </button>
             </div>
             <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
-            <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto hidden mt-1"></div>
+            <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
           </div>
         </div>
       </div>
 
       <!-- COLLAPSE: Contatos -->
-      <details id="details_contatos" class="mb-3 border border-gray-200 rounded">
-        <summary class="px-4 py-2 bg-gray-50 cursor-pointer text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors rounded select-none">
+      <details id="details_contatos" class="mb-2 border border-gray-200 rounded">
+        <summary class="px-3 py-1.5 bg-gray-50 cursor-pointer text-[10px] font-semibold text-gray-700 hover:bg-gray-100 transition-colors rounded select-none">
           <span class="ml-1">Contatos</span>
         </summary>
-        <div class="p-4">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="space-y-2">
-              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</p>
+        <div class="p-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="space-y-1.5">
+              <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Cliente</p>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia</label>
-                <select name="contato_midia_cliente" id="sel_contato_midia_cliente" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
+                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Mídia</label>
+                <select name="contato_midia_cliente" id="sel_contato_midia_cliente" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o cliente primeiro</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro</label>
-                <select name="contato_fin_cliente" id="sel_contato_fin_cliente" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
+                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Financeiro</label>
+                <select name="contato_fin_cliente" id="sel_contato_fin_cliente" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o cliente primeiro</option>
                 </select>
               </div>
             </div>
-            <div class="space-y-2">
-              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Agência</p>
+            <div class="space-y-1.5">
+              <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Agência</p>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia <span class="text-red-500 contato-req-ag hidden">*</span></label>
-                <select name="contato_midia_agencia" id="sel_contato_midia_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
+                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Mídia <span class="text-red-500 contato-req-ag hidden">*</span></label>
+                <select name="contato_midia_agencia" id="sel_contato_midia_agencia" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione a agência primeiro</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro <span class="text-red-500 contato-req-ag hidden">*</span></label>
-                <select name="contato_fin_agencia" id="sel_contato_fin_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
+                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Financeiro <span class="text-red-500 contato-req-ag hidden">*</span></label>
+                <select name="contato_fin_agencia" id="sel_contato_fin_agencia" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione a agência primeiro</option>
                 </select>
               </div>
             </div>
-            <div class="space-y-2">
-              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parceiro</p>
+            <div class="space-y-1.5">
+              <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-wide">Parceiro</p>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Mídia <span class="text-red-500 contato-req-parc hidden">*</span></label>
-                <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
+                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Mídia <span class="text-red-500 contato-req-parc hidden">*</span></label>
+                <select name="contato_midia_parceiro" id="sel_contato_midia_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o parceiro primeiro</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Resp. Financeiro <span class="text-red-500 contato-req-parc hidden">*</span></label>
-                <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
+                <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Resp. Financeiro <span class="text-red-500 contato-req-parc hidden">*</span></label>
+                <select name="contato_fin_parceiro" id="sel_contato_fin_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" disabled>
                   <option value="">Selecione o parceiro primeiro</option>
                 </select>
               </div>
@@ -247,147 +247,147 @@
       </details>
 
       <!-- Período (card estilo cotação) -->
-      <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4 mb-4">
-        <h2 class="text-sm font-semibold text-gray-800 mb-3">Período</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-3 mb-3">
+        <h2 class="text-[10px] font-semibold text-gray-800 mb-2">Período</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Início <span class="text-red-500">*</span></label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Início <span class="text-red-500">*</span></label>
             <div class="flex">
-              <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_inicio').showPicker()">
-                <i class="fas fa-calendar-alt text-xs"></i>
+              <button type="button" class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_inicio').showPicker()">
+                <i class="fas fa-calendar-alt text-[9px]"></i>
               </button>
-              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}" required>
+              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}" required>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Término <span class="text-red-500">*</span></label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Término <span class="text-red-500">*</span></label>
             <div class="flex">
-              <button type="button" class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_fim').showPicker()">
-                <i class="fas fa-calendar-alt text-xs"></i>
+              <button type="button" class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_fim').showPicker()">
+                <i class="fas fa-calendar-alt text-[9px]"></i>
               </button>
-              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}" required>
+              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}" required>
             </div>
           </div>
         </div>
       </div>
 
       <!-- ==================== CALCULADORA BOTTOM-UP (estilo Lifecycle) ==================== -->
-      <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4 mb-4">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-3 mb-3">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
 
           <!-- COLUNA ESQUERDA: INPUTS -->
-          <div class="lg:col-span-5 space-y-3">
-            <h3 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-100">Inputs de Precificação</h3>
+          <div class="lg:col-span-5 space-y-2">
+            <h3 class="text-[10px] font-semibold text-gray-800 mb-2 pb-1 border-b border-gray-100">Inputs de Precificação</h3>
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">Plataforma <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(define Tech-Fee)</span></label>
-              <select name="plataforma_campanha" id="sel_plataforma_campanha" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
+              <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Plataforma <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(define Tech-Fee)</span></label>
+              <select name="plataforma_campanha" id="sel_plataforma_campanha" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none">
                 {{ opcoes_plataforma_campanha() }}
               </select>
             </div>
 
-            <label class="flex items-center gap-2 text-sm text-gray-800 select-none cursor-pointer">
-              <input type="checkbox" name="meta_baseada_em_cpm" id="input_meta_baseada_em_cpm" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" {% if pi and pi.meta_baseada_em_cpm %}checked{% endif %}>
+            <label class="flex items-center gap-1.5 text-[10px] text-gray-800 select-none cursor-pointer">
+              <input type="checkbox" name="meta_baseada_em_cpm" id="input_meta_baseada_em_cpm" class="h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" {% if pi and pi.meta_baseada_em_cpm %}checked{% endif %}>
               <span class="font-medium">Meta baseada em CPM?</span>
             </label>
 
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">Custo Base Unitário (Cbase)</label>
+              <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Custo Base Unitário (Cbase)</label>
               <div class="flex">
-                <input type="text" name="custo_base_unitario" id="input_custo_base_unitario" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.custo_base_unitario or '' }}">
-                <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">R$</span>
+                <input type="text" name="custo_base_unitario" id="input_custo_base_unitario" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.custo_base_unitario or '' }}">
+                <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">R$</span>
               </div>
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">Objetivo Contratado <span class="text-gray-400 font-normal" id="lbl_objetivo_hint">(Soma dividida por 1000)</span></label>
-              <input type="text" name="objetivo_contratado_pi" id="input_objetivo_contratado_pi" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0" value="{{ (pi.objetivo_contratado_pi|int) if pi and pi.objetivo_contratado_pi else '' }}">
+              <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Objetivo Contratado <span class="text-gray-400 font-normal" id="lbl_objetivo_hint">(Soma dividida por 1000)</span></label>
+              <input type="text" name="objetivo_contratado_pi" id="input_objetivo_contratado_pi" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0" value="{{ (pi.objetivo_contratado_pi|int) if pi and pi.objetivo_contratado_pi else '' }}">
             </div>
 
-            <div class="grid grid-cols-2 gap-3 pt-1">
+            <div class="grid grid-cols-2 gap-2 pt-0.5">
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Tech-Fee <span class="text-gray-400 font-normal">(da plataforma)</span></label>
+                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Tech-Fee <span class="text-gray-400 font-normal">(plataforma)</span></label>
                 <div class="flex">
-                  <input type="text" name="perc_tech_fee" id="input_perc_tech_fee" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" readonly tabindex="-1" title="Tech-Fee é definido automaticamente pela plataforma selecionada">
-                  <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">%</span>
+                  <input type="text" name="perc_tech_fee" id="input_perc_tech_fee" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" readonly tabindex="-1" title="Tech-Fee é definido automaticamente pela plataforma selecionada">
+                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></label>
+                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Margem CC <span class="text-gray-400 font-normal">(5–30%)</span></label>
                 <div class="flex">
-                  <input type="text" name="perc_margem_cc" id="input_perc_margem_cc" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="5,00" value="{{ pi.perc_margem_cc or '' }}" title="Informe um valor entre 5% e 30%">
-                  <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">%</span>
+                  <input type="text" name="perc_margem_cc" id="input_perc_margem_cc" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="5,00" value="{{ pi.perc_margem_cc or '' }}" title="Informe um valor entre 5% e 30%">
+                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
                 </div>
-                <span id="hint_margem_cc" class="text-[10px] text-gray-500 mt-0.5 block"></span>
+                <span id="hint_margem_cc" class="text-[9px] text-gray-500 mt-0.5 block"></span>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Comissão</label>
+                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Comissão</label>
                 <div class="flex">
-                  <input type="text" name="perc_com_vendas" id="input_perc_com_vendas" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}">
-                  <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">%</span>
+                  <input type="text" name="perc_com_vendas" id="input_perc_com_vendas" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}">
+                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Incentivo</label>
+                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Incentivo</label>
                 <div class="flex">
-                  <input type="text" name="perc_pl_incentivos" id="input_perc_pl_incentivos" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}">
-                  <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">%</span>
+                  <input type="text" name="perc_pl_incentivos" id="input_perc_pl_incentivos" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}">
+                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
                 </div>
               </div>
               <div class="col-span-2">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Impostos</label>
-                <div class="flex w-1/2 pr-1.5">
-                  <input type="text" name="perc_impostos" id="input_perc_impostos" class="flex-1 w-full text-sm border border-gray-200 rounded-l px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_impostos or '' }}">
-                  <span class="px-3 py-1.5 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-xs text-gray-500 flex items-center">%</span>
+                <label class="block text-[10px] font-medium text-gray-700 mb-0.5">Impostos</label>
+                <div class="flex w-1/2 pr-1">
+                  <input type="text" name="perc_impostos" id="input_perc_impostos" class="flex-1 w-full text-[10px] border border-gray-200 rounded-l px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ pi.perc_impostos or '' }}">
+                  <span class="px-2 py-1 bg-gray-100 border border-l-0 border-gray-200 rounded-r text-[9px] text-gray-500 flex items-center">%</span>
                 </div>
               </div>
             </div>
 
-            <p id="calc_warning" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 hidden"></p>
+            <p id="calc_warning" class="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 hidden"></p>
           </div>
 
           <!-- COLUNA DIREITA: OUTPUTS -->
-          <div class="lg:col-span-7 space-y-3">
-            <div class="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
-              <h3 class="text-sm font-semibold text-gray-800">Memória de Cálculo</h3>
-              <span id="badge_valor_bruto" class="text-base font-bold text-white bg-gray-900 px-4 py-1.5 rounded-md">—</span>
+          <div class="lg:col-span-7 space-y-2">
+            <div class="flex items-center justify-between mb-2 pb-1 border-b border-gray-100">
+              <h3 class="text-[10px] font-semibold text-gray-800">Memória de Cálculo</h3>
+              <span id="badge_valor_bruto" class="text-sm font-bold text-white bg-gray-900 px-3 py-1 rounded-md">—</span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
-                <div class="text-[11px] uppercase tracking-wider font-semibold text-emerald-700">Preço Cliente (Unitário)</div>
-                <div class="text-2xl font-bold text-emerald-900 mt-1" id="card_preco_cliente">—</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <div class="text-[9px] uppercase tracking-wider font-semibold text-emerald-700">Preço Cliente (Unitário)</div>
+                <div class="text-lg font-bold text-emerald-900 mt-0.5" id="card_preco_cliente">—</div>
               </div>
-              <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
-                <div class="text-[11px] uppercase tracking-wider font-semibold text-emerald-700">Custo Operacional (OPEX)</div>
-                <div class="text-2xl font-bold text-emerald-900 mt-1" id="card_opex_unit">—</div>
+              <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <div class="text-[9px] uppercase tracking-wider font-semibold text-emerald-700">Custo Operacional (OPEX)</div>
+                <div class="text-lg font-bold text-emerald-900 mt-0.5" id="card_opex_unit">—</div>
               </div>
             </div>
 
-            <div class="pt-1">
-              <div class="text-[11px] uppercase tracking-wider font-semibold text-gray-500 mb-2">Rateio Absoluto Orçado</div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">Mídia Orçado</div>
-                  <div class="text-base font-bold text-emerald-900 mt-0.5" id="card_midia_orc">—</div>
+            <div class="pt-0.5">
+              <div class="text-[9px] uppercase tracking-wider font-semibold text-gray-500 mb-1.5">Rateio Absoluto Orçado</div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-1.5">
+                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
+                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Mídia Orçado</div>
+                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_midia_orc">—</div>
                 </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">Tech-Fee Orçado</div>
-                  <div class="text-base font-bold text-emerald-900 mt-0.5" id="card_tf_orc">—</div>
+                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
+                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Tech-Fee Orçado</div>
+                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_tf_orc">—</div>
                 </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">Margem CC Prev.</div>
-                  <div class="text-base font-bold text-emerald-900 mt-0.5" id="card_mcc_orc">—</div>
+                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
+                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Margem CC Prev.</div>
+                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_mcc_orc">—</div>
                 </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">Comissão Prev.</div>
-                  <div class="text-base font-bold text-emerald-900 mt-0.5" id="card_com_orc">—</div>
+                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
+                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Comissão Prev.</div>
+                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_com_orc">—</div>
                 </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">Incentivo Prev.</div>
-                  <div class="text-base font-bold text-emerald-900 mt-0.5" id="card_inc_orc">—</div>
+                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
+                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Incentivo Prev.</div>
+                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_inc_orc">—</div>
                 </div>
-                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">Impostos Prev.</div>
-                  <div class="text-base font-bold text-emerald-900 mt-0.5" id="card_imp_orc">—</div>
+                <div class="bg-emerald-50/60 border border-emerald-200 rounded-lg px-2 py-1.5">
+                  <div class="text-[8px] uppercase tracking-wider font-semibold text-emerald-700">Impostos Prev.</div>
+                  <div class="text-sm font-bold text-emerald-900 mt-0.5" id="card_imp_orc">—</div>
                 </div>
               </div>
             </div>
@@ -405,50 +405,50 @@
       </div>
 
       <!-- Comissões de intermediários -->
-      <div class="mb-4" id="comissoes_intermediarios_block">
-        <h2 class="text-sm font-semibold text-gray-800 mb-3 pb-1 border-b border-gray-200">Comissões de Intermediários</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="mb-3" id="comissoes_intermediarios_block">
+        <h2 class="text-[10px] font-semibold text-gray-800 mb-2 pb-1 border-b border-gray-200">Comissões de Intermediários</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Agência</label>
-            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_agencia|float) if pi and pi.perc_comissao_agencia else '' }}">
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Com. Agência</label>
+            <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_agencia|float) if pi and pi.perc_comissao_agencia else '' }}">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Agência</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Comissão Agência</label>
             <div class="flex">
-              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
-              <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}" readonly>
+              <span class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-[9px] text-gray-500 flex items-center">R$</span>
+              <input type="text" name="comissao_agencia" id="input_comissao_agencia" class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}" readonly>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">% Com. Parceiro</label>
-            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-sm border border-gray-200 rounded px-3 py-1.5 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_parceiro|float) if pi and pi.perc_comissao_parceiro else '' }}">
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Com. Parceiro</label>
+            <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_parceiro|float) if pi and pi.perc_comissao_parceiro else '' }}">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Comissão Parceiro</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Comissão Parceiro</label>
             <div class="flex">
-              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
-              <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}" readonly>
+              <span class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-[9px] text-gray-500 flex items-center">R$</span>
+              <input type="text" name="comissao_parceiro" id="input_comissao_parceiro" class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}" readonly>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Valor Líquido</label>
             <div class="flex">
-              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
-              <input type="text" name="valor_liquido" id="input_valor_liquido" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
+              <span class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-[9px] text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_liquido" id="input_valor_liquido" class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}" readonly>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Líquido PR</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Valor Líquido PR</label>
             <div class="flex">
-              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
-              <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}" readonly>
+              <span class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-[9px] text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_liquido_pr" id="input_valor_liquido_pr" class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}" readonly>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Valor Plataforma Max.</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Valor Plataforma Max.</label>
             <div class="flex">
-              <span class="px-2 py-1.5 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-xs text-gray-500 flex items-center">R$</span>
-              <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="flex-1 w-full text-sm border border-gray-200 rounded-r px-2 py-1.5 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}" readonly>
+              <span class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-[9px] text-gray-500 flex items-center">R$</span>
+              <input type="text" name="valor_plataformas" id="input_valor_plataformas" class="flex-1 w-full text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-100 text-gray-500" placeholder="0,00" value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}" readonly>
             </div>
           </div>
         </div>
@@ -456,20 +456,20 @@
 
       {% if modo == 'editar' and pi %}
       <!-- Dados Campanhas -->
-      <div class="mb-3 bg-white border border-gray-200 rounded overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200 gap-2 flex-wrap">
-          <span class="text-sm font-semibold text-gray-700">
-            <i class="fa-solid fa-bullhorn mr-1.5 text-indigo-500"></i>Dados Campanhas
-            <span id="camp_count_badge" class="ml-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-gray-200 text-gray-500">...</span>
+      <div class="mb-2 bg-white border border-gray-200 rounded overflow-hidden">
+        <div class="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200 gap-1.5 flex-wrap">
+          <span class="text-[10px] font-semibold text-gray-700">
+            <i class="fa-solid fa-bullhorn mr-1 text-indigo-500"></i>Dados Campanhas
+            <span id="camp_count_badge" class="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-gray-200 text-gray-500">...</span>
           </span>
-          <div class="flex items-center gap-2">
-          <a href="{{ url_for('campanhas_pi', id_pi=pi.id_pi) }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
-            Abrir em Campanhas PI <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5"></i>
+          <div class="flex items-center gap-1.5">
+          <a href="{{ url_for('campanhas_pi', id_pi=pi.id_pi) }}" class="text-[9px] font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+            Abrir em Campanhas PI <i class="fa-solid fa-arrow-up-right-from-square text-[8px] ml-0.5"></i>
           </a>
           {% if pi.id_sub_status_pi|string == '1' %}
           <button type="button" onclick="document.getElementById('modal_nova_campanha').showModal()"
-             class="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
-            <i class="fas fa-plus text-[10px]"></i> Nova Campanha
+             class="px-2 py-1 text-[9px] bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium inline-flex items-center gap-1">
+            <i class="fas fa-plus text-[8px]"></i> Nova Campanha
           </button>
           {% endif %}
           </div>
@@ -1252,49 +1252,49 @@
 
 {% if modo == 'editar' and pi %}
 <dialog id="modal_links_destino" class="modal">
-  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-lg shadow-2xl">
+  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-lg shadow-2xl">
     <!-- Header -->
-    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between rounded-t-lg">
-      <div class="flex items-center gap-2">
-        <i class="fas fa-link text-purple-600"></i>
-        <h3 class="font-semibold text-base text-gray-800">Links de Direcionamento</h3>
-        <span id="modal_badge_count" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-purple-600 text-white">0</span>
+    <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between rounded-t-lg">
+      <div class="flex items-center gap-1.5">
+        <i class="fas fa-link text-purple-600 text-[10px]"></i>
+        <h3 class="font-semibold text-[11px] text-gray-800">Links de Direcionamento</h3>
+        <span id="modal_badge_count" class="inline-flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full bg-purple-600 text-white">0</span>
       </div>
-      <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost text-gray-400 hover:text-gray-600">✕</button></form>
+      <form method="dialog"><button class="btn btn-xs btn-circle btn-ghost text-gray-400 hover:text-gray-600">✕</button></form>
     </div>
 
     <!-- Formulario inline -->
-    <div class="px-5 py-3 border-b border-gray-100 bg-white">
-      <div class="flex gap-2 items-center">
-        <select id="select_descricao_link" class="px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none" style="min-width: 110px;">
+    <div class="px-4 py-2 border-b border-gray-100 bg-white">
+      <div class="flex gap-1.5 items-center">
+        <select id="select_descricao_link" class="px-2 py-1 text-[10px] border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none" style="min-width: 90px;">
           <option value="">Desc...</option>
         </select>
-        <input type="url" id="input_novo_link" placeholder="Cole a URL aqui..." class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none">
-        <button type="button" id="btn_adicionar_link" onclick="adicionarLinkDestino()" class="px-3 py-1.5 text-sm rounded text-white flex-shrink-0 hover:opacity-90 transition-opacity" style="background-color: #72cd80;" title="Adicionar link">
+        <input type="url" id="input_novo_link" placeholder="Cole a URL aqui..." class="flex-1 px-2 py-1 text-[10px] border border-gray-300 rounded bg-gray-50 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 outline-none">
+        <button type="button" id="btn_adicionar_link" onclick="adicionarLinkDestino()" class="px-2 py-1 text-[10px] rounded text-white flex-shrink-0 hover:opacity-90 transition-opacity" style="background-color: #72cd80;" title="Adicionar link">
           <i class="fas fa-plus"></i>
         </button>
       </div>
     </div>
 
     <!-- Tabela de links -->
-    <div class="overflow-y-auto" style="max-height: 320px;">
-      <table class="w-full text-sm">
+    <div class="overflow-y-auto" style="max-height: 260px;">
+      <table class="w-full text-[10px]">
         <thead class="bg-gray-50 sticky top-0">
-          <tr class="text-xs text-gray-500 uppercase">
-            <th class="px-3 py-2 text-left font-medium w-24">Descrição</th>
-            <th class="px-5 py-2 text-left font-medium">Link</th>
-            <th class="px-3 py-2 text-center font-medium w-16"></th>
+          <tr class="text-[9px] text-gray-500 uppercase">
+            <th class="px-2 py-1.5 text-left font-medium w-20">Descrição</th>
+            <th class="px-3 py-1.5 text-left font-medium">Link</th>
+            <th class="px-2 py-1.5 text-center font-medium w-12"></th>
           </tr>
         </thead>
         <tbody id="tbody_links_destino">
-          <tr id="tr_links_vazio"><td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">Nenhum link cadastrado</td></tr>
+          <tr id="tr_links_vazio"><td colspan="3" class="px-4 py-4 text-center text-gray-400 text-[10px]">Nenhum link cadastrado</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- Footer -->
-    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end rounded-b-lg">
-      <button type="button" onclick="document.getElementById('modal_links_destino').close()" class="px-4 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Fechar</button>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 flex justify-end rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_links_destino').close()" class="px-3 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Fechar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
@@ -1302,17 +1302,17 @@
 
 <!-- Modal confirmacao excluir -->
 <dialog id="modal_confirmar_excluir_link" class="modal">
-  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
-    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-      <h3 class="font-semibold text-base text-gray-800">Confirmar exclusão</h3>
+  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-[11px] text-gray-800">Confirmar exclusão</h3>
     </div>
-    <div class="px-5 py-4">
-      <p class="text-sm text-gray-600">Tem certeza que deseja excluir este link?</p>
-      <p id="txt_link_excluir" class="text-xs text-gray-400 mt-1 truncate"></p>
+    <div class="px-4 py-3">
+      <p class="text-[10px] text-gray-600">Tem certeza que deseja excluir este link?</p>
+      <p id="txt_link_excluir" class="text-[9px] text-gray-400 mt-1 truncate"></p>
     </div>
-    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
-      <button type="button" onclick="document.getElementById('modal_confirmar_excluir_link').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      <button type="button" id="btn_confirmar_excluir_link" class="px-3 py-1.5 text-sm rounded text-white bg-red-600 hover:bg-red-700">Excluir</button>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-1.5 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_excluir_link').close()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_excluir_link" class="px-2 py-1 text-[10px] rounded text-white bg-red-600 hover:bg-red-700">Excluir</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
@@ -1320,17 +1320,17 @@
 
 <!-- Modal confirmacao enviar producao -->
 <dialog id="modal_confirmar_producao" class="modal">
-  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
-    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-      <h3 class="font-semibold text-base text-gray-800">Enviar para Operação</h3>
+  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-[11px] text-gray-800">Enviar para Operação</h3>
     </div>
-    <div class="px-5 py-4">
-      <p class="text-sm text-gray-600">Tem certeza que deseja enviar este PI para produção?</p>
-      <p class="text-xs text-gray-500 mt-2"><strong>{{ pi.codigo_pi_cc or '—' }}</strong> · {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
+    <div class="px-4 py-3">
+      <p class="text-[10px] text-gray-600">Tem certeza que deseja enviar este PI para produção?</p>
+      <p class="text-[9px] text-gray-500 mt-1.5"><strong>{{ pi.codigo_pi_cc or '—' }}</strong> · {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
     </div>
-    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
-      <button type="button" onclick="document.getElementById('modal_confirmar_producao').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      <button type="button" id="btn_confirmar_producao" class="px-3 py-1.5 text-sm rounded text-white bg-orange-500 hover:bg-orange-600">Confirmar</button>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-1.5 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_producao').close()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_producao" class="px-2 py-1 text-[10px] rounded text-white bg-orange-500 hover:bg-orange-600">Confirmar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
@@ -1338,21 +1338,21 @@
 
 <!-- Modal confirmacao iniciar campanhas -->
 <dialog id="modal_confirmar_andamento" class="modal">
-  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
-    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-      <h3 class="font-semibold text-base text-gray-800">Iniciar todas as campanhas</h3>
+  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-[11px] text-gray-800">Iniciar todas as campanhas</h3>
     </div>
-    <div class="px-5 py-4">
-      <p class="text-sm text-gray-600">Tem certeza que deseja iniciar todas as campanhas deste PI?</p>
-      <div class="mt-3 text-sm text-gray-700 space-y-1">
+    <div class="px-4 py-3">
+      <p class="text-[10px] text-gray-600">Tem certeza que deseja iniciar todas as campanhas deste PI?</p>
+      <div class="mt-2 text-[10px] text-gray-700 space-y-0.5">
         <p><span class="font-semibold text-gray-500">PI:</span> {{ pi.codigo_pi_cc or '—' }}</p>
         <p><span class="font-semibold text-gray-500">Título:</span> {{ pi.titulo_pi or '—' }}</p>
         <p><span class="font-semibold text-gray-500">Cliente:</span> {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
       </div>
     </div>
-    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
-      <button type="button" onclick="document.getElementById('modal_confirmar_andamento').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      <button type="button" id="btn_confirmar_andamento" class="px-3 py-1.5 text-sm rounded text-white bg-green-600 hover:bg-green-700">Confirmar</button>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-1.5 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_andamento').close()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_andamento" class="px-2 py-1 text-[10px] rounded text-white bg-green-600 hover:bg-green-700">Confirmar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
@@ -1360,21 +1360,21 @@
 
 <!-- Modal confirmacao enviar financeiro -->
 <dialog id="modal_confirmar_financeiro" class="modal">
-  <div class="modal-box max-w-sm bg-white p-0 rounded-lg shadow-2xl">
-    <div class="px-5 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-      <h3 class="font-semibold text-base text-gray-800">Enviar para Financeiro</h3>
+  <div class="modal-box max-w-xs bg-white p-0 rounded-lg shadow-2xl">
+    <div class="px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+      <h3 class="font-semibold text-[11px] text-gray-800">Enviar para Financeiro</h3>
     </div>
-    <div class="px-5 py-4">
-      <p class="text-sm text-gray-600">Tem certeza que deseja enviar este PI para faturamento?</p>
-      <div class="mt-3 text-sm text-gray-700 space-y-1">
+    <div class="px-4 py-3">
+      <p class="text-[10px] text-gray-600">Tem certeza que deseja enviar este PI para faturamento?</p>
+      <div class="mt-2 text-[10px] text-gray-700 space-y-0.5">
         <p><span class="font-semibold text-gray-500">PI:</span> {{ pi.codigo_pi_cc or '—' }}</p>
         <p><span class="font-semibold text-gray-500">Título:</span> {{ pi.titulo_pi or '—' }}</p>
         <p><span class="font-semibold text-gray-500">Cliente:</span> {{ pi.cliente_razao_social or pi.cliente_nome or '—' }}</p>
       </div>
     </div>
-    <div class="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 rounded-b-lg">
-      <button type="button" onclick="document.getElementById('modal_confirmar_financeiro').close()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
-      <button type="button" id="btn_confirmar_financeiro" class="px-3 py-1.5 text-sm rounded text-white bg-amber-500 hover:bg-amber-600">Confirmar</button>
+    <div class="px-4 py-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-1.5 rounded-b-lg">
+      <button type="button" onclick="document.getElementById('modal_confirmar_financeiro').close()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
+      <button type="button" id="btn_confirmar_financeiro" class="px-2 py-1 text-[10px] rounded text-white bg-amber-500 hover:bg-amber-600">Confirmar</button>
     </div>
   </div>
   <form method="dialog" class="modal-backdrop bg-black/50"><button>close</button></form>
@@ -1613,64 +1613,64 @@
   #modal_nova_campanha input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 2rem; height: 100%; cursor: pointer; }
 </style>
 <dialog id="modal_nova_campanha" class="modal">
-  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-3 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-sm text-white">Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
-      <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-1 hover:bg-gray-500 rounded-lg transition-colors">
-        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
+  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Adicionar Campanha</span></h3>
+      <button type="button" onclick="document.getElementById('modal_nova_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
       </button>
     </div>
-    <div class="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
-      <div class="flex items-center gap-1.5">
-        <span class="text-gray-400 text-xs">Cliente:</span>
-        <span class="font-semibold text-gray-800 text-sm">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
+    <div class="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
+      <div class="flex items-center gap-1">
+        <span class="text-gray-400 text-[9px]">Cliente:</span>
+        <span class="font-semibold text-gray-800 text-[10px]">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <span class="text-gray-400 text-[10px]">PI:</span>
-        <span class="text-gray-500 text-xs">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
+      <div class="flex items-center gap-1">
+        <span class="text-gray-400 text-[9px]">PI:</span>
+        <span class="text-gray-500 text-[9px]">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
       </div>
     </div>
-    <div class="px-5 py-4">
+    <div class="px-4 py-3">
       <form id="formNovaCampanha" method="POST" action="{{ url_for('campanha_pi_nova') }}">
         <input type="hidden" name="id_pi" value="{{ pi.id_pi }}">
         <input type="hidden" name="return_to_pi" value="1">
         <input type="hidden" name="id_cliente" value="{{ pi.id_cliente }}">
 
-        <div class="grid grid-cols-3 gap-x-4 gap-y-3">
+        <div class="grid grid-cols-3 gap-x-3 gap-y-2">
           <div class="col-span-2">
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Nome da Campanha <span class="text-red-400">*</span></label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Nome da Campanha <span class="text-red-400">*</span></label>
             <input type="text" name="nome_campanha" required placeholder="Nome da Campanha"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Obj Contratado <span class="text-red-400">*</span></label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Obj Contratado <span class="text-red-400">*</span></label>
             <input type="text" name="obj_contratados" required data-mask="numero" placeholder="0"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors text-right">
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Valor Plataforma <span class="text-red-400">*</span></label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Valor Plataforma <span class="text-red-400">*</span></label>
             <input type="text" id="nova_camp_valor_plat" name="valor_plataforma" required data-mask="real" placeholder="R$ 0,00"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Distribuição %</label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Distribuição %</label>
             <input type="text" id="nova_camp_dist_pct" readonly tabindex="-1"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default text-right focus:outline-none" value="0,00%">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default text-right focus:outline-none" value="0,00%">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Status</label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Status</label>
             <select name="id_status"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               {% for st in statuses|default([]) %}
                 <option value="{{ st.id }}" {% if st.descricao|lower == 'aguardando' %}selected{% endif %}>{{ st.descricao }}</option>
               {% endfor %}
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Criativos Validados <span class="text-red-500">*</span></label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Criativos Validados <span class="text-red-500">*</span></label>
             <select name="id_criativos_validados" id="nova_camp_criativos_validados" required
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
               {% for cv in criativos_validados|default([]) %}
                 <option value="{{ cv.id }}">{{ cv.descricao }}</option>
@@ -1679,27 +1679,27 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Data Início</label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Data Início</label>
             <div class="relative">
               <input type="date" id="nova_camp_dt_inicio" name="periodo_inicio" {% if pi.periodo_inicio %}value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') }}"{% endif %}
-                class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+                class="w-full pl-2 pr-6 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
               <i onclick="document.getElementById('nova_camp_dt_inicio').showPicker()"
-                class="fa-regular fa-calendar absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs cursor-pointer hover:text-gray-600"></i>
+                class="fa-regular fa-calendar absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px] cursor-pointer hover:text-gray-600"></i>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Data Fim</label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Data Fim</label>
             <div class="relative">
               <input type="date" id="nova_camp_dt_fim" name="periodo_fim" {% if pi.periodo_fim %}value="{{ pi.periodo_fim.strftime('%Y-%m-%d') }}"{% endif %}
-                class="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+                class="w-full pl-2 pr-6 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
               <i onclick="document.getElementById('nova_camp_dt_fim').showPicker()"
-                class="fa-regular fa-calendar absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs cursor-pointer hover:text-gray-600"></i>
+                class="fa-regular fa-calendar absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[9px] cursor-pointer hover:text-gray-600"></i>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Plataforma <span class="text-red-400">*</span></label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Plataforma <span class="text-red-400">*</span></label>
             <select name="id_plataforma" required
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
               {% for plt in plataformas|default([]) %}
                 <option value="{{ plt.id_plataforma }}">{{ plt.descricao }}</option>
@@ -1708,9 +1708,9 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Objetivos</label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Objetivos</label>
             <select name="id_objetivos_campanha"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors appearance-none">
               <option value="">Selecione...</option>
               {% for obj in objetivos|default([]) %}
                 <option value="{{ obj.id_objetivos_campanha }}">{{ obj.descricao }}</option>
@@ -1718,62 +1718,62 @@
             </select>
           </div>
           <div class="col-span-2">
-            <label class="block text-xs font-semibold text-gray-700 mb-1">Link Dash</label>
+            <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Link Dash</label>
             <input type="url" name="link_dash" placeholder="Link Dash"
-              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
           </div>
 
         </div>
 
-        <div class="mt-4 pt-3 border-t border-gray-100">
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="mt-3 pt-2 border-t border-gray-100">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">% Margem CC</label>
-              <input type="text" name="perc_margem_cc" id="nova_camp_perc_margem_cc" placeholder="0,00" value="{{ pi.perc_margem_cc or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Margem CC</label>
+              <input type="text" name="perc_margem_cc" id="nova_camp_perc_margem_cc" placeholder="0,00" value="{{ pi.perc_margem_cc or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">% Tech Fee</label>
-              <input type="text" name="perc_tech_fee" id="nova_camp_perc_tech_fee" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Tech Fee</label>
+              <input type="text" name="perc_tech_fee" id="nova_camp_perc_tech_fee" placeholder="0,00" value="{{ pi.perc_tech_fee or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">% Com. Vendas</label>
-              <input type="text" name="perc_com_vendas" id="nova_camp_perc_com_vendas" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Com. Vendas</label>
+              <input type="text" name="perc_com_vendas" id="nova_camp_perc_com_vendas" placeholder="0,00" value="{{ pi.perc_com_vendas or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">% PL Incentivos</label>
-              <input type="text" name="perc_pl_incentivos" id="nova_camp_perc_pl_incentivos" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% PL Incentivos</label>
+              <input type="text" name="perc_pl_incentivos" id="nova_camp_perc_pl_incentivos" placeholder="0,00" value="{{ pi.perc_pl_incentivos or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">% Impostos</label>
-              <input type="text" name="perc_impostos" id="nova_camp_perc_impostos" placeholder="0,00" value="{{ pi.perc_impostos or '' }}" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">% Impostos</label>
+              <input type="text" name="perc_impostos" id="nova_camp_perc_impostos" placeholder="0,00" value="{{ pi.perc_impostos or '' }}" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none transition-colors">
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Margem CC</label>
-              <input type="text" name="val_margem_cc" id="nova_camp_val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Margem CC</label>
+              <input type="text" name="val_margem_cc" id="nova_camp_val_margem_cc" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Tech Fee</label>
-              <input type="text" name="val_tech_fee" id="nova_camp_val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Tech Fee</label>
+              <input type="text" name="val_tech_fee" id="nova_camp_val_tech_fee" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Com. Vendas</label>
-              <input type="text" name="val_com_vendas" id="nova_camp_val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Com. Vendas</label>
+              <input type="text" name="val_com_vendas" id="nova_camp_val_com_vendas" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">PL Incentivos</label>
-              <input type="text" name="val_pl_incentivos" id="nova_camp_val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">PL Incentivos</label>
+              <input type="text" name="val_pl_incentivos" id="nova_camp_val_pl_incentivos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-gray-700 mb-1">Impostos</label>
-              <input type="text" name="val_impostos" id="nova_camp_val_impostos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-default focus:outline-none">
+              <label class="block text-[10px] font-semibold text-gray-700 mb-0.5">Impostos</label>
+              <input type="text" name="val_impostos" id="nova_camp_val_impostos" placeholder="R$ 0,00" readonly tabindex="-1" class="w-full px-2 py-1 border border-gray-200 rounded-lg text-[10px] bg-gray-100 text-gray-500 cursor-default focus:outline-none">
             </div>
           </div>
         </div>
 
-        <div class="mt-4 pt-3 border-t border-gray-100 flex justify-center">
+        <div class="mt-3 pt-2 border-t border-gray-100 flex justify-center">
           <button type="submit"
-            class="px-8 py-2 text-sm font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
+            class="px-6 py-1.5 text-[10px] font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-700 active:bg-gray-900 transition-colors shadow-sm">
             Salvar Campanha
           </button>
         </div>
@@ -1875,84 +1875,84 @@
 {% endif %}
 
 <dialog id="modal_ver_campanha" class="modal">
-  <div class="modal-box w-11/12 max-w-3xl bg-white p-0 rounded-xl shadow-2xl">
-    <div class="flex items-center justify-between px-5 py-3 bg-gray-600 rounded-t-xl">
-      <h3 class="font-semibold text-sm text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
-      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-1 hover:bg-gray-500 rounded-lg transition-colors">
-        <i class="fa-solid fa-xmark text-gray-300 text-base"></i>
+  <div class="modal-box w-10/12 max-w-2xl bg-white p-0 rounded-xl shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-600 rounded-t-xl">
+      <h3 class="font-semibold text-[10px] text-white">Operação: <span class="font-normal text-gray-200 ml-1">Visualizar Campanha</span></h3>
+      <button type="button" onclick="document.getElementById('modal_ver_campanha').close()" class="p-0.5 hover:bg-gray-500 rounded-lg transition-colors">
+        <i class="fa-solid fa-xmark text-gray-300 text-sm"></i>
       </button>
     </div>
-    <div class="flex items-center justify-between px-5 py-2.5 border-b border-gray-100 bg-gray-50/60">
-      <div class="flex items-center gap-1.5">
-        <span class="text-gray-400 text-xs">Cliente:</span>
-        <span class="font-semibold text-gray-800 text-sm">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
+    <div class="flex items-center justify-between px-4 py-1.5 border-b border-gray-100 bg-gray-50/60">
+      <div class="flex items-center gap-1">
+        <span class="text-gray-400 text-[9px]">Cliente:</span>
+        <span class="font-semibold text-gray-800 text-[10px]">{% for cli in clientes|default([]) %}{% if pi.id_cliente|string == cli.id_cliente|string %}{{ cli.nome_fantasia or cli.razao_social }}{% endif %}{% endfor %}</span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <span class="text-gray-400 text-[10px]">PI:</span>
-        <span class="text-gray-500 text-xs">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
+      <div class="flex items-center gap-1">
+        <span class="text-gray-400 text-[9px]">PI:</span>
+        <span class="text-gray-500 text-[9px]">{{ pi.codigo_pi_cc or pi.id_pi }}</span>
       </div>
     </div>
-    <div class="px-5 py-4">
-      <div class="grid grid-cols-3 gap-x-4 gap-y-3">
+    <div class="px-4 py-3">
+      <div class="grid grid-cols-3 gap-x-3 gap-y-2">
         <div class="col-span-2">
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
-          <span id="view_nome_campanha" class="text-sm font-medium text-gray-800">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Nome da Campanha</label>
+          <span id="view_nome_campanha" class="text-[10px] font-medium text-gray-800">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
-          <span id="view_obj_contratados" class="text-sm text-gray-700">—</span>
-        </div>
-
-        <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
-          <span id="view_valor_plataforma" class="text-sm text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
-          <span id="view_status" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Obj Contratado</label>
+          <span id="view_obj_contratados" class="text-[10px] text-gray-700">—</span>
         </div>
 
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
-          <span id="view_criativos_validados" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Valor Plataforma</label>
+          <span id="view_valor_plataforma" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
-          <span id="view_periodo_inicio" class="text-sm text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
-          <span id="view_periodo_fim" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Status</label>
+          <span id="view_status" class="text-[10px] text-gray-700">—</span>
         </div>
 
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
-          <span id="view_plataforma" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Criativos Validados</label>
+          <span id="view_criativos_validados" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
-          <span id="view_objetivos" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Início</label>
+          <span id="view_periodo_inicio" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label id="view_preco_metrica_label" class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
-          <span id="view_preco_metrica" class="text-sm text-gray-700">—</span>
-        </div>
-        <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
-          <span id="view_under" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Data Fim</label>
+          <span id="view_periodo_fim" class="text-[10px] text-gray-700">—</span>
         </div>
 
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
-          <span id="view_totalizador_atingido" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Plataforma</label>
+          <span id="view_plataforma" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
-          <span id="view_totalizador_gasto" class="text-sm text-gray-700">—</span>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Objetivos</label>
+          <span id="view_objetivos" class="text-[10px] text-gray-700">—</span>
         </div>
         <div>
-          <label class="block text-[10px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
-          <span id="view_link_dash" class="text-sm text-gray-700 break-all">—</span>
+          <label id="view_preco_metrica_label" class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Preço (R$)</label>
+          <span id="view_preco_metrica" class="text-[10px] text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Under</label>
+          <span id="view_under" class="text-[10px] text-gray-700">—</span>
+        </div>
+
+        <div>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Atingido</label>
+          <span id="view_totalizador_atingido" class="text-[10px] text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Gasto</label>
+          <span id="view_totalizador_gasto" class="text-[10px] text-gray-700">—</span>
+        </div>
+        <div>
+          <label class="block text-[9px] uppercase text-gray-400 font-semibold mb-0.5">Link Dash</label>
+          <span id="view_link_dash" class="text-[10px] text-gray-700 break-all">—</span>
         </div>
       </div>
     </div>
@@ -2110,50 +2110,50 @@ function abrirViewCampanha(c) {
 
 <!-- Modal Criar Novo Cliente (PI) -->
 <dialog id="modal_novo_cliente_pi" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-none overflow-visible">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="ncpi_modal_title">Novo Cliente</h3>
-      <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+  <div class="modal-box w-10/12 max-w-4xl bg-white p-0 rounded-lg max-h-none overflow-visible">
+    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-[11px] text-gray-800" id="ncpi_modal_title">Novo Cliente</h3>
+      <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="p-1 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-gray-500 text-sm"></i>
       </button>
     </div>
 
-    <div class="p-6">
-      <form id="ncpi_form" class="space-y-3">
+    <div class="p-4">
+      <form id="ncpi_form" class="space-y-2">
         <input type="hidden" id="ncpi_contexto" value="cliente">
 
-        <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
           <div class="form-control col-span-1 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Pessoa*</label>
             <div class="flex gap-0">
-              <label id="ncpi_label_pj" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncpiTogglePessoa('J')">
+              <label id="ncpi_label_pj" class="cursor-pointer flex items-center justify-center gap-1 px-2 py-1 border-2 rounded-l-lg text-[10px] font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="ncpiTogglePessoa('J')">
                 <input type="radio" name="ncpi_pessoa" value="J" class="hidden" checked>
                 <span>PJ</span>
               </label>
-              <label id="ncpi_label_pf" class="cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="ncpiTogglePessoa('F')">
+              <label id="ncpi_label_pf" class="cursor-pointer flex items-center justify-center gap-1 px-2 py-1 border-2 rounded-r-lg text-[10px] font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="ncpiTogglePessoa('F')">
                 <input type="radio" name="ncpi_pessoa" value="F" class="hidden">
                 <span>PF</span>
               </label>
             </div>
           </div>
           <div class="form-control col-span-1 md:col-span-2">
-            <label id="ncpi_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
-            <input id="ncpi_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="ncpiMascaraCnpjCpf(this)" maxlength="18">
+            <label id="ncpi_label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ*</label>
+            <input id="ncpi_cnpj" name="cnpj" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="ncpiMascaraCnpjCpf(this)" maxlength="18">
           </div>
           <div class="form-control col-span-1 md:col-span-4">
-            <label class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
-            <input id="ncpi_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Nome Fantasia*</label>
+            <input id="ncpi_nome_fantasia" name="nome_fantasia" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
           </div>
           <div id="ncpi_razao_fields" class="form-control col-span-1 md:col-span-4">
-            <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
-            <input id="ncpi_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Razão Social*</label>
+            <input id="ncpi_razao_social" name="razao_social" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
           <div id="ncpi_tipo_fields" class="form-control col-span-1 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
-            <select id="ncpi_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Tipo*</label>
+            <select id="ncpi_tipo_cliente" name="id_tipo_cliente" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for tipo in tipos_cliente|default([]) %}
                 <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
@@ -2161,8 +2161,8 @@ function abrirViewCampanha(c) {
             </select>
           </div>
           <div class="form-control col-span-1 md:col-span-5">
-            <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
-            <select id="ncpi_vendas" name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Executivo de Vendas*</label>
+            <select id="ncpi_vendas" name="vendas_central_comm" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for v in vendedores_cc|default([]) %}
                 <option value="{{ v.id_contato_cliente }}">{{ v.nome_completo }}</option>
@@ -2170,8 +2170,8 @@ function abrirViewCampanha(c) {
             </select>
           </div>
           <div id="ncpi_agencia_fields" class="form-control col-span-1 md:col-span-3">
-            <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
-            <select id="ncpi_agencia" name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Agência*</label>
+            <select id="ncpi_agencia" name="pk_id_tbl_agencia" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for ag in agencias_opts|default([]) %}
                 <option value="{{ ag.id_agencia }}" data-key="{{ ag.key|default(false) }}">{{ ag.display }}</option>
@@ -2179,32 +2179,32 @@ function abrirViewCampanha(c) {
             </select>
           </div>
           <div id="ncpi_percentual_fields" class="form-control col-span-1 md:col-span-2" style="display:none;">
-            <label id="ncpi_percentual_label" class="text-xs font-medium text-gray-600 mb-1">Percentual*</label>
-            <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="ncpiMascaraPercentual(this)">
+            <label id="ncpi_percentual_label" class="text-[10px] font-medium text-gray-600 mb-0.5">Percentual*</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="ncpiMascaraPercentual(this)">
           </div>
         </div>
 
-        <div id="ncpi_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div id="ncpi_inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
-            <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Insc. Estadual</label>
+            <input name="inscricao_estadual" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
           </div>
           <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
-            <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Insc. Municipal</label>
+            <input name="inscricao_municipal" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
           </div>
         </div>
 
-        <div class="border-t border-gray-200 pt-3 mt-3">
-          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
-          <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
+        <div class="border-t border-gray-200 pt-2 mt-2">
+          <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2">Endereço</h4>
+          <div class="grid grid-cols-3 md:grid-cols-7 gap-2">
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
-              <input id="ncpi_cep" name="cep" oninput="ncpiMascaraCep(this)" onkeydown="ncpiBuscarCep(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">CEP</label>
+              <input id="ncpi_cep" name="cep" oninput="ncpiMascaraCep(this)" onkeydown="ncpiBuscarCep(event)" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CEP">
             </div>
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
-              <select id="ncpi_estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">UF</label>
+              <select id="ncpi_estado" name="pk_id_aux_estado" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
                 <option value="">UF</option>
                 {% for estado in estados|default([]) %}
                   <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
@@ -2212,36 +2212,36 @@ function abrirViewCampanha(c) {
               </select>
             </div>
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
-              <input id="ncpi_cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Cidade</label>
+              <input id="ncpi_cidade" name="cidade" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
             </div>
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
-              <input id="ncpi_bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Bairro</label>
+              <input id="ncpi_bairro" name="bairro" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
             <div class="form-control col-span-3">
-              <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
-              <input id="ncpi_logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Logradouro</label>
+              <input id="ncpi_logradouro" name="logradouro" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
           </div>
-          <div class="grid grid-cols-4 gap-3 mt-3">
+          <div class="grid grid-cols-4 gap-2 mt-2">
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
-              <input name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Nº</label>
+              <input name="numero" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
             <div class="form-control col-span-3">
-              <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
-              <input name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Complemento</label>
+              <input name="complemento" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>
           </div>
         </div>
 
         <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 
-        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-4">
-          <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
-          <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            <i class="fas fa-save mr-2"></i>Cadastrar
+        <div class="flex justify-end gap-2 pt-3 border-t border-gray-200 mt-3">
+          <button type="button" onclick="document.getElementById('modal_novo_cliente_pi').close()" class="px-3 py-1 text-[10px] text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+          <button type="submit" class="px-3 py-1 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-save mr-1"></i>Cadastrar
           </button>
         </div>
       </form>

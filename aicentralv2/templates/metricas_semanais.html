@@ -6,37 +6,37 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
-    .chart-container { position: relative; height: 280px; }
-    .chart-container-lg { position: relative; height: 340px; }
+    .chart-container { position: relative; height: 240px; }
+    .chart-container-lg { position: relative; height: 280px; }
     .kpi-value { font-variant-numeric: tabular-nums; }
     .var-up { color: #059669; font-weight: 600; }
     .var-down { color: #dc2626; font-weight: 600; }
     .var-neutral { color: #6b7280; }
 
-    input[type="month"], select, input[type="text"] { font-size: 0.8125rem; }
+    input[type="month"], select, input[type="text"] { font-size: 0.625rem; }
 
     .funnel-stage {
         transition: all 0.3s ease;
-        min-width: 90px;
+        min-width: 70px;
     }
     .funnel-stage:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .funnel-arrow { color: #d1d5db; font-size: 1.25rem; }
+    .funnel-arrow { color: #d1d5db; font-size: 1rem; }
 
-    .pi-grid td, .pi-grid th { padding: 0.5rem 0.75rem; font-size: 0.75rem; text-align: right; }
+    .pi-grid td, .pi-grid th { padding: 0.4rem 0.5rem; font-size: 0.65rem; text-align: right; }
     .pi-grid th { text-align: center; }
     .pi-grid .meta-ok { background-color: #ecfdf5; }
     .pi-grid .meta-fail { background-color: #fef2f2; }
 
     .section-title {
-        font-size: 0.875rem; font-weight: 700; color: #1E4D4F;
-        border-bottom: 2px solid #1E4D4F; padding-bottom: 0.5rem; margin-bottom: 1rem;
+        font-size: 0.75rem; font-weight: 700; color: #1E4D4F;
+        border-bottom: 2px solid #1E4D4F; padding-bottom: 0.375rem; margin-bottom: 0.75rem;
         text-transform: uppercase; letter-spacing: 0.05em;
     }
 
-    .stat-mini { text-align: center; padding: 0.75rem; }
-    .stat-mini .value { font-size: 1.5rem; font-weight: 800; color: #1E4D4F; }
-    .stat-mini .label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
-    .stat-mini .sub { font-size: 0.7rem; color: #9ca3af; margin-top: 0.125rem; }
+    .stat-mini { text-align: center; padding: 0.5rem; }
+    .stat-mini .value { font-size: 1.25rem; font-weight: 800; color: #1E4D4F; }
+    .stat-mini .label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.125rem; }
+    .stat-mini .sub { font-size: 0.6rem; color: #9ca3af; margin-top: 0.125rem; }
 
     @media print {
         body, html { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -44,11 +44,11 @@
         #btnGerarPDF, .dropdown, label[for="main-drawer"] { display: none !important; }
         .drawer-content { margin-left: 0 !important; padding: 0 !important; }
         #dashboardContainer { max-width: 100% !important; padding: 10px !important; }
-        .chart-container { height: 220px !important; break-inside: avoid; }
-        .chart-container-lg { height: 280px !important; break-inside: avoid; }
+        .chart-container { height: 200px !important; break-inside: avoid; }
+        .chart-container-lg { height: 240px !important; break-inside: avoid; }
         .bg-base-100, .bg-base-200 { background: #fff !important; }
         table, .overflow-x-auto { break-inside: avoid; }
-        .funnel-stage { min-width: 70px !important; }
+        .funnel-stage { min-width: 60px !important; }
         * { transition: none !important; animation: none !important; }
         @page { size: A4 landscape; margin: 8mm; }
     }
@@ -56,36 +56,36 @@
 {% endblock %}
 
 {% block content %}
-<div id="dashboardContainer" class="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+<div id="dashboardContainer" class="p-3 md:p-4 space-y-4 max-w-[1600px] mx-auto">
 
     <!-- ==================== SEÇÃO 1: HEADER + FILTROS ==================== -->
-    <div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-wrap items-end justify-between gap-2">
         <div>
-            <h1 class="text-xl font-bold text-base-content">Dashboard Gerencial Comercial</h1>
-            <p class="text-xs text-base-content/50 mt-0.5" id="periodoLabel">Carregando...</p>
+            <h1 class="text-sm font-bold text-base-content">Dashboard Gerencial Comercial</h1>
+            <p class="text-[9px] text-base-content/50 mt-0.5" id="periodoLabel">Carregando...</p>
         </div>
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="flex flex-wrap items-end gap-2">
             <div>
-                <label class="text-xs font-medium text-gray-600 mb-1 block">Mês</label>
+                <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Mês</label>
                 <input type="month" id="filtroMes"
-                       class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
-                       style="min-width: 160px;" />
+                       class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
+                       style="min-width: 130px;" />
             </div>
             <div>
-                <label class="text-xs font-medium text-gray-600 mb-1 block">Ano (PIs)</label>
+                <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Ano (PIs)</label>
                 <select id="filtroAno"
-                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
-                        style="min-width: 90px;">
+                        class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
+                        style="min-width: 70px;">
                     {% for y in range(2023, 2027) %}
                     <option value="{{ y }}">{{ y }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label class="text-xs font-medium text-gray-600 mb-1 block">Executivo</label>
+                <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">Executivo</label>
                 <select id="filtroExecutivo"
-                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
-                        style="min-width: 220px;">
+                        class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400 appearance-none"
+                        style="min-width: 180px;">
                     <option value="">Todos executivos</option>
                     {% for exec in executivos %}
                     <option value="{{ exec.id }}">{{ exec.nome }}</option>
@@ -93,119 +93,119 @@
                 </select>
             </div>
             <div>
-                <label class="text-xs font-medium text-gray-600 mb-1 block">&nbsp;</label>
-                <button id="btnGerarPDF" class="btn btn-sm btn-outline gap-1" onclick="gerarPDF()">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Gerar PDF
+                <label class="text-[10px] font-medium text-gray-600 mb-0.5 block">&nbsp;</label>
+                <button id="btnGerarPDF" class="btn btn-xs btn-outline gap-1 text-[10px]" onclick="gerarPDF()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    PDF
                 </button>
             </div>
         </div>
     </div>
 
     <!-- Base total badge -->
-    <div class="flex flex-wrap gap-3 text-xs" id="baseTotalBadges">
-        <span class="badge badge-ghost badge-sm">Base: <strong class="ml-1" id="base-cotacoes">--</strong> cotações</span>
-        <span class="badge badge-ghost badge-sm">Aprovadas: <strong class="ml-1" id="base-aprovadas">--</strong></span>
-        <span class="badge badge-ghost badge-sm">Leads: <strong class="ml-1" id="base-leads">--</strong></span>
-        <span class="badge badge-ghost badge-sm">Clientes ativos: <strong class="ml-1" id="base-clientes">--</strong></span>
-        <span class="badge badge-ghost badge-sm">Conversão geral: <strong class="ml-1" id="base-conversao">--</strong>%</span>
-        <span class="badge badge-ghost badge-sm">Operação: <strong class="ml-1" id="base-meses">--</strong> meses</span>
+    <div class="flex flex-wrap gap-2 text-[9px]" id="baseTotalBadges">
+        <span class="badge badge-ghost badge-xs">Base: <strong class="ml-0.5" id="base-cotacoes">--</strong> cotações</span>
+        <span class="badge badge-ghost badge-xs">Aprovadas: <strong class="ml-0.5" id="base-aprovadas">--</strong></span>
+        <span class="badge badge-ghost badge-xs">Leads: <strong class="ml-0.5" id="base-leads">--</strong></span>
+        <span class="badge badge-ghost badge-xs">Clientes ativos: <strong class="ml-0.5" id="base-clientes">--</strong></span>
+        <span class="badge badge-ghost badge-xs">Conversão geral: <strong class="ml-0.5" id="base-conversao">--</strong>%</span>
+        <span class="badge badge-ghost badge-xs">Operação: <strong class="ml-0.5" id="base-meses">--</strong> meses</span>
     </div>
 
     <!-- ==================== SEÇÃO 2: KPI CARDS ==================== -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Leads</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-leads">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-leads-var">vs média --</div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Leads</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-leads">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5" id="kpi-leads-var">vs média --</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Novos Clientes</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-novos-clientes">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5">cadastrados no mês</div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Novos Clientes</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-novos-clientes">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5">cadastrados no mês</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Cotações Criadas</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-cotacoes">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-cotacoes-var">vs média --</div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Cotações Criadas</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-cotacoes">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5" id="kpi-cotacoes-var">vs média --</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Cotações Aprovadas</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-aprovadas">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-aprovadas-var">vs média --</div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Cotações Aprovadas</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-aprovadas">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5" id="kpi-aprovadas-var">vs média --</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Taxa Conversão</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-conversao">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-conversao-detalhe">aprovadas / finalizadas</div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Taxa Conversão</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-conversao">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5" id="kpi-conversao-detalhe">aprovadas / finalizadas</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Ticket Médio</div>
-            <div class="text-lg font-bold text-primary kpi-value" id="kpi-ticket">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5">valor médio aprovadas</div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Ticket Médio</div>
+            <div class="text-sm font-bold text-primary kpi-value" id="kpi-ticket">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5">valor médio aprovadas</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Ciclo Médio</div>
-            <div class="text-2xl font-bold text-primary kpi-value" id="kpi-ciclo">--</div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5">dias até aprovação</div>
-            <div class="text-[0.6rem] text-base-content/50 mt-1 font-medium" id="kpi-dias-mes">--</div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Ciclo Médio</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="kpi-ciclo">--</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5">dias até aprovação</div>
+            <div class="text-[8px] text-base-content/50 mt-0.5 font-medium" id="kpi-dias-mes">--</div>
         </div>
-        <div class="bg-base-100 rounded-lg p-3 border border-base-300 border-l-4 border-l-primary">
-            <div class="text-[0.65rem] text-base-content/60 mb-1 uppercase tracking-wide">Meta Mensal</div>
-            <div class="text-lg font-bold kpi-value" id="kpi-meta">--</div>
-            <div class="w-full bg-base-200 rounded-full h-1.5 mt-1">
-                <div class="bg-primary h-1.5 rounded-full transition-all duration-500" id="kpi-meta-bar" style="width: 0%"></div>
+        <div class="bg-base-100 rounded-lg p-2 border border-base-300 border-l-4 border-l-primary">
+            <div class="text-[9px] text-base-content/60 mb-0.5 uppercase tracking-wide">Meta Mensal</div>
+            <div class="text-sm font-bold kpi-value" id="kpi-meta">--</div>
+            <div class="w-full bg-base-200 rounded-full h-1 mt-0.5">
+                <div class="bg-primary h-1 rounded-full transition-all duration-500" id="kpi-meta-bar" style="width: 0%"></div>
             </div>
-            <div class="text-[0.65rem] text-base-content/40 mt-0.5" id="kpi-meta-detalhe">de R$ 200.000</div>
+            <div class="text-[9px] text-base-content/40 mt-0.5" id="kpi-meta-detalhe">de R$ 200.000</div>
         </div>
     </div>
 
     <!-- ==================== SEÇÃO 3: FUNIL COMERCIAL ==================== -->
-    <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+    <div class="bg-base-100 rounded-lg p-3 border border-base-300">
         <div class="section-title">Pipeline Comercial</div>
-        <div class="flex items-center justify-between gap-1 overflow-x-auto py-2" id="funnelContainer">
-            <div class="text-center text-xs text-base-content/50 py-8">Carregando pipeline...</div>
+        <div class="flex items-center justify-between gap-1 overflow-x-auto py-1" id="funnelContainer">
+            <div class="text-center text-[10px] text-base-content/50 py-4">Carregando pipeline...</div>
         </div>
     </div>
 
     <!-- ==================== SEÇÃO 4: GRÁFICOS GERENCIAIS ==================== -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Leads por Fonte</h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <h3 class="text-[10px] font-semibold text-base-content mb-2">Leads por Fonte</h3>
             <div class="chart-container"><canvas id="chartLeadsFonte"></canvas></div>
         </div>
-        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Evolução Diária de Vendas <span class="text-xs font-normal text-base-content/50">(linha de meta R$ 200k)</span></h3>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <h3 class="text-[10px] font-semibold text-base-content mb-2">Evolução Diária de Vendas <span class="text-[9px] font-normal text-base-content/50">(linha de meta R$ 200k)</span></h3>
             <div class="chart-container"><canvas id="chartEvolucao"></canvas></div>
         </div>
-        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Distribuição por Status</h3>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <h3 class="text-[10px] font-semibold text-base-content mb-2">Distribuição por Status</h3>
             <div class="chart-container"><canvas id="chartStatus"></canvas></div>
         </div>
-        <div class="bg-base-100 rounded-lg p-5 border border-base-300">
-            <h3 class="text-sm font-semibold text-base-content mb-4">Cotações por Executivo</h3>
+        <div class="bg-base-100 rounded-lg p-3 border border-base-300">
+            <h3 class="text-[10px] font-semibold text-base-content mb-2">Cotações por Executivo</h3>
             <div class="chart-container"><canvas id="chartExecutivos"></canvas></div>
         </div>
     </div>
 
     <!-- ==================== SEÇÃO 5: ESTÁGIOS DAS COTAÇÕES ==================== -->
-    <div class="bg-base-100 rounded-lg p-5 border border-base-300">
+    <div class="bg-base-100 rounded-lg p-3 border border-base-300">
         <div class="section-title">Estágios das Cotações & Tempo de Conversão</div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="estagiosCards">
-            <div class="text-center text-xs text-base-content/50 py-8 col-span-full">Carregando estágios...</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2" id="estagiosCards">
+            <div class="text-center text-[10px] text-base-content/50 py-4 col-span-full">Carregando estágios...</div>
         </div>
     </div>
 
     <!-- ==================== SEÇÃO 6: TOP 10 COTAÇÕES APROVADAS ==================== -->
     <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
-        <div class="p-4 border-b border-base-300">
+        <div class="p-3 border-b border-base-300">
             <div class="section-title mb-0 border-0 pb-0">TOP 10 Cotações Aprovadas</div>
         </div>
         <div class="overflow-x-auto">
-            <table class="table table-sm w-full">
+            <table class="table table-xs w-full">
                 <thead style="background-color: #1E4D4F;">
-                    <tr class="text-white text-xs">
-                        <th class="font-semibold w-10">#</th>
+                    <tr class="text-white text-[9px]">
+                        <th class="font-semibold w-8">#</th>
                         <th class="font-semibold">Cliente</th>
                         <th class="font-semibold">Campanha</th>
                         <th class="font-semibold text-right">Valor Proposta</th>
@@ -215,8 +215,8 @@
                         <th class="font-semibold text-center">Ciclo (dias)</th>
                     </tr>
                 </thead>
-                <tbody id="tabelaTop10">
-                    <tr><td colspan="8" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                <tbody id="tabelaTop10" class="text-[10px]">
+                    <tr><td colspan="8" class="text-center py-4 text-base-content/50"><span class="loading loading-spinner loading-xs"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -225,26 +225,26 @@
     <!-- ==================== SEÇÃO 7: LEADS ==================== -->
     <!-- Leads por Executivo -->
     <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
-        <div class="p-4 border-b border-base-300">
+        <div class="p-3 border-b border-base-300">
             <div class="section-title mb-0 border-0 pb-0">Leads por Executivo</div>
         </div>
-        <div class="p-4">
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="leadsExecutivoCards">
-                <div class="text-center text-xs text-base-content/50 py-4 col-span-full">Carregando...</div>
+        <div class="p-3">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2" id="leadsExecutivoCards">
+                <div class="text-center text-[10px] text-base-content/50 py-3 col-span-full">Carregando...</div>
             </div>
         </div>
     </div>
 
     <!-- Tabela de Leads -->
     <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
-        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+        <div class="p-3 border-b border-base-300 flex justify-between items-center">
             <div class="section-title mb-0 border-0 pb-0">Leads do Mês (Todas as Fontes)</div>
-            <span class="badge badge-ghost badge-sm" id="totalLeadsBadge">0 leads</span>
+            <span class="badge badge-ghost badge-xs text-[9px]" id="totalLeadsBadge">0 leads</span>
         </div>
-        <div class="overflow-x-auto" style="max-height: 400px;">
-            <table class="table table-sm table-pin-rows w-full">
+        <div class="overflow-x-auto" style="max-height: 350px;">
+            <table class="table table-xs table-pin-rows w-full">
                 <thead style="background-color: #1E4D4F;">
-                    <tr class="text-white text-xs">
+                    <tr class="text-white text-[9px]">
                         <th class="font-semibold">Data</th>
                         <th class="font-semibold">Contato</th>
                         <th class="font-semibold">Empresa</th>
@@ -253,8 +253,8 @@
                         <th class="font-semibold">Executivo</th>
                     </tr>
                 </thead>
-                <tbody id="tabelaLeads">
-                    <tr><td colspan="6" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                <tbody id="tabelaLeads" class="text-[10px]">
+                    <tr><td colspan="6" class="text-center py-4 text-base-content/50"><span class="loading loading-spinner loading-xs"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -262,24 +262,24 @@
 
     <!-- ==================== SEÇÃO 8: PIs POR EXECUTIVO POR MÊS ==================== -->
     <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
-        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+        <div class="p-3 border-b border-base-300 flex justify-between items-center">
             <div class="section-title mb-0 border-0 pb-0">PIs por Executivo — Ano <span id="piAnoLabel"></span></div>
             <div class="flex items-center gap-2">
-                <span class="text-xs text-base-content/50">Meta mensal: <strong>R$ 200.000</strong></span>
+                <span class="text-[9px] text-base-content/50">Meta mensal: <strong>R$ 200.000</strong></span>
             </div>
         </div>
         <div class="overflow-x-auto">
-            <table class="table table-sm w-full pi-grid" id="tabelaPIs">
+            <table class="table table-xs w-full pi-grid" id="tabelaPIs">
                 <thead style="background-color: #1E4D4F;">
-                    <tr class="text-white text-xs">
+                    <tr class="text-white text-[9px]">
                         <th class="font-semibold text-left">Executivo</th>
                         <th>Jan</th><th>Fev</th><th>Mar</th><th>Abr</th><th>Mai</th><th>Jun</th>
                         <th>Jul</th><th>Ago</th><th>Set</th><th>Out</th><th>Nov</th><th>Dez</th>
                         <th class="font-semibold">Total Ano</th>
                     </tr>
                 </thead>
-                <tbody id="tabelaPIsBody">
-                    <tr><td colspan="14" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                <tbody id="tabelaPIsBody" class="text-[10px]">
+                    <tr><td colspan="14" class="text-center py-4 text-base-content/50"><span class="loading loading-spinner loading-xs"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -287,19 +287,19 @@
 
     <!-- ==================== TABELA DE COTAÇÕES DO MÊS ==================== -->
     <div class="bg-base-100 rounded-lg border border-base-300 overflow-hidden">
-        <div class="p-4 border-b border-base-300 flex justify-between items-center">
+        <div class="p-3 border-b border-base-300 flex justify-between items-center">
             <div class="section-title mb-0 border-0 pb-0">Cotações do Mês</div>
             <div class="flex items-center gap-2">
                 <input type="text" id="filtroBusca"
-                       class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
-                       placeholder="Buscar cliente, campanha..." autocomplete="off" style="min-width: 200px;">
-                <span class="badge badge-ghost badge-sm" id="totalCotacoesTabela">0 cotações</span>
+                       class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
+                       placeholder="Buscar cliente, campanha..." autocomplete="off" style="min-width: 160px;">
+                <span class="badge badge-ghost badge-xs text-[9px]" id="totalCotacoesTabela">0 cotações</span>
             </div>
         </div>
-        <div class="overflow-x-auto" style="max-height: 500px;">
-            <table class="table table-sm table-pin-rows w-full">
+        <div class="overflow-x-auto" style="max-height: 400px;">
+            <table class="table table-xs table-pin-rows w-full">
                 <thead style="background-color: #1E4D4F;">
-                    <tr class="text-white text-xs">
+                    <tr class="text-white text-[9px]">
                         <th class="font-semibold">Número</th>
                         <th class="font-semibold">Cliente</th>
                         <th class="font-semibold">Campanha</th>
@@ -310,8 +310,8 @@
                         <th class="font-semibold">Criada em</th>
                     </tr>
                 </thead>
-                <tbody id="tabelaCotacoes">
-                    <tr><td colspan="8" class="text-center py-8 text-base-content/50"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                <tbody id="tabelaCotacoes" class="text-[10px]">
+                    <tr><td colspan="8" class="text-center py-4 text-base-content/50"><span class="loading loading-spinner loading-xs"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -382,7 +382,7 @@ function statusBadge(s) {
         'Rejeitada': 'bg-red-100 text-red-700',
         'Rascunho': 'bg-gray-100 text-gray-500'
     };
-    return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${colors[s]||'bg-gray-100 text-gray-600'}">${s||'--'}</span>`;
+    return `<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium ${colors[s]||'bg-gray-100 text-gray-600'}">${s||'--'}</span>`;
 }
 function destroyChart(key) { if (charts[key]) { charts[key].destroy(); charts[key] = null; } }
 
@@ -460,9 +460,9 @@ async function carregarKPIs() {
             const valorAprovado = d.valor_aprovado || 0;
             const pctMeta = Math.min(Math.round((valorAprovado / META_MENSAL) * 100), 100);
             document.getElementById('kpi-meta').textContent = fmtK(valorAprovado);
-            document.getElementById('kpi-meta').className = `text-lg font-bold kpi-value ${pctMeta >= 100 ? 'text-success' : pctMeta >= 50 ? 'text-warning' : 'text-error'}`;
+            document.getElementById('kpi-meta').className = `text-sm font-bold kpi-value ${pctMeta >= 100 ? 'text-success' : pctMeta >= 50 ? 'text-warning' : 'text-error'}`;
             document.getElementById('kpi-meta-bar').style.width = pctMeta + '%';
-            document.getElementById('kpi-meta-bar').className = `h-1.5 rounded-full transition-all duration-500 ${pctMeta >= 100 ? 'bg-success' : pctMeta >= 50 ? 'bg-warning' : 'bg-error'}`;
+            document.getElementById('kpi-meta-bar').className = `h-1 rounded-full transition-all duration-500 ${pctMeta >= 100 ? 'bg-success' : pctMeta >= 50 ? 'bg-warning' : 'bg-error'}`;
             document.getElementById('kpi-meta-detalhe').textContent = `${pctMeta}% de R$ 200.000`;
 
             if (j.periodo) {
@@ -476,7 +476,7 @@ async function carregarKPIs() {
 
 // ==================== CARREGAR FUNIL ====================
 async function carregarFunil() {
-    document.getElementById('funnelContainer').innerHTML = '<div class="text-center text-xs text-base-content/50 py-8 w-full">Carregando pipeline...</div>';
+    document.getElementById('funnelContainer').innerHTML = '<div class="text-center text-[10px] text-base-content/50 py-4 w-full">Carregando pipeline...</div>';
     try {
         const r = await fetch(`/api/metricas/semanais/funil-comercial?${getFilters()}`);
         const j = await r.json();
@@ -495,16 +495,16 @@ async function carregarFunil() {
         stages.forEach((s, i) => {
             const pct = Math.max(Math.round((s.count / maxCount) * 100), 15);
             html += `
-                <div class="funnel-stage flex-1 rounded-lg p-3 text-center text-white" style="background:${s.color}; opacity: ${0.6 + (0.4 * (1 - i/stages.length))}">
-                    <div class="text-2xl font-bold">${fmtN(s.count)}</div>
-                    <div class="text-[0.65rem] font-medium opacity-90 mt-0.5">${s.label}</div>
-                    ${s.value !== null ? `<div class="text-[0.6rem] opacity-75 mt-0.5">${fmtK(s.value)}</div>` : ''}
+                <div class="funnel-stage flex-1 rounded-lg p-2 text-center text-white" style="background:${s.color}; opacity: ${0.6 + (0.4 * (1 - i/stages.length))}">
+                    <div class="text-lg font-bold">${fmtN(s.count)}</div>
+                    <div class="text-[9px] font-medium opacity-90 mt-0.5">${s.label}</div>
+                    ${s.value !== null ? `<div class="text-[8px] opacity-75 mt-0.5">${fmtK(s.value)}</div>` : ''}
                 </div>`;
             if (i < stages.length - 1) {
                 const convRate = stages[i+1].count && s.count ? Math.round(stages[i+1].count / s.count * 100) : 0;
                 html += `<div class="flex flex-col items-center justify-center px-1">
                     <span class="funnel-arrow">→</span>
-                    <span class="text-[0.6rem] text-base-content/40">${convRate}%</span>
+                    <span class="text-[8px] text-base-content/40">${convRate}%</span>
                 </div>`;
             }
         });
@@ -670,27 +670,27 @@ async function carregarEstagios() {
                 <div class="label">Cotações no período</div>
             </div>
             <div class="stat-mini bg-base-200 rounded-lg">
-                <div class="value">${d.tempo_medio_envio || 0}<span class="text-sm font-normal"> dias</span></div>
+                <div class="value">${d.tempo_medio_envio || 0}<span class="text-[10px] font-normal"> dias</span></div>
                 <div class="label">Tempo médio até envio</div>
                 <div class="sub">Taxa envio: ${d.taxa_envio || 0}%</div>
             </div>
             <div class="stat-mini bg-base-200 rounded-lg">
-                <div class="value">${d.tempo_medio_negociacao || 0}<span class="text-sm font-normal"> dias</span></div>
+                <div class="value">${d.tempo_medio_negociacao || 0}<span class="text-[10px] font-normal"> dias</span></div>
                 <div class="label">Tempo médio negociação</div>
                 <div class="sub">Após envio da proposta</div>
             </div>
             <div class="stat-mini bg-base-200 rounded-lg">
-                <div class="value">${d.tempo_medio_ciclo_total || 0}<span class="text-sm font-normal"> dias</span></div>
+                <div class="value">${d.tempo_medio_ciclo_total || 0}<span class="text-[10px] font-normal"> dias</span></div>
                 <div class="label">Ciclo total médio</div>
                 <div class="sub">Criação → Aprovação</div>
             </div>
             <div class="stat-mini bg-base-200 rounded-lg">
-                <div class="value">${d.taxa_conversao || 0}<span class="text-sm font-normal">%</span></div>
+                <div class="value">${d.taxa_conversao || 0}<span class="text-[10px] font-normal">%</span></div>
                 <div class="label">Taxa de conversão</div>
                 <div class="sub">${d.aprovadas||0} de ${(d.aprovadas||0)+(d.rejeitadas||0)}</div>
             </div>
             <div class="stat-mini bg-base-200 rounded-lg">
-                <div class="value">${d.taxa_aprovacao_pos_envio || 0}<span class="text-sm font-normal">%</span></div>
+                <div class="value">${d.taxa_aprovacao_pos_envio || 0}<span class="text-[10px] font-normal">%</span></div>
                 <div class="label">Conversão pós-envio</div>
                 <div class="sub">Enviadas → Aprovadas</div>
             </div>
@@ -705,7 +705,7 @@ async function carregarTop10() {
         const j = await r.json();
         const tbody = document.getElementById('tabelaTop10');
         if (!j.success || !j.data.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-base-content/50">Nenhuma cotação aprovada no período</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-base-content/50 text-[10px]">Nenhuma cotação aprovada no período</td></tr>';
             return;
         }
         tbody.innerHTML = j.data.map((d, i) => `
@@ -716,7 +716,7 @@ async function carregarTop10() {
                 <td class="text-right font-mono">${fmt(d.valor_proposta)}</td>
                 <td class="text-right font-mono font-semibold text-primary">${fmt(d.valor_liquido)}</td>
                 <td>${d.executivo || '--'}</td>
-                <td class="text-center text-xs">${fmtDate(d.aprovada_em)}</td>
+                <td class="text-center text-[9px]">${fmtDate(d.aprovada_em)}</td>
                 <td class="text-center">${d.ciclo_dias != null ? Math.round(d.ciclo_dias) + 'd' : '--'}</td>
             </tr>
         `).join('');
@@ -726,25 +726,25 @@ async function carregarTop10() {
 // ==================== LEADS POR EXECUTIVO ====================
 async function carregarLeadsPorExecutivo() {
     const container = document.getElementById('leadsExecutivoCards');
-    container.innerHTML = '<div class="text-center text-xs text-base-content/50 py-4 col-span-full">Carregando...</div>';
+    container.innerHTML = '<div class="text-center text-[10px] text-base-content/50 py-3 col-span-full">Carregando...</div>';
     try {
         const r = await fetch(`/api/metricas/semanais/leads-por-executivo?${getFilters()}`);
         const j = await r.json();
         if (!j.success || !j.data.length) {
-            container.innerHTML = '<div class="text-center text-xs text-base-content/50 py-4 col-span-full">Nenhum lead no período</div>';
+            container.innerHTML = '<div class="text-center text-[10px] text-base-content/50 py-3 col-span-full">Nenhum lead no período</div>';
             return;
         }
         const totalGeral = j.data.reduce((s, d) => s + d.total, 0);
         container.innerHTML = j.data.map(d => {
             const pct = totalGeral > 0 ? Math.round(d.total / totalGeral * 100) : 0;
             return `
-            <div class="bg-base-200 rounded-lg p-3 text-center">
-                <div class="text-2xl font-bold text-primary">${fmtN(d.total)}</div>
-                <div class="text-[0.65rem] font-medium text-gray-700 mt-0.5 truncate" title="${d.executivo}">${d.executivo}</div>
-                <div class="w-full bg-base-300 rounded-full h-1 mt-1.5">
+            <div class="bg-base-200 rounded-lg p-2 text-center">
+                <div class="text-lg font-bold text-primary">${fmtN(d.total)}</div>
+                <div class="text-[9px] font-medium text-gray-700 mt-0.5 truncate" title="${d.executivo}">${d.executivo}</div>
+                <div class="w-full bg-base-300 rounded-full h-1 mt-1">
                     <div class="bg-primary h-1 rounded-full" style="width:${pct}%"></div>
                 </div>
-                <div class="flex justify-between text-[0.6rem] text-gray-400 mt-1">
+                <div class="flex justify-between text-[8px] text-gray-400 mt-0.5">
                     <span>${d.notificados} notif.</span>
                     <span>${d.pendentes} pend.</span>
                 </div>
@@ -762,18 +762,18 @@ async function carregarLeads() {
         const badge = document.getElementById('totalLeadsBadge');
         if (!j.success || !j.data.length) {
             badge.textContent = '0 leads';
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-base-content/50">Nenhum lead no período</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-base-content/50 text-[10px]">Nenhum lead no período</td></tr>';
             return;
         }
         badge.textContent = `${j.data.length} leads`;
         tbody.innerHTML = j.data.map(d => `
             <tr class="hover:bg-base-200/50">
-                <td class="text-xs">${fmtDateTime(d.data_registro)}</td>
+                <td class="text-[9px]">${fmtDateTime(d.data_registro)}</td>
                 <td class="font-medium">${d.contato_nome || '--'}</td>
                 <td>${d.empresa || '--'}</td>
-                <td><span class="badge badge-sm badge-ghost">${(d.fonte||'').replace('ADS_','')}</span></td>
-                <td class="text-center">${d.notificado ? '<span class="badge badge-sm badge-success">Notificado</span>' : '<span class="badge badge-sm badge-warning">Pendente</span>'}</td>
-                <td class="text-xs">${d.executivo || '--'}</td>
+                <td><span class="badge badge-xs badge-ghost text-[9px]">${(d.fonte||'').replace('ADS_','')}</span></td>
+                <td class="text-center">${d.notificado ? '<span class="badge badge-xs badge-success text-[9px]">Notificado</span>' : '<span class="badge badge-xs badge-warning text-[9px]">Pendente</span>'}</td>
+                <td class="text-[9px]">${d.executivo || '--'}</td>
             </tr>
         `).join('');
     } catch(e) { console.error('Erro leads:', e); }
@@ -793,27 +793,27 @@ async function carregarPIsAnual() {
 
         let html = '';
         if (!d.executivos || !d.executivos.length) {
-            html = '<tr><td colspan="14" class="text-center py-8 text-base-content/50">Nenhum PI encontrado no ano</td></tr>';
+            html = '<tr><td colspan="14" class="text-center py-4 text-base-content/50 text-[10px]">Nenhum PI encontrado no ano</td></tr>';
         } else {
             d.executivos.forEach(exec => {
                 html += `<tr class="hover:bg-base-200/50">
-                    <td class="text-left font-medium text-xs whitespace-nowrap">${exec.executivo}</td>`;
+                    <td class="text-left font-medium text-[9px] whitespace-nowrap">${exec.executivo}</td>`;
                 for (let m = 1; m <= 12; m++) {
                     const mes = exec.meses[String(m)] || {total:0, valor:0};
                     const cls = mes.valor >= meta ? 'meta-ok' : (mes.total > 0 ? 'meta-fail' : '');
                     html += `<td class="${cls}">
                         <div class="font-semibold">${mes.total || '-'}</div>
-                        <div class="text-[0.6rem] text-base-content/50">${mes.valor > 0 ? fmtK(mes.valor) : ''}</div>
+                        <div class="text-[8px] text-base-content/50">${mes.valor > 0 ? fmtK(mes.valor) : ''}</div>
                     </td>`;
                 }
                 html += `<td class="font-bold">
                     <div>${exec.total_ano}</div>
-                    <div class="text-[0.6rem] text-primary">${fmtK(exec.valor_ano)}</div>
+                    <div class="text-[8px] text-primary">${fmtK(exec.valor_ano)}</div>
                 </td></tr>`;
             });
 
             html += `<tr class="font-bold" style="background:#f3f4f6;">
-                <td class="text-left text-xs">TOTAL</td>`;
+                <td class="text-left text-[9px]">TOTAL</td>`;
             let totalGeralPis = 0, totalGeralValor = 0;
             for (let m = 1; m <= 12; m++) {
                 const mes = d.totais_mes[String(m)] || {total:0, valor:0};
@@ -822,17 +822,17 @@ async function carregarPIsAnual() {
                 const cls = mes.valor >= meta ? 'meta-ok' : (mes.total > 0 ? 'meta-fail' : '');
                 html += `<td class="${cls}">
                     <div>${mes.total || '-'}</div>
-                    <div class="text-[0.6rem] text-primary">${mes.valor > 0 ? fmtK(mes.valor) : ''}</div>
+                    <div class="text-[8px] text-primary">${mes.valor > 0 ? fmtK(mes.valor) : ''}</div>
                 </td>`;
             }
-            html += `<td><div>${totalGeralPis}</div><div class="text-[0.6rem] text-primary">${fmtK(totalGeralValor)}</div></td></tr>`;
+            html += `<td><div>${totalGeralPis}</div><div class="text-[8px] text-primary">${fmtK(totalGeralValor)}</div></td></tr>`;
 
             html += `<tr style="background:#fef3c7;">
-                <td class="text-left text-xs font-semibold">META</td>`;
+                <td class="text-left text-[9px] font-semibold">META</td>`;
             for (let m = 1; m <= 12; m++) {
-                html += `<td class="text-xs font-semibold text-warning">${fmtK(meta)}</td>`;
+                html += `<td class="text-[9px] font-semibold text-warning">${fmtK(meta)}</td>`;
             }
-            html += `<td class="text-xs font-semibold text-warning">${fmtK(meta * 12)}</td></tr>`;
+            html += `<td class="text-[9px] font-semibold text-warning">${fmtK(meta * 12)}</td></tr>`;
         }
         tbody.innerHTML = html;
     } catch(e) { console.error('Erro PIs anual:', e); }
@@ -851,20 +851,20 @@ async function carregarTabela() {
 
         if (!j.success || !j.data.length) {
             badge.textContent = '0 cotações';
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-base-content/50">Nenhuma cotação encontrada</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-base-content/50 text-[10px]">Nenhuma cotação encontrada</td></tr>';
             return;
         }
         badge.textContent = `${j.data.length} cotações`;
         tbody.innerHTML = j.data.map(cot => `
             <tr class="hover:bg-base-200/50 cursor-pointer" onclick="window.location.href='/cotacoes/${cot.id}/detalhes'">
-                <td class="font-mono text-xs">${cot.numero_cotacao || '--'}</td>
+                <td class="font-mono text-[9px]">${cot.numero_cotacao || '--'}</td>
                 <td class="font-medium">${cot.cliente_nome || '--'}</td>
                 <td>${cot.nome_campanha || '--'}</td>
                 <td class="text-right font-mono">${fmt(cot.valor_total_proposta)}</td>
                 <td class="text-center">${statusBadge(cot.status)}</td>
-                <td class="text-xs">${cot.executivo_nome || '--'}</td>
+                <td class="text-[9px]">${cot.executivo_nome || '--'}</td>
                 <td class="text-center">${cot.dias_aberto || 0}</td>
-                <td class="text-xs text-base-content/60">${fmtDateTime(cot.created_at)}</td>
+                <td class="text-[9px] text-base-content/60">${fmtDateTime(cot.created_at)}</td>
             </tr>
         `).join('');
     } catch(e) { console.error('Erro tabela:', e); }

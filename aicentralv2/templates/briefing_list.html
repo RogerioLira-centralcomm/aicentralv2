@@ -3,19 +3,19 @@
 {% block title %}Gestão de Briefings{% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-2 overflow-x-hidden">
+<div class="max-w-full mx-auto px-1 overflow-x-hidden">
     <!-- Header Compacto - Estilo CRM -->
-    <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40">
-        <div class="flex items-center justify-between gap-3">
+    <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
+        <div class="flex items-center justify-between gap-2">
             <!-- Título -->
             <div class="flex items-center gap-2 flex-shrink-0">
-                <h1 class="text-lg font-semibold text-gray-800">Briefings</h1>
+                <h1 class="text-sm font-semibold text-gray-800">Briefings</h1>
             </div>
             
             <!-- Filtros Inline -->
-            <form id="filtros_form" method="get" action="{{ url_for('briefing_list') }}" class="flex items-center gap-3 flex-1 justify-center">
+            <form id="filtros_form" method="get" action="{{ url_for('briefing_list') }}" class="flex items-center gap-2 flex-1 justify-center">
                 <select name="status" onchange="salvarFiltrosESubmeter()"
-                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 130px;">
+                        class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 100px;">
                     <option value="">Status</option>
                     <option value="rascunho" {% if filtros.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
                     <option value="pendente" {% if filtros.status == 'pendente' %}selected{% endif %}>Pendente</option>
@@ -26,19 +26,19 @@
                 <div class="relative">
                     <input type="hidden" name="cliente_id" id="cliente_id_filtro" value="{{ filtros.cliente_id }}">
                     <input type="text" id="cliente_busca" 
-                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
-                        style="min-width: 160px;"
+                        class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
+                        style="min-width: 120px;"
                         placeholder="Cliente..."
                         value="{% if filtros.cliente_id and cliente_selecionado %}{{ cliente_selecionado.nome_fantasia }}{% endif %}"
                         autocomplete="off"
                         oninput="aoDigitarClienteFiltro(this.value)"
                         onfocus="mostrarResultadosFiltro()"
                     >
-                    <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-gray-200"></div>
+                    <div id="resultados_clientes_filtro" class="absolute z-50 w-full bg-white shadow-xl rounded-lg mt-1 max-h-60 overflow-y-auto hidden border border-gray-200 text-[10px]"></div>
                 </div>
                 
                 <select name="responsavel_id" onchange="salvarFiltrosESubmeter()"
-                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 160px;">
+                        class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 120px;">
                     <option value="">Responsável</option>
                     <option value="sem_responsavel" {% if filtros.responsavel_id == 'sem_responsavel' %}selected{% endif %}>Sem resp.</option>
                     {% for resp in responsaveis %}
@@ -48,7 +48,7 @@
                 
                 <input type="hidden" name="ano" value="2026">
                 <select name="mes" onchange="salvarFiltrosESubmeter()"
-                        class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 130px;">
+                        class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 100px;">
                     <option value="">Período</option>
                     <option value="1" {% if filtros.mes == '1' %}selected{% endif %}>Jan/2026</option>
                     <option value="2" {% if filtros.mes == '2' %}selected{% endif %}>Fev/2026</option>
@@ -66,13 +66,13 @@
                 
                 <input type="text" name="busca" value="{{ filtros.busca }}" 
                        placeholder="Buscar..." 
-                       class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400"
-                       style="min-width: 140px;"
+                       class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400"
+                       style="min-width: 100px;"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();salvarFiltrosESubmeter();}">
                 
                 {% if filtros.status or filtros.cliente_id or filtros.responsavel_id or filtros.busca or filtros.mes or filtros.ano %}
-                <a href="{{ url_for('briefing_list') }}" class="text-gray-400 hover:text-gray-600 p-1.5" title="Limpar filtros">
-                    <i class="fa-solid fa-xmark"></i>
+                <a href="{{ url_for('briefing_list') }}" class="text-gray-400 hover:text-gray-600 p-1" title="Limpar filtros">
+                    <i class="fa-solid fa-xmark text-[10px]"></i>
                 </a>
                 {% endif %}
             </form>
@@ -81,58 +81,58 @@
 
     <!-- Lista de Briefings - Desktop -->
     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hidden lg:block">
-        <table class="table w-full text-sm">
+        <table class="table w-full text-[10px]">
             <thead class="bg-gray-100">
                 <tr>
-                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Título</th>
-                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Status</th>
-                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Cliente</th>
-                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Responsável</th>
-                    <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Plataforma</th>
-                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Prazo</th>
-                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-24">Budget</th>
-                    <th class="text-center py-2 px-3 text-xs font-medium text-gray-600 uppercase w-16">Ações</th>
+                    <th class="text-left py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase">Título</th>
+                    <th class="text-center py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase w-20">Status</th>
+                    <th class="text-left py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase">Cliente</th>
+                    <th class="text-left py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase">Responsável</th>
+                    <th class="text-left py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase">Plataforma</th>
+                    <th class="text-center py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase w-20">Prazo</th>
+                    <th class="text-center py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase w-20">Budget</th>
+                    <th class="text-center py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase w-14">Ações</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% if briefings %}
                     {% for briefing in briefings %}
                     <tr class="hover:bg-gray-50 {% if not briefing.responsavel_centralcomm %}bg-amber-50{% endif %}">
-                        <td class="py-2 px-3">
-                            <div class="flex items-center gap-2">
+                        <td class="py-1.5 px-2">
+                            <div class="flex items-center gap-1">
                                 {% if not briefing.responsavel_centralcomm %}
                                 <span class="text-amber-500" title="Sem responsável definido">
-                                    <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                                    <i class="fa-solid fa-triangle-exclamation text-[9px]"></i>
                                 </span>
                                 {% endif %}
-                                <a href="javascript:void(0)" onclick="abrirModalBriefing({{ briefing.id }})" class="font-medium text-gray-800 hover:text-blue-600 hover:underline">{{ briefing.titulo }}</a>
+                                <a href="javascript:void(0)" onclick="abrirModalBriefing({{ briefing.id }})" class="font-medium text-[10px] text-gray-800 hover:text-blue-600 hover:underline">{{ briefing.titulo }}</a>
                             </div>
                         </td>
-                        <td class="py-2 px-3 text-center">
+                        <td class="py-1.5 px-2 text-center">
                             {% if briefing.status == 'rascunho' %}
-                                <span class="badge badge-sm bg-slate-200 text-slate-700 border-0">Rascunho</span>
+                                <span class="badge badge-xs text-[8px] bg-slate-200 text-slate-700 border-0">Rascunho</span>
                             {% elif briefing.status == 'pendente' %}
-                                <span class="badge badge-sm bg-amber-100 text-amber-700 border-0">Pendente</span>
+                                <span class="badge badge-xs text-[8px] bg-amber-100 text-amber-700 border-0">Pendente</span>
                             {% elif briefing.status == 'aceito' %}
-                                <span class="badge badge-sm bg-green-100 text-green-700 border-0">Aceito</span>
+                                <span class="badge badge-xs text-[8px] bg-green-100 text-green-700 border-0">Aceito</span>
                             {% elif briefing.status == 'rejeitado' %}
-                                <span class="badge badge-sm bg-red-100 text-red-700 border-0">Rejeitado</span>
+                                <span class="badge badge-xs text-[8px] bg-red-100 text-red-700 border-0">Rejeitado</span>
                             {% endif %}
                         </td>
-                        <td class="py-2 px-3 text-sm text-gray-600">{{ briefing.cliente_nome or '-' }}</td>
-                        <td class="py-2 px-3 text-sm text-gray-600">
+                        <td class="py-1.5 px-2 text-[10px] text-gray-600">{{ briefing.cliente_nome or '-' }}</td>
+                        <td class="py-1.5 px-2 text-[10px] text-gray-600">
                             {% if briefing.responsavel_nome %}
                                 {{ briefing.responsavel_nome }}
                             {% else %}
                                 <span class="text-amber-600 font-medium">Não definido</span>
                             {% endif %}
                         </td>
-                        <td class="py-2 px-3 text-sm text-gray-600">{{ briefing.plataforma or '-' }}</td>
-                        <td class="py-2 px-3 text-sm text-gray-600 text-center">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
-                        <td class="py-2 px-3 text-sm text-gray-600 text-center">{% if briefing.budget %}<span class="text-green-600 font-medium">R$ {{ "%.0f"|format(briefing.budget|float) }}</span>{% else %}-{% endif %}</td>
-                        <td class="py-2 px-3 text-center">
+                        <td class="py-1.5 px-2 text-[10px] text-gray-600">{{ briefing.plataforma or '-' }}</td>
+                        <td class="py-1.5 px-2 text-[10px] text-gray-600 text-center">{{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</td>
+                        <td class="py-1.5 px-2 text-[10px] text-gray-600 text-center">{% if briefing.budget %}<span class="text-green-600 font-medium">R$ {{ "%.0f"|format(briefing.budget|float) }}</span>{% else %}-{% endif %}</td>
+                        <td class="py-1.5 px-2 text-center">
                             <button onclick="abrirModalBriefing({{ briefing.id }})" 
-                                    class="btn btn-xs btn-ghost text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                    class="btn btn-xs btn-ghost text-[10px] text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                     title="Ver briefing">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
@@ -141,11 +141,11 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="8" class="text-center py-12 text-gray-500">
+                        <td colspan="8" class="text-center py-8 text-gray-500">
                             <div class="flex flex-col items-center justify-center">
-                                <i class="fa-solid fa-file-lines text-5xl text-gray-300 mb-4"></i>
-                                <p class="text-gray-500 text-sm">Nenhum briefing encontrado.</p>
-                                <p class="text-gray-400 text-xs mt-1">Tente ajustar os filtros ou aguarde novos briefings.</p>
+                                <i class="fa-solid fa-file-lines text-3xl text-gray-300 mb-3"></i>
+                                <p class="text-gray-500 text-[10px]">Nenhum briefing encontrado.</p>
+                                <p class="text-gray-400 text-[9px] mt-1">Tente ajustar os filtros ou aguarde novos briefings.</p>
                             </div>
                         </td>
                     </tr>
@@ -155,46 +155,46 @@
     </div>
 
     <!-- Lista de Briefings - Mobile -->
-    <div class="lg:hidden space-y-2">
+    <div class="lg:hidden space-y-1.5">
         {% if briefings %}
             {% for briefing in briefings %}
-            <div class="bg-white border border-gray-200 rounded-lg p-3 {% if not briefing.responsavel_centralcomm %}border-l-4 border-l-amber-400{% endif %}">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="flex items-center gap-2">
+            <div class="bg-white border border-gray-200 rounded-lg p-2 {% if not briefing.responsavel_centralcomm %}border-l-4 border-l-amber-400{% endif %}">
+                <div class="flex justify-between items-start mb-1.5">
+                    <div class="flex items-center gap-1">
                         {% if not briefing.responsavel_centralcomm %}
-                        <span class="text-amber-500"><i class="fa-solid fa-triangle-exclamation text-xs"></i></span>
+                        <span class="text-amber-500"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i></span>
                         {% endif %}
-                        <span class="font-medium text-gray-800">{{ briefing.titulo }}</span>
+                        <span class="font-medium text-[10px] text-gray-800">{{ briefing.titulo }}</span>
                     </div>
                     {% if briefing.status == 'rascunho' %}
-                        <span class="badge badge-xs bg-slate-200 text-slate-700 border-0">Rascunho</span>
+                        <span class="badge badge-xs text-[8px] bg-slate-200 text-slate-700 border-0">Rascunho</span>
                     {% elif briefing.status == 'pendente' %}
-                        <span class="badge badge-xs bg-amber-100 text-amber-700 border-0">Pendente</span>
+                        <span class="badge badge-xs text-[8px] bg-amber-100 text-amber-700 border-0">Pendente</span>
                     {% elif briefing.status == 'aceito' %}
-                        <span class="badge badge-xs bg-green-100 text-green-700 border-0">Aceito</span>
+                        <span class="badge badge-xs text-[8px] bg-green-100 text-green-700 border-0">Aceito</span>
                     {% elif briefing.status == 'rejeitado' %}
-                        <span class="badge badge-xs bg-red-100 text-red-700 border-0">Rejeitado</span>
+                        <span class="badge badge-xs text-[8px] bg-red-100 text-red-700 border-0">Rejeitado</span>
                     {% endif %}
                 </div>
-                <div class="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-3">
+                <div class="grid grid-cols-2 gap-0.5 text-[9px] text-gray-600 mb-2">
                     <div><strong>Cliente:</strong> {{ briefing.cliente_nome or '-' }}</div>
                     <div><strong>Resp:</strong> {{ briefing.responsavel_nome or 'Não definido' }}</div>
                     <div><strong>Prazo:</strong> {{ briefing.prazo.strftime('%d/%m/%y') if briefing.prazo else '-' }}</div>
                     <div><strong>Budget:</strong> {% if briefing.budget %}R$ {{ "%.0f"|format(briefing.budget|float) }}{% else %}-{% endif %}</div>
                 </div>
                 <div class="flex justify-end">
-                    <button onclick="abrirModalBriefing({{ briefing.id }})" class="btn btn-xs btn-ghost text-gray-600">
+                    <button onclick="abrirModalBriefing({{ briefing.id }})" class="btn btn-xs btn-ghost text-[9px] text-gray-600">
                         <i class="fa-solid fa-eye mr-1"></i> Ver
                     </button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div class="text-center py-12 text-gray-500">
+            <div class="text-center py-8 text-gray-500">
                 <div class="flex flex-col items-center justify-center">
-                    <i class="fa-solid fa-file-lines text-5xl text-gray-300 mb-4"></i>
-                    <p class="text-gray-500 text-sm">Nenhum briefing encontrado.</p>
-                    <p class="text-gray-400 text-xs mt-1">Tente ajustar os filtros ou aguarde novos briefings.</p>
+                    <i class="fa-solid fa-file-lines text-3xl text-gray-300 mb-3"></i>
+                    <p class="text-gray-500 text-[10px]">Nenhum briefing encontrado.</p>
+                    <p class="text-gray-400 text-[9px] mt-1">Tente ajustar os filtros ou aguarde novos briefings.</p>
                 </div>
             </div>
         {% endif %}
@@ -203,108 +203,108 @@
 
 <!-- Modal Briefing Detalhado -->
 <dialog id="modal_briefing" class="modal">
-    <div class="modal-box w-11/12 max-w-6xl p-0 overflow-hidden" style="height: 90vh;">
+    <div class="modal-box w-10/12 max-w-3xl p-0 overflow-hidden" style="height: 70vh;">
         <!-- Header do Modal -->
-        <div class="bg-gray-800 text-white px-6 py-3 flex items-center justify-between">
+        <div class="bg-gray-800 text-white px-3 py-1.5 flex items-center justify-between">
             <div>
-                <h3 id="modal_briefing_titulo" class="text-lg font-semibold">Briefing</h3>
-                <p id="modal_briefing_cliente" class="text-sm text-gray-300"></p>
+                <h3 id="modal_briefing_titulo" class="text-[11px] font-semibold">Briefing</h3>
+                <p id="modal_briefing_cliente" class="text-[9px] text-gray-300"></p>
             </div>
-            <div class="flex items-center gap-2">
-                <span id="modal_briefing_status" class="badge"></span>
+            <div class="flex items-center gap-1.5">
+                <span id="modal_briefing_status" class="badge badge-xs"></span>
                 <form method="dialog">
-                    <button class="btn btn-sm btn-ghost text-white hover:bg-gray-700">
-                        <i class="fa-solid fa-xmark"></i>
+                    <button class="btn btn-xs btn-ghost text-white hover:bg-gray-700">
+                        <i class="fa-solid fa-xmark text-[9px]"></i>
                     </button>
                 </form>
             </div>
         </div>
         
         <!-- Conteúdo do Modal - 2 Colunas -->
-        <div class="flex h-[calc(90vh-110px)]">
-            <!-- Coluna Esquerda - Briefing Original (70%) -->
-            <div class="w-[70%] p-4 border-r border-gray-200 flex flex-col">
-                <label class="text-sm font-medium text-gray-700 mb-2">
+        <div class="flex h-[calc(70vh-60px)]">
+            <!-- Coluna Esquerda - Briefing Original (65%) -->
+            <div class="w-[65%] p-2 border-r border-gray-200 flex flex-col">
+                <label class="text-[9px] font-medium text-gray-700 mb-1">
                     <i class="fa-solid fa-file-lines mr-1"></i> Briefing Original
                 </label>
                 <textarea id="modal_briefing_conteudo" 
-                    class="flex-1 w-full p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 resize-none focus:outline-none"
+                    class="flex-1 w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-[9px] text-gray-700 resize-none focus:outline-none"
                     readonly></textarea>
                 
                 <!-- Briefing Melhorado (se existir) -->
-                <div id="briefing_melhorado_container" class="mt-3 hidden">
-                    <label class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <div id="briefing_melhorado_container" class="mt-1.5 hidden">
+                    <label class="text-[9px] font-medium text-gray-700 mb-1 flex items-center gap-1">
                         <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Briefing Melhorado (IA)
-                        <span class="badge badge-xs bg-purple-100 text-purple-700">AI</span>
+                        <span class="badge badge-xs text-[7px] bg-purple-100 text-purple-700">AI</span>
                     </label>
                     <textarea id="modal_briefing_melhorado" 
-                        class="w-full h-32 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-gray-700 resize-none focus:outline-none"
+                        class="w-full h-20 p-1.5 bg-purple-50 border border-purple-200 rounded-lg text-[9px] text-gray-700 resize-none focus:outline-none"
                         readonly></textarea>
                 </div>
             </div>
             
-            <!-- Coluna Direita - Informações e Ações (30%) -->
-            <div class="w-[30%] p-5 bg-gray-50 flex flex-col overflow-y-auto">
+            <!-- Coluna Direita - Informações e Ações (35%) -->
+            <div class="w-[35%] p-2 bg-gray-50 flex flex-col overflow-y-auto">
                 <!-- Informações do Briefing -->
-                <div class="space-y-3 flex-shrink-0">
-                    <h4 class="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">
+                <div class="space-y-1.5 flex-shrink-0">
+                    <h4 class="text-[9px] font-semibold text-gray-700 border-b border-gray-200 pb-1">
                         <i class="fa-solid fa-info-circle mr-1"></i> Informações
                     </h4>
                     
-                    <div class="bg-white rounded-lg p-3 border border-gray-200">
-                        <div class="text-xs text-gray-500">Responsável CC</div>
-                        <div id="modal_briefing_responsavel" class="text-sm font-medium text-gray-800">-</div>
+                    <div class="bg-white rounded p-1.5 border border-gray-200">
+                        <div class="text-[8px] text-gray-500">Responsável CC</div>
+                        <div id="modal_briefing_responsavel" class="text-[9px] font-medium text-gray-800">-</div>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-white rounded-lg p-2 border border-gray-200">
-                            <div class="text-xs text-gray-500">Prazo</div>
-                            <div id="modal_briefing_prazo" class="text-sm font-medium text-gray-800">-</div>
+                    <div class="grid grid-cols-2 gap-1">
+                        <div class="bg-white rounded p-1 border border-gray-200">
+                            <div class="text-[8px] text-gray-500">Prazo</div>
+                            <div id="modal_briefing_prazo" class="text-[9px] font-medium text-gray-800">-</div>
                         </div>
-                        <div class="bg-white rounded-lg p-2 border border-gray-200">
-                            <div class="text-xs text-gray-500">Budget</div>
-                            <div id="modal_briefing_budget" class="text-sm font-medium text-gray-800">-</div>
+                        <div class="bg-white rounded p-1 border border-gray-200">
+                            <div class="text-[8px] text-gray-500">Budget</div>
+                            <div id="modal_briefing_budget" class="text-[9px] font-medium text-gray-800">-</div>
                         </div>
                     </div>
                     
-                    <div class="bg-white rounded-lg p-2 border border-gray-200">
-                        <div class="text-xs text-gray-500">Plataforma</div>
-                        <div id="modal_briefing_plataforma" class="text-sm font-medium text-gray-800">-</div>
+                    <div class="bg-white rounded p-1 border border-gray-200">
+                        <div class="text-[8px] text-gray-500">Plataforma</div>
+                        <div id="modal_briefing_plataforma" class="text-[9px] font-medium text-gray-800">-</div>
                     </div>
                     
-                    <div class="bg-white rounded-lg p-2 border border-gray-200">
-                        <div class="text-xs text-gray-500">Objetivo</div>
-                        <div id="modal_briefing_objetivo" class="text-sm text-gray-700 max-h-16 overflow-y-auto">-</div>
+                    <div class="bg-white rounded p-1 border border-gray-200">
+                        <div class="text-[8px] text-gray-500">Objetivo</div>
+                        <div id="modal_briefing_objetivo" class="text-[9px] text-gray-700 max-h-10 overflow-y-auto">-</div>
                     </div>
                 </div>
                 
                 <!-- Ações -->
-                <div class="mt-6 space-y-3 pt-4 border-t border-gray-200 flex-shrink-0">
-                    <h4 class="text-sm font-semibold text-gray-700 pb-1">
+                <div class="mt-3 space-y-1.5 pt-2 border-t border-gray-200 flex-shrink-0">
+                    <h4 class="text-[9px] font-semibold text-gray-700 pb-0.5">
                         <i class="fa-solid fa-bolt mr-1"></i> Ações
                     </h4>
                     
                     <button onclick="aceitarBriefing()" id="btn_aceitar_briefing"
-                            class="btn w-full h-12 bg-green-600 hover:bg-green-700 text-white border-0 text-sm font-medium">
-                        <i class="fa-solid fa-check mr-2"></i> Aceitar e Iniciar Cotação
+                            class="btn w-full h-7 bg-green-600 hover:bg-green-700 text-white border-0 text-[9px] font-medium">
+                        <i class="fa-solid fa-check mr-1"></i> Aceitar e Iniciar Cotação
                     </button>
                     
                     <button onclick="mostrarDevolucao()" id="btn_devolver_briefing"
-                            class="btn w-full h-12 bg-gray-600 hover:bg-gray-700 text-white border-0 text-sm font-medium mb-4">
-                        <i class="fa-solid fa-rotate-left mr-2"></i> Devolver ao Cliente
+                            class="btn w-full h-7 bg-gray-600 hover:bg-gray-700 text-white border-0 text-[9px] font-medium mb-2">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Devolver ao Cliente
                     </button>
                     
                     <!-- Formulário de Devolução (hidden por padrão) -->
-                    <div id="form_devolucao" class="hidden mt-3 p-3 bg-white border border-gray-200 rounded-lg">
-                        <label class="text-xs text-gray-600 block mb-1">Motivo da devolução:</label>
-                        <textarea id="motivo_devolucao" rows="3" 
-                            class="w-full p-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-gray-400"
-                            placeholder="Ex: Informações insuficientes, não trabalhamos com este tipo de serviço..."></textarea>
-                        <div class="flex gap-2 mt-2">
-                            <button onclick="confirmarDevolucao()" class="btn btn-xs bg-red-500 hover:bg-red-600 text-white border-0">
-                                Confirmar Devolução
+                    <div id="form_devolucao" class="hidden mt-1.5 p-1.5 bg-white border border-gray-200 rounded">
+                        <label class="text-[8px] text-gray-600 block mb-0.5">Motivo da devolução:</label>
+                        <textarea id="motivo_devolucao" rows="2" 
+                            class="w-full p-1 text-[9px] border border-gray-200 rounded focus:outline-none focus:border-gray-400"
+                            placeholder="Ex: Informações insuficientes..."></textarea>
+                        <div class="flex gap-1 mt-1">
+                            <button onclick="confirmarDevolucao()" class="btn btn-xs text-[8px] bg-red-500 hover:bg-red-600 text-white border-0">
+                                Confirmar
                             </button>
-                            <button onclick="cancelarDevolucao()" class="btn btn-xs btn-ghost">Cancelar</button>
+                            <button onclick="cancelarDevolucao()" class="btn btn-xs text-[8px] btn-ghost">Cancelar</button>
                         </div>
                     </div>
                 </div>
@@ -312,12 +312,12 @@
         </div>
         
         <!-- Footer do Modal -->
-        <div class="bg-gray-100 px-6 py-2 border-t border-gray-200 flex justify-between items-center">
-            <div class="text-xs text-gray-500">
+        <div class="bg-gray-100 px-3 py-1 border-t border-gray-200 flex justify-between items-center">
+            <div class="text-[8px] text-gray-500">
                 <span id="modal_briefing_criado_em"></span>
             </div>
             <form method="dialog">
-                <button class="btn btn-sm btn-ghost text-gray-600">Fechar</button>
+                <button class="btn btn-xs btn-ghost text-[9px] text-gray-600">Fechar</button>
             </form>
         </div>
     </div>

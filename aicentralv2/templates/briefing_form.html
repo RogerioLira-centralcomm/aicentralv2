@@ -3,22 +3,22 @@
 {% block title %}{{ acao }} Briefing{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-2">
+<div class="container mx-auto px-3 py-1.5">
     <!-- Header compacto -->
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center justify-between mb-1.5">
         <div class="flex items-center">
-            <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-sm mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-xs mr-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
                 </svg>
             </a>
-            <h1 class="text-lg font-bold">{{ acao }} Briefing</h1>
+            <h1 class="text-sm font-bold">{{ acao }} Briefing</h1>
         </div>
         {% if briefing %}
         <form method="post" action="{{ url_for('briefing_delete', briefing_id=briefing.id) }}" 
               onsubmit="return confirm('Deseja realmente excluir este briefing?');" class="inline">
-            <button type="submit" class="btn btn-error btn-sm btn-outline">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <button type="submit" class="btn btn-error btn-xs btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                 </svg>
             </button>
@@ -28,19 +28,19 @@
 
     <!-- Formulario -->
     <div class="card bg-base-100 shadow-xl">
-        <div class="card-body p-3">
+        <div class="card-body p-2">
             <form method="post" action="{{ url_for('briefing_create') if not briefing else url_for('briefing_edit', briefing_id=briefing.id) }}">
                 
                 <!-- Linha 1: Titulo, Status, Cliente, Contato, Resp, Projeto -->
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-2 mb-2">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-1.5 mb-1.5">
                     <div class="form-control md:col-span-2">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Titulo *</span></label>
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Titulo *</span></label>
                         <input type="text" name="titulo" value="{{ briefing.titulo if briefing else '' }}" 
-                               class="input input-bordered input-sm bg-white text-gray-900" required placeholder="Campanha...">
+                               class="input input-bordered input-xs text-[10px] bg-white text-gray-900" required placeholder="Campanha...">
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Status</span></label>
-                        <select name="status" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Status</span></label>
+                        <select name="status" class="select select-bordered select-xs w-full text-[10px]">
                             <option value="rascunho" {% if not briefing or briefing.status == 'rascunho' %}selected{% endif %}>Rascunho</option>
                             <option value="pendente" {% if briefing and briefing.status == 'pendente' %}selected{% endif %}>Pendente</option>
                             <option value="aceito" {% if briefing and briefing.status == 'aceito' %}selected{% endif %}>Aceito</option>
@@ -48,18 +48,18 @@
                         </select>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Cliente *</span></label>
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Cliente *</span></label>
                         <div class="relative">
                             <input type="hidden" name="cliente_id" id="cliente_id" value="{{ briefing.id_cliente if briefing else '' }}" required>
-                            <input type="text" id="cliente_busca" class="input input-bordered input-sm w-full bg-white text-gray-900" 
+                            <input type="text" id="cliente_busca" class="input input-bordered input-xs w-full text-[10px] bg-white text-gray-900" 
                                    placeholder="Buscar..." value="{% if briefing and briefing.cliente_nome %}{{ briefing.cliente_nome }}{% endif %}"
                                    autocomplete="off" oninput="buscarClientes(this.value)" onfocus="mostrarResultados()" required>
-                            <div id="resultados_clientes" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-48 overflow-y-auto hidden border border-base-300"></div>
+                            <div id="resultados_clientes" class="absolute z-50 w-full bg-base-100 shadow-xl rounded-lg mt-1 max-h-40 overflow-y-auto hidden border border-base-300 text-[10px]"></div>
                         </div>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Contato</span></label>
-                        <select name="id_contato_cliente" id="id_contato_cliente" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Contato</span></label>
+                        <select name="id_contato_cliente" id="id_contato_cliente" class="select select-bordered select-xs w-full text-[10px]">
                             <option value="">Selecione...</option>
                             {% if briefing and briefing.id_contato_cliente %}
                                 {% for contato in contatos_cliente %}
@@ -71,8 +71,8 @@
                         </select>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Resp. CC</span></label>
-                        <select name="responsavel_centralcomm" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Resp. CC</span></label>
+                        <select name="responsavel_centralcomm" class="select select-bordered select-xs w-full text-[10px]">
                             <option value="">Selecione...</option>
                             {% for resp in responsaveis %}
                                 <option value="{{ resp.id_contato_cliente }}" {% if briefing and (briefing.responsavel_centralcomm|string == resp.id_contato_cliente|string) %}selected{% endif %}>{{ resp.nome_completo }}</option>
@@ -82,10 +82,10 @@
                 </div>
 
                 <!-- Linha 2: Projeto, Budget, Prazo, Plataforma -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-1.5 mb-1.5">
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Projeto</span></label>
-                        <select name="id_projeto" id="id_projeto" class="select select-bordered w-full h-8 min-h-[2rem] text-sm leading-tight">
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Projeto</span></label>
+                        <select name="id_projeto" id="id_projeto" class="select select-bordered select-xs w-full text-[10px]">
                             <option value="">Selecione...</option>
                             {% if briefing and briefing.id_projeto %}
                                 {% for projeto in projetos %}
@@ -97,52 +97,52 @@
                         </select>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Budget (R$)</span></label>
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Budget (R$)</span></label>
                         <input type="hidden" name="budget" id="budget_hidden" value="{{ briefing.budget if briefing and briefing.budget else '' }}">
-                        <input type="text" id="budget_display" value="" class="input input-bordered input-sm bg-white text-gray-900" 
+                        <input type="text" id="budget_display" value="" class="input input-bordered input-xs text-[10px] bg-white text-gray-900" 
                                placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_hidden')">
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Prazo</span></label>
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Prazo</span></label>
                         <div class="join">
-                            <button type="button" class="join-item btn btn-sm bg-base-200 px-2" onclick="document.getElementById('prazo_input').showPicker()">
-                                <i class="fas fa-calendar-alt text-primary"></i>
+                            <button type="button" class="join-item btn btn-xs bg-base-200 px-1.5" onclick="document.getElementById('prazo_input').showPicker()">
+                                <i class="fas fa-calendar-alt text-[10px] text-primary"></i>
                             </button>
                             <input type="date" name="prazo" id="prazo_input" value="{{ briefing.prazo.strftime('%Y-%m-%d') if briefing and briefing.prazo else '' }}" 
-                                   class="input input-bordered input-sm join-item w-full">
+                                   class="input input-bordered input-xs text-[10px] join-item w-full">
                         </div>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Plataforma</span></label>
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Plataforma</span></label>
                         <input type="text" name="plataforma" value="{{ briefing.plataforma if briefing else '' }}" 
-                               class="input input-bordered input-sm bg-white text-gray-900" placeholder="Instagram, Facebook...">
+                               class="input input-bordered input-xs text-[10px] bg-white text-gray-900" placeholder="Instagram, Facebook...">
                     </div>
                 </div>
 
                 <!-- Linha 3: Briefings e Objetivo lado a lado -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-1.5 mb-1.5">
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Briefing Original</span></label>
-                        <textarea name="briefing_original" class="textarea textarea-bordered textarea-sm h-20 bg-white text-gray-900" 
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Briefing Original</span></label>
+                        <textarea name="briefing_original" class="textarea textarea-bordered textarea-xs h-16 text-[10px] bg-white text-gray-900" 
                                   placeholder="Briefing original...">{{ briefing.briefing_original if briefing else '' }}</textarea>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Briefing Melhorado</span></label>
-                        <textarea name="briefing_melhorado" class="textarea textarea-bordered textarea-sm h-20 bg-white text-gray-900" 
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Briefing Melhorado</span></label>
+                        <textarea name="briefing_melhorado" class="textarea textarea-bordered textarea-xs h-16 text-[10px] bg-white text-gray-900" 
                                   placeholder="Briefing melhorado...">{{ briefing.briefing_melhorado if briefing else '' }}</textarea>
                     </div>
                     <div class="form-control">
-                        <label class="label py-0"><span class="label-text text-xs font-semibold">Objetivo</span></label>
-                        <textarea name="objetivo" class="textarea textarea-bordered textarea-sm h-20 bg-white text-gray-900" 
+                        <label class="label py-0"><span class="label-text text-[10px] font-medium">Objetivo</span></label>
+                        <textarea name="objetivo" class="textarea textarea-bordered textarea-xs h-16 text-[10px] bg-white text-gray-900" 
                                   placeholder="Objetivo principal...">{{ briefing.objetivo if briefing else '' }}</textarea>
                     </div>
                 </div>
 
                 <!-- Botoes -->
-                <div class="flex justify-end gap-2 pt-2 border-t border-base-300">
-                    <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-sm">Cancelar</a>
-                    <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <div class="flex justify-end gap-1.5 pt-1.5 border-t border-base-300">
+                    <a href="{{ url_for('briefing_list') }}" class="btn btn-ghost btn-xs text-[10px]">Cancelar</a>
+                    <button type="submit" class="btn text-white btn-xs text-[10px]" style="background-color: #72cd80; border-color: #72cd80;">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                         </svg>
                         Salvar
@@ -154,8 +154,8 @@
 
     <!-- Informacoes de Auditoria -->
     {% if briefing and briefing.created_at %}
-    <div class="bg-base-200 rounded-lg p-2 mt-2">
-        <div class="flex flex-wrap gap-4 text-xs">
+    <div class="bg-base-200 rounded-lg p-1.5 mt-1.5">
+        <div class="flex flex-wrap gap-3 text-[9px]">
             <div><strong>Criado:</strong> {{ briefing.created_by_nome or 'N/A' }} em {{ briefing.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
             {% if briefing.updated_at %}<div><strong>Atualizado:</strong> {{ briefing.updated_at.strftime('%d/%m/%Y %H:%M') }}</div>{% endif %}
         </div>

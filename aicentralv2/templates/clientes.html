@@ -5,9 +5,9 @@
 {% block content %}
 <style>
   /* Badges de categoria ABC */
-  .badge-cat-a { background-color: #10b981; color: white; }
-  .badge-cat-b { background-color: #6b7280; color: white; }
-  .badge-cat-c { background-color: #9ca3af; color: white; }
+  .badge-cat-a { background-color: #10b981; color: white; font-size: 8px; padding: 1px 5px; }
+  .badge-cat-b { background-color: #6b7280; color: white; font-size: 8px; padding: 1px 5px; }
+  .badge-cat-c { background-color: #9ca3af; color: white; font-size: 8px; padding: 1px 5px; }
   
   /* Tab styles */
   .tab-btn.tab-active { color: #1f2937; border-bottom-color: #374151; }
@@ -25,21 +25,21 @@
   }
 </style>
 
-<div class="max-w-full mx-auto px-2">
-  <!-- Header Compacto (max 66px) estilo CRM -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 mb-3 sticky top-0 z-40" style="max-height: 66px;">
-    <div class="flex items-center justify-between gap-4">
+<div class="max-w-full mx-auto px-1">
+  <!-- Header Compacto estilo CRM -->
+  <div class="bg-white border-b border-gray-200 px-3 py-1.5 mb-2 sticky top-0 z-40">
+    <div class="flex items-center justify-between gap-2">
       <!-- Título -->
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold text-gray-800">Clientes</h1>
-        {% if total %}<span class="text-xs text-gray-500">({{ total }})</span>{% endif %}
+      <div class="flex items-center gap-2">
+        <h1 class="text-sm font-semibold text-gray-800">Clientes</h1>
+        {% if total %}<span class="text-[9px] text-gray-500">({{ total }})</span>{% endif %}
       </div>
       
       <!-- Filtros Inline -->
-      <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="flex items-center gap-3">
+      <form id="filtros_form" method="GET" action="{{ url_for('clientes') }}" class="flex items-center gap-2">
         <!-- Executivo -->
         <select name="executivo_id" onchange="salvarFiltrosClientes(); this.form.submit()" 
-                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 240px; max-width: 320px;">
+                class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px; max-width: 240px;">
           <option value="">Todos executivos</option>
           {% for vendedor in vendedores_cc %}
             <option value="{{ vendedor.id_contato_cliente }}" {% if filtros.get('executivo_id')|string == vendedor.id_contato_cliente|string %}selected{% endif %}>
@@ -51,7 +51,7 @@
         <!-- Busca -->
         <input type="text" name="search" value="{{ filtros.get('search', '') }}" placeholder="Buscar cliente..."
                onkeydown="if(event.key==='Enter'){salvarFiltrosClientes(); this.form.submit();}"
-               class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
+               class="text-[10px] bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 140px;">
         
         <!-- Hidden fields para manter filtros -->
         <input type="hidden" name="status" id="status_filter" value="{{ request.args.get('status', 'ativo') }}">
@@ -59,67 +59,67 @@
         <input type="hidden" name="agencia" id="agencia_filter" value="{{ request.args.get('agencia', 'nao') }}">
         
         <!-- Status Icons -->
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
           <button type="button" onclick="filtrarStatus('ativo')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status', 'ativo') == 'ativo' %}bg-gray-200{% endif %}" 
+                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status', 'ativo') == 'ativo' %}bg-gray-200{% endif %}" 
                   title="Ativos">
-            <i class="fa-solid fa-circle-check text-sm text-gray-{% if request.args.get('status', 'ativo') == 'ativo' %}800{% else %}400{% endif %}"></i>
+            <i class="fa-solid fa-circle-check text-[10px] text-gray-{% if request.args.get('status', 'ativo') == 'ativo' %}800{% else %}400{% endif %}"></i>
           </button>
           <button type="button" onclick="filtrarStatus('inativo')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'inativo' %}bg-gray-200{% endif %}" 
+                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'inativo' %}bg-gray-200{% endif %}" 
                   title="Inativos">
-            <i class="fa-solid fa-circle-xmark text-sm text-gray-{% if request.args.get('status') == 'inativo' %}800{% else %}400{% endif %}"></i>
+            <i class="fa-solid fa-circle-xmark text-[10px] text-gray-{% if request.args.get('status') == 'inativo' %}800{% else %}400{% endif %}"></i>
           </button>
           <button type="button" onclick="filtrarStatus('todos')" 
-                  class="p-1.5 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'todos' %}bg-gray-200{% endif %}" 
+                  class="p-1 rounded hover:bg-gray-100 transition-colors {% if request.args.get('status') == 'todos' %}bg-gray-200{% endif %}" 
                   title="Todos">
-            <i class="fa-solid fa-list text-sm text-gray-{% if request.args.get('status') == 'todos' %}800{% else %}400{% endif %}"></i>
+            <i class="fa-solid fa-list text-[10px] text-gray-{% if request.args.get('status') == 'todos' %}800{% else %}400{% endif %}"></i>
           </button>
         </div>
         
         <!-- Categoria ABC -->
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
           <button type="button" onclick="filtrarCategoria('')" 
-                  class="px-2 py-1 text-xs rounded hover:bg-gray-100 transition-colors {% if not request.args.get('categoria') %}bg-gray-200 text-gray-800{% else %}text-gray-400{% endif %}" 
+                  class="px-1.5 py-0.5 text-[9px] rounded hover:bg-gray-100 transition-colors {% if not request.args.get('categoria') %}bg-gray-200 text-gray-800{% else %}text-gray-400{% endif %}" 
                   title="Todas categorias">∀</button>
           <button type="button" onclick="filtrarCategoria('A')" 
-                  class="px-2 py-1 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'A' %}bg-green-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                  class="px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors {% if request.args.get('categoria') == 'A' %}bg-green-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
                   title="Categoria A">A</button>
           <button type="button" onclick="filtrarCategoria('B')" 
-                  class="px-2 py-1 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'B' %}bg-gray-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                  class="px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors {% if request.args.get('categoria') == 'B' %}bg-gray-500 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
                   title="Categoria B">B</button>
           <button type="button" onclick="filtrarCategoria('C')" 
-                  class="px-2 py-1 text-xs rounded font-semibold transition-colors {% if request.args.get('categoria') == 'C' %}bg-gray-400 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+                  class="px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors {% if request.args.get('categoria') == 'C' %}bg-gray-400 text-white{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
                   title="Categoria C">C</button>
         </div>
         
         <!-- Agência toggle: Clientes / Agências / Todos -->
-        <div class="flex items-center gap-1 border-l border-gray-200 pl-3">
+        <div class="flex items-center gap-0.5 border-l border-gray-200 pl-2">
           {% set agencia_val = request.args.get('agencia', 'nao') %}
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='nao') }}"
-             class="px-2 py-1 text-xs rounded transition-colors {% if agencia_val == 'nao' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             class="px-1.5 py-0.5 text-[9px] rounded transition-colors {% if agencia_val == 'nao' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
              title="Clientes">
-            <i class="fa-solid fa-user text-xs"></i>
+            <i class="fa-solid fa-user text-[9px]"></i>
           </a>
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='sim') }}"
-             class="px-2 py-1 text-xs rounded transition-colors {% if agencia_val == 'sim' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             class="px-1.5 py-0.5 text-[9px] rounded transition-colors {% if agencia_val == 'sim' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
              title="Agências">
-            <i class="fa-solid fa-building text-xs"></i>
+            <i class="fa-solid fa-building text-[9px]"></i>
           </a>
           <a href="{{ url_for('clientes', executivo_id=request.args.get('executivo_id', ''), search=request.args.get('search', ''), status=request.args.get('status', 'ativo'), categoria=request.args.get('categoria', ''), agencia='todos') }}"
-             class="px-2 py-1 text-xs rounded transition-colors {% if agencia_val == 'todos' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
+             class="px-1.5 py-0.5 text-[9px] rounded transition-colors {% if agencia_val == 'todos' %}bg-gray-200 text-gray-800{% else %}text-gray-400 hover:bg-gray-100{% endif %}" 
              title="Todos">
-            <i class="fa-solid fa-list text-xs"></i>
+            <i class="fa-solid fa-list text-[9px]"></i>
           </a>
         </div>
       </form>
       
       <!-- Botões -->
-      <div class="flex gap-2">
-        <button onclick="recategorizarABC()" class="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" title="Recategorizar ABC">
+      <div class="flex gap-1.5">
+        <button onclick="recategorizarABC()" class="px-2 py-1 text-[10px] border border-gray-300 rounded hover:bg-gray-50 text-gray-700 transition-colors" title="Recategorizar ABC">
           <i class="fas fa-tags mr-1"></i>ABC
         </button>
-        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+        <button onclick="abrirModalNovo()" class="px-2 py-1 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
           <i class="fas fa-plus mr-1"></i>Novo
         </button>
       </div>
@@ -142,61 +142,61 @@
   <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     {% if clientes %}
       <div class="overflow-x-auto">
-        <table class="w-full text-sm" id="tabela_clientes">
+        <table class="w-full text-[10px]" id="tabela_clientes">
           <thead class="bg-gray-100">
             <tr>
-              <th class="text-left py-2 px-3 text-xs font-medium text-gray-600 uppercase">Nome</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Tipo</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Cotações</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Aprovação</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-20">Briefings</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-24">Aceite</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-16">Usuários</th>
-              <th class="text-center py-2 px-2 text-xs font-medium text-gray-600 uppercase w-14">Cat.</th>
+              <th class="text-left py-1.5 px-2 text-[9px] font-medium text-gray-600 uppercase">Nome</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-20">Tipo</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-16">Cotações</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-20">Aprovação</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-16">Briefings</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-20">Aceite</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-14">Usuários</th>
+              <th class="text-center py-1.5 px-1.5 text-[9px] font-medium text-gray-600 uppercase w-12">Cat.</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             {% for cliente in clientes %}
             <tr class="hover:bg-gray-50 transition-colors">
-              <td class="py-2 px-3">
+              <td class="py-1.5 px-2">
                 <div>
                   <a href="#" onclick="abrirModalEditar({{ cliente.id_cliente }}); return false;" 
-                     class="font-medium text-gray-800 hover:text-gray-600 cursor-pointer transition-colors">
+                     class="font-medium text-[10px] text-gray-800 hover:text-gray-600 cursor-pointer transition-colors">
                     {{ cliente.nome_fantasia or cliente.razao_social }}
                   </a>
                 </div>
                 {% if cliente.razao_social %}
-                <div class="text-xs text-gray-400">{{ cliente.razao_social }}</div>
+                <div class="text-[9px] text-gray-400">{{ cliente.razao_social }}</div>
                 {% endif %}
                 {% if not filtros.get('executivo_id') and cliente.executivo_nome %}
-                <div class="text-xs text-gray-400"><i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}</div>
+                <div class="text-[9px] text-gray-400"><i class="fas fa-user-tie mr-1"></i>{{ cliente.executivo_nome }}</div>
                 {% endif %}
               </td>
-              <td class="text-center py-2 px-2">
-                <span class="text-xs text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
+              <td class="text-center py-1.5 px-1.5">
+                <span class="text-[9px] text-gray-600">{{ cliente.tipo_cliente_display or '-' }}</span>
               </td>
-              <td class="text-center py-2 px-2">
-                <span class="font-medium text-gray-700">{{ cliente.cotacoes_mes or 0 }}</span>
+              <td class="text-center py-1.5 px-1.5">
+                <span class="font-medium text-[10px] text-gray-700">{{ cliente.cotacoes_mes or 0 }}</span>
               </td>
-              <td class="text-center py-2 px-2">
-                <span class="{% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
+              <td class="text-center py-1.5 px-1.5">
+                <span class="text-[10px] {% if cliente.cotacoes_aprovadas_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.cotacoes_aprovadas_mes or 0 }}/{{ cliente.cotacoes_mes or 0 }}
                 </span>
               </td>
-              <td class="text-center py-2 px-2">
-                <span class="font-medium text-gray-700">{{ cliente.briefings_mes or 0 }}</span>
+              <td class="text-center py-1.5 px-1.5">
+                <span class="font-medium text-[10px] text-gray-700">{{ cliente.briefings_mes or 0 }}</span>
               </td>
-              <td class="text-center py-2 px-2">
-                <span class="{% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
+              <td class="text-center py-1.5 px-1.5">
+                <span class="text-[10px] {% if cliente.briefings_aceitos_mes %}text-green-600 font-medium{% else %}text-gray-400{% endif %}">
                   {{ cliente.briefings_aceitos_mes or 0 }}/{{ cliente.briefings_mes or 0 }}
                 </span>
               </td>
-              <td class="text-center py-2 px-2">
-                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{{ cliente.total_usuarios or 0 }}</span>
+              <td class="text-center py-1.5 px-1.5">
+                <span class="text-[8px] px-1.5 py-0 rounded bg-gray-100 text-gray-600">{{ cliente.total_usuarios or 0 }}</span>
               </td>
-              <td class="text-center py-2 px-2">
+              <td class="text-center py-1.5 px-1.5">
                 {% set cat = cliente.categoria_abc or 'C' %}
-                <span class="badge badge-sm badge-cat-{{ cat|lower }}" title="Categoria {{ cat }}">
+                <span class="badge badge-xs badge-cat-{{ cat|lower }}" title="Categoria {{ cat }}">
                   {{ cat }}
                 </span>
               </td>
@@ -208,40 +208,40 @@
       
       <!-- Paginação -->
       {% if pages > 1 %}
-      <div class="flex justify-center items-center gap-2 p-4 border-t border-gray-200">
+      <div class="flex justify-center items-center gap-1.5 p-2 border-t border-gray-200">
         {% if page > 1 %}
-          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded">
+          <a href="{{ url_for('clientes', page=page-1, **filtros) }}" class="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded">
             <i class="fas fa-chevron-left"></i>
           </a>
         {% endif %}
         
         {% for p in range(1, pages + 1) %}
           {% if p == page %}
-            <span class="px-3 py-1 text-sm bg-gray-800 text-white rounded">{{ p }}</span>
+            <span class="px-2 py-0.5 text-[10px] bg-gray-800 text-white rounded">{{ p }}</span>
           {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
-            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded">{{ p }}</a>
+            <a href="{{ url_for('clientes', page=p, **filtros) }}" class="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded">{{ p }}</a>
           {% elif p == page - 3 or p == page + 3 %}
-            <span class="px-2 text-gray-400">...</span>
+            <span class="px-1.5 text-[10px] text-gray-400">...</span>
           {% endif %}
         {% endfor %}
         
         {% if page < pages %}
-          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded">
+          <a href="{{ url_for('clientes', page=page+1, **filtros) }}" class="px-2 py-0.5 text-[10px] text-gray-600 hover:bg-gray-100 rounded">
             <i class="fas fa-chevron-right"></i>
           </a>
         {% endif %}
         
-        <span class="text-xs text-gray-500 ml-4">
+        <span class="text-[9px] text-gray-500 ml-3">
           Página {{ page }} de {{ pages }}
         </span>
       </div>
       {% endif %}
     {% else %}
-      <div class="text-center py-12">
-        <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
-        <p class="text-gray-500 mb-4">Nenhum cliente encontrado.</p>
-        <button onclick="abrirModalNovo()" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700">
-          <i class="fas fa-plus mr-2"></i>Cadastrar Cliente
+      <div class="text-center py-8">
+        <i class="fas fa-users text-3xl text-gray-300 mb-3"></i>
+        <p class="text-[10px] text-gray-500 mb-3">Nenhum cliente encontrado.</p>
+        <button onclick="abrirModalNovo()" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700">
+          <i class="fas fa-plus mr-1"></i>Cadastrar Cliente
         </button>
       </div>
     {% endif %}
@@ -329,96 +329,96 @@
 
 <!-- Modal de Cliente -->
 <dialog id="modal_cliente" class="modal">
-  <div class="modal-box w-11/12 max-w-5xl bg-white p-0 rounded-lg max-h-[90vh] flex flex-col overflow-hidden">
+  <div class="modal-box w-11/12 max-w-4xl bg-white p-0 rounded-lg max-h-[90vh] flex flex-col overflow-hidden">
     <!-- Header fixo -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-      <h3 class="font-semibold text-lg text-gray-800" id="modal_title">Novo Cliente</h3>
-      <button onclick="modal_cliente.close()" class="p-2 hover:bg-gray-200 rounded transition-colors">
-        <i class="fa-solid fa-xmark text-gray-500"></i>
+    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
+      <h3 class="font-semibold text-sm text-gray-800" id="modal_title">Novo Cliente</h3>
+      <button onclick="modal_cliente.close()" class="p-1.5 hover:bg-gray-200 rounded transition-colors">
+        <i class="fa-solid fa-xmark text-[10px] text-gray-500"></i>
       </button>
     </div>
     
     <!-- Tabs -->
-    <div id="tabs_container" class="flex border-b border-gray-200 px-6 bg-gray-50" style="display:none;">
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="editar" onclick="trocarAba('editar')">
-        <i class="fas fa-edit mr-2"></i>Editar
+    <div id="tabs_container" class="flex border-b border-gray-200 px-4 bg-gray-50" style="display:none;">
+      <button class="px-3 py-1.5 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn tab-active" data-tab="editar" onclick="trocarAba('editar')">
+        <i class="fas fa-edit mr-1"></i>Editar
       </button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="detalhes" onclick="trocarAba('detalhes')">
-        <i class="fas fa-info-circle mr-2"></i>Detalhes
+      <button class="px-3 py-1.5 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="detalhes" onclick="trocarAba('detalhes')">
+        <i class="fas fa-info-circle mr-1"></i>Detalhes
       </button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contatos" onclick="trocarAba('contatos')">
-        <i class="fas fa-address-book mr-2"></i>Contatos
+      <button class="px-3 py-1.5 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contatos" onclick="trocarAba('contatos')">
+        <i class="fas fa-address-book mr-1"></i>Contatos
       </button>
-      <button class="px-4 py-2.5 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
-        <i class="fas fa-file-contract mr-2"></i>Assinaturas
+      <button class="px-3 py-1.5 text-[10px] font-medium text-gray-600 border-b-2 border-transparent hover:text-gray-800 tab-btn" data-tab="contratos" onclick="trocarAba('contratos')">
+        <i class="fas fa-file-contract mr-1"></i>Assinaturas
       </button>
     </div>
     
     <!-- Conteúdo -->
-    <div class="p-6 overflow-y-auto flex-1 min-h-0">
+    <div class="p-4 overflow-y-auto flex-1 min-h-0">
       <!-- Conteúdo Editar -->
-      <form id="form_cliente" method="post" class="space-y-3 modal-tab-content" data-tab="editar">
+      <form id="form_cliente" method="post" class="space-y-2 modal-tab-content" data-tab="editar">
         <input type="hidden" id="cliente_id" name="cliente_id" value="">
         
         <!-- Linha 1: Status + Pessoa + CNPJ + Nome Fantasia + Razão Social -->
-        <div class="grid grid-cols-2 md:grid-cols-12 gap-3 items-end">
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-2 items-end">
           <div id="status_toggle_container" class="form-control col-span-1 md:col-span-1" style="display:none;">
-            <label class="text-xs font-medium text-gray-600 mb-1">Status</label>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Status</label>
             <div class="flex gap-0">
-              <label id="label_status_ativo" class="status-toggle-btn cursor-pointer flex items-center justify-center gap-1 px-2.5 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="toggleStatusField(true)">
+              <label id="label_status_ativo" class="status-toggle-btn cursor-pointer flex items-center justify-center gap-0.5 px-2 py-1 border-2 rounded-l-lg text-[10px] font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700" onclick="toggleStatusField(true)">
                 <input type="radio" name="status" value="1" class="hidden" checked>
-                <i class="fas fa-check text-[10px]"></i>
+                <i class="fas fa-check text-[9px]"></i>
               </label>
-              <label id="label_status_inativo" class="status-toggle-btn cursor-pointer flex items-center justify-center gap-1 px-2.5 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="toggleStatusField(false)">
+              <label id="label_status_inativo" class="status-toggle-btn cursor-pointer flex items-center justify-center gap-0.5 px-2 py-1 border-2 rounded-r-lg text-[10px] font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50" onclick="toggleStatusField(false)">
                 <input type="radio" name="status" value="0" class="hidden">
-                <i class="fas fa-times text-[10px]"></i>
+                <i class="fas fa-times text-[9px]"></i>
               </label>
             </div>
           </div>
           <div class="form-control col-span-1 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600 mb-1">Pessoa*</label>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Pessoa*</label>
             <div class="flex gap-0 pessoa-toggle-group">
-              <label id="label_pessoa_j" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-l-lg text-xs font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700">
+              <label id="label_pessoa_j" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center gap-1 px-2 py-1 border-2 rounded-l-lg text-[10px] font-semibold transition-all duration-200 border-green-500 bg-green-50 text-green-700">
                 <input type="radio" name="pessoa" value="J" class="hidden" required checked>
-                <svg class="w-3.5 h-3.5 pessoa-check-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                <svg class="w-3 h-3 pessoa-check-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                 <span>PJ</span>
               </label>
-              <label id="label_pessoa_f" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center gap-1.5 px-3 py-2 border-2 rounded-r-lg text-xs font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+              <label id="label_pessoa_f" class="pessoa-toggle-btn cursor-pointer flex items-center justify-center gap-1 px-2 py-1 border-2 rounded-r-lg text-[10px] font-semibold transition-all duration-200 border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
                 <input type="radio" name="pessoa" value="F" class="hidden" required>
-                <svg class="w-3.5 h-3.5 pessoa-check-icon hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                <svg class="w-3 h-3 pessoa-check-icon hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                 <span>PF</span>
               </label>
             </div>
           </div>
           <div class="form-control col-span-1 md:col-span-2">
-            <label id="label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
-            <input id="input_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
-            <span id="cnpjcpf_msg" class="text-red-500 text-xs"></span>
+            <label id="label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ*</label>
+            <input id="input_cnpj" name="cnpj" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+            <span id="cnpjcpf_msg" class="text-red-500 text-[9px]"></span>
           </div>
           <div class="form-control col-span-1 md:col-span-4">
-            <label id="label_nome_fantasia" class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
-            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+            <label id="label_nome_fantasia" class="text-[10px] font-medium text-gray-600 mb-0.5">Nome Fantasia*</label>
+            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
           </div>
           <div id="razao_social_fields" class="form-control col-span-1 md:col-span-4">
-            <label class="text-xs font-medium text-gray-600 mb-1">Razão Social*</label>
-            <input id="input_razao_social" name="razao_social" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Razão Social*</label>
+            <input id="input_razao_social" name="razao_social" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Razão social">
           </div>
         </div>
 
-        <div id="margem_cc_fields" class="grid grid-cols-2 md:grid-cols-12 gap-3">
+        <div id="margem_cc_fields" class="grid grid-cols-2 md:grid-cols-12 gap-2">
           <div class="form-control col-span-1 md:col-span-3">
-            <label class="text-xs font-medium text-gray-600 mb-1">Margem CC (%)*</label>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Margem CC (%)*</label>
             <input name="margem_cc" type="number" min="20" max="30" step="1" required
-                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400"
+                   class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400"
                    placeholder="20 a 30">
           </div>
         </div>
 
         <!-- Linha 2: Tipo + Executivo + Agência + BV -->
-        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
           <div id="tipo_cliente_fields" class="form-control col-span-1 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600 mb-1">Tipo*</label>
-            <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Tipo*</label>
+            <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for tipo in tipos_cliente %}
                 <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
@@ -426,8 +426,8 @@
             </select>
           </div>
           <div class="form-control col-span-1 md:col-span-5">
-            <label class="text-xs font-medium text-gray-600 mb-1">Executivo de Vendas*</label>
-            <select name="vendas_central_comm" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Executivo de Vendas*</label>
+            <select name="vendas_central_comm" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for vendedor in vendedores_cc %}
                 <option value="{{ vendedor.id_contato_cliente }}">{{ vendedor.nome_completo }}</option>
@@ -435,8 +435,8 @@
             </select>
           </div>
           <div id="agencia_fields" class="form-control col-span-1 md:col-span-3">
-            <label class="text-xs font-medium text-gray-600 mb-1">Agência*</label>
-            <select name="pk_id_tbl_agencia" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Agência*</label>
+            <select name="pk_id_tbl_agencia" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for agencia in agencias %}
                 <option value="{{ agencia.id_agencia }}" data-agencia-sim="{% if agencia.key %}1{% else %}0{% endif %}">{{ agencia.display }}</option>
@@ -444,34 +444,34 @@
             </select>
           </div>
           <div id="percentual_fields" class="form-control col-span-1 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600 mb-1">BV (%)</label>
-            <input name="percentual" type="text" maxlength="5" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">BV (%)</label>
+            <input name="percentual" type="text" maxlength="5" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
           </div>
         </div>
 
         <!-- Linha 3: Inscrições (apenas PJ) -->
-        <div id="inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div id="inscricoes_fields" class="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Estadual</label>
-            <input name="inscricao_estadual" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Insc. Estadual</label>
+            <input name="inscricao_estadual" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IE">
           </div>
           <div class="form-control">
-            <label class="text-xs font-medium text-gray-600 mb-1">Insc. Municipal</label>
-            <input name="inscricao_municipal" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Insc. Municipal</label>
+            <input name="inscricao_municipal" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="IM">
           </div>
         </div>
 
         <!-- Endereço Compacto -->
-        <div class="border-t border-gray-200 pt-3 mt-3">
-          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3">Endereço</h4>
-          <div class="grid grid-cols-3 md:grid-cols-7 gap-3">
+        <div class="border-t border-gray-200 pt-2 mt-2">
+          <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2">Endereço</h4>
+          <div class="grid grid-cols-3 md:grid-cols-7 gap-2">
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">CEP</label>
-              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">CEP</label>
+              <input id="cep" name="cep" oninput="mascaraCep(this)" onkeydown="buscarCepEnter(event)" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00000-000">
             </div>
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">UF</label>
-              <select id="estado" name="pk_id_aux_estado" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">UF</label>
+              <select id="estado" name="pk_id_aux_estado" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white">
                 <option value="">UF</option>
                 {% for estado in estados %}
                   <option value="{{ estado.id_estado }}" data-sigla="{{ estado.sigla }}">{{ estado.sigla }}</option>
@@ -479,26 +479,26 @@
               </select>
             </div>
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">Cidade</label>
-              <input id="cidade" name="cidade" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Cidade</label>
+              <input id="cidade" name="cidade" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Cidade">
             </div>
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">Bairro</label>
-              <input id="bairro" name="bairro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Bairro</label>
+              <input id="bairro" name="bairro" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Bairro">
             </div>
             <div class="form-control col-span-3">
-              <label class="text-xs font-medium text-gray-600 mb-1">Logradouro</label>
-              <input id="logradouro" name="logradouro" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Logradouro</label>
+              <input id="logradouro" name="logradouro" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Logradouro">
             </div>
           </div>
-          <div class="grid grid-cols-4 gap-3 mt-3">
+          <div class="grid grid-cols-4 gap-2 mt-2">
             <div class="form-control">
-              <label class="text-xs font-medium text-gray-600 mb-1">Nº</label>
-              <input id="numero" name="numero" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Nº</label>
+              <input id="numero" name="numero" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nº">
             </div>
             <div class="form-control col-span-3">
-              <label class="text-xs font-medium text-gray-600 mb-1">Complemento</label>
-              <input id="complemento" name="complemento" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
+              <label class="text-[10px] font-medium text-gray-600 mb-0.5">Complemento</label>
+              <input id="complemento" name="complemento" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Complemento">
             </div>
           </div>
         </div>
@@ -507,14 +507,14 @@
         <input type="hidden" name="pk_id_tbl_agencia_pf" value="2">
 
         <!-- Botões do Form -->
-        <div class="flex justify-between pt-4 border-t border-gray-200 mt-4">
-          <button type="button" id="btn_excluir_cliente" onclick="excluirCliente()" style="display:none" class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-            <i class="fas fa-trash-alt mr-2"></i>Excluir
+        <div class="flex justify-between pt-3 border-t border-gray-200 mt-3">
+          <button type="button" id="btn_excluir_cliente" onclick="excluirCliente()" style="display:none" class="px-3 py-1.5 text-[10px] bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+            <i class="fas fa-trash-alt mr-1"></i>Excluir
           </button>
-          <div class="flex gap-3 ml-auto">
-            <button type="button" onclick="modal_cliente.close()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
-            <button type="submit" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-              <i class="fas fa-save mr-2"></i><span id="btn_submit_text">Cadastrar</span>
+          <div class="flex gap-2 ml-auto">
+            <button type="button" onclick="modal_cliente.close()" class="px-3 py-1.5 text-[10px] text-gray-600 hover:text-gray-800 transition-colors">Cancelar</button>
+            <button type="submit" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+              <i class="fas fa-save mr-1"></i><span id="btn_submit_text">Cadastrar</span>
             </button>
           </div>
         </div>
@@ -522,20 +522,20 @@
       
       <!-- Conteúdo Detalhes -->
       <div id="detalhes_aba_content" class="modal-tab-content hidden" data-tab="detalhes">
-        <div class="bg-gray-50 rounded-lg p-4 mb-4">
-          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3 flex items-center">
-            <i class="fas fa-info-circle mr-2"></i>Informações Principais
+        <div class="bg-gray-50 rounded-lg p-3 mb-3">
+          <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2 flex items-center">
+            <i class="fas fa-info-circle mr-1"></i>Informações Principais
           </h4>
-          <div id="info_principais_aba" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div id="info_principais_aba" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
 
-        <div id="endereco_section_aba" class="bg-gray-50 rounded-lg p-4" style="display:none;">
-          <h4 class="text-xs font-medium text-gray-500 uppercase mb-3 flex items-center">
-            <i class="fas fa-map-marker-alt mr-2"></i>Endereço
+        <div id="endereco_section_aba" class="bg-gray-50 rounded-lg p-3" style="display:none;">
+          <h4 class="text-[9px] font-medium text-gray-500 uppercase mb-2 flex items-center">
+            <i class="fas fa-map-marker-alt mr-1"></i>Endereço
           </h4>
-          <div id="info_endereco_aba" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div id="info_endereco_aba" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
@@ -543,14 +543,14 @@
       
       <!-- Conteúdo Contatos -->
       <div id="contatos_aba_content" class="modal-tab-content hidden" data-tab="contatos">
-        <div class="flex justify-between items-center mb-4">
-          <h4 class="text-sm font-medium text-gray-700">Contatos Vinculados</h4>
-          <button type="button" onclick="abrirModalNovoContato()" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            <i class="fas fa-plus mr-2"></i>Novo Contato
+        <div class="flex justify-between items-center mb-3">
+          <h4 class="text-[10px] font-medium text-gray-700">Contatos Vinculados</h4>
+          <button type="button" onclick="abrirModalNovoContato()" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-plus mr-1"></i>Novo Contato
           </button>
         </div>
         
-        <div class="bg-gray-50 rounded-lg p-4 max-h-[55vh] overflow-y-auto">
+        <div class="bg-gray-50 rounded-lg p-3 max-h-[55vh] overflow-y-auto">
           <div id="lista_contatos_aba">
             <!-- Conteúdo via JavaScript -->
           </div>
@@ -559,19 +559,19 @@
       
       <!-- Conteúdo Contratos -->
       <div id="contratos_aba_content" class="modal-tab-content hidden" data-tab="contratos">
-        <div class="flex justify-between items-center mb-4">
-          <h4 class="text-sm font-medium text-gray-700">Assinaturas do Cliente</h4>
+        <div class="flex justify-between items-center mb-3">
+          <h4 class="text-[10px] font-medium text-gray-700">Assinaturas do Cliente</h4>
         </div>
         
-        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+        <div class="bg-gray-50 rounded-lg p-3 mb-3">
           <div id="lista_contratos_aba">
             <!-- Conteúdo via JavaScript -->
           </div>
         </div>
         
         <div class="flex justify-end">
-          <button type="button" onclick="criarPlanoBetaTesterAba()" class="px-4 py-2 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
-            <i class="fas fa-gift mr-2"></i>Criar Plano Beta
+          <button type="button" onclick="criarPlanoBetaTesterAba()" class="px-3 py-1.5 text-[10px] bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
+            <i class="fas fa-gift mr-1"></i>Criar Plano Beta
           </button>
         </div>
       </div>
@@ -585,51 +585,51 @@
 
 <!-- Modal de Detalhes do Cliente -->
 <dialog id="modal_detalhes" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+  <div class="modal-box max-w-5xl max-h-[90vh] overflow-y-auto p-4">
     <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+      <button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
     
-    <h3 class="font-bold text-lg mb-4">
+    <h3 class="font-bold text-sm mb-3">
       <span id="detalhes_title">Detalhes do Cliente</span>
     </h3>
     
-    <div id="detalhes_content" class="space-y-4">
+    <div id="detalhes_content" class="space-y-3">
       <!-- Informações Principais -->
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <h4 class="text-md font-semibold mb-3 flex items-center">
-          <i class="fas fa-info-circle mr-2 text-primary"></i>Informações Principais
+      <div class="bg-base-200/50 rounded-lg p-3">
+        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+          <i class="fas fa-info-circle mr-1 text-primary"></i>Informações Principais
         </h4>
-        <div id="info_principais" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div id="info_principais" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
 
       <!-- Endereço -->
-      <div id="endereco_section" class="bg-base-200/50 rounded-lg p-4" style="display:none;">
-        <h4 class="text-md font-semibold mb-3 flex items-center">
-          <i class="fas fa-map-marker-alt mr-2 text-primary"></i>Endereço
+      <div id="endereco_section" class="bg-base-200/50 rounded-lg p-3" style="display:none;">
+        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+          <i class="fas fa-map-marker-alt mr-1 text-primary"></i>Endereço
         </h4>
-        <div id="info_endereco" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div id="info_endereco" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
 
       <!-- Contatos Vinculados -->
-      <div class="bg-base-200/50 rounded-lg p-4">
-        <h4 class="text-md font-semibold mb-3 flex items-center">
-          <i class="fas fa-address-book mr-2 text-primary"></i>Contatos Vinculados
+      <div class="bg-base-200/50 rounded-lg p-3">
+        <h4 class="text-[10px] font-semibold mb-2 flex items-center">
+          <i class="fas fa-address-book mr-1 text-primary"></i>Contatos Vinculados
         </h4>
-        <div id="lista_contatos">
+        <div id="lista_contatos" class="text-[10px]">
           <!-- Conteúdo será preenchido via JavaScript -->
         </div>
       </div>
     </div>
 
-    <div class="modal-action mt-6">
-      <button type="button" onclick="modal_detalhes.close()" class="btn btn-ghost btn-sm">Fechar</button>
-      <button type="button" onclick="editarClienteDoModal()" class="btn btn-sm bg-gray-800 text-white border-gray-800 hover:bg-gray-700">
-        <i class="fas fa-edit mr-2"></i>Editar Cliente
+    <div class="modal-action mt-4">
+      <button type="button" onclick="modal_detalhes.close()" class="btn btn-ghost btn-xs text-[10px]">Fechar</button>
+      <button type="button" onclick="editarClienteDoModal()" class="btn btn-xs bg-gray-800 text-white border-gray-800 hover:bg-gray-700 text-[10px]">
+        <i class="fas fa-edit mr-1"></i>Editar Cliente
       </button>
     </div>
   </div>
@@ -640,12 +640,12 @@
 
 <!-- Modal de Novo/Editar Contato -->
 <dialog id="modal_contato" class="modal modal-bottom sm:modal-middle">
-  <div class="modal-box max-w-3xl">
+  <div class="modal-box max-w-2xl p-4">
     <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+      <button class="btn btn-xs btn-circle btn-ghost absolute right-2 top-2">✕</button>
     </form>
     
-    <h3 class="font-bold text-lg mb-3" id="contato_modal_title">Novo Contato</h3>
+    <h3 class="font-bold text-sm mb-2" id="contato_modal_title">Novo Contato</h3>
     
     <form id="form_contato" class="space-y-2" autocomplete="off">
       <input type="hidden" id="contato_id" name="contato_id" value="">
@@ -654,24 +654,24 @@
       <!-- Linha 1: Nome, Email, Telefone -->
       <div id="contato_linha1" class="grid grid-cols-12 gap-2">
         <div class="form-control col-span-6" id="contato_nome_container">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Nome Completo <span class="text-error">*</span></span></label>
-          <input type="text" id="contato_nome_completo" name="nome_completo" class="input input-bordered input-sm w-full" required placeholder="Nome completo">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Nome Completo <span class="text-error">*</span></span></label>
+          <input type="text" id="contato_nome_completo" name="nome_completo" class="input input-bordered input-xs w-full text-[10px]" required placeholder="Nome completo">
         </div>
         <div class="form-control col-span-6" id="contato_email_container">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Email <span class="text-error">*</span></span></label>
-          <input type="email" id="contato_email" name="email" class="input input-bordered input-sm w-full" required placeholder="email@exemplo.com">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Email <span class="text-error">*</span></span></label>
+          <input type="email" id="contato_email" name="email" class="input input-bordered input-xs w-full text-[10px]" required placeholder="email@exemplo.com">
         </div>
         <div class="form-control col-span-4 hidden" id="contato_telefone_container">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Telefone</span></label>
-          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-sm w-full" placeholder="(00) 00000-0000" maxlength="15">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Telefone</span></label>
+          <input type="text" id="contato_telefone" name="telefone" class="input input-bordered input-xs w-full text-[10px]" placeholder="(00) 00000-0000" maxlength="15">
         </div>
       </div>
 
       <!-- Linha 2: Setor, Cargo, Tipo Usuário -->
       <div class="grid grid-cols-12 gap-2">
         <div class="form-control col-span-4">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Setor</span></label>
-          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full" onchange="carregarCargosPorSetor(this.value)">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Setor</span></label>
+          <select id="contato_setor" name="pk_id_aux_setor" class="select select-bordered select-xs w-full text-[10px]" onchange="carregarCargosPorSetor(this.value)">
             <option value="">Selecione</option>
             {% for setor in setores %}
             <option value="{{ setor.id_setor }}">{{ setor.display }}</option>
@@ -679,8 +679,8 @@
           </select>
         </div>
         <div class="form-control col-span-4">
-          <label class="label py-0.5"><span class="label-text text-xs font-semibold">Cargo</span></label>
-          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered h-8 min-h-[2rem] text-sm leading-tight w-full">
+          <label class="label py-0"><span class="label-text text-[10px] font-medium">Cargo</span></label>
+          <select id="contato_cargo" name="pk_id_tbl_cargo" class="select select-bordered select-xs w-full text-[10px]">
             <option value="">Selecione setor</option>
           </select>
         </div>
@@ -693,10 +693,10 @@
       <!-- Senha (hidden) -->
       <input type="hidden" id="contato_senha" name="senha" value="">
 
-      <div class="modal-action mt-3 pt-2 border-t">
-        <button type="button" onclick="modal_contato.close()" class="btn btn-ghost btn-sm">Cancelar</button>
-        <button type="submit" class="btn text-white btn-sm" style="background-color: #72cd80; border-color: #72cd80;">
-          <i class="fas fa-save mr-2"></i><span id="contato_btn_text">Criar Contato</span>
+      <div class="modal-action mt-2 pt-2 border-t">
+        <button type="button" onclick="modal_contato.close()" class="btn btn-ghost btn-xs text-[10px]">Cancelar</button>
+        <button type="submit" class="btn text-white btn-xs text-[10px]" style="background-color: #72cd80; border-color: #72cd80;">
+          <i class="fas fa-save mr-1"></i><span id="contato_btn_text">Criar Contato</span>
         </button>
       </div>
     </form>

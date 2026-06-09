@@ -27,6 +27,14 @@
           <button onclick="filtrarNfStatus('3')" class="px-1.5 py-0.5 rounded-full text-[9px] font-medium transition-colors {% if nf_status_filtro == '3' %}bg-green-500 text-white ring-1 ring-green-500{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}">Pgto Realizado</button>
         </div>
         {% endif %}
+        {% if sub_status_atual|string != '1' %}
+        <button type="button" id="btn_expandir_todas" onclick="toggleTodasCampanhas()"
+                class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                title="Abrir/fechar as campanhas de todos os PIs">
+          <i class="fa-solid fa-angles-down text-[9px]" id="icon_expandir_todas"></i>
+          <span id="label_expandir_todas">Expandir todas</span>
+        </button>
+        {% endif %}
       </div>
 
       <form id="filtros_form" class="flex items-center gap-2">
@@ -209,10 +217,14 @@
               <span class="text-[10px] text-gray-300">-</span>
               {% endif %}
             </td>
-            <td class="text-center px-2">
-              <span class="text-[10px] cursor-pointer select-none inline-flex items-center gap-0.5 {% if pi.get('total_campanhas', 0) > 0 %}font-semibold text-blue-600 hover:text-blue-800{% else %}text-gray-300{% endif %}"
-                    onclick="toggleCampanhas({{ pi.id_pi }}, event)"
-                    title="Ver campanhas">{{ pi.get('total_campanhas', 0) }} {% if pi.get('total_campanhas', 0) > 0 %}<i class="fa-solid fa-chevron-down text-[8px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i>{% endif %}</span>
+            <td class="text-center px-2" onclick="event.stopPropagation()">
+              {% if pi.get('total_campanhas', 0) > 0 %}
+              <button type="button" onclick="toggleCampanhas({{ pi.id_pi }}, event)"
+                      class="inline-flex items-center justify-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors select-none"
+                      title="Ver campanhas">{{ pi.get('total_campanhas', 0) }} <i class="fa-solid fa-chevron-down text-[10px] chevron-camp" id="chevron-{{ pi.id_pi }}"></i></button>
+              {% else %}
+              <span class="text-[10px] text-gray-300">{{ pi.get('total_campanhas', 0) }}</span>
+              {% endif %}
             </td>
             <td class="text-right px-2">
               <div class="flex items-center justify-end gap-1.5">
@@ -935,8 +947,9 @@
 .collapse-camp-row.hidden { display: none; }
 .chevron-camp { transition: transform 0.2s ease; }
 .chevron-camp.open { transform: rotate(180deg); }
+.camp-table { table-layout: fixed; width: 100%; }
 .camp-table th { font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #6b7280; padding: 4px 8px; white-space: nowrap; }
-.camp-table td { font-size: 0.75rem; padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+.camp-table td { font-size: 0.75rem; padding: 5px 8px; border-bottom: 1px solid #e5e7eb; overflow: hidden; }
 .camp-table tr:last-child td { border-bottom: none; }
 </style>
 <script>
@@ -1169,7 +1182,16 @@ function toggleCampanhas(idPi, event) {
             } catch (err) { console.error(err); }
           });
         }
-        let html = '<table class="camp-table w-full"><thead><tr>' +
+        let html = '<table class="camp-table w-full">' +
+          '<colgroup>' +
+          '<col style="width:30%">' +
+          '<col style="width:16%">' +
+          '<col style="width:16%">' +
+          '<col style="width:14%">' +
+          '<col style="width:12%">' +
+          '<col style="width:12%">' +
+          '</colgroup>' +
+          '<thead><tr>' +
           '<th class="text-left">Campanha</th>' +
           '<th class="text-left">Plataforma</th>' +
           '<th class="text-center">Período</th>' +
@@ -1202,9 +1224,9 @@ function toggleCampanhas(idPi, event) {
           const payload = encodeURIComponent(JSON.stringify(c));
 
           html += '<tr class="hover:bg-blue-100/40 cursor-pointer transition-colors" data-camp-payload="' + payload + '" title="Ver detalhes da campanha">' +
-            '<td class="text-left"><span class="font-medium text-gray-800">' + (c.nome_campanha || '-') + '</span>' +
-              '<span class="block text-[10px] text-gray-400">' + (c.status_nome || '') + '</span></td>' +
-            '<td class="text-left text-gray-600">' + (c.plataforma_nome || '-') + '</td>' +
+            '<td class="text-left"><span class="font-medium text-gray-800 truncate block" title="' + (c.nome_campanha || '') + '">' + (c.nome_campanha || '-') + '</span>' +
+              '<span class="block text-[10px] text-gray-400 truncate">' + (c.status_nome || '') + '</span></td>' +
+            '<td class="text-left text-gray-600 truncate" title="' + (c.plataforma_nome || '') + '">' + (c.plataforma_nome || '-') + '</td>' +
             '<td class="text-center text-gray-600">' + periodoLinha1 + periodoLinha2 + '</td>' +
             '<td class="text-right">' + celPreco + '</td>' +
             '<td class="text-center"><span class="' + pctColor + ' font-semibold">' + dispAting + '/' + dispContr + '</span>' +
@@ -1221,6 +1243,22 @@ function toggleCampanhas(idPi, event) {
         container.innerHTML = '<div class="text-center py-3 text-xs text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Erro ao carregar campanhas</div>';
       });
   }
+}
+
+let todasExpandidas = false;
+function toggleTodasCampanhas() {
+  todasExpandidas = !todasExpandidas;
+  document.querySelectorAll('tr.collapse-camp-row').forEach(function(row) {
+    const isHidden = row.classList.contains('hidden');
+    if (todasExpandidas === isHidden) {
+      const idPi = row.id.replace('camp-collapse-', '');
+      toggleCampanhas(parseInt(idPi, 10), { stopPropagation: function() {} });
+    }
+  });
+  const label = document.getElementById('label_expandir_todas');
+  const icon = document.getElementById('icon_expandir_todas');
+  if (label) label.textContent = todasExpandidas ? 'Recolher todas' : 'Expandir todas';
+  if (icon) icon.className = (todasExpandidas ? 'fa-solid fa-angles-up' : 'fa-solid fa-angles-down') + ' text-[9px]';
 }
 
 document.addEventListener('DOMContentLoaded', function() {

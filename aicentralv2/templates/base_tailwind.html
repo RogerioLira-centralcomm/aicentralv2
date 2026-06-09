@@ -428,6 +428,7 @@
                             <li><a href="{{ url_for('cadu_pi_com_vendas_lista') }}" class="{% if request.endpoint == 'cadu_pi_com_vendas_lista' %}active{% endif %}">Comissões</a></li>
                             <li><a href="{{ url_for('logs_auditoria') }}" class="{% if request.endpoint == 'logs_auditoria' %}active{% endif %}">Logs de Auditoria</a></li>
                             <li><a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">Assistente IA</a></li>
+                            <li><a href="{{ url_for('parametros.lista_old_kpi') }}" class="{% if request.endpoint == 'parametros.lista_old_kpi' %}active{% endif %}">listaOLDKPI</a></li>
                             <li><a href="{{ url_for('parametros.testes_dv') }}" class="{% if request.endpoint == 'parametros.testes_dv' %}active{% endif %}">Testes DV360</a></li>
                             <li><a href="{{ url_for('parametros.testes_dv_legado') }}" class="{% if request.endpoint == 'parametros.testes_dv_legado' %}active{% endif %}">Testes DV360 (legado)</a></li>
                         </ul>
@@ -719,6 +720,11 @@
                                     <li>
                                         <a href="{{ url_for('intelligence.index') }}" class="{% if request.endpoint == 'intelligence.index' %}active{% endif %}">
                                             Assistente IA
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('parametros.lista_old_kpi') }}" class="{% if request.endpoint == 'parametros.lista_old_kpi' %}active{% endif %}">
+                                            listaOLDKPI
                                         </a>
                                     </li>
                                     <li>

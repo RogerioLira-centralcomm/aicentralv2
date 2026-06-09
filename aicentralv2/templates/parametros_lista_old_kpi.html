@@ -1,0 +1,231 @@
+{% extends 'base_tailwind.html' %}
+
+{% block title %}Lista Campanhas (OLD KPI) - CentralComm AI{% endblock %}
+
+{% set nomes_meses = {'1':'Jan','2':'Fev','3':'Mar','4':'Abr','5':'Mai','6':'Jun','7':'Jul','8':'Ago','9':'Set','10':'Out','11':'Nov','12':'Dez'} %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-3 pb-6">
+
+  <div class="bg-white/80 backdrop-blur border border-gray-200 rounded-xl px-5 py-3 mb-4 mt-2 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3 flex-wrap">
+      <h1 class="text-sm font-semibold text-gray-800 mr-1">Lista Campanhas (OLD KPI)</h1>
+      <div class="relative">
+        <i class="fa-regular fa-calendar absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <select id="filtroMesRef" onchange="aplicarFiltros()"
+                class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 170px;">
+          <option value="" {% if not filtros.get('mes_ref_comp') %}selected{% endif %}>Todos os meses</option>
+          {% for m in meses_ref %}
+            {% set mp = (m|string).split('/') %}
+            <option value="{{ m }}" {% if filtros.get('mes_ref_comp') == m %}selected{% endif %}>
+              {% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ m }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+        <input type="text" id="searchInput" placeholder="Buscar campanha, cliente, PI..."
+               class="text-sm bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-gray-700 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200" style="min-width: 220px;">
+      </div>
+      <a href="{{ url_for('parametros.lista_old_kpi_export', **filtros) }}"
+         class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg px-4 py-1.5 transition-colors shadow-sm flex items-center gap-1.5">
+        <i class="fas fa-file-excel text-xs"></i> Exportar Excel
+      </a>
+    </div>
+    <div class="text-sm text-gray-500">
+      <span id="totalVisivel">{{ campanhas|length if campanhas else 0 }}</span> campanha{{ 's' if (campanhas|length if campanhas else 0) != 1 }}
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-sm
+            {%- if category == 'success' %} bg-green-100 text-green-800
+            {%- elif category == 'error' %} bg-red-100 text-red-800
+            {%- else %} bg-gray-100 text-gray-800
+            {%- endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% if campanhas and campanhas|length > 0 %}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm" id="tabelaCampanhasOldKpi">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">PI</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Campanha</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Agência</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formato</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Praça</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">KPI</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Valor KPI</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Meta</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Objetivo</th>
+            <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Status PI</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">vr_liquido_pr_pi</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
+          {% for c in campanhas %}
+            {% set meta_val = c.obj_contratados|parse_volume_campanha %}
+            {% set vr_exibir = c.valor_plataforma if c.valor_plataforma else c.vr_liquido_pr_pi %}
+            {% set vr_val = vr_exibir|parse_brl_float %}
+            {% set status_pi = c.sub_status_pi_nome or c.status_pi_nome or '—' %}
+          <tr class="hover:bg-gray-50 data-row"
+              data-search="{{ (c.codigo_pi or '') ~ ' ' ~ (c.nome_campanha or '') ~ ' ' ~ (c.cliente_nome or '') ~ ' ' ~ (c.agencia_nome or '') ~ ' ' ~ (c.formato or '') ~ ' ' ~ (c.praca or '') ~ ' ' ~ (c.kpi_nome or '') ~ ' ' ~ (c.objetivo_texto or '') ~ ' ' ~ status_pi }}">
+            <td class="py-2 px-3 align-top whitespace-nowrap">
+              <div class="text-xs font-bold text-indigo-600">{{ c.codigo_pi or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 align-top max-w-[200px]">
+              <div class="text-xs font-semibold text-gray-800 truncate" title="{{ c.nome_campanha or '' }}">{{ c.nome_campanha or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 align-top max-w-[160px]">
+              <div class="text-xs text-gray-700 truncate" title="{{ c.cliente_nome or '' }}">{{ c.cliente_nome or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 align-top max-w-[140px]">
+              <div class="text-xs text-gray-600 truncate" title="{{ c.agencia_nome or '' }}">{{ c.agencia_nome or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 align-top max-w-[120px]">
+              <div class="text-xs text-gray-600 truncate" title="{{ c.formato or '' }}">{{ c.formato or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 align-top max-w-[120px]">
+              <div class="text-xs text-gray-600 truncate" title="{{ c.praca or '' }}">{{ c.praca or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
+              <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">{{ c.kpi_nome or '—' }}</span>
+            </td>
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap">
+              {% if c.preco_metrica_brl is not none %}
+                <span class="text-[10px] font-semibold text-emerald-800">{{ sigla_metrica_preco(c.objetivo_nome, c.preco_metrica_modalidade) }}</span>
+                <div class="text-xs font-semibold text-gray-800">R$ {{ '{:,.2f}'.format(c.preco_metrica_brl)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
+              {% else %}
+                <span class="text-gray-400 text-xs">—</span>
+              {% endif %}
+            </td>
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
+              {% if meta_val > 0 %}
+                {{ '{:,.0f}'.format(meta_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="py-2 px-3 align-top max-w-[180px]">
+              <div class="text-xs text-gray-600 truncate" title="{{ c.objetivo_texto or '' }}">{{ c.objetivo_texto or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
+              <span class="text-[10px] font-medium text-gray-700">{{ status_pi }}</span>
+            </td>
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
+              {% if vr_val > 0 %}
+                {{ vr_val|format_brl }}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="bg-gray-50 border-t-2 border-gray-300">
+          <tr class="font-semibold text-[11px] text-gray-700">
+            <td class="py-2.5 px-3" colspan="7">
+              <span class="uppercase tracking-wide text-gray-500 text-[10px]">Total</span>
+              <span class="ml-2 text-gray-800">{{ footer_totais.total_campanhas }} campanha{% if footer_totais.total_campanhas != 1 %}s{% endif %}</span>
+            </td>
+            <td class="py-2.5 px-3"></td>
+            <td class="py-2.5 px-3 text-right text-gray-900">
+              {% if footer_totais.total_meta > 0 %}
+                {{ '{:,.0f}'.format(footer_totais.total_meta)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="py-2.5 px-3"></td>
+            <td class="py-2.5 px-3"></td>
+            <td class="py-2.5 px-3 text-right text-gray-900">
+              {% if footer_totais.total_vr_liquido_pr %}
+                {{ footer_totais.total_vr_liquido_pr|format_brl }}
+              {% else %}
+                R$ 0,00
+              {% endif %}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white border border-gray-200 rounded-xl p-8 text-center">
+    <i class="fas fa-bullhorn text-3xl text-gray-300 mb-3"></i>
+    <p class="text-gray-600 text-sm">Nenhuma campanha encontrada{% if filtros.get('mes_ref_comp') %} para o período selecionado{% endif %}.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function setCookie(name, value, days) {
+    const d = new Date();
+    d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/';
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : '';
+  }
+
+  const COOKIE_MES_OLDKPI = 'oldkpi_mes_ref';
+
+  function aplicarFiltros() {
+    const params = new URLSearchParams();
+    const mesEl = document.getElementById('filtroMesRef');
+    const mes = mesEl ? mesEl.value : '';
+    setCookie(COOKIE_MES_OLDKPI, mes, 30);
+    if (mes) params.set('mes_ref_comp', mes);
+    window.location.href = '{{ url_for("parametros.lista_old_kpi") }}' + (params.toString() ? '?' + params.toString() : '');
+  }
+
+  (function restoreFilters() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('_restored') || params.has('mes_ref_comp')) return;
+    const cMes = getCookie(COOKIE_MES_OLDKPI);
+    if (!cMes) return;
+    const sel = document.getElementById('filtroMesRef');
+    if (!sel || !sel.options || !sel.options.length) return;
+    let matched = false;
+    for (const opt of sel.options) {
+      if (opt.value === cMes) { matched = true; break; }
+    }
+    if (!matched) return;
+    const rp = new URLSearchParams(params);
+    rp.set('mes_ref_comp', cMes);
+    rp.set('_restored', '1');
+    window.location.href = '{{ url_for("parametros.lista_old_kpi") }}?' + rp.toString();
+  })();
+
+  (function initSearch() {
+    const si = document.getElementById('searchInput');
+    const rows = document.querySelectorAll('#campanhasTableBody tr.data-row');
+    const totalEl = document.getElementById('totalVisivel');
+    if (!si || !rows.length) return;
+    si.addEventListener('input', function() {
+      const q = (this.value || '').toLowerCase().trim();
+      let vis = 0;
+      rows.forEach(function(row) {
+        const hay = (row.getAttribute('data-search') || '').toLowerCase();
+        const show = !q || hay.indexOf(q) !== -1;
+        row.style.display = show ? '' : 'none';
+        if (show) vis++;
+      });
+      if (totalEl) totalEl.textContent = vis;
+    });
+  })();
+</script>
+{% endblock %}

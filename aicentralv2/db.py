@@ -11175,6 +11175,129 @@ def obter_campanhas_pi(filtros=None):
         raise e
 
 
+def obter_campanhas_pi_lista_old_kpi(filtros=None):
+    """Lista campanhas PI para relatório legado (OLD KPI): ordenado por PI, com formato/praça da cotação."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            query = '''
+                SELECT
+                    c.id_campanha,
+                    c.id_pi,
+                    c.nome_campanha,
+                    c.obj_contratados,
+                    c.mes_ref_comp,
+                    c.valor_plataforma,
+                    c.valor_total_plataforma,
+                    c.totalizador_gasto,
+                    c.totalizador_atingido,
+                    cli.nome_fantasia AS cliente_nome,
+                    obj.descricao AS objetivo_nome,
+                    pi.codigo_pi_cc AS codigo_pi,
+                    pi.titulo_pi,
+                    pi.vr_liquido_pr_pi,
+                    pi.id_status_pi,
+                    pi_status.descricao AS status_pi_nome,
+                    pi_sub.display AS sub_status_pi_nome,
+                    cli_ag.nome_fantasia AS agencia_nome,
+                    plt.descricao AS plataforma_nome,
+                    COALESCE(linha_cot.formato, plt.descricao) AS formato,
+                    linha_cot.praca AS praca,
+                    COALESCE(
+                        NULLIF(TRIM(obj.descricao), ''),
+                        linha_cot.kpi_nome,
+                        aud_cot.kpi_nome
+                    ) AS kpi_nome,
+                    COALESCE(NULLIF(TRIM(cot.objetivo_campanha), ''), pi.titulo_pi) AS objetivo_texto
+                FROM cadu_pi_campanha c
+                LEFT JOIN tbl_cliente cli ON c.id_cliente = cli.id_cliente
+                LEFT JOIN cadu_pi_camp_objetivos obj ON c.id_objetivos_campanha = obj.id_objetivos_campanha
+                LEFT JOIN cadu_pi_camp_plataforma plt ON c.id_plataforma = plt.id_plataforma
+                LEFT JOIN cadu_pi pi ON c.id_pi = pi.id_pi
+                LEFT JOIN tbl_cliente cli_ag ON pi.id_agencia = cli_ag.id_cliente
+                LEFT JOIN cadu_pi_aux_status pi_status ON pi.id_status_pi = pi_status.id
+                LEFT JOIN cadu_pi_sub_status pi_sub ON pi.id_sub_status_pi = pi_sub.key
+                LEFT JOIN cadu_cotacoes cot ON pi.cotacao_id = cot.id AND cot.deleted_at IS NULL
+                LEFT JOIN LATERAL (
+                    SELECT
+                        COALESCE(
+                            NULLIF(TRIM(l.formato_compra), ''),
+                            NULLIF(TRIM(l.formato), ''),
+                            NULLIF(TRIM(l.formatos::text), '')
+                        ) AS formato,
+                        NULLIF(TRIM(l.praca), '') AS praca,
+                        COALESCE(
+                            NULLIF(TRIM(obj_l.descricao), ''),
+                            NULLIF(TRIM(l.objetivo_kpi), '')
+                        ) AS kpi_nome
+                    FROM cadu_cotacao_linhas l
+                    LEFT JOIN cadu_pi_camp_objetivos obj_l
+                        ON l.id_objetivo_kpi = obj_l.id_objetivos_campanha
+                    WHERE l.cotacao_id = pi.cotacao_id
+                      AND COALESCE(l.is_deleted, false) = false
+                      AND COALESCE(l.is_subtotal, false) = false
+                      AND COALESCE(l.is_header, false) = false
+                      AND pi.cotacao_id IS NOT NULL
+                      AND (
+                        TRIM(COALESCE(l.segmentacao, '')) = TRIM(COALESCE(c.nome_campanha, ''))
+                        OR TRIM(COALESCE(l.detalhamento, '')) = TRIM(COALESCE(c.nome_campanha, ''))
+                        OR TRIM(COALESCE(l.pedido_sugestao, '')) = TRIM(COALESCE(c.nome_campanha, ''))
+                      )
+                    LIMIT 1
+                ) linha_cot ON true
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(
+                        NULLIF(TRIM(obj_a.descricao), ''),
+                        NULLIF(TRIM(a.audiencia_calculo_kpi), '')
+                    ) AS kpi_nome
+                    FROM cadu_cotacao_audiencias a
+                    LEFT JOIN cadu_pi_camp_objetivos obj_a
+                        ON a.id_audiencia_calculo_kpi = obj_a.id_objetivos_campanha
+                    WHERE a.cotacao_id = pi.cotacao_id
+                      AND pi.cotacao_id IS NOT NULL
+                      AND TRIM(COALESCE(a.audiencia_nome, '')) = TRIM(COALESCE(c.nome_campanha, ''))
+                    LIMIT 1
+                ) aud_cot ON true
+                WHERE 1=1
+            '''
+            params = []
+
+            if filtros:
+                if filtros.get('id_cliente'):
+                    query += ' AND c.id_cliente = %s'
+                    params.append(filtros['id_cliente'])
+                if filtros.get('id_status'):
+                    query += ' AND c.id_status = %s'
+                    params.append(filtros['id_status'])
+                if filtros.get('id_plataforma'):
+                    query += ' AND c.id_plataforma = %s'
+                    params.append(filtros['id_plataforma'])
+                if filtros.get('id_pi'):
+                    query += ' AND c.id_pi = %s'
+                    params.append(filtros['id_pi'])
+                if filtros.get('mes_ref_comp'):
+                    query += ' AND c.mes_ref_comp = %s'
+                    params.append(filtros['mes_ref_comp'])
+                if filtros.get('resp_comercial'):
+                    query += ' AND pi.id_resp_comercial = %s'
+                    params.append(filtros['resp_comercial'])
+                if filtros.get('id_sub_status_pi'):
+                    query += ' AND pi.id_sub_status_pi = %s'
+                    params.append(filtros['id_sub_status_pi'])
+
+            query += '''
+                ORDER BY
+                    pi.codigo_pi_cc NULLS LAST,
+                    pi.id_pi ASC,
+                    c.id_campanha ASC
+            '''
+            cursor.execute(query, params)
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_campanha_pi_por_id(id_campanha):
     """Retorna uma campanha PI específica por ID"""
     conn = get_db()

@@ -6,6 +6,8 @@ Página de diagnóstico (HTML, mesma sessão): GET /dv360/diagnostico
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -13,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from flask import Blueprint, current_app, jsonify, render_template, request, session, url_for
+from flask import Blueprint, Response, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from psycopg.errors import UniqueViolation
 
 from aicentralv2 import db
@@ -2367,6 +2369,149 @@ def testes_dv():
             db.obter_clientes_simples() if _is_dv_session_admin() else []
         ),
     )
+
+
+def _lista_old_kpi_filtros_from_request():
+    mes_ref_comp = (request.args.get('mes_ref_comp') or '').strip()
+    filtros = {}
+    if mes_ref_comp:
+        filtros['mes_ref_comp'] = mes_ref_comp
+    return filtros
+
+
+def _lista_old_kpi_carregar(filtros):
+    campanhas_raw = db.obter_campanhas_pi_lista_old_kpi(filtros or None)
+    campanhas = [anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
+
+    total_meta = 0.0
+    total_vr_liquido_pr = 0.0
+    pis_vr_somados = set()
+    for row in campanhas:
+        total_meta += parse_volume_float(row.get('obj_contratados'))
+        vr_camp = parse_brl_float(row.get('valor_plataforma'))
+        if vr_camp is not None:
+            total_vr_liquido_pr += vr_camp
+        else:
+            id_pi = row.get('id_pi')
+            if id_pi and id_pi not in pis_vr_somados:
+                vr_pi = parse_brl_float(row.get('vr_liquido_pr_pi'))
+                if vr_pi is not None:
+                    total_vr_liquido_pr += vr_pi
+                    pis_vr_somados.add(id_pi)
+
+    footer_totais = {
+        'total_campanhas': len(campanhas),
+        'total_meta': total_meta,
+        'total_vr_liquido_pr': total_vr_liquido_pr,
+    }
+    return campanhas, footer_totais
+
+
+def _lista_old_kpi_fmt_num_br(value, decimals=2):
+    if value is None:
+        return ''
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return ''
+    if decimals == 0:
+        s = f'{n:,.0f}'
+    else:
+        s = f'{n:,.{decimals}f}'
+    return s.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+def _lista_old_kpi_export_rows(campanhas, footer_totais):
+    header = [
+        'PI', 'Período', 'Campanha', 'Cliente', 'Agência', 'Formato', 'Praça', 'KPI',
+        'Meta', 'Valor KPI (tipo)', 'Valor KPI (R$)', 'Objetivo', 'Status PI', 'vr_liquido_pr_pi',
+    ]
+    rows = []
+    for c in campanhas:
+        meta_val = parse_volume_float(c.get('obj_contratados'))
+        vr_exibir = c.get('valor_plataforma') or c.get('vr_liquido_pr_pi')
+        vr_val = parse_brl_float(vr_exibir)
+        status_pi = c.get('sub_status_pi_nome') or c.get('status_pi_nome') or ''
+        sigla_kpi = sigla_metrica_preco(c.get('objetivo_nome'), c.get('preco_metrica_modalidade'))
+        rows.append([
+            c.get('codigo_pi') or '',
+            c.get('mes_ref_comp') or '',
+            c.get('nome_campanha') or '',
+            c.get('cliente_nome') or '',
+            c.get('agencia_nome') or '',
+            c.get('formato') or '',
+            c.get('praca') or '',
+            c.get('kpi_nome') or '',
+            _lista_old_kpi_fmt_num_br(meta_val, 0) if meta_val > 0 else '',
+            sigla_kpi if c.get('preco_metrica_brl') is not None else '',
+            _lista_old_kpi_fmt_num_br(c.get('preco_metrica_brl')) if c.get('preco_metrica_brl') is not None else '',
+            c.get('objetivo_texto') or '',
+            status_pi,
+            _lista_old_kpi_fmt_num_br(vr_val) if vr_val and vr_val > 0 else '',
+        ])
+    rows.append([
+        'TOTAL', '', f"{footer_totais['total_campanhas']} campanha(s)", '', '', '', '', '',
+        _lista_old_kpi_fmt_num_br(footer_totais['total_meta'], 0) if footer_totais['total_meta'] > 0 else '',
+        '', '',
+        '', '',
+        _lista_old_kpi_fmt_num_br(footer_totais['total_vr_liquido_pr']) if footer_totais['total_vr_liquido_pr'] else '',
+    ])
+    return header, rows
+
+
+@parametros_bp.route("/listaOLDKPI", methods=["GET"])
+@login_required
+def lista_old_kpi():
+    """Lista legada de campanhas PI ordenada por PI (formato, praça, KPI, meta, objetivo)."""
+    try:
+        filtros = _lista_old_kpi_filtros_from_request()
+        campanhas, footer_totais = _lista_old_kpi_carregar(filtros)
+
+        try:
+            meses_ref = db.obter_meses_ref_campanha_pi()
+        except Exception as ex_m:
+            current_app.logger.warning("obter_meses_ref_campanha_pi (listaOLDKPI): %s", ex_m)
+            meses_ref = []
+
+        return render_template(
+            "parametros_lista_old_kpi.html",
+            campanhas=campanhas,
+            filtros=filtros,
+            meses_ref=meses_ref or [],
+            footer_totais=footer_totais,
+        )
+    except Exception as e:
+        current_app.logger.error("Erro listaOLDKPI: %s", e, exc_info=True)
+        flash('Erro ao carregar lista de campanhas. Tente novamente.', 'error')
+        return redirect(url_for('parametros.lista_old_kpi'))
+
+
+@parametros_bp.route("/listaOLDKPI/export", methods=["GET"])
+@login_required
+def lista_old_kpi_export():
+    """Exporta a lista OLD KPI em CSV (UTF-8 BOM + ;) para abrir no Excel."""
+    try:
+        filtros = _lista_old_kpi_filtros_from_request()
+        campanhas, footer_totais = _lista_old_kpi_carregar(filtros)
+        header, rows = _lista_old_kpi_export_rows(campanhas, footer_totais)
+
+        buf = io.StringIO()
+        buf.write('\ufeff')
+        writer = csv.writer(buf, delimiter=';')
+        writer.writerow(header)
+        writer.writerows(rows)
+
+        mes_suffix = filtros.get('mes_ref_comp', 'todos').replace('/', '-')
+        filename = f"lista_OLD_KPI_{mes_suffix}_{datetime.now().strftime('%Y%m%d')}.csv"
+        return Response(
+            buf.getvalue(),
+            mimetype='text/csv; charset=utf-8',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        current_app.logger.error("Erro export listaOLDKPI: %s", e, exc_info=True)
+        flash('Erro ao exportar lista de campanhas.', 'error')
+        return redirect(url_for('parametros.lista_old_kpi'))
 
 
 @parametros_bp.route("/testesDV/legado", methods=["GET"])

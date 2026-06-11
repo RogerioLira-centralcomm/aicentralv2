@@ -11259,6 +11259,7 @@ def obter_campanhas_pi_lista_old_kpi(filtros=None):
                     LIMIT 1
                 ) aud_cot ON true
                 WHERE 1=1
+                  AND COALESCE(pi.id_sub_status_pi, 0) <> 1
             '''
             params = []
 

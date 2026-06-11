@@ -23,6 +23,7 @@ pinecone-client==2.2.4
 PyPDF2==3.0.1
 PyMuPDF>=1.24.0
 reportlab==4.0.7
+openpyxl==3.1.5
 sentence-transformers>=3.0.0
 numpy>=2.1.0
 torch>=2.5.0

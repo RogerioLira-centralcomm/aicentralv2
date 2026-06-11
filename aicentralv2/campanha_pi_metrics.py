@@ -98,6 +98,16 @@ def volume_para_preco_campanha(obj_contratados: Any, totalizador_atingido: Any) 
     return volume_qty_campanha(totalizador_atingido)
 
 
+def investimento_para_preco_campanha(row: Any) -> Optional[float]:
+    """Investimento de mídia usado no cálculo do Valor KPI."""
+    v_total = parse_brl_float(row.get("valor_total_plataforma")) or 0
+    v_plat = parse_brl_float(row.get("valor_plataforma")) or 0
+    valor = v_total if v_total > 0 else v_plat
+    if valor <= 0:
+        valor = parse_brl_float(row.get("totalizador_gasto")) or 0
+    return float(valor) if valor > 0 else None
+
+
 def preco_unitario_por_metrica(
     objetivo_nome: Any,
     obj_contratados: Any,
@@ -165,11 +175,8 @@ def preco_unitario_por_metrica(
 def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
     """Igual ao payload de /api/cadu-pi/<id>/campanhas (coluna Preço em Operação/Faturamento)."""
     r = dict(row)
-    v_total = parse_brl_float(r.get("valor_total_plataforma")) or 0
-    v_plat = parse_brl_float(r.get("valor_plataforma")) or 0
-    valor_para_preco = v_total if v_total > 0 else v_plat
-    if valor_para_preco <= 0:
-        valor_para_preco = parse_brl_float(r.get("totalizador_gasto")) or 0
+    valor_para_preco = investimento_para_preco_campanha(r) or 0
+    vol_kpi = volume_para_preco_campanha(r.get("obj_contratados"), r.get("totalizador_atingido"))
     preco_metrica, modalidade_preco = preco_unitario_por_metrica(
         r.get("objetivo_nome"),
         r.get("obj_contratados"),
@@ -177,6 +184,8 @@ def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
         r.get("nome_campanha"),
         r.get("totalizador_atingido"),
     )
+    r["investimento_kpi_brl"] = valor_para_preco if valor_para_preco > 0 else None
+    r["volume_kpi"] = vol_kpi
     r["preco_metrica_brl"] = round(preco_metrica, 2) if preco_metrica is not None else None
     r["preco_metrica_modalidade"] = modalidade_preco
     return r

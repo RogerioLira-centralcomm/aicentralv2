@@ -6,7 +6,6 @@ Página de diagnóstico (HTML, mesma sessão): GET /dv360/diagnostico
 """
 from __future__ import annotations
 
-import csv
 import io
 import json
 import logging
@@ -16,6 +15,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from flask import Blueprint, Response, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from psycopg.errors import UniqueViolation
 
 from aicentralv2 import db
@@ -2384,25 +2385,25 @@ def _lista_old_kpi_carregar(filtros):
     campanhas = [anexar_preco_metrica_campanha(c) for c in (campanhas_raw or [])]
 
     total_meta = 0.0
-    total_vr_liquido_pr = 0.0
-    pis_vr_somados = set()
+    total_atingido = 0.0
+    total_volume_kpi = 0.0
+    total_investimento_kpi = 0.0
     for row in campanhas:
         total_meta += parse_volume_float(row.get('obj_contratados'))
-        vr_camp = parse_brl_float(row.get('valor_plataforma'))
-        if vr_camp is not None:
-            total_vr_liquido_pr += vr_camp
-        else:
-            id_pi = row.get('id_pi')
-            if id_pi and id_pi not in pis_vr_somados:
-                vr_pi = parse_brl_float(row.get('vr_liquido_pr_pi'))
-                if vr_pi is not None:
-                    total_vr_liquido_pr += vr_pi
-                    pis_vr_somados.add(id_pi)
+        total_atingido += parse_volume_float(row.get('totalizador_atingido'))
+        vol_kpi = row.get('volume_kpi')
+        if vol_kpi is not None and float(vol_kpi) > 0:
+            total_volume_kpi += float(vol_kpi)
+        inv_kpi = row.get('investimento_kpi_brl')
+        if inv_kpi is not None and float(inv_kpi) > 0:
+            total_investimento_kpi += float(inv_kpi)
 
     footer_totais = {
         'total_campanhas': len(campanhas),
         'total_meta': total_meta,
-        'total_vr_liquido_pr': total_vr_liquido_pr,
+        'total_atingido': total_atingido,
+        'total_volume_kpi': total_volume_kpi,
+        'total_investimento_kpi': total_investimento_kpi,
     }
     return campanhas, footer_totais
 
@@ -2421,42 +2422,102 @@ def _lista_old_kpi_fmt_num_br(value, decimals=2):
     return s.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
+def _lista_old_kpi_fmt_periodo(c):
+    return (c.get('mes_ref_comp') or '').strip()
+
+
+def _lista_old_kpi_fmt_valor_kpi(c):
+    preco = c.get('preco_metrica_brl')
+    if preco is None:
+        return ''
+    return f'R$ {_lista_old_kpi_fmt_num_br(preco)}'
+
+
+def _lista_old_kpi_xlsx_cell(value):
+    if value is None:
+        return ''
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Decimal):
+        return float(value)
+    return str(value)
+
+
+def _lista_old_kpi_xlsx_response(header, rows, filename):
+    """Gera .xlsx nativo — colunas corretas e acentos preservados no Excel."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'OLD KPI'
+    ws.append([_lista_old_kpi_xlsx_cell(c) for c in header])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    for row in rows:
+        ws.append([_lista_old_kpi_xlsx_cell(c) for c in row])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(
+        buf.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
+_LISTA_OLD_KPI_HEADER = [
+    'PI',
+    'Período',
+    'Campanha',
+    'Cliente',
+    'Agência',
+    'Praça',
+    'Formato',
+    'KPI',
+    'Volume - Meta',
+    'Volume - Atingido',
+    'Volume usado (KPI)',
+    'Investimento mídia (KPI)',
+    'ValorKPI',
+    'Status PI',
+]
+
+
 def _lista_old_kpi_export_rows(campanhas, footer_totais):
-    header = [
-        'PI', 'Período', 'Campanha', 'Cliente', 'Agência', 'Formato', 'Praça', 'KPI',
-        'Meta', 'Valor KPI (tipo)', 'Valor KPI (R$)', 'Objetivo', 'Status PI', 'vr_liquido_pr_pi',
-    ]
     rows = []
     for c in campanhas:
         meta_val = parse_volume_float(c.get('obj_contratados'))
-        vr_exibir = c.get('valor_plataforma') or c.get('vr_liquido_pr_pi')
-        vr_val = parse_brl_float(vr_exibir)
-        status_pi = c.get('sub_status_pi_nome') or c.get('status_pi_nome') or ''
-        sigla_kpi = sigla_metrica_preco(c.get('objetivo_nome'), c.get('preco_metrica_modalidade'))
+        ating_val = parse_volume_float(c.get('totalizador_atingido'))
+        vol_kpi = c.get('volume_kpi')
+        vol_kpi_f = float(vol_kpi) if vol_kpi is not None else 0.0
+        inv_kpi = c.get('investimento_kpi_brl')
         rows.append([
             c.get('codigo_pi') or '',
-            c.get('mes_ref_comp') or '',
+            _lista_old_kpi_fmt_periodo(c),
             c.get('nome_campanha') or '',
             c.get('cliente_nome') or '',
             c.get('agencia_nome') or '',
-            c.get('formato') or '',
             c.get('praca') or '',
+            c.get('formato') or '',
             c.get('kpi_nome') or '',
             _lista_old_kpi_fmt_num_br(meta_val, 0) if meta_val > 0 else '',
-            sigla_kpi if c.get('preco_metrica_brl') is not None else '',
-            _lista_old_kpi_fmt_num_br(c.get('preco_metrica_brl')) if c.get('preco_metrica_brl') is not None else '',
-            c.get('objetivo_texto') or '',
-            status_pi,
-            _lista_old_kpi_fmt_num_br(vr_val) if vr_val and vr_val > 0 else '',
+            _lista_old_kpi_fmt_num_br(ating_val, 0) if ating_val > 0 else '',
+            _lista_old_kpi_fmt_num_br(vol_kpi_f, 0) if vol_kpi_f > 0 else '',
+            _lista_old_kpi_fmt_num_br(inv_kpi) if inv_kpi is not None else '',
+            _lista_old_kpi_fmt_valor_kpi(c),
+            c.get('sub_status_pi_nome') or c.get('status_pi_nome') or '',
         ])
     rows.append([
-        'TOTAL', '', f"{footer_totais['total_campanhas']} campanha(s)", '', '', '', '', '',
+        'TOTAL',
+        '',
+        f"{footer_totais['total_campanhas']} campanha(s)",
+        '', '', '', '', '',
         _lista_old_kpi_fmt_num_br(footer_totais['total_meta'], 0) if footer_totais['total_meta'] > 0 else '',
-        '', '',
-        '', '',
-        _lista_old_kpi_fmt_num_br(footer_totais['total_vr_liquido_pr']) if footer_totais['total_vr_liquido_pr'] else '',
+        _lista_old_kpi_fmt_num_br(footer_totais['total_atingido'], 0) if footer_totais['total_atingido'] > 0 else '',
+        _lista_old_kpi_fmt_num_br(footer_totais['total_volume_kpi'], 0) if footer_totais['total_volume_kpi'] > 0 else '',
+        _lista_old_kpi_fmt_num_br(footer_totais['total_investimento_kpi']) if footer_totais['total_investimento_kpi'] else '',
+        '',
+        '',
     ])
-    return header, rows
+    return _LISTA_OLD_KPI_HEADER, rows
 
 
 @parametros_bp.route("/listaOLDKPI", methods=["GET"])
@@ -2489,25 +2550,15 @@ def lista_old_kpi():
 @parametros_bp.route("/listaOLDKPI/export", methods=["GET"])
 @login_required
 def lista_old_kpi_export():
-    """Exporta a lista OLD KPI em CSV (UTF-8 BOM + ;) para abrir no Excel."""
+    """Exporta a lista OLD KPI em Excel (.xlsx)."""
     try:
         filtros = _lista_old_kpi_filtros_from_request()
         campanhas, footer_totais = _lista_old_kpi_carregar(filtros)
         header, rows = _lista_old_kpi_export_rows(campanhas, footer_totais)
 
-        buf = io.StringIO()
-        buf.write('\ufeff')
-        writer = csv.writer(buf, delimiter=';')
-        writer.writerow(header)
-        writer.writerows(rows)
-
         mes_suffix = filtros.get('mes_ref_comp', 'todos').replace('/', '-')
-        filename = f"lista_OLD_KPI_{mes_suffix}_{datetime.now().strftime('%Y%m%d')}.csv"
-        return Response(
-            buf.getvalue(),
-            mimetype='text/csv; charset=utf-8',
-            headers={'Content-Disposition': f'attachment; filename="{filename}"'},
-        )
+        filename = f"lista_OLD_KPI_{mes_suffix}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        return _lista_old_kpi_xlsx_response(header, rows, filename)
     except Exception as e:
         current_app.logger.error("Erro export listaOLDKPI: %s", e, exc_info=True)
         flash('Erro ao exportar lista de campanhas.', 'error')

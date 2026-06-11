@@ -61,29 +61,40 @@
         <thead>
           <tr class="bg-gray-50 border-b border-gray-200">
             <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">PI</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Período</th>
             <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Campanha</th>
             <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
             <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Agência</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formato</th>
             <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Praça</th>
+            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Formato</th>
             <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">KPI</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Valor KPI</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Meta</th>
-            <th class="text-left py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Objetivo</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50/60">Volume - Meta</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50/60">Volume - Atingido</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-50">Volume usado (KPI)</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-emerald-800 uppercase tracking-wider bg-emerald-50">Investimento mídia (KPI)</th>
+            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">ValorKPI</th>
             <th class="text-center py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Status PI</th>
-            <th class="text-right py-2.5 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">vr_liquido_pr_pi</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100" id="campanhasTableBody">
           {% for c in campanhas %}
             {% set meta_val = c.obj_contratados|parse_volume_campanha %}
-            {% set vr_exibir = c.valor_plataforma if c.valor_plataforma else c.vr_liquido_pr_pi %}
-            {% set vr_val = vr_exibir|parse_brl_float %}
+            {% set ating_val = c.totalizador_atingido|parse_volume_campanha %}
+            {% set vol_kpi_val = c.volume_kpi if c.volume_kpi is not none else 0 %}
+            {% set inv_kpi_val = c.investimento_kpi_brl %}
             {% set status_pi = c.sub_status_pi_nome or c.status_pi_nome or '—' %}
+            {% set mp = ((c.mes_ref_comp or '')|string).split('/') %}
           <tr class="hover:bg-gray-50 data-row"
-              data-search="{{ (c.codigo_pi or '') ~ ' ' ~ (c.nome_campanha or '') ~ ' ' ~ (c.cliente_nome or '') ~ ' ' ~ (c.agencia_nome or '') ~ ' ' ~ (c.formato or '') ~ ' ' ~ (c.praca or '') ~ ' ' ~ (c.kpi_nome or '') ~ ' ' ~ (c.objetivo_texto or '') ~ ' ' ~ status_pi }}">
+              data-search="{{ (c.codigo_pi or '') ~ ' ' ~ (c.mes_ref_comp or '') ~ ' ' ~ (c.nome_campanha or '') ~ ' ' ~ (c.cliente_nome or '') ~ ' ' ~ (c.agencia_nome or '') ~ ' ' ~ (c.praca or '') ~ ' ' ~ (c.formato or '') ~ ' ' ~ (c.kpi_nome or '') ~ ' ' ~ status_pi }}">
             <td class="py-2 px-3 align-top whitespace-nowrap">
               <div class="text-xs font-bold text-indigo-600">{{ c.codigo_pi or '—' }}</div>
+            </td>
+            <td class="py-2 px-3 align-top whitespace-nowrap text-xs text-gray-600">
+              {% if c.mes_ref_comp %}
+                {% if mp|length >= 2 %}{{ nomes_meses.get(mp[0], mp[0]) }}/{{ mp[1] }}{% else %}{{ c.mes_ref_comp }}{% endif %}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
             </td>
             <td class="py-2 px-3 align-top max-w-[200px]">
               <div class="text-xs font-semibold text-gray-800 truncate" title="{{ c.nome_campanha or '' }}">{{ c.nome_campanha or '—' }}</div>
@@ -95,52 +106,65 @@
               <div class="text-xs text-gray-600 truncate" title="{{ c.agencia_nome or '' }}">{{ c.agencia_nome or '—' }}</div>
             </td>
             <td class="py-2 px-3 align-top max-w-[120px]">
-              <div class="text-xs text-gray-600 truncate" title="{{ c.formato or '' }}">{{ c.formato or '—' }}</div>
+              <div class="text-xs text-gray-600 truncate" title="{{ c.praca or '' }}">{{ c.praca or '—' }}</div>
             </td>
             <td class="py-2 px-3 align-top max-w-[120px]">
-              <div class="text-xs text-gray-600 truncate" title="{{ c.praca or '' }}">{{ c.praca or '—' }}</div>
+              <div class="text-xs text-gray-600 truncate" title="{{ c.formato or '' }}">{{ c.formato or '—' }}</div>
             </td>
             <td class="py-2 px-3 text-center align-top whitespace-nowrap">
               <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">{{ c.kpi_nome or '—' }}</span>
             </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap">
-              {% if c.preco_metrica_brl is not none %}
-                <span class="text-[10px] font-semibold text-emerald-800">{{ sigla_metrica_preco(c.objetivo_nome, c.preco_metrica_modalidade) }}</span>
-                <div class="text-xs font-semibold text-gray-800">R$ {{ '{:,.2f}'.format(c.preco_metrica_brl)|replace(',','X')|replace('.',',')|replace('X','.') }}</div>
-              {% else %}
-                <span class="text-gray-400 text-xs">—</span>
-              {% endif %}
-            </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800 bg-emerald-50/30">
               {% if meta_val > 0 %}
                 {{ '{:,.0f}'.format(meta_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
             </td>
-            <td class="py-2 px-3 align-top max-w-[180px]">
-              <div class="text-xs text-gray-600 truncate" title="{{ c.objetivo_texto or '' }}">{{ c.objetivo_texto or '—' }}</div>
-            </td>
-            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
-              <span class="text-[10px] font-medium text-gray-700">{{ status_pi }}</span>
-            </td>
-            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
-              {% if vr_val > 0 %}
-                {{ vr_val|format_brl }}
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800 bg-emerald-50/30">
+              {% if ating_val > 0 %}
+                {{ '{:,.0f}'.format(ating_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
               {% else %}
                 <span class="text-gray-400">—</span>
               {% endif %}
+            </td>
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-bold text-emerald-900 bg-emerald-50/50">
+              {% if vol_kpi_val > 0 %}
+                {{ '{:,.0f}'.format(vol_kpi_val)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-bold text-emerald-900 bg-emerald-50/50">
+              {% if inv_kpi_val and inv_kpi_val > 0 %}
+                {{ inv_kpi_val|format_brl }}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="py-2 px-3 text-right align-top whitespace-nowrap text-xs font-semibold text-gray-800">
+              {% if c.preco_metrica_brl is not none %}
+                R$ {{ '{:,.2f}'.format(c.preco_metrica_brl)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              {% else %}
+                <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="py-2 px-3 text-center align-top whitespace-nowrap">
+              <span class="text-[10px] font-medium text-gray-700">{{ status_pi }}</span>
             </td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot class="bg-gray-50 border-t-2 border-gray-300">
           <tr class="font-semibold text-[11px] text-gray-700">
-            <td class="py-2.5 px-3" colspan="7">
+            <td class="py-2.5 px-3">
               <span class="uppercase tracking-wide text-gray-500 text-[10px]">Total</span>
-              <span class="ml-2 text-gray-800">{{ footer_totais.total_campanhas }} campanha{% if footer_totais.total_campanhas != 1 %}s{% endif %}</span>
             </td>
             <td class="py-2.5 px-3"></td>
+            <td class="py-2.5 px-3 text-gray-800">
+              {{ footer_totais.total_campanhas }} campanha{% if footer_totais.total_campanhas != 1 %}s{% endif %}
+            </td>
+            <td class="py-2.5 px-3" colspan="5"></td>
             <td class="py-2.5 px-3 text-right text-gray-900">
               {% if footer_totais.total_meta > 0 %}
                 {{ '{:,.0f}'.format(footer_totais.total_meta)|replace(',','X')|replace('.',',')|replace('X','.') }}
@@ -148,15 +172,28 @@
                 —
               {% endif %}
             </td>
-            <td class="py-2.5 px-3"></td>
-            <td class="py-2.5 px-3"></td>
             <td class="py-2.5 px-3 text-right text-gray-900">
-              {% if footer_totais.total_vr_liquido_pr %}
-                {{ footer_totais.total_vr_liquido_pr|format_brl }}
+              {% if footer_totais.total_atingido > 0 %}
+                {{ '{:,.0f}'.format(footer_totais.total_atingido)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="py-2.5 px-3 text-right text-emerald-900">
+              {% if footer_totais.total_volume_kpi > 0 %}
+                {{ '{:,.0f}'.format(footer_totais.total_volume_kpi)|replace(',','X')|replace('.',',')|replace('X','.') }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="py-2.5 px-3 text-right text-emerald-900">
+              {% if footer_totais.total_investimento_kpi %}
+                {{ footer_totais.total_investimento_kpi|format_brl }}
               {% else %}
                 R$ 0,00
               {% endif %}
             </td>
+            <td class="py-2.5 px-3" colspan="2"></td>
           </tr>
         </tfoot>
       </table>

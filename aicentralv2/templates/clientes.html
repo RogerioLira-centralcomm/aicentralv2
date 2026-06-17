@@ -407,10 +407,11 @@
 
         <div id="margem_cc_fields" class="grid grid-cols-2 md:grid-cols-12 gap-2">
           <div class="form-control col-span-1 md:col-span-3">
-            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Margem CC (%)*</label>
-            <input name="margem_cc" type="number" min="20" max="30" step="1" required
+            <label class="text-[10px] font-medium text-gray-600 mb-0.5">Margem CC (%)</label>
+            <input name="margem_cc" type="text" inputmode="numeric"
                    class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400"
-                   placeholder="20 a 30">
+                   placeholder="Opcional" oninput="atualizarHintMargemCc()">
+            <span id="margem_cc_hint" class="text-amber-600 text-[9px]"></span>
           </div>
         </div>
 
@@ -421,7 +422,7 @@
             <select id="select_tipo_cliente" name="id_tipo_cliente" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400 bg-white" required>
               <option value="">Selecione</option>
               {% for tipo in tipos_cliente %}
-                <option value="{{ tipo.id_tipo_cliente }}">{{ tipo.display }}</option>
+                <option value="{{ tipo.id_tipo_cliente }}" data-parceiro="{% if 'parceiro' in (tipo.display or '')|lower %}1{% else %}0{% endif %}">{{ tipo.display }}</option>
               {% endfor %}
             </select>
           </div>
@@ -444,7 +445,7 @@
             </select>
           </div>
           <div id="percentual_fields" class="form-control col-span-1 md:col-span-2">
-            <label class="text-[10px] font-medium text-gray-600 mb-0.5">BV (%)</label>
+            <label id="percentual_label" class="text-[10px] font-medium text-gray-600 mb-0.5">BV (%)</label>
             <input name="percentual" type="text" maxlength="5" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="00,00" oninput="mascaraPercentual(this)">
           </div>
         </div>
@@ -723,6 +724,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (selAgenciaCliente) {
       selAgenciaCliente.addEventListener('change', atualizarVisibilidadeBv);
     }
+
+    const selTipoCliente = document.getElementById('select_tipo_cliente');
+    if (selTipoCliente) {
+      selTipoCliente.addEventListener('change', atualizarVisibilidadeBv);
+    }
     
     // Handler para blur do CNPJ/CPF no modal
     const cnpjInput = document.getElementById('input_cnpj');
@@ -750,6 +756,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (data && data.success) {
           modal_cliente.close();
+
+          if (data.warning) {
+            showToast(data.warning, 'warning');
+          }
 
           if (clienteId) {
             showToast('Cliente atualizado com sucesso!', 'success');
@@ -843,6 +853,8 @@ function abrirModalNovo() {
   document.getElementById('cnpjcpf_msg').innerText = '';
   const inpMargem = document.querySelector('#form_cliente input[name="margem_cc"]');
   if (inpMargem) inpMargem.value = '';
+  const hintMargem = document.getElementById('margem_cc_hint');
+  if (hintMargem) hintMargem.textContent = '';
 
   // Atualizar campos visíveis
   togglePessoaFieldsModal();
@@ -941,6 +953,7 @@ async function abrirModalEditar(clienteId) {
 
     // Atualizar campos visíveis baseado no tipo de pessoa
     togglePessoaFieldsModal();
+    atualizarHintMargemCc();
 
     // Preencher aba de detalhes
     preencherAbaDetalhes(cliente, contatos);
@@ -1066,6 +1079,13 @@ function togglePessoaFieldsModal() {
   atualizarVisibilidadeBv();
 }
 
+function clienteTipoEhParceiro() {
+  const selTipo = document.getElementById('select_tipo_cliente');
+  const optTipo = selTipo?.selectedOptions?.[0];
+  if (optTipo && optTipo.getAttribute('data-parceiro') === '1') return true;
+  return !!(optTipo && (optTipo.textContent || '').toLowerCase().includes('parceiro'));
+}
+
 function atualizarVisibilidadeBv() {
   const formCliente = document.getElementById('form_cliente');
   if (!formCliente) return;
@@ -1073,6 +1093,7 @@ function atualizarVisibilidadeBv() {
   const percentualFields = document.getElementById('percentual_fields');
   if (!percentualFields) return;
   const inputPercentual = percentualFields.querySelector('input[name="percentual"]');
+  const labelPercentual = document.getElementById('percentual_label');
   if (pessoa !== 'J') {
     percentualFields.style.display = 'none';
     if (inputPercentual) inputPercentual.value = '';
@@ -1080,12 +1101,28 @@ function atualizarVisibilidadeBv() {
   }
   const sel = formCliente.querySelector('select[name="pk_id_tbl_agencia"]');
   const opt = sel?.selectedOptions?.[0];
-  const sim = opt && opt.getAttribute('data-agencia-sim') === '1';
-  if (sim) {
+  const agenciaSim = opt && opt.getAttribute('data-agencia-sim') === '1';
+  const parceiro = clienteTipoEhParceiro();
+  if (labelPercentual) labelPercentual.textContent = parceiro ? 'Percentual (%)' : 'BV (%)';
+  if (parceiro || agenciaSim) {
     percentualFields.style.display = '';
   } else {
     percentualFields.style.display = 'none';
     if (inputPercentual) inputPercentual.value = '';
+  }
+}
+
+function atualizarHintMargemCc() {
+  const formCliente = document.getElementById('form_cliente');
+  if (!formCliente) return;
+  const inp = formCliente.querySelector('input[name="margem_cc"]');
+  const hint = document.getElementById('margem_cc_hint');
+  if (!inp || !hint) return;
+  const raw = (inp.value || '').trim();
+  if (raw === '' || isNaN(parseFloat(raw.replace(',', '.')))) {
+    hint.textContent = 'Vazio/inválido: será salva como 0.';
+  } else {
+    hint.textContent = '';
   }
 }
 

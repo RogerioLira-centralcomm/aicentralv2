@@ -120,6 +120,33 @@ def _parse_pi_com_vendas_pct(raw):
     return f'{valor}%'
 
 
+def _parse_margem_cc_livre(raw):
+    """Margem CC sem bloqueio: qualquer número é aceito; vazio/inválido vira 0.
+
+    Retorna (valor_inteiro, defaulted_para_zero). Decimais são arredondados para
+    manter compatibilidade com a coluna inteira `tbl_cliente.margem_cc`.
+    """
+    s = ('' if raw is None else str(raw)).strip().replace(',', '.')
+    if s == '':
+        return 0, True
+    try:
+        return int(round(float(s))), False
+    except (TypeError, ValueError):
+        return 0, True
+
+
+def _cliente_tipo_eh_parceiro(id_tipo_cliente):
+    """True se o tipo de cliente for Parceiro Regional (detecta pelo display)."""
+    if not id_tipo_cliente:
+        return False
+    try:
+        tipo = db.obter_tipo_cliente_por_id(id_tipo_cliente)
+    except Exception:
+        return False
+    display = (tipo.get('display') if isinstance(tipo, dict) else None) or ''
+    return 'parceiro' in display.lower()
+
+
 def _comissao_row_to_js(r, opts_rows):
     """Monta dict só com tipos serializáveis em JSON (evita Decimal/datetime no |tojson)."""
     raw_pct = r.get('percentual')
@@ -1196,13 +1223,8 @@ def init_routes(app):
                 elif not pk_id_tbl_agencia:
                     return _edit_error('Agência é obrigatória para Pessoa Jurídica!')
 
-                mc_raw = request.form.get('margem_cc', '').strip()
-                try:
-                    margem_cc_val = int(mc_raw) if mc_raw != '' else None
-                except ValueError:
-                    margem_cc_val = None
-                if margem_cc_val is None or margem_cc_val < 20 or margem_cc_val > 30:
-                    return _edit_error('Margem CC deve ser um inteiro entre 20 e 30.')
+                mc_raw = request.form.get('margem_cc', '')
+                margem_cc_val, margem_cc_zerada = _parse_margem_cc_livre(mc_raw)
 
                 percentual_valor = None
                 if pessoa == 'J' and percentual:
@@ -1212,14 +1234,12 @@ def init_routes(app):
                     except ValueError:
                         percentual_valor = None
 
+                eh_parceiro_ed = _cliente_tipo_eh_parceiro(id_tipo_cliente)
                 if pessoa == 'J' and pk_id_tbl_agencia:
                     ag_ed = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
                     ag_key_ed = (str(ag_ed.get('key')).lower() if isinstance(ag_ed, dict) and ag_ed.get('key') is not None else '')
                     is_ag_sim_ed = (ag_ed.get('key') is True) or (ag_key_ed in ('sim', 'true', '1', 's', 'yes', 'y'))
-                    if is_ag_sim_ed:
-                        if not percentual:
-                            return _edit_error('BV é obrigatório quando Agência = Sim.')
-                    else:
+                    if not is_ag_sim_ed and not eh_parceiro_ed:
                         percentual_valor = None
 
                 if not db.atualizar_cliente(
@@ -1259,7 +1279,10 @@ def init_routes(app):
                 )
                 
                 if is_ajax:
-                    return jsonify({'success': True, 'id_cliente': cliente_id, 'nome_fantasia': nome_fantasia})
+                    resp = {'success': True, 'id_cliente': cliente_id, 'nome_fantasia': nome_fantasia}
+                    if margem_cc_zerada:
+                        resp['warning'] = 'Margem CC vazia/inválida: salva como 0.'
+                    return jsonify(resp)
 
                 flash(f'Cliente "{nome_fantasia}" atualizado!', 'success')
                 return redirect(url_for('clientes'))
@@ -3243,21 +3266,8 @@ def init_routes(app):
                 elif not pk_id_tbl_agencia:
                     return _val_error('Agência é obrigatória para Pessoa Jurídica!')
 
-                mc_raw_novo = request.form.get('margem_cc', '').strip()
-                try:
-                    margem_cc_novo = int(mc_raw_novo) if mc_raw_novo != '' else None
-                except ValueError:
-                    margem_cc_novo = None
-                if margem_cc_novo is None or margem_cc_novo < 20 or margem_cc_novo > 30:
-                    return _val_error('Margem CC deve ser um inteiro entre 20 e 30.')
-
-                # BV obrigatório quando Agência = Sim (Pessoa Jurídica)
-                if pessoa == 'J' and pk_id_tbl_agencia:
-                    ag = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
-                    ag_key = (str(ag.get('key')).lower() if isinstance(ag, dict) and ag.get('key') is not None else '')
-                    if (ag.get('key') is True) or (ag_key in ('sim', 'true', '1', 's', 'yes', 'y')):
-                        if not percentual:
-                            return _val_error('BV é obrigatório quando Agência = Sim.')
+                mc_raw_novo = request.form.get('margem_cc', '')
+                margem_cc_novo, margem_cc_zerada_novo = _parse_margem_cc_livre(mc_raw_novo)
 
                 percentual_valor = None
                 if pessoa == 'J' and percentual:
@@ -3267,11 +3277,12 @@ def init_routes(app):
                     except ValueError:
                         percentual_valor = None
 
+                eh_parceiro_novo = _cliente_tipo_eh_parceiro(id_tipo_cliente)
                 if pessoa == 'J' and pk_id_tbl_agencia:
                     ag2 = db.obter_aux_agencia_por_id(pk_id_tbl_agencia)
                     ag_key2 = (str(ag2.get('key')).lower() if isinstance(ag2, dict) and ag2.get('key') is not None else '')
                     is_ag_sim_novo = (ag2.get('key') is True) or (ag_key2 in ('sim', 'true', '1', 's', 'yes', 'y'))
-                    if not is_ag_sim_novo:
+                    if not is_ag_sim_novo and not eh_parceiro_novo:
                         percentual_valor = None
 
                 id_cliente = db.criar_cliente(
@@ -3347,7 +3358,10 @@ def init_routes(app):
                     app.logger.warning(f"Erro ao criar plano para cliente {id_cliente}: {e}")
                 
                 if request.form.get('_return_json'):
-                    return jsonify({'success': True, 'id_cliente': id_cliente, 'nome_fantasia': nome_fantasia, 'razao_social': razao_social})
+                    resp = {'success': True, 'id_cliente': id_cliente, 'nome_fantasia': nome_fantasia, 'razao_social': razao_social}
+                    if margem_cc_zerada_novo:
+                        resp['warning'] = 'Margem CC vazia/inválida: salva como 0.'
+                    return jsonify(resp)
 
                 flash(f'Cliente "{nome_fantasia}" criado com sucesso!', 'success')
                 return redirect(url_for('clientes'))

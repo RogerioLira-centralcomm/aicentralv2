@@ -427,6 +427,18 @@ def cotacao_nova():
                 'parceiro_user_id': request.form.get('parceiro_user_id', type=int)
                 if request.form.get('parceiro_user_id')
                 else None,
+                'praca': request.form.get('praca', '').strip(),
+                'frequencia_impacto': request.form.get('frequencia_impacto', '').strip(),
+                'estimativa_impactos_unicos': request.form.get('estimativa_impactos_unicos', type=int)
+                if request.form.get('estimativa_impactos_unicos')
+                else None,
+                'dados_demograficos': request.form.get('dados_demograficos', '').strip(),
+                'perfil_audiencia_interesses': request.form.get('perfil_audiencia_interesses', '').strip(),
+                'data_envio': request.form.get('data_envio', '').strip() or None,
+                'validade_dias': request.form.get('validade_dias', type=int)
+                if request.form.get('validade_dias')
+                else None,
+                'premissas': request.form.get('premissas', '').strip(),
             }
             kwargs = {k: v for k, v in kwargs.items() if v is not None and v != ''}
 
@@ -556,6 +568,18 @@ def cotacao_editar(cotacao_id):
                 'link_publico_ativo': 'link_publico_ativo' in request.form,
                 'link_publico_token': request.form.get('link_publico_token', '').strip(),
                 'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
+                'praca': request.form.get('praca', '').strip(),
+                'frequencia_impacto': request.form.get('frequencia_impacto', '').strip(),
+                'estimativa_impactos_unicos': request.form.get('estimativa_impactos_unicos', type=int)
+                if request.form.get('estimativa_impactos_unicos')
+                else None,
+                'dados_demograficos': request.form.get('dados_demograficos', '').strip(),
+                'perfil_audiencia_interesses': request.form.get('perfil_audiencia_interesses', '').strip(),
+                'data_envio': request.form.get('data_envio', '').strip() or None,
+                'validade_dias': request.form.get('validade_dias', type=int)
+                if request.form.get('validade_dias')
+                else None,
+                'premissas': request.form.get('premissas', '').strip(),
             }
             update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None and v != ''}
 
@@ -655,6 +679,14 @@ def cotacao_detalhes(cotacao_id):
                     'observacoes_internas': request.form.get('observacoes_internas'),
                     'desconto_total': request.form.get('desconto_total'),
                     'condicoes_comerciais': request.form.get('condicoes_comerciais'),
+                    'praca': request.form.get('praca'),
+                    'frequencia_impacto': request.form.get('frequencia_impacto'),
+                    'estimativa_impactos_unicos': request.form.get('estimativa_impactos_unicos') or None,
+                    'dados_demograficos': request.form.get('dados_demograficos'),
+                    'perfil_audiencia_interesses': request.form.get('perfil_audiencia_interesses'),
+                    'data_envio': request.form.get('data_envio') or None,
+                    'validade_dias': request.form.get('validade_dias') or None,
+                    'premissas': request.form.get('premissas'),
                 }
 
                 novo_status = dados.get('status')
@@ -732,6 +764,29 @@ def cotacao_detalhes(cotacao_id):
         current_app.logger.error(f"cotacao_detalhes: {e}", exc_info=True)
         flash('Erro ao carregar cotação.', 'error')
         return redirect(url_for('cotacoes.cotacoes_list'))
+
+
+@bp.route('/cotacoes/<int:cotacao_id>/proposta-pdf')
+@login_required
+def cotacao_proposta_pdf(cotacao_id):
+    """Gera e retorna o PDF da Proposta CentralComm Programmatic da cotação."""
+    from flask import make_response
+    from aicentralv2.services.proposta_pdf import gerar_proposta_programmatic_pdf
+
+    try:
+        if not db.obter_cotacao_por_id(cotacao_id):
+            flash('Cotação não encontrada.', 'error')
+            return redirect(url_for('cotacoes.cotacoes_list'))
+
+        pdf_bytes, filename = gerar_proposta_programmatic_pdf(cotacao_id)
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename={filename}'
+        return response
+    except Exception as e:
+        current_app.logger.error(f"cotacao_proposta_pdf: {e}", exc_info=True)
+        flash(f'Erro ao gerar proposta em PDF: {e}', 'error')
+        return redirect(url_for('cotacoes.cotacao_detalhes', cotacao_id=cotacao_id))
 
 
 # --- API ---
@@ -837,9 +892,17 @@ def api_atualizar_cotacao_teste(cotacao_id):
             'link_publico_token',
             'link_publico_expires_at',
             'aprovada_em',
+            'praca',
+            'frequencia_impacto',
+            'estimativa_impactos_unicos',
+            'dados_demograficos',
+            'perfil_audiencia_interesses',
+            'data_envio',
+            'validade_dias',
+            'premissas',
         ]
 
-        campos_data = ['periodo_inicio', 'periodo_fim', 'expires_at', 'link_publico_expires_at', 'aprovada_em']
+        campos_data = ['periodo_inicio', 'periodo_fim', 'expires_at', 'link_publico_expires_at', 'aprovada_em', 'data_envio']
 
         update_data = {}
         for campo in campos_permitidos:

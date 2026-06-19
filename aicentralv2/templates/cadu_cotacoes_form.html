@@ -6,36 +6,44 @@
 <style>
   /* Remove padding do main container apenas nesta página */
   main { padding: 0 !important; }
+  .tab-nav-item { border-bottom: 2px solid transparent; }
+  .tab-nav-item.active { color: #065f46; border-bottom-color: #10b981; font-weight: 600; }
+  .tab-nav-item.active .tab-nav-icon { color: #10b981; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="bg-gray-50">
-  <!-- Header Compacto com ações -->
-  <div class="bg-white border-b border-gray-200 px-3 py-1 shadow-sm">
-    <div class="max-w-4xl mx-auto flex items-center justify-between gap-2">
-      <!-- Voltar + Título -->
-      <div class="flex items-center gap-1.5">
-        <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="p-0.5 rounded hover:bg-gray-100 transition-colors text-gray-500" title="Voltar">
+  <!-- Header compacto (estilo detalhes) -->
+  <div class="bg-white border-b border-gray-200 px-2 py-1 shadow-sm sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
+      <!-- Voltar + Título + Número -->
+      <div class="flex items-center gap-2 min-w-0">
+        <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="p-1 rounded hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0" title="Voltar">
           <i class="fas fa-arrow-left text-[10px]"></i>
         </a>
-        <h1 class="text-xs font-semibold text-gray-800">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
+        <div class="min-w-0 flex items-center gap-2">
+          <h1 class="text-xs font-semibold text-gray-800 leading-tight truncate">{% if modo == 'novo' %}Nova Cotação{% else %}Editar Cotação{% endif %}</h1>
+          {% if modo == 'editar' and cotacao %}
+          <span class="text-[10px] font-mono font-semibold text-gray-700 bg-gray-100 px-1 py-0.5 rounded flex-shrink-0">{{ cotacao.numero_cotacao }}</span>
+          {% endif %}
+        </div>
       </div>
-      
+
       <!-- Ações -->
-      <div class="flex items-center gap-1.5">
-        <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="hidden sm:inline-flex px-2 py-1 text-[10px] border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors">
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="px-2.5 py-1 text-xs border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors">
           Cancelar
         </a>
-        <button type="submit" form="cotacao_form" class="px-2 py-1 text-[10px] rounded text-white font-medium transition-colors shadow-sm hover:shadow" style="background-color: #72cd80;">
-          <i class="fas fa-check mr-1"></i>{% if modo == 'novo' %}Criar cotação{% else %}Salvar{% endif %}
+        <button type="submit" form="cotacao_form" class="px-2.5 py-1 text-xs rounded text-white font-medium transition-colors shadow-sm hover:shadow flex items-center gap-1.5" style="background-color: #72cd80;">
+          <i class="fas fa-check text-[10px]"></i>{% if modo == 'novo' %}Criar cotação{% else %}Salvar{% endif %}
         </button>
       </div>
     </div>
   </div>
 
   <!-- Container Central -->
-  <div class="max-w-4xl mx-auto px-4 py-1">
+  <div class="max-w-6xl mx-auto px-2 py-2">
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -49,325 +57,417 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Stepper horizontal com fundo verde (fixo) -->
-  <div class="bg-green-50 border border-green-200 rounded-lg px-3 py-1 mb-1 overflow-x-auto sticky top-0 z-30">
-    <div class="flex items-center justify-center gap-0 min-w-max">
-      <div class="flex items-center" id="step_1">
-        <div id="step_circle_1" onclick="scrollToBloco(1)" class="cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200">1</div>
-        <span id="step_label_1" class="ml-1 text-[10px] text-green-700 transition-all">Identificação</span>
+  {# ==================== BARRA DE MÉTRICAS (5 cards) ==================== #}
+  {% set _status = (cotacao.status if (modo == 'editar' and cotacao) else 'Rascunho') %}
+  {% set _status_cores = {
+    'Rascunho': 'bg-gray-400',
+    'Em Análise': 'bg-blue-400',
+    'Enviada': 'bg-yellow-400',
+    'Aprovada': 'bg-green-500',
+    'Rejeitada': 'bg-red-500',
+    'Expirada': 'bg-gray-500',
+    'Em Acompanhamento': 'bg-purple-500'
+  } %}
+  {% set _status_cor = _status_cores.get(_status, 'bg-gray-300') %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
+    <!-- Status -->
+    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
+      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0">
+        <span class="w-2.5 h-2.5 rounded-full {{ _status_cor }}"></span>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Status</p>
+        <p class="text-sm font-semibold text-gray-800 truncate">{{ _status }}</p>
       </div>
-      <div id="step_line_1" class="w-6 h-px bg-green-300 mx-1 transition-all"></div>
-      <div class="flex items-center" id="step_2">
-        <div id="step_circle_2" onclick="scrollToBloco(2)" class="cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200">2</div>
-        <span id="step_label_2" class="ml-1 text-[10px] text-green-700 transition-all">Envolvidos</span>
+    </div>
+    <!-- Valor líquido -->
+    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
+      <span class="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0 text-emerald-600">
+        <i class="fas fa-coins text-xs"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Valor líquido</p>
+        <p class="text-sm font-semibold text-gray-400 truncate" id="card_valor_liquido">—</p>
       </div>
-      <div id="step_line_2" class="w-6 h-px bg-green-300 mx-1 transition-all"></div>
-      <div class="flex items-center" id="step_3">
-        <div id="step_circle_3" onclick="scrollToBloco(3)" class="cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200">3</div>
-        <span id="step_label_3" class="ml-1 text-[10px] text-green-700 transition-all">Briefing</span>
+    </div>
+    <!-- Budget -->
+    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
+      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
+        <i class="fas fa-bullseye text-xs"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Budget</p>
+        <p class="text-sm font-semibold text-gray-800 truncate" id="card_budget">R$ {{ "{:,.2f}".format(cotacao.budget_estimado or 0).replace(',', '_').replace('.', ',').replace('_', '.') if (modo == 'editar' and cotacao) else '0,00' }}</p>
       </div>
-      <div id="step_line_3" class="w-6 h-px bg-green-300 mx-1 transition-all"></div>
-      <div class="flex items-center" id="step_4">
-        <div id="step_circle_4" onclick="scrollToBloco(4)" class="cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200">4</div>
-        <span id="step_label_4" class="ml-1 text-[10px] text-green-700 transition-all">Prazo</span>
+    </div>
+    <!-- Período -->
+    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
+      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
+        <i class="fas fa-calendar-alt text-xs"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Período</p>
+        <p class="text-xs font-semibold text-gray-800 truncate" id="card_periodo">{{ cotacao.periodo_inicio.strftime('%d/%m/%Y') if (modo == 'editar' and cotacao and cotacao.periodo_inicio) else '—' }}{% if modo == 'editar' and cotacao and cotacao.periodo_fim %} - {{ cotacao.periodo_fim.strftime('%d/%m/%Y') }}{% endif %}</p>
       </div>
-      <div id="step_line_4" class="w-6 h-px bg-green-300 mx-1 transition-all"></div>
-      <div class="flex items-center" id="step_5">
-        <div id="step_circle_5" onclick="scrollToBloco(5)" class="cursor-pointer flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 border border-green-300 transition-all hover:bg-green-200">5</div>
-        <span id="step_label_5" class="ml-1 text-[10px] text-green-700 transition-all">Escopo</span>
+    </div>
+    <!-- Plataforma -->
+    <div class="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2.5">
+      <span class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-500">
+        <i class="fas fa-tv text-xs"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[9px] uppercase tracking-wide text-gray-500 leading-tight">Plataforma</p>
+        <p class="text-sm font-semibold text-gray-400 truncate">—</p>
       </div>
     </div>
   </div>
 
-  <form id="cotacao_form" method="POST" class="space-y-1">
-
-    <!-- Bloco 1: Identificação -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-1" id="bloco_identificacao">
-      <div class="flex items-center justify-between mb-1">
-        <div class="flex items-center gap-2">
-          <div id="bloco_circle_1" class="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[8px] font-semibold transition-all">1</div>
-          <h2 class="text-[10px] font-semibold text-gray-800">Identificação</h2>
-        </div>
-        {% if modo == 'editar' and cotacao %}
-        <div class="flex items-center gap-1">
-          <span class="text-[9px] text-gray-500">Nº</span>
-          <span class="text-[10px] font-medium text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{{ cotacao.numero_cotacao }}</span>
-        </div>
-        {% endif %}
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">
-            Nome da Campanha <span class="text-red-500">*</span>
-            {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'nome_campanha')">Corrigir</button>{% endif %}
-          </label>
-          <input type="text" name="nome_campanha" id="nome_campanha"
-                 value="{{ cotacao.nome_campanha if cotacao else '' }}"
-                 class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
-                 placeholder="Ex: Campanha Verão 2025" required
-                 {% if modo == 'editar' %}readonly{% endif %}>
-        </div>
-
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Responsável Comercial <span class="text-red-500">*</span></label>
-          <select name="responsavel_comercial" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
-            <option value="">Selecione...</option>
-            {% for vendedor in vendedores %}
-            <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bloco 2: Envolvidos -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-1" id="bloco_cliente">
-      <div class="flex items-center gap-2 mb-1">
-        <div id="bloco_circle_2" class="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[8px] font-semibold transition-all">2</div>
-        <h2 class="text-[10px] font-semibold text-gray-800">Envolvidos</h2>
-      </div>
-
-      <!-- Hidden inputs -->
-      <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
-      <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
-      <input type="hidden" name="id_parceiro" id="id_parceiro" value="{% if modo == 'editar' and cotacao and cotacao.id_parceiro %}{{ cotacao.id_parceiro }}{% endif %}">
-
-      <!-- Grid 3 colunas: Cliente | Agência | Parceiro -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <!-- Coluna Cliente -->
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Cliente <span class="text-red-500">*</span></label>
-          <div class="flex gap-0.5 items-center mb-0.5">
-            <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
-              <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
-            </div>
-            <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Buscar cliente">
-              <i class="fas fa-search text-[9px]"></i>
-            </button>
-            <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Novo Cliente">
-              <i class="fas fa-plus text-[9px]"></i>
-            </button>
-          </div>
-          <label class="block text-[8px] font-medium text-gray-500">Contato</label>
-          <select name="client_user_id" id="client_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
-            <option value="">Selecione...</option>
-            {% if cotacao and contatos_cliente %}
-              {% for contato in contatos_cliente %}
-              <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-        </div>
-
-        <!-- Coluna Agência -->
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Agência</label>
-          <div class="flex gap-0.5 items-center mb-0.5">
-            <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
-              <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
-            </div>
-            <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Buscar agência">
-              <i class="fas fa-search text-[9px]"></i>
-            </button>
-            <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Nova Agência">
-              <i class="fas fa-plus text-[9px]"></i>
-            </button>
-            <button type="button" onclick="limparAgencia()" class="p-0.5 rounded border border-gray-300 hover:bg-red-50 hover:border-red-300 transition-colors text-gray-400 hover:text-red-500" title="Limpar agência">
-              <i class="fas fa-times text-[9px]"></i>
-            </button>
-          </div>
-          <label class="block text-[8px] font-medium text-gray-500">Contato</label>
-          <select name="agencia_user_id" id="agencia_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
-            <option value="">Selecione...</option>
-            {% if cotacao and contatos_agencia %}
-              {% for contato in contatos_agencia %}
-              <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-        </div>
-
-        <!-- Coluna Parceiro -->
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Parceiro</label>
-          <div class="flex gap-0.5 items-center mb-0.5">
-            <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
-              <span id="nome_parceiro_selecionado">{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %}{{ cotacao.parceiro_nome }}{% else %}Nenhum{% endif %}</span>
-            </div>
-            <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Buscar parceiro">
-              <i class="fas fa-search text-[9px]"></i>
-            </button>
-            <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Novo Parceiro">
-              <i class="fas fa-plus text-[9px]"></i>
-            </button>
-            <button type="button" onclick="limparParceiro()" class="p-0.5 rounded border border-gray-300 hover:bg-red-50 hover:border-red-300 transition-colors text-gray-400 hover:text-red-500" title="Limpar parceiro">
-              <i class="fas fa-times text-[9px]"></i>
-            </button>
-          </div>
-          <label class="block text-[8px] font-medium text-gray-500">Contato</label>
-          <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
-            <option value="">Selecione...</option>
-            {% if cotacao and contatos_parceiro %}
-              {% for contato in contatos_parceiro %}
-              <option value="{{ contato.id_contato_cliente }}" {% if cotacao.parceiro_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
-              {% endfor %}
-            {% endif %}
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bloco 3: Briefing (Colapsável) -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible" id="bloco_briefing">
-      <button type="button" onclick="toggleBriefingSection()" class="w-full px-1 py-1 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-lg">
-        <div class="flex items-center gap-2">
-          <div id="bloco_circle_3" class="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[8px] font-semibold transition-all">3</div>
-          <h2 class="text-[10px] font-semibold text-gray-800">Briefing</h2>
-          <span class="text-[8px] text-gray-400">Opcional</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span id="briefing_badge" class="{% if cotacao and cotacao.briefing_id %}inline-flex{% else %}hidden{% endif %} items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-700">
-            <i class="fas fa-link mr-1"></i>Vinculado
-          </span>
-          <i id="briefing_chevron" class="fas fa-chevron-down text-gray-400 text-[10px] transition-transform duration-200"></i>
-        </div>
+  <!-- ==================== ABAS (apenas Resumo) ==================== -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-2 px-2">
+    <nav class="flex items-center gap-1">
+      <button type="button" class="tab-nav-item active px-3 py-2 text-xs flex items-center gap-1.5 whitespace-nowrap text-gray-600">
+        <i class="fas fa-th-large text-gray-400 tab-nav-icon"></i> Resumo
       </button>
-      
-      <div id="briefing_content" class="hidden border-t border-gray-100 px-1 py-1">
-        <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
-        <div class="relative">
-          <label class="block text-[9px] font-medium text-gray-600">Buscar briefing</label>
-          <div class="flex gap-1">
-            <div class="flex-1 relative">
-              <input type="text"
-                     id="briefing_busca"
-                     class="w-full text-[11px] border border-gray-200 rounded px-2 py-1 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
-                     placeholder="Digite para buscar briefing..."
-                     value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
-                     oninput="buscarBriefingsAutocomplete(this.value)"
-                     onfocus="mostrarSugestoesBriefing()"
-                     autocomplete="off">
-              <div id="briefing_sugestoes" class="absolute z-50 w-full bg-white border border-gray-200 rounded shadow-lg max-h-40 overflow-y-auto hidden mt-1">
+    </nav>
+  </div>
+
+  <form id="cotacao_form" method="POST">
+
+    <!-- Hidden inputs -->
+    <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
+    <input type="hidden" name="agencia_id" id="agencia_id" value="{% if modo == 'editar' and cotacao and cotacao.agencia_id %}{{ cotacao.agencia_id }}{% endif %}">
+    <input type="hidden" name="id_parceiro" id="id_parceiro" value="{% if modo == 'editar' and cotacao and cotacao.id_parceiro %}{{ cotacao.id_parceiro }}{% endif %}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
+
+      <!-- ===== Card 1: Cliente e responsáveis ===== -->
+      <div class="bg-white rounded border border-gray-200 p-2">
+        <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-2">
+          <i class="fas fa-building text-gray-400"></i> Cliente e responsáveis
+        </h2>
+        <div class="space-y-2">
+          <!-- Cliente -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Cliente <span class="text-red-500">*</span></label>
+            <div class="flex gap-0.5 items-center mb-0.5">
+              <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
+                <span id="nome_cliente_selecionado">{% if modo == 'editar' and cotacao %}{{ cotacao.cliente_nome }}{% else %}Selecione...{% endif %}</span>
+              </div>
+              <button type="button" onclick="document.getElementById('modal_escolher_cliente').showModal()" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Buscar cliente">
+                <i class="fas fa-search text-[9px]"></i>
+              </button>
+              <button type="button" onclick="abrirModalNovoCliente('cliente')" class="p-0.5 rounded border border-green-300 hover:bg-green-50 transition-colors text-green-600" title="Novo Cliente">
+                <i class="fas fa-plus text-[9px]"></i>
+              </button>
+            </div>
+            <label class="block text-[8px] font-medium text-gray-500">Contato</label>
+            <select name="client_user_id" id="client_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+              <option value="">Selecione...</option>
+              {% if cotacao and contatos_cliente %}
+                {% for contato in contatos_cliente %}
+                <option value="{{ contato.id_contato_cliente }}" {% if cotacao.client_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+
+          <!-- Agência -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Agência</label>
+            <div class="flex gap-0.5 items-center mb-0.5">
+              <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
+                <span id="nome_agencia_selecionada">{% if modo == 'editar' and cotacao and cotacao.agencia_nome %}{{ cotacao.agencia_nome }}{% else %}Nenhuma{% endif %}</span>
+              </div>
+              <button type="button" onclick="document.getElementById('modal_escolher_agencia').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Buscar agência">
+                <i class="fas fa-search text-[9px]"></i>
+              </button>
+              <button type="button" onclick="abrirModalNovoCliente('agencia')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Nova Agência">
+                <i class="fas fa-plus text-[9px]"></i>
+              </button>
+              <button type="button" onclick="limparAgencia()" class="p-0.5 rounded border border-gray-300 hover:bg-red-50 hover:border-red-300 transition-colors text-gray-400 hover:text-red-500" title="Limpar agência">
+                <i class="fas fa-times text-[9px]"></i>
+              </button>
+            </div>
+            <label class="block text-[8px] font-medium text-gray-500">Contato</label>
+            <select name="agencia_user_id" id="agencia_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+              <option value="">Selecione...</option>
+              {% if cotacao and contatos_agencia %}
+                {% for contato in contatos_agencia %}
+                <option value="{{ contato.id_contato_cliente }}" {% if cotacao.agencia_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+
+          <!-- Parceiro -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Parceiro</label>
+            <div class="flex gap-0.5 items-center mb-0.5">
+              <div class="flex-1 px-1.5 py-0.5 border border-gray-200 rounded bg-white text-[10px] truncate flex items-center text-gray-700 min-h-[20px]">
+                <span id="nome_parceiro_selecionado">{% if modo == 'editar' and cotacao and cotacao.parceiro_nome %}{{ cotacao.parceiro_nome }}{% else %}Nenhum{% endif %}</span>
+              </div>
+              <button type="button" onclick="document.getElementById('modal_escolher_parceiro').showModal()" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Buscar parceiro">
+                <i class="fas fa-search text-[9px]"></i>
+              </button>
+              <button type="button" onclick="abrirModalNovoCliente('parceiro')" class="p-0.5 rounded border border-gray-300 hover:bg-gray-100 transition-colors text-gray-500" title="Novo Parceiro">
+                <i class="fas fa-plus text-[9px]"></i>
+              </button>
+              <button type="button" onclick="limparParceiro()" class="p-0.5 rounded border border-gray-300 hover:bg-red-50 hover:border-red-300 transition-colors text-gray-400 hover:text-red-500" title="Limpar parceiro">
+                <i class="fas fa-times text-[9px]"></i>
+              </button>
+            </div>
+            <label class="block text-[8px] font-medium text-gray-500">Contato</label>
+            <select name="parceiro_user_id" id="parceiro_user_id" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+              <option value="">Selecione...</option>
+              {% if cotacao and contatos_parceiro %}
+                {% for contato in contatos_parceiro %}
+                <option value="{{ contato.id_contato_cliente }}" {% if cotacao.parceiro_user_id == contato.id_contato_cliente %}selected{% endif %}>{{ contato.nome_completo }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+
+          <!-- Responsável Comercial -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Responsável Comercial <span class="text-red-500">*</span></label>
+            <select name="responsavel_comercial" class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all">
+              <option value="">Selecione...</option>
+              {% for vendedor in vendedores %}
+              <option value="{{ vendedor.id_contato_cliente }}" {% if cotacao and cotacao.responsavel_comercial == vendedor.id_contato_cliente %}selected{% endif %}>{{ vendedor.nome_completo }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Briefing -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Briefing <span class="text-gray-400 font-normal">(opcional)</span></label>
+            <input type="hidden" name="briefing_id" id="briefing_id" value="{% if cotacao and cotacao.briefing_id %}{{ cotacao.briefing_id }}{% endif %}">
+            <div class="relative">
+              <div class="flex gap-0.5">
+                <div class="flex-1 relative">
+                  <input type="text"
+                         id="briefing_busca"
+                         class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                         placeholder="Digite para buscar briefing..."
+                         value="{% if cotacao and cotacao.briefing_titulo %}{{ cotacao.briefing_titulo }}{% endif %}"
+                         oninput="buscarBriefingsAutocomplete(this.value)"
+                         onfocus="mostrarSugestoesBriefing()"
+                         autocomplete="off">
+                  <div id="briefing_sugestoes" class="absolute z-50 w-full bg-white border border-gray-200 rounded shadow-lg max-h-40 overflow-y-auto hidden mt-1">
+                  </div>
+                </div>
+                <button type="button" id="briefing_btn_busca" class="p-0.5 rounded text-white transition-colors" style="background-color:#72cd80;" onclick="mostrarSugestoesBriefing()" title="Buscar briefing">
+                  <i class="fas fa-search text-[9px]"></i>
+                </button>
+                <button type="button" id="briefing_btn_limpar" class="p-0.5 rounded bg-gray-100 border border-gray-300 hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors" onclick="limparBriefingSelecionado()" title="Limpar">
+                  <i class="fas fa-times text-[9px]"></i>
+                </button>
+              </div>
+              <div id="briefing_empty_state" class="{% if cotacao and cotacao.briefing_id %}hidden{% endif %} text-center py-1.5 text-gray-400 text-[9px] mt-1 border border-dashed border-gray-200 rounded">
+                <i class="fas fa-file-alt text-xs mb-0.5 block"></i>
+                Nenhum briefing vinculado
               </div>
             </div>
-            <button type="button" id="briefing_btn_busca" class="px-2 py-1 rounded text-white transition-colors" style="background-color:#72cd80;" onclick="mostrarSugestoesBriefing()" title="Buscar briefing">
-              <i class="fas fa-search text-[10px]"></i>
-            </button>
-            <button type="button" id="briefing_btn_limpar" class="px-2 py-1 rounded bg-gray-100 border border-gray-300 hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors" onclick="limparBriefingSelecionado()" title="Limpar">
-              <i class="fas fa-times text-[10px]"></i>
-            </button>
-          </div>
-          <div id="briefing_empty_state" class="{% if cotacao and cotacao.briefing_id %}hidden{% endif %} text-center py-2 text-gray-400 text-[10px] mt-1 border border-dashed border-gray-200 rounded">
-            <i class="fas fa-file-alt text-sm mb-0.5 block"></i>
-            Nenhum briefing vinculado
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Bloco 4: Prazo e Orçamento -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-1" id="bloco_prazo">
-      <div class="flex items-center gap-2 mb-1">
-        <div id="bloco_circle_4" class="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[8px] font-semibold transition-all">4</div>
-        <h2 class="text-[10px] font-semibold text-gray-800">Prazo e Budget</h2>
-      </div>
+      <!-- ===== Card 2: Detalhes da campanha ===== -->
+      <div class="bg-white rounded border border-gray-200 p-2">
+        <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-2">
+          <i class="fas fa-bullhorn text-gray-400"></i> Detalhes da campanha
+        </h2>
+        <div class="space-y-2">
+          <!-- Nome da Campanha -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">
+              Nome da Campanha <span class="text-red-500">*</span>
+              {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'nome_campanha')">Corrigir</button>{% endif %}
+            </label>
+            <input type="text" name="nome_campanha" id="nome_campanha"
+                   value="{{ cotacao.nome_campanha if cotacao else '' }}"
+                   class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                   placeholder="Ex: Campanha Verão 2025" required
+                   {% if modo == 'editar' %}readonly{% endif %}>
+          </div>
 
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Início <span class="text-red-500">*</span></label>
-          <div class="relative">
-            <input type="date" id="periodo_inicio" name="periodo_inicio"
-                   value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
-                   class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
-                   onclick="this.showPicker()" onchange="calcularDuracao()" required>
+          <!-- Objetivo da Campanha -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">
+              Objetivo da Campanha <span class="text-red-500">*</span>
+              {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'objetivo_campanha')">Corrigir</button>{% endif %}
+            </label>
+            <div class="relative">
+              <textarea name="objetivo_campanha" id="objetivo_campanha"
+                        class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                        rows="2" placeholder="Objetivo..."
+                        maxlength="2000"
+                        oninput="atualizarContador(this, 'contador_objetivo', 2000)"
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
+              <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/2000</span>
+            </div>
           </div>
-        </div>
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Término <span class="text-red-500">*</span></label>
-          <div class="relative">
-            <input type="date" id="periodo_fim" name="periodo_fim"
-                   value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
-                   class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
-                   onclick="this.showPicker()" onchange="calcularDuracao()">
-          </div>
-        </div>
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Duração</label>
-          <input type="text" id="duracao_dias" readonly
-                 class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed"
-                 placeholder="Calculada" value="">
-        </div>
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">Budget Estimado</label>
-          <div class="relative">
-            <span class="absolute left-1 top-1/2 -translate-y-1/2 text-gray-500 text-[9px] font-medium">R$</span>
-            <input type="text" id="budget_estimado" name="budget_estimado_display"
-                   value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}"
-                   class="w-full text-[10px] border border-gray-200 rounded pl-6 pr-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
-                   placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
-            <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
-          </div>
-        </div>
-      </div>
-    </div>
 
-
-    <!-- Bloco 5: Escopo e Notas -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-1" id="bloco_escopo">
-      <div class="flex items-center gap-2 mb-1">
-        <div id="bloco_circle_5" class="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-600 text-[8px] font-semibold transition-all">5</div>
-        <h2 class="text-[10px] font-semibold text-gray-800">Escopo e Notas</h2>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-1.5">
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">
-            Objetivo da Campanha <span class="text-red-500">*</span>
-            {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'objetivo_campanha')">Corrigir</button>{% endif %}
-          </label>
-          <div class="relative">
-            <textarea name="objetivo_campanha" id="objetivo_campanha"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
-                      rows="2" placeholder="Objetivo..."
-                      maxlength="2000"
-                      oninput="atualizarContador(this, 'contador_objetivo', 2000)"
-                      {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.objetivo_campanha if cotacao else '' }}</textarea>
-            <span id="contador_objetivo" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/2000</span>
+          <!-- Período -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Início <span class="text-red-500">*</span></label>
+              <input type="date" id="periodo_inicio" name="periodo_inicio"
+                     value="{% if cotacao and cotacao.periodo_inicio %}{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio.strftime else cotacao.periodo_inicio }}{% endif %}"
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
+                     onclick="this.showPicker()" onchange="calcularDuracao()" required>
+            </div>
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Término <span class="text-red-500">*</span></label>
+              <input type="date" id="periodo_fim" name="periodo_fim"
+                     value="{% if cotacao and cotacao.periodo_fim %}{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim.strftime else cotacao.periodo_fim }}{% endif %}"
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
+                     onclick="this.showPicker()" onchange="calcularDuracao()">
+            </div>
           </div>
-        </div>
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">
-            Obs. Gerais
-            {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'observacoes')">Corrigir</button>{% endif %}
-          </label>
-          <div class="relative">
-            <textarea name="observacoes" id="observacoes"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
-                      rows="2" placeholder="Visíveis para todos..."
-                      maxlength="1000"
-                      oninput="atualizarContador(this, 'contador_observacoes', 1000)"
-                      {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes if cotacao else '' }}</textarea>
-            <span id="contador_observacoes" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/1000</span>
-          </div>
-        </div>
-        <div>
-          <label class="block text-[8px] font-medium text-gray-500">
-            Obs. Internas
-            <span class="ml-0.5 text-gray-400 font-normal" title="Não visíveis ao cliente"><i class="fas fa-eye-slash text-[8px]"></i></span>
-            {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'observacoes_internas')">Corrigir</button>{% endif %}
-          </label>
-          <div class="relative">
-            <textarea name="observacoes_internas" id="observacoes_internas"
-                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
-                      rows="2" placeholder="Notas internas..."
-                      maxlength="1000"
-                      oninput="atualizarContador(this, 'contador_obs_internas', 1000)"
-                      {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
-            <span id="contador_obs_internas" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/1000</span>
+
+          <!-- Duração + Budget -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Duração</label>
+              <input type="text" id="duracao_dias" readonly
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-gray-50 text-gray-600 cursor-not-allowed"
+                     placeholder="Calculada" value="">
+            </div>
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Budget Estimado</label>
+              <div class="relative">
+                <span class="absolute left-1 top-1/2 -translate-y-1/2 text-gray-500 text-[9px] font-medium">R$</span>
+                <input type="text" id="budget_estimado" name="budget_estimado_display"
+                       value="{{ "%.2f"|format(cotacao.budget_estimado) if cotacao and cotacao.budget_estimado else '' }}"
+                       class="w-full text-[10px] border border-gray-200 rounded pl-6 pr-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                       placeholder="0,00" oninput="formatarMoedaReal(this, 'budget_estimado_hidden')">
+                <input type="hidden" id="budget_estimado_hidden" name="budget_estimado">
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- ===== Card: Dados da Proposta ===== -->
+      <div class="bg-white rounded border border-gray-200 p-2">
+        <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-2">
+          <i class="fas fa-file-invoice text-gray-400"></i> Dados da Proposta
+        </h2>
+        <div class="space-y-2">
+          <!-- Praça (campanha) -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Praça (campanha)</label>
+            <textarea name="praca" id="praca"
+                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                      rows="2" placeholder="Ex: Nacional, Salvador, principais aeroportos...">{{ cotacao.praca if cotacao else '' }}</textarea>
+          </div>
+
+          <!-- Frequência + Impactos únicos -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Frequência de impacto</label>
+              <input type="text" name="frequencia_impacto" id="frequencia_impacto"
+                     value="{{ cotacao.frequencia_impacto if cotacao else '' }}"
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                     placeholder="Ex: 3">
+            </div>
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Estimativa de impactos únicos</label>
+              <input type="number" min="0" step="1" name="estimativa_impactos_unicos" id="estimativa_impactos_unicos"
+                     value="{{ cotacao.estimativa_impactos_unicos if cotacao and cotacao.estimativa_impactos_unicos is not none else '' }}"
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                     placeholder="Ex: 648787">
+            </div>
+          </div>
+
+          <!-- Dados demográficos -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Dados demográficos (sexo, idade, classe social)</label>
+            <textarea name="dados_demograficos" id="dados_demograficos"
+                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                      rows="2" placeholder="Ex: AS | 18+ anos - Classes ABC">{{ cotacao.dados_demograficos if cotacao else '' }}</textarea>
+          </div>
+
+          <!-- Perfil da audiência -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Perfil geral da audiência e interesses</label>
+            <textarea name="perfil_audiencia_interesses" id="perfil_audiencia_interesses"
+                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                      rows="3" placeholder="Perfil e interesses da audiência...">{{ cotacao.perfil_audiencia_interesses if cotacao else '' }}</textarea>
+          </div>
+
+          <!-- Data de envio + Validade -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Data de envio</label>
+              <input type="date" name="data_envio" id="data_envio"
+                     value="{% if cotacao and cotacao.data_envio %}{{ cotacao.data_envio.strftime('%Y-%m-%d') if cotacao.data_envio.strftime else cotacao.data_envio }}{% endif %}"
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all cursor-pointer"
+                     onclick="this.showPicker()">
+            </div>
+            <div>
+              <label class="block text-[8px] font-medium text-gray-500">Validade (dias)</label>
+              <input type="number" min="0" step="1" name="validade_dias" id="validade_dias"
+                     value="{{ cotacao.validade_dias if cotacao and cotacao.validade_dias is not none else '' }}"
+                     class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none transition-all"
+                     placeholder="Ex: 15">
+            </div>
+          </div>
+
+          <!-- Premissas -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">Premissas</label>
+            <textarea name="premissas" id="premissas"
+                      class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                      rows="3" placeholder="Uma premissa por linha...">{{ cotacao.premissas if cotacao else '' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Card 3: Notas ===== -->
+      <div class="bg-white rounded border border-gray-200 p-2">
+        <h2 class="text-xs font-semibold text-gray-800 flex items-center gap-1.5 mb-2">
+          <i class="fas fa-sticky-note text-gray-400"></i> Notas
+        </h2>
+        <div class="space-y-2">
+          <!-- Obs. Gerais -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">
+              Obs. Gerais
+              {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'observacoes')">Corrigir</button>{% endif %}
+            </label>
+            <div class="relative">
+              <textarea name="observacoes" id="observacoes"
+                        class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                        rows="3" placeholder="Visíveis para todos..."
+                        maxlength="1000"
+                        oninput="atualizarContador(this, 'contador_observacoes', 1000)"
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes if cotacao else '' }}</textarea>
+              <span id="contador_observacoes" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/1000</span>
+            </div>
+          </div>
+
+          <!-- Obs. Internas -->
+          <div>
+            <label class="block text-[8px] font-medium text-gray-500">
+              Obs. Internas
+              <span class="ml-0.5 text-gray-400 font-normal" title="Não visíveis ao cliente"><i class="fas fa-eye-slash text-[8px]"></i></span>
+              {% if modo == 'editar' %}<button type="button" class="ml-1 text-[8px] text-blue-600 hover:text-blue-800" onclick="tornarEditavel(this, 'observacoes_internas')">Corrigir</button>{% endif %}
+            </label>
+            <div class="relative">
+              <textarea name="observacoes_internas" id="observacoes_internas"
+                        class="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 {% if modo == 'editar' %}bg-gray-100{% else %}bg-white{% endif %} focus:bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none resize-none transition-all"
+                        rows="3" placeholder="Notas internas..."
+                        maxlength="1000"
+                        oninput="atualizarContador(this, 'contador_obs_internas', 1000)"
+                        {% if modo == 'editar' %}readonly{% endif %}>{{ cotacao.observacoes_internas if cotacao else '' }}</textarea>
+              <span id="contador_obs_internas" class="absolute bottom-0.5 right-1.5 text-[8px] text-gray-400">0/1000</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <input type="hidden" name="origem" value="Admin">
@@ -1036,7 +1136,41 @@ function formatarMoedaReal(input, hiddenFieldId) {
   
   const valorNumerico = parseFloat(value.replace(/\./g, '').replace(',', '.'));
   document.getElementById(hiddenFieldId).value = valorNumerico;
+  atualizarCardsMetricas();
 }
+
+// ============================================
+// CARDS DE MÉTRICAS - ATUALIZAÇÃO AO VIVO
+// ============================================
+function atualizarCardsMetricas() {
+  // Budget: usa o hidden numérico (preenchido por formatarMoedaReal)
+  const budgetEl = document.getElementById('card_budget');
+  const hidden = document.getElementById('budget_estimado_hidden');
+  if (budgetEl && hidden && hidden.value !== '' && !isNaN(parseFloat(hidden.value))) {
+    budgetEl.textContent = 'R$ ' + parseFloat(hidden.value).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+  // Período: a partir das datas (yyyy-mm-dd -> dd/mm/yyyy)
+  const periodoEl = document.getElementById('card_periodo');
+  if (periodoEl) {
+    const fmt = (s) => {
+      if (!s) return '';
+      const p = s.split('-');
+      return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s;
+    };
+    const di = fmt(document.getElementById('periodo_inicio')?.value);
+    const df = fmt(document.getElementById('periodo_fim')?.value);
+    periodoEl.textContent = di ? (di + (df ? ' - ' + df : '')) : '—';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  ['periodo_inicio', 'periodo_fim'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', atualizarCardsMetricas);
+  });
+});
 
 document.getElementById('cotacao_form').addEventListener('submit', function(e) {
   const campos = ['budget_estimado'];

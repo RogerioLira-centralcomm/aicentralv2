@@ -4,9 +4,9 @@
 
 -- ==================== CAMPOS PARA CADU_COTACAO_LINHAS ====================
 
--- Adicionar campo praça (localização geográfica)
+-- Adicionar campo praça (localização geográfica) - TEXT, sem limite de tamanho
 ALTER TABLE cadu_cotacao_linhas 
-ADD COLUMN IF NOT EXISTS praca VARCHAR(100);
+ADD COLUMN IF NOT EXISTS praca TEXT;
 
 -- Adicionar campo valor unitário de tabela
 ALTER TABLE cadu_cotacao_linhas 

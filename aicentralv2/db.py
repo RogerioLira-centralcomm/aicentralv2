@@ -483,6 +483,23 @@ def init_db(app):
                 END $$;
             ''')
 
+            # Praça: remove o limite de 100 caracteres (VARCHAR(100) -> TEXT).
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacao_linhas'
+                          AND column_name = 'praca'
+                          AND character_maximum_length IS NOT NULL
+                    ) THEN
+                        ALTER TABLE cadu_cotacao_linhas
+                            ALTER COLUMN praca TYPE TEXT;
+                    END IF;
+                END $$;
+            ''')
+
             # FK para KPI/objetivo unificado com cadu_pi_camp_objetivos.
             # As colunas string (objetivo_kpi / audiencia_calculo_kpi) permanecem
             # como denormalização da descrição para grids e leituras legadas.
@@ -532,6 +549,20 @@ def init_db(app):
                    AND a.audiencia_calculo_kpi IS NOT NULL
                    AND TRIM(a.audiencia_calculo_kpi) <> ''
                    AND UPPER(TRIM(o.descricao)) = UPPER(TRIM(a.audiencia_calculo_kpi))
+            ''')
+
+            # Campos de cabeçalho da Proposta CentralComm Programmatic em cadu_cotacoes.
+            # (idempotente; espelha migrations/add_proposta_fields_cotacoes.sql)
+            cursor.execute('''
+                ALTER TABLE cadu_cotacoes
+                    ADD COLUMN IF NOT EXISTS praca TEXT,
+                    ADD COLUMN IF NOT EXISTS frequencia_impacto VARCHAR(120),
+                    ADD COLUMN IF NOT EXISTS estimativa_impactos_unicos BIGINT,
+                    ADD COLUMN IF NOT EXISTS dados_demograficos TEXT,
+                    ADD COLUMN IF NOT EXISTS perfil_audiencia_interesses TEXT,
+                    ADD COLUMN IF NOT EXISTS data_envio DATE,
+                    ADD COLUMN IF NOT EXISTS validade_dias INTEGER,
+                    ADD COLUMN IF NOT EXISTS premissas TEXT
             ''')
 
             # Pipeline por contato: status_pipeline em cadu_lead_contatos
@@ -6234,7 +6265,10 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at',
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
-                'desconto_total', 'desconto_percentual', 'condicoes_comerciais'
+                'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
+                'praca', 'frequencia_impacto', 'estimativa_impactos_unicos',
+                'dados_demograficos', 'perfil_audiencia_interesses',
+                'data_envio', 'validade_dias', 'premissas'
             ]
             
             for campo in campos_opcionais:
@@ -6272,11 +6306,14 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at', 'proposta_enviada_em',
                 'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'expires_at',
                 'agencia_id', 'agencia_user_id',
-                'id_parceiro', 'parceiro_user_id'
+                'id_parceiro', 'parceiro_user_id',
+                'praca', 'frequencia_impacto', 'estimativa_impactos_unicos',
+                'dados_demograficos', 'perfil_audiencia_interesses',
+                'data_envio', 'validade_dias', 'premissas'
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id']
+            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id', 'data_envio', 'validade_dias', 'estimativa_impactos_unicos']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']

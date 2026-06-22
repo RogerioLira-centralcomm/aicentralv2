@@ -2355,7 +2355,15 @@ function calcularInvestLiquidoEdit() {
             </div>
             <div>
               <span class="text-[10px] text-gray-500 uppercase">Praça</span>
-              <p class="font-medium text-gray-700">{{ cotacao.praca if cotacao and cotacao.praca else 'Nacional' }}</p>
+              <p class="font-medium text-gray-700">
+                {% set pracas_resumo = [] %}
+                {% for l in (linhas or []) %}
+                  {% if l.praca and l.praca not in pracas_resumo %}
+                    {% if pracas_resumo.append(l.praca) %}{% endif %}
+                  {% endif %}
+                {% endfor %}
+                {{ pracas_resumo|join('; ') if pracas_resumo else 'Nacional' }}
+              </p>
             </div>
             <div>
               <span class="text-[10px] text-gray-500 uppercase">Período</span>
@@ -3521,9 +3529,14 @@ function calcularInvestLiquidoEdit() {
 
     <!-- Footer padrão CRM -->
     <div id="modal_editar_linha_footer" class="px-5 py-2 border-t border-gray-200 bg-gray-50 flex justify-between items-center sticky bottom-0">
-      <button type="button" onclick="excluirLinhaDoModal()" class="px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
-        <i class="fas fa-trash mr-1"></i>Excluir Item
-      </button>
+      <div class="flex gap-2">
+        <button type="button" onclick="duplicarLinhaDoModal()" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100 text-gray-700 transition-colors">
+          <i class="fas fa-copy mr-1"></i>Duplicar Item
+        </button>
+        <button type="button" onclick="excluirLinhaDoModal()" class="px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
+          <i class="fas fa-trash mr-1"></i>Excluir Item
+        </button>
+      </div>
       <div class="flex gap-2">
         <button type="button" onclick="document.getElementById('modal_editar_linha').close()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Cancelar</button>
         <button id="edit_btn_salvar_linha" type="button" onclick="salvarEdicaoLinha()" class="px-4 py-2 text-sm rounded text-white disabled:opacity-50" style="background-color: #72cd80;">
@@ -3711,7 +3724,6 @@ function calcularInvestLiquidoEdit() {
       <div class="px-6 flex gap-1 text-sm">
         <button type="button" data-tab-trigger="basico" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Básico</button>
         <button type="button" data-tab-trigger="cronograma" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Cronograma &amp; Budget</button>
-        <button type="button" data-tab-trigger="proposta" class="px-3 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800">Proposta</button>
       </div>
     </div>
 
@@ -3758,51 +3770,6 @@ function calcularInvestLiquidoEdit() {
           <input type="text" id="edit_budget_estimado_display" class="input input-bordered w-full bg-white"
                  placeholder="0,00" inputmode="decimal" autocomplete="off">
           <label class="label py-1"><span id="hint_budget_estimado_modal" class="label-text-alt text-gray-400 text-xs">Editável apenas com status Rascunho, Em Análise ou Em Acompanhamento.</span></label>
-        </div>
-      </div>
-
-      <!-- Aba: Proposta (dados da proposta programática) -->
-      <div data-tabpanel="proposta" class="space-y-4 hidden">
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Praça (campanha)</span></label>
-          <textarea id="edit_praca" class="textarea textarea-bordered w-full" rows="2" placeholder="Ex: Nacional, Salvador, principais aeroportos...">{{ cotacao.praca if cotacao and cotacao.praca and cotacao.praca != 'None' else '' }}</textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Frequência de impacto</span></label>
-            <input type="text" id="edit_frequencia_impacto" class="input input-bordered w-full" value="{{ cotacao.frequencia_impacto if cotacao and cotacao.frequencia_impacto and cotacao.frequencia_impacto != 'None' else '' }}" placeholder="Ex: 3">
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Estimativa de impactos únicos</span></label>
-            <input type="number" min="0" step="1" id="edit_estimativa_impactos_unicos" class="input input-bordered w-full" value="{{ cotacao.estimativa_impactos_unicos if cotacao and cotacao.estimativa_impactos_unicos is not none else '' }}" placeholder="Ex: 648787">
-          </div>
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Dados demográficos (sexo, idade, classe social)</span></label>
-          <textarea id="edit_dados_demograficos" class="textarea textarea-bordered w-full" rows="2" placeholder="Ex: AS | 18+ anos - Classes ABC">{{ cotacao.dados_demograficos if cotacao and cotacao.dados_demograficos and cotacao.dados_demograficos != 'None' else '' }}</textarea>
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Perfil geral da audiência e interesses</span></label>
-          <textarea id="edit_perfil_audiencia_interesses" class="textarea textarea-bordered w-full" rows="3" placeholder="Perfil e interesses da audiência...">{{ cotacao.perfil_audiencia_interesses if cotacao and cotacao.perfil_audiencia_interesses and cotacao.perfil_audiencia_interesses != 'None' else '' }}</textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Data de envio</span></label>
-            <div class="join w-full">
-              <button type="button" class="join-item btn btn-sm bg-gray-100 px-2" onclick="document.getElementById('edit_data_envio').showPicker()">
-                <i class="fas fa-calendar-alt text-gray-800"></i>
-              </button>
-              <input type="date" id="edit_data_envio" class="input input-bordered input-sm join-item flex-1" value="{{ cotacao.data_envio.strftime('%Y-%m-%d') if cotacao and cotacao.data_envio and cotacao.data_envio.strftime else (cotacao.data_envio if cotacao and cotacao.data_envio else '') }}">
-            </div>
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text font-semibold">Validade (dias)</span></label>
-            <input type="number" min="0" step="1" id="edit_validade_dias" class="input input-bordered w-full" value="{{ cotacao.validade_dias if cotacao and cotacao.validade_dias is not none else '' }}" placeholder="Ex: 15">
-          </div>
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text font-semibold">Premissas</span></label>
-          <textarea id="edit_premissas" class="textarea textarea-bordered w-full" rows="3" placeholder="Uma premissa por linha...">{{ cotacao.premissas if cotacao and cotacao.premissas and cotacao.premissas != 'None' else '' }}</textarea>
         </div>
       </div>
     </form>
@@ -4127,10 +4094,16 @@ function calcularInvestLiquidoEdit() {
 
       <!-- Footer padrão CRM -->
       <div class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-between sticky bottom-0">
-        <button type="button" id="btn_excluir_audiencia" onclick="excluirAudienciaDoModal()"
-                class="hidden px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
-          <i class="fas fa-trash-can mr-1"></i>Excluir
-        </button>
+        <div class="flex gap-2">
+          <button type="button" id="btn_duplicar_audiencia" onclick="duplicarAudienciaDoModal()"
+                  class="hidden px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-100 text-gray-700 transition-colors">
+            <i class="fas fa-copy mr-1"></i>Duplicar
+          </button>
+          <button type="button" id="btn_excluir_audiencia" onclick="excluirAudienciaDoModal()"
+                  class="hidden px-4 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
+            <i class="fas fa-trash-can mr-1"></i>Excluir
+          </button>
+        </div>
         <div class="flex gap-2 ml-auto">
           <button type="button" onclick="voltarBuscaAudiencia()" class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 text-gray-700">Voltar</button>
           <button type="button" id="btn_salvar_audiencia" onclick="salvarNovaAudiencia()" class="px-4 py-2 text-sm rounded text-white" style="background-color: #72cd80;">
@@ -5575,33 +5548,12 @@ async function salvarEdicaoCampanha() {
     budgetNum = parseMoeda(budgetDisplay.value);
   }
   
-  const _val = (id) => {
-    const el = document.getElementById(id);
-    if (!el) return null;
-    const v = (el.value || '').trim();
-    return v === '' ? null : v;
-  };
-  const _intVal = (id) => {
-    const v = _val(id);
-    if (v === null) return null;
-    const n = parseInt(v, 10);
-    return Number.isNaN(n) ? null : n;
-  };
-
   const data = {
     nome_campanha: document.getElementById('edit_nome_campanha').value,
     periodo_inicio: document.getElementById('edit_periodo_inicio').value || null,
     periodo_fim: document.getElementById('edit_periodo_fim').value || null,
     objetivo_campanha: objetivoVal || null,
-    budget_estimado: budgetNum,
-    praca: _val('edit_praca'),
-    frequencia_impacto: _val('edit_frequencia_impacto'),
-    estimativa_impactos_unicos: _intVal('edit_estimativa_impactos_unicos'),
-    dados_demograficos: _val('edit_dados_demograficos'),
-    perfil_audiencia_interesses: _val('edit_perfil_audiencia_interesses'),
-    data_envio: _val('edit_data_envio'),
-    validade_dias: _intVal('edit_validade_dias'),
-    premissas: _val('edit_premissas')
+    budget_estimado: budgetNum
   };
   
   try {
@@ -6665,6 +6617,35 @@ async function salvarEdicaoLinha() {
   }
 }
 
+async function duplicarLinhaDoModal() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
+  const linhaId = document.getElementById('edit_linha_id').value;
+  if (!linhaId) return;
+
+  try {
+    const response = await fetch(`/api/cotacoes/linhas/${linhaId}/duplicar`, { method: 'POST' });
+    const result = await response.json();
+
+    if (response.ok) {
+      document.getElementById('modal_editar_linha').close();
+      incrementarContador('linhas');
+      showToast('Item duplicado com sucesso!', 'success');
+      await recalcularValorTotalCotacao();
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=linhas';
+      }, 500);
+    } else {
+      showToast('Erro: ' + (result.error || result.message || 'Erro ao duplicar item'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao duplicar item', 'error');
+  }
+}
+
 // Função para excluir linha a partir do modal de edição
 function excluirLinhaDoModal() {
   if (!podeEditar()) {
@@ -6759,6 +6740,7 @@ function abrirModalAudiencia() {
   delete document.getElementById('form_nova_audiencia').dataset.editandoId;
   document.getElementById('btn_salvar_audiencia').innerHTML = '<i class="fas fa-plus mr-1"></i>Adicionar à Cotação';
   document.getElementById('btn_excluir_audiencia').classList.add('hidden');
+  document.getElementById('btn_duplicar_audiencia').classList.add('hidden');
 
   inicializarMargemCcInput('audiencia_');
   atualizarBtnSalvarLinha('audiencia_');
@@ -7187,6 +7169,7 @@ async function editarAudienciaCotacao(audienciaId) {
     // Alterar label do botão para modo edição
     document.getElementById('btn_salvar_audiencia').innerHTML = '<i class="fas fa-save mr-1"></i>Salvar Alterações';
     document.getElementById('btn_excluir_audiencia').classList.remove('hidden');
+    document.getElementById('btn_duplicar_audiencia').classList.remove('hidden');
 
     atualizarIndicadorBudget('audiencia_');
 
@@ -7205,6 +7188,35 @@ function excluirAudienciaDoModal() {
   if (!editandoId) return;
   document.getElementById('modal_adicionar_audiencia').close();
   removerAudienciaCotacao(parseInt(editandoId));
+}
+
+async function duplicarAudienciaDoModal() {
+  if (!podeEditar()) {
+    mostrarBloqueioEdicao();
+    return;
+  }
+  const editandoId = document.getElementById('form_nova_audiencia').dataset.editandoId;
+  if (!editandoId) return;
+
+  try {
+    const response = await fetch(`/api/cotacoes/audiencias/${editandoId}/duplicar`, { method: 'POST' });
+    const result = await response.json();
+
+    if (response.ok) {
+      document.getElementById('modal_adicionar_audiencia').close();
+      incrementarContador('audiencias');
+      showToast('Audiência duplicada com sucesso!', 'success');
+      await recalcularValorTotalCotacao();
+      setTimeout(() => {
+        window.location.href = window.location.pathname + '?aba=audiencias';
+      }, 500);
+    } else {
+      showToast('Erro: ' + (result.error || result.message || 'Erro ao duplicar audiência'), 'error');
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    showToast('Erro ao duplicar audiência', 'error');
+  }
 }
 
 // Remover audiência

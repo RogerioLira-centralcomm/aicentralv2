@@ -551,20 +551,6 @@ def init_db(app):
                    AND UPPER(TRIM(o.descricao)) = UPPER(TRIM(a.audiencia_calculo_kpi))
             ''')
 
-            # Campos de cabeçalho da Proposta CentralComm Programmatic em cadu_cotacoes.
-            # (idempotente; espelha migrations/add_proposta_fields_cotacoes.sql)
-            cursor.execute('''
-                ALTER TABLE cadu_cotacoes
-                    ADD COLUMN IF NOT EXISTS praca TEXT,
-                    ADD COLUMN IF NOT EXISTS frequencia_impacto VARCHAR(120),
-                    ADD COLUMN IF NOT EXISTS estimativa_impactos_unicos BIGINT,
-                    ADD COLUMN IF NOT EXISTS dados_demograficos TEXT,
-                    ADD COLUMN IF NOT EXISTS perfil_audiencia_interesses TEXT,
-                    ADD COLUMN IF NOT EXISTS data_envio DATE,
-                    ADD COLUMN IF NOT EXISTS validade_dias INTEGER,
-                    ADD COLUMN IF NOT EXISTS premissas TEXT
-            ''')
-
             # Pipeline por contato: status_pipeline em cadu_lead_contatos
             cursor.execute('''
                 DO $$
@@ -5477,6 +5463,63 @@ def remover_audiencia_cotacao(audiencia_cotacao_id):
         raise e
 
 
+def duplicar_audiencia_cotacao(audiencia_cotacao_id):
+    """Duplica uma audiência na mesma cotação."""
+    aud = obter_audiencia_cotacao_por_id(audiencia_cotacao_id)
+    if not aud:
+        return None
+
+    cotacao_id = aud['cotacao_id']
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            '''
+            SELECT COALESCE(MAX(ordem_exibicao), 0) + 1 AS prox
+            FROM cadu_cotacao_audiencias
+            WHERE cotacao_id = %s
+            ''',
+            (cotacao_id,),
+        )
+        prox_ordem = cursor.fetchone()['prox']
+
+    return adicionar_audiencia_cotacao(
+        cotacao_id=cotacao_id,
+        audiencia_nome=aud.get('audiencia_nome'),
+        audiencia_id=aud.get('audiencia_id'),
+        audiencia_publico=aud.get('audiencia_publico'),
+        audiencia_categoria=aud.get('audiencia_categoria'),
+        audiencia_subcategoria=aud.get('audiencia_subcategoria'),
+        cpm_estimado=aud.get('cpm_estimado'),
+        investimento_sugerido=aud.get('investimento_sugerido'),
+        impressoes_estimadas=aud.get('impressoes_estimadas'),
+        ordem_exibicao=prox_ordem,
+        incluido_proposta=aud.get('incluido_proposta', True),
+        perc_margem_cc=aud.get('perc_margem_cc'),
+        audiencia_calculo_plataforma=aud.get('audiencia_calculo_plataforma'),
+        audiencia_calculo_kpi=aud.get('audiencia_calculo_kpi'),
+        id_audiencia_calculo_kpi=aud.get('id_audiencia_calculo_kpi'),
+        data_inicio=aud.get('data_inicio'),
+        data_fim=aud.get('data_fim'),
+        periodo=aud.get('periodo'),
+        perc_tech_fee=aud.get('perc_tech_fee'),
+        perc_com_vendas=aud.get('perc_com_vendas'),
+        perc_pl_incentivos=aud.get('perc_pl_incentivos'),
+        perc_impostos=aud.get('perc_impostos'),
+        val_margem_cc=aud.get('val_margem_cc'),
+        val_tech_fee=aud.get('val_tech_fee'),
+        val_com_vendas=aud.get('val_com_vendas'),
+        val_pl_incentivos=aud.get('val_pl_incentivos'),
+        val_impostos=aud.get('val_impostos'),
+        fator_desconto=aud.get('fator_desconto'),
+        valor_unitario_tabela=aud.get('valor_unitario_tabela'),
+        valor_unitario=aud.get('valor_unitario'),
+        valor_unitario_negociado=aud.get('valor_unitario_negociado'),
+        investimento_bruto=aud.get('investimento_bruto'),
+        investimento_liquido=aud.get('investimento_liquido'),
+        volume_contratado=aud.get('volume_contratado'),
+    )
+
+
 # ==================== COMENTÁRIOS DE COTAÇÃO ====================
 
 def obter_comentarios_cotacao(cotacao_id):
@@ -6012,6 +6055,15 @@ def criar_tabela_cotacoes():
             cursor.execute(
                 "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS origem VARCHAR(120)"
             )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS frequencia_impacto INTEGER DEFAULT 3"
+            )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS premissas TEXT"
+            )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS observacoes_gerais TEXT"
+            )
             conn.commit()
             return True
     except Exception as e:
@@ -6261,14 +6313,12 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id',
                 'responsavel_comercial', 'briefing_id', 'tipo_peca',
                 'budget_estimado', 'valor_total_proposta',
-                'observacoes', 'observacoes_internas', 'origem',
+                'observacoes', 'observacoes_internas', 'origem', 'apresentacao_dados',
                 'link_publico_ativo', 'link_publico_token', 'link_publico_expires_at',
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
                 'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
-                'praca', 'frequencia_impacto', 'estimativa_impactos_unicos',
-                'dados_demograficos', 'perfil_audiencia_interesses',
-                'data_envio', 'validade_dias', 'premissas'
+                'frequencia_impacto', 'premissas', 'observacoes_gerais'
             ]
             
             for campo in campos_opcionais:
@@ -6307,13 +6357,11 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'aprovada_em', 'desconto_percentual', 'desconto_total', 'condicoes_comerciais', 'expires_at',
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
-                'praca', 'frequencia_impacto', 'estimativa_impactos_unicos',
-                'dados_demograficos', 'perfil_audiencia_interesses',
-                'data_envio', 'validade_dias', 'premissas'
+                'frequencia_impacto', 'premissas', 'observacoes_gerais'
             ]
             
             # Campos que podem ser setados para NULL explicitamente
-            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id', 'data_envio', 'validade_dias', 'estimativa_impactos_unicos']
+            campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id']
             
             # Campos booleanos que podem ser False
             campos_booleanos = ['link_publico_ativo']
@@ -6625,6 +6673,86 @@ def deletar_linha_cotacao(linha_id, hard_delete=False):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def duplicar_linha_cotacao(linha_id):
+    """Duplica uma linha de cotação na mesma cotação."""
+    import json
+
+    def converter_json(valor):
+        if valor is None:
+            return None
+        if isinstance(valor, (dict, list)):
+            return json.dumps(valor)
+        if isinstance(valor, str):
+            return valor
+        return None
+
+    linha = obter_linha_cotacao(linha_id)
+    if not linha:
+        return None
+
+    cotacao_id = linha['cotacao_id']
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            '''
+            SELECT COALESCE(MAX(ordem), 0) + 1 AS prox
+            FROM cadu_cotacao_linhas
+            WHERE cotacao_id = %s AND is_deleted = false
+            ''',
+            (cotacao_id,),
+        )
+        prox_ordem = cursor.fetchone()['prox']
+
+    return criar_linha_cotacao(
+        cotacao_id=cotacao_id,
+        pedido_sugestao=linha.get('pedido_sugestao'),
+        target=linha.get('target'),
+        veiculo=linha.get('veiculo'),
+        plataforma=linha.get('plataforma'),
+        produto=converter_json(linha.get('produto')),
+        detalhamento=linha.get('detalhamento'),
+        formato=linha.get('formato'),
+        formato_compra=linha.get('formato_compra'),
+        periodo=linha.get('periodo'),
+        viewability_minimo=linha.get('viewability_minimo'),
+        volume_contratado=linha.get('volume_contratado'),
+        valor_unitario=linha.get('valor_unitario'),
+        valor_total=linha.get('valor_total'),
+        ordem=prox_ordem,
+        is_subtotal=linha.get('is_subtotal', False),
+        subtotal_label=linha.get('subtotal_label'),
+        is_header=linha.get('is_header', False),
+        dados_extras=converter_json(linha.get('dados_extras')),
+        meio=linha.get('meio'),
+        tipo_peca=linha.get('tipo_peca'),
+        segmentacao=linha.get('segmentacao'),
+        formatos=converter_json(linha.get('formatos')),
+        canal=converter_json(linha.get('canal')),
+        objetivo_kpi=linha.get('objetivo_kpi'),
+        id_objetivo_kpi=linha.get('id_objetivo_kpi'),
+        data_inicio=linha.get('data_inicio'),
+        data_fim=linha.get('data_fim'),
+        investimento_bruto=linha.get('investimento_bruto'),
+        especificacoes=linha.get('especificacoes'),
+        praca=linha.get('praca'),
+        desconto_percentual=linha.get('desconto_percentual'),
+        valor_unitario_tabela=linha.get('valor_unitario_tabela'),
+        valor_unitario_negociado=linha.get('valor_unitario_negociado'),
+        investimento_liquido=linha.get('investimento_liquido'),
+        perc_margem_cc=linha.get('perc_margem_cc'),
+        perc_tech_fee=linha.get('perc_tech_fee'),
+        perc_com_vendas=linha.get('perc_com_vendas'),
+        perc_pl_incentivos=linha.get('perc_pl_incentivos'),
+        perc_impostos=linha.get('perc_impostos'),
+        val_margem_cc=linha.get('val_margem_cc'),
+        val_tech_fee=linha.get('val_tech_fee'),
+        val_com_vendas=linha.get('val_com_vendas'),
+        val_pl_incentivos=linha.get('val_pl_incentivos'),
+        val_impostos=linha.get('val_impostos'),
+        fator_desconto=linha.get('fator_desconto'),
+    )
 
 
 def gerar_link_publico_cotacao(cotacao_uuid, dias_validade=30):

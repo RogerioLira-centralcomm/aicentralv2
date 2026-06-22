@@ -1,9 +1,9 @@
 """Geração do PDF da "Proposta CentralComm Programmatic".
 
-Reproduz o modelo de proposta de mídia programática: cabeçalho com dados da
-campanha + tabela de linhas (canais, formato, objetivo, target, praça, período,
-tipo de compra, valor negociado, volume, investimento bruto/líquido) + totais e
-premissas/observações, com a logo da CentralComm.
+Reproduz o modelo de proposta de mídia programática no padrão visual CentralComm:
+cabeçalho com a logo + tabela de informações da campanha (faixa dourada), tabela de
+linhas com títulos dourados, bloco "Total da campanha" + premissas no lado direito e
+observações gerais na última página.
 
 Segue a mesma abordagem do PDF público da cotação (reportlab), mas desacoplado em
 um service reutilizável para que possa ser chamado tanto por rota autenticada
@@ -23,6 +23,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     Image,
+    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -32,12 +33,16 @@ from reportlab.platypus import (
 
 from aicentralv2 import db
 
-# Paleta alinhada ao restante do app (header escuro + verde CentralComm).
-_COR_HEADER = colors.HexColor('#1a1a2e')
-_COR_TABELA_HEADER = colors.HexColor('#1e3a8a')
-_COR_VERDE = colors.HexColor('#72cd80')
-_COR_TEXTO = colors.HexColor('#333333')
-_COR_LABEL = colors.HexColor('#666666')
+# Paleta CentralComm: faixa dourada (cabeçalho da tabela de infos, títulos da tabela
+# de linhas e caixa de total) com texto preto; verde de apoio.
+_COR_GOLD = colors.HexColor('#F2B500')
+_COR_GOLD_CLARO = colors.HexColor('#FDF3D0')
+_COR_VERDE = colors.HexColor('#3DCB7F')
+_COR_TEXTO = colors.HexColor('#1f2937')
+_COR_LABEL = colors.HexColor('#555555')
+_COR_BORDA = colors.HexColor('#cbd5e1')
+
+_FREQUENCIA_IMPACTO_PADRAO = 3
 
 
 def _fmt_brl(v):
@@ -139,25 +144,48 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     linhas = db.obter_linhas_cotacao(cotacao_id) or []
 
     styles = getSampleStyleSheet()
-    titulo_style = ParagraphStyle(
-        'PropTitulo', parent=styles['Heading1'], fontSize=15, textColor=colors.white,
-        spaceAfter=2, alignment=TA_LEFT,
+    info_titulo_style = ParagraphStyle(
+        'PropInfoTitulo', parent=styles['Normal'], fontSize=9, textColor=colors.black,
+        fontName='Helvetica-Bold', alignment=TA_CENTER, leading=10,
     )
-    subtitulo_style = ParagraphStyle(
-        'PropSubtitulo', parent=styles['Normal'], fontSize=9, textColor=_COR_VERDE, spaceAfter=0,
+    label_style = ParagraphStyle(
+        'PropLabel', parent=styles['Normal'], fontSize=7, textColor=_COR_LABEL,
+        fontName='Helvetica-Bold', leading=8,
+    )
+    valor_style = ParagraphStyle(
+        'PropValor', parent=styles['Normal'], fontSize=7, textColor=_COR_TEXTO, leading=8,
+    )
+    logo_txt_style = ParagraphStyle(
+        'PropLogoTxt', parent=styles['Normal'], fontSize=14, textColor=_COR_TEXTO,
+        fontName='Helvetica-Bold', leading=15, alignment=TA_LEFT,
     )
     secao_style = ParagraphStyle(
-        'PropSecao', parent=styles['Heading2'], fontSize=11, textColor=_COR_HEADER,
-        spaceAfter=4, spaceBefore=8,
+        'PropSecao', parent=styles['Heading2'], fontSize=12, textColor=colors.black,
+        spaceAfter=6, spaceBefore=4, fontName='Helvetica-Bold',
     )
-    label_style = ParagraphStyle('PropLabel', parent=styles['Normal'], fontSize=8, textColor=_COR_LABEL)
-    valor_style = ParagraphStyle('PropValor', parent=styles['Normal'], fontSize=8, textColor=_COR_TEXTO)
     cel_style = ParagraphStyle('PropCel', parent=styles['Normal'], fontSize=6.5, leading=8)
     cel_header_style = ParagraphStyle(
-        'PropCelHeader', parent=styles['Normal'], fontSize=6.5, leading=8,
-        textColor=colors.whitesmoke, fontName='Helvetica-Bold',
+        'PropCelHeader', parent=styles['Normal'], fontSize=6.5, leading=7,
+        textColor=colors.black, fontName='Helvetica-Bold', alignment=TA_CENTER,
     )
-    nota_style = ParagraphStyle('PropNota', parent=styles['Normal'], fontSize=8, leading=11)
+    nota_style = ParagraphStyle('PropNota', parent=styles['Normal'], fontSize=8.5, leading=12)
+    premissa_titulo_style = ParagraphStyle(
+        'PropPremissaTit', parent=styles['Normal'], fontSize=9, textColor=colors.black,
+        fontName='Helvetica-Bold', spaceAfter=2,
+    )
+    premissa_style = ParagraphStyle('PropPremissa', parent=styles['Normal'], fontSize=7.5, leading=10)
+    total_titulo_style = ParagraphStyle(
+        'PropTotalTit', parent=styles['Normal'], fontSize=9, textColor=colors.black,
+        fontName='Helvetica-Bold', alignment=TA_CENTER,
+    )
+    total_label_style = ParagraphStyle(
+        'PropTotalLabel', parent=styles['Normal'], fontSize=7.5, textColor=_COR_TEXTO,
+        fontName='Helvetica-Bold',
+    )
+    total_valor_style = ParagraphStyle(
+        'PropTotalValor', parent=styles['Normal'], fontSize=8.5, textColor=_COR_TEXTO,
+        fontName='Helvetica-Bold', alignment=TA_RIGHT,
+    )
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -167,50 +195,7 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     largura_util = doc.width
     story = []
 
-    # ---- Cabeçalho com logo + título ----
-    logo_path = _resolver_logo_path()
-    titulo_par = Paragraph(
-        "<b>Proposta CentralComm Programmatic</b><br/>"
-        f"<font size='8' color='#cbd5e1'>{escape(_texto(cotacao.get('nome_campanha')) or 'Proposta Comercial')}</font>",
-        titulo_style,
-    )
-    num_par = Paragraph(
-        f"<font size='9' color='#ffffff'>Nº {escape(_texto(cotacao.get('numero_cotacao')))}</font>",
-        subtitulo_style,
-    )
-    if logo_path:
-        try:
-            logo = Image(logo_path, width=20 * mm, height=20 * mm, kind='proportional')
-            header_celula_esq = [[logo, titulo_par]]
-            header_tbl_esq = Table(header_celula_esq, colWidths=[24 * mm, largura_util - 24 * mm - 40 * mm])
-            header_tbl_esq.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            ]))
-            esquerda = header_tbl_esq
-        except Exception:
-            esquerda = titulo_par
-    else:
-        esquerda = titulo_par
-
-    header_row = [[esquerda, num_par]]
-    header_table = Table(header_row, colWidths=[largura_util - 40 * mm, 40 * mm])
-    header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), _COR_HEADER),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (-1, 0), (-1, 0), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    story.append(header_table)
-    story.append(Spacer(1, 5 * mm))
-
-    # ---- Bloco de informações (cabeçalho do modelo) ----
+    # ---- Dados agregados a partir das linhas ----
     cliente_nome = ''
     if cliente:
         cliente_nome = cliente.get('nome_fantasia') or cliente.get('razao_social') or ''
@@ -225,73 +210,129 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         if cotacao.get('periodo_fim'):
             periodo_txt += f" a {_fmt_data(cotacao.get('periodo_fim'))}"
 
-    # KPIs agregados a partir das linhas + objetivo da campanha.
     kpis = []
+    pracas_linhas = []
+    total_volume_impactos = 0.0
     for ln in linhas:
         if ln.get('is_header') or ln.get('is_subtotal'):
             continue
         k = _texto(ln.get('objetivo_kpi'))
         if k and k not in kpis:
             kpis.append(k)
+        p = _texto(ln.get('praca'))
+        if p and p not in pracas_linhas:
+            pracas_linhas.append(p)
+        try:
+            total_volume_impactos += float(ln.get('volume_contratado') or 0)
+        except (TypeError, ValueError):
+            pass
     kpis_txt = ', '.join(kpis)
+    praca_txt = '; '.join(pracas_linhas)
+
+    data_envio_txt = _fmt_data(cotacao.get('proposta_enviada_em') or cotacao.get('created_at'))
 
     validade_txt = ''
-    if cotacao.get('validade_dias') not in (None, ''):
-        validade_txt = f"{cotacao.get('validade_dias')} dias"
+    for campo_validade in ('expires_at', 'link_publico_expires_at'):
+        v = cotacao.get(campo_validade)
+        if v:
+            validade_txt = _fmt_data(v)
+            break
 
+    # Frequência de impacto e estimativa de impactos únicos (volume total ÷ frequência).
+    try:
+        frequencia_impacto = int(cotacao.get('frequencia_impacto') or _FREQUENCIA_IMPACTO_PADRAO)
+    except (TypeError, ValueError):
+        frequencia_impacto = _FREQUENCIA_IMPACTO_PADRAO
+    if frequencia_impacto <= 0:
+        frequencia_impacto = _FREQUENCIA_IMPACTO_PADRAO
+
+    impactos_unicos = 0.0
+    if total_volume_impactos and frequencia_impacto:
+        impactos_unicos = round(total_volume_impactos / frequencia_impacto)
+    impactos_unicos_txt = _fmt_int(impactos_unicos) if impactos_unicos else ''
+    volume_total_txt = _fmt_int(total_volume_impactos) if total_volume_impactos else ''
+
+    # ---- Cabeçalho (área vermelha do modelo): infos à esquerda + logo à direita ----
     info_pares = [
         ('Cliente', cliente_nome),
         ('Agência', agencia_nome),
         ('Executivo', executivo_nome),
-        ('Data de envio', _fmt_data(cotacao.get('data_envio'))),
+        ('Campanha', _texto(cotacao.get('nome_campanha'))),
         ('Período da campanha', periodo_txt),
         ("KPI's", kpis_txt or _texto(cotacao.get('objetivo_campanha'))),
-        ('Frequência de impacto', _texto(cotacao.get('frequencia_impacto'))),
-        ('Estimativa de impactos únicos', _fmt_int(cotacao.get('estimativa_impactos_unicos'))
-            if cotacao.get('estimativa_impactos_unicos') not in (None, '') else ''),
-        ('Praça', _texto(cotacao.get('praca'))),
-        ('Dados demográficos', _texto(cotacao.get('dados_demograficos'))),
-        ('Perfil da audiência e interesses', _texto(cotacao.get('perfil_audiencia_interesses'))),
+        ('Praça', praca_txt),
+        ('Frequência de impacto', str(frequencia_impacto)),
+        ('Volume total (impr./views)', volume_total_txt),
+        ('Estimativa de impactos únicos', impactos_unicos_txt),
+        ('Data de envio', data_envio_txt),
         ('Validade da proposta', validade_txt),
     ]
 
-    info_rows = []
-    linha_par = []
+    info_data = [[Paragraph('Centralcomm - Media as a Service', info_titulo_style), '']]
     for rotulo, valor in info_pares:
-        cel = [
+        info_data.append([
             Paragraph(escape(rotulo), label_style),
             Paragraph(escape(valor) if valor else '-', valor_style),
-        ]
-        cel_tbl = Table([[cel[0]], [cel[1]]], colWidths=[(largura_util / 2) - 4 * mm])
-        cel_tbl.setStyle(TableStyle([
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ]))
-        linha_par.append(cel_tbl)
-        if len(linha_par) == 2:
-            info_rows.append(linha_par)
-            linha_par = []
-    if linha_par:
-        linha_par.append('')
-        info_rows.append(linha_par)
+        ])
 
-    info_table = Table(info_rows, colWidths=[largura_util / 2, largura_util / 2])
+    info_w = (largura_util - 8 * mm) * 0.62
+    info_table = Table(info_data, colWidths=[info_w * 0.42, info_w * 0.58])
     info_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LINEBELOW', (0, 0), (-1, -1), 0.4, colors.HexColor('#e5e7eb')),
+        ('SPAN', (0, 0), (1, 0)),
+        ('BACKGROUND', (0, 0), (1, 0), _COR_GOLD),
+        ('GRID', (0, 0), (-1, -1), 0.5, _COR_BORDA),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (1, 0), 1),
+        ('BOTTOMPADDING', (0, 0), (1, 0), 1),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, _COR_GOLD_CLARO]),
     ]))
-    story.append(info_table)
+
+    logo_path = _resolver_logo_path()
+    logo_par = Paragraph(
+        "<font color='#1f2937'>central</font> <font color='#3DCB7F'>comm</font><br/>"
+        "<font size='8' color='#888888'>MEDIA HUB</font>",
+        logo_txt_style,
+    )
+    if logo_path:
+        try:
+            logo = Image(logo_path, width=34 * mm, height=24 * mm, kind='proportional')
+            logo_celula = Table([[logo], [logo_par]], colWidths=[(largura_util - 8 * mm) * 0.38])
+            logo_celula.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ]))
+            direita = logo_celula
+        except Exception:
+            direita = logo_par
+    else:
+        direita = logo_par
+
+    header_row = [[info_table, direita]]
+    header_table = Table(
+        header_row,
+        colWidths=[(largura_util - 8 * mm) * 0.62 + 8 * mm, (largura_util - 8 * mm) * 0.38],
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (0, 0), 'TOP'),
+        ('VALIGN', (1, 0), (1, 0), 'MIDDLE'),
+        ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_table)
     story.append(Spacer(1, 5 * mm))
 
-    # ---- Tabela de linhas (modelo) ----
-    story.append(Paragraph('Detalhamento da campanha', secao_style))
-
+    # ---- Tabela de linhas (títulos dourados / área verde do modelo) ----
     cabecalhos = [
         'Canais', 'Formato', 'Objetivo / Estratégia', 'Target & Interesses', 'Praça',
         'Período', 'Tipo de compra', 'Valor negociado', 'Volume total\n(impr./views)',
@@ -310,7 +351,7 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
             ht = _texto(ln.get('detalhamento')) or _texto(ln.get('segmentacao')) or _texto(ln.get('subtotal_label')) or '—'
             dados_tabela.append([Paragraph(f"<b>{escape(ht)}</b>", cel_style)] + [''] * (num_cols - 1))
             span_cmds.append(('SPAN', (0, row_i), (num_cols - 1, row_i)))
-            span_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), colors.HexColor('#eef2ff')))
+            span_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), _COR_GOLD_CLARO))
             row_i += 1
             continue
         if ln.get('is_subtotal'):
@@ -372,49 +413,88 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
         Paragraph(f"<b>{_fmt_brl(total_liquido)}</b>", cel_style),
     ])
     span_cmds.append(('SPAN', (0, row_i), (7, row_i)))
-    span_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), colors.HexColor('#dcfce7')))
+    span_cmds.append(('BACKGROUND', (0, row_i), (-1, row_i), _COR_GOLD))
 
-    # Larguras proporcionais (somam ~273mm úteis em paisagem A4).
     pesos = [11, 12, 16, 18, 10, 10, 9, 10, 10, 10, 10]
     soma = sum(pesos)
     col_widths = [largura_util * (p / soma) for p in pesos]
     tabela = Table(dados_tabela, colWidths=col_widths, repeatRows=1)
     estilo = [
-        ('BACKGROUND', (0, 0), (-1, 0), _COR_TABELA_HEADER),
+        ('BACKGROUND', (0, 0), (-1, 0), _COR_GOLD),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+        ('GRID', (0, 0), (-1, -1), 0.4, _COR_BORDA),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
         ('ALIGN', (7, 1), (-1, -1), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 3),
         ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, 0), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 1),
     ]
     estilo.extend(span_cmds)
     tabela.setStyle(TableStyle(estilo))
     story.append(tabela)
     story.append(Spacer(1, 5 * mm))
 
-    # ---- Premissas ----
-    if _texto(cotacao.get('premissas')):
-        story.append(Paragraph('Premissas', secao_style))
-        for linha_txt in _texto(cotacao.get('premissas')).replace('\r\n', '\n').split('\n'):
+    # ---- Premissas + Total da campanha (lado direito) ----
+    premissas_txt = _texto(cotacao.get('premissas')) or _texto(cotacao.get('condicoes_comerciais'))
+    premissas_flow = [Paragraph('Premissas', premissa_titulo_style)]
+    if premissas_txt:
+        for linha_txt in premissas_txt.replace('\r\n', '\n').split('\n'):
             if linha_txt.strip():
-                story.append(Paragraph(escape(linha_txt.strip()), nota_style))
-        story.append(Spacer(1, 3 * mm))
+                premissas_flow.append(Paragraph(escape(linha_txt.strip()), premissa_style))
+    else:
+        premissas_flow.append(Paragraph('-', premissa_style))
 
-    # ---- Condições comerciais ----
-    if _texto(cotacao.get('condicoes_comerciais')):
-        story.append(Paragraph('Condições comerciais', secao_style))
-        for linha_txt in _texto(cotacao.get('condicoes_comerciais')).replace('\r\n', '\n').split('\n'):
-            if linha_txt.strip():
-                story.append(Paragraph(escape(linha_txt.strip()), nota_style))
-        story.append(Spacer(1, 3 * mm))
+    premissas_box = Table([[premissas_flow]], colWidths=[(largura_util - 6 * mm) * 0.55])
+    premissas_box.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
 
-    # ---- Observações gerais ----
-    if _texto(cotacao.get('observacoes')):
+    total_data = [
+        [Paragraph('TOTAL DA CAMPANHA', total_titulo_style), ''],
+        [Paragraph('INVESTIMENTO BRUTO TOTAL', total_label_style), Paragraph(_fmt_brl(total_bruto), total_valor_style)],
+        [Paragraph('INVESTIMENTO LÍQUIDO TOTAL', total_label_style), Paragraph(_fmt_brl(total_liquido), total_valor_style)],
+        [Paragraph('VALIDADE DA PROPOSTA', total_label_style), Paragraph(validade_txt or '-', total_valor_style)],
+    ]
+    total_w = (largura_util - 6 * mm) * 0.45
+    total_box = Table(total_data, colWidths=[total_w * 0.6, total_w * 0.4])
+    total_box.setStyle(TableStyle([
+        ('SPAN', (0, 0), (1, 0)),
+        ('BACKGROUND', (0, 0), (1, 0), _COR_GOLD),
+        ('GRID', (0, 0), (-1, -1), 0.5, _COR_BORDA),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, _COR_GOLD_CLARO]),
+    ]))
+
+    rodape = Table(
+        [[premissas_box, total_box]],
+        colWidths=[(largura_util - 6 * mm) * 0.55 + 6 * mm, (largura_util - 6 * mm) * 0.45],
+    )
+    rodape.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(rodape)
+
+    # ---- Observações gerais (última página) ----
+    observacoes_gerais_txt = _texto(cotacao.get('observacoes_gerais')) or _texto(cotacao.get('observacoes'))
+    if observacoes_gerais_txt:
+        story.append(PageBreak())
         story.append(Paragraph('Observações gerais', secao_style))
-        for linha_txt in _texto(cotacao.get('observacoes')).replace('\r\n', '\n').split('\n'):
+        for linha_txt in observacoes_gerais_txt.replace('\r\n', '\n').split('\n'):
             if linha_txt.strip():
                 story.append(Paragraph(escape(linha_txt.strip()), nota_style))
 

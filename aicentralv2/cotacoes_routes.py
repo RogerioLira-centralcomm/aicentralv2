@@ -50,6 +50,95 @@ from aicentralv2.services.cotacao_linhas_image_import import (
 
 bp = Blueprint('cotacoes', __name__)
 
+# Defaults da Proposta CentralComm Programmatic (campos editáveis na cotação).
+FREQUENCIA_IMPACTO_DEFAULT = 3
+
+PREMISSAS_DEFAULT = (
+    "1 - Para a campanha ir para o Ar precisamos ter dois itens importantes, PI e todos os itens de material.\n"
+    "2 - Precisamos ter o termo de aceite da nossa tag instalada em algum lugar no site.\n"
+    "3 - Faturamento 15 DFM."
+)
+
+OBSERVACOES_GERAIS_DEFAULT = (
+    "* A APROVAÇÃO DE MATERIAIS DE 24 HORAS É DE CADA PLATAFORMA/ TECNOLOGIA, NÃO É DE RESPONSABILIDADE DA CENTRALCOMM.\n"
+    "* Qualquer ajuste de entrega sobre a campanha, precisa de alteração de PI ou alguma documentação por e-mail.\n"
+    "* Envio de PI de 24 horas antes do início da campanha e Material 48 horas para verificação.\n"
+    "* Faturamento 15 DFM.\n"
+    "Plataforma Programática\n"
+    "Obs. 1: A campanha será trabalhada e otimizada para veicular as metas de entrega previstas. Serão esses nossos KPI's e são esses os resultados que buscaremos e apresentaremos ao final da campanha.\n"
+    "Obs. 2: Relatórios semanais/ parciais com os dados de campanha, que o cliente desejar, somente sob prévia solicitação\n"
+    "Obs. 3: Relatórios de BI das campanhas, terão que ser avisados antes do inicio da campanha e entregues somente de uma semana a quinze dias, após o final da mesma.\n"
+    "Obs. 4: Remarketing: Iniciaremos a campanha à partir da criação de uma base de dados criada. O ideal é que seja após 1 mês de campanha."
+)
+
+DESCRICAO_ANEXO_PROPOSTA_PDF = 'Proposta CentralComm Programmatic (PDF)'
+DESCRICAO_ANEXO_BRIEFING = 'Briefing da campanha'
+BRIEFING_EXTENSOES_PERMITIDAS = {'.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png'}
+BRIEFING_MAX_BYTES = 10 * 1024 * 1024
+
+
+def _upload_dir_cotacoes():
+    upload_dir = os.path.join(current_app.static_folder, 'uploads', 'cotacoes')
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def _substituir_anexo_por_descricao(cotacao_id, descricao):
+    for anexo in db.obter_anexos_cotacao(cotacao_id):
+        if (anexo.get('descricao') or '') == descricao:
+            db.deletar_anexo_cotacao(anexo['id'])
+
+
+def _salvar_bytes_como_anexo_cotacao(cotacao_id, conteudo_bytes, nome_original, mime_type, descricao, uploaded_by):
+    nome_seguro = secure_filename(nome_original) or 'arquivo'
+    extensao = os.path.splitext(nome_seguro)[1]
+    nome_arquivo = f"{uuid.uuid4().hex}{extensao}"
+    upload_dir = _upload_dir_cotacoes()
+    arquivo_path = os.path.join(upload_dir, nome_arquivo)
+    with open(arquivo_path, 'wb') as f:
+        f.write(conteudo_bytes)
+    url_arquivo = f"/static/uploads/cotacoes/{nome_arquivo}"
+    return db.criar_anexo_cotacao(
+        cotacao_id=cotacao_id,
+        nome_original=nome_original,
+        nome_arquivo=nome_arquivo,
+        url_arquivo=url_arquivo,
+        mime_type=mime_type,
+        tamanho_bytes=len(conteudo_bytes),
+        descricao=descricao,
+        uploaded_by=uploaded_by,
+    )
+
+
+def _salvar_file_storage_como_anexo_cotacao(cotacao_id, file_storage, descricao, uploaded_by):
+    nome_original = secure_filename(file_storage.filename)
+    extensao = os.path.splitext(nome_original)[1].lower()
+    nome_arquivo = f"{uuid.uuid4().hex}{extensao}"
+    upload_dir = _upload_dir_cotacoes()
+    arquivo_path = os.path.join(upload_dir, nome_arquivo)
+    file_storage.save(arquivo_path)
+    url_arquivo = f"/static/uploads/cotacoes/{nome_arquivo}"
+    tamanho_bytes = os.path.getsize(arquivo_path)
+    return db.criar_anexo_cotacao(
+        cotacao_id=cotacao_id,
+        nome_original=nome_original,
+        nome_arquivo=nome_arquivo,
+        url_arquivo=url_arquivo,
+        mime_type=file_storage.content_type,
+        tamanho_bytes=tamanho_bytes,
+        descricao=descricao,
+        uploaded_by=uploaded_by,
+    )
+
+
+@bp.app_context_processor
+def _inject_proposta_defaults():
+    return {
+        'PREMISSAS_DEFAULT': PREMISSAS_DEFAULT,
+        'OBSERVACOES_GERAIS_DEFAULT': OBSERVACOES_GERAIS_DEFAULT,
+        'FREQUENCIA_IMPACTO_DEFAULT': FREQUENCIA_IMPACTO_DEFAULT,
+    }
+
 
 def _audit(*args, **kwargs):
     from aicentralv2.routes import registrar_auditoria
@@ -401,6 +490,7 @@ def cotacao_nova():
 
             kwargs = {
                 'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
+                'apresentacao_dados': request.form.get('apresentacao_dados', '').strip() or None,
                 'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
                 'status': request.form.get('status', 'Rascunho').strip(),
                 'responsavel_comercial': request.form.get('responsavel_comercial', type=int),
@@ -410,7 +500,9 @@ def cotacao_nova():
                 'budget_estimado': float(request.form.get('budget_estimado', '0') or 0)
                 if request.form.get('budget_estimado')
                 else None,
-                'observacoes': request.form.get('observacoes', '').strip(),
+                'frequencia_impacto': request.form.get('frequencia_impacto', type=int) or FREQUENCIA_IMPACTO_DEFAULT,
+                'premissas': request.form.get('premissas', '').strip() or PREMISSAS_DEFAULT,
+                'observacoes_gerais': request.form.get('observacoes_gerais', '').strip() or OBSERVACOES_GERAIS_DEFAULT,
                 'origem': request.form.get('origem', '').strip(),
                 'link_publico_ativo': 'link_publico_ativo' in request.form,
                 'link_publico_token': request.form.get('link_publico_token', '').strip(),
@@ -427,18 +519,6 @@ def cotacao_nova():
                 'parceiro_user_id': request.form.get('parceiro_user_id', type=int)
                 if request.form.get('parceiro_user_id')
                 else None,
-                'praca': request.form.get('praca', '').strip(),
-                'frequencia_impacto': request.form.get('frequencia_impacto', '').strip(),
-                'estimativa_impactos_unicos': request.form.get('estimativa_impactos_unicos', type=int)
-                if request.form.get('estimativa_impactos_unicos')
-                else None,
-                'dados_demograficos': request.form.get('dados_demograficos', '').strip(),
-                'perfil_audiencia_interesses': request.form.get('perfil_audiencia_interesses', '').strip(),
-                'data_envio': request.form.get('data_envio', '').strip() or None,
-                'validade_dias': request.form.get('validade_dias', type=int)
-                if request.form.get('validade_dias')
-                else None,
-                'premissas': request.form.get('premissas', '').strip(),
             }
             kwargs = {k: v for k, v in kwargs.items() if v is not None and v != ''}
 
@@ -450,6 +530,34 @@ def cotacao_nova():
                 **kwargs,
             )
 
+            cotacao_id = resultado['id']
+            briefing_arquivo = request.files.get('briefing_arquivo')
+            if briefing_arquivo and briefing_arquivo.filename:
+                nome_original = secure_filename(briefing_arquivo.filename)
+                extensao = os.path.splitext(nome_original)[1].lower()
+                if extensao not in BRIEFING_EXTENSOES_PERMITIDAS:
+                    flash('Formato de briefing não permitido. Use PDF, DOC, PPT, JPG ou PNG.', 'error')
+                else:
+                    briefing_arquivo.seek(0, os.SEEK_END)
+                    tamanho = briefing_arquivo.tell()
+                    briefing_arquivo.seek(0)
+                    if tamanho > BRIEFING_MAX_BYTES:
+                        flash('Briefing excede o limite de 10MB e não foi anexado.', 'error')
+                    else:
+                        anexo_id = _salvar_file_storage_como_anexo_cotacao(
+                            cotacao_id,
+                            briefing_arquivo,
+                            DESCRICAO_ANEXO_BRIEFING,
+                            session.get('user_id'),
+                        )
+                        _audit(
+                            acao='CREATE',
+                            modulo='cotacoes_anexos',
+                            descricao=f'Briefing cotação {cotacao_id}: {nome_original}',
+                            registro_id=anexo_id,
+                            registro_tipo='cadu_cotacao_anexos',
+                        )
+
             _audit(
                 acao='INSERT',
                 modulo='cotacoes',
@@ -460,7 +568,7 @@ def cotacao_nova():
             )
 
             flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
-            return redirect(url_for('cotacoes.cotacoes_list', status='Rascunho'))
+            return redirect(url_for('cotacoes.cotacao_detalhes', cotacao_id=resultado['id']))
 
         except Exception as e:
             current_app.logger.error(f"cotacao_nova POST: {e}", exc_info=True)
@@ -565,21 +673,12 @@ def cotacao_editar(cotacao_id):
                 else None,
                 'observacoes': request.form.get('observacoes', '').strip(),
                 'observacoes_internas': request.form.get('observacoes_internas', '').strip(),
+                'frequencia_impacto': request.form.get('frequencia_impacto', type=int),
+                'premissas': request.form.get('premissas', '').strip(),
+                'observacoes_gerais': request.form.get('observacoes_gerais', '').strip(),
                 'link_publico_ativo': 'link_publico_ativo' in request.form,
                 'link_publico_token': request.form.get('link_publico_token', '').strip(),
                 'link_publico_expires_at': request.form.get('link_publico_expires_at', '').strip() or None,
-                'praca': request.form.get('praca', '').strip(),
-                'frequencia_impacto': request.form.get('frequencia_impacto', '').strip(),
-                'estimativa_impactos_unicos': request.form.get('estimativa_impactos_unicos', type=int)
-                if request.form.get('estimativa_impactos_unicos')
-                else None,
-                'dados_demograficos': request.form.get('dados_demograficos', '').strip(),
-                'perfil_audiencia_interesses': request.form.get('perfil_audiencia_interesses', '').strip(),
-                'data_envio': request.form.get('data_envio', '').strip() or None,
-                'validade_dias': request.form.get('validade_dias', type=int)
-                if request.form.get('validade_dias')
-                else None,
-                'premissas': request.form.get('premissas', '').strip(),
             }
             update_kwargs = {k: v for k, v in update_kwargs.items() if v is not None and v != ''}
 
@@ -601,7 +700,7 @@ def cotacao_editar(cotacao_id):
                 dados_novos={'nome_campanha': nome_campanha, 'valor_total_proposta': valor_total},
             )
 
-            return redirect(url_for('cotacoes.cotacoes_list'))
+            return redirect(url_for('cotacoes.cotacao_detalhes', cotacao_id=cotacao_id))
 
         clientes = db.obter_clientes_simples()
         vendedores = db.obter_vendedores_centralcomm()
@@ -677,16 +776,11 @@ def cotacao_detalhes(cotacao_id):
                     'status': request.form.get('status'),
                     'observacoes': request.form.get('observacoes'),
                     'observacoes_internas': request.form.get('observacoes_internas'),
+                    'frequencia_impacto': request.form.get('frequencia_impacto', type=int),
+                    'premissas': request.form.get('premissas'),
+                    'observacoes_gerais': request.form.get('observacoes_gerais'),
                     'desconto_total': request.form.get('desconto_total'),
                     'condicoes_comerciais': request.form.get('condicoes_comerciais'),
-                    'praca': request.form.get('praca'),
-                    'frequencia_impacto': request.form.get('frequencia_impacto'),
-                    'estimativa_impactos_unicos': request.form.get('estimativa_impactos_unicos') or None,
-                    'dados_demograficos': request.form.get('dados_demograficos'),
-                    'perfil_audiencia_interesses': request.form.get('perfil_audiencia_interesses'),
-                    'data_envio': request.form.get('data_envio') or None,
-                    'validade_dias': request.form.get('validade_dias') or None,
-                    'premissas': request.form.get('premissas'),
                 }
 
                 novo_status = dados.get('status')
@@ -779,6 +873,24 @@ def cotacao_proposta_pdf(cotacao_id):
             return redirect(url_for('cotacoes.cotacoes_list'))
 
         pdf_bytes, filename = gerar_proposta_programmatic_pdf(cotacao_id)
+
+        _substituir_anexo_por_descricao(cotacao_id, DESCRICAO_ANEXO_PROPOSTA_PDF)
+        anexo_id = _salvar_bytes_como_anexo_cotacao(
+            cotacao_id,
+            pdf_bytes,
+            filename,
+            'application/pdf',
+            DESCRICAO_ANEXO_PROPOSTA_PDF,
+            session.get('user_id'),
+        )
+        _audit(
+            acao='CREATE',
+            modulo='cotacoes_anexos',
+            descricao=f'Proposta PDF cotação {cotacao_id}: {filename}',
+            registro_id=anexo_id,
+            registro_tipo='cadu_cotacao_anexos',
+        )
+
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'inline; filename={filename}'
@@ -885,6 +997,9 @@ def api_atualizar_cotacao_teste(cotacao_id):
             'parceiro_user_id',
             'observacoes',
             'observacoes_internas',
+            'frequencia_impacto',
+            'premissas',
+            'observacoes_gerais',
             'origem',
             'condicoes_comerciais',
             'status',
@@ -892,17 +1007,9 @@ def api_atualizar_cotacao_teste(cotacao_id):
             'link_publico_token',
             'link_publico_expires_at',
             'aprovada_em',
-            'praca',
-            'frequencia_impacto',
-            'estimativa_impactos_unicos',
-            'dados_demograficos',
-            'perfil_audiencia_interesses',
-            'data_envio',
-            'validade_dias',
-            'premissas',
         ]
 
-        campos_data = ['periodo_inicio', 'periodo_fim', 'expires_at', 'link_publico_expires_at', 'aprovada_em', 'data_envio']
+        campos_data = ['periodo_inicio', 'periodo_fim', 'expires_at', 'link_publico_expires_at', 'aprovada_em']
 
         update_data = {}
         for campo in campos_permitidos:
@@ -1274,6 +1381,22 @@ def remover_linha_cotacao_api_teste(linha_id):
         return jsonify({'error': str(e)}), 500
 
 
+@bp.route('/api/cotacoes/linhas/<int:linha_id>/duplicar', methods=['POST'])
+@login_required
+def duplicar_linha_cotacao_api(linha_id):
+    err = _guard_linha(linha_id)
+    if err:
+        return err
+    try:
+        nova_id = db.duplicar_linha_cotacao(linha_id)
+        if not nova_id:
+            return jsonify({'error': 'Linha não encontrada'}), 404
+        return jsonify({'success': True, 'message': 'Item duplicado com sucesso', 'linha_id': nova_id})
+    except Exception as e:
+        current_app.logger.error(f"duplicar_linha_cotacao_api: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 @bp.route('/api/cotacoes/audiencias', methods=['POST'])
 @login_required
 def criar_audiencia_cotacao_api_teste():
@@ -1469,6 +1592,22 @@ def remover_audiencia_cotacao_api_teste(audiencia_id):
         db.remover_audiencia_cotacao(audiencia_id)
         return jsonify({'success': True}), 200
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/api/cotacoes/audiencias/<int:audiencia_id>/duplicar', methods=['POST'])
+@login_required
+def duplicar_audiencia_cotacao_api(audiencia_id):
+    err = _guard_audiencia_cotacao(audiencia_id)
+    if err:
+        return err
+    try:
+        nova_id = db.duplicar_audiencia_cotacao(audiencia_id)
+        if not nova_id:
+            return jsonify({'error': 'Audiência não encontrada'}), 404
+        return jsonify({'success': True, 'message': 'Audiência duplicada com sucesso', 'audiencia_id': nova_id})
+    except Exception as e:
+        current_app.logger.error(f"duplicar_audiencia_cotacao_api: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 

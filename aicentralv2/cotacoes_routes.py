@@ -874,6 +874,13 @@ def cotacao_proposta_pdf(cotacao_id):
 
         pdf_bytes, filename = gerar_proposta_programmatic_pdf(cotacao_id)
 
+        nome_personalizado = (request.args.get('nome') or '').strip()
+        if nome_personalizado:
+            base = secure_filename(os.path.splitext(nome_personalizado)[0]) or os.path.splitext(filename)[0]
+            filename = f"{base}.pdf"
+
+        baixar = request.args.get('download') in ('1', 'true', 'sim')
+
         _substituir_anexo_por_descricao(cotacao_id, DESCRICAO_ANEXO_PROPOSTA_PDF)
         anexo_id = _salvar_bytes_como_anexo_cotacao(
             cotacao_id,
@@ -893,7 +900,8 @@ def cotacao_proposta_pdf(cotacao_id):
 
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'inline; filename={filename}'
+        disposicao = 'attachment' if baixar else 'inline'
+        response.headers['Content-Disposition'] = f'{disposicao}; filename="{filename}"'
         return response
     except Exception as e:
         current_app.logger.error(f"cotacao_proposta_pdf: {e}", exc_info=True)

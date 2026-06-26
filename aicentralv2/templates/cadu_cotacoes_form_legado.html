@@ -462,8 +462,8 @@
             </div>
           </div>
           <div class="form-control col-span-1 md:col-span-2">
-            <label id="nc_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ*</label>
-            <input id="nc_cnpj" name="cnpj" required class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+            <label id="nc_label_cnpj" class="text-xs font-medium text-gray-600 mb-1">CNPJ</label>
+            <input id="nc_cnpj" name="cnpj" class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
           </div>
           <div class="form-control col-span-1 md:col-span-4">
             <label id="nc_label_fantasia" class="text-xs font-medium text-gray-600 mb-1">Nome Fantasia*</label>
@@ -1199,7 +1199,7 @@ function ncTogglePessoa(tipo) {
     razaoFields.style.display = '';
     inscFields.style.display = '';
     agenciaFields.style.display = '';
-    lblCnpj.textContent = 'CNPJ*';
+    lblCnpj.textContent = 'CNPJ';
     inputCnpj.placeholder = 'CNPJ';
     inputCnpj.maxLength = 18;
     document.getElementById('nc_razao_social').required = true;
@@ -1210,7 +1210,7 @@ function ncTogglePessoa(tipo) {
     razaoFields.style.display = 'none';
     inscFields.style.display = 'none';
     agenciaFields.style.display = 'none';
-    lblCnpj.textContent = 'CPF*';
+    lblCnpj.textContent = 'CPF';
     inputCnpj.placeholder = 'CPF';
     inputCnpj.maxLength = 14;
     document.getElementById('nc_razao_social').required = false;

@@ -391,13 +391,14 @@
             </div>
           </div>
           <div class="form-control col-span-1 md:col-span-2">
-            <label id="label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ*</label>
-            <input id="input_cnpj" name="cnpj" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
+            <label id="label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ</label>
+            <input id="input_cnpj" name="cnpj" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="mascaraCnpjCpf(this)" maxlength="18">
             <span id="cnpjcpf_msg" class="text-red-500 text-[9px]"></span>
           </div>
           <div class="form-control col-span-1 md:col-span-4">
             <label id="label_nome_fantasia" class="text-[10px] font-medium text-gray-600 mb-0.5">Nome Fantasia*</label>
-            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia">
+            <input id="input_nome_fantasia" name="nome_fantasia" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="Nome fantasia" onblur="verificarExistenciaNome()">
+            <span id="nome_msg" class="text-red-500 text-[9px]"></span>
           </div>
           <div id="razao_social_fields" class="form-control col-span-1 md:col-span-4">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Razão Social*</label>
@@ -1056,7 +1057,7 @@ function togglePessoaFieldsModal() {
     _selecionarOptionPorTexto(selectTipoCliente, 'Privado');
     _selecionarOptionPorTexto(selectAgencia, 'Não');
 
-    document.getElementById('label_cnpj').innerText = 'CPF *';
+    document.getElementById('label_cnpj').innerText = 'CPF';
     document.getElementById('input_cnpj').placeholder = 'Digite o CPF';
     document.getElementById('label_nome_fantasia').innerText = 'Nome Completo *';
     document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome completo';
@@ -1070,7 +1071,7 @@ function togglePessoaFieldsModal() {
     razaoSocialFields.style.display = '';
     inputRazaoSocial.required = true;
 
-    document.getElementById('label_cnpj').innerText = 'CNPJ *';
+    document.getElementById('label_cnpj').innerText = 'CNPJ';
     document.getElementById('input_cnpj').placeholder = 'Digite o CNPJ';
     document.getElementById('label_nome_fantasia').innerText = 'Nome Fantasia *';
     document.getElementById('input_nome_fantasia').placeholder = 'Digite o nome fantasia';
@@ -1261,17 +1262,9 @@ async function buscarEmpresaPorCNPJ(cnpj) {
       
       showToast('Dados do CNPJ carregados com sucesso!', 'success');
     } else {
-      // Verificar se é CNPJ já cadastrado
-      if (result.ja_cadastrado) {
-        document.getElementById('cnpjcpf_msg').innerText = result.message;
-        document.getElementById('cnpjcpf_msg').classList.remove('text-info');
-        document.getElementById('cnpjcpf_msg').classList.add('text-error');
-        showToast(result.message, 'error');
-      } else {
-        document.getElementById('cnpjcpf_msg').innerText = result.message || 'CNPJ inválido!';
-        document.getElementById('cnpjcpf_msg').classList.remove('text-info');
-        document.getElementById('cnpjcpf_msg').classList.add('text-error');
-      }
+      document.getElementById('cnpjcpf_msg').innerText = result.message || 'CNPJ inválido!';
+      document.getElementById('cnpjcpf_msg').classList.remove('text-info');
+      document.getElementById('cnpjcpf_msg').classList.add('text-error');
     }
   } catch (e) {
     console.error('Erro ao buscar CNPJ:', e);
@@ -1281,23 +1274,21 @@ async function buscarEmpresaPorCNPJ(cnpj) {
   }
 }
 
-async function verificarExistenciaDocumento(doc, tipo) {
+async function verificarExistenciaNome() {
+  const nomeEl = document.getElementById('input_nome_fantasia');
+  const msgEl = document.getElementById('nome_msg');
+  if (!nomeEl || !msgEl) return;
+  const nome = nomeEl.value.trim();
+  if (!nome) { msgEl.innerText = ''; return; }
+  const clienteId = document.getElementById('cliente_id') ? document.getElementById('cliente_id').value : '';
   try {
-    const resp = await fetch(`/api/verifica_documento?doc=${encodeURIComponent(doc)}&tipo=${tipo}`);
+    let url = `/api/verifica_nome?nome=${encodeURIComponent(nome)}`;
+    if (clienteId) url += `&excluir_id=${encodeURIComponent(clienteId)}`;
+    const resp = await fetch(url);
     const data = await resp.json();
-    if (data.existe) {
-      document.getElementById('cnpjcpf_msg').innerText = tipo === 'F' ? 'CPF já cadastrado!' : 'CNPJ já cadastrado!';
-      if (data.cliente) {
-        if (document.getElementById('input_razao_social') && data.cliente.razao_social)
-          document.getElementById('input_razao_social').value = data.cliente.razao_social;
-        if (document.getElementById('input_nome_fantasia') && data.cliente.nome_fantasia)
-          document.getElementById('input_nome_fantasia').value = data.cliente.nome_fantasia;
-      }
-    } else {
-      document.getElementById('cnpjcpf_msg').innerText = '';
-    }
+    msgEl.innerText = data.existe ? 'Já existe um cliente cadastrado com este nome!' : '';
   } catch (e) {
-    console.error('Erro ao verificar documento:', e);
+    console.error('Erro ao verificar nome:', e);
   }
 }
 
@@ -1306,28 +1297,12 @@ async function onCnpjCpfBlur() {
   const doc = document.getElementById('input_cnpj').value.replace(/\D/g, '');
   if (!doc) return;
   
-  const clienteId = document.getElementById('cliente_id').value;
-  
   if (pessoa === 'F') {
     if (!validarCPF(doc)) {
       document.getElementById('cnpjcpf_msg').innerText = 'CPF inválido!';
       return;
     }
     document.getElementById('cnpjcpf_msg').innerText = '';
-    
-    // Se está editando, verificar se o CPF é diferente do original
-    if (clienteId) {
-      const response = await fetch(`/api/cliente/${clienteId}`);
-      const clienteOriginal = await response.json();
-      const docOriginal = clienteOriginal.cnpj ? clienteOriginal.cnpj.replace(/\D/g, '') : '';
-      
-      // Só verificar duplicidade se o CPF mudou
-      if (doc !== docOriginal) {
-        await verificarExistenciaDocumento(doc, 'F');
-      }
-    } else {
-      await verificarExistenciaDocumento(doc, 'F');
-    }
   } else {
     if (doc.length !== 14) {
       document.getElementById('cnpjcpf_msg').innerText = 'CNPJ inválido!';
@@ -1335,22 +1310,8 @@ async function onCnpjCpfBlur() {
     }
     document.getElementById('cnpjcpf_msg').innerText = '';
     
-    // Sempre buscar dados na ReceitaWS primeiro
+    // Buscar dados na ReceitaWS (autofill)
     await buscarEmpresaPorCNPJ(doc);
-    
-    // Se está editando, verificar se o CNPJ é diferente do original
-    if (clienteId) {
-      const response = await fetch(`/api/cliente/${clienteId}`);
-      const clienteOriginal = await response.json();
-      const docOriginal = clienteOriginal.cnpj ? clienteOriginal.cnpj.replace(/\D/g, '') : '';
-      
-      // Só verificar duplicidade se o CNPJ mudou
-      if (doc !== docOriginal) {
-        await verificarExistenciaDocumento(doc, 'J');
-      }
-    } else {
-      await verificarExistenciaDocumento(doc, 'J');
-    }
   }
 }
 

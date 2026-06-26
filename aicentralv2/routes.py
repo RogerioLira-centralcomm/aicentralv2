@@ -778,38 +778,6 @@ def init_routes(app):
         if not validar_cnpj(cnpj):
             return jsonify({'success': False, 'message': 'CNPJ inválido - dígitos verificadores incorretos'})
         
-        # Verificar se CNPJ já existe na base de dados
-        try:
-            conn = db.get_db()
-            with conn.cursor() as cursor:
-                if cliente_id_editando:
-                    # Se está editando, ignorar o próprio cliente
-                    cursor.execute("""
-                        SELECT id_cliente, nome_fantasia, razao_social 
-                        FROM tbl_cliente 
-                        WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '-', ''), '/', '') = %s
-                        AND id_cliente != %s
-                    """, (cnpj, cliente_id_editando))
-                else:
-                    cursor.execute("""
-                        SELECT id_cliente, nome_fantasia, razao_social 
-                        FROM tbl_cliente 
-                        WHERE REPLACE(REPLACE(REPLACE(cnpj, '.', ''), '-', ''), '/', '') = %s
-                    """, (cnpj,))
-                
-                cliente_existente = cursor.fetchone()
-                
-                if cliente_existente:
-                    nome_cliente = cliente_existente['nome_fantasia'] or cliente_existente['razao_social'] or 'Cliente'
-                    return jsonify({
-                        'success': False, 
-                        'message': f'CNPJ já cadastrado para: {nome_cliente}',
-                        'ja_cadastrado': True,
-                        'cliente_id': cliente_existente['id_cliente']
-                    })
-        except Exception as e:
-            app.logger.error(f'Erro ao verificar CNPJ na base: {e}')
-        
         try:
             # Buscar na ReceitaWS
             resp = requests.get(f'https://www.receitaws.com.br/v1/cnpj/{cnpj}', timeout=30)
@@ -876,6 +844,15 @@ def init_routes(app):
             })
         else:
             return jsonify({'existe': False})
+
+    # --- API: Verifica se o nome (Nome Fantasia / Nome Completo) já existe na base ---
+    @app.route('/api/verifica_nome')
+    @login_required
+    def verifica_nome():
+        nome = request.args.get('nome', '').strip()
+        excluir_id = request.args.get('excluir_id', type=int)
+        existe = db.cliente_existe_por_nome_fantasia(nome, excluir_id=excluir_id) if nome else False
+        return jsonify({'existe': bool(existe)})
     """Inicializa todas as rotas"""
     
     # ==================== FAVICON ====================
@@ -1178,12 +1155,9 @@ def init_routes(app):
                     if not nome_fantasia:
                         return _edit_error('Nome Completo é obrigatório!')
                 
-                if not cnpj:
-                    return _edit_error('CNPJ/CPF é obrigatório!')
-                
-                # Validação de CPF quando Pessoa Física
+                # CNPJ/CPF é opcional; quando informado em Pessoa Física, valida o formato
                 if pessoa == 'F':
-                    if not db.validar_cpf(cnpj):
+                    if cnpj and not db.validar_cpf(cnpj):
                         return _edit_error('CPF inválido!')
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
@@ -1195,16 +1169,12 @@ def init_routes(app):
                     if not id_tipo_cliente:
                         return _edit_error('Tipo de Cliente é obrigatório!')
 
-                # Validações de unicidade na edição (exclui o próprio cliente)
+                # Validação de unicidade apenas por nome (exclui o próprio cliente)
                 try:
-                    if db.cliente_existe_por_cnpj(cnpj, excluir_id=cliente_id):
-                        return _edit_error('CNPJ já cadastrado em outro cliente.')
-                    if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social, excluir_id=cliente_id):
-                        return _edit_error('Razão Social já cadastrada em outro cliente.')
                     if db.cliente_existe_por_nome_fantasia(nome_fantasia, excluir_id=cliente_id):
-                        return _edit_error('Nome Fantasia já cadastrado em outro cliente.')
+                        return _edit_error('Já existe um cliente cadastrado com este nome.')
                 except Exception as ve:
-                    app.logger.error(f"Erro ao validar duplicidades: {ve}")
+                    app.logger.error(f"Erro ao validar duplicidade de nome: {ve}")
                     return _edit_error('Erro ao validar unicidade. Tente novamente.')
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
@@ -3220,12 +3190,9 @@ def init_routes(app):
                     if not nome_fantasia:
                         return _val_error('Nome Completo é obrigatório!')
                 
-                if not cnpj:
-                    return _val_error('CNPJ/CPF é obrigatório!')
-                
-                # Validação de CPF quando Pessoa Física
+                # CNPJ/CPF é opcional; quando informado em Pessoa Física, valida o formato
                 if pessoa == 'F':
-                    if not db.validar_cpf(cnpj):
+                    if cnpj and not db.validar_cpf(cnpj):
                         return _val_error('CPF inválido!')
                     if not razao_social:
                         razao_social = 'NÃO REQUERIDO'
@@ -3237,16 +3204,12 @@ def init_routes(app):
                     if not id_tipo_cliente:
                         return _val_error('Tipo de Cliente é obrigatório!')
 
-                # Validações de unicidade (CNPJ, Razão Social, Nome Fantasia)
+                # Validação de unicidade apenas por nome (comum a PF e PJ)
                 try:
-                    if db.cliente_existe_por_cnpj(cnpj):
-                        return _val_error('CNPJ já cadastrado em outro cliente.')
-                    if pessoa == 'J' and db.cliente_existe_por_razao_social(razao_social):
-                        return _val_error('Razão Social já cadastrada em outro cliente.')
                     if db.cliente_existe_por_nome_fantasia(nome_fantasia):
-                        return _val_error('Nome Fantasia já cadastrado em outro cliente.')
+                        return _val_error('Já existe um cliente cadastrado com este nome.')
                 except Exception as ve:
-                    app.logger.error(f"Erro ao validar duplicidades: {ve}")
+                    app.logger.error(f"Erro ao validar duplicidade de nome: {ve}")
                     return _val_error('Erro ao validar unicidade. Tente novamente.')
                 
                 if pessoa not in ['F', 'J']:
@@ -13090,22 +13053,20 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
         try:
             data = request.get_json(force=True) if request.is_json else {}
 
-            if not data.get('cnpj'):
-                return jsonify({'success': False, 'message': 'CNPJ/CPF obrigatório'}), 400
-
-            cnpj_limpo = ''.join(c for c in data['cnpj'] if c.isdigit())
+            cnpj_limpo = ''.join(c for c in (data.get('cnpj') or '') if c.isdigit())
             pessoa = data.get('pessoa', 'J')
 
-            if pessoa == 'F':
-                if not db.validar_cpf(cnpj_limpo):
-                    return jsonify({'success': False, 'message': 'CPF inválido'}), 400
-            else:
-                if len(cnpj_limpo) != 14:
-                    return jsonify({'success': False, 'message': 'CNPJ inválido'}), 400
+            # CNPJ/CPF é opcional; quando informado, valida o formato
+            if cnpj_limpo:
+                if pessoa == 'F':
+                    if not db.validar_cpf(cnpj_limpo):
+                        return jsonify({'success': False, 'message': 'CPF inválido'}), 400
+                else:
+                    if len(cnpj_limpo) != 14:
+                        return jsonify({'success': False, 'message': 'CNPJ inválido'}), 400
 
-            existente = db.cliente_existe_por_cnpj(cnpj_limpo)
-            if existente:
-                return jsonify({'success': False, 'message': 'CNPJ/CPF já cadastrado', 'ja_cadastrado': True}), 400
+            if db.cliente_existe_por_nome_fantasia(data.get('nome_fantasia', '')):
+                return jsonify({'success': False, 'message': 'Já existe um cliente com este nome', 'ja_cadastrado': True}), 400
 
             cliente_data = {
                 'cnpj': cnpj_limpo,

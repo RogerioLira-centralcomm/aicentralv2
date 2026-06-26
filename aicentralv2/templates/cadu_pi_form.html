@@ -2137,8 +2137,8 @@ function abrirViewCampanha(c) {
             </div>
           </div>
           <div class="form-control col-span-1 md:col-span-2">
-            <label id="ncpi_label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ*</label>
-            <input id="ncpi_cnpj" name="cnpj" required class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="ncpiMascaraCnpjCpf(this)" maxlength="18">
+            <label id="ncpi_label_cnpj" class="text-[10px] font-medium text-gray-600 mb-0.5">CNPJ</label>
+            <input id="ncpi_cnpj" name="cnpj" class="w-full px-2 py-1 text-[10px] border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="CNPJ" oninput="ncpiMascaraCnpjCpf(this)" maxlength="18">
           </div>
           <div class="form-control col-span-1 md:col-span-4">
             <label class="text-[10px] font-medium text-gray-600 mb-0.5">Nome Fantasia*</label>
@@ -2350,7 +2350,7 @@ function ncpiTogglePessoa(tipo) {
     razaoFields.style.display = '';
     inscFields.style.display = '';
     agenciaFields.style.display = '';
-    lblCnpj.textContent = 'CNPJ*';
+    lblCnpj.textContent = 'CNPJ';
     inputCnpj.placeholder = 'CNPJ';
     inputCnpj.maxLength = 18;
     document.getElementById('ncpi_razao_social').required = true;
@@ -2361,7 +2361,7 @@ function ncpiTogglePessoa(tipo) {
     razaoFields.style.display = 'none';
     inscFields.style.display = 'none';
     agenciaFields.style.display = 'none';
-    lblCnpj.textContent = 'CPF*';
+    lblCnpj.textContent = 'CPF';
     inputCnpj.placeholder = 'CPF';
     inputCnpj.maxLength = 14;
     document.getElementById('ncpi_razao_social').required = false;

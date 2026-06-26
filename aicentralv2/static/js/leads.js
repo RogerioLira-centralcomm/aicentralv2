@@ -1638,14 +1638,6 @@ async function cvOnCnpjBlur() {
             return;
         }
         msg.textContent = '';
-        try {
-            const resp = await fetch(`/api/verifica_documento?doc=${encodeURIComponent(doc)}&tipo=F`);
-            const data = await resp.json();
-            if (data.existe) {
-                msg.textContent = 'CPF já cadastrado!';
-                msg.style.color = '#dc2626';
-            }
-        } catch (e) { console.error(e); }
     } else {
         if (doc.length !== 14) {
             msg.textContent = 'CNPJ inválido!';
@@ -1685,7 +1677,6 @@ async function cvOnCnpjBlur() {
             } else {
                 msg.textContent = result.message || 'CNPJ inválido!';
                 msg.style.color = '#dc2626';
-                if (result.ja_cadastrado) showToast(result.message, 'error');
             }
         } catch (e) {
             msg.textContent = 'Erro ao consultar CNPJ';
@@ -1736,8 +1727,12 @@ async function cvSubmitConversao() {
     if (!executivo) return showToast('Selecione o Executivo', 'warning');
     if (pessoa === 'J' && !agencia) return showToast('Selecione a Agência', 'warning');
 
-    const msgEl = document.getElementById('cv_cnpj_msg');
-    if (msgEl.textContent.includes('já cadastrado')) return showToast('CNPJ/CPF já cadastrado', 'error');
+    // Validação de duplicidade apenas por nome (comum a PF e PJ)
+    try {
+        const respNome = await fetch(`/api/verifica_nome?nome=${encodeURIComponent(nomeFantasia)}`);
+        const dataNome = await respNome.json();
+        if (dataNome.existe) return showToast('Já existe um cliente cadastrado com este nome', 'error');
+    } catch (e) { console.error(e); }
 
     const payload = {
         pessoa,

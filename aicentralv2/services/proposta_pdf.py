@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import unicodedata
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -84,6 +86,14 @@ def _texto(v):
     if s.lower() == 'none':
         return ''
     return s
+
+
+def _slug_arquivo(*partes):
+    """Monta um slug de nome de arquivo (sem acentos, minúsculo, separado por hífen)."""
+    texto = '-'.join(_texto(p) for p in partes if _texto(p))
+    texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('ascii')
+    texto = re.sub(r'[^a-zA-Z0-9]+', '-', texto).strip('-').lower()
+    return texto
 
 
 def _join_lista(v):
@@ -502,5 +512,6 @@ def gerar_proposta_programmatic_pdf(cotacao_id):
     buffer.seek(0)
 
     numero = _texto(cotacao.get('numero_cotacao')) or str(cotacao_id)
-    filename = f"proposta_programmatic_{numero}.pdf"
+    base = _slug_arquivo(cliente_nome, _texto(cotacao.get('nome_campanha')), numero) or f"proposta_{numero}"
+    filename = f"{base}.pdf"
     return buffer.read(), filename

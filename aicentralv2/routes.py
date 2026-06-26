@@ -13409,6 +13409,19 @@ Retorne apenas o texto melhorado, sem explicações.'''
             }
             contexto_campo = contexto_campo_map.get(campo, 'briefing de uma linha de proposta de mídia digital')
 
+            limite_palavras_map = {
+                'segmentacao': 100,
+                'especificacoes': 100,
+                'praca': 100,
+            }
+            limite_palavras = limite_palavras_map.get(campo, 100)
+
+            regra_limite = (
+                f"Escreva no máximo {limite_palavras} palavras. "
+                f"Prepare o conteúdo para caber nesse limite mantendo as informações mais relevantes "
+                f"e garantindo que o texto termine de forma completa, sem cortar frases ou deixar a informação truncada."
+            )
+
             if acao == 'corrigir':
                 system_prompt = (
                     f"Você é um redator especialista em briefings de mídia digital. "
@@ -13419,7 +13432,23 @@ Retorne apenas o texto melhorado, sem explicações.'''
                     f"2. NÃO mude o sentido nem a estrutura.\n"
                     f"3. Mantenha o mesmo idioma do texto original (geralmente português do Brasil).\n"
                     f"4. Mantenha tom profissional e objetivo, próprio de briefing comercial.\n"
-                    f"5. Retorne APENAS o texto corrigido, sem aspas, sem cabeçalhos, sem explicações."
+                    f"5. {regra_limite}\n"
+                    f"6. Retorne APENAS o texto corrigido, sem aspas, sem cabeçalhos, sem explicações."
+                )
+            elif campo == 'praca':
+                system_prompt = (
+                    f"Você é um especialista em planejamento de mídia digital no Brasil. "
+                    f"O texto a seguir descreve a {contexto_campo}. "
+                    f"Sua tarefa é AMPLIAR a cobertura geográfica incluindo cidades próximas das localidades citadas. "
+                    f"REGRAS RÍGIDAS: \n"
+                    f"1. Para cada cidade/região informada, acrescente cidades vizinhas e municípios da região metropolitana "
+                    f"(ex.: para São Paulo, sugira Guarulhos, Osasco, Santo André, São Bernardo do Campo; para Belo Horizonte, "
+                    f"sugira Contagem, Betim, Nova Lima).\n"
+                    f"2. NÃO invente locais inexistentes nem sugira regiões fora do Brasil.\n"
+                    f"3. Mantenha as localidades originais e organize de forma clara (ex.: cidade principal + região).\n"
+                    f"4. Mantenha o idioma português do Brasil e tom profissional de briefing comercial.\n"
+                    f"5. {regra_limite}\n"
+                    f"6. Retorne APENAS o texto final com as praças, sem aspas, sem cabeçalhos, sem explicações."
                 )
             else:
                 system_prompt = (
@@ -13431,7 +13460,7 @@ Retorne apenas o texto melhorado, sem explicações.'''
                     f"2. Mantenha o mesmo idioma do texto original (geralmente português do Brasil).\n"
                     f"3. Corrija eventuais erros de ortografia/gramática durante a ampliação.\n"
                     f"4. Use tom profissional e objetivo de briefing comercial, sem enrolação.\n"
-                    f"5. Aumente o texto em no máximo o dobro do tamanho original; prefira clareza a verbosidade.\n"
+                    f"5. {regra_limite}\n"
                     f"6. Retorne APENAS o texto ampliado, sem aspas, sem cabeçalhos, sem explicações."
                 )
 

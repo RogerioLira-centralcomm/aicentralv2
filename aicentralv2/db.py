@@ -1058,6 +1058,7 @@ def obter_contatos_por_cliente(id_cliente):
                 c.data_cadastro,
                 c.pk_id_tbl_setor,
                 c.pk_id_tbl_cargo,
+                c.foto_url,
                 s.display as setor,
                 cg.descricao as cargo,
                 inv.status as invite_status,

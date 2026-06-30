@@ -4192,6 +4192,66 @@ def init_routes(app):
             app.logger.error(f"Erro ao salvar foto de perfil: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    @app.route('/api/contato/<int:contato_id>/foto', methods=['POST'])
+    @login_required
+    def api_contato_foto(contato_id):
+        """Upload da foto de um contato/colaborador (usado na edição de contato)"""
+        try:
+            import uuid
+            from pathlib import Path
+
+            contato = db.obter_contato_por_id(contato_id)
+            if not contato:
+                return jsonify({'success': False, 'error': 'Contato não encontrado'}), 404
+
+            # Foto de colaborador é exclusiva para contatos da CentralComm
+            if (contato.get('nome_fantasia') or '').strip().upper() != 'CENTRALCOMM':
+                return jsonify({'success': False, 'error': 'Foto disponível apenas para colaboradores da CentralComm'}), 403
+
+            arquivo = request.files.get('foto')
+            if not arquivo or not arquivo.filename:
+                return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+
+            ALLOWED_EXT = {'png', 'jpg', 'jpeg', 'webp'}
+            ext = arquivo.filename.rsplit('.', 1)[-1].lower() if '.' in arquivo.filename else ''
+            if ext not in ALLOWED_EXT:
+                return jsonify({'success': False, 'error': 'Formato inválido. Use PNG, JPG, JPEG ou WEBP.'}), 400
+
+            upload_dir = Path('aicentralv2/static/uploads/contatos')
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = f"{contato_id}_{uuid.uuid4().hex}.{ext}"
+            filepath = upload_dir / filename
+            arquivo.save(str(filepath))
+
+            foto_url = f"/static/uploads/contatos/{filename}"
+            foto_antiga = contato.get('foto_url')
+
+            if not db.atualizar_foto_contato(contato_id, foto_url):
+                try:
+                    filepath.unlink()
+                except Exception:
+                    pass
+                return jsonify({'success': False, 'error': 'Falha ao salvar foto no banco'}), 500
+
+            app.logger.info(f"Foto salva para contato {contato_id}: {foto_url}")
+
+            if foto_antiga and foto_antiga != foto_url and '/static/uploads/contatos/' in foto_antiga:
+                try:
+                    nome_antigo = foto_antiga.split('/static/uploads/contatos/')[-1]
+                    caminho_antigo = Path('aicentralv2/static/uploads/contatos') / nome_antigo
+                    if caminho_antigo.exists():
+                        caminho_antigo.unlink()
+                        app.logger.info(f"✅ Foto antiga deletada: {nome_antigo}")
+                except Exception as e:
+                    app.logger.error(f"❌ Erro ao deletar foto antiga: {e}")
+
+            return jsonify({'success': True, 'foto_url': foto_url})
+
+        except Exception as e:
+            app.logger.error(f"Erro ao salvar foto do contato {contato_id}: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     # ==================== ERRO HANDLERS ====================
 
     @app.errorhandler(403)

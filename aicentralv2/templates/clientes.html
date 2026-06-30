@@ -652,7 +652,20 @@
     <form id="form_contato" class="space-y-2" autocomplete="off">
       <input type="hidden" id="contato_id" name="contato_id" value="">
       <input type="hidden" id="contato_cliente_id" name="cliente_id" value="">
-      
+
+      <!-- Foto do colaborador (apenas na edição) -->
+      <div id="contato_foto_container" class="hidden items-center gap-3 mb-1 pb-2 border-b border-base-200 flex">
+        <div id="contato_foto_avatar"></div>
+        <div>
+          <label for="contato_foto_input" class="btn btn-ghost btn-xs px-1 h-6 min-h-6 text-[11px] gap-1">
+            <i class="fas fa-camera"></i>
+            <span id="contato_foto_label">Alterar foto</span>
+          </label>
+          <input id="contato_foto_input" type="file" accept="image/png,image/jpeg,image/webp" class="hidden">
+          <span id="contato_foto_msg" class="text-[10px] text-base-content/60 ml-1"></span>
+        </div>
+      </div>
+
       <!-- Linha 1: Nome, Email, Telefone -->
       <div id="contato_linha1" class="grid grid-cols-12 gap-2">
         <div class="form-control col-span-6" id="contato_nome_container">
@@ -894,6 +907,9 @@ async function abrirModalEditar(clienteId) {
     const response = await fetch(`/api/cliente/${clienteId}`);
     const cliente = await response.json();
     
+    // Foto de colaborador só vale para a CentralComm
+    window.__clienteEhCentralComm = (cliente.nome_fantasia || '').trim().toUpperCase() === 'CENTRALCOMM';
+
     // Buscar contatos do cliente
     const contatosResponse = await fetch(`/api/cliente/${clienteId}/contatos`);
     const contatos = await contatosResponse.json();
@@ -1770,7 +1786,12 @@ function preencherAbaDetalhes(cliente, contatos) {
           <tbody>
             ${contatos.map(c => `
               <tr class="hover" data-contato-id="${c.id_contato_cliente}">
-                <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
+                <td class="cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">
+                  <div class="flex items-center gap-2">
+                    ${contatoAvatarHtml(c)}
+                    <span class="font-semibold text-primary">${c.nome_completo}</span>
+                  </div>
+                </td>
                 <td class="text-xs">${c.email || '—'}</td>
                 <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                 <td>
@@ -1805,6 +1826,18 @@ function preencherAbaDetalhes(cliente, contatos) {
   carregarContratosCliente(cliente.id_cliente);
 }
 
+// Avatar do contato: usa foto_url se houver, senão iniciais (mesma lógica do perfil)
+// Aplicável somente a colaboradores da CentralComm
+function contatoAvatarHtml(c) {
+  if (!window.__clienteEhCentralComm) return '';
+  const nome = c.nome_completo || '';
+  if (c.foto_url) {
+    return `<div class="avatar shrink-0"><div class="rounded-full w-7 h-7"><img src="${c.foto_url}" alt="Foto"></div></div>`;
+  }
+  const iniciais = nome.substring(0, 2).toUpperCase() || 'U';
+  return `<div class="avatar placeholder shrink-0"><div class="bg-primary text-primary-content rounded-full w-7 h-7 text-[10px]"><span class="font-semibold">${iniciais}</span></div></div>`;
+}
+
 // Função para carregar contatos na aba
 async function carregarContatosAba(clienteId) {
   const listaContatos = document.getElementById('lista_contatos_aba');
@@ -1837,7 +1870,12 @@ async function carregarContatosAba(clienteId) {
             <tbody>
               ${contatos.map(c => `
                 <tr class="hover" data-contato-id="${c.id_contato_cliente}">
-                  <td class="font-semibold text-primary cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">${c.nome_completo}</td>
+                  <td class="cursor-pointer hover:underline" onclick="abrirModalEditarContato(${c.id_contato_cliente})" title="Clique para editar">
+                    <div class="flex items-center gap-2">
+                      ${contatoAvatarHtml(c)}
+                      <span class="font-semibold text-primary">${c.nome_completo}</span>
+                    </div>
+                  </td>
                   <td class="text-xs">${c.email || '—'}</td>
                   <td class="text-xs">${c.setor || '—'}${c.cargo ? ' / ' + c.cargo : ''}</td>
                   <td>
@@ -2016,10 +2054,79 @@ function abrirModalNovoContato() {
     // Limpar select de cargos
     const cargoSelect = document.getElementById('contato_cargo');
     cargoSelect.innerHTML = '<option value="">Selecione setor</option>';
-    
+
+    // Foto só fica disponível na edição (precisa do id do contato)
+    document.getElementById('contato_foto_container').classList.add('hidden');
+
     // Abrir modal
     modal_contato.showModal();
   }
+}
+
+// Renderiza o avatar do contato no modal (foto ou iniciais) e configura o upload
+function configurarFotoContato(contato) {
+  const container = document.getElementById('contato_foto_container');
+  const avatar = document.getElementById('contato_foto_avatar');
+  const input = document.getElementById('contato_foto_input');
+  const msg = document.getElementById('contato_foto_msg');
+  const label = document.getElementById('contato_foto_label');
+  if (!container || !avatar || !input) return;
+
+  // Foto de colaborador só vale para a CentralComm
+  const ehCentralComm = (contato.nome_fantasia || '').trim().toUpperCase() === 'CENTRALCOMM';
+  if (!ehCentralComm) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  msg.textContent = '';
+  label.textContent = 'Alterar foto';
+
+  const nome = contato.nome_completo || '';
+  if (contato.foto_url) {
+    avatar.innerHTML = `<div class="avatar"><div class="rounded-full w-12 h-12"><img id="contato_foto_img" src="${contato.foto_url}" alt="Foto"></div></div>`;
+  } else {
+    const iniciais = nome.substring(0, 2).toUpperCase() || 'U';
+    avatar.innerHTML = `<div class="avatar placeholder"><div class="bg-primary text-primary-content rounded-full w-12 h-12 text-sm"><span class="font-semibold">${iniciais}</span></div></div>`;
+  }
+  container.classList.remove('hidden');
+
+  // Substitui o input para limpar listeners anteriores
+  const novoInput = input.cloneNode(true);
+  input.parentNode.replaceChild(novoInput, input);
+  novoInput.addEventListener('change', function () {
+    const file = novoInput.files && novoInput.files[0];
+    if (!file) return;
+    msg.textContent = 'Enviando...';
+    msg.className = 'text-[10px] text-base-content/60 ml-1';
+    label.textContent = 'Enviando...';
+
+    const fd = new FormData();
+    fd.append('foto', file);
+    fetch(`/api/contato/${contato.id_contato_cliente}/foto`, { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.success) {
+          const cacheBust = data.foto_url + '?t=' + Date.now();
+          avatar.innerHTML = `<div class="avatar"><div class="rounded-full w-12 h-12"><img id="contato_foto_img" src="${cacheBust}" alt="Foto"></div></div>`;
+          msg.textContent = 'Foto atualizada!';
+          msg.className = 'text-[10px] text-success ml-1';
+          // Atualiza a listagem de contatos para refletir a nova foto
+          const clienteId = document.getElementById('contato_cliente_id').value;
+          if (clienteId) carregarContatosAba(clienteId);
+        } else {
+          msg.textContent = (data && data.error) ? data.error : 'Erro ao enviar foto';
+          msg.className = 'text-[10px] text-error ml-1';
+        }
+        label.textContent = 'Alterar foto';
+      })
+      .catch(() => {
+        msg.textContent = 'Erro ao enviar foto';
+        msg.className = 'text-[10px] text-error ml-1';
+        label.textContent = 'Alterar foto';
+      })
+      .finally(() => { novoInput.value = ''; });
+  });
 }
 
 // Função para abrir modal de editar contato
@@ -2068,7 +2175,10 @@ async function abrirModalEditarContato(contatoId) {
     // Atualizar título e botão
     document.getElementById('contato_modal_title').textContent = 'Editar Contato';
     document.getElementById('contato_btn_text').textContent = 'Atualizar Contato';
-    
+
+    // Configurar foto do contato (preview + upload)
+    configurarFotoContato(contato);
+
     // Abrir modal
     modal_contato.showModal();
     

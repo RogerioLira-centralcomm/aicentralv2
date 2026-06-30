@@ -61,6 +61,48 @@ def _parse_periodo_inicio(pi: dict) -> datetime | None:
     return periodo_inicio
 
 
+def valor_liquido_pi_webhook(pi: dict) -> str:
+    """Valor líquido do PI para parâmetros Make (valorliquidopi).
+
+    obter_cadu_pi_por_id expõe vr_liquido_pi também como valor_liquido;
+    priorizamos valor_liquido, alinhado ao restante do sistema (formulário, Spedy).
+    Se o PI não tiver valor persistido, soma valor_plataforma das campanhas vinculadas.
+    """
+    for key in ('valor_liquido', 'vr_liquido_pi', 'valor_bruto', 'vr_bruto_pi'):
+        val = pi.get(key)
+        if val is None:
+            continue
+        text = str(val).strip()
+        if text:
+            return text
+
+    id_pi = pi.get('id_pi')
+    if not id_pi:
+        return ''
+
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                'SELECT valor_plataforma FROM cadu_pi_campanha WHERE id_pi = %s',
+                (id_pi,),
+            )
+            rows = cursor.fetchall()
+    except Exception as exc:
+        logger.warning('Falha ao somar campanhas do PI %s: %s', id_pi, exc)
+        return ''
+
+    total = 0.0
+    for row in rows or []:
+        v = db.parse_valor_monetario_para_float(row.get('valor_plataforma'))
+        if v:
+            total += v
+    if total > 0:
+        formatted = db.formatar_real_br(total)
+        return formatted or ''
+    return ''
+
+
 def _montar_nomeagencia(pi: dict) -> str:
     ref_id = pi.get('id_agencia') or pi.get('id_cliente')
     prefixo = 'AG' if pi.get('id_agencia') else 'CL'
@@ -176,6 +218,10 @@ def disparar_webhooks_producao_pi(pi: dict, *, strict: bool = False) -> list[str
 
     _atualizar_status_pi_producao(id_pi)
 
+    pi_atual = db.obter_cadu_pi_por_id(id_pi)
+    if pi_atual:
+        pi = pi_atual
+
     url_config = os.getenv('MAKE_WEBHOOK_PI_CONFIGURACAO')
     if url_config:
         params_config = {
@@ -186,7 +232,7 @@ def disparar_webhooks_producao_pi(pi: dict, *, strict: bool = False) -> list[str
             'razaoscagencia': pi.get('agencia_razao_social') or '',
             'nomefagencia': pi.get('agencia_nome') or '',
             'pastagoogleprinc': pi.get('googled_pi_princ') or '',
-            'valorliquidopi': pi.get('vr_liquido_pi') or '',
+            'valorliquidopi': valor_liquido_pi_webhook(pi),
             'emailresponsavelpi': pi.get('resp_comercial_email') or '',
             'mesref': _fmt_data_curta(pi.get('mes_ref')),
             'datainicio': _fmt_data_curta(pi.get('periodo_inicio')),

@@ -183,6 +183,18 @@ def init_db(app):
                     END IF;
                 END $$;
             ''')
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'tbl_contato_cliente' AND column_name = 'foto_url'
+                    ) THEN
+                        ALTER TABLE tbl_contato_cliente ADD COLUMN foto_url TEXT NULL;
+                        COMMENT ON COLUMN tbl_contato_cliente.foto_url IS 'URL/caminho da foto do colaborador (usada no perfil e por aplicativos externos)';
+                    END IF;
+                END $$;
+            ''')
             # Garantir coluna de SETOR no contato
             cursor.execute('''
                 DO $$
@@ -986,6 +998,7 @@ def obter_contato_por_id(contato_id):
                 c.data_modificacao,
                 c.cohorts,
                 c.user_type,
+                c.foto_url,
                 cli.nome_fantasia,
                 cli.razao_social,
                 cli.cnpj,
@@ -3073,6 +3086,27 @@ def obter_interesses_nao_notificados():
 # ============================================================================
 # GERAÇÃO DE IMAGENS PARA AUDIÊNCIAS
 # ============================================================================
+
+def atualizar_foto_contato(contato_id, foto_url):
+    """Atualiza a URL da foto de um contato/colaborador"""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente
+                SET foto_url = %s,
+                    data_modificacao = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id_contato_cliente = %s
+                RETURNING id_contato_cliente
+            ''', (foto_url, contato_id))
+
+            result = cursor.fetchone()
+            conn.commit()
+            return result is not None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
 
 def atualizar_imagem_audiencia(audiencia_id, imagem_url):
     """Atualiza a URL da imagem de uma audiência"""

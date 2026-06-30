@@ -4130,6 +4130,68 @@ def init_routes(app):
             app.logger.error(f"Erro ao salvar imagem: {str(e)}")
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/api/perfil/foto', methods=['POST'])
+    @login_required
+    def api_perfil_foto():
+        """Upload da foto de perfil do colaborador logado"""
+        try:
+            import os
+            import uuid
+            from pathlib import Path
+
+            contato_id = session.get('user_id')
+            if not contato_id:
+                return jsonify({'success': False, 'error': 'Sessão inválida'}), 401
+
+            arquivo = request.files.get('foto')
+            if not arquivo or not arquivo.filename:
+                return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+
+            ALLOWED_EXT = {'png', 'jpg', 'jpeg', 'webp'}
+            ext = arquivo.filename.rsplit('.', 1)[-1].lower() if '.' in arquivo.filename else ''
+            if ext not in ALLOWED_EXT:
+                return jsonify({'success': False, 'error': 'Formato inválido. Use PNG, JPG, JPEG ou WEBP.'}), 400
+
+            upload_dir = Path('aicentralv2/static/uploads/contatos')
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = f"{contato_id}_{uuid.uuid4().hex}.{ext}"
+            filepath = upload_dir / filename
+            arquivo.save(str(filepath))
+
+            foto_url = f"/static/uploads/contatos/{filename}"
+
+            # Buscar foto antiga antes de atualizar
+            contato = db.obter_contato_por_id(contato_id)
+            foto_antiga = contato.get('foto_url') if contato else None
+
+            if not db.atualizar_foto_contato(contato_id, foto_url):
+                # Reverter arquivo recém-salvo se falhar a gravação no banco
+                try:
+                    filepath.unlink()
+                except Exception:
+                    pass
+                return jsonify({'success': False, 'error': 'Falha ao salvar foto no banco'}), 500
+
+            app.logger.info(f"Foto de perfil salva para contato {contato_id}: {foto_url}")
+
+            # Deletar foto antiga se existir e for diferente da nova
+            if foto_antiga and foto_antiga != foto_url and '/static/uploads/contatos/' in foto_antiga:
+                try:
+                    nome_antigo = foto_antiga.split('/static/uploads/contatos/')[-1]
+                    caminho_antigo = Path('aicentralv2/static/uploads/contatos') / nome_antigo
+                    if caminho_antigo.exists():
+                        caminho_antigo.unlink()
+                        app.logger.info(f"✅ Foto antiga deletada: {nome_antigo}")
+                except Exception as e:
+                    app.logger.error(f"❌ Erro ao deletar foto antiga: {e}")
+
+            return jsonify({'success': True, 'foto_url': foto_url})
+
+        except Exception as e:
+            app.logger.error(f"Erro ao salvar foto de perfil: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     # ==================== ERRO HANDLERS ====================
 
     @app.errorhandler(403)
@@ -9520,6 +9582,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             import requests
             import os
             from datetime import datetime
+            from aicentralv2.services.pi_make_webhooks import valor_liquido_pi_webhook
 
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
@@ -9571,7 +9634,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'razaosccliente': pi.get('cliente_razao_social') or '',
                     'nomefcliente': pi.get('cliente_nome') or '',
                     'pastagoogleprinc': pi.get('googled_pi_princ') or '',
-                    'valorliquidopi': pi.get('vr_liquido_pi') or '',
+                    'valorliquidopi': valor_liquido_pi_webhook(pi),
                     'emailresponsavelpi': pi.get('resp_comercial_email') or '',
                     'quantcampanhas': quant_campanhas,
                     'mesref': fmt_data_curta(pi.get('mes_ref')),
@@ -9618,6 +9681,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             import requests
             import os
             from datetime import datetime
+            from aicentralv2.services.pi_make_webhooks import valor_liquido_pi_webhook
 
             pi = db.obter_cadu_pi_por_id(id_pi)
             if not pi:
@@ -9671,7 +9735,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'razaosccliente': pi.get('cliente_razao_social') or '',
                     'nomefcliente': pi.get('cliente_nome') or '',
                     'pastaprgoogle': pi.get('googled_pi_princ') or '',
-                    'valorliquidopi': pi.get('vr_liquido_pi') or '',
+                    'valorliquidopi': valor_liquido_pi_webhook(pi),
                     'emailresponsavelpi': pi.get('resp_comercial_email') or '',
                     'quantcampanhas': quant_campanhas,
                     'mesref': fmt_data_curta(pi.get('mes_ref')),
